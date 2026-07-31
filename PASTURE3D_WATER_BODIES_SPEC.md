@@ -782,7 +782,7 @@ nothing" from "measured well". Results are appended to this document as they are
 | **3** | Pasture3DPool core — ✅ **done 2026-07-29 (§11.4)** | Curve binding, loop meshing, level, `edge_offset`, presets/unique/save/load, registration, warnings | (a) 500 m lake rebuild ≤ 500 ms. (b) Auto vertex spacing meets the λ/8 rule; control = 4× spacing, which must show measurable surface sag. (c) Pool in a scene with no terrain. (d) Shared curve does not trip the brush's shared-curve warning |
 | **4** | Brush integration — ✅ **done 2026-07-30 (§11.5)** | `Add Water` on `Pasture3DTerrainBrush`, additive warning, undo, the manager's four shipped profiles | Button on each of Mound/Plow/Splat/Ridge/Trough produces a correctly bound pool; additive warning fires on raise-configured brushes and stays silent on carve-configured ones |
 | **5** | Underwater — ✅ **done 2026-07-30 (§11.7)**, timing pending | Area3D, exact test, camera polling, FogVolume, overlay shader | Camera crossing in both directions, above and below, in editor and runtime; concave pool rejects the peninsula point (control: the AABB test, which must accept it); overlay cost measured |
-| **6** | Pasture3DBuoy | Force model, drag, body resolution | Boat floats level and still; 64 buoys ≤ 0.5 ms/tick; body handoff lake → ocean without a frame of free-fall |
+| **6** | Pasture3DBuoy — ✅ **done 2026-07-30 (§11.9)** | Force model, drag, body resolution | Boat floats level and still; 64 buoys ≤ 0.5 ms/tick; body handoff lake → ocean without a frame of free-fall |
 | **7** | Ribbon + flow | Ribbon meshing, `ARRAY_COLOR` flow, `WATER_FLOW`, `water_river.gdshader`, `M_water_river.tres` | River follows spline Y downhill; flow direction correct through a 90° bend; no seam at the clock wrap (control: an unquantised half-period, which must seam); cost delta vs lake variant |
 | **8** | Docs | Rewrite guide §1/§5, add a water-bodies chapter, `ocean_*` → `Pasture3DOcean` mapping table, spec bookkeeping | The quick-start for a lake is "press the button", and the old property names are all findable |
 
@@ -1359,6 +1359,85 @@ a zero reading rather than celebrating it, and fails again if no overlay was act
 **All three deferred timing passes were taken on 2026-07-30 with the other engine idle.** Phase 2
 (§11.3) and Phase 3 (§11.4) are updated in place; both found something the earlier runs had missed,
 which is the argument for having deferred them rather than taking them on a busy machine.
+
+### 11.9 Phase 6 results — measured 2026-07-30 ✅
+
+Harness: [bench/WaterBodiesPhase6Gate.tscn](project/bench/WaterBodiesPhase6Gate.tscn).
+RTX 3070 / Ryzen desktop, Godot 4.7.
+
+**Built:** [`Pasture3DBuoy`](src/pasture_3d_buoy.cpp) — the §9.1 force model, per-body angular
+damping, body resolution with the §9.2 caching rules, `sample_interval`, and the equilibrium
+configuration warning. Plus `Pasture3DUtil.build_inside_mask` and a manager cache on
+`Pasture3DPool`, both of which the cost criterion forced (below).
+
+| Criterion | Result |
+|---|---|
+| A — floats where predicted | ✅ a 400 kg hull on four buoys of 0.15 m³ settled at **−0.333 m against a predicted −0.333 m** — residual 0.007 m/s, 0.0001 rad/s, **0.001° of tilt**. Control: 0.20 m³ against 0.40 needed sank 15.5 m and kept going |
+| B — angular drag per body | ✅ one buoy and four of the same total displacement damped a 2 rad/s spin to 0.099 and 0.112 — **13% apart**. Control: 4× `angular_drag`, which is what per-buoy application looks like, reached 0.000 — **100% apart** |
+| C — the handoff | ✅ crossing a pool's rim into the ocean re-resolved Pool → Ocean with **lowest submersion 0.798 across 200 ticks** — never zero, so no frame of free-fall. Control: the resolved body did change |
+| D — the sinking warning | ✅ quotes both numbers: *"displace 0.200 m³ between them and it needs 0.400 m³"*. Control: a floating boat is silent |
+| E — 64 buoys ≤ 0.5 ms/tick | ✅ **0.416 ms**, 17% inside budget. Control: 256 buoys cost 4.3× |
+
+**Criterion A is stronger than "it floated."** A boat with far too much displacement also floats, and
+so does one whose drag is so high it never moved. So the settling depth is predicted from mass and
+displacement *before* anything runs — `f = (mass/1000) / Σdisplacement`, depth `= f × full_depth` —
+and the hull has to land on it. It landed within a millimetre. If any term of the force model were
+wrong, it would settle somewhere else.
+
+**Criterion B's first version measured the wrong thing, and the reason is worth keeping.** It put the
+buoys where a real hull would have them, spread across the deck, and reported four buoys damping a
+spin **500× harder** than one. That is not the angular term misbehaving — it is correct physics.
+Buoys spread across a hull resist rotation through their *linear* drag, because each one's `-v_point`
+term is evaluated at its own offset, so a spinning body drags four separated buoys sideways through
+the water. That effect is most of why four sample points feel better than one, and it swamped the
+term under test by three orders of magnitude. The criterion now **stacks** the buoys at the body
+origin so every offset is zero and only `angular_drag` can act.
+
+#### The cost criterion, which found a real problem
+
+The first measurement was **0.524 ms — over budget.** The number that explained it was not the total
+but the `sample_interval` comparison: doubling the interval saved **4%**. §9.3 assumed the wave solve
+was the cost and offered `sample_interval` as the knob for it; a 4% saving says the knob is attached
+to something that is not the cost.
+
+Direct profiling (256 calls, 600 m lake, 425-point polygon):
+
+| | per 256 calls |
+|---|---|
+| `get_water_height` | 0.546 ms |
+| **`contains_point`** | **1.179 ms** |
+| bare `Geometry2D.is_point_in_polygon` | 0.619 ms |
+
+`contains_point` is `get_water_height` plus a polygon walk, and the buoy calls it **every tick** —
+`sample_interval` skips the wave query but not the staleness check that §9.2 requires. The polygon
+walk is O(perimeter), a few hundred edges for a lake, and it dominated.
+
+**The fix is algorithmic rather than a latency trade.** `Pasture3DUtil.build_inside_mask` hands out
+the same scanline mask the mesher already builds; `Pasture3DPool` keeps it and classifies the query
+cell — all four corners inside, none inside, or mixed — so containment is a bounds check and an array
+lookup, with the exact polygon test reached only for cells the boundary crosses. Using the *mesher's*
+mask rather than a second structure also means the water a body claims to contain is exactly the
+water it draws.
+
+| | before | after |
+|---|---|---|
+| 64 buoys | 0.524 ms (**over**) | **0.416 ms** |
+| 256 buoys | 2.160 ms | 1.784 ms |
+| `sample_interval` 2 saves | 4% | **25%** |
+
+That last row is the one that says the fix was aimed correctly: `sample_interval` now moves the
+number it was designed to move, because the wave solve is finally what remains.
+
+**17% of margin is not much**, and it is a square lake with a 425-point outline; a more intricate
+shoreline has more boundary cells and more of them fall through to the exact test. `sample_interval`
+is the knob and it now works. Re-measure before assuming a fleet of 200 is free.
+
+**A second prerequisite, smaller:** `Pasture3DPool._resolve_manager()` ran `get_nodes_in_group()` and
+threw the array away on every call, and `get_water_height` calls it. At 64 buoys that was 64 discarded
+allocations per tick. Now cached by instance id and dropped on tree exit.
+
+**Regression:** Phase 3 **PASS** (median 115.9 ms, and the mesher-parity criterion still reports
+identical meshes), Phase 4 **PASS**, Phase 5 **PASS**.
 
 ---
 

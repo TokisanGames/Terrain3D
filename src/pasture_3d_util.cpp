@@ -40,6 +40,56 @@ static int32_t _pool_grid_vert(int32_t *p_map, PackedVector3Array &r_verts, Pack
 	return idx;
 }
 
+/**
+ * The inside mask of a closed loop over a grid, by scanline: 1 where a lattice POINT is inside.
+ *
+ * Shared by build_pool_mesh (which needs it to walk cells) and build_inside_mask (which hands it to
+ * Pasture3DPool so containment queries can be an array lookup instead of a polygon walk). One
+ * implementation, so the water a body claims to contain is exactly the water it draws.
+ *
+ * Not a point-in-polygon test per grid point: that is O(points x edges), tens of millions of
+ * operations at lake scale. This is O(rows x edges + points).
+ */
+static void _pool_inside_mask(const PackedVector2Array &p_poly, const double p_min_x,
+		const double p_min_y, const double p_spacing, const int p_gw, const int p_gh,
+		uint8_t *r_mask) {
+	const int n = p_poly.size();
+	const Vector2 *poly = p_poly.ptr();
+	memset(r_mask, 0, (size_t)(p_gw * p_gh));
+
+	Vector<float> xs;
+	xs.resize(n); // an edge can cross a scanline at most once, so this is the ceiling
+	float *xsw = xs.ptrw();
+	for (int iz = 0; iz < p_gh; iz++) {
+		const double z = p_min_y + (double)iz * p_spacing;
+		int count = 0;
+		for (int i = 0; i < n; i++) {
+			const Vector2 &a = poly[i];
+			const Vector2 &b = poly[(i + 1) % n];
+			// Half-open crossing test: a vertex exactly on the scanline counts once, so spans never
+			// pair up wrongly at a horizontal tangent.
+			if (((double)a.y <= z) != ((double)b.y <= z)) {
+				xsw[count++] = (float)((double)a.x +
+						(z - (double)a.y) / ((double)b.y - (double)a.y) * ((double)b.x - (double)a.x));
+			}
+		}
+		if (count == 0) {
+			continue;
+		}
+		std::sort(xsw, xsw + count);
+		const int row = iz * p_gw;
+		for (int k = 0; k + 1 < count; k += 2) {
+			int i0 = (int)Math::ceil(((double)xsw[k] - p_min_x) / p_spacing);
+			int i1 = (int)Math::floor(((double)xsw[k + 1] - p_min_x) / p_spacing);
+			i0 = MAX(i0, 0);
+			i1 = MIN(i1, p_gw - 1);
+			for (int ix = i0; ix <= i1; ix++) {
+				r_mask[row + ix] = 1;
+			}
+		}
+	}
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -594,44 +644,10 @@ Ref<ArrayMesh> Pasture3DUtil::build_pool_mesh(const PackedVector2Array &p_poly, 
 	const double spacing = (double)p_spacing;
 
 	// --- Inside mask, by scanline -------------------------------------------------
-	// Not a point-in-polygon test per grid point: that is O(points x edges), which at this size is
-	// tens of millions of operations. This is O(rows x edges + points).
 	Vector<uint8_t> mask;
 	mask.resize(cells);
 	uint8_t *maskw = mask.ptrw();
-	memset(maskw, 0, (size_t)cells);
-
-	Vector<float> xs;
-	xs.resize(n); // an edge can cross a scanline at most once, so this is the ceiling
-	float *xsw = xs.ptrw();
-	for (int iz = 0; iz < p_grid_h; iz++) {
-		const double z = min_y + (double)iz * spacing;
-		int count = 0;
-		for (int i = 0; i < n; i++) {
-			const Vector2 &a = poly[i];
-			const Vector2 &b = poly[(i + 1) % n];
-			// Half-open crossing test: a vertex exactly on the scanline counts once, so spans never
-			// pair up wrongly at a horizontal tangent.
-			if (((double)a.y <= z) != ((double)b.y <= z)) {
-				xsw[count++] = (float)((double)a.x +
-						(z - (double)a.y) / ((double)b.y - (double)a.y) * ((double)b.x - (double)a.x));
-			}
-		}
-		if (count == 0) {
-			continue;
-		}
-		std::sort(xsw, xsw + count);
-		const int row = iz * p_grid_w;
-		for (int k = 0; k + 1 < count; k += 2) {
-			int i0 = (int)Math::ceil(((double)xsw[k] - min_x) / spacing);
-			int i1 = (int)Math::floor(((double)xsw[k + 1] - min_x) / spacing);
-			i0 = MAX(i0, 0);
-			i1 = MIN(i1, p_grid_w - 1);
-			for (int ix = i0; ix <= i1; ix++) {
-				maskw[row + ix] = 1;
-			}
-		}
-	}
+	_pool_inside_mask(p_poly, min_x, min_y, spacing, p_grid_w, p_grid_h, maskw);
 
 	// --- Cell walk ------------------------------------------------------------------
 	// Interior lattice points are shared between the up-to-four cells that touch them; boundary
@@ -732,6 +748,31 @@ Ref<ArrayMesh> Pasture3DUtil::build_pool_mesh(const PackedVector2Array &p_poly, 
 	return mesh;
 }
 
+/**
+ * The same inside mask build_pool_mesh walks, handed out so containment can be O(1).
+ *
+ * Pasture3DPool asks a containment question per buoy per physics tick, and the honest version of
+ * that -- Geometry2D.is_point_in_polygon -- is O(perimeter). A 600 m lake decimates to a few hundred
+ * polygon points, so 64 buoys was tens of thousands of edge tests every tick, and it dominated the
+ * buoy budget by more than the wave solve did (§11.10).
+ *
+ * With this, a query is a bounds check and an array lookup. The pool falls back to the exact polygon
+ * test only for the cells the boundary actually crosses, which is O(shore length) worth of the grid.
+ * Using the MESHER'S mask rather than a second structure also means the water a body claims to
+ * contain is exactly the water it draws.
+ */
+PackedByteArray Pasture3DUtil::build_inside_mask(const PackedVector2Array &p_poly,
+		const Vector2 &p_min, const real_t p_spacing, const int p_grid_w, const int p_grid_h) {
+	PackedByteArray mask;
+	if (p_poly.size() < 3 || p_grid_w < 1 || p_grid_h < 1 || p_spacing <= 0.f) {
+		return mask;
+	}
+	mask.resize(p_grid_w * p_grid_h);
+	_pool_inside_mask(p_poly, (double)p_min.x, (double)p_min.y, (double)p_spacing,
+			p_grid_w, p_grid_h, mask.ptrw());
+	return mask;
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -767,6 +808,9 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("build_pool_mesh", "polygon", "min", "spacing", "grid_w", "grid_h"),
 			&Pasture3DUtil::build_pool_mesh);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("build_inside_mask", "polygon", "min", "spacing", "grid_w", "grid_h"),
+			&Pasture3DUtil::build_inside_mask);
 
 	// Image handling
 	ClassDB::bind_static_method("Pasture3DUtil", D_METHOD("black_to_alpha", "image"), &Pasture3DUtil::black_to_alpha);

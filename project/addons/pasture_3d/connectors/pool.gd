@@ -182,10 +182,18 @@ var _dirty := false
 var _last_stats := {}
 ## World transform of source_spline as of the last rebuild. See _process.
 var _source_xform := Transform3D()
+## Last resolved manager. See _resolve_manager.
+var _manager_cache: Node = null
 ## The offset loop in LOCAL XZ, and its bounds, as of the last rebuild. Every containment query
 ## reads these rather than re-deriving them; see rebuild().
 var _poly_cache := PackedVector2Array()
 var _poly_bounds := Rect2()
+## The mesher's own inside mask, kept so containment is a lookup rather than a polygon walk. See
+## is_point_underwater. Empty means "no mask, fall back to the exact test everywhere".
+var _mask := PackedByteArray()
+var _mask_gw := 0
+var _mask_gh := 0
+var _mask_spacing := 0.0
 
 var _volume: Area3D = null
 var _volume_shape: CollisionShape3D = null
@@ -217,6 +225,7 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_EXIT_TREE:
 		remove_from_group(POOL_GROUP)
 		_unregister()
+		_manager_cache = null # a pool moved between scenes must re-resolve, not keep the old scene's
 		# The overlay is a CanvasLayer: leaving it up after the pool has gone would tint a scene
 		# with no water in it.
 		_drop_overlay()
@@ -307,13 +316,23 @@ func _schedule_rebuild() -> void:
 
 # ---- the manager -------------------------------------------------------------
 
+## The manager driving this pool, cached.
+##
+## The cache is not premature. get_water_height() calls this, and Phase 6 puts that on the physics
+## tick for every buoy in the scene — 64 buoys is 64 calls, each of which was allocating an Array
+## from get_nodes_in_group() and throwing it away. Held by instance id rather than by reference so a
+## freed manager cannot be resurrected by the cache, and re-resolved whenever it goes invalid.
 func _resolve_manager() -> Node:
 	if manager != null and is_instance_valid(manager):
 		return manager
+	if _manager_cache != null and is_instance_valid(_manager_cache) \
+			and _manager_cache.is_inside_tree():
+		return _manager_cache
 	if not is_inside_tree():
 		return null
 	var found := get_tree().get_nodes_in_group(&"pasture3d_water_manager")
-	return found[0] if not found.is_empty() else null
+	_manager_cache = found[0] if not found.is_empty() else null
+	return _manager_cache
 
 
 func _register() -> void:
@@ -469,6 +488,7 @@ func rebuild() -> Dictionary:
 	if poly.size() < 3:
 		_clear_surface()
 		_poly_bounds = Rect2()
+		_mask = PackedByteArray()
 		_last_stats["reason"] = "no usable closed curve"
 		update_configuration_warnings()
 		return _last_stats
@@ -498,6 +518,16 @@ func rebuild() -> Dictionary:
 		update_configuration_warnings()
 		return _last_stats
 
+	# The mesher's inside mask, kept for containment queries (see is_point_underwater). Built here
+	# rather than inside the mesher so both mesher paths produce it and both agree with it.
+	if ClassDB.class_exists("Pasture3DUtil") 			and ClassDB.class_has_method("Pasture3DUtil", "build_inside_mask", true):
+		_mask = Pasture3DUtil.build_inside_mask(poly, mn, spacing, gw, gh)
+	else:
+		_mask = _inside_mask(poly, mn, spacing, gw, gh)
+	_mask_gw = gw
+	_mask_gh = gh
+	_mask_spacing = spacing
+
 	# The O(area) half. Native by default (spec §12 q1): the GDScript below is a faithful
 	# transcription kept as the A/B oracle, exactly as the brushes keep force_gdscript_raster, and
 	# `force_gdscript_mesh` switches between them on identical inputs.
@@ -508,7 +538,7 @@ func rebuild() -> Dictionary:
 		mesh = Pasture3DUtil.build_pool_mesh(poly, mn, spacing, gw, gh)
 		native = mesh != null
 	if not native:
-		mesh = _build_mesh_gdscript(poly, mn, spacing, gw, gh)
+		mesh = _build_mesh_gdscript(poly, mn, spacing, gw, gh, _mask)
 	_last_stats["native"] = native
 	if mesh == null:
 		_clear_surface()
@@ -551,8 +581,7 @@ func _count_mesh(p_mesh: ArrayMesh) -> Vector2i:
 ## be bisected by flipping one export rather than by rebuilding the extension. Returns null when the
 ## loop encloses no cells.
 func _build_mesh_gdscript(poly: PackedVector2Array, mn: Vector2, spacing: float,
-		gw: int, gh: int) -> ArrayMesh:
-	var mask := _inside_mask(poly, mn, spacing, gw, gh)
+		gw: int, gh: int, mask: PackedByteArray) -> ArrayMesh:
 
 	var verts := PackedVector3Array()
 	var uvs := PackedVector2Array()
@@ -982,9 +1011,37 @@ func is_point_underwater(p_global_pos: Vector3) -> bool:
 	# answer for a per-frame poll is "nowhere near".
 	if not _poly_bounds.has_point(l2):
 		return false
-	if not Geometry2D.is_point_in_polygon(l2, _poly_cache):
-		return false
+	# Cell classification off the mesher's mask, which turns the common answer into an array
+	# lookup. The exact polygon walk is O(perimeter) — a few hundred edges for a lake — and Phase 6
+	# asks this question per buoy per physics tick, where it cost more than the wave solve did.
+	#
+	# Reading the MESHER's mask rather than a structure of its own is the point: a cell whose four
+	# corners are all inside is exactly a cell the mesher filled with a quad, so "contained" and
+	# "drawn" cannot disagree. Only cells the boundary crosses fall through to the exact test, and
+	# there are O(shore length) of those.
+	match _cell_state(l2):
+		0:
+			return false
+		1:
+			pass # every corner inside: the mesher drew a full quad here
+		_:
+			if not Geometry2D.is_point_in_polygon(l2, _poly_cache):
+				return false
 	return p_global_pos.y <= get_water_height(Vector2(p_global_pos.x, p_global_pos.z))
+
+
+## 0 = no corner of this cell is inside the loop, 1 = all four are, 2 = mixed (or no mask).
+func _cell_state(p_local_xz: Vector2) -> int:
+	if _mask.is_empty() or _mask_spacing <= 0.0:
+		return 2
+	var ix := int(floor((p_local_xz.x - _poly_bounds.position.x) / _mask_spacing))
+	var iz := int(floor((p_local_xz.y - _poly_bounds.position.y) / _mask_spacing))
+	if ix < 0 or iz < 0 or ix >= _mask_gw - 1 or iz >= _mask_gh - 1:
+		return 2 # on the grid's outer edge; let the exact test decide
+	var n := int(_mask[iz * _mask_gw + ix]) + int(_mask[iz * _mask_gw + ix + 1]) 		+ int(_mask[(iz + 1) * _mask_gw + ix]) + int(_mask[(iz + 1) * _mask_gw + ix + 1])
+	if n == 0:
+		return 0
+	return 1 if n == 4 else 2
 
 
 ## The pool's outline in local XZ, as the mesh was last built from it. Exposed so a gate — or a

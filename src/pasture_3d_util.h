@@ -79,6 +79,10 @@ public:
 	static Ref<ArrayMesh> build_pool_mesh(const PackedVector2Array &p_poly, const Vector2 &p_min,
 			const real_t p_spacing, const int p_grid_w, const int p_grid_h);
 
+	// The same mask that mesher walks, for O(1) containment. See the .cpp.
+	static PackedByteArray build_inside_mask(const PackedVector2Array &p_poly, const Vector2 &p_min,
+			const real_t p_spacing, const int p_grid_w, const int p_grid_h);
+
 protected:
 	static void _bind_methods();
 };
