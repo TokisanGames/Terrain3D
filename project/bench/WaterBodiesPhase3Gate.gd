@@ -11,6 +11,9 @@
 #   D. a pool sharing a brush's curve does not trip the brush's shared-curve warning
 #   E. the body registry: body_at() finds the pool for a point inside it, the ocean
 #      for a point outside, and honours a CONCAVE outline
+#   F. the native and GDScript meshers produce the SAME mesh, so the GDScript path is
+#      genuinely an A/B oracle rather than a claim. Control: a deliberately perturbed
+#      polygon, which must produce a different mesh
 #
 # Every criterion carries a control that must fail; criteria that ran to completion
 # are counted, so a criterion that throws cannot read as a pass.
@@ -30,7 +33,7 @@ const BUILD_SAMPLES := 5
 
 var _fail := 0
 var _completed := 0
-const CRITERIA := 5
+const CRITERIA := 6
 var _skip_timing := false
 var _out_dir := ""
 
@@ -62,6 +65,7 @@ func _ready() -> void:
 	await _gate_c_no_terrain()
 	await _gate_d_shared_curve()
 	await _gate_e_registry()
+	await _gate_f_mesher_parity()
 
 	print("")
 	if _completed != CRITERIA:
@@ -115,10 +119,17 @@ func _gate_a_build_time() -> void:
 	samples.sort()
 	var median: float = samples[samples.size() / 2] if not samples.is_empty() else INF
 	var worst: float = samples[samples.size() - 1] if not samples.is_empty() else INF
-	print("    spacing %.2f m -> %d vertices, %d triangles" % [
-		stats.get("spacing", 0.0), int(stats.get("vertices", 0)), int(stats.get("triangles", 0))])
+	print("    spacing %.2f m -> %d vertices, %d triangles (%s mesher)" % [
+		stats.get("spacing", 0.0), int(stats.get("vertices", 0)), int(stats.get("triangles", 0)),
+		"native" if stats.get("native", false) else "GDScript"])
 	print("    %d builds: median %.1f ms, best %.1f, worst %.1f  %s" % [
 		samples.size(), median, samples[0] if not samples.is_empty() else INF, worst, samples])
+	# The mesher actually used is part of the result. A native build that silently fell back to
+	# GDScript would be measuring the wrong thing while reporting the right budget.
+	if not stats.get("native", false):
+		_fail += 1
+		print("    !! the native mesher was not used — Pasture3DUtil.build_pool_mesh is missing or")
+		print("       returned nothing, so this is not the number the budget now describes")
 	if not stats.get("ok", false):
 		_fail += 1
 		print("    !! the build failed: %s" % stats.get("reason", ""))
@@ -379,6 +390,126 @@ func _gate_e_registry() -> void:
 	root.queue_free()
 	await _settle()
 	_completed += 1
+
+
+# ---- F: the two meshers agree ---------------------------------------------------
+#
+# Criterion A now measures the native mesher (spec §12 q1). That only means anything if the
+# GDScript one it replaced is still a usable oracle -- otherwise `force_gdscript_mesh` is a switch
+# between "the mesh" and "some other mesh", and the next suspected meshing bug cannot be bisected.
+#
+# So: build the same pool both ways and compare the meshes exactly. Vertex for vertex, index for
+# index, UV for UV. The C++ is a transcription of the GDScript, including where it narrows double to
+# float, precisely so this can be an equality test rather than a tolerance.
+func _gate_f_mesher_parity() -> void:
+	print("")
+	print("[F] the native and GDScript meshers produce the same mesh:")
+	var root := _make_world()
+	_make_manager(root)
+	# An L, not a square: a square is almost all interior cells and would barely exercise the
+	# boundary clip, which is the half most likely to differ.
+	var pool := _make_pool(root, _l_curve(80.0), "lake_calm")
+	await _settle()
+
+	pool.force_gdscript_mesh = true
+	var gd_stats: Dictionary = pool.rebuild()
+	var gd_arrays := _surface_arrays(pool)
+	pool.force_gdscript_mesh = false
+	var native_stats: Dictionary = pool.rebuild()
+	var native_arrays := _surface_arrays(pool)
+
+	if not native_stats.get("native", false):
+		_fail += 1
+		print("    !! the native mesher did not run, so there is nothing to compare")
+	elif gd_stats.get("native", true):
+		_fail += 1
+		print("    !! force_gdscript_mesh did not switch the mesher off")
+	else:
+		var diff := _compare_arrays(gd_arrays, native_arrays)
+		print("    GDScript %d verts / %d tris in %.1f ms" % [
+			int(gd_stats["vertices"]), int(gd_stats["triangles"]), float(gd_stats["ms"])])
+		print("    native   %d verts / %d tris in %.1f ms  (%.1fx faster)" % [
+			int(native_stats["vertices"]), int(native_stats["triangles"]),
+			float(native_stats["ms"]),
+			float(gd_stats["ms"]) / maxf(float(native_stats["ms"]), 0.001)])
+		if diff == "":
+			print("    -> identical: every vertex, index and UV")
+		else:
+			_fail += 1
+			print("    !! they differ: %s" % diff)
+
+	# Control: the comparison has to be able to SEE a difference. Perturb one vertex of the native
+	# arrays and re-compare -- if that still reports identical, the check above proves nothing.
+	var perturbed := native_arrays.duplicate(true)
+	if perturbed.has("verts") and not (perturbed["verts"] as PackedVector3Array).is_empty():
+		var v: PackedVector3Array = perturbed["verts"]
+		v[0] = v[0] + Vector3(0.001, 0, 0)
+		perturbed["verts"] = v
+		if _compare_arrays(gd_arrays, perturbed) != "":
+			print("    control (one vertex moved 1 mm): fires — the comparison detects it")
+		else:
+			_fail += 1
+			print("    !! control did NOT fire: a moved vertex still compared equal")
+	else:
+		_fail += 1
+		print("    !! no vertices to perturb, so the control could not run")
+	root.queue_free()
+	await _settle()
+	_completed += 1
+
+
+## The surface mesh's arrays, or an empty Dictionary.
+func _surface_arrays(p_pool: Node) -> Dictionary:
+	for c in p_pool.get_children():
+		if c is MeshInstance3D and c.mesh != null and c.mesh.get_surface_count() > 0:
+			var a: Array = c.mesh.surface_get_arrays(0)
+			return {
+				"verts": a[Mesh.ARRAY_VERTEX],
+				"uvs": a[Mesh.ARRAY_TEX_UV],
+				"indices": a[Mesh.ARRAY_INDEX],
+			}
+	return {}
+
+
+## "" when two array sets are identical, else the first difference found.
+func _compare_arrays(p_a: Dictionary, p_b: Dictionary) -> String:
+	if p_a.is_empty() or p_b.is_empty():
+		return "one side produced no surface"
+	var av: PackedVector3Array = p_a["verts"]
+	var bv: PackedVector3Array = p_b["verts"]
+	if av.size() != bv.size():
+		return "vertex counts %d vs %d" % [av.size(), bv.size()]
+	for i in av.size():
+		if av[i] != bv[i]:
+			return "vertex %d: %v vs %v" % [i, av[i], bv[i]]
+	var au: PackedVector2Array = p_a["uvs"]
+	var bu: PackedVector2Array = p_b["uvs"]
+	if au.size() != bu.size():
+		return "uv counts %d vs %d" % [au.size(), bu.size()]
+	for i in au.size():
+		if au[i] != bu[i]:
+			return "uv %d: %v vs %v" % [i, au[i], bu[i]]
+	var ai: PackedInt32Array = p_a["indices"]
+	var bi: PackedInt32Array = p_b["indices"]
+	if ai.size() != bi.size():
+		return "index counts %d vs %d" % [ai.size(), bi.size()]
+	for i in ai.size():
+		if ai[i] != bi[i]:
+			return "index %d: %d vs %d" % [i, ai[i], bi[i]]
+	return ""
+
+
+## An L-shaped closed loop: plenty of boundary cells, and a concave corner.
+func _l_curve(p_r: float) -> Curve3D:
+	var c := Curve3D.new()
+	c.add_point(Vector3(-p_r, 0, -p_r))
+	c.add_point(Vector3(p_r, 0, -p_r))
+	c.add_point(Vector3(p_r, 0, 0))
+	c.add_point(Vector3(0, 0, 0))
+	c.add_point(Vector3(0, 0, p_r))
+	c.add_point(Vector3(-p_r, 0, p_r))
+	c.closed = true
+	return c
 
 
 # ---- helpers -------------------------------------------------------------------

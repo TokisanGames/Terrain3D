@@ -3,6 +3,7 @@
 #ifndef PASTURE3D_UTIL_CLASS_H
 #define PASTURE3D_UTIL_CLASS_H
 
+#include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
@@ -62,6 +63,21 @@ public:
 			const int p_ao_channel = 0);
 	static Ref<Image> luminance_to_height(const Ref<Image> &p_src_rgb);
 	static void benchmark(Pasture3D *p_terrain);
+
+	// Water-body surface meshing (PASTURE3D_WATER_BODIES_SPEC.md §12 q1).
+	//
+	// The O(area) half of Pasture3DPool.rebuild(): a uniform grid clipped to a closed loop, with
+	// interior lattice points shared between the four cells that touch them and boundary cells
+	// exactly clipped and triangulated. The GDScript implementation in connectors/pool.gd stays as
+	// the A/B oracle -- selected by `force_gdscript_mesh` -- exactly as force_gdscript_raster does
+	// for the brushes, so the two can be compared on the same inputs at any time.
+	//
+	// Deliberately takes the polygon and the grid rather than the node: policy (vertex spacing, the
+	// vertex ceiling, which curve, the configuration warnings) stays in the authoring node, and this
+	// owns only the loop that costs milliseconds. That split is also what makes the A/B exact --
+	// both implementations are handed identical inputs.
+	static Ref<ArrayMesh> build_pool_mesh(const PackedVector2Array &p_poly, const Vector2 &p_min,
+			const real_t p_spacing, const int p_grid_w, const int p_grid_h);
 
 protected:
 	static void _bind_methods();

@@ -1053,7 +1053,7 @@ since has been correct. Nothing above distinguishes "the extraction made this co
 Settling it means checking out the pre-extraction commit, rebuilding, and re-running Phase 0 —
 worth doing before this is ever quoted as a cost of the ocean extraction, and not yet done.
 
-### 11.4 Phase 3 results — measured 2026-07-29 ✅ *(criterion A re-measured 2026-07-30; see below)*
+### 11.4 Phase 3 results — measured 2026-07-29, criterion A rebuilt native 2026-07-30 ✅
 
 Harness: [bench/WaterBodiesPhase3Gate.tscn](project/bench/WaterBodiesPhase3Gate.tscn).
 RTX 3070 / Ryzen desktop, Godot 4.7.
@@ -1066,14 +1066,17 @@ warnings including the raising-brush check) — plus the body registry deferred 
 
 | Criterion | Result |
 |---|---|
-| A — 500 m lake build time | ⚠️ **passes on the median, with samples over budget.** 168,874 verts / 317,377 tris at 1.27 m spacing. First measured at 454 / 460 / 477 ms; re-measured 2026-07-30 as **median 481 ms, worst 534 ms, 1 of 5 samples over** |
+| A — 500 m lake build time | ✅ **median 123 ms** against the 500 ms budget, native mesher (2026-07-30). Was 481 ms median / 534 worst in GDScript, with 1 of 5 samples over budget |
 | B — spacing rule | ✅ shortest wavelength 10.18 m, automatic spacing 1.27 m, **ratio exactly 8.00**. Sag 0.0091 m; control at 4× spacing 0.1297 m — **14× worse**, so the metric is sensitive to tessellation |
 | C — pool without terrain | ✅ builds (7,428 verts) and answers height queries with zero `Pasture3D` in the tree |
 | D — shared curve | ✅ a pool reading a brush's curve does **not** trip the brush's shared-curve warning; control (two splines sharing one `Curve3D`) still fires |
 | E — body registry | ✅ `body_at` returns the pool inside it and the ocean in open water. **Concave control:** a point in an L-shaped pool's notch is inside the mesh AABB yet resolves to the ocean, so containment is a polygon test and not a box test |
+| F — mesher parity | ✅ native and GDScript produce **identical** meshes on an L-shaped loop — every vertex, index and UV. Control: moving one vertex 1 mm is detected |
 
-**Criterion A is a pass I do not want to oversell** — and the 2026-07-30 re-measurement showed the
-original numbers oversold it anyway.
+**Criterion A is now a comfortable pass, and §12 q1's escape hatch is the reason.** What follows is
+the record of how it got there, because the intermediate state is the part worth remembering.
+
+#### The GDScript measurement, and why it was worse than it looked
 
 The gate took **one sample** and compared it to the budget. Three early samples landed 454–477 ms and
 read as a comfortable-ish pass. The real distribution, measured five-at-a-time on a quiet machine, is
@@ -1095,12 +1098,47 @@ reported, not a widened tolerance.
 with `underwater_enabled` on and off puts the volume rebuild at **5.3 ms median — about 1% of the
 build**. It is not what moved the numbers; the numbers were always this shape.
 
-The cost is dominated by the interior grid loop (168 k vertices built in GDScript), so it scales with
-area: a 700 m lake at the same spacing would be ~2× the vertices and would miss the budget outright.
-Read this as "the GDScript choice in §4.3 is viable at the size the budget describes, and only just,
-with a fifth of its samples outside it", not as headroom. §12 q1's native escape hatch
-(`Pasture3DUtil.build_pool_mesh`) is now **indicated** rather than merely available, and the GDScript
-path is already structured to remain its A/B oracle.
+The cost was dominated by the interior grid loop (168 k vertices built in GDScript), so it scaled with
+area: a 700 m lake at the same spacing would have been ~2× the vertices and would have missed the
+budget outright. §4.3's GDScript choice was viable at the size the budget describes and no further.
+
+#### The native mesher — taken 2026-07-30
+
+`Pasture3DUtil.build_pool_mesh(polygon, min, spacing, grid_w, grid_h) -> ArrayMesh`, the binding §12
+q1 specified, built as a line-by-line port of the GDScript loop.
+
+| | GDScript | Native | |
+|---|---|---|---|
+| 500 m lake, median of 5 | 481.1 ms | **123.2 ms** | **3.9× faster** |
+| best / worst | 472.4 / 533.6 | 119.9 / **127.9** | |
+| samples over the 500 ms budget | 1 of 5 | **0 of 5** | |
+
+The **spread** collapsed as much as the median did: 6.7% peak-to-peak against the GDScript path's
+13%, so the criterion is no longer anywhere near the budget it used to straddle. A 700 m lake at ~2×
+the vertices now lands around 250 ms, and the size at which this becomes a question again is roughly
+a kilometre across.
+
+**Where the time went, since "it is C++" is not an explanation.** Two things, and the first is most
+of it:
+
+1. **The shared-vertex map.** GDScript keyed a `Dictionary` on the flattened grid index, so each of
+   the four corners of every interior cell cost a Variant hash and a Variant compare — roughly 640 k
+   hashed lookups for this lake. The port uses a flat `int32` array indexed directly, `-1` meaning
+   "not emitted yet".
+2. **Variant boxing.** Every `append` to a `Packed*Array` from GDScript crosses the Variant boundary.
+
+The boundary cells still call the same `Geometry2D.intersect_polygons` / `triangulate_polygon` the
+GDScript did — that path is O(shore length), was never the cost, and clipping it exactly is what
+keeps the rim of the mesh on the loop.
+
+**The GDScript path is kept, and criterion F is what makes that claim mean something.** `Pasture3DPool`
+gains `force_gdscript_mesh`, the same switch shape as the brushes' `force_gdscript_raster`. Criterion
+F builds an L-shaped pool both ways and compares the meshes **exactly** — vertex for vertex, index for
+index, UV for UV — and they are identical, with a control that moves one vertex 1 mm and must be
+detected. That is only possible because the port matches the original's *precision* as well as its
+logic: GDScript promotes float operands to double and narrows when storing into a `Packed*Array` or a
+`Vector2/3`, and the C++ narrows at exactly the same points. Computing it "better" in float would
+flip boundary cells and turn the parity test into a tolerance test.
 
 The scanline inside-mask is what makes it viable at all. The obvious implementation —
 `Geometry2D.is_point_in_polygon` per grid point — is O(points × edges); at this size that is
@@ -1326,9 +1364,14 @@ which is the argument for having deferred them rather than taking them on a busy
 
 ## 12. Risks and open questions
 
-1. **`Pasture3DPool` mesh building in GDScript.** §4.3 chose authoring-node ergonomics over speed on an
+1. **`Pasture3DPool` mesh building in GDScript.** ✅ **RESOLVED 2026-07-30 — the escape hatch was
+   taken.** `Pasture3DUtil.build_pool_mesh` is built and is the default path; the GDScript mesher is
+   kept behind `force_gdscript_mesh` and is verified against it, mesh-for-mesh, by Phase 3's
+   criterion F. 481 ms → 123 ms median (§11.4). The original text and its reasoning follow, because
+   the decision procedure was the useful part: §4.3 chose authoring-node ergonomics over speed on an
    unmeasured cost, in a codebase whose brushes had to move rasterisation to C++ to be usable at all.
-   Phase 3's 500 ms budget is the decision point. The escape hatch is a single
+   Phase 3's 500 ms budget was the decision point, and the measurement — not a preference — is what
+   moved it. The escape hatch is a single
    `Pasture3DUtil.build_pool_mesh(polygon, spacing, ...) -> ArrayMesh` binding — the same shape as the
    brushes' `stamp_mound_loop`, reusing their existing scanline fill — with the GDScript path kept as
    the A/B oracle exactly as `force_gdscript_raster` does today.

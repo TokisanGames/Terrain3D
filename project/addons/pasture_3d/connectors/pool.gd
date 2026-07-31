@@ -84,6 +84,14 @@ const MAX_VERTICES: int = 400000
 	set(v):
 		vertex_spacing = maxf(v, 0.0)
 		_schedule_rebuild()
+## Force the GDScript reference mesher even when the native one is available. The two are
+## transcriptions of each other and are meant to agree exactly, so this is the A/B switch —
+## toggle it and compare shape and timing on the same pool. Same idea, and the same name shape,
+## as Pasture3DTerrainBrush.force_gdscript_raster. Leave off in normal use.
+@export var force_gdscript_mesh: bool = false:
+	set(v):
+		force_gdscript_mesh = v
+		_schedule_rebuild()
 
 # --- Water --------------------------------------------------------------------
 
@@ -490,6 +498,60 @@ func rebuild() -> Dictionary:
 		update_configuration_warnings()
 		return _last_stats
 
+	# The O(area) half. Native by default (spec §12 q1): the GDScript below is a faithful
+	# transcription kept as the A/B oracle, exactly as the brushes keep force_gdscript_raster, and
+	# `force_gdscript_mesh` switches between them on identical inputs.
+	var mesh: ArrayMesh = null
+	var native := false
+	if not force_gdscript_mesh and ClassDB.class_exists("Pasture3DUtil") \
+			and ClassDB.class_has_method("Pasture3DUtil", "build_pool_mesh", true):
+		mesh = Pasture3DUtil.build_pool_mesh(poly, mn, spacing, gw, gh)
+		native = mesh != null
+	if not native:
+		mesh = _build_mesh_gdscript(poly, mn, spacing, gw, gh)
+	_last_stats["native"] = native
+	if mesh == null:
+		_clear_surface()
+		_last_stats["reason"] = "no cells inside the loop"
+		update_configuration_warnings()
+		return _last_stats
+
+	_ensure_surface()
+	_surface.mesh = mesh
+	_apply_material()
+	_apply_cull_box(mn, mx)
+	# The volume spans the polygon, so it is derived from the same build rather than tracked.
+	_rebuild_volume()
+
+	var counted := _count_mesh(mesh)
+	_last_stats["ok"] = true
+	_last_stats["vertices"] = counted.x
+	_last_stats["triangles"] = counted.y
+	_last_stats["ms"] = float(Time.get_ticks_usec() - t0) / 1000.0
+	update_configuration_warnings()
+	update_gizmos() # the selection marker floats over the surface, so it moves with it
+	return _last_stats
+
+
+## Vertex and triangle counts of a built surface, as a Vector2i. Read back off the mesh rather than
+## tracked alongside it, so the number reported is the number that was actually uploaded whichever
+## mesher produced it.
+func _count_mesh(p_mesh: ArrayMesh) -> Vector2i:
+	if p_mesh == null or p_mesh.get_surface_count() == 0:
+		return Vector2i.ZERO
+	var arrays := p_mesh.surface_get_arrays(0)
+	var v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var i: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	return Vector2i(v.size(), i.size() / 3)
+
+
+## The GDScript mesher: the A/B oracle for Pasture3DUtil.build_pool_mesh.
+##
+## Kept deliberately, and kept identical in structure to the C++ port, so a suspected meshing bug can
+## be bisected by flipping one export rather than by rebuilding the extension. Returns null when the
+## loop encloses no cells.
+func _build_mesh_gdscript(poly: PackedVector2Array, mn: Vector2, spacing: float,
+		gw: int, gh: int) -> ArrayMesh:
 	var mask := _inside_mask(poly, mn, spacing, gw, gh)
 
 	var verts := PackedVector3Array()
@@ -536,10 +598,7 @@ func rebuild() -> Dictionary:
 						uvs.append(p)
 
 	if verts.is_empty() or indices.is_empty():
-		_clear_surface()
-		_last_stats["reason"] = "no cells inside the loop"
-		update_configuration_warnings()
-		return _last_stats
+		return null
 
 	var normals := PackedVector3Array()
 	normals.resize(verts.size())
@@ -553,21 +612,7 @@ func rebuild() -> Dictionary:
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-
-	_ensure_surface()
-	_surface.mesh = mesh
-	_apply_material()
-	_apply_cull_box(mn, mx)
-	# The volume spans the polygon, so it is derived from the same build rather than tracked.
-	_rebuild_volume()
-
-	_last_stats["ok"] = true
-	_last_stats["vertices"] = verts.size()
-	_last_stats["triangles"] = indices.size() / 3
-	_last_stats["ms"] = float(Time.get_ticks_usec() - t0) / 1000.0
-	update_configuration_warnings()
-	update_gizmos() # the selection marker floats over the surface, so it moves with it
-	return _last_stats
+	return mesh
 
 
 func _grid_vert(p_map: Dictionary, p_verts: PackedVector3Array, p_uvs: PackedVector2Array,
