@@ -784,10 +784,12 @@ nothing" from "measured well". Results are appended to this document as they are
 | **5** | Underwater — ✅ **done 2026-07-30 (§11.7)**, timing pending | Area3D, exact test, camera polling, FogVolume, overlay shader | Camera crossing in both directions, above and below, in editor and runtime; concave pool rejects the peninsula point (control: the AABB test, which must accept it); overlay cost measured |
 | **6** | Pasture3DBuoy — ✅ **done 2026-07-30 (§11.9)** | Force model, drag, body resolution | Boat floats level and still; 64 buoys ≤ 0.5 ms/tick; body handoff lake → ocean without a frame of free-fall |
 | **7** | Ribbon + flow — ✅ **done 2026-07-30 (§11.10)** | Ribbon meshing, `ARRAY_COLOR` flow, `WATER_FLOW`, `water_river.gdshader`, `M_water_river.tres` | River follows spline Y downhill; flow direction correct through a 90° bend; no seam at the clock wrap (control: an unquantised half-period, which must seam); cost delta vs lake variant |
-| **8** | Docs | Rewrite guide §1/§5, add a water-bodies chapter, `ocean_*` → `Pasture3DOcean` mapping table, spec bookkeeping | The quick-start for a lake is "press the button", and the old property names are all findable |
+| **8** | Docs — ✅ **done 2026-07-30 (§11.11)** | Rewrite guide §1/§5, add a water-bodies chapter, `ocean_*` → `Pasture3DOcean` mapping table, spec bookkeeping | The quick-start for a lake is "press the button", and the old property names are all findable |
 
 Phases 1–4 are the spine. 5, 6 and 7 are independently droppable; 2 is the only one that can break an
 existing project, and it is the one with the strictest gate.
+
+**All eight are done as of 2026-07-30.** What remains open is listed in §12.
 
 ### 11.1 Phase 0 results — measured 2026-07-29 ✅
 
@@ -1508,9 +1510,56 @@ pool — right when it was written, wrong the moment ribbons existed. It now ass
 spline produces something **different**: a ribbon rather than a loop. The "not unconditional" half of
 that control moved to a one-point spline, which is neither.
 
+### 11.11 Phase 8 results — 2026-07-30 ✅
+
+Harness: [bench/WaterBodiesPhase8Gate.gd](project/bench/WaterBodiesPhase8Gate.gd) (a `SceneTree`
+script — it reads files and needs no window).
+
+**Built:** [PASTURE3D_WATER_GUIDE.md](PASTURE3D_WATER_GUIDE.md), rewritten. §1 and §5 described an API
+that had not existed since Phase 2; the guide had been carrying a "PARTLY OUT OF DATE" banner instead
+of being fixed. It now opens on the three nodes, leads with the button, and has new chapters for
+`Pasture3DPool` (§4), `Pasture3DBuoy` (§5), and the `ocean_*` migration (§9).
+
+| Criterion | Result |
+|---|---|
+| A — old names findable | ✅ **19 of 19** legacy properties, taken from the real pre-Phase-2 fixture scene rather than a list written into the gate. Control: two invented names are correctly *not* findable |
+| B — documented API exists | ✅ **11 documented methods** checked against `ClassDB` and the connector scripts, all present. Control: two fabricated names report missing |
+| C — no stale instructions | ✅ zero removed-property mentions outside §9, and the banner is gone. Control: the same scan finds **19 lines** inside §9 |
+| D — the quick-start is the button | ✅ the lake path is "carve a basin, press Add Water", rivers are in the quick-start too. Control: the bare-mesh path still exists elsewhere in §1 |
+| E — presets agree with disk | ✅ 5 on disk, 5 documented, **both directions** checked |
+
+**A documentation phase with a gate is the point, not a formality.** The guide went stale because
+nothing checked it, and the banner it grew was an apology rather than a fix. So the gate reads the
+guide and compares it to *the build*: the legacy property list comes from
+`bench/legacy/LegacyOceanScene.tscn`, and the API list is resolved through `ClassDB` and
+`GDScript.get_script_method_list()`. Criterion B is the one that would have caught the original drift
+— the guide documented `terrain.get_water_height()` for weeks after that method moved off `Pasture3D`.
+
+**Criterion D's control is there for a specific failure mode.** "The quick-start must not mention
+`PlaneMesh`" is trivially satisfied by deleting the bare-mesh path, which is real functionality
+(guide G6: a water material works on any mesh with no plugin at all). The control requires that path
+to still be documented somewhere in §1, so the criterion cannot be passed by removing content.
+
+**One gate bug, found and fixed:** the stray-reference scan first matched the substring `ocean_`, and
+flagged the presets table — `M_water_ocean_low.tres` contains it. It now matches the actual removed
+property names from criterion A's fixture. A scanner that cannot tell a filename from a property name
+will cry wolf until someone stops reading it.
+
 ---
 
 ## 12. Risks and open questions
+
+**Status as of 2026-07-30: all eight phases are done and gated.** What is still outstanding, in the
+order it is worth caring about:
+
+| Open item | Where |
+|---|---|
+| `ocean_high_pitch4` reads **+16.4%** for a bit-identical image, reproducibly, on a quiet machine. The one untested hypothesis is that the *reference* is wrong — settling it means rebuilding the pre-extraction commit and re-running Phase 0 | §11.3 |
+| Loop pools carry a neutral `ARRAY_COLOR` for the flow feature, which costs ~40 ms of build time on a 500 m lake for data that never varies. An instance uniform would avoid it | §11.10 |
+| Ribbon meshing has no native path; it is O(rows × cols) in GDScript, which is fine at river scale and untested at anything larger | §11.10 |
+| Phase 6's buoy budget passes with **17% of margin** on a square lake. A more intricate shoreline sends more containment queries to the exact test | §11.9 |
+| Steam Deck figures throughout are extrapolated from desktop measurements. No Deck was available | water spec |
+
 
 1. **`Pasture3DPool` mesh building in GDScript.** ✅ **RESOLVED 2026-07-30 — the escape hatch was
    taken.** `Pasture3DUtil.build_pool_mesh` is built and is the default path; the GDScript mesher is
