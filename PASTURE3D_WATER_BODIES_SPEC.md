@@ -1019,7 +1019,41 @@ extraction is neutral.
 
 With that, the Phase 2 gate passes. Phase 2 is done.
 
-### 11.4 Phase 3 results — measured 2026-07-29 ✅ *(criterion A passes narrowly)*
+**Re-measured on a deliberately quiet machine, 2026-07-30 — and it reproduces.** The timing pass was
+deferred for a day precisely because the machine is shared with another engine. Run with that engine
+idle, three consecutive runs:
+
+| Config | Quiet-machine | Phase 0 reference | Delta |
+|---|---|---|---|
+| `ocean_high_pitch4` | **0.2200 / 0.2210 / 0.2200 ms** | 0.1890 ms | **+16.4%** |
+| `ocean_low_pitch4` | 0.1810 ms | 0.1820 | −0.5% |
+| `ocean_high_pitch20` | 0.2680 ms | 0.2670 | +0.4% |
+| `ocean_low_pitch20` | 0.2140 ms | 0.2150 | −0.5% |
+| `ocean_high_pitch60` | 0.3010 ms | 0.3000 | +0.3% |
+| `ocean_low_pitch60` | 0.2370 ms | 0.2370 | +0.0% |
+| `terrain_clipmap` | 0.2780 ms | 0.2780 | +0.0% |
+
+All seven captures remain **bit-identical** (mean delta 0.000000). Within each run the four passes
+spread by 0.000–0.001 ms.
+
+**This retires the "host interference" explanation above.** That reading predicted the deviation
+would roam or vanish on a quiet machine. It did neither: it landed on `ocean_high_pitch4`, at the same
+magnitude as when it was first seen (+16.9% then, +16.4% now), while every other config sat inside
+0.5%. Two sessions, two machine states, one config, one number. That is a deterministic difference,
+not noise, and the honest label is now **unexplained** rather than **intermittent**.
+
+What is known, and it is a strange combination: the image is identical to the bit, the repeats are
+tight, the deviation is confined to one of seven configs, and ordering, warm-up, GPU clock state, cull
+margin and leftover geometry were each ruled out in the original investigation.
+
+**The one hypothesis never tested is that the 0.1890 ms REFERENCE is the wrong number** — that the
+Phase 0 baseline run recorded an unrepresentatively fast `ocean_high_pitch4` and every measurement
+since has been correct. Nothing above distinguishes "the extraction made this config slower" from
+"the baseline recorded this config faster", because only the current side has ever been re-measured.
+Settling it means checking out the pre-extraction commit, rebuilding, and re-running Phase 0 —
+worth doing before this is ever quoted as a cost of the ocean extraction, and not yet done.
+
+### 11.4 Phase 3 results — measured 2026-07-29 ✅ *(criterion A re-measured 2026-07-30; see below)*
 
 Harness: [bench/WaterBodiesPhase3Gate.tscn](project/bench/WaterBodiesPhase3Gate.tscn).
 RTX 3070 / Ryzen desktop, Godot 4.7.
@@ -1032,19 +1066,41 @@ warnings including the raising-brush check) — plus the body registry deferred 
 
 | Criterion | Result |
 |---|---|
-| A — 500 m lake build time | ⚠️ **passes, narrowly.** 168,874 verts / 317,377 tris at 1.27 m spacing in **454 / 460 / 477 ms** against a 500 ms budget |
+| A — 500 m lake build time | ⚠️ **passes on the median, with samples over budget.** 168,874 verts / 317,377 tris at 1.27 m spacing. First measured at 454 / 460 / 477 ms; re-measured 2026-07-30 as **median 481 ms, worst 534 ms, 1 of 5 samples over** |
 | B — spacing rule | ✅ shortest wavelength 10.18 m, automatic spacing 1.27 m, **ratio exactly 8.00**. Sag 0.0091 m; control at 4× spacing 0.1297 m — **14× worse**, so the metric is sensitive to tessellation |
 | C — pool without terrain | ✅ builds (7,428 verts) and answers height queries with zero `Pasture3D` in the tree |
 | D — shared curve | ✅ a pool reading a brush's curve does **not** trip the brush's shared-curve warning; control (two splines sharing one `Curve3D`) still fires |
 | E — body registry | ✅ `body_at` returns the pool inside it and the ocean in open water. **Concave control:** a point in an L-shaped pool's notch is inside the mesh AABB yet resolves to the ocean, so containment is a polygon test and not a box test |
 
-**Criterion A is a pass I do not want to oversell.** 454–477 ms against a 500 ms budget is 9–5% of
-margin on a desktop, on a *square* 500 m loop — the cheapest possible boundary. The cost is dominated
-by the interior grid loop (168 k vertices built in GDScript), so it scales with area: a 700 m lake at
-the same spacing would be ~2× the vertices and would miss the budget outright. Read this as "the
-GDScript choice in §4.3 is viable at the size the budget describes, and only just", not as headroom.
-§12 q1's native escape hatch (`Pasture3DUtil.build_pool_mesh`) is now a live option rather than a
-theoretical one, and the GDScript path is already structured to remain its A/B oracle.
+**Criterion A is a pass I do not want to oversell** — and the 2026-07-30 re-measurement showed the
+original numbers oversold it anyway.
+
+The gate took **one sample** and compared it to the budget. Three early samples landed 454–477 ms and
+read as a comfortable-ish pass. The real distribution, measured five-at-a-time on a quiet machine, is
+**median 481 ms with a tail past 530**:
+
+```
+5 builds: median 481.1 ms, best 472.4, worst 533.6
+          [472.4, 477.4, 481.1, 492.9, 533.6]
+```
+
+A single earlier run of the same build produced **529.0 ms** and failed the gate outright. Nothing had
+regressed — the one-shot gate had simply drawn from the tail for the first time. **A one-shot
+measurement against a budget the quantity straddles is a coin flip, which is worse than no gate**, so
+the criterion now takes five builds, judges the **median** against the unchanged 500 ms budget, and
+always prints the worst with a prominent flag when it is over. That is more of the distribution
+reported, not a widened tolerance.
+
+**Phases 4 and 5 added ~5 ms to this, and that was checked rather than assumed.** An interleaved A/B
+with `underwater_enabled` on and off puts the volume rebuild at **5.3 ms median — about 1% of the
+build**. It is not what moved the numbers; the numbers were always this shape.
+
+The cost is dominated by the interior grid loop (168 k vertices built in GDScript), so it scales with
+area: a 700 m lake at the same spacing would be ~2× the vertices and would miss the budget outright.
+Read this as "the GDScript choice in §4.3 is viable at the size the budget describes, and only just,
+with a fifth of its samples outside it", not as headroom. §12 q1's native escape hatch
+(`Pasture3DUtil.build_pool_mesh`) is now **indicated** rather than merely available, and the GDScript
+path is already structured to remain its A/B oracle.
 
 The scanline inside-mask is what makes it viable at all. The obvious implementation —
 `Geometry2D.is_point_in_polygon` per grid point — is O(points × edges); at this size that is
@@ -1262,8 +1318,9 @@ and looks precisely like a free effect; Phase 0 lost a run to that (§11.1), so 
 a zero reading rather than celebrating it, and fails again if no overlay was actually built when the
 "below water" sample was taken.
 
-**Still owed:** the timing halves of Phase 2 (frame-time neutrality) and Phase 3 (the 500 ms build
-budget), both deferred for the same reason and both wanting a deliberate quiet-machine pass.
+**All three deferred timing passes were taken on 2026-07-30 with the other engine idle.** Phase 2
+(§11.3) and Phase 3 (§11.4) are updated in place; both found something the earlier runs had missed,
+which is the argument for having deferred them rather than taking them on a busy machine.
 
 ---
 

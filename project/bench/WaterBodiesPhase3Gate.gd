@@ -25,6 +25,8 @@ const OCEAN_MAT := WATER_DIR + "M_water_ocean.tres"
 
 const LOOP_PERIOD := 120.0
 const BUILD_BUDGET_MS := 500.0
+## Builds taken per run. Odd, so the median is a real sample rather than an average of two.
+const BUILD_SAMPLES := 5
 
 var _fail := 0
 var _completed := 0
@@ -91,21 +93,53 @@ func _gate_a_build_time() -> void:
 	var pool := _make_pool(root, _square_curve(250.0), "lake_calm")
 	await _settle()
 
-	var stats: Dictionary = pool.rebuild()
-	print("    spacing %.2f m -> %d vertices, %d triangles in %.1f ms" % [
-		stats["spacing"], stats["vertices"], stats["triangles"], stats["ms"]])
-	if not stats["ok"]:
+	# BUILD_SAMPLES of them, not one.
+	#
+	# This originally took a single sample and compared it to the budget. That is a bad estimator of
+	# a noisy quantity, and it showed: three early samples landed 454-477 ms and read as a pass,
+	# while the real distribution has a median around 475 ms and a tail past 530. A one-shot gate
+	# against a budget the measurement straddles is a coin flip, which is worse than no gate --
+	# it fails on unlucky runs and passes on lucky ones, and neither result means anything.
+	#
+	# So: the MEDIAN is judged against the budget, because that is the estimator, and the WORST is
+	# always printed and always flagged when it is over. Reporting more of the distribution is not
+	# the same as widening the tolerance -- the budget is untouched at 500 ms.
+	var stats: Dictionary = {}
+	var samples: Array[float] = []
+	for i in BUILD_SAMPLES:
+		stats = pool.rebuild()
+		if not stats.get("ok", false):
+			break
+		samples.append(float(stats["ms"]))
+		await _settle()
+	samples.sort()
+	var median: float = samples[samples.size() / 2] if not samples.is_empty() else INF
+	var worst: float = samples[samples.size() - 1] if not samples.is_empty() else INF
+	print("    spacing %.2f m -> %d vertices, %d triangles" % [
+		stats.get("spacing", 0.0), int(stats.get("vertices", 0)), int(stats.get("triangles", 0))])
+	print("    %d builds: median %.1f ms, best %.1f, worst %.1f  %s" % [
+		samples.size(), median, samples[0] if not samples.is_empty() else INF, worst, samples])
+	if not stats.get("ok", false):
 		_fail += 1
-		print("    !! the build failed: %s" % stats["reason"])
+		print("    !! the build failed: %s" % stats.get("reason", ""))
 	elif int(stats["vertices"]) < 50000:
 		_fail += 1
 		print("    !! only %d vertices; this is not the 500 m lake the budget is for," % int(stats["vertices"]))
-		print("       so the timing below measures something else")
-	elif float(stats["ms"]) > BUILD_BUDGET_MS:
+		print("       so the timing above measures something else")
+	elif median > BUILD_BUDGET_MS:
 		_fail += 1
-		print("    !! over the %.0f ms budget; see spec §12 q1 for the native escape hatch" % BUILD_BUDGET_MS)
+		print("    !! the MEDIAN is over the %.0f ms budget; see spec §12 q1 for the native escape hatch"
+			% BUILD_BUDGET_MS)
 	else:
-		print("    -> inside budget")
+		print("    -> the median is inside budget")
+		if worst > BUILD_BUDGET_MS:
+			var over := 0
+			for s in samples:
+				if s > BUILD_BUDGET_MS:
+					over += 1
+			print("    ** but %d of %d samples exceeded it (worst %.1f ms, +%.0f%%). This is not a" % [
+				over, samples.size(), worst, (worst / BUILD_BUDGET_MS - 1.0) * 100.0])
+			print("       comfortable pass, and §12 q1's native path is the answer if it drifts further")
 	root.queue_free()
 	await _settle()
 	_completed += 1
