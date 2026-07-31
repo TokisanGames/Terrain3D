@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout Terrain3D
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -31,11 +31,11 @@ jobs:
 
       - name: Build Terrain3D
         env:
-            SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-            TARGET: 'template_${{ matrix.target }}'
+          SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
         shell: sh
         run: |
-          scons target=$TARGET platform='${{ matrix.platform }}' threads=no debug_symbols=no -j2
+          scons target=template_${{ matrix.target }} platform=${{ matrix.platform }} threads=no debug_symbols=no -j4
+
 
       - name: Prepare Files
         shell: sh
@@ -45,7 +45,7 @@ jobs:
           cp -v '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload Package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
           name: t3d-${{ matrix.platform }}-nothreads-${{ matrix.target }}
@@ -57,7 +57,7 @@ jobs:
     needs: build
     steps:
       - name: Merge Artifacts
-        uses: actions/upload-artifact/merge@v4
+        uses: actions/upload-artifact/merge@v7
         with:
           include-hidden-files: true
           name: ${{ github.event.repository.name }}
