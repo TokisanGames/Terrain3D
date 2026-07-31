@@ -404,8 +404,13 @@ func _gate_f_overlay_cost() -> void:
 	var wet := await _measure_gpu_ms()
 	var overlay_present := _overlay_of(pool) != null
 
-	print("    above water %.4f ms | below water %.4f ms | delta %.4f ms" % [
-		dry, wet, wet - dry])
+	# The resolution is part of the result, not context for it: this is a full-screen fragment pass,
+	# so its cost is per-pixel and a number without the pixel count cannot be compared to anything.
+	var res: Vector2i = get_viewport().get_visible_rect().size
+	var px: int = res.x * res.y
+	print("    at %d x %d (%.2f Mpx):" % [res.x, res.y, px / 1e6])
+	print("    above water %.4f ms | below water %.4f ms | delta %.4f ms (%.2f ns/px)" % [
+		dry, wet, wet - dry, (wet - dry) * 1e6 / float(px)])
 	if not overlay_present:
 		_fail += 1
 		print("    !! no overlay was built, so the 'below' number is not measuring one")

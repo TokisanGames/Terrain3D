@@ -1199,7 +1199,7 @@ this. Worth recording as a usability finding: the button is discoverable only if
 need it, and `_validate_property` marking `material` read-only outside `Custom` stops the *reference*
 being reassigned but not the shipped resource being edited through it.
 
-### 11.7 Phase 5 results — measured 2026-07-30 ✅ *(correctness; the one timing criterion is pending)*
+### 11.7 Phase 5 results — measured 2026-07-30 ✅
 
 Harness: [bench/WaterBodiesPhase5Gate.tscn](project/bench/WaterBodiesPhase5Gate.tscn).
 RTX 3070 / Ryzen desktop, Godot 4.7.
@@ -1217,7 +1217,7 @@ behind a lazily-built `CanvasLayer`. `pool_gizmo.gd` gained the volume outline (
 | C — wave surface, not plane | ✅ 64 probes placed **exactly at the still level** came back **32 wet / 32 dry**, across a surface spanning 1.081 m. Control: the same probes against the flat plane are 64/64 identical — a flat test cannot produce that split |
 | D — Area3D re-filter | ✅ `body_submerged` fired for the swimmer only; walking it onto the peninsula fired `body_surfaced` **without it leaving the box**. Control: the raw `Area3D` list holds both bodies throughout |
 | E — fog + the named warning | ✅ fog albedo equals the material's `deep_color` and density 0.0412 is the luminance of `absorption` scaled; the warning names `volumetric_fog_enabled`. Control: enabling it clears that warning |
-| F — overlay cost | ⏸ **not measured.** Timing, and this machine is shared with another engine — `RUN_TIMING=1` runs it on a quiet machine |
+| F — overlay cost | ✅ **0.032 / 0.032 / 0.033 ms** at 1152 × 648 (0.75 Mpx), above water 0.106 ms vs below 0.138 ms. Controls: a zero GPU reading and a missing overlay both fail the criterion |
 
 **Criterion C is the one worth reading twice.** Testing submersion against the flat plane would be
 simpler, and it would be wrong every time a crest or trough passed — §8.2 says "at the shoreline in a
@@ -1241,14 +1241,29 @@ limit: it is geometry, not physics, so anything at all can be asked about it dir
 **Not done, deliberately:** the overlay is **runtime-only**. §8.4 already called tinting the editor
 viewport "a bug report waiting to happen", and the volume gizmo is what the author gets instead.
 
-### 11.8 Phase 5 — the one measurement still owed
+**The overlay's cost, and what it extrapolates to.** `0.0320 / 0.0320 / 0.0330 ms` across three
+runs — a 3% spread, which is as tight as anything measured in this spec. The resolution is part of
+the result and is printed with it: this is a full-screen fragment pass, so the cost is per-pixel and
+a millisecond figure without a pixel count cannot be compared to anything.
 
-`RUN_TIMING=1` on the Phase 5 gate measures the overlay's GPU cost above vs below the surface, with
-a control that fails if the timer reads zero (a "measured nothing" that would otherwise look like a
-free effect) and one that fails if no overlay was actually built. It is a full-screen pass with two
-texture fetches, so the expected shape is small and resolution-dependent — but the number is not
-written here until it has been taken on a quiet machine, alongside the Phase 2 and Phase 3 timing
-halves that are owed for the same reason.
+| | |
+|---|---|
+| Measured | **0.032 ms** at 1152 × 648 (0.75 Mpx) = **0.043 ms/Mpx** |
+| 1080p | ~0.088 ms |
+| 1440p | ~0.157 ms |
+| 4K | ~0.354 ms |
+
+Those three rows are extrapolation, not measurement, and they assume the pass is fragment-bound —
+which for two texture fetches and no dependent branching it should be. Re-measure before quoting the
+4K number as a budget.
+
+The control matters here more than usual. A GPU timer that was never enabled reads exactly `0.0000`
+and looks precisely like a free effect; Phase 0 lost a run to that (§11.1), so the criterion fails on
+a zero reading rather than celebrating it, and fails again if no overlay was actually built when the
+"below water" sample was taken.
+
+**Still owed:** the timing halves of Phase 2 (frame-time neutrality) and Phase 3 (the 500 ms build
+budget), both deferred for the same reason and both wanting a deliberate quiet-machine pass.
 
 ---
 
