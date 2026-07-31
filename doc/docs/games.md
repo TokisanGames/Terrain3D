@@ -15,11 +15,12 @@ Terrain3D is being used in the following games. To add yours, submit all the lin
 | [Sacred Forest](https://store.steampowered.com/app/2864350/Sacred_Forest/) | [Blekoh](https://www.youtube.com/@sacredforestgame) | Open world 3D pixel art RPG
 | [Pest Apocalypse](https://store.steampowered.com/app/2506810/Pest_Apocalypse/) | [Kikimora Games](https://x.com/KikimoraGames) | Post-apocalyptic pizza delivery
 | [Forg](https://store.steampowered.com/app/2807130/Forg/) | [Crow Games](https://www.youtube.com/@crowgamesdev) | FPS tower defense
-| [open-fpsz](https://gitlab.com/open-fpsz/open-fpsz) | [anyreso](https://mastodon.gamedev.place/@anyreso) | Open-source, Tribes-like FPS multiplayer shooter
 | [Element](https://devanew.itch.io/element) | [Luke Aaron](https://www.youtube.com/watch?v=b18jDnY1YS4) | Gamejam FPS tactial shooter
 | [Castaway Cove](https://boolburg.itch.io/castaway-cove) | [Boolburg](https://boolburg.itch.io/) | Tropical island exploration
 | [The UNDA Legacy](https://store.steampowered.com/app/4709190/The_UNDA_Legacy/) | [Squirrelation Games](https://x.com/squirrgames) | Atmospheric 3D puzzle game
 | [Unaccessible](https://store.steampowered.com/app/3419670/Unaccessible/) | [Rembot Games](https://x.com/RembotGames) | 3rd person wheelchair platformer
+| [sunder](https://codeberg.org/sunder/sunder) | [anyreso](https://mastodon.gamedev.place/@anyreso) | A fast-paced free software shooter
+| [Crusator](https://store.steampowered.com/app/4052830/Crusator/) | [Crusator](https://x.com/CrusatorGame) | Twin-stick shooter
 
 
 ## Demos

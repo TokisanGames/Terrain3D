@@ -2,11 +2,11 @@
 
 name: 🛠️ Build All
 on: 
-    push:
-        branches: [ main, 1.1-godot4.4 ]
-    pull_request:
-        paths: [ '**' ]
-    workflow_dispatch:
+  push:
+    branches: [ main, 1.1-godot4.4 ]
+  pull_request:
+    paths: [ '**' ]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.ref }}
@@ -27,59 +27,67 @@ jobs:
             name: 🐧 Linux
             runner: ubuntu-22.04
             flags: arch=x86_64
+            cores: 4
             
           - identifier: windows
             platform: windows
             name: 🪟 Windows
             runner: ubuntu-22.04
             flags: arch=x86_64
+            cores: 4
 
           - identifier: windows-arm64
             platform: windows
             name: 🪟 Windows Arm64
             runner: ubuntu-22.04
             flags: arch=arm64 use_mingw=yes use_llvm=yes
+            cores: 4
 
           - identifier: macos
             platform: macos
             name: 🍎 macOS
             runner: macos-latest
             flags: arch=universal
+            cores: 3
 
           - identifier: ios
             platform: ios
             name: 🍏 iOS
             runner: macos-latest
             flags: arch=universal
+            cores: 3
 
           - identifier: android-arm32
             platform: android
             name: 🤖 Android Arm32
             runner: ubuntu-22.04
             flags: arch=arm32
+            cores: 4
 
           - identifier: android-arm64
             platform: android
             name: 🤖 Android Arm64
             runner: ubuntu-22.04
             flags: arch=arm64
+            cores: 4
 
           - identifier: web-nothreads
             platform: web
             name: 🌐 Web No-threads
             runner: ubuntu-22.04
             flags: threads=no
+            cores: 4
 
     steps:
       - name: Checkout Terrain3D
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
         
       - name: Setup Base Dependencies
         uses: ./.github/actions/base-deps
         with:
-            platform: ${{ matrix.platform }}
+          platform: ${{ matrix.platform }}
 
       - name: Setup Build Cache
         uses: ./.github/actions/build-cache
@@ -100,32 +108,20 @@ jobs:
 
       - name: Build Terrain3D
         env:
-            SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-            TARGET: 'template_${{ matrix.target }}'
+          SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
         shell: sh
         run: |
-            scons target=$TARGET platform='${{ matrix.platform }}' ${{ matrix.flags }} debug_symbols=no -j2
-
-      - name: Strip Libraries (Windows / Linux)
-        if: ${{ matrix.platform == 'windows' || matrix.platform == 'linux' }}
-        shell: sh
-        run: |
-          STRIP="strip"
-          if [ "${{ matrix.identifier }}" = "windows-arm64" ]; then
-            STRIP="llvm-strip"
-          fi
-          ls -l project/addons/terrain_3d/bin/
-          $STRIP project/addons/terrain_3d/bin/libterrain.*
-          ls -l project/addons/terrain_3d/bin/
+          scons target=template_${{ matrix.target }} platform=${{ matrix.platform }} ${{ matrix.flags }} debug_symbols=no -j${{ matrix.cores }}
 
       - name: Prepare Files
         shell: sh
         run: |
+          ls -l project/addons/terrain_3d/bin/
           rm -v project/*.*
           cp -v '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
 
       - name: Upload Package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
           name: t3d-${{ matrix.identifier }}-${{ matrix.target }}
@@ -137,7 +133,7 @@ jobs:
     needs: build
     steps:
       - name: Merge Artifacts
-        uses: actions/upload-artifact/merge@v4
+        uses: actions/upload-artifact/merge@v7
         with:
           include-hidden-files: true
           name: ${{ github.event.repository.name }}
