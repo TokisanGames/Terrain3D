@@ -827,7 +827,8 @@ void Terrain3DMaterial::initialize(Terrain3D *p_terrain) {
 	}
 	_shader.instantiate();
 	_buffer_shader.instantiate();
-	{ // Create dummy texture array to avoid empty sampler2DArrays
+	// Create dummy texture array to avoid empty sampler2DArrays
+	if (!_generated_dummy.get_rid().is_valid()) {
 		Ref<Image> img = Image::create(1, 1, false, Image::FORMAT_RF);
 		TypedArray<Image> ia = { img };
 		_generated_dummy.create(ia);
