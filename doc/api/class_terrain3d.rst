@@ -1759,7 +1759,7 @@ Possible return values:
 
 
 
-Also see :ref:`get_raycast_result()<class_Terrain3D_method_get_raycast_result>` and :ref:`Terrain3DData.get_height()<class_Terrain3DData_method_get_height>` for alternative functions.
+Also see :ref:`get_raycast_result()<class_Terrain3D_method_get_raycast_result>` and :ref:`Terrain3DData.get_surface_height()<class_Terrain3DData_method_get_surface_height>` for alternative functions.
 
 .. rst-class:: classref-item-separator
 
@@ -1791,7 +1791,7 @@ Collision_mask has the physics layers the query will detect as a bitmask. By def
 
 See `PhysicsDirectSpaceState3D.intersect_ray <https://docs.godotengine.org/en/stable/classes/class_physicsdirectspacestate3d.html#class-physicsdirectspacestate3d-method-intersect-ray>`__ for how to interpret the resulting dictionary.
 
-Also see :ref:`get_intersection()<class_Terrain3D_method_get_intersection>` and :ref:`Terrain3DData.get_height()<class_Terrain3DData_method_get_height>` for alternative functions.
+Also see :ref:`get_intersection()<class_Terrain3D_method_get_intersection>` and :ref:`Terrain3DData.get_surface_height()<class_Terrain3DData_method_get_surface_height>` for alternative functions.
 
 .. rst-class:: classref-item-separator
 

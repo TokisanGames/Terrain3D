@@ -82,7 +82,7 @@
 				- If there is no intersection, eg. the ray points towards the sky, it returns the maximum double float value [code skip-lint]Vector3(3.402823466e+38F,...)[/code]. You can check this case with this code: [code skip-lint]if point.z &gt; 3.4e38:[/code]
 				- On error, it returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] and prints a message to the console.
 
-				Also see [method get_raycast_result] and [method Terrain3DData.get_height] for alternative functions.
+				Also see [method get_raycast_result] and [method Terrain3DData.get_surface_height] for alternative functions.
 			</description>
 		</method>
 		<method name="get_plugin" qualifiers="const">
@@ -102,7 +102,7 @@
 				Direction is added to src_pos and includes magnitude. So to run a raycast from (100, 100, 100) to the ground 100m below, direction would be (0, -110, 0) with margin.
 				Collision_mask has the physics layers the query will detect as a bitmask. By default, all collision layers are detected.
 				See [url=https://docs.godotengine.org/en/stable/classes/class_physicsdirectspacestate3d.html#class-physicsdirectspacestate3d-method-intersect-ray]PhysicsDirectSpaceState3D.intersect_ray[/url] for how to interpret the resulting dictionary.
-				Also see [method get_intersection] and [method Terrain3DData.get_height] for alternative functions.
+				Also see [method get_intersection] and [method Terrain3DData.get_surface_height] for alternative functions.
 			</description>
 		</method>
 		<method name="set_camera">

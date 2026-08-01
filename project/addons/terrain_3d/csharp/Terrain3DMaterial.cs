@@ -67,6 +67,15 @@ public partial class Terrain3DMaterial : Resource
 		Noise = 2,
 	}
 
+	public enum RegionMaximum
+	{
+		MaxRegions64 = 64,
+		MaxRegions128 = 128,
+		MaxRegions256 = 256,
+		MaxRegions512 = 512,
+		MaxRegions1024 = 1024,
+	}
+
 	public enum TextureFilteringEnum
 	{
 		LinearAnisotropic = 0,
@@ -114,6 +123,10 @@ public partial class Terrain3DMaterial : Resource
 		/// Cached name for the 'projection_enabled' member.
 		/// </summary>
 		public new static readonly StringName ProjectionEnabled = "projection_enabled";
+		/// <summary>
+		/// Cached name for the 'max_regions' member.
+		/// </summary>
+		public new static readonly StringName MaxRegions = "max_regions";
 		/// <summary>
 		/// Cached name for the 'output_albedo' member.
 		/// </summary>
@@ -223,6 +236,10 @@ public partial class Terrain3DMaterial : Resource
 		/// </summary>
 		public new static readonly StringName ShowRoughmap = "show_roughmap";
 		/// <summary>
+		/// Cached name for the 'show_displacement_buffer' member.
+		/// </summary>
+		public new static readonly StringName ShowDisplacementBuffer = "show_displacement_buffer";
+		/// <summary>
 		/// Cached name for the 'show_texture_albedo' member.
 		/// </summary>
 		public new static readonly StringName ShowTextureAlbedo = "show_texture_albedo";
@@ -235,17 +252,13 @@ public partial class Terrain3DMaterial : Resource
 		/// </summary>
 		public new static readonly StringName ShowTextureNormal = "show_texture_normal";
 		/// <summary>
-		/// Cached name for the 'show_texture_ao' member.
-		/// </summary>
-		public new static readonly StringName ShowTextureAo = "show_texture_ao";
-		/// <summary>
 		/// Cached name for the 'show_texture_rough' member.
 		/// </summary>
 		public new static readonly StringName ShowTextureRough = "show_texture_rough";
 		/// <summary>
-		/// Cached name for the 'show_displacement_buffer' member.
+		/// Cached name for the 'show_texture_ao' member.
 		/// </summary>
-		public new static readonly StringName ShowDisplacementBuffer = "show_displacement_buffer";
+		public new static readonly StringName ShowTextureAo = "show_texture_ao";
 	}
 
 	public new Terrain3DMaterial.WorldBackgroundEnum WorldBackground
@@ -282,6 +295,12 @@ public partial class Terrain3DMaterial : Resource
 	{
 		get => Get(GDExtensionPropertyName.ProjectionEnabled).As<bool>();
 		set => Set(GDExtensionPropertyName.ProjectionEnabled, value);
+	}
+
+	public new Terrain3DMaterial.RegionMaximum MaxRegions
+	{
+		get => Get(GDExtensionPropertyName.MaxRegions).As<Terrain3DMaterial.RegionMaximum>();
+		set => Set(GDExtensionPropertyName.MaxRegions, Variant.From(value));
 	}
 
 	public new bool OutputAlbedo
@@ -446,6 +465,12 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.ShowRoughmap, value);
 	}
 
+	public new bool ShowDisplacementBuffer
+	{
+		get => Get(GDExtensionPropertyName.ShowDisplacementBuffer).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowDisplacementBuffer, value);
+	}
+
 	public new bool ShowTextureAlbedo
 	{
 		get => Get(GDExtensionPropertyName.ShowTextureAlbedo).As<bool>();
@@ -464,22 +489,16 @@ public partial class Terrain3DMaterial : Resource
 		set => Set(GDExtensionPropertyName.ShowTextureNormal, value);
 	}
 
-	public new bool ShowTextureAo
-	{
-		get => Get(GDExtensionPropertyName.ShowTextureAo).As<bool>();
-		set => Set(GDExtensionPropertyName.ShowTextureAo, value);
-	}
-
 	public new bool ShowTextureRough
 	{
 		get => Get(GDExtensionPropertyName.ShowTextureRough).As<bool>();
 		set => Set(GDExtensionPropertyName.ShowTextureRough, value);
 	}
 
-	public new bool ShowDisplacementBuffer
+	public new bool ShowTextureAo
 	{
-		get => Get(GDExtensionPropertyName.ShowDisplacementBuffer).As<bool>();
-		set => Set(GDExtensionPropertyName.ShowDisplacementBuffer, value);
+		get => Get(GDExtensionPropertyName.ShowTextureAo).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowTextureAo, value);
 	}
 
 	public new class GDExtensionMethodName : Resource.MethodName
@@ -553,6 +572,18 @@ public static int SafeAsInt32(this Terrain3DMaterial.WorldBackgroundEnum enumVal
 Convert.ToInt32(enumValue);
 
 public static int SafeAsInt32(this Terrain3DMaterial.WorldBackgroundEnum? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
+}
+
+file static class RegionMaximumExtensions
+{
+public static int SafeAsInt32(this Terrain3DMaterial.RegionMaximum enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMaterial.RegionMaximum enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3DMaterial.RegionMaximum? enumValue, int defaultValue = 0) =>
 enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }
 
