@@ -72,6 +72,8 @@ public:
 
 	void initialize(Terrain3D *p_terrain);
 	void destroy();
+	void destroy_mmis_by_region(const Vector2i &p_region_loc);
+	int get_mmi_region_count() const { return (int)_mmi_rids.size(); }
 
 	void clear_by_mesh(const int p_mesh_id);
 	void clear_by_location(const Vector2i &p_region_loc, const int p_mesh_id);

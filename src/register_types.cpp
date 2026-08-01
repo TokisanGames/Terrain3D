@@ -9,6 +9,7 @@
 #include "register_types.h"
 #include "terrain_3d.h"
 #include "terrain_3d_editor.h"
+#include "terrain_3d_streamer.h"
 
 void initialize_terrain_3d_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -19,6 +20,7 @@ void initialize_terrain_3d_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Terrain3DData>();
 	ClassDB::register_class<Terrain3DEditor>();
 	ClassDB::register_class<Terrain3DCollision>();
+	ClassDB::register_class<Terrain3DStreamer>();
 	ClassDB::register_class<Terrain3DInstancer>();
 	ClassDB::register_class<Terrain3DMaterial>();
 	ClassDB::register_class<Terrain3DMeshAsset>();

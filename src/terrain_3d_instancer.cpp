@@ -382,6 +382,17 @@ void Terrain3DInstancer::_destroy_mmi_by_mesh(const int p_mesh_id) {
 	}
 }
 
+// Frees a region's MMIs without touching its instance data. Region streaming
+// eviction uses this: the data leaves with the region body, only the rendering
+// side must go, and the per region update path cannot (it needs a live region).
+void Terrain3DInstancer::destroy_mmis_by_region(const Vector2i &p_region_loc) {
+	IS_INIT(VOID);
+	int mesh_count = _terrain->get_assets() != nullptr ? _terrain->get_assets()->get_mesh_count() : 0;
+	for (int mesh_id = 0; mesh_id < mesh_count; mesh_id++) {
+		_destroy_mmi_by_location(p_region_loc, mesh_id);
+	}
+}
+
 void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
 	LOG(DEBUG, "Deleting all MMIs in region: ", p_region_loc, " for mesh_id: ", p_mesh_id);
 	// Identify cells with matching mesh_id
@@ -1354,6 +1365,8 @@ void Terrain3DInstancer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_enabled"), &Terrain3DInstancer::is_enabled);
 	ClassDB::bind_method(D_METHOD("add_instances", "global_position", "params"), &Terrain3DInstancer::add_instances);
 	ClassDB::bind_method(D_METHOD("remove_instances", "global_position", "params"), &Terrain3DInstancer::remove_instances);
+	ClassDB::bind_method(D_METHOD("destroy_mmis_by_region", "region_location"), &Terrain3DInstancer::destroy_mmis_by_region);
+	ClassDB::bind_method(D_METHOD("get_mmi_region_count"), &Terrain3DInstancer::get_mmi_region_count);
 	ClassDB::bind_method(D_METHOD("add_multimesh", "mesh_id", "multimesh", "transform", "update"), &Terrain3DInstancer::add_multimesh, DEFVAL(Transform3D()), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("add_transforms", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::add_transforms, DEFVAL(PackedColorArray()), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("append_location", "region_location", "mesh_id", "transforms", "colors", "update"), &Terrain3DInstancer::append_location, DEFVAL(true));
