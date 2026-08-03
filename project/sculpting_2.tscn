@@ -12,6 +12,7 @@
 [ext_resource type="Material" uid="uid://cu5tyca37mw4v" path="res://addons/pasture_3d/extras/shaders/water/M_water_ocean.tres" id="11_e657i"]
 [ext_resource type="Material" uid="uid://c088g1lo2b37b" path="res://addons/pasture_3d/extras/shaders/water/M_water_river.tres" id="11_gs7qi"]
 [ext_resource type="Script" uid="uid://bnokw6waxop48" path="res://addons/pasture_3d/connectors/pond.gd" id="12_e657i"]
+[ext_resource type="Script" uid="uid://bn5t60kllucu2" path="res://addons/pasture_3d/connectors/stream.gd" id="13_46g7t"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_vnp0k"]
 _shader_parameters = {
@@ -241,6 +242,14 @@ amplitude = 0.2
 length_max = 15.0
 steepness = 0.6
 
+[sub_resource type="Pasture3DWaveProfile" id="Pasture3DWaveProfile_e657i"]
+profile_name = &"river"
+wave_count = 1
+spread_deg = 0.0
+amplitude = 0.0
+length_max = 10.0
+steepness = 0.0
+
 [sub_resource type="Curve3D" id="Curve3D_pp151"]
 closed = true
 _data = {
@@ -259,10 +268,10 @@ point_count = 5
 [sub_resource type="Curve3D" id="Curve3D_d10wp"]
 closed = true
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, 20, 0, 0, 0, 0, 0, 0, -20, 1, 20),
-"tilts": PackedFloat32Array(0, 0, 0, 0)
+"points": PackedVector3Array(-9.769001, 0, 13.80772, 9.769001, 0, -13.80772, -20, 1, -20, -11.918699, 0, -0.3438323, 11.918699, 0, 0.3438323, 47.87903, 1, -64.57788, 3.732781, 0, -11.324307, -3.732781, 0, 11.324307, 57.067673, 1, -17.776741, 2.7540302, 0, -6.606075, -2.7540302, 0, 6.606075, 79.33998, 1, 24.110825, 8.979277, 0, -4.401428, -8.979277, 0, 4.401428, 39.781174, 2.5300426, 64.23321, 8.3928175, 0.1816762, 2.0732946, -8.3928175, -0.1816762, -2.0732946, 3.9648743, 1, 47.59954, 6.285013, 0, 7.7780857, -6.285013, 0, -7.7780857, -30.90155, 1, 46.772312),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0)
 }
-point_count = 4
+point_count = 7
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4owis"]
 sky_top_color = Color(0.48185542, 0.72736245, 0.79296875, 1)
@@ -593,7 +602,7 @@ _layer_owner = "pasture3d_brush:Mounds"
 curve = SubResource("Curve3D_hvsre")
 
 [node name="Pasture3DPoolManager" type="Pasture3DPoolManager" parent="Pasture3D" unique_id=727794514 node_paths=PackedStringArray("sun_light")]
-profiles = Array[Pasture3DWaveProfile]([SubResource("Pasture3DWaveProfile_ahg1b"), SubResource("Pasture3DWaveProfile_46g7t")])
+profiles = Array[Pasture3DWaveProfile]([SubResource("Pasture3DWaveProfile_ahg1b"), SubResource("Pasture3DWaveProfile_46g7t"), SubResource("Pasture3DWaveProfile_e657i")])
 sun_light = NodePath("../../DirectionalLight3D")
 
 [node name="Pasture3DOcean" type="Pasture3DOcean" parent="Pasture3D/Pasture3DPoolManager" unique_id=1092997014]
@@ -621,31 +630,30 @@ _layer_owner = "pasture3d_brush:Mounds"
 [node name="Loop1" type="Path3D" parent="Pasture3D/Pond" unique_id=1741319086]
 curve = SubResource("Curve3D_pp151")
 
-[node name="TroughWater" type="Node3D" parent="Pasture3D" unique_id=54436336 node_paths=PackedStringArray("source_spline", "manager")]
+[node name="TroughStream" type="Node3D" parent="Pasture3D" unique_id=54436336 node_paths=PackedStringArray("source_spline", "manager")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 200.60555, -10.5, -69.12454)
-script = ExtResource("9_46g7t")
+script = ExtResource("13_46g7t")
 source_spline = NodePath("../Trough/Channel1")
 wave_profile = &"lake"
-water_preset = 2
 material = ExtResource("11_gs7qi")
 manager = NodePath("../Pasture3DPoolManager")
 
 [node name="Trough1" type="Node3D" parent="Pasture3D" unique_id=150169530 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.137096, 41.816685, -54.78325)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.137096, 34.32708, -54.78325)
 script = ExtResource("3_whwrs")
 terrain = NodePath("..")
 snap_to_surface = false
 _layer_owner = "pasture3d_brush:Troughs"
 
 [node name="Channel1" type="Path3D" parent="Pasture3D/Trough1" unique_id=1915977979]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8.220348, 0)
 curve = SubResource("Curve3D_60p45")
 
-[node name="Trough1Water" type="Node3D" parent="Pasture3D" unique_id=78089243 node_paths=PackedStringArray("source_spline", "manager")]
+[node name="Trough1Stream" type="Node3D" parent="Pasture3D" unique_id=78089243 node_paths=PackedStringArray("source_spline", "manager")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 23.137096, -1.4253731, -54.78325)
-script = ExtResource("9_46g7t")
+script = ExtResource("13_46g7t")
 source_spline = NodePath("../Trough1/Channel1")
-wave_profile = &"lake"
-water_preset = 2
+wave_profile = &"river"
 material = ExtResource("11_gs7qi")
 manager = NodePath("../Pasture3DPoolManager")
 
@@ -658,6 +666,7 @@ height = 4.0
 capped = true
 blend_mode = 3
 invert = true
+flank_mode = 1
 falloff_width = 8.0
 terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Ponds"
@@ -672,6 +681,7 @@ source_spline = NodePath("../Pond1/Loop1")
 wave_profile = &"lake"
 material = ExtResource("10_gs7qi")
 manager = NodePath("../Pasture3DPoolManager")
+volume_depth = 50.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2130707292]
 environment = SubResource("Environment_ahg1b")
