@@ -29,6 +29,16 @@ const PRESET_PATHS := {
 	0: WATER_DIR + "M_water_river.tres",
 }
 
+## Metres per second below which travel time stops being integrated against the
+## real speed. Only reached on water the ripples have already faded out of, so it
+## chooses the phase of something invisible; it exists to keep `ds / v` finite.
+## Mirrors the `max(speed, 0.25)` in water_stream.gdshaderinc's normal.
+const TAU_SPEED_FLOOR: float = 0.25
+## Frequency multiplier of the FASTEST ripple octave, from WATER_STREAM_FREQ_MUL in
+## water_stream.gdshaderinc. Here only to size vertex spacing against the shortest
+## wavelength the surface actually carries; the shader owns the value.
+const RIPPLE_FASTEST_OCTAVE: float = 2.317
+
 # --- Channel (the surface reference) ------------------------------------------
 #
 # Its own group rather than more of the base class's "Shape": these are the properties that make a
@@ -100,6 +110,15 @@ const PRESET_PATHS := {
 ## height queries and containment do not re-bake the curve. See _still_surface_y.
 var _ribbon_rows := PackedVector3Array()
 var _ribbon_speed := PackedFloat32Array()
+## Cumulative flow TRAVEL TIME from the head of the channel, in seconds, per row.
+##
+## The coordinate the ripples live in, and the reason they cannot run upstream. It
+## increases monotonically in the direction the water flows -- including when
+## flow_reverse is on, where it is measured from the other end -- so the phase
+## expression has no reach on which it can turn around. See
+## water_stream.gdshaderinc for the full argument; this array is written into
+## UV2.x and is the CPU half of that parity contract.
+var _ribbon_tau := PackedFloat32Array()
 ## Per-row half-width to the left and right of the centreline, in metres. Separate sides because
 ## a channel cut into a slope has an asymmetric waterline -- the surface reaches further into the
 ## shallow bank than the steep one, and averaging them would put the mesh edge in the air on one
@@ -216,6 +235,16 @@ func _on_source_baked() -> void:
 		_schedule_rebuild()
 
 
+## A wave profile changed on the manager.
+##
+## The base rebuilds when vertex_spacing is automatic, because a profile's shortest wavelength is
+## what sizes a pool's mesh. It sizes nothing here -- _effective_spacing reads ripple_frequency off
+## the material instead -- so the rebuild would be a provable no-op, and editing a profile in a
+## scene with a long river in it would rebuild it for nothing every time.
+func _on_profiles_changed() -> void:
+	notify_property_list_changed()
+
+
 # ---- meshing (spec §7.3, §10) ------------------------------------------------
 
 ## Build the strip for an open curve.
@@ -245,11 +274,18 @@ func _build_surface(p_spacing: float) -> void:
 
 	var verts := PackedVector3Array()
 	var uvs := PackedVector2Array()
+	var uv2s := PackedVector2Array()
 	var colours := PackedColorArray()
 	var indices := PackedInt32Array()
 	verts.resize(rows * cols)
 	uvs.resize(rows * cols)
+	uv2s.resize(rows * cols)
 	colours.resize(rows * cols)
+	# Arc length alongside travel time, so UV2 carries both channel coordinates.
+	# Nothing reads .y yet; it costs nothing on a vertex format that already has
+	# the attribute, and a second ripple octave that should NOT track the flow --
+	# a standing swell, an obstacle wake -- needs distance rather than time.
+	var arc := 0.0
 
 	var mn := Vector2(INF, INF)
 	var mx := Vector2(-INF, -INF)
@@ -269,6 +305,10 @@ func _build_surface(p_spacing: float) -> void:
 			clampf(speed / FLOW_SPEED_REF, 0.0, 1.0), 1.0)
 		var half_l := _row_half(r, true)
 		var half_r := _row_half(r, false)
+		if r > 0:
+			var prev: Vector3 = centre[r - 1]
+			arc += Vector2(c.x - prev.x, c.z - prev.z).length()
+		var tau: float = _ribbon_tau[r] if r < _ribbon_tau.size() else 0.0
 		for k in cols:
 			var t := float(k) / float(cols - 1)
 			# Asymmetric: -left .. +right, so a channel cut into a slope keeps its mesh edge on
@@ -279,7 +319,17 @@ func _build_surface(p_spacing: float) -> void:
 			var i := r * cols + k
 			verts[i] = Vector3(x, c.y, z)
 			uvs[i] = Vector2(x, z)
-			colours[i] = col
+			# The channel coordinates the ripples are evaluated in: travel time along
+			# the flow, and arc length along the bed.
+			uv2s[i] = Vector2(tau, arc)
+			# Distance to the waterline as a FRACTION of this row's half-width, per
+			# side, because the two sides differ wherever the channel is cut into a
+			# slope. Normalised rather than metric so one bank-fade setting behaves
+			# the same on a creek and on a river -- and so a reach that widens does
+			# not grow a calm strip down the middle.
+			var limit := half_l if off < 0.0 else half_r
+			colours[i] = Color(col.r, col.g, col.b,
+				clampf(absf(off) / maxf(limit, 1e-3), 0.0, 1.0))
 			mn = Vector2(minf(mn.x, x), minf(mn.y, z))
 			mx = Vector2(maxf(mx.x, x), maxf(mx.y, z))
 	for r in rows - 1:
@@ -299,6 +349,7 @@ func _build_surface(p_spacing: float) -> void:
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_TEX_UV2] = uv2s
 	arrays[Mesh.ARRAY_COLOR] = colours
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var mesh := ArrayMesh.new()
@@ -366,7 +417,48 @@ func _ribbon_centreline(p_spacing: float) -> PackedVector3Array:
 		var drop: float = (b.y - a.y) if flow_reverse else (a.y - b.y)
 		var grade := (drop / run) if run > 1e-4 else 0.0
 		_ribbon_speed[r] = flow_speed * (1.0 + flow_slope_gain * maxf(grade, 0.0))
+
+	_build_travel_time(out)
 	return out
+
+
+## Cumulative travel time along the channel, one value per row.
+##
+## Integrating dt = ds / v with the trapezoid rule over the per-row speeds -- the
+## time a parcel of water takes to reach each row from the head. This is what the
+## ripple phase is measured in, so its two properties are load-bearing:
+##
+##   MONOTONIC, because every speed is positive, which is what makes upstream
+##   crest travel unrepresentable rather than merely unlikely.
+##   CONTINUOUS, because it is a running sum over the same rows the mesh is built
+##   from, so no two adjacent vertices can disagree about phase.
+##
+## The speed floor is not a fudge. flow_speed can legitimately be 0 -- still water
+## in a channel -- and dividing by it would make travel time infinite and every
+## downstream row NAN. The ripple amplitude has already faded to nothing at that
+## speed, so what the floor picks there is invisible; it just has to be finite.
+func _build_travel_time(p_rows: PackedVector3Array) -> void:
+	var n := p_rows.size()
+	_ribbon_tau = PackedFloat32Array()
+	_ribbon_tau.resize(n)
+	if n == 0:
+		return
+	_ribbon_tau[0] = 0.0
+	for r in range(1, n):
+		var a: Vector3 = p_rows[r - 1]
+		var b: Vector3 = p_rows[r]
+		var ds := Vector2(b.x - a.x, b.z - a.z).length()
+		var v := maxf((_ribbon_speed[r - 1] + _ribbon_speed[r]) * 0.5, TAU_SPEED_FLOOR)
+		_ribbon_tau[r] = _ribbon_tau[r - 1] + ds / v
+	if not flow_reverse:
+		return
+	# Reversed, the head of the channel is the far end of the spline, so travel
+	# time has to be measured from there. Mirroring the finished line does that in
+	# one pass and keeps it monotonic in the new flow direction -- which is the
+	# property the whole scheme rests on, so it is worth not re-deriving.
+	var total: float = _ribbon_tau[n - 1]
+	for r in n:
+		_ribbon_tau[r] = total - _ribbon_tau[r]
 
 
 ## Lift the centreline from the bed to the water surface, and find the waterline on each side.
@@ -683,6 +775,121 @@ func _ribbon_surface_at(p_local_xz: Vector2) -> Array:
 	return [absf(lateral) <= limit, c.y]
 
 
+# ---- the ripples (spec §10.2) ------------------------------------------------
+#
+# *** THE CPU HALF OF A PARITY CONTRACT. ***
+# water_eval_stream_waves() in water_stream.gdshaderinc is the other half, and it
+# carries the argument for why a river cannot use the Gerstner table. This is a
+# transcription of it: same octaves, same quantisation, same order. A buoy floats
+# on what these return and the player sees what the shader drew, so a difference
+# here is a boat sitting in the air.
+#
+# The octave tables are DUPLICATED from the shader rather than uploaded, because
+# they are compile-time consts there -- so the stream gate reads both files and
+# fails if they have drifted, which is the only honest way to hold a duplicate.
+
+## Mirrors WATER_STREAM_FREQ_MUL / _AMP_MUL / _PHASE in water_stream.gdshaderinc.
+const RIPPLE_FREQ_MUL := [1.0, 2.317]
+const RIPPLE_AMP_MUL := [1.0, 0.42]
+const RIPPLE_PHASE := [0.0, 1.7]
+
+
+## Ripple displacement above the still surface at a world XZ. Zero off the channel.
+func _wave_offset(p_global_xz: Vector2) -> float:
+	var ch := _channel_at(p_global_xz)
+	if not ch[0]:
+		return 0.0
+	return _ripple(ch[1], ch[2], ch[3])[0]
+
+
+## The surface normal the ripples give, in world space.
+##
+## The gradient runs ALONG THE FLOW and nowhere else: these waves are a function of
+## travel time, which varies down the channel and is constant across it, so the
+## surface is a corrugation whose ridges lie athwart the current. Any cross-channel
+## tilt would have to come from a term this pass does not have.
+func _wave_normal(p_global_xz: Vector2) -> Vector3:
+	var ch := _channel_at(p_global_xz)
+	if not ch[0]:
+		return Vector3.UP
+	var dh_ds: float = _ripple(ch[1], ch[2], ch[3])[1]
+	var local: Vector3 = global_transform.affine_inverse() \
+		* Vector3(p_global_xz.x, 0.0, p_global_xz.y)
+	var r := _ribbon_nearest_row(Vector2(local.x, local.z))
+	var tangent := _ribbon_tangent(_ribbon_rows, maxi(r, 0))
+	var flow := -tangent if flow_reverse else tangent
+	return Vector3(-dh_ds * flow.x, 1.0, -dh_ds * flow.y).normalized()
+
+
+## [over_the_channel, travel_time, flow_speed, shore_fraction] at a world XZ.
+##
+## One accessor for everything the ripples need, so the height and the normal
+## cannot end up asking about different rows.
+func _channel_at(p_global_xz: Vector2) -> Array:
+	if _ribbon_rows.is_empty():
+		return [false, 0.0, 0.0, 1.0]
+	var local: Vector3 = global_transform.affine_inverse() \
+		* Vector3(p_global_xz.x, 0.0, p_global_xz.y)
+	var l2 := Vector2(local.x, local.z)
+	var r := _ribbon_nearest_row(l2)
+	if r < 0:
+		return [false, 0.0, 0.0, 1.0]
+	var c: Vector3 = _ribbon_rows[r]
+	var tangent := _ribbon_tangent(_ribbon_rows, r)
+	var side := Vector2(-tangent.y, tangent.x)
+	var lateral := Vector2(l2.x - c.x, l2.y - c.z).dot(side)
+	var limit := _row_half(r, lateral < 0.0)
+	if absf(lateral) > limit:
+		return [false, 0.0, 0.0, 1.0]
+	var tau: float = _ribbon_tau[r] if r < _ribbon_tau.size() else 0.0
+	var speed: float = _ribbon_speed[r] if r < _ribbon_speed.size() else 0.0
+	# Same normalisation the mesher wrote into ARRAY_COLOR.a.
+	return [true, tau, speed, clampf(absf(lateral) / maxf(limit, 1e-3), 0.0, 1.0)]
+
+
+## [height, d(height)/d(distance along the channel)] for one point on the surface.
+##
+## THE SPEED ROUND TRIP IS DELIBERATE AND MUST NOT BE "SIMPLIFIED". The mesh writes
+## a speed NORMALISED against FLOW_SPEED_REF and clamped to [0,1]; the shader
+## multiplies it back out by flow_speed_scale. So a river running faster than
+## FLOW_SPEED_REF is clamped on the GPU, and a CPU that used the raw speed would
+## disagree with the picture on exactly the rapids where the waves are largest.
+## Passing the value through the same lossy encoding is what makes them agree.
+func _ripple(p_tau: float, p_speed: float, p_shore: float) -> Array:
+	var normalised := clampf(p_speed / FLOW_SPEED_REF, 0.0, 1.0)
+	var speed := normalised * float(shader_param(&"flow_speed_scale", 8.0))
+
+	var speed_amp := clampf(speed / maxf(float(shader_param(&"ripple_speed_ref", 2.0)), 1e-3),
+			0.0, 1.0)
+	var shore_amp := 1.0 - smoothstep(float(shader_param(&"ripple_bank_fade", 0.55)), 1.0, p_shore)
+	var amp := float(shader_param(&"ripple_amplitude", 0.06)) * speed_amp * shore_amp
+
+	var freq := float(shader_param(&"ripple_frequency", 0.9))
+	var now := water_clock()
+	var height := 0.0
+	var dh_dtau := 0.0
+	for i in RIPPLE_FREQ_MUL.size():
+		var f := _quantise_ripple(freq * RIPPLE_FREQ_MUL[i])
+		var a: float = amp * RIPPLE_AMP_MUL[i]
+		var w := TAU * f
+		var theta: float = w * (now - p_tau) + RIPPLE_PHASE[i]
+		height += a * sin(theta)
+		dh_dtau -= a * w * cos(theta)
+	return [height, dh_dtau / maxf(speed, TAU_SPEED_FLOOR)]
+
+
+## Mirrors water_stream_quantise(): a whole number of cycles has to fit in the clock
+## period or the whole river jumps when water_time wraps.
+func _quantise_ripple(p_freq: float) -> float:
+	var period := 0.0
+	var m := _resolve_manager()
+	if m != null and m.has_method("get_loop_period"):
+		period = m.get_loop_period()
+	if period <= 0.0:
+		return p_freq
+	return maxf(round(p_freq * period), 1.0) / period
+
+
 ## The stream's centreline in local space, one point per row, as the mesh was last built from it.
 ## Exposed so a gate -- or a tool -- can check the surface against the same rows the node uses
 ## rather than a re-derived curve, which is the pool's get_polygon() for a shape that has no
@@ -697,6 +904,32 @@ func _forget_surface() -> void:
 	_ribbon_cell = PackedInt32Array()
 	_ribbon_half_l = PackedFloat32Array()
 	_ribbon_half_r = PackedFloat32Array()
+	_ribbon_tau = PackedFloat32Array()
+
+
+## Vertex spacing from the RIPPLE wavelength, not from a wave profile.
+##
+## The base class asks the manager's profile for its shortest wavelength, which is
+## the right question for a pool and a meaningless one here: the Gerstner table no
+## longer displaces this surface at all. What the mesh has to resolve is the
+## ripple, and its wavelength is speed / frequency -- so a slow creek, whose crests
+## pack together, gets a finer mesh than a fast river.
+##
+## THE BASE OCTAVE, at lambda/8 (guide §7). Not the fastest octave, which is the
+## first thing this did and which cost 20x the vertices for the difference: the
+## second octave is 0.42 of the amplitude at 2.3x the frequency, so resolving IT to
+## lambda/8 buys eight-fold density to render a two-centimetre wiggle. It is
+## deliberately left at about lambda/3, where it reads as texture on the base
+## undulation rather than as its own wave, which is what it is for.
+##
+## Read off flow_speed rather than the per-row speeds, deliberately: this has to
+## produce a spacing BEFORE the rows exist, since the rows are built at it.
+func _effective_spacing() -> float:
+	if vertex_spacing > 0.0:
+		return vertex_spacing
+	var freq := maxf(float(shader_param(&"ripple_frequency", 0.3)), 1e-3)
+	var wavelength := maxf(flow_speed, TAU_SPEED_FLOOR) / freq
+	return clampf(wavelength / 8.0, 0.5, 8.0)
 
 
 # ---- inspector ---------------------------------------------------------------
@@ -713,4 +946,13 @@ func _validate_property(property: Dictionary) -> void:
 	elif property.name == "force_gdscript_mesh":
 		# There is no native ribbon mesher to switch away from. Shown greyed rather than hidden so
 		# it is clear the A/B switch exists on water bodies and simply has nothing to do here.
+		property.usage |= PROPERTY_USAGE_READ_ONLY
+	elif property.name == "wave_profile":
+		# A stream's surface comes from ripple_* on its material, not from the manager's Gerstner
+		# table -- a table has one world heading and a river has many, which is the whole of
+		# water_stream.gdshaderinc's argument. The property still does ONE thing, so it is greyed
+		# and explained rather than hidden: it keys the manager's shared-material cache, so two
+		# streams naming the same profile share one material.
+		# The dropdown hint the base just set is kept: greyed out it still reads as a profile
+		# name rather than a bare StringName, which is more use than less.
 		property.usage |= PROPERTY_USAGE_READ_ONLY

@@ -39,7 +39,26 @@ void vertex() {
 	// the surface the viewer is on.
 	v_base_y = world_pos.y;
 
+#ifdef WATER_FLOW
+	// Decoded BEFORE the waves on a stream, not after: the stream evaluator needs
+	// the flow direction and speed to place its ripples, where the lake path only
+	// needs them later for the detail advection.
+	//
+	// Per-vertex data decoded here rather than in the fragment stage, so the
+	// direction turns smoothly through a bend instead of stepping at every row.
+	// rg is the XZ direction remapped from [-1,1], b the normalised speed (§10).
+	v_flow = vec3(COLOR.rg * 2.0 - 1.0, COLOR.b);
+#endif
+
+#ifdef WATER_STREAM_WAVES
+	v_shore = COLOR.a;
+	// UV2.x is the cumulative flow travel time from the head of the channel, in
+	// seconds -- the coordinate that makes crests run downstream on every reach.
+	// See water_stream.gdshaderinc.
+	WaveSample wave = water_eval_stream_waves(world_pos, UV2.x, v_flow, v_shore);
+#else
 	WaveSample wave = water_eval_waves(world_pos);
+#endif
 
 	v_world_pos = wave.position;
 	v_wave_normal = wave.normal;
@@ -55,14 +74,6 @@ void vertex() {
 	// the threshold means "this fraction of the breaking limit".
 	v_jacobian = wave.jacobian;
 	v_view_dist = length(wave.position - CAMERA_POSITION_WORLD);
-
-#ifdef WATER_FLOW
-	// Decoded here rather than in the fragment stage: it is per-vertex data and
-	// interpolating the decoded value is what makes the direction turn smoothly
-	// through a bend instead of stepping at every row. rg is the XZ direction
-	// remapped from [-1,1], b the normalised speed (spec §10).
-	v_flow = vec3(COLOR.rg * 2.0 - 1.0, COLOR.b);
-#endif
 
 	VERTEX = (VIEW_MATRIX * vec4(wave.position, 1.0)).xyz;
 	NORMAL = normalize(mat3(VIEW_MATRIX) * wave.normal);

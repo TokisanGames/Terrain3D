@@ -254,6 +254,44 @@ uniform bool flow_quantise = true;
 group_uniforms;
 #endif
 
+#ifdef WATER_STREAM_WAVES
+// ---------------------------------------------------------------------------
+// Stream ripples (spec §10.2). Replaces the Gerstner table on a river.
+//
+// See water_stream.gdshaderinc for why a river cannot use _waves[] at all. These
+// four are the whole surface: everything that varies BETWEEN reaches -- how fast
+// the water is running, how steep, how near the bank -- is already per-vertex in
+// the mesh, so the material only has to say how much ripple a given speed earns.
+// That is why they are material uniforms and not a per-river profile.
+// ---------------------------------------------------------------------------
+group_uniforms ripples;
+// Crest-to-trough amplitude at full speed, in metres, before the bank fade.
+// Centimetres, not metres: this is chop on a channel, not swell on a sea.
+uniform float ripple_amplitude : hint_range(0.0, 1.0, 0.005) = 0.06;
+// Cycles per second the surface bobs at a fixed point. NOT a wavelength -- the
+// wavelength is a consequence, and varies along the river, because frequency is
+// what steady flow conserves. Quantised against water_time_period at evaluation.
+//
+// LOW ON PURPOSE. At the shipped 1.5 m/s this is a 5 m undulation, and raising it
+// is expensive in a way the number does not show: wavelength is speed/frequency,
+// the mesh has to resolve it, so doubling this halves the vertex spacing a stream
+// chooses and quadruples its vertex count. The first draft shipped 0.9 and turned
+// a 200 m river into 33k vertices for chop nobody could see.
+//
+// The fine detail is NOT missing from the surface -- it is in the detail normal
+// map, which already advects along the same per-vertex flow (WATER_FLOW above).
+// This is the part that has to be geometry because it moves the silhouette and
+// floats boats; anything smaller is the texture's job and costs nothing.
+uniform float ripple_frequency : hint_range(0.05, 2.0, 0.01) = 0.3;
+// Flow speed (m/s) at which ripples reach full amplitude. Below it they scale
+// down linearly, so a river slowing into a pool goes glassy on its own.
+uniform float ripple_speed_ref : hint_range(0.1, 10.0, 0.1) = 2.0;
+// Fraction of the half-width at which the bank fade starts. 1 = no fade, and a
+// rim of crests standing over the dry bank; lower pulls the calm margin inward.
+uniform float ripple_bank_fade : hint_range(0.0, 1.0, 0.01) = 0.55;
+group_uniforms;
+#endif
+
 #ifdef WATER_DEPTH_FADE
 uniform sampler2D depth_texture : hint_depth_texture, filter_nearest;
 #endif
@@ -335,6 +373,14 @@ varying float v_base_y;
 // flow_speed_scale. A loop pool writes a neutral colour, so its flow is a zero
 // vector and the river shader degrades to a still surface rather than misbehaving.
 varying vec3 v_flow;
+#endif
+
+#ifdef WATER_STREAM_WAVES
+// Distance from the centreline as a fraction of this row's half-width: 0 mid
+// channel, 1 on the waterline. Carried in ARRAY_COLOR.a, which the flow encoding
+// left unused. Interpolated, so the bank fade is smooth across the strip rather
+// than stepping per column.
+varying float v_shore;
 #endif
 
 // ---------------------------------------------------------------------------

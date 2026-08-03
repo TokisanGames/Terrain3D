@@ -851,27 +851,49 @@ func _drop_overlay() -> void:
 
 # ---- public API --------------------------------------------------------------
 
-## Surface height at a world XZ, including waves. The still level plus the profile's
+## Surface height at a world XZ, including waves. The still level plus the wave
 ## displacement, so it agrees with what the shader draws.
 func get_water_height(p_global_xz: Vector2) -> float:
-	var base := _still_surface_y(p_global_xz)
-	var m := _resolve_manager()
-	if m == null or not m.has_method("solve_domain"):
-		return base
-	var origin := global_position
-	var target := p_global_xz - Vector2(origin.x, origin.z)
-	var domain: Vector2 = m.solve_domain(wave_profile, target)
-	return base + m.evaluate_height(wave_profile, domain)
+	return _still_surface_y(p_global_xz) + _wave_offset(p_global_xz)
 
 
 func get_water_normal(p_global_xz: Vector2) -> Vector3:
+	return _wave_normal(p_global_xz)
+
+
+## Wave displacement above the still surface, in metres.
+##
+## Split out of get_water_height as a hook because the two kinds of water do not
+## make waves the same way. A pool takes the manager's Gerstner table, which is
+## the transcription of water_eval_waves() the whole parity apparatus is built
+## around; a Pasture3DStream cannot use that table at all -- see
+## water_stream.gdshaderinc -- and overrides this with its own transcription.
+##
+## Whatever answers it, it has to agree with the SHADER, because a buoy floats on
+## what this returns and a player sees what the shader drew. Phase 7 criterion D
+## puts a 400 kg boat on a river and requires the two within 0.009 m.
+func _wave_offset(p_global_xz: Vector2) -> float:
+	var m := _resolve_manager()
+	if m == null or not m.has_method("solve_domain"):
+		return 0.0
+	var domain: Vector2 = m.solve_domain(wave_profile, _wave_domain(p_global_xz))
+	return m.evaluate_height(wave_profile, domain)
+
+
+func _wave_normal(p_global_xz: Vector2) -> Vector3:
 	var m := _resolve_manager()
 	if m == null or not m.has_method("solve_domain"):
 		return Vector3.UP
-	var origin := global_position
-	var target := p_global_xz - Vector2(origin.x, origin.z)
-	var domain: Vector2 = m.solve_domain(wave_profile, target)
+	var domain: Vector2 = m.solve_domain(wave_profile, _wave_domain(p_global_xz))
 	return m.evaluate_normal(wave_profile, domain)
+
+
+## World XZ relative to this body's domain origin -- the same subtraction the
+## shader's `_water_domain_origin` performs, and the reason wave phase stays
+## precise kilometres from the world origin.
+func _wave_domain(p_global_xz: Vector2) -> Vector2:
+	var origin := global_position
+	return p_global_xz - Vector2(origin.x, origin.z)
 
 
 ## Body-registry contract (§5.5): is this world point in this body's water?
@@ -977,6 +999,90 @@ func save_unique_material(p_path: String = "") -> void:
 
 func get_build_stats() -> Dictionary:
 	return _last_stats
+
+
+## Parsed `uniform float` defaults, per shader instance id. See shader_param.
+static var _shader_defaults := {}
+
+
+## A scalar shader parameter's effective value: what this body's material sets, else the default
+## the SHADER ITSELF declares.
+##
+## The second half is the point, and it is not defensive coding. A .tres stores only the
+## parameters its author changed, so get_shader_parameter() returns null for every untouched
+## one -- and a GDScript transcription that filled those gaps from its own copy of the defaults
+## would be a SECOND source of truth for numbers that have to agree with the GPU exactly. It
+## would hold until somebody edited one default, and then a buoy would float at a height nothing
+## on screen was drawn at, with both files looking correct in isolation.
+##
+## NOT RenderingServer.shader_get_parameter_default, which is the documented route and was the
+## first implementation. It returns null under the headless dummy renderer, because nothing ever
+## compiled the shader to reflect on -- so every gate, every tool script and every --script run
+## would quietly fall through to the fallback and compute against different numbers than the game.
+## A parity mechanism that stops working in exactly the environment parity is measured in is
+## worse than no mechanism. The shader's SOURCE is available everywhere, so it is read instead.
+##
+## `uniform float NAME ... = <number>;` only. That covers what a CPU transcription of a wave
+## needs, and stopping there keeps this a five-line regex rather than a GLSL parser. Anything
+## else falls through to p_fallback.
+func shader_param(p_name: StringName, p_fallback: Variant) -> Variant:
+	var sm := material as ShaderMaterial
+	if sm == null:
+		return p_fallback
+	var set_value = sm.get_shader_parameter(p_name)
+	if set_value != null:
+		return set_value
+	if sm.shader == null:
+		return p_fallback
+	var declared: Dictionary = _shader_float_defaults(sm.shader)
+	return declared.get(String(p_name), p_fallback)
+
+
+## Cached, because _wave_offset() runs per buoy per physics tick and re-parsing a shader there
+## would cost more than every wave in the scene put together. Keyed by instance id and holding no
+## reference, so a freed shader cannot be kept alive by this table.
+static func _shader_float_defaults(p_shader: Shader) -> Dictionary:
+	var key := p_shader.get_instance_id()
+	if _shader_defaults.has(key):
+		return _shader_defaults[key]
+	var out := {}
+	var re := RegEx.new()
+	re.compile("uniform\\s+float\\s+(\\w+)[^;=]*=\\s*([-+0-9.eE]+)\\s*;")
+	for m in re.search_all(_expand_includes(p_shader.code, {})):
+		out[m.get_string(1)] = m.get_string(2).to_float()
+	_shader_defaults[key] = out
+	return out
+
+
+## Shader source with its #include-d files pasted in.
+##
+## Shader.code is the wrapper's own text, and every water uniform is declared in a .gdshaderinc --
+## so without this the table comes back empty and every default silently becomes the fallback,
+## which is the failure this whole path exists to prevent. The visited set guards a cycle; the
+## water includes all carry #ifndef guards, but nothing here should depend on that.
+static func _expand_includes(p_code: String, p_seen: Dictionary) -> String:
+	var re := RegEx.new()
+	re.compile("#include\\s+\"([^\"]+)\"")
+	var out := p_code
+	for m in re.search_all(p_code):
+		var path := m.get_string(1)
+		if p_seen.has(path):
+			out = out.replace(m.get_string(0), "")
+			continue
+		p_seen[path] = true
+		var f := FileAccess.open(path, FileAccess.READ)
+		var text := f.get_as_text() if f != null else ""
+		out = out.replace(m.get_string(0), _expand_includes(text, p_seen))
+	return out
+
+
+## Seconds on the scene's water clock, or 0. The same value the shader reads as `water_time`,
+## which is what any CPU transcription of a wave has to be evaluated at.
+func water_clock() -> float:
+	var m := _resolve_manager()
+	if m != null and m.has_method("get_water_time"):
+		return m.get_water_time()
+	return 0.0
 
 
 ## The name to use in messages. `get_class()` reports the NATIVE class (Node3D) for a GDScript
