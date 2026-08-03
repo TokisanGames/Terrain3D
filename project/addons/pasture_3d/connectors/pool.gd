@@ -1,504 +1,100 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DPool — a finite water body meshed from a landscape brush's spline.
+# Pasture3DPool — a lake, a pond, a reservoir: still water filling a closed outline.
 # See PASTURE3D_WATER_BODIES_SPEC.md §7.
 #
-# The node that makes "add water to this basin" one button press. It takes the curve a
-# Pasture3DMound (or Plow, or Splat) already drew, fills it with a subdivided surface,
-# and puts a water material on it. The waves, the clock and the material all come from
-# the scene's Pasture3DPoolManager, so a pond is not a special case of anything -- it
-# is the same water the ocean is, over a smaller polygon.
+# The node that makes "add water to this basin" one button press. It takes the loop a
+# Pasture3DMound (or Pond, or Plow, or Splat) already drew, fills it with a subdivided flat
+# surface, and puts a water material on it. The waves, the clock and the material all come from
+# the scene's Pasture3DPoolManager, so a pond is not a special case of anything -- it is the same
+# water the ocean is, over a smaller polygon.
 #
-# GDScript, deliberately (spec §4.3): this is an authoring node, and it lives next to
-# the brushes whose idioms it borrows -- debounced refresh, internal children that
-# never serialise, configuration warnings that name the fix.
+# CLOSED CURVES ONLY, and that is the change the split made. This file used to switch on
+# `curve.closed` at every rebuild and become a river when the answer was no; rivers are now
+# Pasture3DStream, and an open curve here is a misconfiguration with a Convert to Stream button
+# next to it rather than a second personality. Everything a lake and a river agree about lives in
+# Pasture3DWaterBody; this class is only the part that is a filled outline.
 @tool
 @icon("res://addons/pasture_3d/icons/brush_terrain.svg")
 class_name Pasture3DPool
-extends Node3D
+extends Pasture3DWaterBody
 
-const WATER_DIR := "res://addons/pasture_3d/extras/shaders/water/"
 const PRESET_PATHS := {
 	0: WATER_DIR + "M_water_lake.tres",
 	1: WATER_DIR + "M_water_pond.tres",
 }
-## Group every pool joins, so tools can find them without a tree walk.
-const POOL_GROUP: StringName = &"pasture3d_pool"
-## Debounce for rebuilds while a spline is being dragged (seconds). Matches the brushes.
-const REFRESH_DELAY: float = 0.1
 
-## Default ceiling on generated vertices, and the value `max_vertices` starts at. A pool
-## whose spacing would exceed this is usually a mistake -- a metre-scale spacing over a
-## kilometre-scale loop -- and silently building it locks the editor for minutes.
-const DEFAULT_MAX_VERTICES: int = 400000
-## The speed ARRAY_COLOR.b == 1 means, in m/s. Must match water_river.gdshader's flow_speed_scale
-## default: the mesh normalises against this and the shader multiplies back by it, so a disagreement
-## is a river that flows at the wrong rate with nothing to point at.
-const FLOW_SPEED_REF: float = 8.0
-## Vertex colour for water that does not flow. Decodes to a zero direction and zero speed, so the
-## river shader on a lake stands still rather than sliding diagonally.
-const FLOW_NEUTRAL := Color(0.5, 0.5, 0.0, 1.0)
-
-# --- Source -------------------------------------------------------------------
-
-## The spline this pool is filled from. Normally a brush's child Path3D: it carries the
-## curve AND its world transform, so moving the brush moves the water.
-@export var source_spline: Path3D:
-	set(v):
-		_disconnect_source()
-		source_spline = v
-		_connect_source()
-		_schedule_rebuild()
-		update_configuration_warnings()
-
-## Overrides source_spline when set. A Curve3D carries no transform, so its points are
-## read in THIS node's space — a curve lifted from a brush whose Path3D is offset will
-## land offset. Use source_spline unless you are authoring a pool with no brush.
-@export var curve: Curve3D:
-	set(v):
-		if curve and curve.changed.is_connected(_on_curve_changed):
-			curve.changed.disconnect(_on_curve_changed)
-		curve = v
-		if curve and not curve.changed.is_connected(_on_curve_changed):
-			curve.changed.connect(_on_curve_changed)
-		_schedule_rebuild()
-		update_configuration_warnings()
-
-@export_tool_button("Rebuild") var _rebuild_btn = rebuild
-## Re-seed this node's Y from the curve's lowest point + fill_offset. Never automatic:
-## the brushes re-snap their spline points to the terrain surface, so an automatic fit
-## would move the water level whenever the ground under the rim changed.
-@export_tool_button("Fit to Curve") var _fit_btn = fit_to_curve
-
-# --- Shape --------------------------------------------------------------------
-
-@export_group("Shape")
-## Metres the mesh is grown outward past the curve, so its rim is buried in the bank
-## rather than ending in open air. The shader's shore foam and depth fade then dissolve
-## the intersection. Negative contracts.
-@export var edge_offset: float = 2.0:
-	set(v):
-		edge_offset = v
-		_schedule_rebuild()
-## Metres added to the surface height when Fit to Curve runs. Negative sits the water
-## below the rim, which is where a basin's water actually is.
+# A group of its own, and not for tidiness: an inspector group runs until the next one, and the
+# base class ends inside "Underwater" -- so an ungrouped export here would file the migration
+# button under the fog settings.
+@export_group("Migration")
+## Turn this pool into a Pasture3DStream, in place, keeping its settings and its name.
 ##
-## On a RIBBON this is not just a button input: _ribbon_centreline() adds it to every row,
-## so it positions the river's whole surface and has to rebuild. On a loop the mesh is flat
-## in local space and only fit_to_curve() reads it, so the rebuild is wasted there -- but a
-## debounced no-op costs a timer, and an export that moves the mesh in one mode and not the
-## other is the kind of thing that gets diagnosed as "the parameter does nothing".
-@export var fill_offset: float = -0.5:
-	set(v):
-		fill_offset = v
-		_schedule_rebuild()
-## Ceiling on generated vertices, for when a pool genuinely needs to be denser than the
-## default guard allows. This is the pool's frame-time dial in the same sense mesh_size is
-## the ocean's: raise it to buy resolution on a large body, lower it to catch a spacing
-## mistake sooner. The pool refuses to build past it and says so in its configuration
-## warnings rather than locking the editor.
-@export var max_vertices: int = DEFAULT_MAX_VERTICES:
-	set(v):
-		max_vertices = maxi(v, 4)
-		_schedule_rebuild()
-## Metres between surface vertices. 0 = automatic, at a eighth of the wave profile's
-## shortest wavelength — the ratio the water guide §7 requires. Waves are a VERTEX
-## effect, so this is correctness, not taste: too coarse and the drawn surface cuts the
-## corners off crests and drifts from what get_water_height() reports.
-@export var vertex_spacing: float = 0.0:
-	set(v):
-		vertex_spacing = maxf(v, 0.0)
-		_schedule_rebuild()
-## Half-width of a RIBBON (open curve) surface, in metres, before edge_offset is added on each
-## side. Ignored by loop pools, and ignored on a ribbon whenever the surface is bank-referenced --
-## there the waterline is found from the terrain and this is only the fallback width. Seeded from
-## a Trough's bed_half_width when the button creates it.
-@export var ribbon_half_width: float = 4.0:
-	set(v):
-		ribbon_half_width = maxf(v, 0.1)
-		_schedule_rebuild()
+## The migration path for water authored before the split, when an open curve made a
+## Pasture3DPool mesh itself as a ribbon. Such a pool now draws nothing and says so; this is the
+## one press that fixes it. Hidden on a closed curve, where there is nothing to convert.
+@export_tool_button("Convert to Stream") var _convert_btn = convert_to_stream
 
-# --- Bank-referenced surface (ribbons only) -----------------------------------
-#
-# A Trough's spline is the BED FLOOR, not a rim. fill_offset is measured downward from a rim,
-# which is right for a loop pool and exactly wrong here: the shipped -0.5 put the water surface
-# half a metre BELOW the channel floor, buried. Rather than flip the sign and call it fixed, the
-# surface is taken from the BANKS -- so depth varies along the run, and a reach where the bed
-# rises toward the surface becomes a ford the player can cross, without authoring anything.
-
-## Metres below the bank top that the water sits. Freeboard. This is the ribbon's level control;
-## the bed no longer sets it. Raise it for a river running low in its channel, lower it toward 0
-## to fill to the brim.
-@export var bank_height: float = 0.5:
-	set(v):
-		bank_height = v
-		_schedule_rebuild()
-## Metres out from the centreline where the bank top is looked for. 0 = automatic: a Trough's
-## bed_half_width + bank_width if this pool came from one, else ribbon_half_width * 3.
-##
-## This is the knob that matters when a river runs along a hillside. The search has to reach the
-## bank crest and stop -- push it out onto the slope above and the "bank" it finds is partway up
-## the hill, and the river fills to there.
-@export var bank_search_width: float = 0.0:
-	set(v):
-		bank_search_width = maxf(v, 0.0)
-		_schedule_rebuild()
-## Smoothing passes over the sampled surface line. Terrain samples are noisy and a river surface
-## that climbs, even by centimetres, reads as broken. 0 disables it and shows the raw samples.
-@export_range(0, 20) var bank_smoothing: int = 4:
-	set(v):
-		bank_smoothing = clampi(v, 0, 20)
-		_schedule_rebuild()
-## Metres per second the surface texture is advected downstream on a ribbon. Written into
-## ARRAY_COLOR.b, normalised against FLOW_SPEED_REF, and read by water_river.gdshader. It moves the
-## texture, not the water: nothing is simulated and no buoy is pushed by it.
-@export var flow_speed: float = 1.5:
-	set(v):
-		flow_speed = maxf(v, 0.0)
-		_schedule_rebuild()
-## How much a downhill gradient adds to that speed. 0 = uniform along the channel; higher makes
-## steep reaches read as rapids. A per-row scalar, so one river can have both.
-@export var flow_slope_gain: float = 3.0:
-	set(v):
-		flow_slope_gain = maxf(v, 0.0)
-		_schedule_rebuild()
-## Run the flow the other way along the spline, for a channel drawn from the mouth up.
-##
-## Flips the direction written into ARRAY_COLOR, and with it which way `flow_slope_gain` counts
-## as downhill -- reversing the flow without reversing that would leave the rapids on the reaches
-## the water now climbs. It does NOT flip the perpendicular, so the left and right waterlines and
-## every containment answer stay where they were.
-@export var flow_reverse: bool = false:
-	set(v):
-		flow_reverse = v
-		_schedule_rebuild()
-## Force the GDScript reference mesher even when the native one is available. The two are
-## transcriptions of each other and are meant to agree exactly, so this is the A/B switch —
-## toggle it and compare shape and timing on the same pool. Same idea, and the same name shape,
-## as Pasture3DTerrainBrush.force_gdscript_raster. Leave off in normal use.
-@export var force_gdscript_mesh: bool = false:
-	set(v):
-		force_gdscript_mesh = v
-		_schedule_rebuild()
-
-# --- Water --------------------------------------------------------------------
-
-@export_group("Water")
-## Which wave profile on the Pasture3DPoolManager drives this pool. Shown as a dropdown
-## of the live profile names; see _get_property_list.
-@export var wave_profile: StringName = &"lake_calm":
-	set(v):
-		wave_profile = v
-		_apply_material()
-		update_configuration_warnings()
-## Lake / Pond pick a shipped preset. Custom uses `material` as given.
-@export_enum("Lake", "Pond", "Custom") var water_preset: int = 0:
-	set(v):
-		water_preset = v
-		if water_preset != 2:
-			material = load(PRESET_PATHS[water_preset])
-		_apply_material()
-		notify_property_list_changed()
-@export var material: Material:
-	set(v):
-		material = v
-		_apply_material()
-		update_configuration_warnings()
-## Duplicate the resolved material into this scene so tuning it cannot be overwritten
-## by a plugin update, and switch to Custom.
-@export_tool_button("Make Unique") var _unique_btn = make_unique
-## Write the scene-local material to a .tres and re-point at it, so tuned water becomes
-## a reusable project asset instead of being trapped in one scene.
-@export_tool_button("Save Unique Material") var _save_btn = save_unique_material
-## Explicit manager, for a scene with more than one. Empty = the scene's active one.
-@export var manager: Node
-
-# --- Underwater (spec §8) -----------------------------------------------------
-
-@export_group("Underwater")
-## Build the submersion volume at all. Off = no Area3D, no fog, no overlay, no camera poll —
-## for water that is scenery and will never be swum in.
-@export var underwater_enabled: bool = true:
-	set(v):
-		underwater_enabled = v
-		_rebuild_volume()
-		update_configuration_warnings()
-## Metres the volume extends BELOW the surface. Not a depth measurement of the basin — it is how
-## far down "in this water" reaches, and a body below it has sunk out of the pool's care.
-@export var volume_depth: float = 20.0:
-	set(v):
-		volume_depth = maxf(v, 0.1)
-		_rebuild_volume()
-## Spawn a FogVolume matching the box, tinted from the water material. Needs
-## Environment.volumetric_fog_enabled; the pool warns when that is off rather than doing nothing.
-@export var underwater_fog: bool = true:
-	set(v):
-		underwater_fog = v
-		_rebuild_volume()
-		update_configuration_warnings()
-## Multiplies the fog density derived from the material's `absorption`. Absorption is a per-metre
-## extinction in the surface shader's Beer-Lambert term; fog wants a density, and this is the
-## conversion factor between them.
-@export var underwater_density_scale: float = 0.15:
-	set(v):
-		underwater_density_scale = maxf(v, 0.0)
-		_apply_fog_material()
-## Spawn the screen effect when the camera goes under. Runtime only — a plugin that tints the
-## EDITOR viewport because the camera dipped below a plane is a bug report waiting to happen.
-@export var underwater_overlay: bool = true
-## CanvasLayer index for that overlay. Raise it above your HUD if the HUD should be tinted too.
-@export var overlay_canvas_layer: int = 1
-## Seconds to ramp the overlay in and out across the surface crossing, so it is not a single-frame
-## pop. Independent of the wave clock.
-@export var overlay_transition: float = 0.25
-
-# --- Signals ------------------------------------------------------------------
-
-## A physics body's origin crossed into / out of this water. Emitted from the Area3D's own
-## signals, re-filtered through is_point_underwater() so a concave lake does not claim a peninsula.
-signal body_submerged(body: Node3D)
-signal body_surfaced(body: Node3D)
-## The active camera crossed the surface. A Camera3D is not a physics body and generates no area
-## signals at all, so this comes from a poll (see _poll_camera).
-signal camera_submerged(submerged: bool)
-
-# --- Internals ----------------------------------------------------------------
-
-var _surface: MeshInstance3D = null
-var _timer: SceneTreeTimer = null
-var _dirty := false
-var _last_stats := {}
-## World transform of source_spline as of the last rebuild. See _process.
-var _source_xform := Transform3D()
-## Last resolved manager. See _resolve_manager.
-var _manager_cache: Node = null
-## The offset loop in LOCAL XZ, and its bounds, as of the last rebuild. Every containment query
-## reads these rather than re-deriving them; see rebuild().
+## The offset loop in LOCAL XZ, as of the last rebuild. Every containment query reads this rather
+## than re-deriving it; see _build_surface.
 var _poly_cache := PackedVector2Array()
-var _poly_bounds := Rect2()
 ## The mesher's own inside mask, kept so containment is a lookup rather than a polygon walk. See
-## is_point_underwater. Empty means "no mask, fall back to the exact test everywhere".
+## _contains_local. Empty means "no mask, fall back to the exact test everywhere".
 var _mask := PackedByteArray()
 var _mask_gw := 0
 var _mask_gh := 0
 var _mask_spacing := 0.0
-## Ribbon mode only: the sampled centreline in LOCAL space (x, y, z per row) and the per-row flow
-## speed, kept so height queries and containment do not re-bake the curve. See _ribbon_height_at.
-var _ribbon_rows := PackedVector3Array()
-var _ribbon_speed := PackedFloat32Array()
-## Per-row half-width to the left and right of the centreline, in metres. Separate sides because
-## a channel cut into a slope has an asymmetric waterline -- the surface reaches further into the
-## shallow bank than the steep one, and averaging them would put the mesh edge in the air on one
-## side and underground on the other. Empty when the surface is not bank-referenced; the constant
-## ribbon_half_width is used then.
-var _ribbon_half_l := PackedFloat32Array()
-var _ribbon_half_r := PackedFloat32Array()
-## Last terrain resolved for bank sampling, and the brush whose `baked` signal we follow. Held by
-## instance check rather than reference so a freed terrain cannot be resurrected by the cache.
-var _terrain_cache: Node = null
-var _baked_source: Node = null
-## Cell -> nearest centreline row index, over _poly_bounds at _mask_spacing. -1 = not on the river.
-## The ribbon's answer to what the mask is for a loop: it turns "which row am I near" from a scan
-## over every row into an array lookup.
-var _ribbon_cell := PackedInt32Array()
-var _is_ribbon := false
-
-var _volume: Area3D = null
-var _volume_shape: CollisionShape3D = null
-var _fog: FogVolume = null
-## Bodies currently inside the Area3D box -> whether they were last reported as submerged. The box
-## is the broad phase; the polygon test that refines it has to be re-run as they move, which is why
-## this is a set and not just a pair of signal handlers.
-var _bodies_in_box := {}
-var _camera_under := false
-var _overlay_layer: CanvasLayer = null
-var _overlay_rect: ColorRect = null
-var _overlay_amount := 0.0
 
 
-func _ready() -> void:
-	add_to_group(POOL_GROUP)
-	set_notify_transform(true)
-	_connect_source()
-	if curve and not curve.changed.is_connected(_on_curve_changed):
-		curve.changed.connect(_on_curve_changed)
-	_register()
-	rebuild()
+# ---- the shape contract ------------------------------------------------------
+
+func _preset_names() -> PackedStringArray:
+	return PackedStringArray(["Lake", "Pond", "Custom"])
 
 
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_ENTER_TREE:
-		add_to_group(POOL_GROUP)
-		_register()
-	elif what == NOTIFICATION_EXIT_TREE:
-		remove_from_group(POOL_GROUP)
-		_unregister()
-		_manager_cache = null # a pool moved between scenes must re-resolve, not keep the old scene's
-		# The overlay is a CanvasLayer: leaving it up after the pool has gone would tint a scene
-		# with no water in it.
-		_drop_overlay()
-		_camera_under = false
-		_overlay_amount = 0.0
-	elif what == NOTIFICATION_TRANSFORM_CHANGED:
-		# The surface height IS this node's Y, so moving it in Y moves the water level and
-		# the mesh (built flat, in local space) needs nothing.
-		#
-		# XZ is not symmetric with that. With a source_spline the polygon is read in WORLD
-		# space and then expressed relative to this node, so an XZ move has to be compensated
-		# by a rebuild — otherwise the mesh slides off its spline and stays there until the
-		# next curve edit silently snaps it back. With a bare `curve` the points are in this
-		# node's space and genuinely travel with it, so there is nothing to recompute.
-		if curve == null and source_spline != null and is_instance_valid(source_spline):
-			_schedule_rebuild()
-		# The domain origin is this node's position — it is what keeps wave phase precise far
-		# from the world origin — so it follows the node, not just a material assignment.
-		_update_domain_origin()
-		update_gizmos()
-	elif what == NOTIFICATION_PREDELETE:
-		_unregister()
+func _preset_paths() -> Dictionary:
+	return PRESET_PATHS
 
 
-# ---- source plumbing ---------------------------------------------------------
-
-func _connect_source() -> void:
-	if source_spline == null or not is_instance_valid(source_spline):
-		return
-	if not source_spline.curve_changed.is_connected(_on_curve_changed):
-		source_spline.curve_changed.connect(_on_curve_changed)
-	if source_spline.curve and not source_spline.curve.changed.is_connected(_on_curve_changed):
-		source_spline.curve.changed.connect(_on_curve_changed)
-	_connect_baked()
+func _has_surface() -> bool:
+	return _poly_cache.size() >= 3
 
 
-## Follow the source brush's `baked` signal.
+## Cell classification off the mesher's mask, which turns the common answer into an array
+## lookup. The exact polygon walk is O(perimeter) — a few hundred edges for a lake — and Phase 6
+## asks this question per buoy per physics tick, where it cost more than the wave solve did.
 ##
-## A bank-referenced ribbon reads its surface out of terrain heights, so a Trough edit invalidates
-## it without touching the curve -- and the curve is the only thing the rest of this file watches.
-## Deepening a channel by 2 m with no spline change would have left the water where it was.
-func _connect_baked() -> void:
-	var brush := _source_brush()
-	if brush == null or not brush.has_signal("baked"):
-		return
-	if _baked_source == brush and is_instance_valid(brush):
-		return
-	_disconnect_baked()
-	_baked_source = brush
-	if not brush.baked.is_connected(_on_source_baked):
-		brush.baked.connect(_on_source_baked)
+## Reading the MESHER's mask rather than a structure of its own is the point: a cell whose four
+## corners are all inside is exactly a cell the mesher filled with a quad, so "contained" and
+## "drawn" cannot disagree. Only cells the boundary crosses fall through to the exact test, and
+## there are O(shore length) of those.
+func _contains_local(p_local_xz: Vector2) -> bool:
+	match _cell_state(p_local_xz):
+		0:
+			return false
+		1:
+			return true # every corner inside: the mesher drew a full quad here
+	return Geometry2D.is_point_in_polygon(p_local_xz, _poly_cache)
 
 
-func _disconnect_baked() -> void:
-	if _baked_source != null and is_instance_valid(_baked_source) 			and _baked_source.has_signal("baked") 			and _baked_source.baked.is_connected(_on_source_baked):
-		_baked_source.baked.disconnect(_on_source_baked)
-	_baked_source = null
-
-
-## The terrain under this pool was rebaked. Only a bank-referenced ribbon cares -- a loop pool's
-## level is its own transform and a ribbon with no terrain is on fill_offset, and rebuilding
-## either on every brush bake would be a rebuild storm while a spline is dragged.
-func _on_source_baked() -> void:
-	if _is_ribbon and _resolve_terrain() != null:
-		_schedule_rebuild()
-
-
-func _disconnect_source() -> void:
-	_disconnect_baked()
-	if source_spline == null or not is_instance_valid(source_spline):
-		return
-	if source_spline.curve_changed.is_connected(_on_curve_changed):
-		source_spline.curve_changed.disconnect(_on_curve_changed)
-	if source_spline.curve and source_spline.curve.changed.is_connected(_on_curve_changed):
-		source_spline.curve.changed.disconnect(_on_curve_changed)
-
-
-func _on_curve_changed() -> void:
-	_schedule_rebuild()
-
-
-## Follow the source spline when it MOVES, as opposed to when its points change.
-##
-## The pool reads its polygon through `source_spline.global_transform`, so dragging the
-## brush -- or the Path3D under it, or any ancestor of either -- changes where the water
-## is, and its shape if there is any rotation or scale. None of that emits a signal the
-## pool could connect to: Node3D transform notifications reach the node that moved and
-## its children, and a pool is a SIBLING of its brush by design (§7.7), so it is in
-## neither set. A once-per-frame Transform3D comparison is the honest way to see it.
-##
-## The cost is one is_equal_approx per pool per frame and a debounced rebuild only when
-## the answer changes, which is why this is not gated to the editor: a runtime scene that
-## moves a brush should move its water too, and paying microseconds to make that true
-## everywhere is better than an editor-only behaviour that surprises someone at runtime.
-func _process(p_delta: float) -> void:
-	_poll_camera()
-	_update_overlay(p_delta)
-	if source_spline == null or not is_instance_valid(source_spline):
-		return
-	var xf := source_spline.global_transform
-	if not xf.is_equal_approx(_source_xform):
-		_source_xform = xf
-		_schedule_rebuild()
-
-
-## Debounced, because dragging one spline handle emits `changed` every mouse move and a
-## 500 m lake is not a per-frame rebuild. Same idiom as Pasture3DTerrainBrush.
-func _schedule_rebuild() -> void:
-	if not is_inside_tree():
-		return
-	_dirty = true
-	if _timer != null:
-		return
-	_timer = get_tree().create_timer(REFRESH_DELAY)
-	_timer.timeout.connect(func():
-		_timer = null
-		if _dirty:
-			_dirty = false
-			rebuild())
-
-
-# ---- the manager -------------------------------------------------------------
-
-## The manager driving this pool, cached.
-##
-## The cache is not premature. get_water_height() calls this, and Phase 6 puts that on the physics
-## tick for every buoy in the scene — 64 buoys is 64 calls, each of which was allocating an Array
-## from get_nodes_in_group() and throwing it away. Held by instance id rather than by reference so a
-## freed manager cannot be resurrected by the cache, and re-resolved whenever it goes invalid.
-func _resolve_manager() -> Node:
-	if manager != null and is_instance_valid(manager):
-		return manager
-	if _manager_cache != null and is_instance_valid(_manager_cache) \
-			and _manager_cache.is_inside_tree():
-		return _manager_cache
-	if not is_inside_tree():
-		return null
-	var found := get_tree().get_nodes_in_group(&"pasture3d_water_manager")
-	_manager_cache = found[0] if not found.is_empty() else null
-	return _manager_cache
-
-
-func _register() -> void:
-	var m := _resolve_manager()
-	if m and m.has_method("register_body"):
-		m.register_body(self)
-		if m.has_signal("profiles_changed") and not m.profiles_changed.is_connected(_on_profiles_changed):
-			m.profiles_changed.connect(_on_profiles_changed)
-
-
-func _unregister() -> void:
-	var m := _resolve_manager()
-	if m and m.has_method("unregister_body"):
-		m.unregister_body(self)
-
-
-func _on_profiles_changed() -> void:
-	# The dropdown is built from the manager's live names (see _validate_property), so a
-	# profile added or renamed has to re-hint the property or the list goes stale.
-	notify_property_list_changed()
-	# A profile knob moved. The table is re-uploaded by the manager into the shared
-	# material, but the wavelength may have changed, and vertex spacing is derived
-	# from it — so the MESH may now be too coarse for the waves it carries.
-	if vertex_spacing <= 0.0:
-		_schedule_rebuild()
+func _shape_warnings() -> PackedStringArray:
+	var w := PackedStringArray()
+	var src := _source_curve()
+	if src == null:
+		w.append("No source. Set source_spline to a brush's Path3D, or assign a Curve3D.")
+	elif not src.closed:
+		# The split's one behaviour change, so it names the class AND the button rather than
+		# reporting a shape problem: water authored before it will land here, having silently
+		# meshed itself as a ribbon for however long, and "3 points" would be the wrong diagnosis.
+		w.append("This curve is OPEN, and a Pasture3DPool fills a CLOSED outline. An open curve "
+			+ "is a river: press Convert to Stream to turn this into a Pasture3DStream, which "
+			+ "follows the channel downhill and takes its surface from the banks.")
+	elif src.point_count < 3:
+		w.append("The source curve has fewer than 3 points, so there is no area to fill.")
+	elif _local_polygon(_effective_spacing()).size() < 3:
+		w.append("The source curve collapses to fewer than 3 usable points at this vertex "
+			+ "spacing, so there is no area to fill.")
+	return w
 
 
 # ---- geometry ----------------------------------------------------------------
@@ -507,23 +103,15 @@ func _on_profiles_changed() -> void:
 ## Returns an empty array when there is no usable closed curve.
 func _local_polygon(p_spacing: float) -> PackedVector2Array:
 	var out := PackedVector2Array()
-	var src: Curve3D = null
-	var to_local_xf := Transform3D()
-	if curve != null:
-		src = curve
-		# A bare Curve3D has no transform of its own; its points are this node's space.
-		to_local_xf = Transform3D()
-	elif source_spline != null and is_instance_valid(source_spline) and source_spline.curve != null:
-		src = source_spline.curve
-		# Spline space -> world -> our space, so the pool tracks the brush.
-		to_local_xf = global_transform.affine_inverse() * source_spline.global_transform
+	var src := _source_curve()
 	if src == null or src.point_count < 3:
 		return out
 	# An OPEN curve is a river, not a lake. Filling one means closing it between its two
-	# endpoints, which is a wedge the user never drew — so refuse and let the
-	# configuration warning say why. Ribbon meshing (spec §10) is what open curves get.
+	# endpoints, which is a wedge the user never drew — so refuse and let the configuration
+	# warning point at Pasture3DStream.
 	if not src.closed:
 		return out
+	var to_local_xf := _source_to_local()
 
 	var pts := src.get_baked_points()
 	if pts.size() < 3:
@@ -604,46 +192,17 @@ func _inside_mask(p_poly: PackedVector2Array, p_min: Vector2, p_spacing: float,
 	return mask
 
 
-## Builds the surface mesh. Returns a stats dictionary (also kept in _last_stats) so a
-## gate can assert on it without re-deriving anything.
-func rebuild() -> Dictionary:
-	_last_stats = {"ok": false, "reason": "", "vertices": 0, "triangles": 0,
-		"spacing": 0.0, "ms": 0.0}
-	if not is_inside_tree():
-		_last_stats["reason"] = "not in tree"
-		return _last_stats
-	# Baseline the spline-move watcher (_process) against the pose this build reflects, so a
-	# rebuild triggered by anything else does not leave it looking like a move.
-	if source_spline != null and is_instance_valid(source_spline):
-		_source_xform = source_spline.global_transform
-	var t0 := Time.get_ticks_usec()
-
-	var spacing := _effective_spacing()
-	_last_stats["spacing"] = spacing
-
-	# Mode is read off the CURVE's closed flag, not off the brush class or a toggle of our own
-	# (§7.8 step 4), so a Mound whose loop the user opened becomes a river and a Trough whose
-	# channel they closed becomes a moat, both without touching anything here.
-	var src := _source_curve()
-	_is_ribbon = src != null and not src.closed and src.point_count >= 2
-	if _is_ribbon:
-		return _rebuild_ribbon(spacing)
-	_ribbon_rows = PackedVector3Array()
-	_ribbon_cell = PackedInt32Array()
-
-	var poly := _offset_polygon(_local_polygon(spacing))
+## Fill the loop with a flat sheet at this node's Y.
+func _build_surface(p_spacing: float) -> void:
+	var poly := _offset_polygon(_local_polygon(p_spacing))
 	# Cache it. Every containment question — the camera poll, the Area3D re-filter, a buoy asking
 	# which body it is in — needs this same polygon, and rebuilding it per query means re-baking the
 	# curve, decimating it and running Geometry2D.offset_polygon several times a frame. It only
 	# changes when the mesh does, so it is stored where the mesh is.
 	_poly_cache = poly
 	if poly.size() < 3:
-		_clear_surface()
-		_poly_bounds = Rect2()
-		_mask = PackedByteArray()
-		_last_stats["reason"] = "no usable closed curve"
-		update_configuration_warnings()
-		return _last_stats
+		_build_failed("no usable closed curve")
+		return
 
 	# Bounds, snapped outward to the grid so the lattice is stable as the loop moves.
 	var mn := poly[0]
@@ -651,34 +210,29 @@ func rebuild() -> Dictionary:
 	for v in poly:
 		mn = Vector2(minf(mn.x, v.x), minf(mn.y, v.y))
 		mx = Vector2(maxf(mx.x, v.x), maxf(mx.y, v.y))
-	mn = Vector2(floorf(mn.x / spacing) * spacing, floorf(mn.y / spacing) * spacing)
-	mx = Vector2(ceilf(mx.x / spacing) * spacing, ceilf(mx.y / spacing) * spacing)
+	mn = Vector2(floorf(mn.x / p_spacing) * p_spacing, floorf(mn.y / p_spacing) * p_spacing)
+	mx = Vector2(ceilf(mx.x / p_spacing) * p_spacing, ceilf(mx.y / p_spacing) * p_spacing)
 	# Local-space XZ bounds of the polygon: the broad phase for every containment query, and the
 	# footprint the underwater volume spans.
 	_poly_bounds = Rect2(mn, mx - mn)
-	var gw := int(round((mx.x - mn.x) / spacing)) + 1
-	var gh := int(round((mx.y - mn.y) / spacing)) + 1
+	var gw := int(round((mx.x - mn.x) / p_spacing)) + 1
+	var gh := int(round((mx.y - mn.y) / p_spacing)) + 1
 	if gw < 2 or gh < 2:
-		_clear_surface()
-		_last_stats["reason"] = "loop smaller than one grid cell"
-		update_configuration_warnings()
-		return _last_stats
-	if gw * gh > max_vertices:
-		_clear_surface()
-		_last_stats["reason"] = "would exceed max_vertices (%d) at %.2f m spacing; it needs %d" % [
-			max_vertices, spacing, gw * gh]
-		update_configuration_warnings()
-		return _last_stats
+		_build_failed("loop smaller than one grid cell")
+		return
+	if _budget_exceeded(gw * gh, p_spacing):
+		return
 
-	# The mesher's inside mask, kept for containment queries (see is_point_underwater). Built here
+	# The mesher's inside mask, kept for containment queries (see _contains_local). Built here
 	# rather than inside the mesher so both mesher paths produce it and both agree with it.
-	if ClassDB.class_exists("Pasture3DUtil") 			and ClassDB.class_has_method("Pasture3DUtil", "build_inside_mask", true):
-		_mask = Pasture3DUtil.build_inside_mask(poly, mn, spacing, gw, gh)
+	if ClassDB.class_exists("Pasture3DUtil") \
+			and ClassDB.class_has_method("Pasture3DUtil", "build_inside_mask", true):
+		_mask = Pasture3DUtil.build_inside_mask(poly, mn, p_spacing, gw, gh)
 	else:
-		_mask = _inside_mask(poly, mn, spacing, gw, gh)
+		_mask = _inside_mask(poly, mn, p_spacing, gw, gh)
 	_mask_gw = gw
 	_mask_gh = gh
-	_mask_spacing = spacing
+	_mask_spacing = p_spacing
 
 	# The O(area) half. Native by default (spec §12 q1): the GDScript below is a faithful
 	# transcription kept as the A/B oracle, exactly as the brushes keep force_gdscript_raster, and
@@ -687,16 +241,14 @@ func rebuild() -> Dictionary:
 	var native := false
 	if not force_gdscript_mesh and ClassDB.class_exists("Pasture3DUtil") \
 			and ClassDB.class_has_method("Pasture3DUtil", "build_pool_mesh", true):
-		mesh = Pasture3DUtil.build_pool_mesh(poly, mn, spacing, gw, gh)
+		mesh = Pasture3DUtil.build_pool_mesh(poly, mn, p_spacing, gw, gh)
 		native = mesh != null
 	if not native:
-		mesh = _build_mesh_gdscript(poly, mn, spacing, gw, gh, _mask)
+		mesh = _build_mesh_gdscript(poly, mn, p_spacing, gw, gh, _mask)
 	_last_stats["native"] = native
 	if mesh == null:
-		_clear_surface()
-		_last_stats["reason"] = "no cells inside the loop"
-		update_configuration_warnings()
-		return _last_stats
+		_build_failed("no cells inside the loop")
+		return
 
 	_ensure_surface()
 	_surface.mesh = mesh
@@ -709,22 +261,6 @@ func rebuild() -> Dictionary:
 	_last_stats["ok"] = true
 	_last_stats["vertices"] = counted.x
 	_last_stats["triangles"] = counted.y
-	_last_stats["ms"] = float(Time.get_ticks_usec() - t0) / 1000.0
-	update_configuration_warnings()
-	update_gizmos() # the selection marker floats over the surface, so it moves with it
-	return _last_stats
-
-
-## Vertex and triangle counts of a built surface, as a Vector2i. Read back off the mesh rather than
-## tracked alongside it, so the number reported is the number that was actually uploaded whichever
-## mesher produced it.
-func _count_mesh(p_mesh: ArrayMesh) -> Vector2i:
-	if p_mesh == null or p_mesh.get_surface_count() == 0:
-		return Vector2i.ZERO
-	var arrays := p_mesh.surface_get_arrays(0)
-	var v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	var i: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
-	return Vector2i(v.size(), i.size() / 3)
 
 
 ## The GDScript mesher: the A/B oracle for Pasture3DUtil.build_pool_mesh.
@@ -797,15 +333,6 @@ func _build_mesh_gdscript(poly: PackedVector2Array, mn: Vector2, spacing: float,
 	return mesh
 
 
-## A flow colour that decodes to "no flow", one per vertex. Loop pools write this so the river
-## shader is inert on a lake instead of sliding its texture diagonally (§10).
-func _neutral_colours(p_count: int) -> PackedColorArray:
-	var out := PackedColorArray()
-	out.resize(p_count)
-	out.fill(FLOW_NEUTRAL)
-	return out
-
-
 func _grid_vert(p_map: Dictionary, p_verts: PackedVector3Array, p_uvs: PackedVector2Array,
 		p_ix: int, p_iz: int, p_min: Vector2, p_spacing: float, p_gw: int) -> int:
 	var key := p_iz * p_gw + p_ix
@@ -820,882 +347,6 @@ func _grid_vert(p_map: Dictionary, p_verts: PackedVector3Array, p_uvs: PackedVec
 	return idx
 
 
-## Vertex spacing actually used: the explicit value, or a eighth of the profile's
-## shortest wavelength. Clamped so a pathological profile cannot author a mesh that
-## takes minutes or one that is a single quad.
-func _effective_spacing() -> float:
-	if vertex_spacing > 0.0:
-		return vertex_spacing
-	var m := _resolve_manager()
-	if m and m.has_method("get_profile"):
-		var profile = m.get_profile(wave_profile)
-		if profile != null:
-			var l_min: float = profile.get_min_wavelength()
-			if l_min > 0.0:
-				return clampf(l_min / 8.0, 0.25, 8.0)
-	return 1.0
-
-
-## The waves displace the surface well outside the flat mesh's own bounds, so the mesh
-## AABB would cull the pool the moment a crest was the only thing on screen. Grown by
-## the profile's amplitude sum, which is what the surface ACTUALLY reaches — the same
-## mistake water spec §4.5 documents for the ocean.
-func _apply_cull_box(p_min: Vector2, p_max: Vector2) -> void:
-	if _surface == null:
-		return
-	var amp := 1.0
-	var m := _resolve_manager()
-	if m and m.has_method("get_profile"):
-		var profile = m.get_profile(wave_profile)
-		if profile != null:
-			amp = maxf(profile.get_amplitude_sum(), 0.1)
-	var size := Vector3(p_max.x - p_min.x, amp * 2.0, p_max.y - p_min.y)
-	_surface.custom_aabb = AABB(Vector3(p_min.x, -amp, p_min.y), size)
-
-
-# ---- ribbon mode (spec §7.3, §10) --------------------------------------------
-
-## Build the surface for an OPEN curve: a river rather than a lake.
-##
-## The two modes differ in more than outline. A loop is a flat sheet at the node's Y, clipped to a
-## polygon; a ribbon FOLLOWS THE SPLINE'S OWN Y (§7.2), because rivers run downhill and a flat one
-## reads as a canal cut through the hillside. So the mesh here carries real Y per row, and every
-## height query has to ask the centreline rather than return one number.
-func _rebuild_ribbon(p_spacing: float) -> Dictionary:
-	var t0 := Time.get_ticks_usec()
-	var centre := _ribbon_centreline(p_spacing)
-	if centre.size() < 2:
-		_clear_surface()
-		_ribbon_rows = PackedVector3Array()
-		_ribbon_cell = PackedInt32Array()
-		_last_stats["reason"] = "the curve has no usable length"
-		update_configuration_warnings()
-		return _last_stats
-	_ribbon_rows = centre
-
-	# Column count is sized off the WIDEST row, so a river that opens out is not under-sampled
-	# there; narrower rows pack the same columns closer, which costs nothing and keeps the strip
-	# a regular grid.
-	var half := ribbon_half_width + edge_offset
-	var widest := half
-	for r in centre.size():
-		widest = maxf(widest, _row_half(r, true) + _row_half(r, false))
-	# Columns across the channel at the same spacing as along it, so the surface is not stretched in
-	# one axis -- the detail normals are derived from world position and a stretched grid shows.
-	var cols := maxi(int(ceil(widest / p_spacing)) + 1, 2)
-	var rows := centre.size()
-	if rows * cols > max_vertices:
-		_clear_surface()
-		_last_stats["reason"] = "would exceed max_vertices (%d) at %.2f m spacing; it needs %d" % [
-			max_vertices, p_spacing, rows * cols]
-		update_configuration_warnings()
-		return _last_stats
-
-	var verts := PackedVector3Array()
-	var uvs := PackedVector2Array()
-	var colours := PackedColorArray()
-	var indices := PackedInt32Array()
-	verts.resize(rows * cols)
-	uvs.resize(rows * cols)
-	colours.resize(rows * cols)
-
-	var mn := Vector2(INF, INF)
-	var mx := Vector2(-INF, -INF)
-	for r in rows:
-		var c: Vector3 = centre[r]
-		var tangent := _ribbon_tangent(centre, r)
-		# Perpendicular in XZ. Y is deliberately not rotated into: the surface stays horizontal
-		# across the channel and only its centreline descends, which is what water does.
-		var side := Vector2(-tangent.y, tangent.x)
-		var speed: float = _ribbon_speed[r]
-		# Only the ENCODED direction is reversed, not `side` above: flipping the perpendicular
-		# would swap the left and right waterlines out from under the containment test, which
-		# reads them by the same sign convention.
-		var flow := -tangent if flow_reverse else tangent
-		var col := Color(
-			flow.x * 0.5 + 0.5, flow.y * 0.5 + 0.5,
-			clampf(speed / FLOW_SPEED_REF, 0.0, 1.0), 1.0)
-		var half_l := _row_half(r, true)
-		var half_r := _row_half(r, false)
-		for k in cols:
-			var t := float(k) / float(cols - 1)
-			# Asymmetric: -left .. +right, so a channel cut into a slope keeps its mesh edge on
-			# the waterline on BOTH sides rather than splitting the difference.
-			var off := lerpf(-half_l, half_r, t)
-			var x := c.x + side.x * off
-			var z := c.z + side.y * off
-			var i := r * cols + k
-			verts[i] = Vector3(x, c.y, z)
-			uvs[i] = Vector2(x, z)
-			colours[i] = col
-			mn = Vector2(minf(mn.x, x), minf(mn.y, z))
-			mx = Vector2(maxf(mx.x, x), maxf(mx.y, z))
-	for r in rows - 1:
-		for k in cols - 1:
-			var a := r * cols + k
-			var b := a + 1
-			var cc := (r + 1) * cols + k
-			var d := cc + 1
-			# Same winding as the loop mesher: CCW seen from above.
-			indices.append_array([a, cc, b, b, cc, d])
-
-	var normals := PackedVector3Array()
-	normals.resize(verts.size())
-	normals.fill(Vector3.UP)
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_COLOR] = colours
-	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-
-	_poly_bounds = Rect2(mn, mx - mn)
-	_poly_cache = PackedVector2Array() # a ribbon has no polygon; containment is the cell grid
-	_mask = PackedByteArray()
-	_mask_spacing = p_spacing
-	# The cell grid is a broad phase, so it takes the WIDEST reach on the river rather than a
-	# per-row one -- stamping short would lose cells that _ribbon_surface_at would then have
-	# accepted, and a containment test that disagrees with itself by row is worse than a coarse one.
-	_build_ribbon_cells(p_spacing, maxf(widest, half))
-
-	_ensure_surface()
-	_surface.mesh = mesh
-	_apply_material()
-	_apply_cull_box(mn, mx)
-	_rebuild_volume()
-
-	_last_stats["ok"] = true
-	_last_stats["native"] = false # ribbon meshing is O(rows x cols); there is no native path yet
-	_last_stats["ribbon"] = true
-	_last_stats["vertices"] = verts.size()
-	_last_stats["triangles"] = indices.size() / 3
-	_last_stats["ms"] = float(Time.get_ticks_usec() - t0) / 1000.0
-	update_configuration_warnings()
-	update_gizmos()
-	return _last_stats
-
-
-## The centreline, sampled at uniform ARC LENGTH in this node's local space, with the per-row flow
-## speed filled in alongside.
-##
-## fill_offset is applied here, once, so every row carries the level it will be drawn at and no
-## other code has to remember to add it.
-func _ribbon_centreline(p_spacing: float) -> PackedVector3Array:
-	var out := PackedVector3Array()
-	_ribbon_speed = PackedFloat32Array()
-	var src := _source_curve()
-	if src == null or src.point_count < 2:
-		return out
-	var xf := Transform3D()
-	if curve == null and source_spline != null and is_instance_valid(source_spline):
-		xf = global_transform.affine_inverse() * source_spline.global_transform
-	var baked := src.get_baked_points()
-	if baked.size() < 2:
-		return out
-
-	var step := maxf(p_spacing, 0.25)
-	var last := Vector3.INF
-	for p in baked:
-		var lp: Vector3 = xf * p
-		if last == Vector3.INF or Vector2(lp.x - last.x, lp.z - last.z).length() >= step:
-			out.append(lp)
-			last = lp
-	# Always keep the final point, or the river stops short of where the spline ends.
-	var final_p: Vector3 = xf * baked[baked.size() - 1]
-	if out.is_empty() or Vector2(final_p.x - out[out.size() - 1].x,
-			final_p.z - out[out.size() - 1].z).length() > step * 0.25:
-		out.append(final_p)
-
-	# The rows still carry the BED height here -- the spline's own Y. _apply_bank_surface lifts
-	# them to the water level, or falls back to fill_offset when there is no terrain to ask.
-	_apply_bank_surface(out, p_spacing)
-
-	# Flow speed per row, from the downhill gradient: steeper reaches read as rapids, and a river
-	# authored on a level spline still flows at the base rate rather than not at all.
-	_ribbon_speed.resize(out.size())
-	for r in out.size():
-		var a: Vector3 = out[maxi(r - 1, 0)]
-		var b: Vector3 = out[mini(r + 1, out.size() - 1)]
-		var run := Vector2(b.x - a.x, b.z - a.z).length()
-		# Positive running downhill IN THE DIRECTION OF FLOW. Reversed, the descent that made a
-		# reach a rapid now makes it a climb, so the sign goes with the toggle -- otherwise a
-		# reversed river would speed up exactly where it should be slowing down.
-		var drop: float = (b.y - a.y) if flow_reverse else (a.y - b.y)
-		var grade := (drop / run) if run > 1e-4 else 0.0
-		_ribbon_speed[r] = flow_speed * (1.0 + flow_slope_gain * maxf(grade, 0.0))
-	return out
-
-
-## Lift the centreline from the bed to the water surface, and find the waterline on each side.
-##
-## Called with rows still at the spline's own Y. On exit every row carries the surface height it
-## will be drawn at, and _ribbon_half_l / _ribbon_half_r carry that row's waterline.
-##
-## THE FALLBACK MATTERS AS MUCH AS THE FEATURE. With no Pasture3D to sample -- a ribbon on a bare
-## mesh, a headless fixture, a scene mid-load -- this returns to the old bed + fill_offset
-## behaviour and leaves the widths empty rather than producing a flat or buried river. The water
-## guide supports water with no terrain in the scene and that has to keep working.
-func _apply_bank_surface(p_rows: PackedVector3Array, p_spacing: float) -> void:
-	_ribbon_half_l = PackedFloat32Array()
-	_ribbon_half_r = PackedFloat32Array()
-	var terrain := _resolve_terrain()
-	if terrain == null or p_rows.is_empty():
-		for r in p_rows.size():
-			var row := p_rows[r]
-			row.y += fill_offset
-			p_rows[r] = row
-		return
-
-	var search := _effective_bank_search()
-	var n := p_rows.size()
-	var surface := PackedFloat32Array()
-	surface.resize(n)
-	var sampled := PackedByteArray()
-	sampled.resize(n)
-
-	for r in n:
-		var c: Vector3 = p_rows[r]
-		var tangent := _ribbon_tangent(p_rows, r)
-		var side := Vector2(-tangent.y, tangent.x)
-		var world := global_transform * c
-		var centre_xz := Vector2(world.x, world.z)
-		var left := _bank_crest(terrain, centre_xz, side, search, p_spacing)
-		var right := _bank_crest(terrain, centre_xz, -side, search, p_spacing)
-		var crest := NAN
-		if is_finite(left) and is_finite(right):
-			# The LOWER bank decides the level: water cannot stand higher than the side it
-			# would spill over.
-			crest = minf(left, right)
-		elif is_finite(left):
-			crest = left
-		elif is_finite(right):
-			crest = right
-		if is_finite(crest):
-			# Back into this node's space, since the rows are local.
-			var local_crest: float = (global_transform.affine_inverse()
-					* Vector3(world.x, crest, world.z)).y
-			surface[r] = local_crest - bank_height
-			sampled[r] = 1
-		else:
-			surface[r] = c.y + fill_offset
-			sampled[r] = 0
-
-	_smooth_line(surface, bank_smoothing)
-
-	# Never below the bed. Where the clamp bites, depth is zero and the reach is a ford -- which
-	# is the point of sampling banks rather than offsetting the floor.
-	for r in n:
-		var row := p_rows[r]
-		row.y = maxf(surface[r], row.y)
-		p_rows[r] = row
-
-	_ribbon_half_l.resize(n)
-	_ribbon_half_r.resize(n)
-	for r in n:
-		if sampled[r] == 0:
-			_ribbon_half_l[r] = ribbon_half_width
-			_ribbon_half_r[r] = ribbon_half_width
-			continue
-		var c2: Vector3 = p_rows[r]
-		var tangent2 := _ribbon_tangent(p_rows, r)
-		var side2 := Vector2(-tangent2.y, tangent2.x)
-		var world2 := global_transform * c2
-		var centre2 := Vector2(world2.x, world2.z)
-		var surf_world: float = (global_transform * Vector3(0.0, c2.y, 0.0)).y
-		_ribbon_half_l[r] = _waterline_half(terrain, centre2, side2, surf_world, search, p_spacing)
-		_ribbon_half_r[r] = _waterline_half(terrain, centre2, -side2, surf_world, search, p_spacing)
-	_smooth_line(_ribbon_half_l, bank_smoothing)
-	_smooth_line(_ribbon_half_r, bank_smoothing)
-
-
-## In-place box blur along a per-row line. Endpoints are held so the river keeps starting and
-## ending where the spline says it does.
-func _smooth_line(p_values: PackedFloat32Array, p_passes: int) -> void:
-	var n := p_values.size()
-	if p_passes <= 0 or n < 3:
-		return
-	for _pass in p_passes:
-		var prev: float = p_values[0]
-		for i in range(1, n - 1):
-			var cur: float = p_values[i]
-			p_values[i] = (prev + cur + p_values[i + 1]) / 3.0
-			prev = cur
-
-
-# ---- bank sampling (the ribbon's surface reference) --------------------------
-
-## The Pasture3D this pool samples bank heights from, or null.
-##
-## Via the source brush first, because that is the terrain the channel was actually carved into
-## and a scene can hold more than one. Falls back to a search so a hand-placed ribbon over terrain
-## still works. Null is a supported answer, not a failure: a pool on a bare mesh with no Pasture3D
-## in the scene is a case the water guide explicitly supports, and it falls back to fill_offset.
-func _resolve_terrain() -> Node:
-	if _terrain_cache != null and is_instance_valid(_terrain_cache) 			and _terrain_cache.is_inside_tree():
-		return _terrain_cache
-	_terrain_cache = null
-	var brush := _source_brush()
-	if brush != null and brush.get("terrain") != null:
-		var t = brush.get("terrain")
-		if t != null and is_instance_valid(t):
-			_terrain_cache = t
-			return _terrain_cache
-	if not is_inside_tree():
-		return null
-	# Ancestors first: a pool is normally a sibling of its brush under the Pasture3D, so this
-	# finds the right terrain in one short walk and cannot pick the wrong one in a scene with
-	# two. Only then fall back to a search.
-	var up: Node = get_parent()
-	while up != null:
-		if up.is_class("Pasture3D"):
-			_terrain_cache = up
-			return _terrain_cache
-		up = up.get_parent()
-	# current_scene is null in a --script harness and during some editor transitions, so the
-	# tree root is the fallback rather than the first choice.
-	for root in [get_tree().current_scene, get_tree().root]:
-		if root == null:
-			continue
-		for n in _descendants(root):
-			if n.is_class("Pasture3D"):
-				_terrain_cache = n
-				return _terrain_cache
-	return _terrain_cache
-
-
-## Composited terrain height at a world XZ, or NAN when there is no terrain to ask.
-func _terrain_height(p_terrain: Node, p_world_xz: Vector2) -> float:
-	if p_terrain == null:
-		return NAN
-	var data = p_terrain.get("data")
-	if data == null or not data.has_method("get_height"):
-		return NAN
-	var h: float = data.get_height(Vector3(p_world_xz.x, 0.0, p_world_xz.y))
-	return h if is_finite(h) else NAN
-
-
-## The spill height of one bank: the LOWEST terrain in the band just inside the search limit.
-##
-## Lowest and not highest, because water fills until it reaches the lowest edge that still holds
-## it. A maximum would happily fill past a gap in the bank and flood whatever is beyond. Returns
-## NAN when the terrain cannot be sampled, which the caller treats as "no bank here".
-func _bank_crest(p_terrain: Node, p_world_centre: Vector2, p_side: Vector2,
-		p_search: float, p_spacing: float) -> float:
-	# Only the outer quarter of the span: nearer in is the bank ramp, still climbing, and its
-	# height is a function of how far out we happened to look rather than of the channel.
-	var from := p_search * 0.75
-	var step := maxf(p_spacing, 0.5)
-	var best := NAN
-	var d := from
-	while d <= p_search + 1e-4:
-		var h := _terrain_height(p_terrain, p_world_centre + p_side * d)
-		if is_finite(h) and (not is_finite(best) or h < best):
-			best = h
-		d += step
-	return best
-
-
-## Lateral distance from the centreline to where the ground rises to `p_surface_y` -- the
-## waterline on this side. This is what makes the ribbon widen in a shallow reach and pull in
-## through a gorge without anyone authoring a width curve.
-##
-## Floored at one grid step: a fully dry row (bed above the surface, a ford at its driest) would
-## otherwise collapse to zero width and tear the triangle strip. A sliver of zero-depth water is
-## something the shore foam and depth fade already know how to hide; a hole in the mesh is not.
-func _waterline_half(p_terrain: Node, p_world_centre: Vector2, p_side: Vector2,
-		p_surface_y: float, p_search: float, p_spacing: float) -> float:
-	var step := maxf(p_spacing, 0.25)
-	var d := step
-	while d <= p_search:
-		var h := _terrain_height(p_terrain, p_world_centre + p_side * d)
-		if is_finite(h) and h >= p_surface_y:
-			return maxf(d, step)
-		d += step
-	return maxf(p_search, step)
-
-
-## How far out to look for the bank. Explicit if set, else the channel the brush carved.
-func _effective_bank_search() -> float:
-	if bank_search_width > 0.0:
-		return bank_search_width
-	var brush := _source_brush()
-	if brush != null:
-		var bed = brush.get("bed_half_width")
-		var bank = brush.get("bank_width")
-		if bed != null and bank != null:
-			return maxf(float(bed) + float(bank), 1.0)
-	return maxf(ribbon_half_width * 3.0, 1.0)
-
-
-## Unit XZ tangent at row `p_i`, from its neighbours. A central difference, so a bend turns smoothly
-## across the rows rather than stepping at each sample -- which is what the fragment stage
-## interpolates between and therefore what makes flow direction correct through a corner.
-func _ribbon_tangent(p_centre: PackedVector3Array, p_i: int) -> Vector2:
-	var a: Vector3 = p_centre[maxi(p_i - 1, 0)]
-	var b: Vector3 = p_centre[mini(p_i + 1, p_centre.size() - 1)]
-	var t := Vector2(b.x - a.x, b.z - a.z)
-	if t.length_squared() < 1e-10:
-		return Vector2(1.0, 0.0)
-	return t.normalized()
-
-
-## Stamp each grid cell over the ribbon's bounds with the nearest centreline row, or -1.
-##
-## The ribbon's equivalent of the loop's inside mask, and it exists for the same reason: Phase 6
-## asks containment and height per buoy per physics tick, and scanning every row of a long river for
-## the nearest is O(rows) per query. Built by walking the ROWS and stamping the cells within reach of
-## each, so the build costs O(rows x reach) rather than O(cells).
-func _build_ribbon_cells(p_spacing: float, p_half: float) -> void:
-	var gw := int(ceil(_poly_bounds.size.x / p_spacing)) + 2
-	var gh := int(ceil(_poly_bounds.size.y / p_spacing)) + 2
-	_mask_gw = gw
-	_mask_gh = gh
-	_ribbon_cell = PackedInt32Array()
-	_ribbon_cell.resize(gw * gh)
-	_ribbon_cell.fill(-1)
-	var reach := int(ceil((p_half + p_spacing) / p_spacing)) + 1
-	for r in _ribbon_rows.size():
-		var c: Vector3 = _ribbon_rows[r]
-		var cx := int(floor((c.x - _poly_bounds.position.x) / p_spacing))
-		var cz := int(floor((c.z - _poly_bounds.position.y) / p_spacing))
-		for dz in range(-reach, reach + 1):
-			var iz := cz + dz
-			if iz < 0 or iz >= gh:
-				continue
-			for dx in range(-reach, reach + 1):
-				var ix := cx + dx
-				if ix < 0 or ix >= gw:
-					continue
-				# First-writer-wins is wrong at a bend, where a later row can be nearer. Compare.
-				var idx := iz * gw + ix
-				var px := _poly_bounds.position.x + (ix + 0.5) * p_spacing
-				var pz := _poly_bounds.position.y + (iz + 0.5) * p_spacing
-				var d := Vector2(px - c.x, pz - c.z).length_squared()
-				if _ribbon_cell[idx] < 0:
-					_ribbon_cell[idx] = r
-				else:
-					var o: Vector3 = _ribbon_rows[_ribbon_cell[idx]]
-					if d < Vector2(px - o.x, pz - o.z).length_squared():
-						_ribbon_cell[idx] = r
-
-
-## This row's half-width on one side, in metres, including edge_offset.
-##
-## One accessor for the whole ribbon so the mesher, the containment test and the cell grid cannot
-## disagree about how wide the river is at a given row -- they did once, and the symptom was a
-## buoy floating beside water it was not in.
-func _row_half(p_row: int, p_left: bool) -> float:
-	var arr := _ribbon_half_l if p_left else _ribbon_half_r
-	if p_row < 0 or p_row >= arr.size():
-		return ribbon_half_width + edge_offset
-	return arr[p_row] + edge_offset
-
-
-## Nearest centreline row to a local XZ, or -1 when the point is nowhere near the river.
-func _ribbon_nearest_row(p_local_xz: Vector2) -> int:
-	if _ribbon_cell.is_empty() or _mask_spacing <= 0.0 or _ribbon_rows.is_empty():
-		return -1
-	var ix := int(floor((p_local_xz.x - _poly_bounds.position.x) / _mask_spacing))
-	var iz := int(floor((p_local_xz.y - _poly_bounds.position.y) / _mask_spacing))
-	if ix < 0 or iz < 0 or ix >= _mask_gw or iz >= _mask_gh:
-		return -1
-	var seed: int = _ribbon_cell[iz * _mask_gw + ix]
-	if seed < 0:
-		return -1
-	# The cell answers to within one cell; refine over a small window so a query near a bend lands
-	# on the genuinely nearest row rather than on whichever one stamped that cell.
-	var best := seed
-	var best_d := INF
-	for r in range(maxi(seed - 3, 0), mini(seed + 4, _ribbon_rows.size())):
-		var c: Vector3 = _ribbon_rows[r]
-		var d := Vector2(p_local_xz.x - c.x, p_local_xz.y - c.z).length_squared()
-		if d < best_d:
-			best_d = d
-			best = r
-	return best
-
-
-## Surface of a RIBBON at a local XZ, as [is_over_the_channel, local_y].
-func _ribbon_surface_at(p_local_xz: Vector2) -> Array:
-	var r := _ribbon_nearest_row(p_local_xz)
-	if r < 0:
-		return [false, 0.0]
-	var c: Vector3 = _ribbon_rows[r]
-	# Lateral distance decides containment; the row's own Y is the surface. Interpolating Y between
-	# rows would be smoother, but rows are one vertex_spacing apart and the drop over that is
-	# millimetres on any river a person would author.
-	#
-	# SIGNED across the channel, because the two banks no longer agree: the waterline reaches
-	# further into the shallow side. Which side a point is on is the sign of its offset along the
-	# row's own perpendicular, so this asks the same question the mesher answered when it placed
-	# that row's vertices.
-	var offset := Vector2(p_local_xz.x - c.x, p_local_xz.y - c.z)
-	var tangent := _ribbon_tangent(_ribbon_rows, r)
-	var side := Vector2(-tangent.y, tangent.x)
-	var lateral := offset.dot(side)
-	var limit := _row_half(r, lateral < 0.0)
-	return [absf(lateral) <= limit, c.y]
-
-
-# ---- surface child -----------------------------------------------------------
-
-## Created at runtime with no owner, so it never serialises: the scene stores the pool
-## and its exports, and the mesh is derived data rebuilt on _ready. Same internal-child
-## idiom the brushes use for their nameplate.
-func _ensure_surface() -> void:
-	if _surface != null and is_instance_valid(_surface):
-		return
-	_surface = MeshInstance3D.new()
-	_surface.name = "Surface"
-	_surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_surface.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-	add_child(_surface)
-
-
-func _clear_surface() -> void:
-	if _surface != null and is_instance_valid(_surface):
-		_surface.mesh = null
-
-
-func _apply_material() -> void:
-	if _surface == null or not is_instance_valid(_surface):
-		return
-	var base := material
-	if base == null:
-		return
-	var m := _resolve_manager()
-	# The manager hands back a shared duplicate per (base material, profile) pair and
-	# uploads the wave table into it, so ten ponds on one profile cost one material.
-	# Without a manager the base is used as-is: it still renders, with whatever
-	# compile-time table its variant carries.
-	var resolved: Material = base
-	if m and m.has_method("get_material_for"):
-		var got = m.get_material_for(base, wave_profile)
-		if got != null:
-			resolved = got
-	_surface.material_override = resolved
-	_update_domain_origin()
-
-
-## Per-body, and an INSTANCE uniform since Phase 1 precisely so the shared material can be
-## shared. Keeps wave phase precise for a pool far from the world origin, which is why it
-## has to track the node's position rather than being written once at material time.
-func _update_domain_origin() -> void:
-	if _surface != null and is_instance_valid(_surface):
-		_surface.set_instance_shader_parameter("_water_domain_origin", global_position)
-
-
-# ---- the underwater volume (spec §8) -----------------------------------------
-
-## Build (or drop) the Area3D + FogVolume that span this pool's footprint.
-##
-## Both are internal children with no owner, like Surface: they are derived from the polygon and are
-## rebuilt whenever it is, so serialising them would only let a stale copy load from a scene.
-##
-## The box is the BROAD phase and nothing more. A lake outline is frequently concave, and a box says
-## "in the water" for a peninsula between two arms — which is why every signal it raises is
-## re-filtered through is_point_underwater() before it reaches anyone (§8.2).
-func _rebuild_volume() -> void:
-	if not is_inside_tree():
-		return
-	if not underwater_enabled or _poly_cache.size() < 3:
-		_drop_volume()
-		return
-
-	if _volume == null or not is_instance_valid(_volume):
-		_volume = Area3D.new()
-		_volume.name = "Volume"
-		# The pool answers "is this point in the water", it does not push anything.
-		_volume.monitorable = false
-		# NOTE: Godot 4.4+ defaults 3D physics to Jolt, and a Jolt Area3D does NOT report
-		# StaticBody3D unless physics/jolt_physics_3d/simulation/areas_detect_static_bodies is
-		# turned on. So body_submerged never fires for static props — which is usually what you
-		# want (a rock does not swim) but is surprising the first time. Rigid, character and
-		# kinematic bodies are detected normally. is_point_underwater() has no such limit; it is
-		# geometry, not physics, so anything can be asked about it directly.
-		_volume_shape = CollisionShape3D.new()
-		_volume_shape.name = "VolumeShape"
-		_volume.add_child(_volume_shape)
-		add_child(_volume)
-		_volume.body_entered.connect(_on_body_entered)
-		_volume.body_exited.connect(_on_body_exited)
-
-	var shape: BoxShape3D = _volume_shape.shape as BoxShape3D
-	if shape == null:
-		shape = BoxShape3D.new()
-		_volume_shape.shape = shape
-	# Spans the polygon in XZ and volume_depth downward from the surface. The top is the still
-	# level: a crest above it is handled by the exact test, which reads the wave surface, and
-	# growing the box upward would only widen the broad phase for no gain.
-	var centre := _poly_bounds.get_center()
-	shape.size = Vector3(_poly_bounds.size.x, volume_depth, _poly_bounds.size.y)
-	_volume_shape.position = Vector3(centre.x, -volume_depth * 0.5, centre.y)
-
-	if underwater_fog:
-		if _fog == null or not is_instance_valid(_fog):
-			_fog = FogVolume.new()
-			_fog.name = "Fog"
-			add_child(_fog)
-		_fog.size = shape.size
-		_fog.position = _volume_shape.position
-		_apply_fog_material()
-	elif _fog != null and is_instance_valid(_fog):
-		_fog.queue_free()
-		_fog = null
-
-
-func _drop_volume() -> void:
-	if _volume != null and is_instance_valid(_volume):
-		_volume.queue_free()
-	_volume = null
-	_volume_shape = null
-	if _fog != null and is_instance_valid(_fog):
-		_fog.queue_free()
-	_fog = null
-	_bodies_in_box.clear()
-
-
-## Tint the fog from the WATER material rather than from a second set of knobs.
-##
-## `deep_color` and `absorption` are the two uniforms that already make an ocean an ocean and a pond
-## a pond, so deriving from them is what makes the view from under the surface agree with the view
-## from above it. Density is the luminance of absorption (a per-metre extinction in the shader's
-## Beer-Lambert term) scaled into fog units.
-func _apply_fog_material() -> void:
-	if _fog == null or not is_instance_valid(_fog):
-		return
-	var mat: FogMaterial = _fog.material as FogMaterial
-	if mat == null:
-		mat = FogMaterial.new()
-		_fog.material = mat
-	var albedo := Color(0.1, 0.2, 0.25)
-	var density := 0.05
-	var shader_mat := material as ShaderMaterial
-	if shader_mat != null:
-		var deep = shader_mat.get_shader_parameter("deep_color")
-		if deep is Color:
-			albedo = deep
-		var absorption = shader_mat.get_shader_parameter("absorption")
-		if absorption is Vector3:
-			# Rec. 709 luminance of the per-channel extinction — one number for a scalar density.
-			density = 0.2126 * absorption.x + 0.7152 * absorption.y + 0.0722 * absorption.z
-	mat.albedo = albedo
-	mat.density = maxf(density * underwater_density_scale, 0.0)
-
-
-func _on_body_entered(p_body: Node3D) -> void:
-	_bodies_in_box[p_body] = false
-	_refilter_bodies()
-
-
-func _on_body_exited(p_body: Node3D) -> void:
-	if _bodies_in_box.get(p_body, false):
-		body_surfaced.emit(p_body)
-	_bodies_in_box.erase(p_body)
-
-
-## Re-run the exact test for every body the box currently holds, emitting only on a change.
-##
-## The Area3D signals alone are not enough: they fire on the BOX, so a body that walks onto a
-## peninsula between two arms of a lake never leaves the box and never fires anything, while
-## remaining very much out of the water. Bodies in the box are few, and this runs on the physics
-## tick, so the cost is bounded by how many things are actually near this pool.
-func _refilter_bodies() -> void:
-	for body in _bodies_in_box.keys():
-		if not is_instance_valid(body):
-			_bodies_in_box.erase(body)
-			continue
-		var now := is_point_underwater(body.global_position)
-		if now != _bodies_in_box[body]:
-			_bodies_in_box[body] = now
-			if now:
-				body_submerged.emit(body)
-			else:
-				body_surfaced.emit(body)
-
-
-func _physics_process(_delta: float) -> void:
-	if underwater_enabled and not _bodies_in_box.is_empty():
-		_refilter_bodies()
-
-
-## Poll the active camera against the surface (spec §8.2).
-##
-## A Camera3D is not a physics body, has no collision shape, and generates no area signals whatever
-## — so there is no event to listen for and polling is the whole of the technique, not a shortcut.
-## One rectangle test per pool per frame in the common case; the polygon walk and the wave solve only
-## run for a camera actually over this water.
-func _poll_camera() -> void:
-	var cam := _active_camera()
-	if cam == null:
-		return
-	var under := underwater_enabled and is_point_underwater(cam.global_position)
-	if under != _camera_under:
-		_camera_under = under
-		camera_submerged.emit(under)
-
-
-## The camera to test. In a running scene that is the viewport's; in the editor it is the 3D
-## editor's own, so the Volume gizmo and the warnings can be checked without pressing play.
-func _active_camera() -> Camera3D:
-	if Engine.is_editor_hint():
-		var vp := EditorInterface.get_editor_viewport_3d(0)
-		return vp.get_camera_3d() if vp else null
-	if not is_inside_tree():
-		return null
-	var vp2 := get_viewport()
-	return vp2.get_camera_3d() if vp2 else null
-
-
-## ---- the screen overlay (spec §8.4) ----
-##
-## Runtime only, and built lazily the first time the camera actually goes under: a pool that is
-## never swum in should cost nothing, and in the editor tinting the viewport because the camera
-## dipped below a plane would be a bug report rather than a feature.
-
-func _update_overlay(p_delta: float) -> void:
-	if Engine.is_editor_hint() or not underwater_overlay:
-		return
-	var target := 1.0 if _camera_under else 0.0
-	if is_equal_approx(_overlay_amount, target) and _overlay_rect == null:
-		return
-	# A step, not a lerp: a fixed-duration ramp crosses in overlay_transition seconds regardless of
-	# frame rate, where a lerp's speed depends on it.
-	var step := p_delta / maxf(overlay_transition, 0.001)
-	_overlay_amount = move_toward(_overlay_amount, target, step)
-	if _overlay_amount <= 0.0:
-		_drop_overlay()
-		return
-	_ensure_overlay()
-	var mat := _overlay_rect.material as ShaderMaterial
-	if mat == null:
-		return
-	mat.set_shader_parameter("amount", _overlay_amount)
-	var shader_mat := material as ShaderMaterial
-	if shader_mat != null:
-		var absorption = shader_mat.get_shader_parameter("absorption")
-		if absorption is Vector3:
-			mat.set_shader_parameter("absorption", absorption)
-		var deep = shader_mat.get_shader_parameter("deep_color")
-		if deep is Color:
-			mat.set_shader_parameter("deep_color", deep)
-
-
-func _ensure_overlay() -> void:
-	if _overlay_rect != null and is_instance_valid(_overlay_rect):
-		return
-	_overlay_layer = CanvasLayer.new()
-	_overlay_layer.name = "UnderwaterOverlay"
-	_overlay_layer.layer = overlay_canvas_layer
-	_overlay_rect = ColorRect.new()
-	_overlay_rect.name = "Effect"
-	_overlay_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	# It samples the screen; it must never eat a click meant for the game.
-	_overlay_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var mat := ShaderMaterial.new()
-	mat.shader = load(WATER_DIR + "water_underwater.gdshader")
-	# The SAME derivative texture the surface shader already has resident, so the ripple under the
-	# water matches the ripple on it and this costs no new VRAM (guide G3).
-	mat.set_shader_parameter("detail_deriv", load(WATER_DIR + "T_water_deriv.png"))
-	_overlay_rect.material = mat
-	_overlay_layer.add_child(_overlay_rect)
-	add_child(_overlay_layer)
-
-
-func _drop_overlay() -> void:
-	if _overlay_layer != null and is_instance_valid(_overlay_layer):
-		_overlay_layer.queue_free()
-	_overlay_layer = null
-	_overlay_rect = null
-
-
-# ---- public API --------------------------------------------------------------
-
-## Surface height at a world XZ, including waves. The pool's own Y plus the profile's
-## displacement, so it agrees with what the shader draws.
-func get_water_height(p_global_xz: Vector2) -> float:
-	# A ribbon has no single level: it follows the spline downhill (§7.2), so the still surface here
-	# is whatever the nearest centreline row sits at. Everything above that -- the wave displacement,
-	# the domain origin -- is identical to the loop case, which is the point: a river is the same
-	# water as a lake over a different sheet.
-	var base := global_position.y
-	if _is_ribbon:
-		var local: Vector3 = global_transform.affine_inverse() * Vector3(p_global_xz.x, 0.0, p_global_xz.y)
-		var surf := _ribbon_surface_at(Vector2(local.x, local.z))
-		if surf[0]:
-			base = (global_transform * Vector3(0.0, surf[1], 0.0)).y
-	var m := _resolve_manager()
-	if m == null or not m.has_method("solve_domain"):
-		return base
-	var origin := global_position
-	var target := p_global_xz - Vector2(origin.x, origin.z)
-	var domain: Vector2 = m.solve_domain(wave_profile, target)
-	return base + m.evaluate_height(wave_profile, domain)
-
-
-func get_water_normal(p_global_xz: Vector2) -> Vector3:
-	var m := _resolve_manager()
-	if m == null or not m.has_method("solve_domain"):
-		return Vector3.UP
-	var origin := global_position
-	var target := p_global_xz - Vector2(origin.x, origin.z)
-	var domain: Vector2 = m.solve_domain(wave_profile, target)
-	return m.evaluate_normal(wave_profile, domain)
-
-
-## Body-registry contract (§5.5): is this world point in this pool's water?
-##
-## Tested against the polygon, not the mesh AABB — lake outlines are frequently concave
-## and a box says "in the water" for a peninsula. Vertically it is compared against the
-## WAVE surface, so a point just under a trough is out and just under a crest is in.
-func contains_point(p_global_pos: Vector3) -> bool:
-	return is_point_underwater(p_global_pos)
-
-
-## Spec §8.2. The same question `contains_point` answers, under the name the underwater
-## feature asks it by — one implementation, so the camera, a swimming character and a
-## buoy can never disagree about where the water is.
-##
-## Deliberately compared against the WAVE surface and not the flat plane: at the
-## shoreline in a 1 m swell the difference between those two IS the effect.
-func is_point_underwater(p_global_pos: Vector3) -> bool:
-	if _poly_cache.size() < 3 and not _is_ribbon:
-		return false
-	var lp: Vector3 = global_transform.affine_inverse() * p_global_pos
-	var l2 := Vector2(lp.x, lp.z)
-	# Broad phase: a rectangle test costs nothing next to a polygon walk, and the common
-	# answer for a per-frame poll is "nowhere near".
-	if not _poly_bounds.has_point(l2):
-		return false
-	if _is_ribbon:
-		# Lateral distance from the centreline, not a polygon walk: a ribbon is defined by a width
-		# about a line and has no outline to be inside of.
-		var surf := _ribbon_surface_at(l2)
-		if not surf[0]:
-			return false
-		return p_global_pos.y <= get_water_height(Vector2(p_global_pos.x, p_global_pos.z))
-	# Cell classification off the mesher's mask, which turns the common answer into an array
-	# lookup. The exact polygon walk is O(perimeter) — a few hundred edges for a lake — and Phase 6
-	# asks this question per buoy per physics tick, where it cost more than the wave solve did.
-	#
-	# Reading the MESHER's mask rather than a structure of its own is the point: a cell whose four
-	# corners are all inside is exactly a cell the mesher filled with a quad, so "contained" and
-	# "drawn" cannot disagree. Only cells the boundary crosses fall through to the exact test, and
-	# there are O(shore length) of those.
-	match _cell_state(l2):
-		0:
-			return false
-		1:
-			pass # every corner inside: the mesher drew a full quad here
-		_:
-			if not Geometry2D.is_point_in_polygon(l2, _poly_cache):
-				return false
-	return p_global_pos.y <= get_water_height(Vector2(p_global_pos.x, p_global_pos.z))
-
-
 ## 0 = no corner of this cell is inside the loop, 1 = all four are, 2 = mixed (or no mask).
 func _cell_state(p_local_xz: Vector2) -> int:
 	if _mask.is_empty() or _mask_spacing <= 0.0:
@@ -1704,7 +355,8 @@ func _cell_state(p_local_xz: Vector2) -> int:
 	var iz := int(floor((p_local_xz.y - _poly_bounds.position.y) / _mask_spacing))
 	if ix < 0 or iz < 0 or ix >= _mask_gw - 1 or iz >= _mask_gh - 1:
 		return 2 # on the grid's outer edge; let the exact test decide
-	var n := int(_mask[iz * _mask_gw + ix]) + int(_mask[iz * _mask_gw + ix + 1]) 		+ int(_mask[(iz + 1) * _mask_gw + ix]) + int(_mask[(iz + 1) * _mask_gw + ix + 1])
+	var n := int(_mask[iz * _mask_gw + ix]) + int(_mask[iz * _mask_gw + ix + 1]) \
+		+ int(_mask[(iz + 1) * _mask_gw + ix]) + int(_mask[(iz + 1) * _mask_gw + ix + 1])
 	if n == 0:
 		return 0
 	return 1 if n == 4 else 2
@@ -1716,227 +368,110 @@ func get_polygon() -> PackedVector2Array:
 	return _poly_cache
 
 
-## Re-seat this node on its curve: XZ onto the source spline's own origin, Y onto the
-## curve's lowest point + fill_offset. Called once when the Add Water button creates a
-## pool, and by the button afterwards.
+func _forget_surface() -> void:
+	super()
+	_poly_cache = PackedVector2Array()
+	_mask = PackedByteArray()
+
+
+# ---- migration ---------------------------------------------------------------
+
+## Replace this pool with an equivalent Pasture3DStream, in the same place in the scene.
 ##
-## The XZ half is not tidiness. The polygon is read in world space and expressed relative
-## to this node, so a pool left at the world origin while its loop sits 350 m away draws
-## correctly but has a transform that says nothing, a selection handle nowhere near its
-## water, and -- worst -- a `_water_domain_origin` of (0,0,0). That instance uniform
-## exists precisely so wave phase stays precise far from the world origin, and it is set
-## from this node's position, so leaving the node at the origin switches it off.
+## Before the split, a Pasture3DPool with an open curve meshed itself as a ribbon; scenes authored
+## then hold rivers that are Pasture3DPool nodes, and after the split those build nothing. One
+## press converts one. Returns the new node, or null when there was nothing to do.
 ##
-## Position only, never rotation: a pool inherits no basis from its brush because the
-## water plane is horizontal by construction, and copying a brush tilted about X or Z
-## would tilt it.
-##
-## Never automatic: the brushes re-snap their spline points to the terrain surface, so an
-## automatic fit would move the water level whenever the ground under the rim did.
-func fit_to_curve() -> void:
-	if curve != null:
-		# A bare Curve3D is authored in THIS node's space, so its rim travels with the node
-		# and "put the water plane at the rim" has no fixed point to solve for -- the earlier
-		# version of this drifted by fill_offset on every press. In that mode the node's Y IS
-		# the plane and the curve is drawn in it; there is nothing to fit.
-		push_warning(("Pasture3DPool '%s': Fit to Curve needs a source_spline. A bare `curve` is "
-			+ "authored in this node's own space, so it moves with the node and there is no "
-			+ "level to solve for.") % name)
+## Deliberately NOT automatic. Swapping a node's class rewrites the scene, and doing that behind
+## the user's back on load -- before they have seen the warning, saved anything, or had a chance to
+## undo -- is how a migration turns into a bug report about a scene that changed on its own. The
+## warning explains, the button acts.
+func convert_to_stream() -> Node:
+	var src := _source_curve()
+	if src != null and src.closed:
+		push_warning(("Pasture3DPool '%s': this curve is closed, so it is already a lake. "
+			+ "Convert to Stream is for water whose curve is open.") % name)
+		return null
+	var parent := get_parent()
+	if parent == null:
+		push_warning("Pasture3DPool '%s': nothing to convert into — it has no parent." % name)
+		return null
+
+	var script: GDScript = load("res://addons/pasture_3d/connectors/stream.gd")
+	if script == null:
+		push_error("Pasture3D: could not load stream.gd — cannot convert.")
+		return null
+	var stream: Node3D = script.new()
+	stream.name = name
+	stream.transform = transform
+	# The preset FIRST and the material last: setting water_preset loads whatever preset it names,
+	# so the other order would quietly overwrite a material the user had tuned.
+	stream.water_preset = stream._custom_preset()
+	for p in ["source_spline", "curve", "edge_offset", "fill_offset", "max_vertices",
+			"vertex_spacing", "force_gdscript_mesh", "wave_profile", "manager",
+			"underwater_enabled", "volume_depth", "underwater_fog", "underwater_density_scale",
+			"underwater_overlay", "overlay_canvas_layer", "overlay_transition"]:
+		stream.set(p, get(p))
+	stream.material = material
+
+	var idx := get_index()
+	var scene_owner := owner
+	var ur := _editor_undo()
+	if ur != null:
+		ur.create_action("Convert %s to Pasture3DStream" % name)
+		ur.add_do_method(self, "_apply_convert", stream, parent, idx, scene_owner)
+		ur.add_undo_method(self, "_revert_convert", stream, parent, idx, scene_owner)
+		ur.add_do_reference(stream)
+		ur.add_undo_reference(self)
+		ur.commit_action()
+	else:
+		_apply_convert(stream, parent, idx, scene_owner)
+	return stream
+
+
+## Put the stream in and take the pool out. Both nodes stay alive -- the undo action holds
+## whichever one is outside -- so undo and redo move the SAME two instances rather than rebuilding.
+func _apply_convert(p_stream: Node, p_parent: Node, p_index: int, p_owner: Node) -> void:
+	if not is_instance_valid(p_stream) or not is_instance_valid(p_parent):
 		return
-	if source_spline == null or not is_instance_valid(source_spline):
-		return
-	var src: Curve3D = source_spline.curve
-	if src == null or src.point_count == 0:
-		return
-	var xf := source_spline.global_transform
-	var lowest := INF
-	for p in src.get_baked_points():
-		lowest = minf(lowest, (xf * p).y)
-	if not is_finite(lowest):
-		return
-	var origin := source_spline.global_position
-	global_position = Vector3(origin.x, lowest + fill_offset, origin.z)
-	_schedule_rebuild()
+	if get_parent() == p_parent:
+		p_parent.remove_child(self)
+	if p_stream.get_parent() == null:
+		p_parent.add_child(p_stream)
+		p_parent.move_child(p_stream, mini(p_index, p_parent.get_child_count() - 1))
+		p_stream.owner = p_owner
+	if Engine.is_editor_hint():
+		var sel := EditorInterface.get_selection()
+		sel.clear()
+		sel.add_node(p_stream)
 
 
-## Duplicate the resolved material into the scene so a plugin update cannot overwrite
-## tuning. This is the water guide's hand-written advice ("duplicate a preset before
-## editing it") turned into a button.
-func make_unique() -> void:
-	if material == null:
-		return
-	var dup := material.duplicate()
-	dup.resource_local_to_scene = true
-	material = dup
-	water_preset = 2
-	_apply_material()
+func _revert_convert(p_stream: Node, p_parent: Node, p_index: int, p_owner: Node) -> void:
+	if is_instance_valid(p_stream) and p_stream.get_parent() == p_parent:
+		p_parent.remove_child(p_stream)
+	if get_parent() == null and is_instance_valid(p_parent):
+		p_parent.add_child(self)
+		p_parent.move_child(self, mini(p_index, p_parent.get_child_count() - 1))
+		owner = p_owner
 
 
-## Write the scene-local material to disk and re-point at the saved file, so tuned
-## water becomes a project asset rather than being trapped in one scene.
-func save_unique_material(p_path: String = "") -> void:
-	if material == null:
-		return
-	var path := p_path
-	if path.is_empty():
-		path = "res://M_%s_water.tres" % String(name).to_snake_case()
-	var to_save := material.duplicate()
-	to_save.resource_local_to_scene = false
-	var err := ResourceSaver.save(to_save, path)
-	if err != OK:
-		push_error("Pasture3DPool: could not save material to %s (error %d)" % [path, err])
-		return
-	material = load(path)
-	water_preset = 2
-	_apply_material()
-	print("Pasture3DPool: saved water material to %s" % path)
-
-
-func get_build_stats() -> Dictionary:
-	return _last_stats
-
-
-## True when this pool is a river (open curve) rather than a lake. Read off the curve, never stored,
-## so there is no mode toggle to get out of sync with the geometry.
-func is_ribbon() -> bool:
-	return _is_ribbon
+## The editor's undo manager, or null outside the editor -- a headless run, or a script driving the
+## conversion. Same accessor Pasture3DTerrainBrush uses, and the null case is why _apply_convert is
+## one method with an explicit inverse rather than a pile of do-steps: it has to be callable, and
+## therefore testable, without an editor.
+func _editor_undo() -> EditorUndoRedoManager:
+	if not Engine.is_editor_hint():
+		return null
+	return EditorInterface.get_editor_undo_redo()
 
 
 # ---- inspector ---------------------------------------------------------------
 
 func _validate_property(property: Dictionary) -> void:
-	# The preset owns `material` unless the user has chosen Custom.
-	if property.name == "material" and water_preset != 2:
-		property.usage |= PROPERTY_USAGE_READ_ONLY
-	elif property.name in ["ribbon_half_width", "flow_speed", "flow_slope_gain", "flow_reverse",
-			"bank_height", "bank_search_width", "bank_smoothing"]:
-		# Ribbon-only. Shown greyed rather than hidden, so it is discoverable on a lake that someone
-		# is about to open into a river -- hiding a property makes people think it does not exist.
-		if not _is_ribbon:
-			property.usage |= PROPERTY_USAGE_READ_ONLY
-	elif property.name == "fill_offset":
-		# On a bank-referenced ribbon this is dead: the surface comes from the banks and only the
-		# no-terrain fallback still reads it. Greyed rather than hidden for the same reason, and
-		# because it IS live again the moment the pool is used without a Pasture3D in the scene.
-		if _is_ribbon and _resolve_terrain() != null:
-			property.usage |= PROPERTY_USAGE_READ_ONLY
-	elif property.name == "wave_profile":
-		# Re-hint the EXISTING export into a dropdown of the manager's live profile names.
-		#
-		# Not _get_property_list: declaring a second property with the same name as an
-		# @export does not replace it, it adds one, and Godot then writes `wave_profile`
-		# TWICE into every saved scene. _validate_property is the mechanism for changing
-		# the hint of a property that already exists.
-		var names := PackedStringArray()
-		var m := _resolve_manager()
-		if m and m.has_method("get_profile_names"):
-			names = m.get_profile_names()
-		if not names.is_empty():
-			property.hint = PROPERTY_HINT_ENUM
-			property.hint_string = ",".join(names)
-
-
-func _get_configuration_warnings() -> PackedStringArray:
-	var w := PackedStringArray()
-	var src := _source_curve()
-	if src == null:
-		w.append("No source. Set source_spline to a brush's Path3D, or assign a Curve3D.")
-	elif src.point_count < 3:
-		w.append("The source curve has fewer than 3 points, so there is no area to fill.")
-	elif not src.closed:
-		pass # an open curve is a river: ribbon mode (§7.3), not a mistake
-	elif _local_polygon(_effective_spacing()).size() < 3:
-		w.append("The source curve collapses to fewer than 3 usable points at this vertex "
-			+ "spacing, so there is no area to fill.")
-	var m := _resolve_manager()
-	if m == null:
-		w.append("No Pasture3DPoolManager in the scene. The water will draw with whatever "
-			+ "table its material compiles in, and nothing will drive water_time, so it "
-			+ "will not move.")
-	elif m.has_method("has_profile") and not m.has_profile(wave_profile):
-		w.append("No wave profile named '%s' on the Pasture3DPoolManager." % wave_profile)
-	if material == null:
-		w.append("No material.")
-	if not _last_stats.is_empty() and not _last_stats.get("ok", false) \
-			and _last_stats.get("reason", "") != "":
-		w.append("The surface could not be built: %s." % _last_stats["reason"])
-	# The raising-brush warning §7.8 describes. Checked here as well as at creation
-	# time, because changing a brush's blend mode afterwards is the case a
-	# creation-time-only dialog would miss — and it is the more likely one.
-	# §8.3's named failure. A FogVolume renders NOTHING unless the scene's Environment has
-	# volumetric fog switched on — no error, no warning, just no fog — and "the underwater fog
-	# doesn't work" is the single most likely report this feature will generate. Say which setting.
-	if underwater_enabled and underwater_fog and not _volumetric_fog_available():
-		w.append("Underwater fog is on, but the scene's Environment does not have "
-			+ "volumetric_fog_enabled — a FogVolume draws nothing without it. Enable it on the "
-			+ "WorldEnvironment, or turn off underwater_fog.")
-	var brush := _source_brush()
-	if brush != null and _brush_raises(brush):
-		var mode: String = brush._blend_mode_name() if brush.has_method("_blend_mode_name") else "?"
-		w.append(("'%s' raises terrain (blend_mode = %s), so water here will sit inside the "
-			+ "landform and be hidden. Set its blend_mode to MIN (or invert it) to carve.")
-			% [brush.name, mode])
-	return w
-
-
-## Whether the scene's Environment would actually render a FogVolume.
-##
-## Reported as "available" when there is no Environment to inspect at all, rather than warned about:
-## a headless or fixture scene has none and does not want to be told, and the warning exists to
-## catch the specific case of an Environment that is present with the setting off.
-func _volumetric_fog_available() -> bool:
-	var env := _scene_environment()
-	return env == null or env.volumetric_fog_enabled
-
-
-## The Environment in force: the viewport's own, else the first WorldEnvironment in the scene. Both
-## are checked because a Camera3D can carry its own and a WorldEnvironment is the usual authoring
-## route; neither alone is the answer.
-func _scene_environment() -> Environment:
-	if not is_inside_tree():
-		return null
-	var vp := get_viewport()
-	if vp != null:
-		var cam := vp.get_camera_3d()
-		if cam != null and cam.environment != null:
-			return cam.environment
-		if vp is Window and vp.world_3d != null and vp.world_3d.environment != null:
-			return vp.world_3d.environment
-	var root := get_tree().current_scene
-	if root != null:
-		for n in _descendants(root):
-			if n is WorldEnvironment and n.environment != null:
-				return n.environment
-	return null
-
-
-func _descendants(p_node: Node) -> Array:
-	var out: Array = [p_node]
-	for c in p_node.get_children():
-		out.append_array(_descendants(c))
-	return out
-
-
-## The Curve3D actually driving the mesh: the explicit override if set, else the spline's.
-func _source_curve() -> Curve3D:
-	if curve != null:
-		return curve
-	if source_spline != null and is_instance_valid(source_spline):
-		return source_spline.curve
-	return null
-
-
-func _source_brush() -> Node:
-	if source_spline == null or not is_instance_valid(source_spline):
-		return null
-	var p := source_spline.get_parent()
-	return p if p != null and p.is_class("Node3D") and p.has_method("is_configured") else null
-
-
-## Effective sign of a brush, not its class: every raise brush can be configured to
-## carve and vice versa. The BRUSH owns this answer (spec §7.8) — where the inversion
-## lives differs per brush, and Pasture3DPlow keeps it on its material rather than on
-## itself, so a table reimplemented here would drift from the one the Add Water button
-## consults. Duck-typed, so a brush type added later gets this for free.
-func _brush_raises(p_brush: Node) -> bool:
-	return p_brush.has_method("brush_raises") and p_brush.brush_raises()
+	super(property)
+	if property.name == "_convert_btn":
+		# Only on the water this is a migration FOR. A Convert to Stream button on every lake in
+		# the project would be an invitation to break one.
+		var src := _source_curve()
+		if src == null or src.closed:
+			property.usage = PROPERTY_USAGE_NONE

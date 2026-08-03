@@ -1564,12 +1564,15 @@ func place_bake() -> void:
 ## Pasture3DPool is bound to the brush's Path3D — not a copy of its curve — so moving the brush or
 ## dragging a loop point moves the water with it.
 
-## The water connector, loaded by path rather than referenced as `Pasture3DPool`. A class_name
-## reference is a PARSE-time dependency: a syntax error in pool.gd — or an install without it —
-## would stop this file compiling and take every brush in the scene down with it, which is exactly
-## how the Phase 1 DLL failure presented. By path, a missing pool is a failed button press.
+## The water connectors, loaded by path rather than referenced as `Pasture3DPool` /
+## `Pasture3DStream`. A class_name reference is a PARSE-time dependency: a syntax error in pool.gd —
+## or an install without it — would stop this file compiling and take every brush in the scene down
+## with it, which is exactly how the Phase 1 DLL failure presented. By path, missing water is a
+## failed button press.
 const POOL_SCRIPT := "res://addons/pasture_3d/connectors/pool.gd"
-## Group Pasture3DPool joins (mirrors its POOL_GROUP), for the same reason.
+const STREAM_SCRIPT := "res://addons/pasture_3d/connectors/stream.gd"
+## Group both of them join (mirrors Pasture3DWaterBody.POOL_GROUP), for the same reason. Named for
+## the pool because it predates the split and is written into saved scenes.
 const POOL_GROUP: StringName = &"pasture3d_pool"
 ## Group Pasture3DPoolManager joins (mirrors Pasture3DPoolManager::MANAGER_GROUP).
 const WATER_MANAGER_GROUP: StringName = &"pasture3d_water_manager"
@@ -1807,22 +1810,30 @@ func _water_scene_root() -> Node:
 	return root
 
 
-## A Pasture3DPool bound to `p_spline`, detached (the caller adds it inside the undo action).
+## The water for `p_spline`, detached (the caller adds it inside the undo action).
+##
+## THE CURVE PICKS THE CLASS. A closed loop is a Pasture3DPool and an open channel is a
+## Pasture3DStream, decided here, once, at creation. That used to be decided on every rebuild by
+## the one node that could be either — so a Mound whose loop the user opened silently became a
+## river, and a Trough they closed became a moat. It still does become one, but now it takes the
+## Convert to Stream button rather than happening under them, and the class in the Scene dock says
+## which kind of water it is.
 func _build_pool_for(p_spline: Path3D, p_manager: Node) -> Node:
-	var script: GDScript = load(POOL_SCRIPT)
+	var is_river: bool = p_spline.curve != null and not p_spline.curve.closed
+	var path := STREAM_SCRIPT if is_river else POOL_SCRIPT
+	var script: GDScript = load(path)
 	if script == null:
-		push_error("Pasture3D: could not load %s — cannot add water." % POOL_SCRIPT)
+		push_error("Pasture3D: could not load %s — cannot add water." % path)
 		return null
 	var pool: Node = script.new()
-	pool.name = _pool_name_for(p_spline)
+	pool.name = _pool_name_for(p_spline, is_river)
 	pool.source_spline = p_spline
-	var is_river: bool = p_spline.curve != null and not p_spline.curve.closed
 	if is_river:
 		# A river gets the river profile and the river shader, and its width comes from the channel
 		# the brush carved — a Trough already knows how wide its bed is, so asking the user again
 		# would be asking them to repeat themselves.
 		pool.wave_profile = _seed_river_profile(p_manager)
-		pool.water_preset = 2 # Custom: the river preset is not one of the two enum entries
+		pool.water_preset = 0 # River: a stream's presets are River / Custom, in that order
 		pool.material = load(RIVER_MATERIAL)
 		var bed = get("bed_half_width")
 		if bed != null:
@@ -1839,12 +1850,19 @@ func _build_pool_for(p_spline: Path3D, p_manager: Node) -> Node:
 	return pool
 
 
-## "<BrushName>Water", numbered per spline on a multi-spline brush so the pairing stays readable.
-func _pool_name_for(p_spline: Path3D) -> String:
+## "<BrushName>Water" for a pool, "<BrushName>Stream" for a river, numbered per spline on a
+## multi-spline brush so the pairing stays readable.
+##
+## The suffix follows the class because the Scene dock is where you look first: a Trough with a
+## "TroughWater" beside it says nothing about which of the two kinds of water it is, and the two
+## behave differently enough — one has banks and a flow direction, the other a level you drag —
+## that the name is worth spending.
+func _pool_name_for(p_spline: Path3D, p_is_river: bool) -> String:
+	var suffix := "Stream" if p_is_river else "Water"
 	var splines := _get_splines()
 	if splines.size() <= 1:
-		return "%sWater" % name
-	return "%sWater%d" % [name, splines.find(p_spline) + 1]
+		return "%s%s" % [name, suffix]
+	return "%s%s%d" % [name, suffix, splines.find(p_spline) + 1]
 
 
 ## Starting profile for a new pool, chosen from the loop's size (§7.8 step 6). Falls back to
