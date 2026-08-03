@@ -70,6 +70,9 @@ void Pasture3DOcean::_destroy_mesher(const bool p_final) {
  *
  * The table still comes from the manager's profile, so the ocean is on the same
  * wave data as everything else -- it just holds its own copy of the material.
+ *
+ * A duplicate is a SNAPSHOT, and keeping it in step with the base it was taken from is
+ * _poll_base_material()'s job, not this one's.
  */
 void Pasture3DOcean::_rebuild_runtime_material() {
 	if (_material.is_null()) {
@@ -84,6 +87,28 @@ void Pasture3DOcean::_rebuild_runtime_material() {
 		manager->upload_profile_into(_runtime_material, _wave_profile);
 	}
 	_sea_level_sent = FLT_MAX; // force the sea level write below
+}
+
+/**
+ * Carries inspector edits of the base material into the private duplicate.
+ *
+ * Polled rather than pushed, and for a harder reason than the AABB below: there is no
+ * signal. ShaderMaterial emits nothing when a parameter changes -- not `changed`, not
+ * `property_list_changed`, through either set_shader_parameter() or
+ * set("shader_parameter/.."). A directly-assigned material needs no announcement because
+ * the RID is the same object; only a duplicate does, and the engine makes none. So the
+ * poll IS the technique here, not a shortcut around one.
+ *
+ * EDITOR ONLY, because tuning a preset is an editor act. The comparison inside
+ * sync_material_params() means an untouched material costs reads and no RenderingServer
+ * traffic, and the uniforms this node writes are skipped there -- so this does not fight
+ * the sea level and clipmap writes happening two lines away in _notification().
+ */
+void Pasture3DOcean::_poll_base_material() {
+	if (_material.is_null() || _runtime_material.is_null()) {
+		return;
+	}
+	Pasture3DPoolManager::sync_material_params(_material, _runtime_material);
 }
 
 void Pasture3DOcean::_push_clipmap_uniforms() {
@@ -185,27 +210,67 @@ void Pasture3DOcean::set_enabled(const bool p_enabled) {
 	update_configuration_warnings();
 }
 
+// EVERY SETTER HERE LOGS. Each one silently clamps, and a knob that stops responding
+// with nothing in the log is what sent someone hunting through the mesher for a bug that
+// was a ceiling. The log line fires only on an actual change: SET_IF_DIFF returns first
+// when the value is unchanged.
+
+// Rings, and therefore REACH, not detail. The mesher builds `_lods + _tessellation_level`
+// of them (pasture_3d_mesher.cpp), each twice the span of the last.
 void Pasture3DOcean::set_mesh_lods(const int p_count) {
 	int lods = CLAMP(p_count, 1, 10);
 	SET_IF_DIFF(_mesh_lods, lods);
+	LOG(INFO, "Setting ocean mesh levels: ", _mesh_lods);
 	_setup_mesher();
 }
 
+/**
+ * Extra clipmap rings BELOW LOD0, halving vertex spacing each time: the density dial.
+ * Effective spacing at the camera is vertex_spacing / 2^tessellation_level, and _subdiv
+ * (2^level) goes to the shader for the LOD0 geomorph.
+ *
+ * Ceiling restored to 6. Phase 2 extracted this from Pasture3D::set_ocean_tessellation_level
+ * and narrowed it to 3 with no comment, while carrying the defaults over verbatim -- a
+ * transcription slip rather than a decision, and one that reads from the inspector as
+ * "the slider stopped working". Same story in set_mesh_size().
+ */
 void Pasture3DOcean::set_tessellation_level(const int p_level) {
-	int level = CLAMP(p_level, 0, 3);
+	int level = CLAMP(p_level, 0, 6);
 	SET_IF_DIFF(_tessellation_level, level);
+	LOG(INFO, "Setting ocean tessellation level: ", _tessellation_level);
 	_setup_mesher();
 }
 
+/**
+ * Quads per clipmap tile -- the RADIUS of each resolution band, not its density.
+ *
+ * This is the knob for "the water goes coarse too close to the camera". Tiles are laid
+ * out at multiples of _mesh_size (Pasture3DMesher::_generate_offset_data), so doubling it
+ * doubles how far the finest ring reaches before the LOD halves. Density comes from
+ * vertex_spacing and tessellation_level instead.
+ *
+ * COST SCALES WITH THE SQUARE, on every ring. 256 is the terrain's ceiling and it is
+ * reachable here again, but an ocean fills the screen in a way ground does not; treat
+ * 48-64 as the working range and the rest as headroom you measure before keeping.
+ *
+ * `& ~1` restored with the ceiling. The size must be even: the LOD0 geomorph in
+ * water_surface.gdshaderinc is a vertex-parity test (`fract(VERTEX.xz * 0.5) * 2.0`), so
+ * an odd tile flips the parity of the next one and the seam stops aligning. The step-2
+ * inspector hint hides this; a value set from code does not go through the hint.
+ */
 void Pasture3DOcean::set_mesh_size(const int p_size) {
-	int size = CLAMP(p_size, 8, 64);
+	int size = CLAMP(p_size & ~1, 8, 256); // Ensure even
 	SET_IF_DIFF(_mesh_size, size);
+	LOG(INFO, "Setting ocean mesh size: ", _mesh_size);
 	_setup_mesher();
 }
 
+// Metres between vertices at LOD0 before tessellation divides it. Moves WITH mesh_lods:
+// halving the spacing halves the reach, and one more LOD buys it back (see the header).
 void Pasture3DOcean::set_vertex_spacing(const real_t p_spacing) {
 	real_t spacing = CLAMP(p_spacing, 0.25f, 100.f);
 	SET_IF_DIFF(_vertex_spacing, spacing);
+	LOG(INFO, "Setting ocean vertex spacing: ", _vertex_spacing);
 	_setup_mesher();
 }
 
@@ -431,6 +496,9 @@ void Pasture3DOcean::_notification(int p_what) {
 			if (_runtime_material.is_null() && _material.is_valid()) {
 				_setup_mesher();
 			}
+			if (Engine::get_singleton()->is_editor_hint()) {
+				_poll_base_material();
+			}
 			ShaderMaterial *mat = Object::cast_to<ShaderMaterial>(_runtime_material.ptr());
 			real_t sea_level = get_sea_level();
 			if (mat && _sea_level_sent != sea_level) {
@@ -487,8 +555,11 @@ void Pasture3DOcean::_bind_methods() {
 
 	ADD_GROUP("Geometry", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,64,2"), "set_mesh_size", "get_mesh_size");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "tessellation_level", PROPERTY_HINT_RANGE, "0,3,1"), "set_tessellation_level", "get_tessellation_level");
+	// Ranges match the clamps in the setters, and both match what these were before the
+	// Phase 2 extraction. A hint narrower than the clamp is a slider that stops short of
+	// a value the node would accept, which is indistinguishable from a broken knob.
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_size", PROPERTY_HINT_RANGE, "8,256,2"), "set_mesh_size", "get_mesh_size");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_tessellation_level", "get_tessellation_level");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_vertex_spacing", "get_vertex_spacing");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,0.5,or_greater"), "set_cull_margin", "get_cull_margin");
 

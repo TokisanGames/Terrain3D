@@ -91,8 +91,20 @@ private:
 	Vector3 _sun_dir_sent = V3_MAX;
 	Vector3 _sun_color_sent = V3_MAX;
 
+	// One cached duplicate, with the base it was taken from.
+	//
+	// The base is kept rather than reachable only through the key's instance id, because
+	// a duplicate is a SNAPSHOT: tuning the preset in the inspector moves the base and
+	// leaves every body still drawing the copy taken at load. Resource's `changed`
+	// carries no argument naming which resource moved, so the base has to be here to be
+	// copied from. `profile` likewise, instead of being parsed back out of the key.
+	struct CachedMaterial {
+		Ref<Material> base;
+		Ref<Material> shared;
+		StringName profile;
+	};
 	// (base material instance id, profile name) -> the shared duplicate handed out.
-	HashMap<String, Ref<Material>> _material_cache;
+	HashMap<String, CachedMaterial> _material_cache;
 	// Cumulative count of _waves uploads. The Phase 1 gate asserts ten pools on one
 	// profile produce exactly one; it is kept afterwards because "how many uploads
 	// did that inspector drag cost" is the question this class exists to answer.
@@ -100,6 +112,7 @@ private:
 
 	String _cache_key(const Ref<Material> &p_base, const StringName &p_profile) const;
 	void _upload_into(const Ref<Material> &p_material, const Ref<Pasture3DWaveProfile> &p_profile);
+	void _poll_base_materials();
 	void _on_profile_changed();
 	void _connect_profiles();
 	void _seed_default_profiles();
@@ -133,6 +146,37 @@ public:
 	// warn that a global "was removed at some point" and render it black until it
 	// recompiles. Moved here from Pasture3D in Phase 2.
 	static void register_water_globals();
+
+	// Copies p_base's ART parameters into p_target, leaving p_target's RID alone.
+	// Returns true if anything was written.
+	//
+	// Why this exists: every water body draws with a DUPLICATE of its base material
+	// (this class's cache, or Pasture3DOcean's private copy), and a duplicate is a snapshot.
+	// Tuning the base preset in the inspector moved the base and left every body drawing
+	// the copy taken at load, with no indication the slider had done nothing.
+	//
+	// Why it is a copy and not a re-duplicate: Pasture3DMesher bakes the material RID into
+	// its mesh surfaces (mesh_surface_set_material), so handing the ocean a NEW
+	// duplicate means rebuilding the whole clipmap -- per keystroke, while a slider is
+	// being dragged. Copying keeps the RID.
+	//
+	// Why callers POLL this rather than connect to something: ShaderMaterial emits no
+	// signal when a parameter changes. Not `changed`, not `property_list_changed`,
+	// through set_shader_parameter() or through set("shader_parameter/..") -- checked,
+	// because the obvious fix is a `changed` connection that would silently never fire.
+	// A directly-assigned material needs no signal (the RID is the same object); only a
+	// duplicate does, and nothing in the engine announces it. So this compares before it
+	// writes, and a poll over an untouched material costs reads and no RenderingServer
+	// traffic.
+	//
+	// PLUGIN-WRITTEN UNIFORMS ARE SKIPPED -- `_`-prefixed ones (`_waves`, `_mesh_size`,
+	// `_subdiv`, `_vertex_spacing`, `_target_pos`), plus `sea_level` and
+	// `wave_steepness`. They are owned by the profile, the ocean or the clipmap, and a
+	// base that does not store them yields nil; copying that would erase the table every
+	// frame and the poll would fight whoever re-applied it.
+	static bool sync_material_params(const Ref<Material> &p_base, const Ref<Material> &p_target);
+	// True for a uniform the plugin writes and the base material does not own.
+	static bool is_plugin_written_param(const StringName &p_name);
 
 	void set_profiles(const TypedArray<Pasture3DWaveProfile> &p_profiles);
 	TypedArray<Pasture3DWaveProfile> get_profiles() const { return _profiles; }

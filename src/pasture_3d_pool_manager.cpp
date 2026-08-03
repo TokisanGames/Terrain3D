@@ -2,6 +2,7 @@
 
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
+#include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/shader_material.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
@@ -99,8 +100,85 @@ void Pasture3DPoolManager::register_water_globals() {
 	}
 }
 
+bool Pasture3DPoolManager::is_plugin_written_param(const StringName &p_name) {
+	// The `_` prefix is this codebase's existing marker for a uniform the plugin fills
+	// in rather than one the artist sets -- _waves, _mesh_size, _subdiv,
+	// _vertex_spacing, _target_pos, _water_domain_origin all carry it, in the water
+	// shaders and in the legacy one alike. The two exceptions are named as art knobs
+	// because they read as art knobs, but the profile and the ocean own them.
+	return String(p_name).begins_with("_") || p_name == StringName("sea_level") ||
+			p_name == StringName("wave_steepness");
+}
+
+bool Pasture3DPoolManager::sync_material_params(const Ref<Material> &p_base, const Ref<Material> &p_target) {
+	ShaderMaterial *base = Object::cast_to<ShaderMaterial>(p_base.ptr());
+	ShaderMaterial *target = Object::cast_to<ShaderMaterial>(p_target.ptr());
+	if (!base || !target || base == target) {
+		return false;
+	}
+	bool wrote = false;
+	// The SHADER can change under the material too -- dropping a different .gdshader on
+	// a preset is how someone moves a body between tiers -- and a target still
+	// compiling the old one would silently ignore every uniform copied below.
+	Ref<Shader> shader = base->get_shader();
+	if (target->get_shader() != shader) {
+		target->set_shader(shader);
+		wrote = true;
+	}
+	if (target->get_render_priority() != base->get_render_priority()) {
+		target->set_render_priority(base->get_render_priority());
+		wrote = true;
+	}
+	if (target->get_next_pass() != base->get_next_pass()) {
+		target->set_next_pass(base->get_next_pass());
+		wrote = true;
+	}
+	if (shader.is_null()) {
+		return wrote;
+	}
+	// Driven off the SHADER's uniform list rather than the base's property list: a
+	// parameter the base leaves at its shader default is absent from the base's own
+	// storage but may well be set on the target from an earlier sync, and only walking
+	// every uniform clears it back. get_shader_parameter() returns nil for an unset one,
+	// and setting nil is how a ShaderMaterial spells "use the shader's default".
+	Array uniforms = shader->get_shader_uniform_list();
+	for (int i = 0; i < uniforms.size(); i++) {
+		Dictionary uniform = uniforms[i];
+		StringName name = uniform.get("name", StringName());
+		if (String(name).is_empty() || is_plugin_written_param(name)) {
+			continue;
+		}
+		Variant value = base->get_shader_parameter(name);
+		// Compared before writing, because this is polled: an untouched material must
+		// cost reads and no RenderingServer traffic at all.
+		if (target->get_shader_parameter(name) != value) {
+			target->set_shader_parameter(name, value);
+			wrote = true;
+		}
+	}
+	return wrote;
+}
+
 void Pasture3DPoolManager::upload_profile_into(const Ref<Material> &p_material, const StringName &p_profile) {
 	_upload_into(p_material, get_profile(p_profile));
+}
+
+/**
+ * Carries inspector edits of a base material into the duplicates handed out from it.
+ *
+ * Polled, and polled over every cached pair rather than over the one that moved, because
+ * nothing announces a shader parameter change -- see sync_material_params(). Bounded by
+ * the number of distinct (base, profile) pairs in the scene, not by the number of
+ * bodies, which is the same bound _on_profile_changed works to.
+ *
+ * EDITOR ONLY. This exists so a slider drag shows up on the water; a running game
+ * assigns materials, it does not tune them, and paying a per-frame walk of every uniform
+ * for that would be a poll nobody asked for.
+ */
+void Pasture3DPoolManager::_poll_base_materials() {
+	for (const KeyValue<String, CachedMaterial> &kv : _material_cache) {
+		sync_material_params(kv.value.base, kv.value.shared);
+	}
 }
 
 void Pasture3DPoolManager::_on_profile_changed() {
@@ -108,10 +186,8 @@ void Pasture3DPoolManager::_on_profile_changed() {
 	// and rather than work out which, re-upload all of them: the cache holds one
 	// material per pair, so this is bounded by the number of distinct pairs in the
 	// scene, not by the number of bodies. Ten ponds is still one upload.
-	for (const KeyValue<String, Ref<Material>> &kv : _material_cache) {
-		String profile_name = kv.key.substr(kv.key.find("|") + 1);
-		Ref<Pasture3DWaveProfile> profile = get_profile(StringName(profile_name));
-		_upload_into(kv.value, profile);
+	for (const KeyValue<String, CachedMaterial> &kv : _material_cache) {
+		_upload_into(kv.value.shared, get_profile(kv.value.profile));
 	}
 	// Bodies outside the cache (Pasture3DOcean holds a private material, §6) have no other
 	// way to learn a knob moved.
@@ -321,15 +397,18 @@ Ref<Material> Pasture3DPoolManager::get_material_for(const Ref<Material> &p_base
 		return p_base;
 	}
 	String key = _cache_key(p_base, p_profile);
-	HashMap<String, Ref<Material>>::Iterator it = _material_cache.find(key);
+	HashMap<String, CachedMaterial>::Iterator it = _material_cache.find(key);
 	if (it) {
-		return it->value;
+		return it->value.shared;
 	}
-	Ref<Material> shared = p_base->duplicate();
-	_upload_into(shared, profile);
-	_material_cache.insert(key, shared);
+	CachedMaterial entry;
+	entry.base = p_base;
+	entry.shared = p_base->duplicate();
+	entry.profile = p_profile;
+	_upload_into(entry.shared, profile);
+	_material_cache.insert(key, entry);
 	LOG(DEBUG, "Cached water material for key ", key, "; cache now holds ", _material_cache.size());
-	return shared;
+	return entry.shared;
 }
 
 void Pasture3DPoolManager::clear_material_cache() {
@@ -499,6 +578,9 @@ void Pasture3DPoolManager::_notification(int p_what) {
 		case NOTIFICATION_PHYSICS_PROCESS: {
 			_update_clock(get_physics_process_delta_time());
 			_update_sun();
+			if (Engine::get_singleton()->is_editor_hint()) {
+				_poll_base_materials();
+			}
 			break;
 		}
 	}
@@ -525,6 +607,14 @@ void Pasture3DPoolManager::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("clear_material_cache"), &Pasture3DPoolManager::clear_material_cache);
 	ClassDB::bind_method(D_METHOD("rebuild_tables"), &Pasture3DPoolManager::rebuild_tables);
 	ClassDB::bind_method(D_METHOD("upload_profile_into", "material", "profile"), &Pasture3DPoolManager::upload_profile_into);
+	// Bound for the same reason upload_profile_into is: the bodies that need it are
+	// outside this class's cache. It is also the only way a gate can drive the sync,
+	// since the callers run it behind is_editor_hint() and a headless test is not the
+	// editor.
+	ClassDB::bind_static_method("Pasture3DPoolManager",
+			D_METHOD("sync_material_params", "base", "target"), &Pasture3DPoolManager::sync_material_params);
+	ClassDB::bind_static_method("Pasture3DPoolManager",
+			D_METHOD("is_plugin_written_param", "name"), &Pasture3DPoolManager::is_plugin_written_param);
 	ClassDB::bind_method(D_METHOD("register_body", "body"), &Pasture3DPoolManager::register_body);
 	ClassDB::bind_method(D_METHOD("unregister_body", "body"), &Pasture3DPoolManager::unregister_body);
 	ClassDB::bind_method(D_METHOD("get_bodies"), &Pasture3DPoolManager::get_bodies);

@@ -27,10 +27,10 @@ const POOL_GROUP: StringName = &"pasture3d_pool"
 ## Debounce for rebuilds while a spline is being dragged (seconds). Matches the brushes.
 const REFRESH_DELAY: float = 0.1
 
-## Hard ceiling on generated vertices. A pool whose spacing would exceed this is a
-## mistake -- almost always a metre-scale spacing over a kilometre-scale loop -- and
-## silently building it locks the editor for minutes.
-const MAX_VERTICES: int = 400000
+## Default ceiling on generated vertices, and the value `max_vertices` starts at. A pool
+## whose spacing would exceed this is usually a mistake -- a metre-scale spacing over a
+## kilometre-scale loop -- and silently building it locks the editor for minutes.
+const DEFAULT_MAX_VERTICES: int = 400000
 ## The speed ARRAY_COLOR.b == 1 means, in m/s. Must match water_river.gdshader's flow_speed_scale
 ## default: the mesh normalises against this and the shader multiplies back by it, so a disagreement
 ## is a river that flows at the wrong rate with nothing to point at.
@@ -82,7 +82,25 @@ const FLOW_NEUTRAL := Color(0.5, 0.5, 0.0, 1.0)
 		_schedule_rebuild()
 ## Metres added to the surface height when Fit to Curve runs. Negative sits the water
 ## below the rim, which is where a basin's water actually is.
-@export var fill_offset: float = -0.5
+##
+## On a RIBBON this is not just a button input: _ribbon_centreline() adds it to every row,
+## so it positions the river's whole surface and has to rebuild. On a loop the mesh is flat
+## in local space and only fit_to_curve() reads it, so the rebuild is wasted there -- but a
+## debounced no-op costs a timer, and an export that moves the mesh in one mode and not the
+## other is the kind of thing that gets diagnosed as "the parameter does nothing".
+@export var fill_offset: float = -0.5:
+	set(v):
+		fill_offset = v
+		_schedule_rebuild()
+## Ceiling on generated vertices, for when a pool genuinely needs to be denser than the
+## default guard allows. This is the pool's frame-time dial in the same sense mesh_size is
+## the ocean's: raise it to buy resolution on a large body, lower it to catch a spacing
+## mistake sooner. The pool refuses to build past it and says so in its configuration
+## warnings rather than locking the editor.
+@export var max_vertices: int = DEFAULT_MAX_VERTICES:
+	set(v):
+		max_vertices = maxi(v, 4)
+		_schedule_rebuild()
 ## Metres between surface vertices. 0 = automatic, at a eighth of the wave profile's
 ## shortest wavelength — the ratio the water guide §7 requires. Waves are a VERTEX
 ## effect, so this is correctness, not taste: too coarse and the drawn surface cuts the
@@ -557,10 +575,10 @@ func rebuild() -> Dictionary:
 		_last_stats["reason"] = "loop smaller than one grid cell"
 		update_configuration_warnings()
 		return _last_stats
-	if gw * gh > MAX_VERTICES:
+	if gw * gh > max_vertices:
 		_clear_surface()
-		_last_stats["reason"] = "would exceed %d vertices at %.2f m spacing" % [
-			MAX_VERTICES, spacing]
+		_last_stats["reason"] = "would exceed max_vertices (%d) at %.2f m spacing; it needs %d" % [
+			max_vertices, spacing, gw * gh]
 		update_configuration_warnings()
 		return _last_stats
 
@@ -772,10 +790,10 @@ func _rebuild_ribbon(p_spacing: float) -> Dictionary:
 	# one axis -- the detail normals are derived from world position and a stretched grid shows.
 	var cols := maxi(int(ceil((half * 2.0) / p_spacing)) + 1, 2)
 	var rows := centre.size()
-	if rows * cols > MAX_VERTICES:
+	if rows * cols > max_vertices:
 		_clear_surface()
-		_last_stats["reason"] = "would exceed %d vertices at %.2f m spacing" % [
-			MAX_VERTICES, p_spacing]
+		_last_stats["reason"] = "would exceed max_vertices (%d) at %.2f m spacing; it needs %d" % [
+			max_vertices, p_spacing, rows * cols]
 		update_configuration_warnings()
 		return _last_stats
 

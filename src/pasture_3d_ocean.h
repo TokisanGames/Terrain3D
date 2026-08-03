@@ -93,6 +93,7 @@ private:
 	void _setup_mesher();
 	void _destroy_mesher(const bool p_final = false);
 	void _rebuild_runtime_material();
+	void _poll_base_material();
 	void _push_clipmap_uniforms();
 	void _update_aabbs(const bool p_force = false);
 	void _on_profiles_changed();
