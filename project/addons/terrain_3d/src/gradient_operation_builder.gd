@@ -55,3 +55,15 @@ func apply_operation(p_editor: Terrain3DEditor, p_global_position: Vector3, p_ca
 	p_editor.stop_operation()
 	
 	_get_point_picker().clear()
+
+
+func try_consume_hotkey(p_event: InputEventKey) -> bool:
+	var picker: MultiPicker = _get_point_picker()
+	match p_event.keycode:
+		KEY_1:
+			picker.buttons[0].pressed.emit()
+		KEY_2:
+			picker.buttons[1].pressed.emit()
+		_:
+			return false
+	return true
