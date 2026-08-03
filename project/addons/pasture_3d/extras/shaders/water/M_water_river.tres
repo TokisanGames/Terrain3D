@@ -30,4 +30,4 @@ shader_parameter/foam_color = Color(0.9, 0.92, 0.94, 1)
 shader_parameter/foam_scale = 0.3
 shader_parameter/foam_roughness = 0.85
 shader_parameter/foam_shore_depth = 0.35
-shader_parameter/foam_shore_amount = 0.428
+shader_parameter/foam_shore_amount = 0.67999998480064
