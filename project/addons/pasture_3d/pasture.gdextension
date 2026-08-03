@@ -7,6 +7,18 @@ compatibility_minimum = 4.7
 
 Pasture3D = "res://addons/pasture_3d/icons/pasture3d.svg"
 
+; Only the platforms this fork actually builds: Windows on the dev box, Linux x86_64 and macOS
+; universal from .github/workflows/pasture-libs.yml. The inherited list also declared linux arm64
+; and rv64, android, ios and web -- none of which has a builder. The per-platform workflows for
+; those are dispatch-only with nothing calling them, and build.yml's own header records that it
+; fails as-is on upstream paths.
+;
+; A DECLARED ENTRY WITH NO BINARY BEHIND IT IS WORSE THAN AN ABSENT ONE. Godot resolves only the
+; entry matching the running platform, so the missing files cost nothing until somebody exports to
+; Android -- and then it fails on a missing library rather than on "this extension does not support
+; Android", which is a much longer afternoon. The workflow files are deliberately left in place, so
+; re-adding a platform is wiring a caller and restoring two lines here.
+
 [libraries]
 
 windows.debug.x86_64 = "res://addons/pasture_3d/bin/libpasture.windows.debug.x86_64.dll"
@@ -14,19 +26,6 @@ windows.release.x86_64 = "res://addons/pasture_3d/bin/libpasture.windows.release
 
 linux.debug.x86_64 = "res://addons/pasture_3d/bin/libpasture.linux.debug.x86_64.so"
 linux.release.x86_64 = "res://addons/pasture_3d/bin/libpasture.linux.release.x86_64.so"
-linux.debug.arm64 = "res://addons/pasture_3d/bin/libpasture.linux.debug.arm64.so"
-linux.release.arm64 = "res://addons/pasture_3d/bin/libpasture.linux.release.arm64.so"
-linux.debug.rv64 = "res://addons/pasture_3d/bin/libpasture.linux.debug.rv64.so"
-linux.release.rv64 = "res://addons/pasture_3d/bin/libpasture.linux.release.rv64.so"
 
 macos.debug = "res://addons/pasture_3d/bin/libpasture.macos.debug.framework"
 macos.release = "res://addons/pasture_3d/bin/libpasture.macos.release.framework"
-
-android.debug.arm64 = "res://addons/pasture_3d/bin/libpasture.android.debug.arm64.so"
-android.release.arm64 = "res://addons/pasture_3d/bin/libpasture.android.release.arm64.so"
-
-ios.debug = "res://addons/pasture_3d/bin/libpasture.ios.debug.universal.dylib"
-ios.release = "res://addons/pasture_3d/bin/libpasture.ios.release.universal.dylib"
-
-web.debug = "res://addons/pasture_3d/bin/libpasture.web.debug.wasm32.wasm"
-web.release = "res://addons/pasture_3d/bin/libpasture.web.release.wasm32.wasm"
