@@ -98,9 +98,11 @@ All five live in `addons/pasture_3d/extras/shaders/water/`.
 `#define`-d out at compile time, so they are not branched over at runtime. A pond is genuinely
 cheaper.
 
-**`M_water_river.tres` is the one preset that is not drop-anywhere.** It reads a flow direction out of
-`ARRAY_COLOR`, and a mesh with no vertex colours reads white — which decodes to a diagonal at full
-speed. Use it on a `Pasture3DStream`. On a `Pasture3DPool` it is harmless but pointless: pools write a
+**`M_water_river.tres` is the one preset that is not drop-anywhere.** It needs three things only a
+`Pasture3DStream` mesh writes: the flow direction and speed in `ARRAY_COLOR.rgb`, the distance to the
+bank in `ARRAY_COLOR.a`, and the flow travel time in `UV2.x`. On a bare `MeshInstance3D` the vertex
+colours read white and `UV2` reads zero — a full-speed diagonal with every vertex at the same phase,
+so the whole surface bobs in unison. On a `Pasture3DPool` it is harmless but inert: pools write a
 neutral colour that decodes to no flow at all.
 
 Measured at 1280×800 with the water filling the frame: ocean high tier 0.295 ms, low tier 0.235 ms,
@@ -124,7 +126,7 @@ ships four:
 | `ocean_default` | 8 | 137 m | 4.88 m | `Pasture3DOcean` |
 | `lake_calm` | 4 | 25 m | 0.669 m | Lakes over ~40 m across |
 | `pond_still` | 2 | 12 m | 0.076 m | Ponds under ~40 m across |
-| `river_flow` | 3 | 10 m | 0.134 m | `Pasture3DStream` |
+| `river_flow` | 3 | 10 m | 0.134 m | Nothing, since the stream ripples landed — see §4 |
 
 `lake_calm` and `pond_still` generate exactly the tables inside `M_water_lake.tres` and
 `M_water_pond.tres` — the build checks that every run, so a profile and the preset named after it
@@ -215,9 +217,45 @@ with its node in both.
 | `bank_height` | Metres below the bank top that the water sits — freeboard. This is the level control; the bed does not set it. |
 | `bank_search_width` | How far out to look for the bank top. 0 = automatic, from the `Pasture3DTrough` that carved the channel. |
 | `bank_smoothing` | Passes of smoothing over the sampled surface line. Terrain samples are noisy, and a river surface that climbs even by centimetres reads as broken. |
-| `flow_speed` | Metres per second the surface texture is advected. It moves the texture, not the water: nothing is simulated and no buoy is pushed by it. |
+| `flow_speed` | Metres per second the water runs. Drives the texture advection, the ripple crests and the ripple amplitude. It moves the *surface*, not the water body: nothing is simulated and no buoy is pushed downstream by it. |
 | `flow_slope_gain` | How much a downhill gradient adds to that speed, so steep reaches read as rapids. |
-| `flow_reverse` | Run the flow the other way, for a channel drawn from the mouth up. Flips which way `flow_slope_gain` counts as downhill too. |
+| `flow_reverse` | Run the flow the other way, for a channel drawn from the mouth up. Flips which way `flow_slope_gain` counts as downhill, and which way the ripples travel. |
+
+`wave_profile` is greyed out on a stream, and that is the interesting part.
+
+**A river does not use the Gerstner wave table at all.** A wave in that table carries one
+world-space heading; a river bends; so on every reach that heads against it, the crests travel
+*upstream*. There is no amplitude, steepness or direction that fixes it — the model has one
+direction and a river has many — and the only setting that hides it is amplitude 0, which is what
+this plugin's own demo scene had to ship before this was solved.
+
+So a stream's surface motion comes from four **material** uniforms instead, on
+`M_water_river.tres`:
+
+| Uniform | Meaning |
+|---|---|
+| `ripple_amplitude` | Crest-to-trough height at full speed, in metres, before the bank fade. Centimetres, not metres: this is chop on a channel, not swell on a sea. |
+| `ripple_frequency` | How often the surface bobs at a fixed point, in Hz. **Not** a wavelength — see below. |
+| `ripple_speed_ref` | The flow speed at which ripples reach full amplitude. Below it they scale down, so a river slowing into a pool goes glassy by itself. |
+| `ripple_bank_fade` | Where across the half-width the ripples start fading out, so no crest stands proud of the dry bank. |
+
+They are on the material and not on the node because everything that differs *between reaches* —
+how fast the water is running, how steep, how near the bank — is already carried per-vertex by the
+mesh. The material only has to say how much ripple a given speed earns.
+
+**Why frequency and not wavelength.** The mesh carries, per vertex, the *flow travel time* from the
+head of the channel, and the ripples are a function of it. That one substitution is what makes
+crests run downstream on every reach — travel time increases along the channel by construction, so
+there is no reach on which the phase can turn around. It also makes crests move at the **local**
+flow speed for free, with the wavelength stretching through fast reaches and packing together in
+slow ones, which is what real water does. Frequency is the thing that stays constant in steady
+flow, so frequency is the knob.
+
+**`ripple_frequency` is quietly expensive.** Wavelength is speed ÷ frequency and the mesh has to
+resolve it, so doubling the frequency halves the vertex spacing a stream picks and roughly
+quadruples its vertex count. The shipped 0.3 Hz is about a 5 m undulation at 1.5 m/s. Anything
+finer than that belongs to the detail normal map, which already flows along the same channel and
+costs nothing extra.
 
 **A stream's surface comes from its banks, not its spline.** A `Pasture3DTrough`'s spline is the bed
 *floor*, so offsetting it downward — which is what `fill_offset` means on a pool — buries the water
@@ -464,8 +502,17 @@ raised pool on a plateau.
 scene's `Environment` has volumetric fog switched on — no error, just no fog. Enable it on the
 `WorldEnvironment`, or turn off `underwater_fog`.
 
-**The river's texture slides diagonally.** `M_water_river.tres` is on a mesh with no vertex colours,
-so it reads white and decodes to a diagonal at full speed. Put it on a `Pasture3DStream`.
+**The river's texture slides diagonally, or the whole surface bobs in unison.** `M_water_river.tres`
+is on a mesh that is not a `Pasture3DStream`. With no vertex colours it reads white — a diagonal at
+full speed — and with no `UV2` every vertex shares one phase. Put it on a stream.
+
+**My river is flat.** Check `flow_speed`. Ripple amplitude scales with it and reaches full size at
+`ripple_speed_ref` (2 m/s by default), so a river authored at 0.1 m/s is *correctly* glassy. Also
+check `wave_profile` is not what you are trying to tune: it does nothing to a stream's surface (§4).
+
+**My river costs more vertices than I expected.** `ripple_frequency`. Wavelength is speed ÷
+frequency and the mesh resolves it, so the knob that looks like a style choice is really the
+density dial. Set `vertex_spacing` explicitly if you want to decide it yourself.
 
 **The pool's water did not move when I moved the brush.** It should — check `source_spline` is set
 rather than `curve`. A raw `Curve3D` carries no transform and does not track anything.

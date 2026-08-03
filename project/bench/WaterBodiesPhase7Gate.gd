@@ -293,26 +293,47 @@ func _gate_d_float_on_river() -> void:
 		_fail += 1
 		print("    !! body_at returned %s upstream and %s downstream" % [found_up, found_down])
 
-	# A buoy dropped over the downstream reach must settle on THAT reach's surface, not on the
+	# A buoy dropped over the downstream reach must float on THAT reach's surface, not on the
 	# upstream one — which is the whole reason a ribbon carries Y per row.
-	# 900 ticks, not 420: ONE buoy on 400 kg has a time constant of about 1.5 s against four buoys'
-	# 0.4, so the same boat that had settled by 7 s in Phase 6 is still creeping down at that point.
-	# The residual velocity is printed so "not settled yet" cannot be mistaken for "settled wrong".
+	#
+	# TRACKING, NOT SETTLING, and the change is not a relaxation. Until the stream ripples landed
+	# (spec §10.2) a river surface was a static sheet, so "the boat stopped moving" was a fair test
+	# and this asked for a residual velocity under 0.05 m/s. A river surface now moves on purpose,
+	# so a floating boat bobs on purpose and that criterion is asking for the feature to be absent.
+	# What replaces it is strictly more demanding: the boat's height is compared against
+	# get_water_height() AT EVERY SAMPLE over two seconds, so it has to follow the surface up and
+	# down rather than merely end up near where it started.
+	#
+	# 900 ticks before sampling, not 420: ONE buoy on 400 kg has a time constant of about 1.5 s
+	# against four buoys' 0.4, so the same boat that had settled by 7 s in Phase 6 is still
+	# creeping down at that point.
 	var boat := _make_boat(root, 400.0, 0.6, Vector3(downstream.x, h_down + 4.0, downstream.z))
 	await _run_physics(900)
-	var settled: float = boat.global_position.y
-	var residual: float = boat.linear_velocity.length()
-	var expect: float = h_down - (400.0 / 1000.0 / 0.6) * 0.5
-	print("    a 400 kg boat over the downstream reach settled at %.2f m (predicted %.2f), %.4f m/s"
-		% [settled, expect, residual])
-	if residual > 0.05:
+	var draft: float = (400.0 / 1000.0 / 0.6) * 0.5
+	var worst := 0.0
+	var mean := 0.0
+	var swing_lo := INF
+	var swing_hi := -INF
+	for i in 30:
+		await _run_physics(4)
+		var here := Vector2(boat.global_position.x, boat.global_position.z)
+		var err: float = boat.global_position.y - (pool.get_water_height(here) - draft)
+		worst = maxf(worst, absf(err))
+		mean += err / 30.0
+		swing_lo = minf(swing_lo, boat.global_position.y)
+		swing_hi = maxf(swing_hi, boat.global_position.y)
+	print("    a 400 kg boat over the downstream reach tracks the surface to %.3f m worst, "
+		% worst + "%.3f m mean" % mean)
+	print("      (its own height moved %.3f m over the sample, so the surface is not static)"
+		% (swing_hi - swing_lo))
+	if worst > 0.15:
 		_fail += 1
-		print("    !! still moving at %.4f m/s, so this is not an equilibrium" % residual)
-	elif absf(settled - expect) > 0.15:
+		print("    !! it departs the surface by %.3f m; it is not floating on what is drawn" % worst)
+	elif absf(mean) > 0.05:
 		_fail += 1
-		print("    !! %.2f m from the prediction" % (settled - expect))
+		print("    !! it rides %.3f m off the surface on average" % mean)
 	else:
-		print("    -> floats on the reach it is over, within %.3f m" % absf(settled - expect))
+		print("    -> floats on the reach it is over, and follows it as it moves")
 
 	# Control: beside the channel, at the same height, must be dry. Without it "the river contains
 	# things" could mean it contains the whole bounding box.

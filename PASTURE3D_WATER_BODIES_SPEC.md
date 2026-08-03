@@ -781,6 +781,132 @@ rivers, and the spec says so rather than quietly exceeding it.
 
 ---
 
+## 10.2 Stream ripples — waves that cannot run upstream
+
+**Done 2026-08-03.** §10 above gave the river's *texture* a flow direction. Its **geometry** was
+still displaced by the Gerstner table, and that was wrong in a way no setting could reach.
+
+### The defect
+
+A wave in `_waves[]` carries one world-space heading, applied as `dot(dir, domain)` over world XZ. A
+river bends. So on every reach heading against that direction, the crests travelled **upstream**.
+
+Not a tuning problem: the model has one direction and a river has many. Amplitude, steepness,
+`direction_deg` — none of them can make crests follow a channel that turns. The only setting that
+hides it is amplitude 0, and that is what `sculpting_2.tscn` shipped: a `river` profile with
+`wave_count 1`, `amplitude 0`, `steepness 0`. A dead-flat river, authored deliberately, because a
+moving one was worse.
+
+That workaround is the strongest evidence the split was worth doing — the two kinds of water needed
+different surface models, and while they were one class there was nowhere to put the difference.
+
+### The fix is a coordinate, not a parameter
+
+The mesh carries, per vertex, the **cumulative flow travel time** from the head of the channel —
+`tau`, in seconds, in `UV2.x`, integrated on the CPU as `∫ ds/v` over the per-row speeds. Waves are
+then
+
+```
+h = A · sin( 2π f · (water_time − tau) )
+```
+
+and three properties fall out of that one substitution rather than being added on top:
+
+- **Crests run downstream, unconditionally.** `tau` increases along the channel by construction, so
+  there is no reach on which the phase can turn around. Upstream motion is not tuned away; it is
+  unrepresentable.
+- **Crests run at the *local* flow speed.** Crest positions are the loci of equal `tau`, spaced
+  `1/f` of travel time apart, so they advance exactly as fast as the water does — and the
+  wavelength stretches through fast reaches and packs together in slow ones, which is what real
+  water does. Free, and a property of the coordinate.
+- **It is continuous.** `tau` is a monotone function of one variable sampled per row, so no two
+  adjacent vertices can disagree about phase.
+
+**The trap, recorded because it is the obvious first attempt.** Making the *crest speed*
+per-vertex — `phase = 2π(s/L) − 2π(c_local/L)·t` — tears. The `c_local · t` term is a time-growing
+multiple of a quantity that varies along the river, so adjacent rows drift apart in phase without
+bound and the surface shears itself apart within seconds. **Frequency is what steady flow
+conserves, not wavelength.** So frequency is the constant and the wavelength is what varies; `tau`
+is that statement expressed as a coordinate.
+
+### Where the settings live
+
+Four material uniforms — `ripple_amplitude`, `ripple_frequency`, `ripple_speed_ref`,
+`ripple_bank_fade` — not a per-river profile and not node exports. Everything that differs between
+reaches (speed, slope, distance to the bank) is *already* per-vertex in the mesh, so the material
+only has to price how much ripple a given speed earns. `wave_profile` becomes inert on a stream and
+is greyed out, still keying the manager's shared-material cache and nothing else.
+
+`ARRAY_COLOR.a` (previously an unused constant 1.0) carries distance to the waterline as a fraction
+of that row's half-width, which damps amplitude before the mesh edge. Without it, crests stand
+proud of dry bank and read as a broken mesh.
+
+### `ripple_frequency` is the density dial in disguise
+
+Wavelength is speed ÷ frequency and the mesh must resolve it, so the knob that looks like a style
+choice sets the vertex count. **Measured**, on the Phase 7 fixture (a 200 m channel dropping 20 m):
+
+| | spacing | vertices | rebuild |
+|---|---|---|---|
+| Flat river, pre-feature | 1.25 m (from the profile) | 1,661 | 15.9 ms |
+| First draft, `ripple_frequency` 0.9 | 0.25 m | 32,977 | 1101 ms |
+| Shipped, `ripple_frequency` 0.3 | 0.63 m | 6,006 | 106 ms |
+
+The first draft resolved the *fastest* octave to λ/8 — eight-fold density to render a two-centimetre
+wiggle. The shipped rule resolves the **base** octave to λ/8 and leaves the second at about λ/3,
+where it reads as texture on the undulation rather than as its own wave. Fine chop is the detail
+normal map's job; it already advects along the same flow and costs nothing.
+
+3.6× the vertices of a flat river is the honest price, and it is not a regression to apologise for:
+a flat river needs no resolution because it has no shape.
+
+### Parity
+
+`Pasture3DStream._wave_offset()` is a transcription of `water_eval_stream_waves()`; a buoy floats on
+the first and the player sees the second. Two things make the duplication survivable:
+
+1. **`Pasture3DWaterBody.shader_param()`** reads an unset uniform's default out of the *shader
+   source*, following `#include`s, so the CPU cannot hold its own copy of a default and drift.
+   `RenderingServer.shader_get_parameter_default()` was the first implementation and is the
+   documented route — it returns null under the headless dummy renderer, so every gate and tool
+   script would have silently computed against different numbers than the game. A parity mechanism
+   that stops working in the environment parity is measured in is worse than none.
+2. **The octave tables are compile-time `const`s in GLSL** and therefore genuinely duplicated in
+   GDScript. `StreamRippleCheck` criterion E parses both files and fails when they drift, which is
+   the only honest way to hold a duplicate.
+
+### Gate
+
+**[`bench/StreamRippleCheck.gd`](project/bench/StreamRippleCheck.gd)** — five criteria, headless.
+Fixture is a **U**: one leg running +X, one running −X, so whatever heading the wave table carries,
+one leg opposes it.
+
+| | Criterion | Control that must fail |
+|---|---|---|
+| A | crests move downstream on **both** legs | the same points through the Gerstner table, which must run upstream on one leg — **the control is the bug** |
+| B | ripples vanish at the waterline | mid-channel, which must move |
+| C | amplitude grows with flow speed | `flow_speed` 0, which must be flat |
+| D | `flow_reverse` turns the crests around | — (the unreversed direction is A) |
+| E | the octave tables agree across the two files | a fabricated const name, which must parse as empty |
+
+**Measured:** crests +5 rows on both legs; the wave table −10 on one and +10 on the other. Bank
+0.0008 m against mid-channel 0.0416 m. Speed 0 / 0.5 / 3.0 m/s → 0.0000 / 0.0239 / 0.0910 m.
+
+**Phase 7 criterion D was rewritten, and it is stricter, not looser.** It required the boat's
+residual velocity under 0.05 m/s — fair when a river surface was a static sheet, and a demand for
+the *absence* of this feature now that one moves. It now compares the boat against
+`get_water_height()` at every sample over two seconds, so it has to follow the surface up and down
+rather than end up near where it started. Measured: 0.052 m worst, 0.008 m mean, over 0.185 m of
+surface travel.
+
+### Not modelled
+
+No horizontal (Gerstner) shear — river ripples at this scale are near enough vertical, and the
+shear term is what sharpens ocean crests, which a creek does not want. No cross-channel chop. No
+standing waves at shallows or obstacle wakes: both need per-vertex depth and a Froude test.
+
+---
+
 ## 11. Phases and gates
 
 Every gate follows the convention already established in `project/bench/`: a headless-runnable scene
