@@ -125,20 +125,27 @@ func _case(p_label: String, p_with_flag: bool) -> void:
 		root.queue_free()
 		return
 
-	# Three points across one cross-section: the two mesh edges and the centreline. Lateral offset
+	# Three points across one cross-section: near each mesh edge and the centreline. Lateral offset
 	# is the one channel that VARIES across the strip, so reading it at three places is what
 	# separates "the channel arrived" from "some constant arrived".
-	var half: float = stream._row_half(rows.size() / 2, false)
+	#
+	# INSET FROM THE EDGE, at 0.97, and that is not caution -- the first version sampled the edges
+	# exactly and the right-hand pixel rounded OUTSIDE the strip, read the viewport's clear colour,
+	# and decoded to a confident -13.69 m. Whether a sample sitting exactly on a triangle boundary
+	# lands in or out is a rasterisation coin flip, and there is nothing to learn from the toss.
+	var half: float = stream._row_half(rows.size() / 2, false) * 0.97
 	var expect_depth := FIXTURE_DEPTH if p_with_flag else 0.0
 	var ok := true
-	for probe in [[-half, "left edge"], [0.0, "centreline"], [half, "right edge"]]:
+	for probe in [[-half, "near left"], [0.0, "centreline"], [half, "near right"]]:
 		var offset: float = probe[0]
 		var world := Vector3(mid.x, mid.y, mid.z + offset)
 		var px := _camera.unproject_position(world)
 		var got: Variant = _read(image, px)
 		if got == null:
 			_fail += 1
-			print("  !! %s projected outside the probe viewport" % probe[1])
+			print("  !! %s projected onto empty background, not onto the strip — this criterion"
+					% probe[1])
+			print("     measured the fixture's framing and nothing about CUSTOM0")
 			ok = false
 			continue
 		var lateral: float = (got.r - 0.5) * LATERAL_SCALE
@@ -154,16 +161,22 @@ func _case(p_label: String, p_with_flag: bool) -> void:
 		if absf(depth - expect_depth) > TOLERANCE * DEPTH_SCALE:
 			ok = false
 
-	if p_with_flag and not ok:
-		_fail += 1
-		print("  !! CUSTOM0 does not arrive in the vertex shader as the mesher wrote it.")
-		print("     Chop and the standing waves are drawn from vec4(0) and the CPU is alone.")
-	elif not p_with_flag and ok:
-		_fail += 1
-		print("  !! CONTROL did not fire: stripping the format flag changed nothing, so the")
-		print("     probe is not reading CUSTOM0 and the case above is unproven")
-	elif not p_with_flag:
+	# `ok` means "the readings matched what THIS case expects" -- the mesher's values with the flag,
+	# and zeros without it. So in the control, ok TRUE is the control firing: stripping the format
+	# flag collapsed the channel. The first version of this had the test the other way round, which
+	# is the single worst way for a control to be wrong -- it calls a working control a failure and
+	# a dead one proof, and it reads as correct until something makes it disagree.
+	if p_with_flag:
+		if not ok:
+			_fail += 1
+			print("  !! CUSTOM0 does not arrive in the vertex shader as the mesher wrote it.")
+			print("     Chop and the standing waves are drawn from vec4(0) and the CPU is alone.")
+	elif ok:
 		print("  control fires: without the format flag the channel reads as zeros")
+	else:
+		_fail += 1
+		print("  !! CONTROL did not fire: stripping the format flag left the values in place, so")
+		print("     the probe is not reading CUSTOM0 and the case above is unproven")
 	root.queue_free()
 
 
@@ -174,7 +187,11 @@ func _render(p_mesh: ArrayMesh, p_centre: Vector3) -> Image:
 	var vp := SubViewport.new()
 	vp.size = Vector2i(VIEW, VIEW)
 	vp.own_world_3d = true
-	vp.transparent_bg = false
+	# Transparent, so alpha says whether a pixel is ON the strip. Against an opaque clear colour a
+	# sample that missed still decodes to a plausible-looking number -- the grey background reads as
+	# -13.7 m of lateral offset -- and a probe that cannot tell a miss from a reading is a probe
+	# that reports the background as a failure of the code.
+	vp.transparent_bg = true
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(vp)
 
@@ -205,7 +222,8 @@ func _render(p_mesh: ArrayMesh, p_centre: Vector3) -> Image:
 	return img
 
 
-## The pixel at a projected position, converted out of sRGB, or null if it is off the image.
+## The pixel at a projected position, converted out of sRGB, or null if it is off the image or off
+## the strip.
 ##
 ## get_image() hands back what the render target stores, which is sRGB-encoded -- so a raw read of
 ## a channel holding 0.375 comes back around 0.65 and every comparison below would be wrong by a
@@ -217,6 +235,10 @@ func _read(p_image: Image, p_px: Vector2) -> Variant:
 	if x < 0 or y < 0 or x >= p_image.get_width() or y >= p_image.get_height():
 		return null
 	var c := p_image.get_pixel(x, y)
+	# Nothing was drawn here. Reported as a miss rather than decoded, which is the whole reason the
+	# viewport clears to transparent.
+	if c.a < 0.5:
+		return null
 	return Color(_to_linear(c.r), _to_linear(c.g), _to_linear(c.b), 1.0)
 
 

@@ -898,8 +898,12 @@ amplitudes are larger than first shipped because `M_water_river.tres` has since 
 residual velocity under 0.05 m/s — fair when a river surface was a static sheet, and a demand for
 the *absence* of this feature now that one moves. It now compares the boat against
 `get_water_height()` at every sample over two seconds, so it has to follow the surface up and down
-rather than end up near where it started. Measured: 0.052 m worst, 0.008 m mean, over 0.185 m of
-surface travel.
+rather than end up near where it started. **Measured 2026-08-03, after chop and standing waves and
+against the hand-tuned `M_water_river.tres`:** 0.015 m worst, 0.005 m mean, over 0.119 m of surface
+travel. The whole ribbon is 1023 vertices at 5.8 ms — *cheaper* than the 6006 / 106 ms measured
+before those two terms existed, because the material was retuned to a lower `ripple_frequency`
+(0.09) and a long `chop_wavelength` (7.25 m), which between them set the row and column spacing.
+That is the cost model behaving as designed rather than the terms being free.
 
 ### Not modelled
 
@@ -1064,9 +1068,30 @@ stream's own mesh through a shader that writes `CUSTOM0` straight out, reads the
 compares them to what the mesher wrote. Its control is the identical mesh built *without* the format
 flag, which must collapse to zeros. It refuses to run headless rather than passing on a black frame.
 
-> ⚠️ **Not yet run.** It needs a real renderer, and the machine was in use. Until it has, "CUSTOM0
-> reaches the vertex shader" is asserted by construction and not measured — the only claim in §10.3
-> and §10.4 that is.
+**Measured 2026-08-03, RTX 3070, Forward+:**
+
+| sample | GPU lateral | mesher | GPU depth | mesher | GPU resolved |
+|---|---|---|---|---|---|
+| near left | −5.81 m | −5.82 m | 3.01 m | 3.00 m | 1.00 |
+| centreline | +0.09 m | +0.00 m | 3.01 m | 3.00 m | 1.00 |
+| near right | +5.75 m | +5.82 m | 3.01 m | 3.00 m | 1.00 |
+
+Control, with the format flag withheld: all three collapse to 0.00 / 0.00 / 0.00. The residual is
+8-bit render-target quantisation — 0.09 m of a 32 m encoded range is 0.003, under one LSB.
+
+**Two faults in the probe itself, both found by running it, both recorded because they are the
+generic failure modes of a readback gate.**
+
+*It sampled the mesh edges exactly*, and the right-hand pixel rounded **outside** the strip, read the
+viewport's opaque grey clear colour, and decoded it into a confident −13.69 m. Whether a sample on a
+triangle boundary lands in or out is a rasterisation coin flip. The probes are inset to 0.97, and —
+more importantly — the viewport now clears to **transparent**, so alpha distinguishes a miss from a
+reading and a miss is reported as one instead of being decoded.
+
+*The control assertion was inverted.* `ok` means "the readings matched what this case expects", which
+in the control is zeros — so `ok` **true** is the control firing. The first version tested for false.
+That is the single worst way for a control to be wrong: it calls a working control a failure and a
+dead one proof, and it reads as correct until something makes it disagree.
 
 ### Not modelled
 
