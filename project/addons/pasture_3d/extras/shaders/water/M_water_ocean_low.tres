@@ -14,8 +14,8 @@
 [gd_resource type="ShaderMaterial" load_steps=4 format=3]
 
 [ext_resource type="Shader" uid="uid://chfdrcbdj2do" path="res://addons/pasture_3d/extras/shaders/water/water_ocean_low.gdshader" id="1_shader"]
-[ext_resource type="Texture2D" uid="uid://phek6xr2elbp" path="res://addons/pasture_3d/extras/shaders/water/T_water_deriv.png" id="2_deriv"]
-[ext_resource type="Texture2D" uid="uid://c54c0ur15poks" path="res://addons/pasture_3d/extras/shaders/water/T_water_foam.png" id="3_foam"]
+[ext_resource type="Texture2D" uid="uid://dtowtl3jy30s8" path="res://addons/pasture_3d/extras/shaders/water/OceanDetail.png" id="2_deriv"]
+[ext_resource type="Texture2D" uid="uid://dps0nipf3at3t" path="res://addons/pasture_3d/extras/shaders/water/HeightOceanFoam.png" id="3_foam"]
 
 [resource]
 render_priority = 0
@@ -37,4 +37,4 @@ shader_parameter/foam_color = Color(0.85, 0.89, 0.92, 1)
 shader_parameter/foam_scale = 0.07
 shader_parameter/foam_roughness = 0.8
 shader_parameter/foam_shore_depth = 1.2
-shader_parameter/foam_shore_amount = 0.8
+shader_parameter/foam_shore_amount = 0.381
