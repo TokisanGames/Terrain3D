@@ -166,8 +166,10 @@ func _gate_a_button_binds() -> void:
 
 	# Control: the button READS THE CURVE rather than always doing the same thing. Since Phase 7 an
 	# open spline is a river, so the control is no longer "nothing happens" -- it is that something
-	# DIFFERENT happens: a ribbon, on the river preset, not a lake. And a spline too short to be
-	# either still produces nothing, which is what keeps "a pool appeared" from being unconditional.
+	# DIFFERENT happens. Since the water-body split it is different in the strongest available
+	# sense: a different CLASS, with a different name suffix, not one class in a different mode.
+	# And a spline too short to be either still produces nothing, which is what keeps "a pool
+	# appeared" from being unconditional.
 	var croot := _make_world()
 	_make_manager(croot)
 	var open_brush := _make_brush("Pasture3DRidge", croot, [[30.0, false]])
@@ -175,12 +177,15 @@ func _gate_a_button_binds() -> void:
 	await _settle()
 	var open_pools: Array = open_brush.add_pool()
 	await _settle()
-	if open_pools.size() == 1 and open_pools[0].is_ribbon():
-		print("    control (open curve -> a RIBBON, not a loop): fires — %s" % open_pools[0].name)
+	var is_stream := open_pools.size() == 1 and open_pools[0] is Pasture3DStream
+	var named_stream := is_stream and String(open_pools[0].name) == "%sStream" % open_brush.name
+	if is_stream and named_stream and open_pools[0].is_ribbon():
+		print("    control (open curve -> a Pasture3DStream, not a pool): fires — %s"
+			% open_pools[0].name)
 	else:
 		_fail += 1
-		print("    !! control did NOT fire: %d pool(s), ribbon=%s" % [open_pools.size(),
-			open_pools[0].is_ribbon() if not open_pools.is_empty() else "n/a"])
+		print("    !! control did NOT fire: %d node(s), stream=%s named=%s" % [open_pools.size(),
+			is_stream, open_pools[0].name if not open_pools.is_empty() else "n/a"])
 	croot.queue_free()
 	await _settle()
 

@@ -153,17 +153,22 @@ func _gate_b_api_exists(p_guide: String) -> void:
 		elif not ClassDB.class_has_method(c, m, true):
 			bad.append("%s.%s" % [c, m])
 	# The GDScript connectors are not in ClassDB, so they are checked by script.
-	var pool_script: GDScript = load("res://addons/pasture_3d/connectors/pool.gd")
-	var pool_methods := PackedStringArray()
-	for d in pool_script.get_script_method_list():
-		pool_methods.append(d["name"])
+	#
+	# BOTH water bodies, and up the inheritance chain for each. Since the split, every method in
+	# this list is defined on Pasture3DWaterBody rather than on either leaf, so a check that looked
+	# only at pool.gd's own method list would report the entire documented API as missing -- and one
+	# that looked only at the base would stop noticing if a subclass broke an override.
+	var pool_methods := _script_methods("res://addons/pasture_3d/connectors/pool.gd")
+	var stream_methods := _script_methods("res://addons/pasture_3d/connectors/stream.gd")
 	for m in ["get_water_height", "get_water_normal", "contains_point", "is_point_underwater",
 			"fit_to_curve", "make_unique", "is_ribbon"]:
 		if not p_guide.contains(m):
 			continue
-		checked += 1
+		checked += 2
 		if not pool_methods.has(m):
 			bad.append("Pasture3DPool.%s" % m)
+		if not stream_methods.has(m):
+			bad.append("Pasture3DStream.%s" % m)
 	print("    %d documented methods checked against the build" % checked)
 	if bad.is_empty():
 		print("    -> all present")
@@ -172,7 +177,8 @@ func _gate_b_api_exists(p_guide: String) -> void:
 		print("    !! missing: %s" % ", ".join(bad))
 
 	# Control: the same check, on a method nobody implemented. If this does not report missing, the
-	# lookup above is not looking at anything.
+	# lookup above is not looking at anything. It also proves the base-script walk did not simply
+	# return everything: a name absent from all three scripts still has to come back absent.
 	var control_missing := ClassDB.class_exists("Pasture3DPoolManager") \
 		and not ClassDB.class_has_method("Pasture3DPoolManager", "body_at_definitely_not", true)
 	if control_missing and not pool_methods.has("definitely_not_a_method"):
@@ -349,3 +355,22 @@ func _read(p_path: String) -> String:
 	if f == null:
 		return ""
 	return f.get_as_text()
+
+
+## Every method callable on instances of a script, including the ones it inherits from base
+## SCRIPTS.
+##
+## Script.get_script_method_list() reports only what that file declares. That was enough while
+## Pasture3DPool was a single 1900-line class; now the whole documented water API lives on
+## Pasture3DWaterBody, and asking pool.gd alone would say the guide documents seven methods that do
+## not exist. Walking get_base_script() is what makes the answer "can you call this", which is what
+## the guide's reader actually wants to know.
+func _script_methods(p_path: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var s: Script = load(p_path)
+	while s != null:
+		for d in s.get_script_method_list():
+			if not out.has(d["name"]):
+				out.append(d["name"])
+		s = s.get_base_script()
+	return out

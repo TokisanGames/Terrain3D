@@ -20,7 +20,7 @@
 # Run: Godot_v4.7-stable_win64_console.exe --headless --path project bench/StreamBankSurfaceCheck.tscn
 extends Node
 
-const POOL_SCRIPT := "res://addons/pasture_3d/connectors/pool.gd"
+const STREAM_SCRIPT := "res://addons/pasture_3d/connectors/stream.gd"
 const RIVER_MAT := "res://addons/pasture_3d/extras/shaders/water/M_water_river.tres"
 const DEMO_DATA := "res://demo/data"
 
@@ -51,7 +51,7 @@ func _run() -> void:
 	var manager = ClassDB.instantiate("Pasture3DPoolManager")
 	root.add_child(manager)
 
-	var pool = load(POOL_SCRIPT).new()
+	var pool = load(STREAM_SCRIPT).new()
 	pool.material = load(RIVER_MAT)
 	pool.wave_profile = &"river_flow"
 	pool.vertex_spacing = 2.0
@@ -85,7 +85,7 @@ func _run() -> void:
 	# reference. Sampling the curve by arc fraction instead is NOT: the curve's Y variation makes
 	# arc length and XZ distance diverge, which is what made the first version of this fixture
 	# report two failures that were entirely its own.
-	var bank_rows: PackedVector3Array = pool._ribbon_rows.duplicate()
+	var bank_rows: PackedVector3Array = pool.get_centreline().duplicate()
 	var bed_rows := _rebuild_without_terrain(root, terrain, pool, 0.0)
 	if bed_rows.size() != bank_rows.size():
 		_fail += 1
@@ -148,7 +148,7 @@ C. CONTROL, bank_height moves the surface (deepest row, %.2f m)" % depths[deepes
 	var before: float = bank_rows[deepest].y
 	pool.bank_height = 3.5
 	pool.rebuild()
-	var after: float = pool._ribbon_rows[deepest].y
+	var after: float = pool.get_centreline()[deepest].y
 	var moved: float = before - after
 	print("  bank_height 0.5 -> 3.5 moved it down %.2f m (want ~3.00)" % moved)
 	if absf(moved - 3.0) > 0.35:
@@ -249,7 +249,7 @@ func _flow_dirs(p_pool: Node) -> Array:
 	if mesh == null or mesh.get_surface_count() == 0:
 		return out
 	var cols: PackedColorArray = mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
-	var rows: int = p_pool._ribbon_rows.size()
+	var rows: int = p_pool.get_centreline().size()
 	if rows == 0 or cols.is_empty():
 		return out
 	var cols_per_row: int = cols.size() / rows
@@ -283,7 +283,7 @@ func _rebuild_without_terrain(p_root: Node, p_terrain: Node, p_pool: Node,
 	p_pool._terrain_cache = null
 	p_pool.fill_offset = p_fill
 	p_pool.rebuild()
-	return p_pool._ribbon_rows.duplicate()
+	return p_pool.get_centreline().duplicate()
 
 
 func _finish() -> void:

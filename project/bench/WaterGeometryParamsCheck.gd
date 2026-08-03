@@ -84,26 +84,32 @@ func _check_a_ocean_ranges() -> void:
 	ocean.free()
 
 
-# ---- B: the pool's dials ------------------------------------------------------
-# max_vertices was a const, so a pool that needed to be denser than the guard allowed had
+# ---- B: the water body's dials ------------------------------------------------
+# max_vertices was a const, so water that needed to be denser than the guard allowed had
 # no way to say so -- the ocean's problem in a different file. fill_offset had no setter at
 # all, so on a RIBBON (where it positions every row of the mesh) changing it did nothing
 # until some unrelated edit happened to trigger a rebuild.
+#
+# Both dials now live on Pasture3DWaterBody, shared by the pool and the stream. Measured on the
+# STREAM because that is where fill_offset reaches the mesh: on a pool it is only read by the Fit
+# to Curve button, so a pool fixture would pass this criterion without exercising anything. The
+# stream is built WITHOUT terrain in the scene, which is the path where fill_offset is still the
+# level -- with a Pasture3D present the banks decide it, and this would be measuring bank
+# sampling instead.
 func _check_b_pool_dials() -> void:
-	print("\nB. Pasture3DPool dials take effect")
+	print("\nB. Pasture3DWaterBody dials take effect (on a Pasture3DStream)")
 	var root := Node3D.new()
 	get_root().add_child(root)
 	var manager := Pasture3DPoolManager.new()
 	root.add_child(manager)
 
-	var pool = load("res://addons/pasture_3d/connectors/pool.gd").new()
+	var pool = load("res://addons/pasture_3d/connectors/stream.gd").new()
 	pool.material = load(LAKE_MAT)
 	pool.wave_profile = &"lake_calm"
 	pool.vertex_spacing = 1.0
 	pool.underwater_enabled = false
 	root.add_child(pool)
 
-	# An OPEN curve is a river, and a river is where fill_offset reaches the mesh.
 	var c := Curve3D.new()
 	for i in 12:
 		c.add_point(Vector3(i * 8.0, 0.0, 0.0))

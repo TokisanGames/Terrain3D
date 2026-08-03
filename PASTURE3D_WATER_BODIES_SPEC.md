@@ -22,11 +22,15 @@ This spec closes that gap and, in doing so, moves water out from under the terra
 - **`Pasture3DPoolManager`** — owns the wave tables, the clock, the sun, and the material cache for every
   water body in the scene. The single place water is configured.
 - **`Pasture3DOcean`** — the infinite clipmap ocean, extracted from `Pasture3D` into its own node.
-- **`Pasture3DPool`** — a finite water body meshed from a landscape brush's curve: lakes, ponds, and
-  (open-spline) rivers.
+- **`Pasture3DPool`** — a finite water body meshed from a landscape brush's closed curve: lakes,
+  ponds, reservoirs.
+- **`Pasture3DStream`** — the same, from an open curve: rivers, creeks, canals. Split out of
+  `Pasture3DPool` on 2026-08-02; see §13.
+- **`Pasture3DWaterBody`** — the base the last two share. Source plumbing, the manager, the
+  material, the underwater volume and the whole query API live here.
 - **`Pasture3DBuoy`** — makes a parent `RigidBody3D` float on any of the above.
-- **A button on `Pasture3DTerrainBrush`** that creates a `Pasture3DPool` bound to a brush's spline, warning
-  when the brush raises terrain rather than carving it.
+- **A button on `Pasture3DTerrainBrush`** that creates a pool or a stream bound to a brush's spline,
+  warning when the brush raises terrain rather than carving it.
 
 ### 1.1 Goals
 
@@ -419,6 +423,14 @@ they ever see a warning.
 
 ## 7. `Pasture3DPool`
 
+> **Superseded in part by §13 (2026-08-02).** This section was written when one class was both a
+> lake and a river, switching on `curve.closed` at every rebuild. It is now three classes:
+> `Pasture3DWaterBody` (everything below except the meshing and the level), `Pasture3DPool` (closed
+> curves) and `Pasture3DStream` (open ones). Every *behaviour* described here still holds — that was
+> the constraint the split was done under — but where this section says "loop mode" read
+> `Pasture3DPool`, and where it says "ribbon mode" read `Pasture3DStream`. §13 records what moved,
+> what changed, and the one bug the split fixed on the way.
+
 ### 7.1 Curve binding
 
 ```gdscript
@@ -740,7 +752,7 @@ on calm water, 8 at ocean defaults. A 4-buoy boat is 4 solves per tick; a fleet 
 
 ---
 
-## 10. Ribbon flow and the `TroughWater` material
+## 10. Ribbon flow and the river material
 
 Delivered last, because it needs Phases 1–7 real and because it reopens water spec §11 q3, which
 anticipated exactly this: *"A `WATER_FLOWMAP` define distorting the detail UVs would slot in cleanly.
@@ -748,7 +760,8 @@ Out of scope here; noted so the detail-sampling code is not written in a way tha
 
 **Per-vertex flow.** Ribbon meshing already knows the spline tangent at every row; it writes the
 normalised XZ tangent into `ARRAY_COLOR.rg` (remapped to 0..1) and a per-row speed scalar into `.b`.
-No new attribute, no new uniform, and it costs nothing on loop pools which write a neutral colour.
+No new attribute, no new uniform, and it costs nothing on `Pasture3DPool`s, which write a neutral
+colour.
 
 **`WATER_FLOW`, a new compile-time feature** in `water_common.gdshaderinc` / `water_shading.gdshaderinc`,
 used by a fifth wrapper `water_river.gdshader` and a fifth preset `M_water_river.tres`:
@@ -1598,7 +1611,123 @@ order it is worth caring about:
 
 ---
 
-## 13. Sources
+## 13. The water body split — `Pasture3DPool` / `Pasture3DStream`
+
+**Done 2026-08-02.** Not a phase: no new capability, and every gate that passed before it passes
+after it with its criteria unchanged. That is the claim, and it is the only interesting thing about
+a refactor.
+
+### 13.1 Why
+
+`pool.gd` had reached 1,943 lines and was two nodes wearing one class. It decided which at every
+rebuild, from `curve.closed`:
+
+- Roughly a third of the file was ribbon-only state that a lake carried and never filled —
+  `_ribbon_rows`, `_ribbon_speed`, `_ribbon_half_l/r`, `_ribbon_cell`, `_terrain_cache`,
+  `_baked_source`.
+- Seven exports were live in one mode and dead in the other, greyed out by a `_validate_property`
+  list that had to be kept in step with the meshers by hand.
+- `fill_offset` meant two opposite things, which is what produced the bug §7.2's note records: a
+  river surface half a metre *below* its own bed.
+- Every query started by re-checking `_is_ribbon`.
+
+And it was wrong at the seam the user actually touches. A lake whose loop you opened became a river
+— silently, with no record anywhere in the scene that it had changed kind.
+
+### 13.2 What moved where
+
+| | Lines | Holds |
+|---|---|---|
+| `connectors/water_body.gd` | 1,126 | `Pasture3DWaterBody`: source plumbing, the manager, spacing, the cull box, the surface child, the material, the underwater volume/fog/overlay/camera poll, `get_water_height` / `contains_point` / `is_point_underwater`, `fit_to_curve`, the presets machinery, the shared warnings |
+| `connectors/pool.gd` | 477 | `Pasture3DPool`: closed-curve polygon, the scanline mask, both meshers, `get_polygon()`, and the migration button |
+| `connectors/stream.gd` | 716 | `Pasture3DStream`: the centreline, bank sampling, waterline widths, flow encoding, the cell grid, `get_centreline()` |
+
+**2,319 lines against the 1,943 that went in.** The split did not shrink the code and was not
+expected to; what it bought is that no file is now more than one thing. The extra ~380 lines are the
+subclass-contract block, the Convert to Stream migration path with its undo inverse, and the
+per-class preset lists — new behaviour and new documentation, not the same logic spread thinner.
+
+The subclass contract is eight hooks, gathered in one block at the top of `water_body.gd` rather
+than scattered: `_build_surface`, `_contains_local`, `_has_surface`, `_still_surface_y`,
+`_preset_names`, `_preset_paths`, `_shape_warnings`, `is_ribbon`.
+
+**`_still_surface_y` is a hook and not part of a combined query on purpose.** The obvious factoring
+is one `_surface_query(local_xz) -> [contained, y]` for both containment and height. It would have
+put a polygon test on the per-buoy, per-physics-tick path for lakes, which answer the height
+question with `global_position.y` and no geometry at all. Phase 6 spent real effort getting that
+cost down (§11.8); a tidier base class is not worth handing it back.
+
+### 13.3 What changed on purpose
+
+1. **The class is the mode.** The curve picks the class once, when Add Water is pressed. Editing the
+   curve afterwards no longer changes what the node is; it produces a configuration warning, and on
+   a pool a **Convert to Stream** button that swaps the node in place under one undo action.
+2. **`water_preset` is per-class.** Lake / Pond / Custom on a pool, River / Custom on a stream.
+   Custom is *the last entry*, read through `_custom_preset()` — index 2 on one and 1 on the other,
+   which is exactly the kind of constant that would have been hard-coded wrong.
+3. **New water is named for its kind**: `<Brush>Water` or `<Brush>Stream`.
+4. **`force_gdscript_mesh` is read-only on a stream.** There is no native ribbon mesher to A/B
+   against. Shown greyed rather than hidden, so it does not read as a property that went missing.
+
+### 13.4 The bug it fixed
+
+**Rivers had no underwater volume, and never had.** `_rebuild_volume()` bailed on
+`_poly_cache.size() < 3`, and the ribbon path set `_poly_cache` to *empty* immediately before
+calling it — a river therefore built no `Area3D`, emitted no `body_submerged` / `body_surfaced`, and
+spawned no fog. It was not reported because the *camera* overlay polls `is_point_underwater()`
+directly and worked fine, so the feature looked present.
+
+Splitting the classes turned the guard into `_has_surface()`, which each subclass answers about its
+own geometry, and the bug could not survive the translation. §8's behaviour now applies to rivers as
+written.
+
+A second, latent one went with it: every failure path now runs through `_build_failed()`, which
+drops the cached geometry as well as the mesh. Before, a build that failed after the polygon was
+cached left the *previous* build's polygon answering containment — so a lake whose loop had just
+been deleted went on reporting swimmers as submerged in water nobody could see.
+
+### 13.5 Migration
+
+- **Scenes**: an old river pool draws nothing, says why, and offers **Convert to Stream**. The
+  conversion copies all sixteen shared properties, keeps the node's name, transform, index and
+  owner, and is one undo step. It is deliberately not automatic — rewriting a user's scene on load,
+  before they have seen the warning or had a chance to undo, is how a migration becomes a bug report.
+- **`sculpting_2.tscn`**: `TroughWater` and `Trough1Water` became `TroughStream` and `Trough1Stream`
+  on `stream.gd`, `water_preset` 2 → 0 (River).
+- **Group membership is unchanged.** Both classes join `pasture3d_pool`. That is why the selection
+  gizmo (`src/pool_gizmo.gd`, duck-typed on the group), `Pasture3DTerrainBrush.pool_for_spline()`
+  and the Phase 4 gate's group scan all kept working without being told about the new class.
+
+### 13.6 Gates
+
+**New: [`bench/WaterBodySplitCheck.gd`](project/bench/WaterBodySplitCheck.gd)** — five criteria, each
+with a control, headless, covering what the split *added* rather than what it preserved:
+
+| | Criterion | Control that must fail |
+|---|---|---|
+| A | a pool refuses an open curve and the warning names `Pasture3DStream` and the button | the same pool with a closed curve, which must build |
+| B | Convert to Stream carries class, name, tree slot, transform and settings | pressed on a closed curve, which must refuse |
+| C | a stream gets an underwater volume with a real footprint (§13.4) | `underwater_enabled = false`, which must give none |
+| D | a failed build stops answering containment | the same point before the failure, which must be inside |
+| E | both classes are in `pasture3d_pool` | a bare `Node3D`, which must not be |
+
+D is the one worth keeping. It is the only check anywhere that would have caught the stale-polygon
+bug, and it is written so that a fixture which never got the point inside in the first place reports
+*that* rather than passing — "no longer inside" is trivially true of a point that never was.
+
+**Existing gates: moved, not weakened.**
+
+| Gate | Change |
+|---|---|
+| Phase 4 | The open-curve control now asserts the *class* and the name suffix, not just `is_ribbon()` — a strictly stronger control |
+| Phase 7 | `_make_pool` became `_make_stream` **and** `_make_lake`. Every "control" in that gate is a closed curve that must behave as a flat lake; built through one shared helper they would now both be streams, and the controls would quietly stop opposing anything |
+| Phase 8 | The documented-API check walks `get_base_script()` and runs against *both* classes. Without the walk it would report the whole water API as missing, since it all lives on the base now |
+| `WaterGeometryParamsCheck` | Criterion B moved to a stream, with a note on why: `fill_offset` only reaches the mesh on a ribbon, so a pool fixture would pass without exercising it |
+| `StreamBankSurfaceCheck` | Points at `stream.gd`. Results identical: 44 of 98 rows wet, 7.40 m deepest, `bank_height` 1:1, 12 asymmetric rows |
+
+---
+
+## 14. Sources
 
 - [Water Body Actors in Unreal Engine](https://dev.epicgames.com/documentation/en-us/unreal-engine/water-body-actors-in-unreal-engine)
 - [Water Meshing System and Surface Rendering in Unreal Engine](https://dev.epicgames.com/documentation/en-us/unreal-engine/water-meshing-system-and-surface-rendering-in-unreal-engine)

@@ -86,7 +86,7 @@ func _gate_a_downhill() -> void:
 	var root := _make_world()
 	_make_manager(root)
 	# 200 m of channel dropping 20 m, in even steps.
-	var pool := _make_pool(root, _descending_curve(200.0, 20.0, false), RIVER_MAT)
+	var pool := _make_stream(root, _descending_curve(200.0, 20.0, false), RIVER_MAT)
 	await _settle()
 
 	var stats: Dictionary = pool.get_build_stats()
@@ -124,7 +124,7 @@ func _gate_a_downhill() -> void:
 
 	# Control: the SAME curve, closed. It must build a loop, and a loop is flat — if the ribbon
 	# path were not doing anything special, both would behave identically.
-	var cpool := _make_pool(root, _descending_curve(200.0, 20.0, true), LAKE_MAT)
+	var cpool := _make_lake(root, _descending_curve(200.0, 20.0, true), LAKE_MAT)
 	cpool.position = Vector3(0, 0, 400)
 	await _settle()
 	var cstats: Dictionary = cpool.get_build_stats()
@@ -152,7 +152,7 @@ func _gate_b_flow_direction() -> void:
 	var root := _make_world()
 	_make_manager(root)
 	# An L: 100 m along +X, then 100 m along +Z. Flow must read (1,0) then (0,1).
-	var pool := _make_pool(root, _bend_curve(100.0), RIVER_MAT)
+	var pool := _make_stream(root, _bend_curve(100.0), RIVER_MAT)
 	await _settle()
 
 	var colours := _mesh_colours(pool)
@@ -182,7 +182,7 @@ func _gate_b_flow_direction() -> void:
 
 	# Control: a LOOP pool writes the neutral colour, which decodes to a zero vector. Without it,
 	# any mesh with vertex colours would read as flowing somewhere.
-	var lake := _make_pool(root, _square_curve(40.0), LAKE_MAT)
+	var lake := _make_lake(root, _square_curve(40.0), LAKE_MAT)
 	lake.position = Vector3(0, 0, 400)
 	await _settle()
 	var lc := _mesh_colours(lake)
@@ -275,7 +275,7 @@ func _gate_d_float_on_river() -> void:
 	print("[D] the body registry and a buoy work on a river:")
 	var root := _make_world()
 	var manager := _make_manager(root)
-	var pool := _make_pool(root, _descending_curve(200.0, 20.0, false), RIVER_MAT)
+	var pool := _make_stream(root, _descending_curve(200.0, 20.0, false), RIVER_MAT)
 	pool.ribbon_half_width = 8.0
 	await _settle()
 
@@ -399,7 +399,7 @@ func _gate_e_cost() -> void:
 func _measure_variant(p_material: String) -> float:
 	var root := _make_world()
 	_make_manager(root)
-	var pool := _make_pool(root, _square_curve(120.0), p_material)
+	var pool := _make_lake(root, _square_curve(120.0), p_material)
 	var cam := Camera3D.new()
 	cam.current = true
 	cam.position = Vector3(0, 12, 0)
@@ -447,11 +447,34 @@ func _make_manager(p_root: Node3D) -> Pasture3DPoolManager:
 	return m
 
 
-func _make_pool(p_root: Node3D, p_curve: Curve3D, p_material: String) -> Pasture3DPool:
+## The ribbon under test is a Pasture3DStream since the split; before it, an open curve made a
+## Pasture3DPool mesh itself as one. Everything this gate asserts is unchanged -- which is the
+## claim the split has to survive, so the fixtures moved and the criteria did not.
+##
+## TWO BUILDERS NOW, WHICH IS THE POINT. Every "control" in this gate is a CLOSED curve that must
+## behave as a flat lake, and it used to be built by the same call as the river -- the class was
+## the same and only the curve differed. Since the split the class is the difference, so a control
+## built through _make_stream would ribbon around its own loop and quietly stop being a control.
+## Splitting the helper is what keeps them opposed.
+func _make_stream(p_root: Node3D, p_curve: Curve3D, p_material: String) -> Pasture3DStream:
+	var pool := Pasture3DStream.new()
+	pool.name = "Water"
+	pool.wave_profile = &"river_flow"
+	# A stream's presets are River / Custom, so Custom is 1; on a pool it is 2. Asked rather than
+	# written down, which is what _custom_preset() is for.
+	pool.water_preset = pool._custom_preset()
+	pool.material = load(p_material)
+	pool.underwater_enabled = false
+	pool.curve = p_curve
+	p_root.add_child(pool)
+	return pool
+
+
+func _make_lake(p_root: Node3D, p_curve: Curve3D, p_material: String) -> Pasture3DPool:
 	var pool := Pasture3DPool.new()
 	pool.name = "Water"
 	pool.wave_profile = &"river_flow"
-	pool.water_preset = 2
+	pool.water_preset = pool._custom_preset()
 	pool.material = load(p_material)
 	pool.underwater_enabled = false
 	pool.curve = p_curve

@@ -1,12 +1,17 @@
 # Pasture3D Water — user guide
 
-Water in Pasture3D is one shader family and three nodes:
+Water in Pasture3D is one shader family and four nodes:
 
 - **`Pasture3DPoolManager`** — one per scene. Owns the clock, the sun, and the named wave profiles
   every body selects from. Nothing moves without it.
 - **`Pasture3DOcean`** — an endless sea on a camera-following clipmap. Its Y is the sea level.
-- **`Pasture3DPool`** — a finite body: a lake, a pond, or a river. Normally created by pressing a
-  button on the landscape brush that carved the basin.
+- **`Pasture3DPool`** — still water filling a **closed** outline: a lake, a pond, a reservoir.
+- **`Pasture3DStream`** — running water along an **open** channel: a river, a creek, a canal.
+
+The last two are normally created by pressing one button on the landscape brush that carved the
+ground, and which of them you get is decided by the curve — you do not choose. They share a base
+class, `Pasture3DWaterBody`, so buoys (§5) and the query API (§6) work the same on both, and so do
+the material, underwater and level controls in §4.
 
 Waves are analytic Gerstner waves generated from a small table, plus one tiling derivative texture
 for the detail below the shortest wave. Total texture cost is ~384 KB, shared by every water body in
@@ -19,6 +24,12 @@ Design rationale, measurements and the phase history live in
 > **Upgrading from a scene made before 2026-07-29?** The ocean used to live on the `Pasture3D` node
 > as `ocean_*` properties. Those are gone; §9 maps every one of them to where it went, and your old
 > scene keeps its settings and offers a one-press **Migrate Ocean** button until you convert it.
+>
+> **Upgrading a scene with rivers in it?** Rivers used to be `Pasture3DPool` nodes that noticed their
+> curve was open and meshed themselves as a ribbon. They are `Pasture3DStream` now. An old river
+> pool draws nothing, says so in its configuration warning, and grows a **Convert to Stream**
+> button that swaps it in place, keeping its name, its transform and every setting. One press per
+> river, undoable. Lakes are unaffected.
 
 ---
 
@@ -30,18 +41,28 @@ Design rationale, measurements and the phase history live in
    `Pasture3DTrough`.
 2. Press **Add Water** on the brush.
 
-That is the whole setup. The button fills the brush's loop with a `Pasture3DPool`, seats it on the
-spline, picks a wave profile from the loop's size, and creates a `Pasture3DPoolManager` if the scene
-does not have one. Undo removes all of it in one step.
+That is the whole setup. The button fills the brush's loop with a `Pasture3DPool` named
+`<Brush>Water`, seats it on the spline, picks a wave profile from the loop's size, and creates a
+`Pasture3DPoolManager` if the scene does not have one. Undo removes all of it in one step.
 
 If the brush *raises* terrain, the button asks first — water inside a landform is water you cannot
 see. "Add Anyway" is a real option; the resulting pool keeps a warning saying why.
 
+Quicker still: a **`Pasture3DPond`** is a brush that carves its basin and presses the button
+itself. Drop one in and you have a pond.
+
 ### A river
 
-The same button. An **open** spline becomes a river instead of a lake: it follows the spline
-downhill, and its surface texture flows along the channel. Nothing else to set — `ribbon_half_width`
-comes from a `Pasture3DTrough`'s `bed_half_width`, and the river preset is applied for you.
+The same button. An **open** spline gives you a `Pasture3DStream` named `<Brush>Stream` instead of a
+pool: it follows the channel downhill, takes its surface level from the banks, and flows its texture
+along the run. Nothing else to set — the fallback width comes from a `Pasture3DTrough`'s
+`bed_half_width`, and the river preset is applied for you.
+
+**The curve picks the node.** Closed is a pool, open is a stream, decided once when the button is
+pressed. If you later open a lake's loop, or close a river's channel, the water does not change kind
+on its own — the node tells you what is wrong and, on a pool, offers **Convert to Stream**. That is
+deliberate: a shape edit silently rewriting what a node *is* was the old behaviour, and it meant a
+misplaced click could turn a lake into a river with nothing in the scene to say so.
 
 ### An ocean
 
@@ -79,15 +100,15 @@ cheaper.
 
 **`M_water_river.tres` is the one preset that is not drop-anywhere.** It reads a flow direction out of
 `ARRAY_COLOR`, and a mesh with no vertex colours reads white — which decodes to a diagonal at full
-speed. Use it on a `Pasture3DPool` in ribbon mode. On a loop pool it is harmless but pointless: loop
-pools write a neutral colour that decodes to no flow at all.
+speed. Use it on a `Pasture3DStream`. On a `Pasture3DPool` it is harmless but pointless: pools write a
+neutral colour that decodes to no flow at all.
 
 Measured at 1280×800 with the water filling the frame: ocean high tier 0.295 ms, low tier 0.235 ms,
 against 0.452 ms for the shader these replaced. River costs **+7%** over lake (0.155 vs 0.145 ms) for
 the two extra texture fetches its flow cross-fade needs.
 
 **Press "Make Unique" before editing a preset.** They are plugin files and a plugin update will
-overwrite them. The button is on `Pasture3DPool`; "Save Unique Material" then writes your version out
+overwrite them. The button is on every water body; "Save Unique Material" then writes your version out
 as a project asset. Editing a preset in place also loses its documentation header, because the Godot
 editor strips `.tres` comments when it re-saves.
 
@@ -103,7 +124,7 @@ ships four:
 | `ocean_default` | 8 | 137 m | 4.88 m | `Pasture3DOcean` |
 | `lake_calm` | 4 | 25 m | 0.669 m | Lakes over ~40 m across |
 | `pond_still` | 2 | 12 m | 0.076 m | Ponds under ~40 m across |
-| `river_flow` | 3 | 10 m | 0.134 m | Ribbon pools |
+| `river_flow` | 3 | 10 m | 0.134 m | `Pasture3DStream` |
 
 `lake_calm` and `pond_still` generate exactly the tables inside `M_water_lake.tres` and
 `M_water_pond.tres` — the build checks that every run, so a profile and the preset named after it
@@ -144,45 +165,77 @@ texture's job.
 
 The exception is small bodies: below `length_max` 20 m the series continues to `length_max / 2`, so
 `pond_still` legitimately has a 6 m wave and `river_flow` a 5 m one. Those sit near their own origin
-and are not in the precision regime the floor describes. `Pasture3DPool` sets `_water_domain_origin`
+and are not in the precision regime the floor describes. Every water body sets `_water_domain_origin`
 from its own position, so a pond placed kilometres out is still fine; a **bare mesh** is not, and
 needs that instance uniform set by hand.
 
 ---
 
-## 4. `Pasture3DPool` — lakes, ponds and rivers
+## 4. `Pasture3DPool` and `Pasture3DStream` — the water bodies
 
-The node the Add Water button creates. It can be added by hand too.
+The two nodes the Add Water button creates. Both can be added by hand. Everything in this section
+down to *Underwater* is shared — it lives on their common base, `Pasture3DWaterBody` — and each has
+one section of its own after that.
 
-### Source
+### Source (both)
 
 | Property | Meaning |
 |---|---|
 | `source_spline` | A `Path3D` — normally a brush's. Carries the curve **and its transform**, so moving the brush moves the water. |
-| `curve` | A raw `Curve3D`, overriding `source_spline`. Read in **this node's** space, so a curve lifted off an offset brush lands offset. For pools authored without a brush. |
+| `curve` | A raw `Curve3D`, overriding `source_spline`. Read in **this node's** space, so a curve lifted off an offset brush lands offset. For water authored without a brush. |
 
-**The curve's `closed` flag decides what gets built.** Closed → a lake, flat at the node's Y. Open →
-a river, following the spline downhill. There is no mode toggle to keep in sync with the geometry.
+**The class decides what gets built, not the curve.** A `Pasture3DPool` fills a closed outline; a
+`Pasture3DStream` follows an open channel. Give a pool an open curve and it says so and offers
+**Convert to Stream**; give a stream a closed one and it runs a channel all the way around the loop,
+which is a moat and is occasionally what you want.
 
-### Shape
+### Shape (both)
 
 | Property | Meaning |
 |---|---|
 | `edge_offset` | Metres the mesh is grown past the curve, so its rim is buried in the bank instead of ending in open air. |
-| `fill_offset` | Metres added to the level when **Fit to Curve** runs. Negative sits the water under the rim, which is where a basin's water is. |
+| `fill_offset` | Metres added to the level when **Fit to Curve** runs. Negative sits the water under the rim, which is where a basin's water is. On a stream it is only the fallback — see below. |
 | `vertex_spacing` | 0 = automatic, at an eighth of the profile's shortest wavelength. This is correctness, not taste — see §7. |
-| `ribbon_half_width` | River only. Half-width of the channel, before `edge_offset` is added each side. |
-| `flow_speed` | River only. Metres per second the surface texture is advected. It moves the texture, not the water: nothing is simulated and no buoy is pushed by it. |
-| `flow_slope_gain` | River only. How much a downhill gradient adds to that speed, so steep reaches read as rapids. |
+| `max_vertices` | Ceiling on the generated mesh. Raise it to buy resolution on a large body; lower it to catch a spacing mistake before the editor locks up. The build refuses past it and says what it would have taken. |
 
 **Fit to Curve** seats the node on its spline: XZ onto the spline's origin, Y onto the curve's lowest
 point plus `fill_offset`. It is never automatic, because the brushes re-snap their spline points to
 the terrain and an automatic fit would move the water level whenever the ground under the rim moved.
 
-Dragging the pool in **Y** moves the water level. Dragging it in **XZ** does not move the water — the
-spline decides where that is — but it does move `_water_domain_origin`, which is what keeps wave
-phase precise far from the world origin. A pool driven by a bare `curve` is the exception and travels
+Dragging a **pool** in **Y** moves the water level. Dragging it in **XZ** does not move the water —
+the spline decides where that is — but it does move `_water_domain_origin`, which is what keeps wave
+phase precise far from the world origin. Water driven by a bare `curve` is the exception and travels
 with its node in both.
+
+### `Pasture3DStream` only — the channel, the banks and the flow
+
+| Property | Meaning |
+|---|---|
+| `ribbon_half_width` | **Fallback** half-width, before `edge_offset` is added each side. Used only where the banks cannot be sampled. |
+| `bank_height` | Metres below the bank top that the water sits — freeboard. This is the level control; the bed does not set it. |
+| `bank_search_width` | How far out to look for the bank top. 0 = automatic, from the `Pasture3DTrough` that carved the channel. |
+| `bank_smoothing` | Passes of smoothing over the sampled surface line. Terrain samples are noisy, and a river surface that climbs even by centimetres reads as broken. |
+| `flow_speed` | Metres per second the surface texture is advected. It moves the texture, not the water: nothing is simulated and no buoy is pushed by it. |
+| `flow_slope_gain` | How much a downhill gradient adds to that speed, so steep reaches read as rapids. |
+| `flow_reverse` | Run the flow the other way, for a channel drawn from the mouth up. Flips which way `flow_slope_gain` counts as downhill too. |
+
+**A stream's surface comes from its banks, not its spline.** A `Pasture3DTrough`'s spline is the bed
+*floor*, so offsetting it downward — which is what `fill_offset` means on a pool — buries the water
+under its own channel. Instead each row measures the terrain on both sides, takes the **lower**
+crest (water cannot stand higher than the side it would spill over) and sits `bank_height` below it.
+
+Two things follow for free. **Depth varies**: a reach where the bed rises toward the surface becomes
+a ford the player can wade, with nothing authored. And **width varies**: the waterline is found the
+same way, per side, so the strip widens through a shallow reach, narrows in a gorge, and sits
+off-centre where the channel is cut into a slope.
+
+With no `Pasture3D` in the scene there is nothing to sample, and the surface falls back to bed +
+`fill_offset` at a constant width — which is why `fill_offset` greys out on a stream over terrain
+and comes back when there is none.
+
+If a river fills to somewhere absurd partway up a hillside, `bank_search_width` is the knob: the
+search has to reach the bank crest and stop, and pushed out onto the slope above it will find its
+"bank" up there and fill to it.
 
 ### Underwater
 
@@ -254,13 +307,13 @@ if body:
     var n: Vector3 = body.get_water_normal(Vector2(global_position.x, global_position.z))
 ```
 
-Both `Pasture3DOcean` and `Pasture3DPool` answer these, so code does not need to know which kind of
-water it is standing in.
+`Pasture3DOcean`, `Pasture3DPool` and `Pasture3DStream` all answer these, so code does not need to
+know which kind of water it is standing in.
 
 | Method | On | Returns |
 |---|---|---|
-| `get_water_height(global_xz)` | ocean, pool | Surface height in world space. On a river, the height of the reach you are over. |
-| `get_water_normal(global_xz)` | ocean, pool | Surface normal in world space. |
+| `get_water_height(global_xz)` | ocean, pool, stream | Surface height in world space. On a stream, the height of the reach you are over. |
+| `get_water_normal(global_xz)` | ocean, pool, stream | Surface normal in world space. |
 | `contains_point(global_pos)` | ocean, pool | Is this point in this body's water? A polygon test, not a bounding box. |
 | `is_point_underwater(global_pos)` | pool | The same question under the name the underwater feature asks it by. |
 | `body_at(global_pos)` | manager | The innermost body containing a point. Finite bodies first, ocean as the fallback. |
@@ -384,8 +437,8 @@ Two things moved rather than being renamed:
   `2 × mesh_size × vertex_spacing × 2^(mesh_lods − 1)` — 8192 m at the defaults.
 - **Vertex spacing should be about an eighth of the shortest wavelength.** Below that the drawn
   surface visibly cuts the corners off crests and drifts away from what `get_water_height()` reports.
-  `Pasture3DPool` does this for you when `vertex_spacing` is 0.
-- **Pool rebuilds are debounced and off the interaction path.** A 500 m lake at automatic spacing is
+  The pool and the stream do this for you when `vertex_spacing` is 0.
+- **Water-body rebuilds are debounced and off the interaction path.** A 500 m lake at automatic spacing is
   169 k vertices in about 120 ms. Rebuilds happen when the curve changes, when the brush moves, or on
   demand.
 - **The underwater overlay** costs 0.043 ms per megapixel — about 0.09 ms at 1080p.
@@ -397,7 +450,8 @@ Two things moved rather than being renamed:
 ## 11. Troubleshooting
 
 **The water is flat.** The waves are a vertex effect. A `PlaneMesh` with no subdivisions has four
-vertices. Add subdivisions. (`Pasture3DPool` never has this problem — it tessellates itself.)
+vertices. Add subdivisions. (`Pasture3DPool` and `Pasture3DStream` never have this problem — they
+tessellate themselves.)
 
 **The water does not move.** Nothing is driving `water_time`. Add a `Pasture3DPoolManager`, or write
 the global yourself — see §7.
@@ -411,7 +465,7 @@ scene's `Environment` has volumetric fog switched on — no error, just no fog. 
 `WorldEnvironment`, or turn off `underwater_fog`.
 
 **The river's texture slides diagonally.** `M_water_river.tres` is on a mesh with no vertex colours,
-so it reads white and decodes to a diagonal at full speed. Put it on a `Pasture3DPool`.
+so it reads white and decodes to a diagonal at full speed. Put it on a `Pasture3DStream`.
 
 **The pool's water did not move when I moved the brush.** It should — check `source_spline` is set
 rather than `curve`. A raw `Curve3D` carries no transform and does not track anything.
