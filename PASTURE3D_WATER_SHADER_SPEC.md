@@ -1144,8 +1144,16 @@ that would have applied the terrain's height range to the ocean, and an extent c
 
 Three harnesses. [bench/WaterPhase5Gate.tscn](project/bench/WaterPhase5Gate.tscn) runs the five gate
 criteria; [bench/WaterPresetCheck.tscn](project/bench/WaterPresetCheck.tscn) checks the presets against
-their shaders; [bench/WaterGeometrySweep.tscn](project/bench/WaterGeometrySweep.tscn) is the measurement
-q6 was decided on. Desktop: RTX 3070, Godot 4.7-stable, Forward+.
+their shaders; `bench/WaterGeometrySweep.tscn` was the measurement q6 was decided on. Desktop: RTX 3070,
+Godot 4.7-stable, Forward+.
+
+> **WaterGeometrySweep was removed on 2026-08-02.** It drove `Pasture3D.ocean_mesh_size` /
+> `ocean_vertex_spacing` / `ocean_mesh_lods`, which the water-bodies Phase 2 extraction moved onto
+> `Pasture3DOcean`, so it had been dead code since `71a5481` — it would have errored on the first
+> config rather than reported a wrong number. The q6 results below stand as recorded; they were
+> measured while it still ran. Its replacement for the geometry question is
+> [bench/OceanMeshSizeSweep.tscn](project/bench/OceanMeshSizeSweep.tscn), which prices `mesh_size` on
+> `Pasture3DOcean` (see §8.7).
 
 **Gate: all five criteria green. Unit test 34/34** (three new, see finding 5).
 
@@ -1360,3 +1368,117 @@ published once to a global rather than pushed per-material every frame.
    56% of the cost is Godot's lit transparent path rather than this shader is the reason not to guess.
    [bench/WaterPhase5Gate.tscn](project/bench/WaterPhase5Gate.tscn) runs unchanged on a Deck; criterion
    A is the measurement. Until it is run, do not quote a Deck number from this document.
+
+---
+
+### 8.7 `Pasture3DOcean.mesh_size` — measured 2026-08-02
+
+[bench/OceanMeshSizeSweep.tscn](project/bench/OceanMeshSizeSweep.tscn), RTX 3070, Godot 4.7-stable,
+Forward+, 1280×800. Held at `sculpting_2.tscn`'s ocean: `vertex_spacing` 1.0, `tessellation_level` 2,
+so LOD0 vertex spacing is 0.25 m in every row. `--phase=1` varies `mesh_size` alone; `--phase=2` holds
+the 8192 m half-extent by dropping one `mesh_lods` per doubling.
+
+**Why this was measured.** The water-bodies Phase 2 extraction (`71a5481`) narrowed `mesh_size` from
+`CLAMP(p_size & ~1, 8, 256)` to `CLAMP(p_size, 8, 64)` and `tessellation_level` from 0–6 to 0–3, in the
+setter *and* the inspector hint, with no comment and no log line — while carrying the defaults over
+verbatim. From the inspector that is a slider that reaches its end while the water stays coarse. Both
+ceilings are restored; this is the price list the restored range needed.
+
+**`mesh_size` is not a density knob.** It is quads per clipmap tile, and the clipmap is scale-invariant,
+so it sets the RADIUS of each resolution band:
+
+    lod0_radius = 2 * mesh_size * (vertex_spacing / 2^tessellation_level)
+    half_extent = lod0_radius * 2^(mesh_lods + tessellation_level - 1)
+
+At the shipped `mesh_size` 16 the full-detail radius is **8 metres** — the LOD halves 8 m from the
+camera, which is the whole of "the ocean looks low resolution".
+
+**Phase 2, constant 8192 m extent, GPU ms** (pitch −4° is the horizon view and the expensive one):
+
+| mesh_size / mesh_lods | LOD0 radius | tris | −4° | −60° |
+|---|---|---|---|---|
+| **16 / 9** (shipped) | 8 m | 0.04 M | 0.2360 | 0.2950 |
+| 32 / 8 | 16 m | 0.15 M | 0.2850 (+21%) | 0.3220 (+9%) |
+| **64 / 7** | **32 m** | 0.51 M | **0.3830 (+62%)** | 0.3520 (+19%) |
+| 128 / 6 | 64 m | 1.77 M | 0.5790 (+145%) | 0.3810 (+29%) |
+| 256 / 5 | 128 m | 6.15 M | 1.0780 (+357%) | 0.4340 (+47%) |
+
+**1. The ocean is fill-bound, not geometry-bound, below ~128.** Primitives follow the square law almost
+exactly (×3.73 for a ×2 size step) while time goes ×1.21. Geometry is being bought at a large discount
+because the fragment stage was already the bottleneck — the same finding §8.4 reached from the other
+direction. The discount ends around 128, where the per-step ms ratio moves from ~1.2 to ~1.4.
+
+**2. Trading rings for tile size saves less than it looks like it should.** Holding the extent (phase 2)
+against letting it grow (phase 1) is worth **nothing at 32 and 64, ~5% at 128, ~10% at 256** — 0.5790 vs
+0.6120, 1.0780 vs 1.2010. Each ring covers 4× the area on the same triangle budget, so the outer rings
+are a small fraction of the total and dropping them buys little. Do it to avoid shipping 131 km of ocean
+nobody looks at, not as a performance measure.
+
+**3. `mesh_size` 64 with `mesh_lods` 7 is the recommendation.** Four times the sharp radius (8 m → 32 m)
+for +0.147 ms at the horizon and +0.057 ms looking down, at the identical 8192 m extent. 128 / 6 is the
+stretch at +0.343 ms. The marginal cost per doubling is +0.049, +0.098, +0.196, +0.499 ms — linear in
+radius to 128, super-linear after.
+
+> **⚠️ FINDING 3 IS WRONG. Superseded by §8.8.** Every measurement above was taken from a camera 12 m
+> above the water, so "hold the extent at 8192 m and spend the savings on tile size" was never tested
+> against a viewpoint that can SEE 8192 m. It cannot survive one: at 100 m altitude the 8192 m mesh edge
+> sits 5–6 px below the horizon and at 500 m it sits 30–33 px below it, as sky where sea should be.
+> 64 / 7 measures marginally *worse* than the shipped 16 / 9 at both heights. The rings finding 2 traded
+> away are the ones that put water on the horizon from a clifftop, and §8.8 measures them at ~0.005 ms
+> each. **Do not drop `mesh_lods`.** Corrected recommendation in §8.8.
+
+**Not validated on a Steam Deck**, like everything else in §8. The −60° column barely moves (1.47× across
+the whole range) because the far rings leave the frustum; the −4° column is the one that would decide it
+on a 15 W part, and it is the one that grows.
+
+---
+
+### 8.8 The mesh edge from altitude — measured 2026-08-02
+
+[bench/OceanHorizonExtentCheck.tscn](project/bench/OceanHorizonExtentCheck.tscn), RTX 3070, 1280×800,
+fov 70, pitch −10°, far 200 km. `vertex_spacing` 1.0, `tessellation_level` 2.
+
+**Why this exists.** §8.7 priced `mesh_size` from a boat deck and concluded the outer rings were worth
+trading away. The question it never asked was whether a player standing anywhere higher can see where the
+ocean stops. They can.
+
+**Method.** Topmost screen row containing water, against a 262 km reference ocean in the same scene. If
+the candidate's water stops lower than the reference's, the edge is in frame — no horizon arithmetic
+needed. Two controls: a 256 m ocean that must be caught at every height (it was: +18, +186, +499 rows),
+and the reference row itself, which lands on 299–301 at all three altitudes and matches the analytic
+`400 − 400·tan10/tan35 = 299`.
+
+| config | extent | boat 12 m | cliff 100 m | mountain 500 m |
+|---|---|---|---|---|
+| shipped 16 / 9 | 8.2 km | +1 px, 0.2490 | **+5 px**, 0.2300 | **+30 px**, 0.2130 |
+| §8.7 rec 64 / 7 | 8.2 km | +1 px, 0.4060 | **+6 px**, 0.3380 | **+33 px**, 0.2910 |
+| 64 / 9 | 32.8 km | +0 px, 0.4170 | +1 px, 0.3530 | **+7 px**, 0.3160 |
+| 128 / 9 | 65.5 km | +0 px, 0.6700 | +0 px, 0.5990 | +3 px, 0.5180 |
+| **64 / 10** | **65.5 km** | **+0 px, 0.4240** | **+0 px, 0.3590** | **+3 px, 0.3210** |
+| 128 / 10 | 131 km | +0 px, 0.6860 | +0 px, 0.6210 | +0 px, 0.5470 |
+
+**1. Extent does not depend on tessellation at all.** The exponent cancels:
+
+    half_extent = mesh_size * vertex_spacing * 2^mesh_lods
+
+`tessellation_level` buys near-field density and costs a ring; it moves no extent. This is the formula to
+reason with, not the `lod0_radius * 2^(lods+tess-1)` form §8.7 used, which hides the cancellation.
+
+**2. Rings are almost free, so never trade them.** 64 / 9 → 64 / 10 doubles the ocean from 32.8 km to
+65.5 km for **+0.005 ms** at the mountain. §8.7's finding 2 measured the same thing from the other side
+(dropping two rings saved ~5%) and drew the wrong conclusion from it: cheap rings are a reason to *keep*
+them, not a reason to spend the savings elsewhere.
+
+**3. Cost falls as the camera rises.** Shipped runs 0.2490 → 0.2300 → 0.2130 ms from boat to mountain.
+Looking down puts less near-field water on screen and shrinks the far rings, and the shader is fill-bound
+(§8.4, §8.7 finding 1). The altitude case is the cheap one, so it can afford the rings it needs.
+
+**4. `mesh_size` 64 / `mesh_lods` 10 is the corrected recommendation.** 32 m sharp radius, 65.5 km extent,
+edge-free from a boat and a clifftop and 3 px from a 500 m summit — 0.375% of screen height, and below
+what any atmospheric fog would leave visible. Costs +0.175 / +0.129 / +0.108 ms over shipped. Closing
+that last 3 px means 128 / 10 at +0.226 ms more, which is a lot of milliseconds for three pixels.
+
+**5. `mesh_lods` is capped at 10, so 65.5 km is the ceiling at `mesh_size` 64.** Untested but implied by
+finding 1: `vertex_spacing` 2.0 with `tessellation_level` 3 holds the same 0.25 m LOD0 spacing and the
+same 32 m radius while doubling extent to 131 km, for one extra ring. If a project needs more ocean than
+`mesh_lods` can reach, that is the lever — measure before believing it.
