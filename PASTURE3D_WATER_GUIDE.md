@@ -229,8 +229,8 @@ world-space heading; a river bends; so on every reach that heads against it, the
 direction and a river has many — and the only setting that hides it is amplitude 0, which is what
 this plugin's own demo scene had to ship before this was solved.
 
-So a stream's surface motion comes from four **material** uniforms instead, on
-`M_water_river.tres`:
+So a stream's surface motion comes from **material** uniforms instead, on `M_water_river.tres`, in
+three groups. The **ripples** are the base undulation, athwart the current:
 
 | Uniform | Meaning |
 |---|---|
@@ -239,9 +239,28 @@ So a stream's surface motion comes from four **material** uniforms instead, on
 | `ripple_speed_ref` | The flow speed at which ripples reach full amplitude. Below it they scale down, so a river slowing into a pool goes glassy by itself. |
 | `ripple_bank_fade` | Where across the half-width the ripples start fading out, so no crest stands proud of the dry bank. |
 
+The **chop** is what stops the river being a rolling carpet. The ripples are a function of travel
+time alone, so every point on a cross-section sits at exactly the same height; chop is two oblique
+octaves that cross into the diamond lattice moving water actually shows.
+
+| Uniform | Meaning |
+|---|---|
+| `chop_amplitude` | Crest-to-trough height in metres, mid-channel at full speed. Gated by the same speed and bank fades as the ripples. **0 is a supported setting** and gives the columns back — see below. |
+| `chop_wavelength` | Distance between chop crests measured *across* the channel, in metres. This is what sets the mesh's column spacing. |
+
+The **standing waves** are the stationary undulations below a ford or a chute. Unlike everything
+else on this surface they do not move — they sit still in the world while the water runs through
+them — and **nobody authors where they are**: they appear wherever the flow goes supercritical.
+
+| Uniform | Meaning |
+|---|---|
+| `standing_amplitude` | Crest-to-trough height in metres at `standing_depth_ref` of water. Scaled down in shallower water. |
+| `standing_froude_onset` | The Froude number `v / √(g·d)` they begin at. 1.0 is the physical critical point; shipped slightly under, because the transition looks abrupt if it starts exactly at the textbook value. |
+| `standing_depth_ref` | Depth in metres at which they reach full amplitude, and the scale they fade out over as a reach dries. |
+
 They are on the material and not on the node because everything that differs *between reaches* —
-how fast the water is running, how steep, how near the bank — is already carried per-vertex by the
-mesh. The material only has to say how much ripple a given speed earns.
+how fast the water is running, how steep, how deep, how near the bank — is already carried
+per-vertex by the mesh. The material only has to say how much wave a given reach earns.
 
 **Why frequency and not wavelength.** The mesh carries, per vertex, the *flow travel time* from the
 head of the channel, and the ripples are a function of it. That one substitution is what makes
@@ -256,6 +275,26 @@ resolve it, so doubling the frequency halves the vertex spacing a stream picks a
 quadruples its vertex count. The shipped 0.3 Hz is about a 5 m undulation at 1.5 m/s. Anything
 finer than that belongs to the detail normal map, which already flows along the same channel and
 costs nothing extra.
+
+**`chop_wavelength` is expensive too, but only in one axis.** Rows down the channel are sized by
+`ripple_frequency`; columns across it are sized by `chop_wavelength`, at about six samples per
+wavelength. They are separate numbers on purpose, because a river is long and narrow and columns
+are therefore the cheap axis — on a 120 m channel the shipped chop settings take a strip from 7
+columns to 30, which is 4× the vertices, where buying the same detail by halving the *row* spacing
+twice would have been 16×. Setting `chop_amplitude` to 0 gives every one of those columns back;
+the gate asserts it, so it will stay true.
+
+**Standing waves choose their own reaches, and sometimes choose none.** They need
+`v / √(g·d) > 1`, so at the shipped 1.5 m/s they want water shallower than about 28 cm. A river
+running a metre deep will never show them however high `standing_amplitude` goes — which is
+correct, and is also the most likely reason you see nothing. Raise the bed toward the surface (or
+`flow_speed`) and they arrive on their own.
+
+They also have a resolution floor that is not a quality setting. A standing wave's wavelength is
+`2πv²/g`, which is *short* at the speeds that go supercritical — 1.4 m at 1.5 m/s — and a mesh
+sampled every 2 m cannot draw it. Rather than alias it into noise, the stream fades it out and
+raises a configuration warning naming how many rows it suppressed. Lower `vertex_spacing` if you
+want them; the warning exists so the choice is yours rather than silent.
 
 **A stream's surface comes from its banks, not its spline.** A `Pasture3DTrough`'s spline is the bed
 *floor*, so offsetting it downward — which is what `fill_offset` means on a pool — buries the water
@@ -354,6 +393,7 @@ know which kind of water it is standing in.
 | `get_water_normal(global_xz)` | ocean, pool, stream | Surface normal in world space. |
 | `contains_point(global_pos)` | ocean, pool | Is this point in this body's water? A polygon test, not a bounding box. |
 | `is_point_underwater(global_pos)` | pool | The same question under the name the underwater feature asks it by. |
+| `get_water_depth(global_xz)` | stream | How deep the channel is here, in metres. 0 off the stream. **A centreline depth** — the bed is only known along the spline, so this is the depth of the middle of the channel at the nearest row, not the depth under the caller's feet. Good enough to decide whether a reach can be waded; not good enough to place a footstep. |
 | `body_at(global_pos)` | manager | The innermost body containing a point. Finite bodies first, ocean as the fallback. |
 | `get_water_time()` | manager | The wrapped clock both CPU and GPU use. Not `Time.get_ticks_msec()`, and not Godot's `TIME`. |
 | `evaluate_height(profile, domain_xz)` | manager | Raw Gerstner evaluation for a named profile, before the inversion. Mostly of interest to tests. |
@@ -504,15 +544,30 @@ scene's `Environment` has volumetric fog switched on — no error, just no fog. 
 
 **The river's texture slides diagonally, or the whole surface bobs in unison.** `M_water_river.tres`
 is on a mesh that is not a `Pasture3DStream`. With no vertex colours it reads white — a diagonal at
-full speed — and with no `UV2` every vertex shares one phase. Put it on a stream.
+full speed — and with no `UV2` every vertex shares one phase. (`CUSTOM0` reads zero too, so the chop
+degenerates into more of the same and the standing waves never fire.) Put it on a stream.
 
 **My river is flat.** Check `flow_speed`. Ripple amplitude scales with it and reaches full size at
 `ripple_speed_ref` (2 m/s by default), so a river authored at 0.1 m/s is *correctly* glassy. Also
 check `wave_profile` is not what you are trying to tune: it does nothing to a stream's surface (§4).
 
-**My river costs more vertices than I expected.** `ripple_frequency`. Wavelength is speed ÷
-frequency and the mesh resolves it, so the knob that looks like a style choice is really the
-density dial. Set `vertex_spacing` explicitly if you want to decide it yourself.
+**My river costs more vertices than I expected.** Two knobs, and they bill in different axes.
+`ripple_frequency` sets the **rows**: wavelength is speed ÷ frequency and the mesh resolves it, so
+the knob that looks like a style choice is really the density dial. `chop_wavelength` sets the
+**columns**, at about six samples across each wavelength. Set `vertex_spacing` explicitly to decide
+both yourself, or `chop_amplitude` to 0 to buy the column budget back.
+
+**I see no standing waves at all.** Almost always because the river is too deep for them. They need
+a Froude number above 1 — `v / √(g·d)` — which at 1.5 m/s means water shallower than about 28 cm.
+Check `get_water_depth()` on the reach you expect them in. If the depth is right and they are still
+missing, look at the node's configuration warning: a mesh too coarse to carry their wavelength
+fades them out deliberately and says so.
+
+**My river is a rolling carpet — the whole width rises and falls together.** That is the ripples
+with no chop on top. Raise `chop_amplitude` on `M_water_river.tres`. It is the only term that
+varies across the channel, so it is the only thing that breaks that read — and note it is scaled
+against `ripple_amplitude`, not relative to it, so on a river tuned for big swell you will need a
+proportionally bigger number before you notice it.
 
 **The pool's water did not move when I moved the brush.** It should — check `source_spline` is set
 rather than `curve`. A raw `Curve3D` carries no transform and does not track anything.

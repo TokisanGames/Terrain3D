@@ -877,9 +877,9 @@ the first and the player sees the second. Two things make the duplication surviv
 
 ### Gate
 
-**[`bench/StreamRippleCheck.gd`](project/bench/StreamRippleCheck.gd)** — five criteria, headless.
-Fixture is a **U**: one leg running +X, one running −X, so whatever heading the wave table carries,
-one leg opposes it.
+**[`bench/StreamRippleCheck.gd`](project/bench/StreamRippleCheck.gd)** — criteria A–E of nine,
+headless. Fixture is a **U**: one leg running +X, one running −X, so whatever heading the wave
+table carries, one leg opposes it. F–I are in §10.3 and §10.4.
 
 | | Criterion | Control that must fail |
 |---|---|---|
@@ -887,10 +887,12 @@ one leg opposes it.
 | B | ripples vanish at the waterline | mid-channel, which must move |
 | C | amplitude grows with flow speed | `flow_speed` 0, which must be flat |
 | D | `flow_reverse` turns the crests around | — (the unreversed direction is A) |
-| E | the octave tables agree across the two files | a fabricated const name, which must parse as empty |
+| E | the octave tables and scalars agree across the two files | a fabricated const *and* a fabricated scalar name, both of which must parse as nothing |
 
 **Measured:** crests +5 rows on both legs; the wave table −10 on one and +10 on the other. Bank
-0.0008 m against mid-channel 0.0416 m. Speed 0 / 0.5 / 3.0 m/s → 0.0000 / 0.0239 / 0.0910 m.
+0.0031 m against mid-channel 0.3571 m. Speed 0 / 0.5 / 3.0 m/s → 0.0000 / 0.1039 / 0.3167 m. (The
+amplitudes are larger than first shipped because `M_water_river.tres` has since been hand-tuned to
+`ripple_amplitude` 0.7 at `ripple_frequency` 0.08 — long swell rather than chop.)
 
 **Phase 7 criterion D was rewritten, and it is stricter, not looser.** It required the boat's
 residual velocity under 0.05 m/s — fair when a river surface was a static sheet, and a demand for
@@ -902,8 +904,176 @@ surface travel.
 ### Not modelled
 
 No horizontal (Gerstner) shear — river ripples at this scale are near enough vertical, and the
-shear term is what sharpens ocean crests, which a creek does not want. No cross-channel chop. No
-standing waves at shallows or obstacle wakes: both need per-vertex depth and a Froude test.
+shear term is what sharpens ocean crests, which a creek does not want. Cross-channel chop and
+standing waves at shallows were listed here as out of scope; they are §10.3 and §10.4 below.
+
+---
+
+## 10.3 Cross-channel chop
+
+### The defect
+
+The ripples of §10.2 are a function of travel time and of nothing else. Travel time varies down the
+channel and is *constant across it*, so every point on a cross-section sits at exactly the same
+height — not approximately, identically. The river is a corrugated sheet whose ridges lie athwart
+the current, and it reads as a rolling carpet at any distance where you can see both banks.
+
+### The term
+
+Two oblique octaves in `(tau, lateral)`:
+
+```
+theta_i = 2π·f_i·(water_time − tau)  +  k_i·lateral  +  phase_i
+```
+
+with `k_i = ±2π / chop_wavelength`. The lateral wavenumbers have **opposite signs**, which is what
+makes a lattice rather than corduroy, and they are deliberately *not* exact mirrors (1.0 against
+−0.79, at different frequencies): a mirrored pair at one frequency collapses by the sum-to-product
+identity into a train with **stationary nodes at fixed lateral positions** — permanent stripes down
+the river, which is worse than the corrugation it was meant to fix.
+
+`lateral` is a signed offset in **metres**, in `CUSTOM0.x`, and not a fraction of the width. A
+fraction would stretch the pattern wherever the channel opens out. Its sign is measured against the
+*flow's* perpendicular, and the mesher bakes the `flow_reverse` flip in, so the shader never has to
+know which end of the spline the water starts at.
+
+### The cost model, which is the point
+
+Chop's along-flow frequency multipliers are bounded above by what the mesh already carries (1.63
+and 1.19 against the ripples' 1.0 and 2.317), so it adds **no row density at all**. What it needs
+is samples *across* the strip — and row spacing and column spacing, identical until now, became
+separate numbers.
+
+That asymmetry is worth stating plainly because it is the whole reason this feature is affordable.
+A river is long and narrow. On the 120 m gate fixture:
+
+| | rows | columns | vertices |
+|---|---|---|---|
+| `chop_amplitude` 0.03 | 52 @ 2.34 m | 30 @ 0.42 m | 1560 |
+| `chop_amplitude` 0 | 52 @ 2.34 m | 7 @ 2.34 m | 364 |
+
+4.3× for the chop. Buying comparable detail by halving the *row* spacing twice would have been 16×,
+and would have bought it in the axis that already had enough. Zero amplitude returns every column.
+
+### Gate
+
+Criteria **F** and **G** of [`bench/StreamRippleCheck.gd`](project/bench/StreamRippleCheck.gd).
+
+| | Criterion | Control that must fail |
+|---|---|---|
+| F | the two banks are **not mirror images** | `chop_amplitude` 0, where they must be identical **to the float** |
+| G | chop buys columns and not rows | `chop_amplitude` 0, which must return the columns and leave the rows alone |
+
+F's discriminator is mirror symmetry because it is *exact*. Every other term reads coordinates that
+are constant across the channel, and the shore fraction is unsigned — so without chop, two points
+equidistant either side of the centreline do not merely agree, they are the same float. Chop is the
+only term that reads a **signed** lateral offset, so any asymmetry at all is chop and can be
+nothing else. Measuring "the surface varies across the channel" would have been far weaker: the
+bank fade does that already.
+
+**Measured:** 0.0259 m of asymmetry with chop, 0.000000 m without.
+
+---
+
+## 10.4 Standing waves at shallows
+
+### The term
+
+The stationary undulations below a ford or a chute. Unlike everything else on this surface they do
+not move: their phase is a function of position and of nothing else, so they hold station in the
+world while the water runs through them.
+
+A wave holds station when its phase speed matches the flow, `c = v`. For deep-water gravity waves
+`c = √(g/k)`, so `k = g/v²`, and the stationary phase is
+
+```
+psi(s) = ∫ g / v(s')² ds'
+```
+
+carried per row in `CUSTOM0.y`. Amplitude is gated on the **Froude number** `v / √(g·d)` — above 1
+nothing can propagate back upstream, so a pattern can hold against the current; below it the
+pattern washes away. That is what decides where rapids are, not an authored flag. Depth comes from
+`CUSTOM0.z`, and is free: `_apply_bank_surface` has the bed in hand one line before it becomes the
+surface.
+
+### psi must be integrated, and this is not a refinement
+
+The pointwise form `g·s/v²` is the same expression with the integral taken outside, and it does not
+merely lose accuracy — it aliases catastrophically. Two hundred metres down a reach slowing from 3
+to 2 m/s, `g·s/v²` runs from 218 to 490 radians over a handful of rows: forty crests between two
+vertices. The integral accumulates the *local* wavenumber instead of re-deriving a global one, so
+it moves by a few radians per row and stays drawable.
+
+This is the third time the same argument has decided a design here — `tau` in §10.2, the rejected
+per-vertex crest speed also in §10.2, and now `psi`. **A phase coordinate must be integrated along
+the channel, never evaluated from a global position.**
+
+### The resolution fade, which is a correctness gate and not a quality setting
+
+A stationary wavelength is `2πv²/g`, which is *short* at the speeds that go supercritical — 1.4 m
+at 1.5 m/s, 0.64 m at 1.0 m/s. A mesh sampled every 2 m cannot draw that, and what it would draw is
+not a faint standing wave but noise. So rows the spacing cannot carry are faded out
+(`CUSTOM0.w`, full at 8 samples per wavelength, nothing at 4 — the Nyquist limit) and the count is
+kept so `_shape_warnings` can name it. Baked into the mesh rather than computed in the shader
+because it is a fact about the *vertex spacing*, which a shared material has no way to know.
+
+### Gate
+
+Criteria **H** and **I** of [`bench/StreamRippleCheck.gd`](project/bench/StreamRippleCheck.gd).
+Fixture is a river on the demo terrain whose **bed** rises into a shoal halfway down — made by
+lifting the spline, not by editing terrain, so the surface, the waterline and the width are
+untouched and the control is a one-variable change. Ripples and chop are set to 0 on a probe
+material, so `_wave_offset` returns the standing term alone.
+
+| | Criterion | Control that must fail |
+|---|---|---|
+| H | standing waves over the shoal, none in the deep reach | the same river with the shoal dug out, which must lose them |
+| I | a fixed point does not change height | the ripples at that same point, which must move — otherwise I measured a stopped clock |
+
+**The fixture had to move, and the first version was wrong in a way worth recording.** It ran along
+x = 180 on the demo terrain, which is on a slope. A stream takes its surface from the **lower**
+bank, so the water level was set by the downhill side and the bed clamp left the rows nearly dry:
+0.06 m of water where the fixture asked for 0.30. H then compared two dry reaches and reported a
+difference it had no business finding. The run moved to x = 40, where the ground 12 m to either
+side is never below the centreline over the whole length.
+
+I also carries a **precondition** rather than only a control: "this height did not change" is
+equally true of flat water, which is exactly what a Froude gate stuck shut would produce. The probe
+point is chosen as the row with the largest standing displacement, and its amplitude is asserted
+non-trivial before its stillness is.
+
+**Measured:** depth 0.30 m over the shoal against 5.50 m in the deep reach; standing displacement
+0.0360 m on the shoal, 0.0000 m in the deep reach, 0.0000 m with the shoal dug out. At a fixed
+point: 0.000000 m of movement over 1 s standing-only, against 0.6192 m with the ripples on.
+
+### CUSTOM0, and the one thing the headless gates cannot reach
+
+The three new coordinates do not fit in what is left of `UV2` and `COLOR`, so they travel in
+`ARRAY_CUSTOM0` as `RGBA_FLOAT` (verified to round-trip exactly; half precision was rejected because
+`psi` runs to thousands of radians down a long river, where a half float's step is already a visible
+fraction of a wavelength).
+
+A vertex format is the one part of this pipeline that fails **silently in both directions**: omit
+the flag on `add_surface_from_arrays` and Godot drops the array without a word; ask for a channel
+the mesh lacks and the shader reads zeros. Either way `CUSTOM0` is `vec4(0)`, which switches chop
+into a second set of athwart ripples and gates the standing waves off — and every CPU-side gate
+still passes, because the CPU reads its own arrays and never asks the GPU anything.
+
+**[`bench/StreamCustom0Probe.gd`](project/bench/StreamCustom0Probe.gd)** closes that: it renders the
+stream's own mesh through a shader that writes `CUSTOM0` straight out, reads the pixels back, and
+compares them to what the mesher wrote. Its control is the identical mesh built *without* the format
+flag, which must collapse to zeros. It refuses to run headless rather than passing on a black frame.
+
+> ⚠️ **Not yet run.** It needs a real renderer, and the machine was in use. Until it has, "CUSTOM0
+> reaches the vertex shader" is asserted by construction and not measured — the only claim in §10.3
+> and §10.4 that is.
+
+### Not modelled
+
+No obstacle wakes: a rock in the stream is not in the mesh, so there is nothing to wake from. No
+breaking — the standing waves stay sinusoidal however supercritical the reach gets, and whitewater
+is the foam layer's job. Depth is a **centreline** depth, because the bed is only known along the
+spline; `get_water_depth()` says so.
 
 ---
 

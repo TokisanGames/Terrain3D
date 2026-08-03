@@ -23,6 +23,29 @@ extends Node
 const STREAM_SCRIPT := "res://addons/pasture_3d/connectors/stream.gd"
 const RIVER_MAT := "res://addons/pasture_3d/extras/shaders/water/M_water_river.tres"
 const STREAM_INC := "res://addons/pasture_3d/extras/shaders/water/water_stream.gdshaderinc"
+const WAVES_INC := "res://addons/pasture_3d/extras/shaders/water/water_waves.gdshaderinc"
+const DEMO_DATA := "res://demo/data"
+
+## The shoal fixture (H, I). Two constraints, both learned the hard way.
+##
+## INSIDE demo/data's loaded regions: get_height() returns NAN outside them, and a fixture in the
+## void fails for reasons that have nothing to do with the code.
+##
+## LATERALLY LEVEL, which is the one that bit. A stream takes its surface from the LOWER bank, so a
+## run across a slope has its water level set by the downhill side and the bed clamp then leaves
+## most rows bone dry -- the first version of this fixture ran along x = 180 and produced 0.06 m of
+## water where it wanted half a metre, so H compared two dry reaches and reported a difference it
+## had no business finding. Along x = 40 the ground 12 m to either side is never below the
+## centreline, over the whole run, so the depth the spline asks for is the depth it gets.
+const RUN_FROM := Vector3(40.0, 0.0, -100.0)
+const RUN_TO := Vector3(40.0, 0.0, 100.0)
+const SHOAL_ROWS := 21
+## Flow speed for the standing-wave fixture, and it is fast on purpose. The stationary wavelength
+## is 2*pi*v^2/g, so slow water wants a wavelength no affordable mesh can carry: 1.4 m at 1.5 m/s,
+## against 10.2 m at 4. Testing the term at a speed where the resolution fade is doing the work
+## would be testing the fade, and there is a separate reason to trust that one -- it is arithmetic.
+const SHOAL_SPEED := 4.0
+const SHOAL_SPACING := 1.0
 
 ## Physics frames between the two samples. ~1 s at 60 Hz, which at the shipped
 ## 1.5 m/s moves a crest about six rows -- comfortably more than the one-row
@@ -34,7 +57,7 @@ const MAX_LAG := 20
 
 var _fail := 0
 var _completed := 0
-const CRITERIA := 5
+const CRITERIA := 9
 
 
 func _ready() -> void:
@@ -42,12 +65,16 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	print("\n=== Stream ripples ===")
+	print("\n=== Stream surface motion ===")
 	await _a_downstream_on_every_reach()
 	await _b_bank_fade()
 	await _c_speed_drives_amplitude()
 	await _d_flow_reverse()
 	_e_constants_match_the_shader()
+	await _f_chop_varies_across_the_channel()
+	await _g_chop_buys_columns_not_rows()
+	await _h_standing_waves_pick_their_own_reach()
+	await _i_standing_waves_hold_station()
 
 	print("")
 	if _completed != CRITERIA:
@@ -237,6 +264,10 @@ func _e_constants_match_the_shader() -> void:
 		"WATER_STREAM_FREQ_MUL": Pasture3DStream.RIPPLE_FREQ_MUL,
 		"WATER_STREAM_AMP_MUL": Pasture3DStream.RIPPLE_AMP_MUL,
 		"WATER_STREAM_PHASE": Pasture3DStream.RIPPLE_PHASE,
+		"WATER_STREAM_CHOP_FREQ_MUL": Pasture3DStream.CHOP_FREQ_MUL,
+		"WATER_STREAM_CHOP_AMP_MUL": Pasture3DStream.CHOP_AMP_MUL,
+		"WATER_STREAM_CHOP_LAT_MUL": Pasture3DStream.CHOP_LAT_MUL,
+		"WATER_STREAM_CHOP_PHASE": Pasture3DStream.CHOP_PHASE,
 	}
 	var checked := 0
 	for key in script_consts:
@@ -252,15 +283,38 @@ func _e_constants_match_the_shader() -> void:
 				key, shader_vals, gd_vals, "" if agree else "   <-- DRIFTED"])
 		if not agree:
 			_fail += 1
+	# The scalars carry the same duplication risk as the tables and were originally
+	# left as bare literals on both sides, which is the version of this that drifts
+	# silently. WATER_GRAVITY lives in water_waves.gdshaderinc and is a #define
+	# rather than a const, so it is read out of the other file in the other form.
+	var waves_src := _read(WAVES_INC)
+	var scalars := [
+		["WATER_STREAM_SPEED_FLOOR", Pasture3DStream.TAU_SPEED_FLOOR, _parse_scalar(src,
+			"WATER_STREAM_SPEED_FLOOR")],
+		["WATER_STREAM_FROUDE_WIDTH", Pasture3DStream.FROUDE_WIDTH, _parse_scalar(src,
+			"WATER_STREAM_FROUDE_WIDTH")],
+		["WATER_GRAVITY", Pasture3DStream.GRAVITY, _parse_define(waves_src, "WATER_GRAVITY")],
+	]
+	for row in scalars:
+		var agree: bool = is_finite(row[2]) and absf(row[2] - float(row[1])) < 1e-6
+		checked += 1
+		print("    %-26s shader %s | stream.gd %s%s" % [
+				row[0], row[2], row[1], "" if agree else "   <-- DRIFTED"])
+		if not agree:
+			_fail += 1
+
 	# CONTROL: the parser finds nothing for a name nobody declared, so a pass above
-	# cannot be "it read no values from either side and called them equal".
+	# cannot be "it read no values from either side and called them equal". Both
+	# parsers, because they are separate code paths and only one of them was ever
+	# controlled.
 	var bogus := _parse_const(src, "WATER_STREAM_NOT_A_CONST")
-	if bogus.is_empty():
-		print("    control (a fabricated const name): fires — parsed as empty, %d real ones read"
-				% checked)
+	var bogus_scalar := _parse_scalar(src, "WATER_STREAM_NOT_A_SCALAR")
+	if bogus.is_empty() and not is_finite(bogus_scalar):
+		print("    control (fabricated const and scalar names): fires — both parsed as nothing, "
+				+ "%d real ones read" % checked)
 	else:
 		_fail += 1
-		print("    !! CONTROL did not fire: the parser invented %s" % [bogus])
+		print("    !! CONTROL did not fire: the parser invented %s / %s" % [bogus, bogus_scalar])
 
 	# The other half of the no-duplicate-defaults claim: an unset parameter has to
 	# come back as the SHADER's declared default, not as a GDScript fallback.
@@ -277,6 +331,358 @@ func _e_constants_match_the_shader() -> void:
 		print("    !! shader_param fell through to its fallback; the defaults are duplicated")
 	body.free()
 	_completed += 1
+
+
+# ---- F ------------------------------------------------------------------------
+
+## THE DISCRIMINATOR IS MIRROR SYMMETRY, and it was chosen because it is exact.
+##
+## Every other term on this surface is a function of coordinates that are constant across the
+## channel -- travel time, stationary phase, depth -- so two points at equal distance either side of
+## the centreline agree on all of them. They also agree on the shore fraction, which is UNSIGNED.
+## So without chop the two heights are not merely close, they are the same float.
+##
+## Chop is the only term that reads a SIGNED lateral offset, so it is the only thing that can break
+## that, and any non-zero asymmetry is chop and cannot be anything else. Measuring "the surface
+## varies across the channel" instead would have been much weaker: the bank fade does that already.
+func _f_chop_varies_across_the_channel() -> void:
+	print("\nF. chop breaks the mirror symmetry across the channel")
+	var root := _world()
+	var stream = _make_stream(root)
+	stream.curve = _straight_curve()
+	stream.rebuild()
+	await _settle(2)
+
+	var rows: PackedVector3Array = stream.get_centreline()
+	if rows.size() < 8:
+		_fail += 1
+		print("    !! no channel to sample; F proves nothing")
+		root.queue_free()
+		_completed += 1
+		return
+
+	var with_chop := await _mirror_gap(stream)
+	# CONTROL: the same points, the same clock, chop switched off at its own amplitude. The gap
+	# must go to EXACTLY zero -- not small, zero -- because nothing else in the evaluator can tell
+	# the two sides apart.
+	stream.material = _probe_material({"chop_amplitude": 0.0})
+	stream.rebuild()
+	await _settle(2)
+	var without_chop := await _mirror_gap(stream)
+
+	print("    largest |h(+d) - h(-d)| across the strip: %.4f m with chop, %.6f m without" % [
+			with_chop, without_chop])
+	if with_chop < 0.002:
+		_fail += 1
+		print("    !! chop does not vary across the channel; the surface is still a rolling carpet")
+	if without_chop > 1e-5:
+		_fail += 1
+		print("    !! CONTROL did not fire: the two banks differ with chop off, so something")
+		print("       other than chop is reading a signed lateral offset and F is not isolating it")
+	else:
+		print("    control fires: with chop_amplitude 0 the two banks are identical to the float")
+	root.queue_free()
+	_completed += 1
+
+
+## Largest height difference between mirrored pairs across the middle row, sampled over a second so
+## a pair that happens to be in phase at one instant cannot pass this by luck.
+func _mirror_gap(p_stream: Node) -> float:
+	var rows: PackedVector3Array = p_stream.get_centreline()
+	var r := rows.size() / 2
+	var c: Vector3 = rows[r]
+	var half: float = p_stream._row_half(r, false)
+	var worst := 0.0
+	for i in 20:
+		for frac in [0.25, 0.5, 0.75]:
+			var d: float = half * frac
+			# The straight fixture runs along +X, so the perpendicular is Z.
+			var lo: float = p_stream._wave_offset(Vector2(c.x, c.z - d))
+			var hi: float = p_stream._wave_offset(Vector2(c.x, c.z + d))
+			worst = maxf(worst, absf(hi - lo))
+		await _settle(3)
+	return worst
+
+
+# ---- G ------------------------------------------------------------------------
+
+## The cost model, stated as a testable claim: chop is paid for in COLUMNS.
+##
+## This is the criterion that would have caught the mistake made once already on this surface --
+## shipping a wave whose vertex bill arrives in both axes at once. Rows are set by the ripple
+## wavelength and columns by the chop wavelength, and turning chop off has to give the whole
+## column budget back rather than leaving the mesh permanently denser.
+func _g_chop_buys_columns_not_rows() -> void:
+	print("\nG. chop costs columns, not rows, and costs nothing when it is off")
+	var root := _world()
+	var stream = _make_stream(root)
+	# Automatic spacing, unlike every criterion above: the point here IS the spacing rule.
+	stream.vertex_spacing = 0.0
+	stream.curve = _straight_curve()
+	stream.material = _probe_material({"chop_amplitude": 0.03, "chop_wavelength": 2.5})
+	var on: Dictionary = stream.rebuild()
+	stream.material = _probe_material({"chop_amplitude": 0.0, "chop_wavelength": 2.5})
+	var off: Dictionary = stream.rebuild()
+
+	print("    chop on : %d rows x %d cols = %d verts (rows %.2f m, cols %.2f m)" % [
+			on.get("rows", 0), on.get("columns", 0), on.get("vertices", 0),
+			on.get("spacing", 0.0), on.get("column_spacing", 0.0)])
+	print("    chop off: %d rows x %d cols = %d verts (rows %.2f m, cols %.2f m)" % [
+			off.get("rows", 0), off.get("columns", 0), off.get("vertices", 0),
+			off.get("spacing", 0.0), off.get("column_spacing", 0.0)])
+
+	if not on.get("ok", false) or not off.get("ok", false):
+		_fail += 1
+		print("    !! a build failed; G proves nothing")
+	elif on.get("rows", 0) != off.get("rows", 0):
+		_fail += 1
+		print("    !! chop changed the ROW count, so it is billing in both axes")
+	elif on.get("columns", 0) <= off.get("columns", 0):
+		_fail += 1
+		print("    !! CONTROL did not fire: chop bought no extra columns either, so the mesh")
+		print("       cannot be carrying it and F is measuring something the GPU will not draw")
+	else:
+		print("    control fires: switching chop off returns the columns (%d -> %d) and leaves"
+				% [on.get("columns", 0), off.get("columns", 0)])
+		print("    the rows alone (%d both ways)" % on.get("rows", 0))
+	root.queue_free()
+	_completed += 1
+
+
+# ---- H ------------------------------------------------------------------------
+
+## Standing waves must choose their own reach.
+##
+## Nobody authors where rapids are: the Froude number does, out of the depth and speed already in
+## the mesh. So the test is that the SAME river, with the same settings, has them over a shoal and
+## not in the deep reach below it -- and that flattening the shoal takes them away.
+##
+## Isolated by amplitude: the probe material has the ripples and the chop at zero, so what
+## _wave_offset returns here IS the standing term and nothing else.
+func _h_standing_waves_pick_their_own_reach() -> void:
+	print("\nH. standing waves appear over a shoal and nowhere else")
+	var fix := _shoal_world(true)
+	if fix.is_empty():
+		_completed += 1
+		return
+	var stream = fix["stream"]
+	print("    depth: %.2f m over the shoal, %.2f m in the deep reach; %d supercritical rows, "
+			% [fix["shoal_depth"], fix["deep_depth"], fix["stats"].get("standing_rows", 0)]
+			+ "%d of them too fine for the mesh" % fix["stats"].get("standing_suppressed", 0))
+
+	var shoal := absf(stream._wave_offset(fix["shoal_xz"]))
+	var deep := absf(stream._wave_offset(fix["deep_xz"]))
+	# Not one sample: a sine crosses zero, and a probe that landed on a node would read flat water
+	# over a reach that is anything but. The largest displacement along the reach is the honest
+	# measure of whether a wave train is there at all.
+	var shoal_peak := _peak_along(stream, fix["shoal_rows"])
+	var deep_peak := _peak_along(stream, fix["deep_rows"])
+	print("    standing displacement, largest along the reach: shoal %.4f m, deep %.4f m"
+			% [shoal_peak, deep_peak])
+	print("    (at the single probe points: shoal %.4f m, deep %.4f m)" % [shoal, deep])
+
+	if shoal_peak < 0.005:
+		_fail += 1
+		print("    !! no standing waves over the shoal; the Froude gate never opened")
+	if deep_peak > shoal_peak * 0.2:
+		_fail += 1
+		print("    !! the deep reach has them too, so depth is not what is deciding")
+
+	# CONTROL: the identical river with the shoal dug out. Same terrain, same banks, same speed --
+	# the ONLY thing that changed is the bed, and the waves have to go with it.
+	var flat := _shoal_world(false)
+	if flat.is_empty():
+		_completed += 1
+		return
+	var flat_peak := _peak_along(flat["stream"], flat["shoal_rows"])
+	print("    CONTROL, the same reach dug out to %.2f m: %.4f m" % [
+			flat["shoal_depth"], flat_peak])
+	if flat_peak > maxf(shoal_peak * 0.2, 0.002):
+		_fail += 1
+		print("    !! CONTROL did not fire: deepening the reach left the waves in place, so they")
+		print("       are not responding to depth and H proves nothing")
+	else:
+		print("    control fires: dig the shoal out and the rapids go with it")
+	fix["root"].queue_free()
+	flat["root"].queue_free()
+	_completed += 1
+
+
+# ---- I ------------------------------------------------------------------------
+
+## The defining property, and the one that separates this term from every other on the surface: a
+## standing wave does not move. Its phase is a function of position and of nothing else, so a fixed
+## point in the world must read the same height however long the clock runs.
+func _i_standing_waves_hold_station() -> void:
+	print("\nI. standing waves hold station while the water runs through them")
+	var fix := _shoal_world(true)
+	if fix.is_empty():
+		_completed += 1
+		return
+	var stream = fix["stream"]
+	var probe: Vector2 = fix["shoal_xz"]
+
+	# THE PRECONDITION, and it is not a formality: "this height did not change" is also true of
+	# water that is perfectly flat, which is what a Froude gate stuck shut would give. Establish
+	# that there is a wave standing at this point before claiming it stands still.
+	var present := absf(stream._wave_offset(probe))
+	print("    standing displacement at the probe: %.4f m" % present)
+	if present < 0.005:
+		_fail += 1
+		print("    !! there is no standing wave at the probe, so 'it did not move' is a statement")
+		print("       about flat water and I proves nothing")
+
+	var still := await _swing(stream, probe)
+	# CONTROL: the same point, the same fixture, with the ripples switched back on. If THAT does not
+	# move either, the fixture's clock is not running and "it did not move" was never a measurement.
+	stream.material = _probe_material({"chop_amplitude": 0.0})
+	stream.rebuild()
+	await _settle(2)
+	var moving := await _swing(stream, probe)
+
+	print("    peak-to-peak over 1 s at a fixed point: %.6f m standing only, %.4f m with ripples"
+			% [still, moving])
+	if still > 1e-5:
+		_fail += 1
+		print("    !! the standing waves move; their phase is reading the clock somewhere")
+	if moving < 0.005:
+		_fail += 1
+		print("    !! CONTROL did not fire: nothing moved at this point even with ripples on,")
+		print("       so I measured a stopped clock rather than a stationary wave")
+	else:
+		print("    control fires: the ripples at the same point move %.4f m, so the clock runs"
+				% moving)
+	fix["root"].queue_free()
+	_completed += 1
+
+
+# ---- the shoal fixture ---------------------------------------------------------
+
+## A river on the demo terrain whose BED rises into a shoal halfway down, or does not.
+##
+## The shoal is made by lifting the SPLINE, not by editing terrain. The surface of a stream comes
+## from its banks and the bed comes from the spline, so raising the spline thins the water without
+## moving the waterline, the width, or anything else the other criteria depend on. That makes the
+## control -- p_shoal false -- a one-variable change in the truest sense available here.
+func _shoal_world(p_shoal: bool) -> Dictionary:
+	var root := Node3D.new()
+	add_child(root)
+	var terrain = ClassDB.instantiate("Pasture3D")
+	root.add_child(terrain)
+	terrain.data_directory = DEMO_DATA
+	var manager = ClassDB.instantiate("Pasture3DPoolManager")
+	manager.name = "Pasture3DPoolManager"
+	root.add_child(manager)
+
+	var stream = load(STREAM_SCRIPT).new()
+	# Ripples and chop at zero, so _wave_offset returns the standing term alone.
+	stream.material = _probe_material({"ripple_amplitude": 0.0, "chop_amplitude": 0.0})
+	stream.wave_profile = &"river_flow"
+	stream.underwater_enabled = false
+	stream.vertex_spacing = SHOAL_SPACING
+	stream.flow_speed = SHOAL_SPEED
+	# Uniform speed down the channel: a slope-driven speed change would move the Froude number for
+	# a reason other than the one under test.
+	stream.flow_slope_gain = 0.0
+	stream.bank_height = 0.5
+	stream.bank_search_width = 12.0
+	stream.manager = manager
+	root.add_child(stream)
+
+	var c := Curve3D.new()
+	for i in SHOAL_ROWS:
+		var t := float(i) / float(SHOAL_ROWS - 1)
+		var p: Vector3 = RUN_FROM.lerp(RUN_TO, t)
+		var g: float = terrain.data.get_height(p)
+		if not is_finite(g):
+			_fail += 1
+			print("    !! no terrain at %s; the shoal fixture is outside demo/data" % p)
+			root.queue_free()
+			return {}
+		# Deep for the first half. Then, with a shoal, the bed climbs to just under the surface and
+		# stays there; without one it carries straight on. Ramped over four rows rather than
+		# stepped: a cliff in the bed would be smoothed by bank_smoothing into something neither
+		# case actually describes.
+		var below := 6.0
+		if p_shoal:
+			below = lerpf(6.0, 0.8, clampf((t - 0.4) / 0.2, 0.0, 1.0))
+		p.y = g - below
+		c.add_point(p)
+	stream.curve = c
+
+	var stats: Dictionary = stream.rebuild()
+	if not stats.get("ok", false):
+		_fail += 1
+		print("    !! the shoal fixture did not build (%s)" % stats.get("reason", ""))
+		root.queue_free()
+		return {}
+
+	var rows: PackedVector3Array = stream.get_centreline()
+	var shoal_rows := PackedInt32Array()
+	var deep_rows := PackedInt32Array()
+	for r in rows.size():
+		var t := float(r) / float(maxi(rows.size() - 1, 1))
+		if t > 0.7:
+			shoal_rows.append(r)
+		elif t < 0.3:
+			deep_rows.append(r)
+	# The probe point is the row with the LARGEST standing displacement, not the middle one. A
+	# standing wave is a sine and a sine has nodes: a probe that landed on one would read flat water
+	# over a reach full of rapids, and criterion I -- which asserts a height does not change --
+	# would then pass on water that was never there. Picking the crest makes I's subject exist.
+	return {
+		"root": root, "stream": stream, "stats": stats,
+		"shoal_rows": shoal_rows, "deep_rows": deep_rows,
+		"shoal_xz": _row_xz(stream, _crest_row(stream, shoal_rows)),
+		"deep_xz": _row_xz(stream, deep_rows[deep_rows.size() / 2]),
+		"shoal_depth": _mean_depth(stream, shoal_rows),
+		"deep_depth": _mean_depth(stream, deep_rows),
+	}
+
+
+## The row of a reach carrying the largest wave offset right now.
+func _crest_row(p_stream: Node, p_rows: PackedInt32Array) -> int:
+	var best: int = p_rows[0]
+	var best_h := -1.0
+	for r in p_rows:
+		var h: float = absf(p_stream._wave_offset(_row_xz(p_stream, r)))
+		if h > best_h:
+			best_h = h
+			best = r
+	return best
+
+
+func _row_xz(p_stream: Node, p_row: int) -> Vector2:
+	var rows: PackedVector3Array = p_stream.get_centreline()
+	var w: Vector3 = p_stream.global_transform * rows[p_row]
+	return Vector2(w.x, w.z)
+
+
+func _mean_depth(p_stream: Node, p_rows: PackedInt32Array) -> float:
+	var total := 0.0
+	for r in p_rows:
+		total += p_stream.get_water_depth(_row_xz(p_stream, r))
+	return total / maxf(float(p_rows.size()), 1.0)
+
+
+## Largest absolute wave offset anywhere along a reach, at one instant.
+func _peak_along(p_stream: Node, p_rows: PackedInt32Array) -> float:
+	var peak := 0.0
+	for r in p_rows:
+		peak = maxf(peak, absf(p_stream._wave_offset(_row_xz(p_stream, r))))
+	return peak
+
+
+## The river material with some parameters overridden, as an independent copy.
+##
+## A copy and not the loaded resource: load() is cached, so setting a parameter on it would leak
+## into every criterion that ran afterwards -- and the one that noticed would be whichever ran
+## last, which is the worst possible place for that to surface.
+func _probe_material(p_overrides: Dictionary) -> ShaderMaterial:
+	var m: ShaderMaterial = load(RIVER_MAT).duplicate()
+	for k in p_overrides:
+		m.set_shader_parameter(k, p_overrides[k])
+	return m
 
 
 # ---- measurement ---------------------------------------------------------------
@@ -424,6 +830,26 @@ func _settle(p_frames: int) -> void:
 func _read(p_path: String) -> String:
 	var f := FileAccess.open(p_path, FileAccess.READ)
 	return f.get_as_text() if f != null else ""
+
+
+## The float out of a `const float NAME = 0.35;` declaration, or NAN when there is none.
+func _parse_scalar(p_src: String, p_name: String) -> float:
+	var re := RegEx.new()
+	# The `[^\[]` guard keeps this off the array declarations: without it,
+	# `const float WATER_STREAM_PHASE[2] = {0.0, ...}` would match a request for a
+	# scalar of that name and hand back its first element.
+	re.compile("const\\s+float\\s+" + p_name + "\\s*=\\s*([-+0-9.eE]+)\\s*;")
+	var m := re.search(p_src)
+	return m.get_string(1).to_float() if m != null else NAN
+
+
+## The float out of a `#define NAME 9.81`, or NAN. A separate form because the
+## shader's gravity is a preprocessor define and not a const.
+func _parse_define(p_src: String, p_name: String) -> float:
+	var re := RegEx.new()
+	re.compile("#define\\s+" + p_name + "\\s+([-+0-9.eE]+)")
+	var m := re.search(p_src)
+	return m.get_string(1).to_float() if m != null else NAN
 
 
 ## The floats out of a `const float NAME[n] = {a, b, ...};` declaration.
