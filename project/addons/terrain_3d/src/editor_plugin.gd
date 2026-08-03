@@ -3,6 +3,14 @@
 @tool
 extends EditorPlugin
 
+enum BrushAdjustAxis {
+	NONE,
+	HORIZONTAL,
+	VERTICAL
+}
+
+const BRUSH_ADJUST_DEADZONE := 8.0
+const BRUSH_ADJUST_AXIS_BIAS := 1.5
 
 # Includes
 const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
@@ -34,6 +42,14 @@ var _last_modifiers: int = 0
 var _input_mode: int = 0 # -1: camera move, 0: none, 1: operating
 var rmb_release_time: int = 0
 var _use_meta: bool = false
+
+# Mouse brush adjustments
+var _brush_adjusting: bool = false
+var _brush_adjust_axis: BrushAdjustAxis = BrushAdjustAxis.NONE
+var _brush_adjust_start_mouse: Vector2
+var _brush_adjust_start_global_position: Vector3
+var _brush_adjust_start_size: float
+var _brush_adjust_start_strength: float
 
 
 func _init() -> void:
@@ -262,6 +278,27 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 
 
 func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
+	## Determine modifiers pressed
+	modifier_shift = Input.is_key_pressed(KEY_SHIFT)
+
+	# Editor responds to modifier_ctrl so we must register touchscreen Invert 
+	if _use_meta:
+		modifier_ctrl = Input.is_key_pressed(KEY_META) || ui.inverted_input
+	else:
+		modifier_ctrl = Input.is_key_pressed(KEY_CTRL) || ui.inverted_input
+
+	modifier_alt = Input.is_key_pressed(_get_alt_keycode())
+
+	if p_event == null and _brush_adjusting and (not modifier_alt or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)):
+		_stop_brush_adjust()
+
+	if p_event and _handle_brush_adjust_input(p_event):
+		return AFTER_GUI_INPUT_STOP
+
+	if _brush_adjusting:
+		_input_mode = 0
+		return AFTER_GUI_INPUT_CUSTOM
+
 	## Determine if user is moving camera or applying
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or \
 		p_event is InputEventMouseButton and p_event.is_released() and \
@@ -291,30 +328,17 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 		# Camera is moving, skip input
 		return AFTER_GUI_INPUT_PASS
 
-	## Determine modifiers pressed
-	modifier_shift = Input.is_key_pressed(KEY_SHIFT)
-	
-	# Editor responds to modifier_ctrl so we must register touchscreen Invert 
-	if _use_meta:
-		modifier_ctrl = Input.is_key_pressed(KEY_META) || ui.inverted_input
-	else:
-		modifier_ctrl = Input.is_key_pressed(KEY_CTRL) || ui.inverted_input
-	
-	# Keybind enum: Alt,Space,Meta,Capslock
-	var alt_key: int
-	match get_setting("terrain3d/config/alt_key_bind", 0):
-		3: alt_key = KEY_CAPSLOCK
-		2: alt_key = KEY_META
-		1: alt_key = KEY_SPACE
-		0, _: alt_key = KEY_ALT
-	modifier_alt = Input.is_key_pressed(alt_key)
 	var current_mods: int = int(modifier_shift) | int(modifier_ctrl) << 1 | int(modifier_alt) << 2
 
+	var should_try_consume_hotkey: bool = (
+		p_event is InputEventKey
+		and p_event.is_pressed()
+		and current_mods == 0
+		and not p_event.is_echo()
+	)
+
 	## Process Hotkeys
-	if p_event is InputEventKey and \
-			current_mods == 0 and \
-			p_event.is_pressed() and \
-			consume_hotkey(p_event):
+	if should_try_consume_hotkey and try_consume_hotkey(p_event):
 		# Hotkey found, consume event, and stop input processing
 		EditorInterface.get_editor_viewport_3d().set_input_as_handled()
 		return AFTER_GUI_INPUT_STOP
@@ -333,7 +357,7 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 
 
 # Returns true if hotkey matches and operation triggered
-func consume_hotkey(p_event: InputEventKey) -> bool:
+func try_consume_hotkey(p_event: InputEventKey) -> bool:
 	# Handle repeatable keys
 	match p_event.keycode:
 		KEY_BRACKETLEFT:
@@ -393,6 +417,85 @@ func consume_hotkey(p_event: InputEventKey) -> bool:
 		_:
 			return false
 	return true
+
+
+func _handle_brush_adjust_input(p_event: InputEvent) -> bool:
+	if _brush_adjusting and (not modifier_alt or not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)):
+		_stop_brush_adjust()
+		return true
+
+	if p_event is InputEventMouseButton and p_event.button_index == MOUSE_BUTTON_RIGHT:
+		if p_event.is_pressed() and modifier_alt:
+			_start_brush_adjust(get_tree().root.get_mouse_position())
+			return true
+
+	if p_event is InputEventMouseMotion and _brush_adjusting:
+		_update_brush_adjust(get_tree().root.get_mouse_position())
+		return true
+
+	return _brush_adjusting
+
+
+func _start_brush_adjust(p_mouse_position: Vector2) -> void:
+	_brush_adjusting = true
+	_brush_adjust_axis = BrushAdjustAxis.NONE
+	_input_mode = 0
+	rmb_release_time = 0
+	_brush_adjust_start_mouse = p_mouse_position
+	_brush_adjust_start_global_position = mouse_global_position
+	_brush_adjust_start_size = ui.tool_settings.get_setting("size")
+	_brush_adjust_start_strength = ui.tool_settings.get_setting("strength")
+	Input.mouse_mode = Input.MOUSE_MODE_CONFINED_HIDDEN
+
+
+func _stop_brush_adjust() -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	Input.warp_mouse(_brush_adjust_start_mouse)
+	set_deferred("_brush_adjusting", false)
+
+
+func _update_brush_adjust(p_mouse_position: Vector2) -> void:
+	var delta: Vector2 = p_mouse_position - _brush_adjust_start_mouse
+
+	var abs_delta := delta.abs()
+
+	if _brush_adjust_axis == BrushAdjustAxis.NONE:
+		if max(abs_delta.x, abs_delta.y) < BRUSH_ADJUST_DEADZONE:
+			return
+
+		if abs_delta.x > abs_delta.y * BRUSH_ADJUST_AXIS_BIAS:
+			_brush_adjust_axis = BrushAdjustAxis.HORIZONTAL
+		elif abs_delta.y > abs_delta.x * BRUSH_ADJUST_AXIS_BIAS:
+			_brush_adjust_axis = BrushAdjustAxis.VERTICAL
+		else:
+			return
+
+	match _brush_adjust_axis:
+		BrushAdjustAxis.HORIZONTAL:
+			ui.tool_settings.set_setting("size", _brush_adjust_start_size + delta.x * 0.25)
+		BrushAdjustAxis.VERTICAL:
+			ui.tool_settings.set_setting("strength", _brush_adjust_start_strength - delta.y * 0.25)
+
+	ui.update_decal()
+
+
+func is_brush_adjusting() -> bool:
+	return _brush_adjusting
+
+
+func get_decal_global_position() -> Vector3:
+	if _brush_adjusting:
+		return _brush_adjust_start_global_position
+	return mouse_global_position
+
+
+func _get_alt_keycode() -> int:
+	# Keybind enum: Alt,Space,Meta,Capslock
+	match get_setting("terrain3d/config/alt_key_bind", 0):
+		3: return KEY_CAPSLOCK
+		2: return KEY_META
+		1: return KEY_SPACE
+		0, _: return KEY_ALT
 
 
 func _on_scene_changed(scene_root: Node) -> void:
