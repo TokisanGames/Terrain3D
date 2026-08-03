@@ -54,8 +54,13 @@ void vertex() {
 	v_shore = COLOR.a;
 	// UV2.x is the cumulative flow travel time from the head of the channel, in
 	// seconds -- the coordinate that makes crests run downstream on every reach.
-	// See water_stream.gdshaderinc.
-	WaveSample wave = water_eval_stream_waves(world_pos, UV2.x, v_flow, v_shore);
+	// CUSTOM0 carries the three later ones: lateral offset, the stationary phase,
+	// and depth. See water_stream.gdshaderinc.
+	//
+	// CUSTOM0 is zero on any mesh that does not supply it, which is the degradation
+	// we want: chop and standing waves fall out and the ripples are untouched, so a
+	// river material dropped on a bare plane still runs rather than going wild.
+	WaveSample wave = water_eval_stream_waves(world_pos, UV2.x, v_flow, v_shore, CUSTOM0);
 #else
 	WaveSample wave = water_eval_waves(world_pos);
 #endif

@@ -290,6 +290,63 @@ uniform float ripple_speed_ref : hint_range(0.1, 10.0, 0.1) = 2.0;
 // rim of crests standing over the dry bank; lower pulls the calm margin inward.
 uniform float ripple_bank_fade : hint_range(0.0, 1.0, 0.01) = 0.55;
 group_uniforms;
+
+// ---------------------------------------------------------------------------
+// Cross-channel chop (spec §10.3).
+//
+// The ripples above are a function of travel time ALONE, so every point on a
+// cross-section is at the same height and the river reads as a rolling carpet.
+// These are the term that varies ACROSS the channel: two oblique octaves whose
+// crests meet at an angle and interfere into the diamond lattice moving water
+// actually shows.
+//
+// COSTS COLUMNS, NOT ROWS. Its along-flow structure is deliberately no finer
+// than the ripples already carry, so the only thing it makes the mesher spend
+// more of is samples ACROSS the strip -- which is the cheap axis, because a
+// river is long and narrow. Set chop_amplitude to 0 and the stream stops asking
+// for them entirely and goes back to the column count it had before.
+// ---------------------------------------------------------------------------
+group_uniforms chop;
+// Crest-to-trough amplitude in metres, at full speed, mid-channel. Gated by the
+// same speed and bank fades as the ripples, so chop dies in a pool and at the
+// waterline without a second set of knobs.
+//
+// ZERO IS A SUPPORTED SETTING and not merely a quiet one: it is what tells
+// Pasture3DStream it may drop back to square cells. See _column_spacing().
+uniform float chop_amplitude : hint_range(0.0, 1.0, 0.005) = 0.03;
+// Distance between chop crests measured ACROSS the channel, in metres. This is
+// the number that sets the mesh's column spacing -- a stream samples it about
+// six times per wavelength -- so halving it roughly doubles the vertex count.
+uniform float chop_wavelength : hint_range(0.25, 20.0, 0.05) = 2.5;
+group_uniforms;
+
+// ---------------------------------------------------------------------------
+// Standing waves at shallows (spec §10.4).
+//
+// The stationary undulations downstream of a ford or a chute. Unlike everything
+// else on this surface they DO NOT MOVE: their phase is a function of position
+// along the channel and of nothing else, so they sit still in the world while
+// the water runs through them. That is what a standing wave is.
+//
+// They appear on their own, wherever the flow goes supercritical -- Froude
+// number v / sqrt(g*d) above 1 -- and the mesh already carries per-row depth and
+// speed, so nobody authors where. Raise the bed toward the surface and the reach
+// grows rapids; deepen it and they go away.
+// ---------------------------------------------------------------------------
+group_uniforms standing;
+// Crest-to-trough amplitude in metres at standing_depth_ref of water. Scaled
+// down in shallower water, because a wave taller than the river is not a wave.
+uniform float standing_amplitude : hint_range(0.0, 2.0, 0.005) = 0.12;
+// Froude number the undulations start at. 1.0 is the physical critical point --
+// below it a disturbance can travel back upstream and no standing pattern can
+// hold. Shipped slightly under, because a river at Fr 0.95 is already ruffled
+// and the transition looks abrupt if it begins exactly at the textbook value.
+uniform float standing_froude_onset : hint_range(0.4, 2.5, 0.01) = 0.9;
+// Depth in metres at which standing waves reach standing_amplitude. Also the
+// scale over which they fade out as a reach dries: at zero depth there is no
+// water to stand up, whatever the Froude number says.
+uniform float standing_depth_ref : hint_range(0.05, 5.0, 0.01) = 1.0;
+group_uniforms;
 #endif
 
 #ifdef WATER_DEPTH_FADE
