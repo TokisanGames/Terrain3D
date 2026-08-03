@@ -154,6 +154,14 @@ var _ribbon_resolved := PackedFloat32Array()
 ## hiding their rapids -- silently drawing nothing is the failure this pass is trying not to have.
 var _standing_rows := 0
 var _standing_suppressed := 0
+## The material uniforms this mesh was BAKED against, as of the last build and the last recount.
+##
+## A stream reads its material at build time as well as at draw time -- the row spacing, the column
+## spacing and the stationary phase are all decided from uniforms and then frozen into the mesh --
+## so a slider dragged in the inspector can leave the geometry describing a material that no longer
+## exists. Nothing announces that: see poll_material_changes().
+var _mesh_params := {}
+var _warning_params := {}
 ## Per-row half-width to the left and right of the centreline, in metres. Separate sides because
 ## a channel cut into a slope has an asymmetric waterline -- the surface reaches further into the
 ## shallow bank than the steep one, and averaging them would put the mesh edge in the air on one
@@ -172,6 +180,73 @@ var _ribbon_cell := PackedInt32Array()
 var _cell_gw := 0
 var _cell_gh := 0
 var _cell_spacing := 0.0
+
+
+# ---- material uniforms that are baked, not drawn -----------------------------
+
+## Uniforms a rebuild would produce a DIFFERENT MESH from. Changing one of these leaves the
+## geometry describing the old value until something re-meshes.
+##
+##   ripple_frequency   sizes the rows (wavelength is speed / frequency)
+##   chop_wavelength    sizes the columns
+##   chop_amplitude     decides whether columns are bought at all -- 0 returns them
+##   flow_speed_scale   scales the encoded speed, which the stationary phase is integrated against
+##                      and then frozen into CUSTOM0.y
+const MESH_PARAMS: Array[StringName] = [
+	&"ripple_frequency", &"chop_wavelength", &"chop_amplitude", &"flow_speed_scale"]
+
+## Uniforms that change only the SUPPRESSION COUNT behind the configuration warning. They are
+## re-read from the surviving per-row arrays instead of triggering a re-mesh, because a river is
+## an expensive thing to rebuild in order to correct a sentence.
+const WARNING_PARAMS: Array[StringName] = [
+	&"standing_froude_onset", &"standing_depth_ref"]
+
+
+## Re-read the baked uniforms and act if any moved. Returns what it did: &"" for nothing,
+## &"mesh" for a scheduled rebuild, &"warnings" for a recount.
+##
+## A POLL AND NOT A SIGNAL, and that is not laziness. ShaderMaterial emits NOTHING when a shader
+## parameter is set -- neither `changed` nor `property_list_changed` -- which
+## bench/WaterMaterialPropagationCheck.gd asserts explicitly, precisely so that nobody connects a
+## hook here that would quietly never fire. The manager's own base-to-duplicate sync polls for the
+## same reason. If ShaderMaterial ever starts announcing edits, that check will say so and this can
+## become a connection.
+##
+## Called from _process, so a slider drag lands on _schedule_rebuild's existing debounce and a
+## drag produces one rebuild rather than sixty. Also called directly by the gate, since a headless
+## test is not the editor and _process would never run there.
+func poll_material_changes() -> StringName:
+	if material == null or not _has_surface():
+		return &""
+	var mesh_now := _material_snapshot(MESH_PARAMS)
+	if mesh_now != _mesh_params:
+		# Taken NOW rather than after the rebuild, so a drag in progress does not re-arm the
+		# debounce every frame and postpone the rebuild until the mouse stops for good.
+		_mesh_params = mesh_now
+		_schedule_rebuild()
+		return &"mesh"
+	if _material_snapshot(WARNING_PARAMS) != _warning_params:
+		_recount_standing_rows()
+		update_configuration_warnings()
+		return &"warnings"
+	return &""
+
+
+func _material_snapshot(p_names: Array[StringName]) -> Dictionary:
+	var out := {}
+	for n in p_names:
+		out[n] = shader_param(n, 0.0)
+	return out
+
+
+## Watch the material on top of the base class's watch on the source spline's transform.
+##
+## Not gated to the editor, for the same reason the transform poll it calls into is not: a runtime
+## scene that changes a water material should get water that matches, and an editor-only behaviour
+## that surprises someone at runtime is worse than six get_shader_parameter calls a frame.
+func _process(p_delta: float) -> void:
+	super(p_delta)
+	poll_material_changes()
 
 
 # ---- the shape contract ------------------------------------------------------
@@ -297,6 +372,10 @@ func _on_profiles_changed() -> void:
 ## The mesh carries real Y per row, so every height query has to ask the centreline rather than
 ## return one number -- which is the whole reason _still_surface_y is a hook rather than a constant.
 func _build_surface(p_spacing: float) -> void:
+	# The baseline for poll_material_changes, taken before anything is read, so it records what
+	# THIS build was made from whether or not the build goes on to succeed. A failed build that
+	# left the old snapshot in place would re-arm the poll every frame and rebuild forever.
+	_mesh_params = _material_snapshot(MESH_PARAMS)
 	var centre := _ribbon_centreline(p_spacing)
 	if centre.size() < 2:
 		_build_failed("the curve has no usable length")
@@ -617,7 +696,6 @@ func _build_standing_phase(p_rows: PackedVector3Array, p_spacing: float) -> void
 		for r in n:
 			_ribbon_psi[r] = total - _ribbon_psi[r]
 
-	var onset := float(shader_param(&"standing_froude_onset", 0.9))
 	for r in n:
 		var v := maxf(_encoded_speed(_ribbon_speed[r], scale), TAU_SPEED_FLOOR)
 		# Stationary wavelength, 2*pi*v^2/g -- the reciprocal of the wavenumber psi accumulates.
@@ -626,6 +704,25 @@ func _build_standing_phase(p_rows: PackedVector3Array, p_spacing: float) -> void
 		# for a sine and the point at which what gets drawn stops resembling one, so the fade ends
 		# there rather than beginning there.
 		_ribbon_resolved[r] = smoothstep(p_spacing * 4.0, p_spacing * 8.0, wavelength)
+	_recount_standing_rows()
+
+
+## How many rows have rapids on them, and how many of those the mesh is too coarse to draw.
+##
+## Split out of the build because it reads TWO uniforms that change nothing else --
+## standing_froude_onset and standing_depth_ref -- and re-meshing a whole river to correct a
+## warning would be a poor trade. Everything this needs (speed, depth, the resolution fade)
+## survives a build, so the counters can be brought up to date on their own. See
+## poll_material_changes().
+func _recount_standing_rows() -> void:
+	_warning_params = _material_snapshot(WARNING_PARAMS)
+	_standing_rows = 0
+	_standing_suppressed = 0
+	var scale := float(shader_param(&"flow_speed_scale", 8.0))
+	var onset := float(shader_param(&"standing_froude_onset", 0.9))
+	var depth_ref := maxf(float(shader_param(&"standing_depth_ref", 1.0)), 1e-3)
+	for r in mini(_ribbon_resolved.size(), _ribbon_speed.size()):
+		var v := maxf(_encoded_speed(_ribbon_speed[r], scale), TAU_SPEED_FLOOR)
 		# A row only counts as one with rapids on it if BOTH gates would have let something
 		# through. Froude alone is not enough: a bone-dry ford divides by nothing and comes back
 		# infinitely supercritical, and reporting that a suppressed standing wave was lost there
@@ -633,9 +730,7 @@ func _build_standing_phase(p_rows: PackedVector3Array, p_spacing: float) -> void
 		var depth: float = _ribbon_depth[r] if r < _ribbon_depth.size() else 0.0
 		var froude_gate := smoothstep(onset, onset + FROUDE_WIDTH,
 			v / sqrt(maxf(GRAVITY * depth, 1e-4)))
-		var depth_gate := clampf(
-			depth / maxf(float(shader_param(&"standing_depth_ref", 1.0)), 1e-3), 0.0, 1.0)
-		if froude_gate * depth_gate < 0.1:
+		if froude_gate * clampf(depth / depth_ref, 0.0, 1.0) < 0.1:
 			continue
 		_standing_rows += 1
 		if _ribbon_resolved[r] < 0.5:

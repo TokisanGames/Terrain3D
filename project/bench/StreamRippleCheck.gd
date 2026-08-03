@@ -57,7 +57,7 @@ const MAX_LAG := 20
 
 var _fail := 0
 var _completed := 0
-const CRITERIA := 9
+const CRITERIA := 10
 
 
 func _ready() -> void:
@@ -75,6 +75,7 @@ func _run() -> void:
 	await _g_chop_buys_columns_not_rows()
 	await _h_standing_waves_pick_their_own_reach()
 	await _i_standing_waves_hold_station()
+	await _j_baked_uniforms_reach_the_mesh()
 
 	print("")
 	if _completed != CRITERIA:
@@ -553,6 +554,78 @@ func _i_standing_waves_hold_station() -> void:
 		print("    control fires: the ripples at the same point move %.4f m, so the clock runs"
 				% moving)
 	fix["root"].queue_free()
+	_completed += 1
+
+
+# ---- J ------------------------------------------------------------------------
+
+## Four material uniforms are read at BUILD time and frozen into the mesh. Editing one in the
+## inspector has to re-mesh, or the slider silently does nothing and the geometry goes on
+## describing a value that is no longer set anywhere.
+##
+## Nothing announces such an edit: ShaderMaterial emits neither `changed` nor
+## `property_list_changed` when a parameter is set, which bench/WaterMaterialPropagationCheck.gd
+## asserts on purpose so that nobody wires up a hook that never fires. So the stream polls, and
+## this drives the poll directly -- _process does not run headless.
+##
+## THE CONTROL IS A UNIFORM THAT MUST DO NOTHING. "The mesh rebuilt" is trivially satisfiable by
+## rebuilding on every edit, which would re-mesh a river every time somebody nudged a colour. The
+## criterion is that the poll is SELECTIVE, so a drawn-only uniform has to come back &"".
+func _j_baked_uniforms_reach_the_mesh() -> void:
+	print("\nJ. editing a baked material uniform re-meshes; editing a drawn one does not")
+	var root := _world()
+	var stream = _make_stream(root)
+	stream.vertex_spacing = 0.0 # automatic, so the spacing rule is live
+	stream.curve = _straight_curve()
+	stream.material = _probe_material({})
+	var before: Dictionary = stream.rebuild()
+	await _settle(2)
+
+	# 1. a uniform that sizes the rows
+	stream.material.set_shader_parameter("ripple_frequency", 0.3)
+	var verdict_rows: StringName = stream.poll_material_changes()
+	# The rebuild is debounced, so wait it out rather than reading the old mesh back.
+	await _settle(20)
+	var after_rows: Dictionary = stream.get_build_stats()
+
+	# 2. a uniform that sizes the columns and nothing else
+	stream.material.set_shader_parameter("chop_wavelength", 1.2)
+	var verdict_cols: StringName = stream.poll_material_changes()
+	await _settle(20)
+	var after_cols: Dictionary = stream.get_build_stats()
+
+	# 3. CONTROL: a uniform the shader draws with and the mesher never reads
+	stream.material.set_shader_parameter("deep_color", Color(0.4, 0.1, 0.2))
+	var verdict_drawn: StringName = stream.poll_material_changes()
+
+	# 4. a uniform that only moves the suppression count behind the warning
+	stream.material.set_shader_parameter("standing_froude_onset", 2.4)
+	var verdict_warn: StringName = stream.poll_material_changes()
+
+	print("    ripple_frequency  -> %-10s rows %d -> %d" % [
+			'"%s"' % verdict_rows, before.get("rows", 0), after_rows.get("rows", 0)])
+	print("    chop_wavelength   -> %-10s cols %d -> %d" % [
+			'"%s"' % verdict_cols, after_rows.get("columns", 0), after_cols.get("columns", 0)])
+	print("    standing_froude_onset -> \"%s\"" % verdict_warn)
+	print("    CONTROL deep_color    -> \"%s\" (must be empty)" % verdict_drawn)
+
+	if verdict_rows != &"mesh" or after_rows.get("rows", 0) == before.get("rows", 0):
+		_fail += 1
+		print("    !! changing ripple_frequency did not re-mesh; the row spacing is stale")
+	if verdict_cols != &"mesh" or after_cols.get("columns", 0) == after_rows.get("columns", 0):
+		_fail += 1
+		print("    !! changing chop_wavelength did not re-mesh; the column spacing is stale")
+	if verdict_warn != &"warnings":
+		_fail += 1
+		print("    !! a warning-only uniform did not refresh the suppression count (got \"%s\")"
+				% verdict_warn)
+	if verdict_drawn != &"":
+		_fail += 1
+		print("    !! CONTROL did not fire: a drawn-only uniform re-meshed the river, so the poll")
+		print("       is not selective and every colour tweak costs a rebuild")
+	else:
+		print("    control fires: a drawn-only uniform does nothing to the mesh")
+	root.queue_free()
 	_completed += 1
 
 

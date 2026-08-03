@@ -1093,6 +1093,39 @@ in the control is zeros — so `ok` **true** is the control firing. The first ve
 That is the single worst way for a control to be wrong: it calls a working control a failure and a
 dead one proof, and it reads as correct until something makes it disagree.
 
+### Baked uniforms, and the poll that keeps them honest
+
+A stream reads its material at **build** time as well as at draw time, which no other water body
+does. Four uniforms are frozen into the mesh: `ripple_frequency` (row spacing), `chop_wavelength`
+(column spacing), `chop_amplitude` (whether columns are bought at all), and `flow_speed_scale` (the
+speed `psi` is integrated against, in `CUSTOM0.y`). Editing one and getting no re-mesh means the
+slider silently does nothing while the geometry describes a value no longer set anywhere.
+
+**It has to be a poll.** `ShaderMaterial` emits *neither* `changed` nor `property_list_changed` when
+a shader parameter is set — [`bench/WaterMaterialPropagationCheck.gd`](project/bench/WaterMaterialPropagationCheck.gd)
+asserts that explicitly, so that nobody connects a hook that would quietly never fire, and the
+manager's own base→duplicate sync polls for the same reason. `Pasture3DStream._process` compares a
+snapshot of the four and calls the existing debounced `_schedule_rebuild()`, so a slider drag is one
+rebuild rather than sixty. If `ShaderMaterial` ever starts announcing edits, that check reports it
+and this can become a connection.
+
+`standing_froude_onset` and `standing_depth_ref` are handled separately: they move only the
+suppression count behind the configuration warning, and everything that count needs survives a
+build, so they trigger a **recount** and not a re-mesh. Rebuilding a river to correct a sentence
+would be a poor trade.
+
+**Gate:** criterion **J** of [`bench/StreamRippleCheck.gd`](project/bench/StreamRippleCheck.gd),
+driving the poll directly because `_process` does not run headless.
+
+| | Criterion | Control that must fail |
+|---|---|---|
+| J | a baked uniform re-meshes; a warning-only one recounts | `deep_color` — a drawn-only uniform, which must do **nothing** |
+
+The control is the load-bearing half. "The mesh rebuilt" is trivially satisfiable by rebuilding on
+every edit, which would re-mesh a river every time somebody nudged a colour; the claim is that the
+poll is *selective*. **Measured:** `ripple_frequency` 57 → 177 rows, `chop_wavelength` 21 → 62
+columns, `standing_froude_onset` → recount, `deep_color` → nothing.
+
 ### Not modelled
 
 No obstacle wakes: a rock in the stream is not in the mesh, so there is nothing to wake from. No

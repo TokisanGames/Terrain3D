@@ -517,8 +517,15 @@ Two things moved rather than being renamed:
   surface visibly cuts the corners off crests and drifts away from what `get_water_height()` reports.
   The pool and the stream do this for you when `vertex_spacing` is 0.
 - **Water-body rebuilds are debounced and off the interaction path.** A 500 m lake at automatic spacing is
-  169 k vertices in about 120 ms. Rebuilds happen when the curve changes, when the brush moves, or on
-  demand.
+  169 k vertices in about 120 ms. Rebuilds happen when the curve changes, when the brush moves, when a
+  stream's *baked* material uniforms change (see below), or on demand.
+- **A stream re-meshes when you edit `ripple_frequency`, `chop_wavelength`, `chop_amplitude` or
+  `flow_speed_scale`,** because those four are read when the mesh is built and frozen into it — the
+  first two set the row and column spacing, and the last scales the speed the stationary phase is
+  integrated against. Dragging any of them costs one debounced rebuild when you let go, not sixty.
+  Every other uniform on the material is drawn with rather than baked, and changing it costs nothing.
+  `standing_froude_onset` and `standing_depth_ref` sit in between: they refresh the suppression
+  warning without re-meshing.
 - **The underwater overlay** costs 0.043 ms per megapixel — about 0.09 ms at 1080p.
 - **Steam Deck performance is unverified.** Every Deck figure in the spec is extrapolated from a
   desktop measurement; no Deck was available. Measure before relying on it.
