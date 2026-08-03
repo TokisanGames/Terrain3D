@@ -110,10 +110,44 @@ const FLOW_NEUTRAL := Color(0.5, 0.5, 0.0, 1.0)
 		vertex_spacing = maxf(v, 0.0)
 		_schedule_rebuild()
 ## Half-width of a RIBBON (open curve) surface, in metres, before edge_offset is added on each
-## side. Ignored by loop pools. Seeded from a Trough's bed_half_width when the button creates it.
+## side. Ignored by loop pools, and ignored on a ribbon whenever the surface is bank-referenced --
+## there the waterline is found from the terrain and this is only the fallback width. Seeded from
+## a Trough's bed_half_width when the button creates it.
 @export var ribbon_half_width: float = 4.0:
 	set(v):
 		ribbon_half_width = maxf(v, 0.1)
+		_schedule_rebuild()
+
+# --- Bank-referenced surface (ribbons only) -----------------------------------
+#
+# A Trough's spline is the BED FLOOR, not a rim. fill_offset is measured downward from a rim,
+# which is right for a loop pool and exactly wrong here: the shipped -0.5 put the water surface
+# half a metre BELOW the channel floor, buried. Rather than flip the sign and call it fixed, the
+# surface is taken from the BANKS -- so depth varies along the run, and a reach where the bed
+# rises toward the surface becomes a ford the player can cross, without authoring anything.
+
+## Metres below the bank top that the water sits. Freeboard. This is the ribbon's level control;
+## the bed no longer sets it. Raise it for a river running low in its channel, lower it toward 0
+## to fill to the brim.
+@export var bank_height: float = 0.5:
+	set(v):
+		bank_height = v
+		_schedule_rebuild()
+## Metres out from the centreline where the bank top is looked for. 0 = automatic: a Trough's
+## bed_half_width + bank_width if this pool came from one, else ribbon_half_width * 3.
+##
+## This is the knob that matters when a river runs along a hillside. The search has to reach the
+## bank crest and stop -- push it out onto the slope above and the "bank" it finds is partway up
+## the hill, and the river fills to there.
+@export var bank_search_width: float = 0.0:
+	set(v):
+		bank_search_width = maxf(v, 0.0)
+		_schedule_rebuild()
+## Smoothing passes over the sampled surface line. Terrain samples are noisy and a river surface
+## that climbs, even by centimetres, reads as broken. 0 disables it and shows the raw samples.
+@export_range(0, 20) var bank_smoothing: int = 4:
+	set(v):
+		bank_smoothing = clampi(v, 0, 20)
 		_schedule_rebuild()
 ## Metres per second the surface texture is advected downstream on a ribbon. Written into
 ## ARRAY_COLOR.b, normalised against FLOW_SPEED_REF, and read by water_river.gdshader. It moves the
@@ -127,6 +161,16 @@ const FLOW_NEUTRAL := Color(0.5, 0.5, 0.0, 1.0)
 @export var flow_slope_gain: float = 3.0:
 	set(v):
 		flow_slope_gain = maxf(v, 0.0)
+		_schedule_rebuild()
+## Run the flow the other way along the spline, for a channel drawn from the mouth up.
+##
+## Flips the direction written into ARRAY_COLOR, and with it which way `flow_slope_gain` counts
+## as downhill -- reversing the flow without reversing that would leave the rapids on the reaches
+## the water now climbs. It does NOT flip the perpendicular, so the left and right waterlines and
+## every containment answer stay where they were.
+@export var flow_reverse: bool = false:
+	set(v):
+		flow_reverse = v
 		_schedule_rebuild()
 ## Force the GDScript reference mesher even when the native one is available. The two are
 ## transcriptions of each other and are meant to agree exactly, so this is the A/B switch —
@@ -242,6 +286,17 @@ var _mask_spacing := 0.0
 ## speed, kept so height queries and containment do not re-bake the curve. See _ribbon_height_at.
 var _ribbon_rows := PackedVector3Array()
 var _ribbon_speed := PackedFloat32Array()
+## Per-row half-width to the left and right of the centreline, in metres. Separate sides because
+## a channel cut into a slope has an asymmetric waterline -- the surface reaches further into the
+## shallow bank than the steep one, and averaging them would put the mesh edge in the air on one
+## side and underground on the other. Empty when the surface is not bank-referenced; the constant
+## ribbon_half_width is used then.
+var _ribbon_half_l := PackedFloat32Array()
+var _ribbon_half_r := PackedFloat32Array()
+## Last terrain resolved for bank sampling, and the brush whose `baked` signal we follow. Held by
+## instance check rather than reference so a freed terrain cannot be resurrected by the cache.
+var _terrain_cache: Node = null
+var _baked_source: Node = null
 ## Cell -> nearest centreline row index, over _poly_bounds at _mask_spacing. -1 = not on the river.
 ## The ribbon's answer to what the mask is for a loop: it turns "which row am I near" from a scan
 ## over every row into an array lookup.
@@ -312,9 +367,42 @@ func _connect_source() -> void:
 		source_spline.curve_changed.connect(_on_curve_changed)
 	if source_spline.curve and not source_spline.curve.changed.is_connected(_on_curve_changed):
 		source_spline.curve.changed.connect(_on_curve_changed)
+	_connect_baked()
+
+
+## Follow the source brush's `baked` signal.
+##
+## A bank-referenced ribbon reads its surface out of terrain heights, so a Trough edit invalidates
+## it without touching the curve -- and the curve is the only thing the rest of this file watches.
+## Deepening a channel by 2 m with no spline change would have left the water where it was.
+func _connect_baked() -> void:
+	var brush := _source_brush()
+	if brush == null or not brush.has_signal("baked"):
+		return
+	if _baked_source == brush and is_instance_valid(brush):
+		return
+	_disconnect_baked()
+	_baked_source = brush
+	if not brush.baked.is_connected(_on_source_baked):
+		brush.baked.connect(_on_source_baked)
+
+
+func _disconnect_baked() -> void:
+	if _baked_source != null and is_instance_valid(_baked_source) 			and _baked_source.has_signal("baked") 			and _baked_source.baked.is_connected(_on_source_baked):
+		_baked_source.baked.disconnect(_on_source_baked)
+	_baked_source = null
+
+
+## The terrain under this pool was rebaked. Only a bank-referenced ribbon cares -- a loop pool's
+## level is its own transform and a ribbon with no terrain is on fill_offset, and rebuilding
+## either on every brush bake would be a rebuild storm while a spline is dragged.
+func _on_source_baked() -> void:
+	if _is_ribbon and _resolve_terrain() != null:
+		_schedule_rebuild()
 
 
 func _disconnect_source() -> void:
+	_disconnect_baked()
 	if source_spline == null or not is_instance_valid(source_spline):
 		return
 	if source_spline.curve_changed.is_connected(_on_curve_changed):
@@ -785,10 +873,16 @@ func _rebuild_ribbon(p_spacing: float) -> Dictionary:
 		return _last_stats
 	_ribbon_rows = centre
 
+	# Column count is sized off the WIDEST row, so a river that opens out is not under-sampled
+	# there; narrower rows pack the same columns closer, which costs nothing and keeps the strip
+	# a regular grid.
 	var half := ribbon_half_width + edge_offset
+	var widest := half
+	for r in centre.size():
+		widest = maxf(widest, _row_half(r, true) + _row_half(r, false))
 	# Columns across the channel at the same spacing as along it, so the surface is not stretched in
 	# one axis -- the detail normals are derived from world position and a stretched grid shows.
-	var cols := maxi(int(ceil((half * 2.0) / p_spacing)) + 1, 2)
+	var cols := maxi(int(ceil(widest / p_spacing)) + 1, 2)
 	var rows := centre.size()
 	if rows * cols > max_vertices:
 		_clear_surface()
@@ -814,12 +908,20 @@ func _rebuild_ribbon(p_spacing: float) -> Dictionary:
 		# across the channel and only its centreline descends, which is what water does.
 		var side := Vector2(-tangent.y, tangent.x)
 		var speed: float = _ribbon_speed[r]
+		# Only the ENCODED direction is reversed, not `side` above: flipping the perpendicular
+		# would swap the left and right waterlines out from under the containment test, which
+		# reads them by the same sign convention.
+		var flow := -tangent if flow_reverse else tangent
 		var col := Color(
-			tangent.x * 0.5 + 0.5, tangent.y * 0.5 + 0.5,
+			flow.x * 0.5 + 0.5, flow.y * 0.5 + 0.5,
 			clampf(speed / FLOW_SPEED_REF, 0.0, 1.0), 1.0)
+		var half_l := _row_half(r, true)
+		var half_r := _row_half(r, false)
 		for k in cols:
 			var t := float(k) / float(cols - 1)
-			var off := lerpf(-half, half, t)
+			# Asymmetric: -left .. +right, so a channel cut into a slope keeps its mesh edge on
+			# the waterline on BOTH sides rather than splitting the difference.
+			var off := lerpf(-half_l, half_r, t)
 			var x := c.x + side.x * off
 			var z := c.z + side.y * off
 			var i := r * cols + k
@@ -854,7 +956,10 @@ func _rebuild_ribbon(p_spacing: float) -> Dictionary:
 	_poly_cache = PackedVector2Array() # a ribbon has no polygon; containment is the cell grid
 	_mask = PackedByteArray()
 	_mask_spacing = p_spacing
-	_build_ribbon_cells(p_spacing, half)
+	# The cell grid is a broad phase, so it takes the WIDEST reach on the river rather than a
+	# per-row one -- stamping short would lose cells that _ribbon_surface_at would then have
+	# accepted, and a containment test that disagrees with itself by row is worse than a coarse one.
+	_build_ribbon_cells(p_spacing, maxf(widest, half))
 
 	_ensure_surface()
 	_surface.mesh = mesh
@@ -895,16 +1000,18 @@ func _ribbon_centreline(p_spacing: float) -> PackedVector3Array:
 	var last := Vector3.INF
 	for p in baked:
 		var lp: Vector3 = xf * p
-		lp.y += fill_offset
 		if last == Vector3.INF or Vector2(lp.x - last.x, lp.z - last.z).length() >= step:
 			out.append(lp)
 			last = lp
 	# Always keep the final point, or the river stops short of where the spline ends.
 	var final_p: Vector3 = xf * baked[baked.size() - 1]
-	final_p.y += fill_offset
 	if out.is_empty() or Vector2(final_p.x - out[out.size() - 1].x,
 			final_p.z - out[out.size() - 1].z).length() > step * 0.25:
 		out.append(final_p)
+
+	# The rows still carry the BED height here -- the spline's own Y. _apply_bank_surface lifts
+	# them to the water level, or falls back to fill_offset when there is no terrain to ask.
+	_apply_bank_surface(out, p_spacing)
 
 	# Flow speed per row, from the downhill gradient: steeper reaches read as rapids, and a river
 	# authored on a level spline still flows at the base rate rather than not at all.
@@ -913,10 +1020,214 @@ func _ribbon_centreline(p_spacing: float) -> PackedVector3Array:
 		var a: Vector3 = out[maxi(r - 1, 0)]
 		var b: Vector3 = out[mini(r + 1, out.size() - 1)]
 		var run := Vector2(b.x - a.x, b.z - a.z).length()
-		var drop := a.y - b.y # positive running downhill
+		# Positive running downhill IN THE DIRECTION OF FLOW. Reversed, the descent that made a
+		# reach a rapid now makes it a climb, so the sign goes with the toggle -- otherwise a
+		# reversed river would speed up exactly where it should be slowing down.
+		var drop: float = (b.y - a.y) if flow_reverse else (a.y - b.y)
 		var grade := (drop / run) if run > 1e-4 else 0.0
 		_ribbon_speed[r] = flow_speed * (1.0 + flow_slope_gain * maxf(grade, 0.0))
 	return out
+
+
+## Lift the centreline from the bed to the water surface, and find the waterline on each side.
+##
+## Called with rows still at the spline's own Y. On exit every row carries the surface height it
+## will be drawn at, and _ribbon_half_l / _ribbon_half_r carry that row's waterline.
+##
+## THE FALLBACK MATTERS AS MUCH AS THE FEATURE. With no Pasture3D to sample -- a ribbon on a bare
+## mesh, a headless fixture, a scene mid-load -- this returns to the old bed + fill_offset
+## behaviour and leaves the widths empty rather than producing a flat or buried river. The water
+## guide supports water with no terrain in the scene and that has to keep working.
+func _apply_bank_surface(p_rows: PackedVector3Array, p_spacing: float) -> void:
+	_ribbon_half_l = PackedFloat32Array()
+	_ribbon_half_r = PackedFloat32Array()
+	var terrain := _resolve_terrain()
+	if terrain == null or p_rows.is_empty():
+		for r in p_rows.size():
+			var row := p_rows[r]
+			row.y += fill_offset
+			p_rows[r] = row
+		return
+
+	var search := _effective_bank_search()
+	var n := p_rows.size()
+	var surface := PackedFloat32Array()
+	surface.resize(n)
+	var sampled := PackedByteArray()
+	sampled.resize(n)
+
+	for r in n:
+		var c: Vector3 = p_rows[r]
+		var tangent := _ribbon_tangent(p_rows, r)
+		var side := Vector2(-tangent.y, tangent.x)
+		var world := global_transform * c
+		var centre_xz := Vector2(world.x, world.z)
+		var left := _bank_crest(terrain, centre_xz, side, search, p_spacing)
+		var right := _bank_crest(terrain, centre_xz, -side, search, p_spacing)
+		var crest := NAN
+		if is_finite(left) and is_finite(right):
+			# The LOWER bank decides the level: water cannot stand higher than the side it
+			# would spill over.
+			crest = minf(left, right)
+		elif is_finite(left):
+			crest = left
+		elif is_finite(right):
+			crest = right
+		if is_finite(crest):
+			# Back into this node's space, since the rows are local.
+			var local_crest: float = (global_transform.affine_inverse()
+					* Vector3(world.x, crest, world.z)).y
+			surface[r] = local_crest - bank_height
+			sampled[r] = 1
+		else:
+			surface[r] = c.y + fill_offset
+			sampled[r] = 0
+
+	_smooth_line(surface, bank_smoothing)
+
+	# Never below the bed. Where the clamp bites, depth is zero and the reach is a ford -- which
+	# is the point of sampling banks rather than offsetting the floor.
+	for r in n:
+		var row := p_rows[r]
+		row.y = maxf(surface[r], row.y)
+		p_rows[r] = row
+
+	_ribbon_half_l.resize(n)
+	_ribbon_half_r.resize(n)
+	for r in n:
+		if sampled[r] == 0:
+			_ribbon_half_l[r] = ribbon_half_width
+			_ribbon_half_r[r] = ribbon_half_width
+			continue
+		var c2: Vector3 = p_rows[r]
+		var tangent2 := _ribbon_tangent(p_rows, r)
+		var side2 := Vector2(-tangent2.y, tangent2.x)
+		var world2 := global_transform * c2
+		var centre2 := Vector2(world2.x, world2.z)
+		var surf_world: float = (global_transform * Vector3(0.0, c2.y, 0.0)).y
+		_ribbon_half_l[r] = _waterline_half(terrain, centre2, side2, surf_world, search, p_spacing)
+		_ribbon_half_r[r] = _waterline_half(terrain, centre2, -side2, surf_world, search, p_spacing)
+	_smooth_line(_ribbon_half_l, bank_smoothing)
+	_smooth_line(_ribbon_half_r, bank_smoothing)
+
+
+## In-place box blur along a per-row line. Endpoints are held so the river keeps starting and
+## ending where the spline says it does.
+func _smooth_line(p_values: PackedFloat32Array, p_passes: int) -> void:
+	var n := p_values.size()
+	if p_passes <= 0 or n < 3:
+		return
+	for _pass in p_passes:
+		var prev: float = p_values[0]
+		for i in range(1, n - 1):
+			var cur: float = p_values[i]
+			p_values[i] = (prev + cur + p_values[i + 1]) / 3.0
+			prev = cur
+
+
+# ---- bank sampling (the ribbon's surface reference) --------------------------
+
+## The Pasture3D this pool samples bank heights from, or null.
+##
+## Via the source brush first, because that is the terrain the channel was actually carved into
+## and a scene can hold more than one. Falls back to a search so a hand-placed ribbon over terrain
+## still works. Null is a supported answer, not a failure: a pool on a bare mesh with no Pasture3D
+## in the scene is a case the water guide explicitly supports, and it falls back to fill_offset.
+func _resolve_terrain() -> Node:
+	if _terrain_cache != null and is_instance_valid(_terrain_cache) 			and _terrain_cache.is_inside_tree():
+		return _terrain_cache
+	_terrain_cache = null
+	var brush := _source_brush()
+	if brush != null and brush.get("terrain") != null:
+		var t = brush.get("terrain")
+		if t != null and is_instance_valid(t):
+			_terrain_cache = t
+			return _terrain_cache
+	if not is_inside_tree():
+		return null
+	# Ancestors first: a pool is normally a sibling of its brush under the Pasture3D, so this
+	# finds the right terrain in one short walk and cannot pick the wrong one in a scene with
+	# two. Only then fall back to a search.
+	var up: Node = get_parent()
+	while up != null:
+		if up.is_class("Pasture3D"):
+			_terrain_cache = up
+			return _terrain_cache
+		up = up.get_parent()
+	# current_scene is null in a --script harness and during some editor transitions, so the
+	# tree root is the fallback rather than the first choice.
+	for root in [get_tree().current_scene, get_tree().root]:
+		if root == null:
+			continue
+		for n in _descendants(root):
+			if n.is_class("Pasture3D"):
+				_terrain_cache = n
+				return _terrain_cache
+	return _terrain_cache
+
+
+## Composited terrain height at a world XZ, or NAN when there is no terrain to ask.
+func _terrain_height(p_terrain: Node, p_world_xz: Vector2) -> float:
+	if p_terrain == null:
+		return NAN
+	var data = p_terrain.get("data")
+	if data == null or not data.has_method("get_height"):
+		return NAN
+	var h: float = data.get_height(Vector3(p_world_xz.x, 0.0, p_world_xz.y))
+	return h if is_finite(h) else NAN
+
+
+## The spill height of one bank: the LOWEST terrain in the band just inside the search limit.
+##
+## Lowest and not highest, because water fills until it reaches the lowest edge that still holds
+## it. A maximum would happily fill past a gap in the bank and flood whatever is beyond. Returns
+## NAN when the terrain cannot be sampled, which the caller treats as "no bank here".
+func _bank_crest(p_terrain: Node, p_world_centre: Vector2, p_side: Vector2,
+		p_search: float, p_spacing: float) -> float:
+	# Only the outer quarter of the span: nearer in is the bank ramp, still climbing, and its
+	# height is a function of how far out we happened to look rather than of the channel.
+	var from := p_search * 0.75
+	var step := maxf(p_spacing, 0.5)
+	var best := NAN
+	var d := from
+	while d <= p_search + 1e-4:
+		var h := _terrain_height(p_terrain, p_world_centre + p_side * d)
+		if is_finite(h) and (not is_finite(best) or h < best):
+			best = h
+		d += step
+	return best
+
+
+## Lateral distance from the centreline to where the ground rises to `p_surface_y` -- the
+## waterline on this side. This is what makes the ribbon widen in a shallow reach and pull in
+## through a gorge without anyone authoring a width curve.
+##
+## Floored at one grid step: a fully dry row (bed above the surface, a ford at its driest) would
+## otherwise collapse to zero width and tear the triangle strip. A sliver of zero-depth water is
+## something the shore foam and depth fade already know how to hide; a hole in the mesh is not.
+func _waterline_half(p_terrain: Node, p_world_centre: Vector2, p_side: Vector2,
+		p_surface_y: float, p_search: float, p_spacing: float) -> float:
+	var step := maxf(p_spacing, 0.25)
+	var d := step
+	while d <= p_search:
+		var h := _terrain_height(p_terrain, p_world_centre + p_side * d)
+		if is_finite(h) and h >= p_surface_y:
+			return maxf(d, step)
+		d += step
+	return maxf(p_search, step)
+
+
+## How far out to look for the bank. Explicit if set, else the channel the brush carved.
+func _effective_bank_search() -> float:
+	if bank_search_width > 0.0:
+		return bank_search_width
+	var brush := _source_brush()
+	if brush != null:
+		var bed = brush.get("bed_half_width")
+		var bank = brush.get("bank_width")
+		if bed != null and bank != null:
+			return maxf(float(bed) + float(bank), 1.0)
+	return maxf(ribbon_half_width * 3.0, 1.0)
 
 
 ## Unit XZ tangent at row `p_i`, from its neighbours. A central difference, so a bend turns smoothly
@@ -971,6 +1282,18 @@ func _build_ribbon_cells(p_spacing: float, p_half: float) -> void:
 						_ribbon_cell[idx] = r
 
 
+## This row's half-width on one side, in metres, including edge_offset.
+##
+## One accessor for the whole ribbon so the mesher, the containment test and the cell grid cannot
+## disagree about how wide the river is at a given row -- they did once, and the symptom was a
+## buoy floating beside water it was not in.
+func _row_half(p_row: int, p_left: bool) -> float:
+	var arr := _ribbon_half_l if p_left else _ribbon_half_r
+	if p_row < 0 or p_row >= arr.size():
+		return ribbon_half_width + edge_offset
+	return arr[p_row] + edge_offset
+
+
 ## Nearest centreline row to a local XZ, or -1 when the point is nowhere near the river.
 func _ribbon_nearest_row(p_local_xz: Vector2) -> int:
 	if _ribbon_cell.is_empty() or _mask_spacing <= 0.0 or _ribbon_rows.is_empty():
@@ -1004,8 +1327,17 @@ func _ribbon_surface_at(p_local_xz: Vector2) -> Array:
 	# Lateral distance decides containment; the row's own Y is the surface. Interpolating Y between
 	# rows would be smoother, but rows are one vertex_spacing apart and the drop over that is
 	# millimetres on any river a person would author.
-	var lateral := Vector2(p_local_xz.x - c.x, p_local_xz.y - c.z).length()
-	return [lateral <= ribbon_half_width + edge_offset, c.y]
+	#
+	# SIGNED across the channel, because the two banks no longer agree: the waterline reaches
+	# further into the shallow side. Which side a point is on is the sign of its offset along the
+	# row's own perpendicular, so this asks the same question the mesher answered when it placed
+	# that row's vertices.
+	var offset := Vector2(p_local_xz.x - c.x, p_local_xz.y - c.z)
+	var tangent := _ribbon_tangent(_ribbon_rows, r)
+	var side := Vector2(-tangent.y, tangent.x)
+	var lateral := offset.dot(side)
+	var limit := _row_half(r, lateral < 0.0)
+	return [absf(lateral) <= limit, c.y]
 
 
 # ---- surface child -----------------------------------------------------------
@@ -1476,10 +1808,17 @@ func _validate_property(property: Dictionary) -> void:
 	# The preset owns `material` unless the user has chosen Custom.
 	if property.name == "material" and water_preset != 2:
 		property.usage |= PROPERTY_USAGE_READ_ONLY
-	elif property.name in ["ribbon_half_width", "flow_speed", "flow_slope_gain"]:
+	elif property.name in ["ribbon_half_width", "flow_speed", "flow_slope_gain", "flow_reverse",
+			"bank_height", "bank_search_width", "bank_smoothing"]:
 		# Ribbon-only. Shown greyed rather than hidden, so it is discoverable on a lake that someone
 		# is about to open into a river -- hiding a property makes people think it does not exist.
 		if not _is_ribbon:
+			property.usage |= PROPERTY_USAGE_READ_ONLY
+	elif property.name == "fill_offset":
+		# On a bank-referenced ribbon this is dead: the surface comes from the banks and only the
+		# no-terrain fallback still reads it. Greyed rather than hidden for the same reason, and
+		# because it IS live again the moment the pool is used without a Pasture3D in the scene.
+		if _is_ribbon and _resolve_terrain() != null:
 			property.usage |= PROPERTY_USAGE_READ_ONLY
 	elif property.name == "wave_profile":
 		# Re-hint the EXISTING export into a dropdown of the manager's live profile names.

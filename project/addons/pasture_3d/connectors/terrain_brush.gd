@@ -30,6 +30,18 @@ const BLEND_MAX: int = 2     # Pasture3DLayer.BlendMode.MAX
 const BLEND_MIN: int = 3     # Pasture3DLayer.BlendMode.MIN
 
 ## owner_id namespace marking a layer as a brush tool layer (vs hand layers / road-connector layers).
+## This brush's contribution to the terrain has been rebaked and pushed to the GPU.
+##
+## Exists for water. A Pasture3DStream reads its surface height out of the BANKS -- terrain
+## heights, not the spline -- so a Trough edit silently invalidates every stream on it, and
+## before this there was no signal on a brush at all to notice by. Anything else deriving
+## geometry from baked height has the same problem and can use the same hook.
+##
+## Emitted on every tool the bake touched, not only the one whose edit triggered it: a bake
+## repaints all of its layer-mates (see _refresh_owner), so a stream fed by a Trough that
+## was repainted as somebody else's sibling has to hear about it too.
+signal baked
+
 const BRUSH_OWNER_PREFIX: String = "pasture3d_brush:"
 ## Group every brush node joins so siblings can find each other for layer-granular refresh.
 const BRUSH_GROUP: StringName = &"pasture3d_brush"
@@ -599,6 +611,10 @@ func _refresh_owner(owner: String, record_undo: bool, extra_clears: Array) -> vo
 		ur.add_undo_method(self, "_restore_owner", owner, before)
 		ur.commit_action(false)
 
+	# After the GPU push, so a listener that reads get_height() sees this bake and not the
+	# previous one.
+	_emit_baked(sibs)
+
 
 ## Dirty-rect refresh (Stage 1 partial redraw): one or more of THIS node's splines moved. Rework only the
 ## box they touched instead of the whole layer. The box = ∪ of each changed spline's previous∪current
@@ -691,8 +707,20 @@ func _refresh_owner_rect(owner: String, changed_ids: Dictionary, snap_all: bool 
 	# rebuilds the whole height texture array from every region — the reason a far-away spline was slow.)
 	terrain.data.update_maps(_map_type(), false, false)
 	update_gizmos() # re-float the origin marker onto the new surface height
+	# Only the tools that were actually repainted inside the box: the rest of the layer's
+	# height is untouched, so waking their listeners would be a rebuild for nothing.
+	_emit_baked(_tools_on_owner(owner).filter(func(s): return s._overlaps_box(clip_box)))
 	if log_bake_timing:
 		_log_bake_timing(clip_box, painted, t_start, t_clear, t_snap, t_paint, t_composite, Time.get_ticks_usec())
+
+
+## Emit `baked` on each tool in p_tools. Guarded per tool because this reaches across nodes:
+## a layer-mate that has left the tree between the bake starting and finishing must not take
+## the whole bake down with it.
+func _emit_baked(p_tools) -> void:
+	for s in p_tools:
+		if s != null and is_instance_valid(s):
+			s.baked.emit()
 
 
 ## Clear the per-region "edited" GPU-push flag on every active region. update_maps(all_regions=false)
