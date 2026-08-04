@@ -122,7 +122,7 @@ func _ready() -> void:
 	if OS.get_environment("RES_SWEEP") == "1":
 		resolutions.append(SWEEP_RES)
 
-	var configs := ["OFF", "MINIMUM", "BASE", "+PROJ", "+MACRO", "+AUTO", "+DUAL",
+	var configs := ["OFF", "MINIMUM", "BASE", "+PROJ", "+MACRO", "+AUTO", "+DUAL", "+NOISE_BG",
 		"DEMO", "BASE_NOBILERP", "DEMO_NOBILERP"]
 
 	for res in resolutions:
@@ -319,6 +319,12 @@ func _apply_config(p_cfg: String) -> void:
 			_material.auto_shader_enabled = true
 		"+DUAL":
 			_material.dual_scaling_enabled = true
+		"+NOISE_BG":
+			# The procedural terrain that fills the world OUTSIDE the loaded regions. Added
+			# after the first run left 0.57 ms of DEMO unattributed at 1440p — every other
+			# feature had a row and this did not, so the largest single unexplained cost was
+			# the one nothing measured.
+			_material.world_background = 2 # NOISE
 		"DEMO":
 			_apply_demo_features()
 		"BASE_NOBILERP":
@@ -473,7 +479,7 @@ func _report() -> void:
 
 	print("")
 	print("=== Cost decomposition (GPU ms, median, each row minus the layer beneath it) ===")
-	print("res,pitch_deg,geometry,base_material,projection,macro_var,auto_shader,dual_scaling,demo_total")
+	print("res,pitch_deg,geometry,base_material,projection,macro_var,auto_shader,dual_scaling,noise_bg,demo_total,unattributed")
 	for rs in resolutions:
 		for pitch in PITCHES:
 			var off := _ms(rs, pitch, "OFF")
@@ -481,15 +487,26 @@ func _report() -> void:
 			var base := _ms(rs, pitch, "BASE")
 			if off < 0.0 or minimum < 0.0 or base < 0.0:
 				continue
-			print("%s,%.1f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f" % [
-				rs, pitch,
+			var parts := [
 				minimum - off,
 				base - minimum,
 				_ms(rs, pitch, "+PROJ") - base,
 				_ms(rs, pitch, "+MACRO") - base,
 				_ms(rs, pitch, "+AUTO") - base,
 				_ms(rs, pitch, "+DUAL") - base,
-				_ms(rs, pitch, "DEMO") - off,
+				_ms(rs, pitch, "+NOISE_BG") - base,
+			]
+			var total: float = _ms(rs, pitch, "DEMO") - off
+			# What DEMO costs beyond the sum of its parts. Not noise in the statistical
+			# sense: it is whatever the features cost TOGETHER that they do not cost
+			# separately. Printed rather than hidden, because the first version of this
+			# table had no noise_bg column and quietly buried 0.57 ms here.
+			var summed := 0.0
+			for p in parts:
+				summed += float(p)
+			print("%s,%.1f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f" % [
+				rs, pitch, parts[0], parts[1], parts[2], parts[3], parts[4], parts[5], parts[6],
+				total, total - summed,
 			])
 
 	print("")
@@ -535,6 +552,7 @@ func _report_controls() -> void:
 	print("")
 	print("=== CONTROLS (every figure above is void unless these pass) ===")
 	var ok := true
+	var bilerp_ok := true
 
 	# Measuring an empty world would give a clean, stable, meaningless decomposition.
 	var c1 := _regions > 0
@@ -575,11 +593,16 @@ func _report_controls() -> void:
 
 	# The whole point of the NOBILERP rows. A needle that no longer matches main.glsl would
 	# leave the shader unpatched and the saving would read as a genuine 0%.
+	# [5] and [6] are SCOPED TO THE BILERP TABLE, not to the run. They used to count toward the
+	# global verdict, and the first run where the bilerp delta fell under a percent printed
+	# "BENCH VOID" over a set of world-noise and auto-shader numbers that were entirely sound.
+	# An instrument that cries void over one inconclusive sub-result gets ignored, which is
+	# worse than the sub-result being inconclusive.
 	var c5 := _patch_applied and _patch_occurrences > 0
 	print("  [5] bilerp patch applied:       %d occurrence(s) of \"%s\" %s" % [
 		_patch_occurrences, BILERP_NEEDLE,
 		"ok" if c5 else "!! FAIL (needle stale — NOBILERP measured the unpatched shader)"])
-	ok = ok and c5
+	bilerp_ok = bilerp_ok and c5
 
 	# ...and that it actually changed the cost. A patch that applies but changes nothing means
 	# the branch was already never taken at this camera distance, so the rows are not evidence
@@ -589,9 +612,9 @@ func _report_controls() -> void:
 	var c6 := base > 0.0 and base_nb > 0.0 and absf(base - base_nb) / base > 0.01
 	print("  [6] bilerp patch changed cost:  BASE %.4f vs NOBILERP %.4f %s%s" % [
 		base, base_nb,
-		"ok" if c6 else "!! INCONCLUSIVE (branch not taken here; move the camera closer)",
+		"ok" if c6 else "INCONCLUSIVE (delta under 1% — the bilerp table alone is void)",
 		advisory])
-	ok = ok and (c6 or _smoke)
+	bilerp_ok = bilerp_ok and (c6 or _smoke)
 
 	var c7 := _captures_written == PITCHES.size()
 	print("  [7] captures written to disk:   %d of %d %s" % [
@@ -610,6 +633,9 @@ func _report_controls() -> void:
 	ok = ok and c8
 
 	print("")
+	if not bilerp_ok:
+		print("NOTE: the bilinear control-map table above is VOID for this run — see [5]/[6].")
+		print("      Every other figure stands; those two controls scope to that table only.")
 	if not ok:
 		print("=== TERRAIN MATERIAL BENCH VOID — a control failed; ignore the figures above ===")
 	elif _smoke:

@@ -63,7 +63,7 @@ _shader_parameters = {
 &"world_noise_offset": Vector3(-0.67, -4, -2.61),
 &"world_noise_scale": 5.0
 }
-world_background = 2
+world_background = 0
 auto_shader_enabled = true
 dual_scaling_enabled = true
 macro_variation_enabled = true
