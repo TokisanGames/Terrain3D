@@ -252,6 +252,9 @@ var _height_cache_y := 0.0
 ## Physics frame on which the group scan in _resolve_manager() last came back empty, so the
 ## scan is attempted at most once a frame rather than once a call.
 var _manager_miss_frame := -1
+## Has this body handed itself to a manager yet? Drives the retry in _physics_process; see
+## _register() for why registration cannot be a once-only act.
+var _manager_registered := false
 var _overlay_layer: CanvasLayer = null
 var _overlay_rect: ColorRect = null
 var _overlay_amount := 0.0
@@ -339,6 +342,9 @@ func _notification(what: int) -> void:
 		_unregister()
 		_manager_cache = null # water moved between scenes must re-resolve, not keep the old scene's
 		_manager_miss_frame = -1 # ...and must not inherit a "there is none" from the old scene either
+		# Re-attempted on the next enter: this water may come back under a different manager,
+		# or under one that does not exist yet.
+		_manager_registered = false
 		_height_cache_frame = -1
 		# The overlay is a CanvasLayer: leaving it up after the water has gone would tint a scene
 		# with no water in it.
@@ -472,17 +478,40 @@ func _resolve_manager() -> Node:
 	return _manager_cache
 
 
+## Join the manager's registry and its profiles_changed signal, if there is a manager yet.
+##
+## RETRIED from _physics_process, not attempted once. This used to run only in _ready and
+## ENTER_TREE, which made sibling order decide it: a body that enters the tree above its
+## Pasture3DPoolManager saw an empty group, registered with nothing, and nothing ever looked
+## again. It then stayed invisible to body_at() for the life of the scene — a buoy floating
+## on it got no body and fell through — and missed every profile change, all decided by
+## which node happens to sit higher in the inspector. Pasture3DOcean had the identical bug
+## and the identical fix; see Pasture3DOcean::_try_register_with_manager().
+##
+## Cheap once it lands: the flag makes it one bool test per body per tick. Before it lands
+## it costs at most one group scan per frame, because _resolve_manager() throttles the miss
+## — which is why this no longer forces a fresh scan. It used to, on the reasoning that a
+## once-only registration must never read a stale miss; retrying every tick inverts that,
+## and the throttle becomes the thing that keeps the retry affordable.
 func _register() -> void:
-	# Force a fresh scan: registration happens once per enter and NOTHING retries it, so it
-	# must never be answered from the negative cache. A manager entering the tree later in
-	# the same frame as this body — which is just sibling order, and is exactly how
-	# Pasture3DOcean lost itself before it grew a retry — would otherwise be missed for good.
-	_manager_miss_frame = -1
+	if _manager_registered:
+		return
 	var m := _resolve_manager()
-	if m and m.has_method("register_body"):
-		m.register_body(self)
-		if m.has_signal("profiles_changed") and not m.profiles_changed.is_connected(_on_profiles_changed):
-			m.profiles_changed.connect(_on_profiles_changed)
+	if m == null or not m.has_method("register_body"):
+		return
+	m.register_body(self)
+	if m.has_signal("profiles_changed") and not m.profiles_changed.is_connected(_on_profiles_changed):
+		m.profiles_changed.connect(_on_profiles_changed)
+	_manager_registered = true
+	# A body that built before the manager existed chose its vertex spacing from the 1.0
+	# fallback and its cull box from an assumed amplitude, because both read the profile
+	# through the manager. Now that there is one, the wavelength rule can actually apply.
+	#
+	# Guarded on _has_surface() so this does not fire during _ready, where _register() runs
+	# just ahead of the rebuild() that would satisfy it anyway — scheduling there would set
+	# _dirty and buy a second, redundant rebuild a moment later.
+	if vertex_spacing <= 0.0 and _has_surface():
+		_schedule_rebuild()
 
 
 func _unregister() -> void:
@@ -793,6 +822,12 @@ func _refilter_bodies() -> void:
 
 
 func _physics_process(_delta: float) -> void:
+	# Retried here rather than attempted once on entering the tree; see _register(). The
+	# physics tick and not _process, because the registry is what the buoys query on the
+	# physics tick, and because no subclass overrides this hook — Pasture3DStream overrides
+	# _process, and a retry that depended on a subclass remembering to call super() would be
+	# a bug waiting for the next kind of water.
+	_register()
 	if underwater_enabled and not _bodies_in_box.is_empty():
 		_refilter_bodies()
 
