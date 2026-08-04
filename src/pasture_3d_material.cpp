@@ -928,13 +928,23 @@ void Pasture3DMaterial::set_buffer_shader_override(const Ref<Shader> &p_shader) 
 	_update_shader();
 }
 
+// Private uniforms (leading underscore) bypass _set/_get and go straight to the RenderingServer.
+// _set() only recognises names in _active_params, which is built from the PUBLIC uniforms, so a
+// private one would be dropped on the floor -- that is how _light_direction reaches the shader.
 void Pasture3DMaterial::set_shader_param(const StringName &p_name, const Variant &p_value) {
 	LOG(INFO, "Setting shader parameter: ", p_name);
-	_set(p_name, p_value);
+	if (String(p_name).begins_with("_") && _material.is_valid()) {
+		RS->material_set_param(_material, p_name, p_value);
+	} else {
+		_set(p_name, p_value);
+	}
 }
 
 Variant Pasture3DMaterial::get_shader_param(const StringName &p_name) const {
 	LOG(INFO, "Getting shader parameter: ", p_name);
+	if (String(p_name).begins_with("_") && _material.is_valid()) {
+		return RS->material_get_param(_material, p_name);
+	}
 	Variant value;
 	_get(p_name, value);
 	return value;
@@ -1189,7 +1199,10 @@ void Pasture3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 
 	TypedArray<StringName> new_active_params;
 	Dictionary grouped_params;
-	StringName current_group = StringName("shader_uniforms.general");
+	// Must match the capitalized name of the general group declared in the shaders, or public
+	// uniforms sitting outside any group would bucket separately from those inside it and the
+	// inspector would show the General block twice.
+	StringName current_group = StringName("General Uniforms");
 	grouped_params[current_group] = Array();
 	for (int i = 0; i < param_list.size(); i++) {
 		Dictionary dict = param_list[i];
@@ -1197,7 +1210,7 @@ void Pasture3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 
 		// An empty name indicates a group being closed, reset to the "general" group.
 		if (name.is_empty() && i < buffer_param) {
-			current_group = StringName("shader_uniforms.general");
+			current_group = StringName("General Uniforms");
 		}
 
 		// Filter out private uniforms that start with _ and nulls

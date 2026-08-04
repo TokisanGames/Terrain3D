@@ -127,6 +127,22 @@ void Pasture3D::__physics_process(const double p_delta) {
 	// The water clock, the sun globals and the ocean's clipmap all left this node in
 	// Phase 2 of the water-bodies work: the clock and sun belong to Pasture3DPoolManager,
 	// the clipmap to Pasture3DOcean. A terrain no longer knows anything about water.
+	// The light below is the TERRAIN's own -- it drives specular suppression on faces turned
+	// away from the sun, and is unrelated to the water sun the manager tracks.
+	if (_light_target.is_valid() && _material.is_valid()) {
+		if (DirectionalLight3D *light = cast_to<DirectionalLight3D>(_light_target.ptr())) {
+			const Vector3 direction = light->get_global_basis().get_column(2);
+			const Color color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
+			// Only touch the material when something moved. A static sun is the common case and
+			// this runs every physics frame.
+			if (direction != _light_dir_sent || color != _light_color_sent) {
+				_light_dir_sent = direction;
+				_light_color_sent = color;
+				_material->set_shader_param("_light_direction", direction);
+				_material->set_shader_param("_light_color", color);
+			}
+		}
+	}
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
@@ -720,6 +736,28 @@ void Pasture3D::set_collision_target(Node3D *p_node) {
 		_collision_target.set_target(p_node);
 		if (_collision_target.is_valid()) {
 			set_physics_process(true);
+		}
+	}
+}
+
+// The terrain shader suppresses specular on faces turned away from the sun, which needs to know
+// where the sun is. The water side of Pasture3D already tracks a sun on Pasture3DPoolManager;
+// this is the terrain's own, so a project with no water still gets it. Point both at the same
+// DirectionalLight3D.
+void Pasture3D::set_light_target(Node3D *p_node) {
+	if (_light_target.ptr() != p_node) {
+		LOG(INFO, "Setting directional light target: ", p_node);
+		_light_target.set_target(p_node);
+		// Re-arm the change detector, so reassigning a light that happens to sit where the last
+		// one did still pushes.
+		_light_dir_sent = V3_MAX;
+		_light_color_sent = Color(-1.f, -1.f, -1.f);
+		if (_light_target.is_valid()) {
+			set_physics_process(true);
+		} else if (_material.is_valid()) {
+			// Back to "no light assigned", which the shader reads as fully lit. Without this the
+			// material would keep the last direction the light had when it was unassigned.
+			_material->set_shader_param("_light_direction", V3_ZERO);
 		}
 	}
 }
@@ -1606,6 +1644,8 @@ void Pasture3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_collision_target", "node"), &Pasture3D::set_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target"), &Pasture3D::get_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target_position"), &Pasture3D::get_collision_target_position);
+	ClassDB::bind_method(D_METHOD("set_light_target", "node"), &Pasture3D::set_light_target);
+	ClassDB::bind_method(D_METHOD("get_light_target"), &Pasture3D::get_light_target);
 	ClassDB::bind_method(D_METHOD("snap"), &Pasture3D::snap);
 	ClassDB::bind_method(D_METHOD("migrate_ocean"), &Pasture3D::migrate_ocean);
 	ClassDB::bind_method(D_METHOD("discard_legacy_ocean"), &Pasture3D::discard_legacy_ocean);
@@ -1735,6 +1775,7 @@ void Pasture3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "data", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE, "Pasture3DData"), "", "get_data");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "collision", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE, "Pasture3DCollision"), "", "get_collision");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "instancer", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE, "Pasture3DInstancer"), "", "get_instancer");
+	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "light_target", PROPERTY_HINT_NODE_TYPE, "DirectionalLight3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_light_target", "get_light_target");
 
 	ADD_GROUP("Regions", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");

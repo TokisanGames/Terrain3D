@@ -1990,7 +1990,11 @@ bool Pasture3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
 		slope_normal.normalize();
 	}
 
-	const real_t slope_angle = Math::acos(slope_normal.dot(V3_UP));
+	// angle_to() rather than acos(dot()): the dot of two normalized vectors can land a hair
+	// above 1.0 through float error on a flat cell, and acos() of that is NaN, which makes
+	// every comparison below false -- a perfectly flat point silently failing a 0-degree
+	// slope test. angle_to() is atan2(cross.length(), dot), which has no such domain edge.
+	const real_t slope_angle = slope_normal.angle_to(V3_UP);
 	const real_t slope_angle_degrees = Math::rad_to_deg(slope_angle);
 	return (slope_range.x <= slope_angle_degrees) && (slope_angle_degrees <= slope_range.y);
 }
