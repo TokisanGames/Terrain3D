@@ -25,8 +25,61 @@ enum Flatten_terrain_option {
 	BOTH ## Apply the approximate method first, then the raycast method
 }
 
-const RoadSegment = preload("res://addons/road-generator/nodes/road_segment.gd")
-const IntersectionNGon = preload("res://addons/road-generator/procgen/intersection_ngon.gd")
+## Road-generator scripts, resolved LAZILY rather than preloaded.
+##
+## A preload is a PARSE-TIME dependency, and this script carries a class_name -- so Godot parses it
+## during every project scan whether or not any scene uses it. With road-generator absent that made
+## a missing OPTIONAL addon into five parse errors on every single project load, in a plugin whose
+## water, brushes and terrain have nothing to do with roads. Loading on demand costs one
+## ResourceLoader.exists() per session and lets the file parse anywhere.
+##
+## RoadManager / RoadContainer / RoadIntersection / RoadPoint were global class_names from that same
+## addon and are gone from the annotations below for the same reason. This file is duck-typed
+## against road-generator now; see _is_segment() for the one place that matters.
+const ROAD_SEGMENT_PATH := "res://addons/road-generator/nodes/road_segment.gd"
+const INTERSECTION_NGON_PATH := "res://addons/road-generator/procgen/intersection_ngon.gd"
+
+static var _road_segment_script: Script = null
+static var _intersection_ngon_script: Script = null
+static var _scripts_resolved: bool = false
+
+
+## Load the road-generator scripts once per session. Both stay null when the addon is not
+## installed, which is a supported state: every code path that would use them is behind
+## is_configured(), and that needs a road_manager the user cannot assign without the addon.
+static func _resolve_road_scripts() -> void:
+	if _scripts_resolved:
+		return
+	_scripts_resolved = true
+	if ResourceLoader.exists(ROAD_SEGMENT_PATH):
+		_road_segment_script = load(ROAD_SEGMENT_PATH)
+	if ResourceLoader.exists(INTERSECTION_NGON_PATH):
+		_intersection_ngon_script = load(INTERSECTION_NGON_PATH)
+
+
+static func segment_script() -> Script:
+	_resolve_road_scripts()
+	return _road_segment_script
+
+
+static func intersection_ngon_script() -> Script:
+	_resolve_road_scripts()
+	return _intersection_ngon_script
+
+
+## Was `node is RoadSegment` while the class was preloaded. is_instance_of against the loaded Script
+## is EXACTLY that test, inheritance included -- not a duck-typed approximation of it.
+func _is_segment(p_node) -> bool:
+	var s := segment_script()
+	return s != null and is_instance_of(p_node, s)
+
+
+## Duck-typed, unlike _is_segment, and deliberately so: RoadIntersection was never preloaded here --
+## it arrived as a global class_name from road-generator, so there is no path to load it from.
+## `edge_points` is what separates an intersection from a segment in the refresh list, and it is
+## checked FIRST, in the same order the old `is RoadIntersection` branch ran.
+func _is_intersection(p_node) -> bool:
+	return p_node != null and "edge_points" in p_node
 
 ## Map type indices, matching Pasture3DData.MapType (TYPE_HEIGHT = 0, TYPE_CONTROL = 1).
 ## Hardcoded as ints so this script does not hard-depend on the enum binding.
@@ -46,8 +99,10 @@ const PASTURE_3D_BLEND_REPLACE:int = 0 # Pasture3DLayer.BlendMode.REPLACE
 		configure_road_update_signal()
 		if is_node_ready():
 			_skip_scene_load = false
-## Reference to the RoadManager instance, read only
-@export var road_manager:RoadManager:
+## Reference to the RoadManager instance, read only.
+## Typed as Node rather than RoadManager so this file parses without road-generator installed; the
+## inspector shows a Node picker instead of a filtered one, and everything below duck-types it.
+@export var road_manager:Node:
 	set(value):
 		road_manager = value
 		configure_road_update_signal()
@@ -92,7 +147,7 @@ var refresh_timer: float = 0.05
 
 var _pending_updates:Dictionary = {} # Hashset of RoadSegments to be updated; 4.4+ typing: RoadSegment,bool
 var _next_refresh_parents:Array = [] # Array[Mesh]
-var _container_unset_geo: Array[RoadContainer] = []
+var _container_unset_geo: Array = [] # RoadContainer, untyped so this parses without road-generator
 var _timer:SceneTreeTimer
 var _mutex:Mutex = Mutex.new()
 var _skip_scene_load: bool = true # Also directly referecned by plugin to ensure top-level refresh works
@@ -191,10 +246,9 @@ func do_full_refresh() -> void:
 	if not is_configured():
 		return
 	configure_road_update_signal()
-	var restart_geo_off: Array[RoadContainer] = []
+	var restart_geo_off: Array = [] # RoadContainer
 	var init_auto_refresh: bool = auto_refresh
 	for _container in road_manager.get_containers():
-		_container = _container as RoadContainer
 
 		_mutex.lock()
 		if not _container.create_geo:
@@ -219,7 +273,6 @@ func bake_holes() -> void:
 	_ensure_hole_layer()
 	var all_segs: Array = []
 	for _container in road_manager.get_containers():
-		_container = _container as RoadContainer
 		all_segs += _container.get_segments()
 
 	# Drop the previously baked holes so a re-bake is idempotent (clear + re-carve). No-op on the
@@ -237,7 +290,7 @@ func bake_holes() -> void:
 
 ## Workaround helper to transform geo for intersection scenes or other
 ## scenarios where "create_geo" is turned off, by temporairly turning it on.
-func _on_container_transform(container:RoadContainer) -> void:
+func _on_container_transform(container) -> void: # RoadContainer
 	if not auto_refresh:
 		return
 	var did_set_geo := false
@@ -432,7 +485,9 @@ func _segment_padded_aabb(seg) -> AABB:
 ## Stable id for a segment, derived from its two RoadPoints (which persist across a point-move). Used to
 ## key the previous-footprint cache so a moved road can clear where it WAS, not just where it is now.
 func _segment_id(seg) -> String:
-	return RoadSegment.get_id_for_points(seg.start_point, seg.end_point)
+	# A static method on road-generator's RoadSegment. Reached through the lazily loaded script
+	# rather than the class name, for the parse-time reason at the top of this file.
+	return segment_script().call("get_id_for_points", seg.start_point, seg.end_point)
 
 
 ## Append every road segment whose padded footprint overlaps `clear_aabb` (and isn't already queued) into
@@ -443,7 +498,6 @@ func _add_segments_overlapping_aabb(clear_aabb: AABB, into: Array) -> void:
 	if not is_instance_valid(road_manager):
 		return
 	for _container in road_manager.get_containers():
-		_container = _container as RoadContainer
 		if not is_instance_valid(_container):
 			continue
 		for _seg in _container.get_segments():
@@ -471,7 +525,7 @@ func _aabb_encloses_xz(outer: AABB, inner: AABB) -> bool:
 func _previous_footprints(mesh_parents: Array, current_aabb: AABB) -> Array:
 	var boxes: Array = []
 	for _p in mesh_parents:
-		if not (_p is RoadSegment) or not validate_segment(_p):
+		if not _is_segment(_p) or not validate_segment(_p):
 			continue
 		var sid := _segment_id(_p)
 		if not _last_paint_aabb.has(sid):
@@ -490,7 +544,6 @@ func _seed_paint_cache() -> void:
 	if not is_instance_valid(road_manager):
 		return
 	for _container in road_manager.get_containers():
-		_container = _container as RoadContainer
 		if not is_instance_valid(_container):
 			continue
 		for _seg in _container.get_segments():
@@ -550,8 +603,8 @@ func refresh_roads(mesh_parents: Array) -> void:
 			# but will be invalid by the time this function actually runs as
 			# they are destroyed right away after a direct call to this func
 			continue
-		if _seg is RoadIntersection:
-			var inter := _seg as RoadIntersection
+		if _is_intersection(_seg):
+			var inter = _seg
 			if inter.container.flatten_terrain and inter.flatten_terrain:
 				flatten_terrain_via_intersection(inter)
 				# Since the intersection flattening is a little too greedy,
@@ -565,7 +618,7 @@ func refresh_roads(mesh_parents: Array) -> void:
 				# two intersections
 				skip_repeat_refreshes += inter.edge_points
 			continue
-		elif _seg is RoadSegment:
+		elif _is_segment(_seg):
 			segs.append(_seg)
 
 	# TODO: For improved undo/redo handling, implement something like this
@@ -577,8 +630,9 @@ func refresh_roads(mesh_parents: Array) -> void:
 	for _seg in segs:
 		if not is_instance_valid(_seg):
 			continue
-		_seg = _seg as RoadSegment
-		if not _seg:
+		# Was `_seg = _seg as RoadSegment` followed by a null check -- the cast was filtering
+		# non-segments out of the accumulated list, which this does directly.
+		if not _is_segment(_seg):
 			continue
 		if _seg in skip_repeat_refreshes:
 			continue
@@ -618,7 +672,7 @@ func refresh_roads(mesh_parents: Array) -> void:
 
 
 ## Flatten and Culling Methods
-func flatten_terrain_via_roadsegment_raycast(segment: RoadSegment) -> void:
+func flatten_terrain_via_roadsegment_raycast(segment) -> void: # RoadSegment
 	if not validate_segment(segment):
 		return
 
@@ -626,7 +680,7 @@ func flatten_terrain_via_roadsegment_raycast(segment: RoadSegment) -> void:
 	# TODO: Account for alignment options
 	var buffer = edge_margin
 
-	var mesh := segment.road_mesh.mesh
+	var mesh: Mesh = segment.road_mesh.mesh
 	if mesh == null:
 		return
 
@@ -757,10 +811,11 @@ func _flatten_curve(curve: Curve3D, normalization_value: float):
 		curve.set_point_out(i,pos_out)
 
 
-func flatten_terrain_via_intersection(inter: RoadIntersection) -> void:
+func flatten_terrain_via_intersection(inter) -> void: # RoadIntersection
 	if not is_instance_valid(inter):
 		return
-	if not inter.settings is IntersectionNGon:
+	var ngon := intersection_ngon_script()
+	if ngon == null or not is_instance_of(inter.settings, ngon):
 		push_warning("Intersection flattening only supported for IntersectionNGon. Skipping.")
 		return
 	if not inter.edge_points.size():
@@ -851,10 +906,10 @@ func flatten_terrain_via_intersection(inter: RoadIntersection) -> void:
 
 
 ## Called after intersection flattening has completed, to avoid overlap
-func intersection_adjacent_segments(inter: RoadIntersection) -> Array:
+func intersection_adjacent_segments(inter) -> Array: # RoadIntersection
 	var segs: Array = []
 	for _edge in inter.edge_points:
-		var rp: RoadPoint = _edge as RoadPoint
+		var rp = _edge # RoadPoint
 		if rp.prior_seg:
 			segs.append(rp.prior_seg)
 		if rp.next_seg:
@@ -863,10 +918,10 @@ func intersection_adjacent_segments(inter: RoadIntersection) -> Array:
 
 
 ## Approximate method, will have issues with tilting
-func flatten_terrain_via_roadsegment_approx(segment: RoadSegment) -> void:
+func flatten_terrain_via_roadsegment_approx(segment) -> void: # RoadSegment
 	if not validate_segment(segment):
 		return
-	var mesh := segment.road_mesh.mesh
+	var mesh: Mesh = segment.road_mesh.mesh
 	if mesh == null:
 		return
 
@@ -893,19 +948,19 @@ func flatten_terrain_via_roadsegment_approx(segment: RoadSegment) -> void:
 	var min := Vector3(aabb_min.x, 0, aabb_min.z).snapped(Vector3(vertex_spacing, 0, vertex_spacing))
 	var max := Vector3(aabb_max.x, 0, aabb_max.z).snapped(Vector3(vertex_spacing, 0, vertex_spacing)) + Vector3(vertex_spacing, 0, vertex_spacing)
 
-	var world_to_local := segment.global_transform.inverse()
+	var world_to_local: Transform3D = segment.global_transform.inverse()
 
 	var x = min.x
 	while x <= max.x:
 		var z = min.z
 		while z <= max.z:
 			var world_pos := Vector3(x, 0.0, z)
-			var local_pos := world_to_local * world_pos
+			var local_pos: Vector3 = world_to_local * world_pos
 
 			var closest_distance := flattened_curve.get_closest_offset(local_pos)
 			var curve_point := flattened_curve.sample_baked(closest_distance)
 			curve_point.y *= normalization_factor
-			var world_curve_point := segment.global_transform * curve_point
+			var world_curve_point: Vector3 = segment.global_transform * curve_point
 
 			# Check if we are beyond the egde of this RoadSegment, and thus
 			# would overlap with updates done by the next RoadSegment
@@ -925,7 +980,7 @@ func flatten_terrain_via_roadsegment_approx(segment: RoadSegment) -> void:
 			# TODO: project this world position onto the xz plane of the transform
 			# returned at this curvepoint, to account for road tilting
 			# Likely making use of: sample_baked_with_rotation
-			var road_y := world_curve_point.y + offset
+			var road_y: float = world_curve_point.y + offset
 
 			var lateral_vector := world_pos - Vector3(world_curve_point.x, 0.0, world_curve_point.z)
 
@@ -977,12 +1032,12 @@ func flatten_terrain_via_roadsegment_approx(segment: RoadSegment) -> void:
 		x += vertex_spacing
 
 
-func cull_terrain_via_roadsegment(segment: RoadSegment) -> void:
+func cull_terrain_via_roadsegment(segment) -> void: # RoadSegment
 	if not validate_segment(segment):
 		print_debug("not valid for culling")
 		return
 
-	var mesh := segment.road_mesh.mesh
+	var mesh: Mesh = segment.road_mesh.mesh
 	if mesh == null:
 		print_debug("no mesh found for road, won't cut")
 		return
@@ -1061,7 +1116,7 @@ func cull_terrain_via_roadsegment(segment: RoadSegment) -> void:
 
 ## Helper Methods
 # TODO: Move this utility into the RoadSegment (with offset) or RoadPoint class (no offset)
-func get_road_width(point: RoadPoint) -> float:
+func get_road_width(point) -> float: # RoadPoint
 	return (point.gutter_profile.x*2
 		+ point.shoulder_width_l
 		+ point.shoulder_width_r
@@ -1135,7 +1190,7 @@ func curve_2d_to_boundingbox(curve: Curve2D, start_width: float, end_width: floa
 	return result
 
 
-func validate_segment(segment: RoadSegment) -> bool:
+func validate_segment(segment) -> bool: # RoadSegment
 	if not is_instance_valid(segment):
 		return false
 	if not is_instance_valid(segment.start_point) or not is_instance_valid(segment.end_point):
