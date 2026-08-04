@@ -9,6 +9,7 @@ const TerrainToolbar: Script = preload("res://addons/pasture_3d/src/toolbar.gd")
 const TerrainToolSettings: Script = preload("res://addons/pasture_3d/src/tool_settings.gd")
 const OperationBuilder: Script = preload("res://addons/pasture_3d/src/operation_builder.gd")
 const GradientOperationBuilder: Script = preload("res://addons/pasture_3d/src/gradient_operation_builder.gd")
+const LIVE_INFO_PANEL: String = "res://addons/pasture_3d/src/live_info_panel.tscn"
 
 # Decal colors
 const COLOR_RAISE := Color(1., 1., 1.) # White
@@ -46,6 +47,7 @@ var plugin: EditorPlugin # Actually Pasture3DEditorPlugin, but Godot still has C
 var toolbar: TerrainToolbar
 var tool_settings: TerrainToolSettings
 var terrain_menu: TerrainMenu
+var live_info_panel: Pasture3DLiveInfoPanel
 var setting_has_changed: bool = false
 var visible: bool = false
 var picking: int = Pasture3DEditor.TOOL_MAX
@@ -118,6 +120,7 @@ func _enter_tree() -> void:
 	editor_decal_timer.timeout.connect(func():
 		get_tree().create_tween().tween_property(self, "editor_decal_fade", 0.0, 0.15))
 	add_child(editor_decal_timer)
+	setup_live_info_panel()
 
 
 func _exit_tree() -> void:
@@ -129,6 +132,9 @@ func _exit_tree() -> void:
 	tool_settings.queue_free()
 	terrain_menu.queue_free()
 	editor_decal_timer.queue_free()
+	# Null when setup_live_info_panel() could not find the viewport container to parent it to.
+	if live_info_panel:
+		live_info_panel.queue_free()
 
 
 func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
@@ -144,6 +150,8 @@ func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
 		visible = p_visible
 		toolbar.set_visible(p_visible)
 		tool_settings.set_visible(p_visible)
+		if live_info_panel:
+			live_info_panel.set_visible(p_visible)
 
 	if plugin.editor and plugin.terrain and p_visible:
 			await get_tree().process_frame # Won't work, otherwise
@@ -786,3 +794,21 @@ func pick(p_global_position: Vector3) -> void:
 
 func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
 	p_button.icon = EditorInterface.get_base_control().get_theme_icon(p_icon_name, "EditorIcons")
+
+
+## Parents the live info readout into the 3D viewport itself rather than a dock, so the numbers
+## sit next to the cursor they describe. The container is found by class name because the editor
+## exposes no handle to it; a miss leaves live_info_panel null and every caller guards for that.
+func setup_live_info_panel() -> void:
+	var main_screen: Node = EditorInterface.get_editor_main_screen()
+	if not main_screen:
+		push_error("Pasture3DUI: setup_live_info_panel(): Failed to get main screen")
+		return
+	var viewport_container: Node = main_screen.find_child("*Node3DEditorViewportContainer*", true, false)
+	if not viewport_container:
+		push_error("Pasture3DUI: setup_live_info_panel(): Failed to get main viewport_container")
+		return
+	live_info_panel = load(LIVE_INFO_PANEL).instantiate()
+	live_info_panel.plugin = plugin
+	viewport_container.add_child(live_info_panel, true)
+	live_info_panel.visible = false
