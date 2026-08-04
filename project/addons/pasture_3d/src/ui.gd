@@ -688,10 +688,53 @@ func set_decal_rotation(p_rot: float) -> void:
 func _on_picking(p_type: Pasture3DEditor.Tool, p_callback: Callable) -> void:
 	picking = p_type
 	picking_callback = p_callback
+	# Only the instancer picker has anything to highlight; the rest read a pixel.
+	if picking == Pasture3DEditor.Tool.INSTANCER:
+		if not get_tree().process_frame.is_connected(_update_picker_highlight):
+			get_tree().process_frame.connect(_update_picker_highlight)
+	elif get_tree().process_frame.is_connected(_update_picker_highlight):
+		get_tree().process_frame.disconnect(_update_picker_highlight)
+
+
+## Tints the mesh asset currently under the cursor while the instancer picker is armed, so it is
+## clear which one a click would take. Runs every frame, which is affordable because
+## set_highlighted() early-outs when the flag is unchanged -- only a change reaches the dock.
+func _update_picker_highlight() -> void:
+	var assets: Pasture3DAssets = _picker_assets()
+	if assets == null:
+		return
+	var mesh_asset_id: int = -1
+	if plugin.terrain.data.has_regionp(plugin.mouse_global_position):
+		mesh_asset_id = plugin.terrain.instancer.get_closest_mesh_id(plugin.mouse_global_position)
+	for i: int in assets.get_mesh_count():
+		var ma: Pasture3DMeshAsset = assets.get_mesh_asset(i)
+		if ma:
+			ma.set_highlighted(i == mesh_asset_id)
 
 
 func clear_picking() -> void:
 	picking = Pasture3DEditor.TOOL_MAX
+	if not get_tree().process_frame.is_connected(_update_picker_highlight):
+		return
+	get_tree().process_frame.disconnect(_update_picker_highlight)
+	var assets: Pasture3DAssets = _picker_assets()
+	if assets == null:
+		return
+	for i: int in assets.get_mesh_count():
+		var ma: Pasture3DMeshAsset = assets.get_mesh_asset(i)
+		if ma:
+			ma.set_highlighted(false)
+	if plugin.asset_dock:
+		plugin.asset_dock.update_dock()
+
+
+## The highlight path runs from a frame signal and from teardown, so it can fire after the
+## terrain has gone away -- when the plugin is disabled mid-pick, or the node is deleted while
+## the picker is armed. Upstream reaches straight through this chain.
+func _picker_assets() -> Pasture3DAssets:
+	if plugin == null or not is_instance_valid(plugin.terrain):
+		return null
+	return plugin.terrain.assets
 
 
 func is_picking() -> bool:
@@ -735,8 +778,8 @@ func pick(p_global_position: Vector3) -> void:
 		if picking_callback.is_valid():
 			picking_callback.call(picking, color, p_global_position)
 			picking_callback = Callable()
-		picking = Pasture3DEditor.TOOL_MAX
-	
+		clear_picking()
+
 	elif operation_builder and operation_builder.is_picking():
 		operation_builder.pick(p_global_position, plugin.terrain)
 
