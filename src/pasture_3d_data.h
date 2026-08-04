@@ -31,6 +31,14 @@ public: // Constants
 		HEIGHT_FILTER_MINIMUM
 	};
 
+	// SLICED writes the whole terrain as one image, cut into 16384 px tiles because that is the
+	// ceiling most image formats and GPUs accept -- a terrain wider than that used to produce one
+	// oversized file. PER_REGION writes one file per region, named by location.
+	enum ExportMode {
+		EXPORT_SLICED,
+		EXPORT_PER_REGION
+	};
+
 private:
 	Pasture3D *_terrain = nullptr;
 
@@ -139,6 +147,7 @@ private:
 	// to their new region/tile coordinates (global pixel positions are preserved).
 	void _migrate_layers_region_size(const int p_old_size, const int p_new_size, const TypedArray<Dictionary> &p_old_tiles, const PackedInt32Array &p_old_tile_sizes);
 	void _copy_paste_dfr(const Pasture3DRegion *p_src_region, const Rect2i &p_src_rect, const Rect2i &p_dst_rect, const Pasture3DRegion *p_dst_region);
+	Error _save_export_image(const Ref<Image> &p_img, const String &p_path, const String &p_ext, const MapType p_map_type) const;
 
 public:
 	Pasture3DData() {}
@@ -377,8 +386,8 @@ public:
 
 	void import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position = V3_ZERO,
 			const real_t p_offset = 0.f, const real_t p_scale = 1.f);
-	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT) const;
-	Ref<Image> layered_to_image(const MapType p_map_type) const;
+	Error export_image(const String &p_file_name, const MapType p_map_type = TYPE_HEIGHT, const ExportMode p_mode = EXPORT_SLICED) const;
+	Ref<Image> layered_to_image(const MapType p_map_type, const Rect2i &p_bounds = Rect2i()) const;
 
 	// Utility
 	void dump(const bool verbose = false) const;
@@ -388,6 +397,7 @@ protected:
 };
 
 VARIANT_ENUM_CAST(Pasture3DData::HeightFilter);
+VARIANT_ENUM_CAST(Pasture3DData::ExportMode);
 
 // Inline Region Functions
 
