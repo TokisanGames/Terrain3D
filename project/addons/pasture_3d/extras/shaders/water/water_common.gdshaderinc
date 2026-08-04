@@ -69,6 +69,32 @@ group_uniforms waves;
 // length back. Costs 128 bytes of uniform buffer in the worst case.
 uniform vec4 _waves[WATER_MAX_WAVES];
 
+// How many entries of _waves this variant actually EVALUATES.
+//
+// Nothing in the shader reads this; it exists to be read back from C++, and it is the
+// clean way the comment above says Godot does not give you. The array length cannot
+// answer the question -- _waves is WATER_MAX_WAVES on every variant by design -- so the
+// count has to be published separately or guessed. Pasture3DOcean used to guess, from
+// substrings of the shader's FILE PATH ("_low" meant 4, "water_body" meant 4 or 2),
+// which was wrong for water_river.gdshader and wrong for any shader an author renamed.
+// The warning it drives says "your profile has more waves than this shader compiles",
+// so guessing it wrong either invents that warning or hides it.
+//
+// A uniform default rather than a #define the C++ mirrors, because a mirrored constant
+// is two places to change and one of them gets forgotten; this way the shader that
+// compiles the loop is the thing that reports the number.
+//
+// ZERO on a stream variant, and that is not WATER_WAVE_COUNT being unset. A river
+// replaces the Gerstner table outright (see water_stream.gdshaderinc) and evaluates
+// none of it, while still defining WATER_WAVE_COUNT 3 to size the array the manager
+// uploads into. "Three" would be a true statement about the array and a false one about
+// the surface; the honest answer to "how many of these waves will I see" is none.
+#ifdef WATER_STREAM_WAVES
+uniform int _wave_variant_count = 0;
+#else
+uniform int _wave_variant_count = WATER_WAVE_COUNT;
+#endif
+
 // Compile-time fallback table, used when nothing has uploaded one (detected as
 // a zero amplitude sum). G6 says the material must work dropped on a bare
 // MeshInstance3D, and in that case no C++ ever runs -- without this the user

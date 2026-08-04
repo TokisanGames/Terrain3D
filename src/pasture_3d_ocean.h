@@ -164,6 +164,15 @@ public:
 	// vertical test against the wave surface.
 	bool contains_point(const Vector3 &p_global_pos) const;
 
+	// The same text _get_configuration_warnings() shows, as a BOUND method.
+	//
+	// Exists for the reason Pasture3DBuoy::get_buoyancy_warnings() does: GDExtension
+	// virtuals are called by the engine but are not callable from script, so nothing
+	// outside the inspector could read these -- including a bench asserting that the
+	// wave-count warning says the right number, which is the whole point of reading the
+	// count off the shader instead of guessing it from a filename.
+	PackedStringArray get_ocean_warnings() const { return _get_configuration_warnings(); }
+
 	PackedStringArray _get_configuration_warnings() const;
 };
 

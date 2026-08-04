@@ -424,22 +424,54 @@ PackedStringArray Pasture3DOcean::_get_configuration_warnings() const {
 		// more waves than the material's variant compiles is invisible on screen
 		// but present in the CPU query, so get_water_height() describes a surface
 		// nobody drew.
+		//
+		// The count is READ OFF THE SHADER, via the _wave_variant_count uniform
+		// water_common.gdshaderinc declares for exactly this. It used to be inferred
+		// from substrings of the shader's file path, which got water_river.gdshader
+		// wrong (reported 8; it evaluates none) and got any renamed shader wrong in
+		// whichever direction the name happened to fall -- inventing this warning or
+		// hiding it, both silently.
 		Ref<Pasture3DWaveProfile> profile = manager->get_profile(_wave_profile);
 		ShaderMaterial *mat = Object::cast_to<ShaderMaterial>(_material.ptr());
 		if (profile.is_valid() && mat) {
 			Ref<Shader> shader = mat->get_shader();
 			if (shader.is_valid()) {
-				String path = shader->get_path();
-				int variant_waves = path.contains("_low") ? 4 : 8;
-				if (path.contains("water_body")) {
-					variant_waves = path.contains("_low") ? 2 : 4;
-				}
-				if (profile->get_wave_count() > variant_waves) {
-					warnings.push_back("Profile '" + String(_wave_profile) + "' has " +
-							String::num_int64(profile->get_wave_count()) + " waves but " +
-							path.get_file() + " compiles " + String::num_int64(variant_waves) +
-							", so the extra waves are invisible on screen while get_water_height() "
-							"still counts them. Lower the profile's wave_count or use a higher tier.");
+				Variant declared = RS->shader_get_parameter_default(shader->get_rid(),
+						StringName("_wave_variant_count"));
+				String file = shader->get_path().get_file();
+				// A shader that does not declare it is not a water shader this node
+				// can reason about -- a custom one, or one that includes none of the
+				// water headers. Say nothing rather than guess, which is the whole
+				// point of the change: silence is a correct answer here and a wrong
+				// number is not.
+				//
+				// The same branch also covers HEADLESS, where the dummy renderer
+				// returns nil for every parameter default however the shader was
+				// written. Harmless for the thing this drives -- configuration
+				// warnings are read in the editor, which always has a real renderer --
+				// but it does mean a --headless gate cannot assert on this warning,
+				// and would see it silently absent rather than failing. See
+				// bench/WaterShaderCompileCheck.gd, which prints the count and has to
+				// be run windowed for the same reason.
+				if (declared.get_type() == Variant::INT) {
+					int variant_waves = (int)declared;
+					if (variant_waves <= 0) {
+						// A stream variant. The table is inert, so wave_count says
+						// nothing about what is drawn -- but get_water_height() on THIS
+						// node still reads it, which is the disagreement worth naming.
+						warnings.push_back(String(file) +
+								" evaluates no Gerstner waves at all -- it is a stream variant, "
+								"which replaces the wave table with its own channel model. Profile '" +
+								String(_wave_profile) +
+								"' therefore describes a surface this material will not draw. Use an "
+								"ocean or body variant here, or put this material on a Pasture3DStream.");
+					} else if (profile->get_wave_count() > variant_waves) {
+						warnings.push_back("Profile '" + String(_wave_profile) + "' has " +
+								String::num_int64(profile->get_wave_count()) + " waves but " + file +
+								" compiles " + String::num_int64(variant_waves) +
+								", so the extra waves are invisible on screen while get_water_height() "
+								"still counts them. Lower the profile's wave_count or use a higher tier.");
+					}
 				}
 			}
 		}
@@ -578,6 +610,7 @@ void Pasture3DOcean::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_water_surface_point", "domain_xz"), &Pasture3DOcean::get_water_surface_point);
 	ClassDB::bind_method(D_METHOD("get_water_time"), &Pasture3DOcean::get_water_time);
 	ClassDB::bind_method(D_METHOD("contains_point", "global_pos"), &Pasture3DOcean::contains_point);
+	ClassDB::bind_method(D_METHOD("get_ocean_warnings"), &Pasture3DOcean::get_ocean_warnings);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial,BaseMaterial3D"), "set_material", "get_material");

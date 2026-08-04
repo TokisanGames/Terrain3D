@@ -1,3 +1,31 @@
+; Pasture3D Water — Ocean preset, high tier. Spec §6.
+;
+; The default for Pasture3D.ocean_material (constants.h OCEAN_MATERIAL_PATH).
+;
+; Note what is NOT here: the wave table. For the ocean the waves are generated in
+; C++ and uploaded every time a knob changes, because the CPU height query has to
+; read the identical table (§4.2, §4.3). Setting `_waves` here would be
+; overwritten on the first update and would make the query disagree with the
+; surface in the meantime. Shape the ocean's waves with the ocean_wave_* group on
+; the Pasture3D node, not with this resource.
+;
+; The lake and pond presets DO ship a table, because nothing runs in C++ for a
+; material dropped on a bare MeshInstance3D.
+;
+; NOTHING `_`-PREFIXED BELONGS IN HERE. Those uniforms are written by the plugin --
+; _waves by the manager, _mesh_size / _subdiv / _vertex_spacing / _target_pos by the
+; clipmap, _water_domain_origin per instance -- and Pasture3DPoolManager::
+; is_plugin_written_param() skips every one of them when syncing a preset into the
+; duplicate a body draws with. Storing them here is inert at best and misleading at
+; worst.
+;
+; They were here once: opening this material in the inspector and saving it
+; serialises whatever the plugin had just written into it, which is how an all-zero
+; `_waves` and a stale _mesh_size of 32 got committed in 6967bdd, and how these
+; comments got stripped (Godot's resource writer does not preserve them). If this
+; header is missing and `_`-prefixed parameters are back, that is what happened --
+; delete them and restore this block. M_water_ocean_low.tres is the untouched
+; reference for what this file should look like.
 [gd_resource type="ShaderMaterial" format=4 uid="uid://cu5tyca37mw4v"]
 
 [ext_resource type="Shader" uid="uid://dwc65bc2s82vl" path="res://addons/pasture_3d/extras/shaders/water/water_ocean.gdshader" id="1_shader"]
@@ -10,7 +38,6 @@ shader = ExtResource("1_shader")
 shader_parameter/absorption = Vector3(0.35, 0.08, 0.05)
 shader_parameter/deep_color = Color(0.015, 0.05, 0.08, 1)
 shader_parameter/sea_level = 0.0
-shader_parameter/_waves = PackedVector4Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 shader_parameter/wave_steepness = 0.35
 shader_parameter/base_roughness = 0.06
 shader_parameter/specular_amount = 0.5
@@ -34,7 +61,3 @@ shader_parameter/foam_shore_depth = 1.2
 shader_parameter/foam_shore_amount = 0.381
 shader_parameter/scatter_color = Color(0.06, 0.35, 0.28, 1)
 shader_parameter/scatter_strength = 3.5
-shader_parameter/_mesh_size = 32.0
-shader_parameter/_subdiv = 1.0
-shader_parameter/_vertex_spacing = 1.0
-shader_parameter/_target_pos = Vector3(0, 0, 0)
