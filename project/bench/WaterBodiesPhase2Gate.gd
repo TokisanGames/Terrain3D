@@ -14,6 +14,38 @@
 # uniform cost the ocean ~1.7% and spends half the tolerance band; grading Phase 2
 # against the pre-Phase-1 numbers would charge it for that too (§11.2).
 #
+# THE SIX OCEAN CAPTURES IN phase1_ref/ WERE REFRESHED ON 2026-08-04, and the reason
+# matters more than the fact. Commit 6967bdd ("Water presets: OceanDetail and
+# HeightOceanFoam become the defaults", 2026-08-02) swapped detail_deriv from
+# T_water_deriv.png to OceanDetail.png and foam_tex from T_water_foam.png to
+# HeightOceanFoam.png on M_water_ocean.tres. That changes the ocean's pixels BY
+# CONSTRUCTION -- the commit measured the detail map's rms at 0.4001 -> 0.3854 and its
+# peak at 1.4142 -> 0.8835 -- so from that commit onward this gate failed all six ocean
+# captures (mean deltas 0.0103 to 0.0241 against a 0.002 tolerance) while reporting
+# "the extracted ocean does not draw what the reference drew", which reads as a Phase 2
+# refactor bug and sends you into the mesher.
+#
+# It was not one, and that was established rather than assumed: reverting ONLY
+# M_water_ocean.tres and M_water_ocean_low.tres to 6967bdd~1 dropped all six deltas to
+# 0.000000 and passed the gate. The art moved; nothing else did.
+#
+# What this refresh did NOT touch, deliberately:
+#   - phase0_baseline.json. The frame-time comparisons were all reading `ok`, so there
+#     was nothing to re-baseline, and re-recording them would mean benchmarking on a
+#     machine that is not reliably idle (see _skip_timing below) and baking that in.
+#   - phase0_terrain_clipmap.png. Still matches at 0.000000; the swap was ocean-only.
+#
+# So this directory is now a mixed record: JSON and terrain from the original Phase 1
+# reference, ocean captures from 2026-08-04. That is the honest state, and the cost of
+# it is that criterion A can no longer prove the Phase 2 refactor was pixel-neutral --
+# it proves nothing has moved since the last refresh. The original proof is preserved
+# instead in baselines/phase2/, which is byte-identical to baselines/phase0/ and is the
+# record that the refactor really was neutral when it was graded.
+#
+# THE NEXT INTENDED ART CHANGE TO AN OCEAN PRESET WILL FAIL THIS GATE THE SAME WAY.
+# That is the gate working. Confirm it is the art by reverting the material files as
+# above; refresh only once the deltas are explained, and say here why.
+#
 # Every criterion carries a control that must fail; see the header on each.
 #
 # Run: Godot_v4.7-stable_win64_console.exe --path project bench/WaterBodiesPhase2Gate.tscn
