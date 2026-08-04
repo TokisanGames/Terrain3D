@@ -786,7 +786,11 @@ void Pasture3DMaterial::initialize(Pasture3D *p_terrain) {
 	}
 	_shader.instantiate();
 	_buffer_shader.instantiate();
-	{ // Create dummy texture array to avoid empty sampler2DArrays
+	// Create dummy texture array to avoid empty sampler2DArrays. Guarded because initialize() runs
+	// again on every re-entry into the tree, and GeneratedTexture::create() overwrites the stored
+	// RID without freeing the old one -- so each reinitialization leaked a texture. Ported from
+	// upstream Terrain3D 95e40f6.
+	if (!_generated_dummy.get_rid().is_valid()) {
 		Ref<Image> img = Image::create(1, 1, false, Image::FORMAT_RF);
 		TypedArray<Image> ia = { img };
 		_generated_dummy.create(ia);

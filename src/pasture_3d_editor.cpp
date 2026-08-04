@@ -1012,16 +1012,19 @@ void Pasture3DEditor::set_operation(const Operation p_operation) {
 // Called on mouse click
 void Pasture3DEditor::start_operation(const Vector3 &p_global_position) {
 	IS_DATA_INIT_MESG("Terrain isn't initialized", VOID);
+	// In case mouse-up was intercepted (by a modal dialog, focus change, or a raycast miss, etc...).
+	// A stroke that never stopped leaves its regions flagged edited, and backup_region() skips a
+	// region already flagged -- so from then on every stroke over that region is silently dropped:
+	// never marked modified, never written to disk, never recorded for undo. Ported from upstream
+	// Terrain3D e0108aa. stop_operation() is idempotent and already clears the layer-stroke state
+	// below, which is why the per-field resets that used to be here are gone.
+	stop_operation();
 	LOG(INFO, "Setting up undo snapshot");
 	_undo_data.clear();
 	_undo_data["region_locations"] = _terrain->get_data()->get_region_locations().duplicate();
 	_is_operating = true;
-	_original_regions = TypedArray<Pasture3DRegion>(); // New pointers instead of clear
-	_edited_regions = TypedArray<Pasture3DRegion>();
-	_added_removed_locations = TypedArray<Vector2i>();
 	// Reset counter at start to ensure first click places an instance
 	_terrain->get_instancer()->reset_density_counter();
-	_terrain->get_data()->clear_edited_area();
 	_operation_position = p_global_position;
 	_operation_movement = V3_ZERO;
 
