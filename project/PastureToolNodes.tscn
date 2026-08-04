@@ -3,6 +3,10 @@
 [ext_resource type="Script" uid="uid://br5raorbyrwhw" path="res://addons/pasture_3d/connectors/mound.gd" id="1_ume0e"]
 [ext_resource type="Script" uid="uid://bvg7srpngxqfj" path="res://addons/pasture_3d/connectors/trough.gd" id="2_7ivm1"]
 [ext_resource type="Script" uid="uid://bj10ochgiqrlg" path="res://addons/pasture_3d/connectors/ridge.gd" id="3_4xbm0"]
+[ext_resource type="Script" uid="uid://brm6p1ca6p7o6" path="res://addons/road-generator/nodes/road_manager.gd" id="4_wxaqu"]
+[ext_resource type="Script" uid="uid://bkche4ip07xfu" path="res://addons/road-generator/nodes/road_container.gd" id="5_3b32r"]
+[ext_resource type="Script" uid="uid://cn7224ow1rdj6" path="res://addons/road-generator/nodes/road_point.gd" id="6_878i5"]
+[ext_resource type="Script" uid="uid://2vhjm1t0432a" path="res://addons/pasture_3d/connectors/road_connector.gd" id="7_m0obx"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_2bfyl"]
 _shader_parameters = {
@@ -103,3 +107,60 @@ metadata/_custom_type_script = "uid://bvg7srpngxqfj"
 
 [node name="Channel1" type="Path3D" parent="Pasture3DTrough" unique_id=1667892792]
 curve = SubResource("Curve3D_4xbm0")
+
+[node name="RoadManager" type="Node3D" parent="." unique_id=1425172673]
+script = ExtResource("4_wxaqu")
+metadata/_custom_type_script = "uid://brm6p1ca6p7o6"
+
+[node name="RoadContainer" type="Node3D" parent="RoadManager" unique_id=234284486]
+script = ExtResource("5_3b32r")
+use_lowpoly_preview = true
+edge_containers = Array[NodePath]([NodePath(""), NodePath("")])
+edge_rp_targets = Array[NodePath]([NodePath(""), NodePath("")])
+edge_rp_target_dirs = Array[int]([-1, -1])
+edge_rp_locals = Array[NodePath]([NodePath("RP_001"), NodePath("RP_004")])
+edge_rp_local_dirs = Array[int]([0, 1])
+metadata/_custom_type_script = "uid://bkche4ip07xfu"
+
+[node name="RP_001" type="Node3D" parent="RoadManager/RoadContainer" unique_id=601964055]
+transform = Transform3D(0.6087606, 0, -0.793354, 0, 1, 0, 0.793354, 0, 0.6087606, 123.99923, 0, 296.30814)
+script = ExtResource("6_878i5")
+traffic_dir = Array[int]([2, 2, 1, 1])
+lanes = Array[int]([2, 4, 4, 2])
+next_mag = 53.150608
+prior_pt_init = NodePath("../RP_002")
+
+[node name="RP_002" type="Node3D" parent="RoadManager/RoadContainer" unique_id=462254407]
+transform = Transform3D(0.6087606, 0, -0.793354, 0, 1, 0, 0.793354, 0, 0.6087606, 208.33372, 0, 231.59615)
+script = ExtResource("6_878i5")
+traffic_dir = Array[int]([2, 2, 1, 1])
+lanes = Array[int]([2, 4, 4, 2])
+prior_mag = 53.206093
+next_mag = 53.150608
+prior_pt_init = NodePath("../RP_003")
+next_pt_init = NodePath("../RP_001")
+
+[node name="RP_003" type="Node3D" parent="RoadManager/RoadContainer" unique_id=1646174055]
+transform = Transform3D(-0.592892, 0, -0.805282, 0, 1, 0, 0.805282, 0, -0.592892, 313.79694, 0, 245.77586)
+script = ExtResource("6_878i5")
+traffic_dir = Array[int]([2, 2, 1, 1])
+lanes = Array[int]([2, 4, 4, 2])
+prior_mag = 60.08975
+next_mag = 53.206093
+prior_pt_init = NodePath("../RP_004")
+next_pt_init = NodePath("../RP_002")
+
+[node name="RP_004" type="Node3D" parent="RoadManager/RoadContainer" unique_id=720392509]
+transform = Transform3D(0.2920376, 0, -0.95640683, 0, 1, 0, 0.95640683, 0, 0.2920376, 433.1636, 0, 259.72974)
+script = ExtResource("6_878i5")
+traffic_dir = Array[int]([2, 2, 1, 1])
+lanes = Array[int]([2, 4, 4, 2])
+prior_mag = 60.08975
+next_mag = 60.08975
+next_pt_init = NodePath("../RP_003")
+
+[node name="RoadPastureConnector" type="Node" parent="RoadManager" unique_id=1074480569 node_paths=PackedStringArray("terrain", "road_manager")]
+script = ExtResource("7_m0obx")
+terrain = NodePath("../../Pasture3D")
+road_manager = NodePath("..")
+metadata/_custom_type_script = "uid://2vhjm1t0432a"
