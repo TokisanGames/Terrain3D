@@ -12,6 +12,7 @@
 #include "pasture_3d_layer_stack.h"
 #include "pasture_3d_region.h"
 #include "pasture_3d_util.h"
+#include "water_waves.h"
 
 void test_differs() {
 	UtilityFunctions::print("=== Testing differs function ===");
@@ -1493,4 +1494,370 @@ void test_layer_region_size_change() {
 	}
 
 	UtilityFunctions::print("=== End layer stack region-size change tests ===");
+}
+///////////////////////////
+// Water waves (spec §4.2, §4.3)
+///////////////////////////
+
+/**
+ * The CPU side of the water parity contract.
+ *
+ * This suite cannot test agreement with the GPU -- that needs a rendering
+ * context and lives in bench/WaterPhase4Gate.gd. What it can test is everything
+ * the CPU evaluator claims on its own: that the table is reproducible, that the
+ * loop closes, that the steepness normalisation lands where §3.1 says it does,
+ * that empty slots are inert, that the analytic normal agrees with numerical
+ * differentiation of the surface it is supposed to describe, and that the
+ * Gerstner inverse converges.
+ *
+ * Several checks are two-sided on purpose: a tolerance nothing could fail is not
+ * a test, so where a bound is asserted the counter-case is asserted to breach it.
+ */
+void test_water_waves() {
+	UtilityFunctions::print("=== Testing water wave table and CPU evaluator (spec §4.3) ===");
+
+	int passed = 0;
+	int failed = 0;
+	auto expect = [&passed, &failed](const bool p_cond, const String &p_desc) {
+		if (p_cond) {
+			passed++;
+			UtilityFunctions::print("PASSED: ", p_desc);
+		} else {
+			failed++;
+			UtilityFunctions::print("FAILED: ", p_desc);
+		}
+	};
+
+	// The ocean preset (spec §6), which is the configuration every figure quoted
+	// in §4.3 and §8.5 refers to.
+	auto make_ocean = [](WaterWaves &r_waves) {
+		r_waves.set_count(8);
+		r_waves.set_direction_deg(20.f);
+		r_waves.set_spread_deg(28.f);
+		r_waves.set_amplitude(1.6f);
+		r_waves.set_length_max(137.f);
+		r_waves.set_steepness(0.35f);
+		r_waves.set_loop_period(120.f);
+		r_waves.update();
+	};
+
+	WaterWaves ocean;
+	make_ocean(ocean);
+
+	// ---- (a) The table is a pure function of the knobs. ----
+	// The CPU query and the GPU surface agree only because both read the same
+	// table, so a table that depends on anything else -- rand(), assignment order,
+	// how many times update() ran -- breaks parity everywhere at once.
+	{
+		WaterWaves again;
+		make_ocean(again);
+		expect(ocean.get_shader_table() == again.get_shader_table(),
+				"table is identical for identical knobs");
+
+		// Same values, opposite assignment order, plus a redundant update().
+		WaterWaves reordered;
+		reordered.set_loop_period(120.f);
+		reordered.set_steepness(0.35f);
+		reordered.update();
+		reordered.set_length_max(137.f);
+		reordered.set_amplitude(1.6f);
+		reordered.set_spread_deg(28.f);
+		reordered.set_direction_deg(20.f);
+		reordered.set_count(8);
+		reordered.update();
+		reordered.update();
+		expect(ocean.get_shader_table() == reordered.get_shader_table(),
+				"table is independent of knob assignment order");
+
+		// The control: the table has to respond to a knob at all, or the two checks
+		// above pass on a constant.
+		WaterWaves different;
+		make_ocean(different);
+		different.set_direction_deg(21.f);
+		different.update();
+		expect(ocean.get_shader_table() != different.get_shader_table(),
+				"CONTROL: one degree of wind direction changes the table");
+	}
+
+	// ---- (b) Unused slots are inert. ----
+	// The evaluator sums all WATER_MAX_WAVES slots so it agrees with a variant
+	// reading more waves than the table fills. That is only sound if the surplus
+	// slots contribute nothing.
+	{
+		WaterWaves four;
+		make_ocean(four);
+		four.set_count(4);
+		four.update();
+		PackedVector4Array table = four.get_shader_table();
+		bool tail_inert = table.size() == WATER_MAX_WAVES;
+		for (int i = 4; i < table.size(); i++) {
+			tail_inert = tail_inert && table[i].z == 0.f && table[i].w > 0.f;
+		}
+		expect(tail_inert, "slots past the wave count carry zero amplitude and a nonzero wavelength");
+
+		float amp_sum = four.get_amplitude_sum();
+		float table_sum = 0.f;
+		for (int i = 0; i < table.size(); i++) {
+			table_sum += (float)table[i].z;
+		}
+		expect(Math::is_equal_approx(amp_sum, table_sum),
+				"get_amplitude_sum() matches the uploaded table");
+		expect(amp_sum > four.get_amplitude(),
+				"the amplitude sum exceeds the amplitude knob, which is only the longest wave's");
+		Vector3 p = four.get_position(Vector2(123.f, -45.f), 3.7f);
+		expect(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z),
+				"a partly empty table evaluates finite");
+	}
+
+	// ---- (c) The loop closes (spec §3.2). ----
+	{
+		const Vector2 u(311.f, -207.f);
+		const float period = ocean.get_loop_period();
+		float wrap = (ocean.get_position(u, period) - ocean.get_position(u, 0.f)).length();
+
+		WaterWaves unquantised;
+		make_ocean(unquantised);
+		unquantised.set_loop_period(0.f); // no quantisation at all
+		unquantised.update();
+		float wrap_control = (unquantised.get_position(u, period) -
+				unquantised.get_position(u, 0.f))
+									 .length();
+
+		UtilityFunctions::print("  wrap displacement: quantised ", wrap,
+				" m, unquantised control ", wrap_control, " m");
+		expect(wrap < 0.001f, "the surface at t=period is the surface at t=0");
+		expect(wrap_control > 0.1f, "CONTROL: without frequency quantisation the wrap jumps");
+	}
+
+	// ---- (d) The steepness normalisation is exact (spec §3.1). ----
+	// sum(Q*w*A) is both the jacobian's ceiling and the self-intersection bound,
+	// and the shader's amplitude weighting is supposed to make it equal the
+	// steepness knob exactly. Foam thresholds are stated as fractions of it
+	// (§3.6), so a normalisation that were merely close would put whitecaps in the
+	// wrong place at every setting but the one it was tuned at.
+	{
+		const float steepnesses[] = { 0.05f, 0.35f, 0.6f, 1.0f };
+		for (float steepness : steepnesses) {
+			WaterWaves waves;
+			make_ocean(waves);
+			waves.set_steepness(steepness);
+			waves.update();
+			PackedVector4Array table = waves.get_shader_table();
+			float sum_amp = waves.get_amplitude_sum();
+			float sum_qwa = 0.f;
+			for (int i = 0; i < table.size(); i++) {
+				sum_qwa += (steepness / sum_amp) * (float)table[i].z;
+			}
+			expect(std::abs(sum_qwa - steepness) < 1e-6f,
+					"sum(Q*w*A) equals wave_steepness at " + String::num(steepness, 2));
+		}
+	}
+
+	// ---- (e) Wavelengths respect the precision floor. ----
+	// §3.1 puts the floor at 10 m because a shorter wave's phase argument loses too
+	// many mantissa bits at clipmap-scale coordinates. Quantising to the loop period
+	// moves every wavelength, and nothing so far stopped it moving one below.
+	{
+		PackedVector4Array table = ocean.get_shader_table();
+		double shortest = 1e9;
+		for (int i = 0; i < ocean.get_count(); i++) {
+			shortest = MIN(shortest, (double)table[i].w);
+		}
+		UtilityFunctions::print("  shortest wavelength after quantisation: ", shortest, " m");
+		expect(shortest > (double)WaterWaves::MIN_WAVELENGTH * 0.9,
+				"quantisation does not push a wavelength materially below the 10 m floor");
+	}
+
+	// ---- (e2) The small-body branch, which (e) alone cannot reach. ----
+	// update() runs the series down to min(MIN_WAVELENGTH, length_max/2), so under
+	// length_max 20 it goes deliberately BELOW the floor rather than collapsing the
+	// series onto it -- a pond at length_max 12 gets 12 m and 6 m rather than two
+	// copies of one wave. That is intended (a small body sits near its own origin,
+	// which is not the precision regime the floor describes), and it was previously
+	// untested: the ocean config in (e) has length_max 137 and cannot enter the
+	// branch, so (e) passed while the header's "shortest wavelength the generator
+	// will produce" was false for every pond.
+	//
+	// Asserted here so the behaviour is pinned rather than accidental. If the floor
+	// is ever made hard, this test is the thing that says so out loud.
+	{
+		WaterWaves pond;
+		pond.set_count(2);
+		pond.set_amplitude(0.05f);
+		pond.set_length_max(12.0f);
+		pond.set_loop_period(0.0f); // no quantisation, so the series is what is under test
+		pond.update();
+		PackedVector4Array table = pond.get_shader_table();
+		double longest = (double)table[0].w;
+		double shortest = MIN((double)table[0].w, (double)table[1].w);
+		UtilityFunctions::print("  pond series at length_max 12: ", longest, " m -> ", shortest, " m");
+
+		expect(shortest < (double)WaterWaves::MIN_WAVELENGTH,
+				"the small-body branch runs the series below the 10 m floor");
+		expect(std::abs(shortest - 6.0) < 0.01,
+				"and bottoms out at length_max/2, not at some other number");
+		// The control: the same request an ocean would make cannot reach the branch,
+		// so if this ever drops below the floor the branch has escaped its bounds.
+		WaterWaves sea;
+		sea.set_count(2);
+		sea.set_length_max(137.0f);
+		sea.set_loop_period(0.0f);
+		sea.update();
+		PackedVector4Array sea_table = sea.get_shader_table();
+		double sea_shortest = MIN((double)sea_table[0].w, (double)sea_table[1].w);
+		UtilityFunctions::print("  CONTROL, length_max 137: shortest ", sea_shortest, " m");
+		expect(sea_shortest >= (double)WaterWaves::MIN_WAVELENGTH,
+				"CONTROL: a large body stays on the floor and never enters the branch");
+	}
+
+	// ---- (f) The analytic normal describes the surface it is drawn on. ----
+	// GPU Gems' Gerstner normal drops the cross terms of the exact tangent cross
+	// product, so it is an approximation whose error grows with steepness. That is
+	// fine, and worth knowing the size of: every lighting term in the shader is
+	// built on this normal.
+	//
+	// Differenced near the origin on purpose. The surface is evaluated in float, so
+	// at clipmap-scale coordinates a finite difference measures mantissa loss
+	// rather than curvature.
+	{
+		const float du = 0.05f;
+		const float t = 11.25f;
+		double worst_deg = 0.0;
+		for (int i = -6; i <= 6; i++) {
+			for (int j = -6; j <= 6; j++) {
+				Vector2 u(float(i) * 7.f, float(j) * 7.f);
+				Vector3 px1 = ocean.get_position(u + Vector2(du, 0.f), t);
+				Vector3 px0 = ocean.get_position(u - Vector2(du, 0.f), t);
+				Vector3 pz1 = ocean.get_position(u + Vector2(0.f, du), t);
+				Vector3 pz0 = ocean.get_position(u - Vector2(0.f, du), t);
+				Vector3 numeric = (pz1 - pz0).cross(px1 - px0).normalized();
+				Vector3 analytic = ocean.get_normal(u, t);
+				double dot = CLAMP((double)numeric.dot(analytic), -1.0, 1.0);
+				worst_deg = MAX(worst_deg, Math::rad_to_deg(std::acos(dot)));
+			}
+		}
+		UtilityFunctions::print("  analytic vs numerically differentiated normal: worst ",
+				worst_deg, " deg over 169 samples at steepness 0.35");
+		expect(worst_deg < 3.0, "the analytic normal is within 3 degrees of the true surface normal");
+		expect(worst_deg > 1e-4, "CONTROL: the two are computed differently and do not agree exactly");
+	}
+
+	// ---- (g) The Gerstner inverse converges, and matters. ----
+	// This is the check G4 rests on. get_water_height() answers "how high is the
+	// water above this XZ", but the wave function answers "where does parameter u
+	// go", and the two differ by the horizontal displacement -- which at the ocean
+	// defaults reaches metres. §4.3 asserted a few centimetres and left the solve to
+	// the caller; the naive figure printed below is what that would have cost.
+	{
+		const float t = 6.5f;
+		double worst_residual = 0.0;
+		double worst_naive = 0.0;
+		double naive_total = 0.0;
+		int worst_iterations = 0;
+		int n = 0;
+		for (int i = -40; i <= 40; i++) {
+			for (int j = -40; j <= 40; j++) {
+				Vector2 target(float(i) * 13.7f, float(j) * 11.3f);
+				int iterations = 0;
+				Vector2 u = ocean.solve_domain(target, t, &iterations);
+				Vector3 p = ocean.get_position(u, t);
+				// Did the solve land where it was asked to?
+				worst_residual = MAX(worst_residual,
+						(double)Vector2(p.x - target.x, p.z - target.y).length());
+				worst_iterations = MAX(worst_iterations, iterations);
+				// What the answer would have been without solving.
+				double err = std::abs((double)ocean.get_height(target, t) - (double)p.y);
+				worst_naive = MAX(worst_naive, err);
+				naive_total += err;
+				n++;
+			}
+		}
+		UtilityFunctions::print("  inverse solve: worst residual ", worst_residual,
+				" m in at most ", worst_iterations, " iterations (bound ",
+				WaterWaves::MAX_SOLVE_ITERATIONS, ")");
+		UtilityFunctions::print("  without the solve: mean error ", naive_total / double(n),
+				" m, worst ", worst_naive, " m -- against a G4 budget of 0.01 m");
+		expect(worst_residual < 0.001, "the solve lands on the requested XZ to within a millimetre");
+		expect(worst_iterations <= WaterWaves::MAX_SOLVE_ITERATIONS,
+				"the solve converges inside its iteration bound");
+		expect(worst_naive > 0.01,
+				"CONTROL: skipping the solve breaks G4, so the solve is load-bearing");
+	}
+
+	// ---- (h) Calm water is cheap and steep water still meets G4. ----
+	// The contraction factor is bounded by the steepness knob, so the iteration
+	// count needed grows as the knob approaches 1 -- and at exactly 1, the
+	// self-intersection limit, the surface has vertical tangents, the inverse stops
+	// being unique and no iteration count is enough. 1.0 is therefore reported and
+	// not asserted: the query is ill-posed there, not merely slow.
+	//
+	// What is asserted is G4 itself rather than the residual, because the residual
+	// is horizontal and G4 is vertical. A solve that lands `r` metres from the
+	// requested XZ returns the height of a point `r` away, so the height error is at
+	// most the surface's maximum slope sum(w*A) times r. That bound is what has to
+	// fit in 1 cm.
+	{
+		const float steepnesses[] = { 0.05f, 0.35f, 0.6f, 0.8f, 1.0f };
+		for (float steepness : steepnesses) {
+			WaterWaves waves;
+			make_ocean(waves);
+			waves.set_steepness(steepness);
+			waves.update();
+
+			PackedVector4Array table = waves.get_shader_table();
+			double max_slope = 0.0;
+			for (int i = 0; i < table.size(); i++) {
+				max_slope += (double)(WaterWaves::TAU / (float)table[i].w) * (double)table[i].z;
+			}
+
+			double worst_residual = 0.0;
+			int worst_iterations = 0;
+			for (int i = -20; i <= 20; i++) {
+				Vector2 target(float(i) * 29.3f, float(i) * -17.1f);
+				int iterations = 0;
+				Vector2 u = waves.solve_domain(target, 2.25f, &iterations);
+				Vector3 p = waves.get_position(u, 2.25f);
+				worst_residual = MAX(worst_residual,
+						(double)Vector2(p.x - target.x, p.z - target.y).length());
+				worst_iterations = MAX(worst_iterations, iterations);
+			}
+			double height_error = worst_residual * max_slope;
+			UtilityFunctions::print("  steepness ", steepness, ": residual ", worst_residual,
+					" m in ", worst_iterations, " iterations -> height error <= ", height_error,
+					" m");
+			if (steepness < 1.0f) {
+				expect(height_error < 0.01,
+						"G4 holds at steepness " + String::num(steepness, 2));
+				expect(worst_iterations <= WaterWaves::MAX_SOLVE_ITERATIONS,
+						"the solve stays inside its iteration bound at steepness " +
+								String::num(steepness, 2));
+			}
+		}
+	}
+
+	// ---- (i) Clipmap-scale coordinates. ----
+	// The ocean clipmap follows the camera, so a world 20 km across evaluates the
+	// wave function 20 km from the domain origin, in float, on both sides. §3.1 says
+	// this is what the 10 m wavelength floor and the domain origin uniform exist
+	// for; this measures how far out it holds.
+	{
+		const float t = 47.5f;
+		const float distances[] = { 100.f, 1000.f, 10000.f, 100000.f };
+		for (float distance : distances) {
+			Vector2 target(distance * 0.7071f, distance * -0.7071f);
+			int iterations = 0;
+			Vector2 u = ocean.solve_domain(target, t, &iterations);
+			Vector3 p = ocean.get_position(u, t);
+			double residual = (double)Vector2(p.x - target.x, p.z - target.y).length();
+			bool sane = std::isfinite(p.y) &&
+					std::abs((double)p.y) <= (double)ocean.get_amplitude_sum() + 1e-3;
+			UtilityFunctions::print("  at ", distance, " m: residual ", residual,
+					" m, height ", p.y, " m, ", iterations, " iterations");
+			expect(sane, "the surface stays finite and inside the amplitude sum at " +
+							String::num(distance, 0) + " m");
+		}
+	}
+
+	UtilityFunctions::print("=== WATER PARITY UNIT TEST: ", passed, " passed, ", failed,
+			" failed ===");
 }

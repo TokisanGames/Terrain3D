@@ -1,0 +1,40 @@
+[gd_resource type="ShaderMaterial" format=4 uid="uid://cu5tyca37mw4v"]
+
+[ext_resource type="Shader" uid="uid://dwc65bc2s82vl" path="res://addons/pasture_3d/extras/shaders/water/water_ocean.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://dtowtl3jy30s8" path="res://addons/pasture_3d/extras/shaders/water/OceanDetail.png" id="2_vm77f"]
+[ext_resource type="Texture2D" uid="uid://dps0nipf3at3t" path="res://addons/pasture_3d/extras/shaders/water/HeightOceanFoam.png" id="3_mewtu"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/absorption = Vector3(0.35, 0.08, 0.05)
+shader_parameter/deep_color = Color(0.015, 0.05, 0.08, 1)
+shader_parameter/sea_level = 0.0
+shader_parameter/_waves = PackedVector4Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+shader_parameter/wave_steepness = 0.35
+shader_parameter/base_roughness = 0.06
+shader_parameter/specular_amount = 0.5
+shader_parameter/variance_to_roughness = 0.55
+shader_parameter/detail_deriv = ExtResource("2_vm77f")
+shader_parameter/detail_strength = 0.25
+shader_parameter/detail_scale0 = 0.1
+shader_parameter/detail_scale1 = 0.0345
+shader_parameter/detail_flow0 = Vector2(0.32, 0.11)
+shader_parameter/detail_flow1 = Vector2(-0.17, 0.26)
+shader_parameter/detail_fade_start = 200.0
+shader_parameter/detail_fade_end = 800.0
+shader_parameter/foam_tex = ExtResource("3_mewtu")
+shader_parameter/foam_color = Color(0.85, 0.89, 0.92, 1)
+shader_parameter/foam_scale = 0.07
+shader_parameter/foam_roughness = 0.8
+shader_parameter/foam_crest_threshold = 0.2
+shader_parameter/foam_crest_softness = 0.1
+shader_parameter/foam_crest_amount = 0.476
+shader_parameter/foam_shore_depth = 1.2
+shader_parameter/foam_shore_amount = 0.381
+shader_parameter/scatter_color = Color(0.06, 0.35, 0.28, 1)
+shader_parameter/scatter_strength = 3.5
+shader_parameter/_mesh_size = 32.0
+shader_parameter/_subdiv = 1.0
+shader_parameter/_vertex_spacing = 1.0
+shader_parameter/_target_pos = Vector3(0, 0, 0)

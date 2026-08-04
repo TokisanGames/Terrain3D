@@ -1,0 +1,32 @@
+[gd_resource type="ShaderMaterial" format=4 uid="uid://cfoelhhitrvnp"]
+
+[ext_resource type="Shader" uid="uid://baqjf2sofilby" path="res://addons/pasture_3d/extras/shaders/water/water_body.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://dtowtl3jy30s8" path="res://addons/pasture_3d/extras/shaders/water/OceanDetail.png" id="2_ehin6"]
+[ext_resource type="Texture2D" uid="uid://dps0nipf3at3t" path="res://addons/pasture_3d/extras/shaders/water/HeightOceanFoam.png" id="3_ehin6"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/absorption = Vector3(0.45, 0.22, 0.3)
+shader_parameter/deep_color = Color(0.12708336, 0.23828125, 0.20651045, 1)
+shader_parameter/_waves = PackedVector4Array(0.81915, 0.57358, 0.24981, 24.98096, 0.997, 0.07746, 0.18353, 18.35336, 0.5894, 0.80784, 0.13375, 13.3747, 0.91825, 0.396, 0.10178, 10.17785, 1, 0, 0, 10, 1, 0, 0, 10, 1, 0, 0, 10, 1, 0, 0, 10)
+shader_parameter/wave_steepness = 0.25
+shader_parameter/base_roughness = 0.05
+shader_parameter/specular_amount = 0.5
+shader_parameter/variance_to_roughness = 0.55
+shader_parameter/detail_deriv = ExtResource("2_ehin6")
+shader_parameter/detail_strength = 0.18
+shader_parameter/detail_scale0 = 0.050000002375
+shader_parameter/detail_scale1 = 0.02000000095
+shader_parameter/detail_flow0 = Vector2(0.14, 0.05)
+shader_parameter/detail_flow1 = Vector2(-0.8, 3)
+shader_parameter/detail_fade_start = 60.0
+shader_parameter/detail_fade_end = 300.0
+shader_parameter/foam_tex = ExtResource("3_ehin6")
+shader_parameter/foam_color = Color(0.85, 0.89, 0.92, 1)
+shader_parameter/foam_scale = 0.406000019285
+shader_parameter/foam_roughness = 0.28999999351792
+shader_parameter/foam_shore_depth = 4.65000006929058
+shader_parameter/foam_shore_amount = 0.55999998748288
+shader_parameter/scatter_color = Color(0.09, 0.3, 0.18, 1)
+shader_parameter/scatter_strength = 2.5

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/OceanHorizonExtentCheck.gd" id="1_horizon"]
+
+[node name="OceanHorizonExtentCheck" type="Node"]
+script = ExtResource("1_horizon")

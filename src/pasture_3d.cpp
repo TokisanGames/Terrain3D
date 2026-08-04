@@ -19,6 +19,8 @@
 #include "logger.h"
 #include "pasture_3d.h"
 #include "pasture_3d_util.h"
+#include "pasture_3d_ocean.h"
+#include "pasture_3d_pool_manager.h"
 #include "unit_testing.h"
 
 // Initialize static member variable
@@ -86,7 +88,6 @@ void Pasture3D::_initialize() {
 		_collision->initialize(this);
 		_instancer->initialize(this);
 		_setup_terrain_mesher();
-		_setup_ocean_mesher();
 		_update_displacement_buffer();
 		_initialized = true;
 		snap();
@@ -123,20 +124,9 @@ void Pasture3D::__physics_process(const double p_delta) {
 	} else if (_terrain_mesher) {
 		_terrain_mesher->snap();
 	}
-	if (_ocean_enabled && _ocean_mesher) {
-		_ocean_mesher->snap();
-		if (_ocean_material.is_valid() && _ocean_light_target.is_valid()) {
-			DirectionalLight3D *light = cast_to<DirectionalLight3D>(_ocean_light_target.ptr());
-			ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
-			if (light && ocean_shader_mat) {
-				Color color = COLOR_WHITE;
-				color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
-				ocean_shader_mat->set_shader_parameter("_light_color", color);
-				Vector3 direction = light->get_global_basis().get_column(2);
-				ocean_shader_mat->set_shader_parameter("_light_direction", direction);
-			}
-		}
-	}
+	// The water clock, the sun globals and the ocean's clipmap all left this node in
+	// Phase 2 of the water-bodies work: the clock and sun belong to Pasture3DPoolManager,
+	// the clipmap to Pasture3DOcean. A terrain no longer knows anything about water.
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
@@ -176,7 +166,7 @@ void Pasture3D::_setup_terrain_mesher() {
 		_terrain_mesher = new Pasture3DMesher();
 	}
 	// Terrain uses per-instance _target_pos so each split-screen view geomorphs to its own camera.
-	_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid(), _render_layers, true);
+	_terrain_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing, _material->get_material_rid(), _render_layers, true, _cast_shadows, _gi_mode);
 	// (Re)initialization resets the mesher to a single view; re-apply any multi-camera config.
 	if (!_cameras.is_empty()) {
 		_apply_cameras_to_mesher();
@@ -212,36 +202,21 @@ void Pasture3D::_destroy_terrain_mesher(const bool p_final) {
 	}
 }
 
-void Pasture3D::_setup_ocean_mesher() {
-	if (_ocean_enabled) {
-		if (!_ocean_mesher) {
-			LOG(DEBUG, "Creating mesher");
-			_ocean_mesher = new Pasture3DMesher();
-		}
-		_ocean_mesher->initialize(this, _ocean_mesh_size, _ocean_mesh_lods, _ocean_tessellation_level, _ocean_vertex_spacing, _ocean_material.is_valid() ? _ocean_material->get_rid() : RID(), _ocean_render_layers);
-		_ocean_mesher->update_aabbs(_ocean_cull_margin, V2_ZERO);
-		if (_ocean_material.is_valid()) {
-			ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
-			if (ocean_shader_mat) {
-				ocean_shader_mat->set_shader_parameter("_mesh_size", _ocean_mesh_size);
-				ocean_shader_mat->set_shader_parameter("_vertex_spacing", _ocean_vertex_spacing);
-				ocean_shader_mat->set_shader_parameter("_vertex_density", 1.0f / _ocean_vertex_spacing);
-				ocean_shader_mat->set_shader_parameter("_subdiv", pow(2.f, real_t(_ocean_tessellation_level)));
-			}
-		}
-	}
-}
 
-void Pasture3D::_destroy_ocean_mesher(const bool p_final) {
-	LOG(INFO, "Destroying ocean mesher");
-	if (_ocean_mesher) {
-		_ocean_mesher->destroy();
-		if (p_final) {
-			delete _ocean_mesher;
-			_ocean_mesher = nullptr;
-		}
-	}
-}
+
+
+
+
+
+
+///////////////////////////
+// CPU water query (spec §4.3)
+///////////////////////////
+
+
+
+
+
 
 void Pasture3D::_setup_displacement_buffer() {
 	if (!is_inside_tree()) {
@@ -768,22 +743,10 @@ Vector3 Pasture3D::get_collision_target_position() const {
 	return V3_ZERO;
 }
 
-void Pasture3D::set_ocean_light_target(Node3D *p_node) {
-	if (_ocean_light_target.ptr() != p_node) {
-		LOG(INFO, "Setting directional light target: ", p_node);
-		_ocean_light_target.set_target(p_node);
-		if (_ocean_light_target.is_valid()) {
-			set_physics_process(true);
-		}
-	}
-}
 
 void Pasture3D::snap() {
 	if (_terrain_mesher) {
 		_terrain_mesher->reset_target_position();
-	}
-	if (_ocean_enabled && _ocean_mesher) {
-		_ocean_mesher->reset_target_position();
 	}
 	if (_collision) {
 		_collision->reset_target_position();
@@ -858,6 +821,7 @@ void Pasture3D::set_cull_margin(const real_t p_margin) {
 void Pasture3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
 	SET_IF_DIFF(_cast_shadows, p_cast_shadows);
 	if (_terrain_mesher) {
+		_terrain_mesher->set_cast_shadows(_cast_shadows);
 		_terrain_mesher->update();
 	}
 }
@@ -865,6 +829,7 @@ void Pasture3D::set_cast_shadows(const RenderingServer::ShadowCastingSetting p_c
 void Pasture3D::set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
 	SET_IF_DIFF(_gi_mode, p_gi_mode);
 	if (_terrain_mesher) {
+		_terrain_mesher->set_gi_mode(_gi_mode);
 		_terrain_mesher->update();
 	}
 }
@@ -880,96 +845,26 @@ void Pasture3D::set_render_layers(const uint32_t p_layers) {
 	}
 }
 
-void Pasture3D::set_ocean_enabled(const bool p_enabled) {
-	SET_IF_DIFF(_ocean_enabled, p_enabled);
-	LOG(INFO, "Setting ocean enabled: ", _ocean_enabled);
-	if (_ocean_enabled) {
-		if (_ocean_material.is_null()) {
-			String ocean_mat_path = ProjectSettings::get_singleton()->globalize_path(OCEAN_MATERIAL_PATH);
-			ResourceLoader *rl = ResourceLoader::get_singleton();
-			if (rl->exists(ocean_mat_path)) {
-				Ref<ShaderMaterial> ocean_mat = rl->load(ocean_mat_path);
-				if (ocean_mat.is_valid()) {
-					_ocean_material = ocean_mat;
-				}
-			}
-		}
-		_setup_ocean_mesher();
-	} else {
-		_destroy_ocean_mesher(false);
-	}
-	notify_property_list_changed();
-}
 
-void Pasture3D::set_ocean_mesh_lods(const int p_count) {
-	SET_IF_DIFF(_ocean_mesh_lods, CLAMP(p_count, 1, 10));
-	LOG(INFO, "Setting ocean mesh levels: ", _ocean_mesh_lods);
-	if (_ocean_enabled) {
-		_setup_ocean_mesher();
-	}
-}
 
-void Pasture3D::set_ocean_tessellation_level(const int p_level) {
-	SET_IF_DIFF(_ocean_tessellation_level, CLAMP(p_level, 0, 6));
-	LOG(INFO, "Setting ocean tessellation level: ", p_level);
-	if (_ocean_enabled) {
-		_setup_ocean_mesher();
-	}
-}
 
-void Pasture3D::set_ocean_mesh_size(const int p_size) {
-	SET_IF_DIFF(_ocean_mesh_size, CLAMP(p_size & ~1, 8, 256)); // Ensure even
-	LOG(INFO, "Setting ocean mesh size: ", _ocean_mesh_size);
-	if (_ocean_enabled) {
-		_setup_ocean_mesher();
-	}
-}
 
-void Pasture3D::set_ocean_vertex_spacing(const real_t p_spacing) {
-	SET_IF_DIFF(_ocean_vertex_spacing, CLAMP(p_spacing, 0.25f, 100.0f));
-	LOG(INFO, "Setting ocean vertex spacing: ", _ocean_vertex_spacing);
-	if (_ocean_enabled) {
-		_setup_ocean_mesher();
-	}
-}
 
-void Pasture3D::set_ocean_cull_margin(const real_t p_margin) {
-	SET_IF_DIFF(_ocean_cull_margin, CLAMP(p_margin, 0.f, 100000.f));
-	LOG(INFO, "Setting extra cull margin: ", _ocean_cull_margin);
-	if (_ocean_mesher) {
-		_ocean_mesher->update_aabbs(_ocean_cull_margin, V2_ZERO);
-	}
-}
 
-void Pasture3D::set_ocean_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) {
-	SET_IF_DIFF(_ocean_cast_shadows, p_cast_shadows);
-	if (_ocean_mesher) {
-		_ocean_mesher->update();
-	}
-}
 
-void Pasture3D::set_ocean_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) {
-	SET_IF_DIFF(_ocean_gi_mode, p_gi_mode);
-	if (_ocean_mesher) {
-		_ocean_mesher->update();
-	}
-}
 
-void Pasture3D::set_ocean_render_layers(const uint32_t p_layers) {
-	SET_IF_DIFF(_ocean_render_layers, p_layers);
-	LOG(INFO, "Setting ocean render layers to: ", p_layers);
-	if (_ocean_enabled) {
-		_setup_ocean_mesher();
-	}
-}
 
-void Pasture3D::set_ocean_material(const Ref<Material> &p_material) {
-	SET_IF_DIFF(_ocean_material, p_material);
-	LOG(INFO, "Setting ocean material");
-	if (_ocean_enabled) {
-		_setup_ocean_mesher();
-	}
-}
+
+
+// Wave knobs. Each rebuilds the table and re-uploads; WaterWaves change-detects
+// internally, so setting a knob to its current value costs nothing.
+
+
+
+
+
+
+
 
 void Pasture3D::set_mouse_layer(const uint32_t p_layer) {
 	SET_IF_DIFF(_mouse_layer, CLAMP(p_layer, 21, 32));
@@ -1188,7 +1083,246 @@ PackedStringArray Pasture3D::_get_configuration_warnings() const {
 	if (_warnings & WARN_MISMATCHED_MIPMAPS) {
 		psa.push_back("Texture mipmap settings don't match. Change on the Import panel.");
 	}
+	// Scenes saved before Phase 2 of the water-bodies work carry ocean_* properties
+	// this node no longer has. They are captured rather than dropped (see _set), so
+	// the settings survive until the user converts them -- but silence would let
+	// somebody open, save, and lose an ocean without ever being told.
+	if (!_legacy_ocean.is_empty()) {
+		psa.push_back("This scene's ocean settings predate Pasture3DOcean. Press \"Migrate Ocean\" to "
+					  "convert them into a Pasture3DPoolManager + Pasture3DOcean, or clear them with "
+					  "\"Discard Legacy Ocean\". They are preserved until you do.");
+	}
 	return psa;
+}
+
+///////////////////////////
+// Legacy ocean migration (WATER_BODIES_SPEC section 6.4)
+///////////////////////////
+
+/**
+ * Captures ocean_* out of a scene saved before Phase 2 instead of letting it fall on
+ * the floor.
+ *
+ * Godot hands unknown properties to _set() during scene load and drops them if it
+ * returns false. Dropping them is the obvious thing and it is wrong: the user opens
+ * an old scene, sees a warning, saves for any unrelated reason, and their ocean is
+ * gone before they have read the warning. So they are held here, reported by
+ * _get_configuration_warnings(), converted by migrate_ocean(), and only then
+ * cleared.
+ *
+ * They are NOT re-serialised on save -- _get() answers for them so an inspector or a
+ * script can read them back, but they are not in _get_property_list(), so a re-saved
+ * scene loses them. That is deliberate: the holding pen exists to survive until the
+ * user converts them, not to become a second place ocean settings live forever.
+ */
+bool Pasture3D::_set(const StringName &p_name, const Variant &p_value) {
+	String name = p_name;
+	if (name.begins_with("ocean_")) {
+		_legacy_ocean[name] = p_value;
+		LOG(DEBUG, "Captured legacy ocean property: ", name);
+		return true;
+	}
+	return false;
+}
+
+bool Pasture3D::_get(const StringName &p_name, Variant &r_ret) const {
+	String name = p_name;
+	if (_legacy_ocean.has(name)) {
+		r_ret = _legacy_ocean[name];
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Builds a Pasture3DPoolManager + Pasture3DOcean from the captured settings.
+ *
+ * Everything geometric transfers one-for-one. The two that do not:
+ *
+ *   - ocean_wave_* become a Pasture3DWaveProfile on the manager, named after this
+ *     terrain, because the ocean's wave table stopped being privileged.
+ *   - sea_level was a uniform on the ocean material and is now the Pasture3DOcean's Y, so
+ *     it is read off the material once, here, and applied as a position.
+ *
+ * The nodes are added as siblings of this terrain, and their `owner` is set to the
+ * edited scene root, which is what makes them serialise. Without that the user
+ * presses the button, sees two new nodes, saves, and loses them again -- a worse
+ * outcome than not migrating at all, because the legacy dictionary has been cleared
+ * by then.
+ *
+ * NOT wired into EditorUndoRedoManager. Pressing the button is undone by deleting the
+ * two nodes, which is what the user would do anyway; the same limitation is
+ * documented for the landscape brushes' repaints in PASTURE3D_LANDSCAPE_TOOLS_SPEC.md
+ * §9. This is a deviation from the spec's §6.4, recorded in §11.3.
+ */
+Node *Pasture3D::migrate_ocean() {
+	if (_legacy_ocean.is_empty()) {
+		LOG(INFO, "No legacy ocean settings to migrate");
+		return nullptr;
+	}
+	Node *parent = get_parent();
+	if (!parent) {
+		LOG(ERROR, "Cannot migrate an ocean on a terrain with no parent");
+		return nullptr;
+	}
+
+	// One manager per scene. Reuse whatever is already driving the clock rather than
+	// adding a second, which would be a configuration warning on both.
+	Pasture3DPoolManager *manager = Pasture3DPoolManager::get_active_manager();
+	bool made_manager = false;
+	if (!manager) {
+		manager = memnew(Pasture3DPoolManager);
+		manager->set_name("Pasture3DPoolManager");
+		parent->add_child(manager, true);
+		made_manager = true;
+	}
+
+	Ref<Pasture3DWaveProfile> profile;
+	profile.instantiate();
+	profile->set_profile_name(StringName(String(get_name()) + "_ocean"));
+	if (_legacy_ocean.has("ocean_wave_count")) {
+		profile->set_wave_count((int)_legacy_ocean["ocean_wave_count"]);
+	}
+	if (_legacy_ocean.has("ocean_wave_direction")) {
+		profile->set_direction_deg((real_t)_legacy_ocean["ocean_wave_direction"]);
+	}
+	if (_legacy_ocean.has("ocean_wave_spread")) {
+		profile->set_spread_deg((real_t)_legacy_ocean["ocean_wave_spread"]);
+	}
+	if (_legacy_ocean.has("ocean_wave_amplitude")) {
+		profile->set_amplitude((real_t)_legacy_ocean["ocean_wave_amplitude"]);
+	}
+	if (_legacy_ocean.has("ocean_wave_length_max")) {
+		profile->set_length_max((real_t)_legacy_ocean["ocean_wave_length_max"]);
+	}
+	if (_legacy_ocean.has("ocean_wave_steepness")) {
+		profile->set_steepness((real_t)_legacy_ocean["ocean_wave_steepness"]);
+	}
+	// The wave loop period was the ocean's and is now the manager's, so it moves
+	// rather than transferring: a scene that had one keeps its timing.
+	if (_legacy_ocean.has("ocean_wave_loop_period")) {
+		manager->set_loop_period((real_t)_legacy_ocean["ocean_wave_loop_period"]);
+	}
+	TypedArray<Pasture3DWaveProfile> profiles = manager->get_profiles();
+	profiles.push_back(profile);
+	manager->set_profiles(profiles);
+
+	if (_legacy_ocean.has("ocean_light_target")) {
+		// Comes through in one of two shapes, and the Phase 2 gate caught the
+		// difference: a plainly-assigned property arrives as a NodePath, but a scene
+		// that declared the property in `node_paths=PackedStringArray(...)` -- which
+		// is how the editor saves an exported Node property -- has the loader RESOLVE
+		// the path and hand _set() the Node itself. Coercing that Object to a
+		// NodePath gives an empty path, which is why the migrated ocean lost its sun.
+		Variant lt = _legacy_ocean["ocean_light_target"];
+		Node *light = nullptr;
+		if (lt.get_type() == Variant::OBJECT) {
+			light = Object::cast_to<Node>(lt);
+		} else if (lt.get_type() == Variant::NODE_PATH) {
+			light = get_node_or_null((NodePath)lt);
+		}
+		if (light) {
+			manager->set_sun_light(Object::cast_to<Node3D>(light));
+		}
+	}
+
+	Pasture3DOcean *ocean = memnew(Pasture3DOcean);
+	ocean->set_name(String(get_name()) + "Ocean");
+	parent->add_child(ocean, true);
+	ocean->set_wave_profile(profile->get_profile_name());
+
+	if (_legacy_ocean.has("ocean_material")) {
+		Ref<Material> mat = _legacy_ocean["ocean_material"];
+		ocean->set_material(mat);
+		// sea_level was a material uniform and is the node's Y now. Read it once
+		// here so a migrated ocean lands at the height it used to draw at rather
+		// than at zero.
+		ShaderMaterial *sm = Object::cast_to<ShaderMaterial>(mat.ptr());
+		if (sm) {
+			Variant v = sm->get_shader_parameter("sea_level");
+			if (v.get_type() != Variant::NIL) {
+				ocean->set_global_position(Vector3(0.f, (real_t)v, 0.f));
+			}
+		}
+	}
+	if (_legacy_ocean.has("ocean_mesh_lods")) {
+		ocean->set_mesh_lods((int)_legacy_ocean["ocean_mesh_lods"]);
+	}
+	if (_legacy_ocean.has("ocean_mesh_size")) {
+		ocean->set_mesh_size((int)_legacy_ocean["ocean_mesh_size"]);
+	}
+	if (_legacy_ocean.has("ocean_tessellation_level")) {
+		ocean->set_tessellation_level((int)_legacy_ocean["ocean_tessellation_level"]);
+	}
+	if (_legacy_ocean.has("ocean_vertex_spacing")) {
+		ocean->set_vertex_spacing((real_t)_legacy_ocean["ocean_vertex_spacing"]);
+	}
+	if (_legacy_ocean.has("ocean_cull_margin")) {
+		ocean->set_cull_margin((real_t)_legacy_ocean["ocean_cull_margin"]);
+	}
+	if (_legacy_ocean.has("ocean_cast_shadows")) {
+		ocean->set_cast_shadows((RenderingServer::ShadowCastingSetting)(int)_legacy_ocean["ocean_cast_shadows"]);
+	}
+	if (_legacy_ocean.has("ocean_gi_mode")) {
+		ocean->set_gi_mode((GeometryInstance3D::GIMode)(int)_legacy_ocean["ocean_gi_mode"]);
+	}
+	if (_legacy_ocean.has("ocean_render_layers")) {
+		ocean->set_render_layers((uint32_t)(int64_t)_legacy_ocean["ocean_render_layers"]);
+	}
+	if (_legacy_ocean.has("ocean_domain_origin")) {
+		ocean->set_domain_origin((Vector3)_legacy_ocean["ocean_domain_origin"]);
+	}
+	// The terrain's clipmap target is the obvious thing for the ocean to follow too.
+	if (_clipmap_target.is_valid()) {
+		ocean->set_clipmap_target(_clipmap_target.ptr());
+	}
+	if (_legacy_ocean.has("ocean_enabled")) {
+		ocean->set_enabled((bool)_legacy_ocean["ocean_enabled"]);
+	}
+
+	// Owner, or none of this survives a save. In a running game there is no edited
+	// scene root and nothing to serialise into, so this is editor-only.
+	if (Engine::get_singleton()->is_editor_hint()) {
+		EditorInterface *ei = EditorInterface::get_singleton();
+		Node *scene_root = ei ? ei->get_edited_scene_root() : nullptr;
+		if (scene_root) {
+			ocean->set_owner(scene_root);
+			if (made_manager) {
+				manager->set_owner(scene_root);
+			}
+		} else {
+			LOG(WARN, "No edited scene root; the migrated nodes will not be saved with the scene");
+		}
+	}
+
+	LOG(INFO, "Migrated legacy ocean to ", ocean->get_name(),
+			made_manager ? " (created a Pasture3DPoolManager)" : " (reused the existing Pasture3DPoolManager)");
+	_legacy_ocean.clear();
+	update_configuration_warnings();
+	return ocean;
+}
+
+Callable Pasture3D::get_migrate_ocean_button() const {
+	return callable_mp(const_cast<Pasture3D *>(this), &Pasture3D::migrate_ocean);
+}
+
+Callable Pasture3D::get_discard_legacy_ocean_button() const {
+	return callable_mp(const_cast<Pasture3D *>(this), &Pasture3D::discard_legacy_ocean);
+}
+
+void Pasture3D::discard_legacy_ocean() {
+	_legacy_ocean.clear();
+	update_configuration_warnings();
+}
+
+/**
+ * The terrain's own height range, for the clipmap's cull AABBs.
+ *
+ * Was read straight off _data inside the mesher; it comes through the host
+ * interface now so a Pasture3DOcean can answer the same question differently.
+ */
+Vector2 Pasture3D::get_default_height_range() const {
+	return _data ? _data->get_height_range() : Vector2();
 }
 
 ///////////////////////////
@@ -1254,6 +1388,17 @@ void Pasture3D::_notification(const int p_what) {
 			//test_layer_control_color();
 			//test_layer_region_size_change();
 
+			// Opt-in runner, so a suite can be run without editing and rebuilding the
+			// extension. `PASTURE3D_UNIT_TESTS=water` selects the water parity suite;
+			// unset (the normal case) runs nothing. The water suite is a gate for
+			// spec §4.3, and a gate is only worth anything if it is reproducible.
+			{
+				const String suites = OS::get_singleton()->get_environment("PASTURE3D_UNIT_TESTS");
+				if (suites.contains("water")) {
+					test_water_waves();
+				}
+			}
+
 			// Clear editor textures - also see ENTER_TREE
 			if (_free_editor_textures && !IS_EDITOR && _assets.is_valid()) {
 				if (_assets->get_path().contains("Pasture3DAssets")) {
@@ -1287,9 +1432,6 @@ void Pasture3D::_notification(const int p_what) {
 			LOG(INFO, "NOTIFICATION_VISIBILITY_CHANGED");
 			if (_terrain_mesher) {
 				_terrain_mesher->update();
-			}
-			if (_ocean_mesher) {
-				_ocean_mesher->update();
 			}
 			if (_instancer) {
 				if (!is_visible_in_tree()) {
@@ -1350,7 +1492,6 @@ void Pasture3D::_notification(const int p_what) {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			set_physics_process(false);
 			_destroy_terrain_mesher();
-			_destroy_ocean_mesher();
 			_destroy_instancer();
 			_destroy_mouse_picking();
 			_destroy_displacement_buffer();
@@ -1376,7 +1517,6 @@ void Pasture3D::_notification(const int p_what) {
 			// Object is about to be deleted
 			LOG(INFO, "NOTIFICATION_PREDELETE");
 			_destroy_terrain_mesher(true);
-			_destroy_ocean_mesher(true);
 			_destroy_instancer();
 			_destroy_collision(true);
 			_assets.unref();
@@ -1393,6 +1533,15 @@ void Pasture3D::_notification(const int p_what) {
 }
 
 void Pasture3D::_validate_property(PropertyInfo &p_property) const {
+	// The migration buttons are noise on a terrain that has no legacy ocean, which
+	// is every terrain created after Phase 2.
+	if (p_property.name == StringName("migrate_ocean_button") ||
+			p_property.name == StringName("discard_legacy_ocean_button")) {
+		if (_legacy_ocean.is_empty()) {
+			p_property.usage = PROPERTY_USAGE_NONE;
+		}
+		return;
+	}
 	if (_tessellation_level == 0) {
 		// Hide all displacement properties
 		if (p_property.name == StringName("displacement_scale") ||
@@ -1401,11 +1550,6 @@ void Pasture3D::_validate_property(PropertyInfo &p_property) const {
 				p_property.name == StringName("buffer_shader_override")) {
 			p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 		}
-	}
-	// Hide all ocean properties if not enabled
-	if (!_ocean_enabled && p_property.name != StringName("ocean_enabled") &&
-			p_property.name.begins_with("ocean_")) {
-		p_property.usage = PROPERTY_USAGE_NO_EDITOR;
 	}
 }
 
@@ -1462,9 +1606,13 @@ void Pasture3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_collision_target", "node"), &Pasture3D::set_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target"), &Pasture3D::get_collision_target);
 	ClassDB::bind_method(D_METHOD("get_collision_target_position"), &Pasture3D::get_collision_target_position);
-	ClassDB::bind_method(D_METHOD("set_ocean_light_target", "node"), &Pasture3D::set_ocean_light_target);
-	ClassDB::bind_method(D_METHOD("get_ocean_light_target"), &Pasture3D::get_ocean_light_target);
 	ClassDB::bind_method(D_METHOD("snap"), &Pasture3D::snap);
+	ClassDB::bind_method(D_METHOD("migrate_ocean"), &Pasture3D::migrate_ocean);
+	ClassDB::bind_method(D_METHOD("discard_legacy_ocean"), &Pasture3D::discard_legacy_ocean);
+	ClassDB::bind_method(D_METHOD("has_legacy_ocean"), &Pasture3D::has_legacy_ocean);
+	ClassDB::bind_method(D_METHOD("get_legacy_ocean"), &Pasture3D::get_legacy_ocean);
+	ClassDB::bind_method(D_METHOD("get_migrate_ocean_button"), &Pasture3D::get_migrate_ocean_button);
+	ClassDB::bind_method(D_METHOD("get_discard_legacy_ocean_button"), &Pasture3D::get_discard_legacy_ocean_button);
 
 	// Collision
 	ClassDB::bind_method(D_METHOD("set_collision_mode", "mode"), &Pasture3D::set_collision_mode);
@@ -1511,26 +1659,6 @@ void Pasture3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_buffer_shader_override"), &Pasture3D::get_buffer_shader_override);
 
 	// Ocean Mesh
-	ClassDB::bind_method(D_METHOD("set_ocean_enabled", "enabled"), &Pasture3D::set_ocean_enabled);
-	ClassDB::bind_method(D_METHOD("is_ocean_enabled"), &Pasture3D::is_ocean_enabled);
-	ClassDB::bind_method(D_METHOD("set_ocean_mesh_lods", "count"), &Pasture3D::set_ocean_mesh_lods);
-	ClassDB::bind_method(D_METHOD("get_ocean_mesh_lods"), &Pasture3D::get_ocean_mesh_lods);
-	ClassDB::bind_method(D_METHOD("set_ocean_tessellation_level", "size"), &Pasture3D::set_ocean_tessellation_level);
-	ClassDB::bind_method(D_METHOD("get_ocean_tessellation_level"), &Pasture3D::get_ocean_tessellation_level);
-	ClassDB::bind_method(D_METHOD("set_ocean_mesh_size", "size"), &Pasture3D::set_ocean_mesh_size);
-	ClassDB::bind_method(D_METHOD("get_ocean_mesh_size"), &Pasture3D::get_ocean_mesh_size);
-	ClassDB::bind_method(D_METHOD("set_ocean_vertex_spacing", "scale"), &Pasture3D::set_ocean_vertex_spacing);
-	ClassDB::bind_method(D_METHOD("get_ocean_vertex_spacing"), &Pasture3D::get_ocean_vertex_spacing);
-	ClassDB::bind_method(D_METHOD("set_ocean_cull_margin", "margin"), &Pasture3D::set_ocean_cull_margin);
-	ClassDB::bind_method(D_METHOD("get_ocean_cull_margin"), &Pasture3D::get_ocean_cull_margin);
-	ClassDB::bind_method(D_METHOD("set_ocean_cast_shadows", "shadow_casting_setting"), &Pasture3D::set_ocean_cast_shadows);
-	ClassDB::bind_method(D_METHOD("get_ocean_cast_shadows"), &Pasture3D::get_ocean_cast_shadows);
-	ClassDB::bind_method(D_METHOD("set_ocean_gi_mode", "gi_mode"), &Pasture3D::set_ocean_gi_mode);
-	ClassDB::bind_method(D_METHOD("get_ocean_gi_mode"), &Pasture3D::get_ocean_gi_mode);
-	ClassDB::bind_method(D_METHOD("set_ocean_render_layers", "layers"), &Pasture3D::set_ocean_render_layers);
-	ClassDB::bind_method(D_METHOD("get_ocean_render_layers"), &Pasture3D::get_ocean_render_layers);
-	ClassDB::bind_method(D_METHOD("set_ocean_material", "material"), &Pasture3D::set_ocean_material);
-	ClassDB::bind_method(D_METHOD("get_ocean_material"), &Pasture3D::get_ocean_material);
 
 	// Rendering
 	ClassDB::bind_method(D_METHOD("set_mouse_layer", "layer"), &Pasture3D::set_mouse_layer);
@@ -1625,6 +1753,12 @@ void Pasture3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "collision_priority", PROPERTY_HINT_RANGE, "0.1,256,.1"), "set_collision_priority", "get_collision_priority");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "physics_material", PROPERTY_HINT_RESOURCE_TYPE, "PhysicsMaterial"), "set_physics_material", "get_physics_material");
 
+	// Only shown when a pre-Phase-2 scene left ocean_* behind; see _validate_property.
+	ADD_PROPERTY(PropertyInfo(Variant::CALLABLE, "migrate_ocean_button", PROPERTY_HINT_TOOL_BUTTON, "Migrate Ocean to Pasture3DOcean"),
+			"", "get_migrate_ocean_button");
+	ADD_PROPERTY(PropertyInfo(Variant::CALLABLE, "discard_legacy_ocean_button", PROPERTY_HINT_TOOL_BUTTON, "Discard Legacy Ocean"),
+			"", "get_discard_legacy_ocean_button");
+
 	ADD_GROUP("Terrain Mesh", "");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "clipmap_target", PROPERTY_HINT_NODE_TYPE, "Node3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_clipmap_target", "get_clipmap_target");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_mesh_lods", "get_mesh_lods");
@@ -1642,18 +1776,7 @@ void Pasture3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "buffer_shader_override_enabled"), "set_buffer_shader_override_enabled", "is_buffer_shader_override_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "buffer_shader_override", PROPERTY_HINT_RESOURCE_TYPE, "Shader"), "set_buffer_shader_override", "get_buffer_shader_override");
 
-	ADD_GROUP("Ocean Mesh", "ocean_");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "ocean_enabled"), "set_ocean_enabled", "is_ocean_enabled");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_mesh_lods", PROPERTY_HINT_RANGE, "1,10,1"), "set_ocean_mesh_lods", "get_ocean_mesh_lods");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_tessellation_level", PROPERTY_HINT_RANGE, "0,6,1"), "set_ocean_tessellation_level", "get_ocean_tessellation_level");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_mesh_size", PROPERTY_HINT_RANGE, "8,256,2"), "set_ocean_mesh_size", "get_ocean_mesh_size");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_vertex_spacing", PROPERTY_HINT_RANGE, "0.25,10.0,0.05,or_greater"), "set_ocean_vertex_spacing", "get_ocean_vertex_spacing");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "ocean_cull_margin", PROPERTY_HINT_RANGE, "0.0,10000.0,.5,or_greater"), "set_ocean_cull_margin", "get_ocean_cull_margin");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_cast_shadows", PROPERTY_HINT_ENUM, "Off,On,Double-Sided,Shadows Only"), "set_ocean_cast_shadows", "get_ocean_cast_shadows");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_gi_mode", PROPERTY_HINT_ENUM, "Disabled,Static,Dynamic"), "set_ocean_gi_mode", "get_ocean_gi_mode");
-	ADD_PROPERTY(PropertyInfo(Variant::INT, "ocean_render_layers", PROPERTY_HINT_LAYERS_3D_RENDER), "set_ocean_render_layers", "get_ocean_render_layers");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_material", PROPERTY_HINT_RESOURCE_TYPE, "ShaderMaterial,BaseMaterial3D"), "set_ocean_material", "get_ocean_material");
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "ocean_light_target", PROPERTY_HINT_NODE_TYPE, "DirectionalLight3D", PROPERTY_USAGE_DEFAULT, "Node3D"), "set_ocean_light_target", "get_ocean_light_target");
+	// was compiled with -- extra waves are uploaded but never read.
 
 	ADD_GROUP("Rendering", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "mouse_layer", PROPERTY_HINT_RANGE, "21, 32"), "set_mouse_layer", "get_mouse_layer");

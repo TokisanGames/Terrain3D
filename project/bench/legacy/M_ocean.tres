@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://cgk4glwmc4vk2"]
 
-[ext_resource type="Shader" uid="uid://biawd3fhk5weg" path="res://addons/pasture_3d/extras/shaders/ocean_shader.gdshader" id="1_t7ju5"]
+[ext_resource type="Shader" uid="uid://biawd3fhk5weg" path="res://bench/legacy/ocean_shader.gdshader" id="1_t7ju5"]
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_m6kh4"]
 noise_type = 2
@@ -18,9 +18,9 @@ seamless = true
 [resource]
 render_priority = 0
 shader = ExtResource("1_t7ju5")
-shader_parameter/sea_level = 5.000000819565997
+shader_parameter/sea_level = 3.165002525337499
 shader_parameter/water_color = Color(0.1058, 0.1568, 0.2117, 1)
-shader_parameter/visible_depth = 256.0
+shader_parameter/visible_depth = 64.0010009537243
 shader_parameter/depth_curve = 0.1
 shader_parameter/shore_blend = 0.999999977648
 shader_parameter/refraction_strength = 0.02
@@ -31,11 +31,11 @@ shader_parameter/fresnel_scale = 0.5
 shader_parameter/fresnel_power = 1.0
 shader_parameter/specular = 1.0
 shader_parameter/foam_enabled = true
-shader_parameter/foam_height = 1.350000064125
+shader_parameter/foam_height = 2.5
 shader_parameter/foam_top_intensity = 2.0
-shader_parameter/foam_distance = 3072.00014591674
+shader_parameter/foam_distance = 2048.0
 shader_parameter/foam_shore_enabled = true
-shader_parameter/foam_shore_intensity = 1.30000005849012
+shader_parameter/foam_shore_intensity = 2.0
 shader_parameter/foam_noise_texture = SubResource("NoiseTexture2D_i2r35")
 shader_parameter/foam_noise_scale = 1.5
 shader_parameter/light_scattering_enabled = true

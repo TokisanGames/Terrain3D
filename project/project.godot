@@ -48,3 +48,22 @@ import/blender/enabled=false
 
 textures/vram_compression/import_etc2_astc=true
 occlusion_culling/use_occlusion_culling=true
+
+[shader_globals]
+
+water_time={
+"type": "float",
+"value": 0.0
+}
+water_sun_direction={
+"type": "vec3",
+"value": Vector3(0, -1, 0)
+}
+water_sun_color={
+"type": "vec3",
+"value": Vector3(1, 1, 1)
+}
+water_time_period={
+"type": "float",
+"value": 120.0
+}

@@ -12,6 +12,10 @@
 #include "pasture_3d_editor.h"
 #include "pasture_3d_layer.h"
 #include "pasture_3d_layer_stack.h"
+#include "pasture_3d_buoy.h"
+#include "pasture_3d_ocean.h"
+#include "pasture_3d_wave_profile.h"
+#include "pasture_3d_pool_manager.h"
 
 void initialize_pasture_3d_module(ModuleInitializationLevel p_level) {
 	if (p_level != MODULE_INITIALIZATION_LEVEL_SCENE) {
@@ -30,6 +34,13 @@ void initialize_pasture_3d_module(ModuleInitializationLevel p_level) {
 	ClassDB::register_class<Pasture3DRegion>();
 	ClassDB::register_class<Pasture3DTextureAsset>();
 	ClassDB::register_class<Pasture3DUtil>();
+	// Water bodies (PASTURE3D_WATER_BODIES_SPEC.md). The profile must be registered
+	// before the manager: the manager exports a TypedArray of it, and the property
+	// hint names the class by string.
+	ClassDB::register_class<Pasture3DWaveProfile>();
+	ClassDB::register_class<Pasture3DPoolManager>();
+	ClassDB::register_class<Pasture3DOcean>();
+	ClassDB::register_class<Pasture3DBuoy>();
 
 	// Backward-compat: keep legacy Terrain3D* resource names loadable (see pasture_3d_compat.h).
 	ClassDB::register_class<Terrain3DRegion>();

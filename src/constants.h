@@ -16,7 +16,10 @@ using namespace godot;
 #endif
 
 // File Paths (e.g. extras)
-#define OCEAN_MATERIAL_PATH "res://addons/pasture_3d/extras/shaders/M_ocean.tres"
+// The high tier. Projects that need the cheap one assign M_water_ocean_low.tres
+// to ocean_material; it is a separate shader rather than this one with features
+// turned down, so the cut work is not branched over at runtime (spec §6).
+#define OCEAN_MATERIAL_PATH "res://addons/pasture_3d/extras/shaders/water/M_water_ocean.tres"
 
 // Engine Shortcuts
 #define RS RenderingServer::get_singleton()

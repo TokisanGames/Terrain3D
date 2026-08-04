@@ -1,0 +1,42 @@
+[gd_resource type="ShaderMaterial" format=4 uid="uid://c088g1lo2b37b"]
+
+[ext_resource type="Shader" uid="uid://uack7dnt7ego" path="res://addons/pasture_3d/extras/shaders/water/water_river.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://dtowtl3jy30s8" path="res://addons/pasture_3d/extras/shaders/water/OceanDetail.png" id="2_deriv"]
+[ext_resource type="Texture2D" uid="uid://dps0nipf3at3t" path="res://addons/pasture_3d/extras/shaders/water/HeightOceanFoam.png" id="3_foam"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/absorption = Vector3(0.6, 0.35, 0.45)
+shader_parameter/deep_color = Color(0.05, 0.09, 0.08, 1)
+shader_parameter/_waves = PackedVector4Array(1, 0, 0.06107, 10.17785, 0.99112, -0.13294, 0.04302, 7.16928, 0.99661, 0.08231, 0.03005, 5.00844, 1, 0, 0, 10, 1, 0, 0, 10, 1, 0, 0, 10, 1, 0, 0, 10, 1, 0, 0, 10)
+shader_parameter/wave_steepness = 0.12
+shader_parameter/base_roughness = 0.06
+shader_parameter/specular_amount = 0.5
+shader_parameter/variance_to_roughness = 0.5
+shader_parameter/detail_deriv = ExtResource("2_deriv")
+shader_parameter/detail_strength = 0.3
+shader_parameter/detail_scale0 = 0.35
+shader_parameter/detail_scale1 = 0.13
+shader_parameter/detail_flow0 = Vector2(0.14, 0.05)
+shader_parameter/detail_flow1 = Vector2(-0.08, 0.11)
+shader_parameter/detail_fade_start = 40.0
+shader_parameter/detail_fade_end = 200.0
+shader_parameter/flow_period = 4.20000005513444
+shader_parameter/flow_speed_scale = 8.0
+shader_parameter/flow_quantise = true
+shader_parameter/ripple_amplitude = 0.6999999843536
+shader_parameter/ripple_frequency = 0.08999999985098
+shader_parameter/ripple_speed_ref = 2.5
+shader_parameter/ripple_bank_fade = 0.5499999877064
+shader_parameter/chop_amplitude = 0.25499999430024
+shader_parameter/chop_wavelength = 7.2500001043084
+shader_parameter/standing_amplitude = 0.12
+shader_parameter/standing_froude_onset = 0.9
+shader_parameter/standing_depth_ref = 1.0
+shader_parameter/foam_tex = ExtResource("3_foam")
+shader_parameter/foam_color = Color(0.9, 0.92, 0.94, 1)
+shader_parameter/foam_scale = 0.3
+shader_parameter/foam_roughness = 0.85
+shader_parameter/foam_shore_depth = 4.40000006556528
+shader_parameter/foam_shore_amount = 0.499999988824

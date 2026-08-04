@@ -8,6 +8,7 @@ extends EditorPlugin
 const Pasture3DUI: Script = preload("res://addons/pasture_3d/src/ui.gd")
 const Pasture3DLayersDock: Script = preload("res://addons/pasture_3d/src/layers_dock.gd")
 const Pasture3DBrushGizmo: Script = preload("res://addons/pasture_3d/src/brush_gizmo.gd")
+const Pasture3DPoolGizmo: Script = preload("res://addons/pasture_3d/src/pool_gizmo.gd")
 const ASSET_DOCK: String = "res://addons/pasture_3d/src/asset_dock.tscn"
 const ASSET_DOCK_45: String = "res://addons/pasture_3d/src/asset_dock_45.tscn"
 
@@ -19,6 +20,7 @@ var ui: Node # Pasture3DUI see Godot #75388
 var asset_dock: PanelContainer
 var layers_dock: PanelContainer
 var brush_gizmo: EditorNode3DGizmoPlugin # Clickable origin markers for brush nodes
+var pool_gizmo: EditorNode3DGizmoPlugin # Clickable markers floating over Pasture3DPool water
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
@@ -88,6 +90,45 @@ func _enter_tree() -> void:
 	# Clickable origin markers so brush nodes are easy to select in a busy scene.
 	brush_gizmo = Pasture3DBrushGizmo.new()
 	add_node_3d_gizmo_plugin(brush_gizmo)
+	# The same, for water bodies. A pool draws only an internal-child mesh, so without this there
+	# is nothing in the viewport to click that selects the pool itself.
+	pool_gizmo = Pasture3DPoolGizmo.new()
+	add_node_3d_gizmo_plugin(pool_gizmo)
+
+	_register_water_globals()
+
+
+# Water shaders read their clock and sun from global shader uniforms, so one write
+# drives every water body in the scene (PASTURE3D_WATER_SHADER_SPEC.md §2.3).
+#
+# These have to live in project.godot: the RenderingServer global table is built
+# from it at engine startup and nothing written later persists, which is what makes
+# the uniforms resolve in exported builds. RenderingServer.global_shader_parameter_add()
+# covers the current session only, and Pasture3D does it at runtime as a fallback.
+#
+# Writes project.godot, so it saves only when an entry is genuinely absent.
+func _register_water_globals() -> void:
+	const WATER_GLOBALS: Dictionary = {
+		"water_time": { "type": "float", "value": 0.0 },
+		"water_sun_direction": { "type": "vec3", "value": Vector3(0.0, -1.0, 0.0) },
+		"water_sun_color": { "type": "vec3", "value": Vector3(1.0, 1.0, 1.0) },
+		"water_time_period": { "type": "float", "value": 120.0 },
+	}
+	var added: PackedStringArray = []
+	for gname: String in WATER_GLOBALS:
+		var setting: String = "shader_globals/" + gname
+		if ProjectSettings.has_setting(setting):
+			continue
+		ProjectSettings.set_setting(setting, WATER_GLOBALS[gname])
+		added.append(gname)
+	if added.is_empty():
+		return
+	var err: int = ProjectSettings.save()
+	if err != OK:
+		push_warning("Pasture3D: could not save water shader globals to project.godot (error %d). " % err +
+			"Water will still run, but the uniforms will be re-registered every session.")
+	elif debug:
+		print("Pasture3DEditorPlugin: registered shader globals ", added)
 
 
 func _exit_tree() -> void:
@@ -99,6 +140,8 @@ func _exit_tree() -> void:
 	layers_dock.queue_free()
 	if brush_gizmo:
 		remove_node_3d_gizmo_plugin(brush_gizmo)
+	if pool_gizmo:
+		remove_node_3d_gizmo_plugin(pool_gizmo)
 	ui.queue_free()
 	editor.free()
 

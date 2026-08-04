@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/WaterBodiesPhase0Baseline.gd" id="1_baseline"]
+
+[node name="WaterBodiesPhase0Baseline" type="Node"]
+script = ExtResource("1_baseline")

@@ -8,8 +8,7 @@
 #include <godot_cpp/variant/rid.hpp>
 
 #include "constants.h"
-
-class Pasture3D;
+#include "pasture_3d_clipmap_host.h"
 
 class Pasture3DMesher {
 	CLASS_NAME_STATIC("Pasture3DMesher");
@@ -42,7 +41,9 @@ public: // Constants
 	};
 
 private:
-	Pasture3D *_terrain = nullptr;
+	// The owner. Was a Pasture3D *; narrowed to the six-method interface in Phase 2
+	// of the water-bodies work so Pasture3DOcean can own one too (WATER_BODIES_SPEC §6.2).
+	Pasture3DClipmapHost *_host = nullptr;
 	RID _scenario = RID();
 
 	// Shared, view-independent mesh resources
@@ -74,6 +75,14 @@ private:
 	int _mesh_size = 0;
 	real_t _vertex_spacing = 1.f;
 	uint32_t _render_layers = 1u; // Default single-view layer mask
+	// Owned here rather than read back off _terrain (spec §4.4). The ocean has its
+	// own cast_shadows / gi_mode properties, bound and shown in the inspector, and
+	// update() used to ignore them and apply the terrain's -- so the ocean silently
+	// inherited ON/STATIC over its own OFF/DISABLED defaults. Benign only for as
+	// long as the material stays transparent, which the shader header invites users
+	// to change.
+	RenderingServer::ShadowCastingSetting _cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON;
+	GeometryInstance3D::GIMode _gi_mode = GeometryInstance3D::GI_MODE_STATIC;
 
 	void _generate_mesh_types();
 	RID _generate_mesh(const Vector2i &p_size, const bool p_standard_grid = false);
@@ -91,9 +100,11 @@ public:
 	Pasture3DMesher() {}
 	~Pasture3DMesher() { destroy(); }
 
-	void initialize(Pasture3D *p_terrain, const int p_mesh_size, const int p_lods, const int p_tessellation_level,
+	void initialize(Pasture3DClipmapHost *p_host, const int p_mesh_size, const int p_lods, const int p_tessellation_level,
 			const real_t p_vertex_spacing, const RID &p_material, const uint32_t p_render_layers,
-			const bool p_uses_instance_target_pos = false);
+			const bool p_uses_instance_target_pos = false,
+			const RenderingServer::ShadowCastingSetting p_cast_shadows = RenderingServer::SHADOW_CASTING_SETTING_ON,
+			const GeometryInstance3D::GIMode p_gi_mode = GeometryInstance3D::GI_MODE_STATIC);
 	void destroy();
 
 	// Reconfigure the clipmap views. Empty input => one default view following the terrain's
@@ -103,6 +114,12 @@ public:
 
 	void snap();
 	void reset_target_position();
+	// Sets an `instance uniform` on every instance in every view. The ocean needs it
+	// for _water_domain_origin, which became per-instance in Phase 1 of the water
+	// bodies work so that a shared material can serve bodies in different places
+	// (WATER_BODIES_SPEC §5.4). material_set_param() does not reach an instance
+	// uniform, so this is the only route.
+	void set_instance_shader_param(const StringName &p_name, const Variant &p_value);
 	void update();
 	void update_aabbs(const real_t p_cull_margin = -1.f, const Vector2 &p_height_range = V2_MAX);
 
@@ -118,6 +135,12 @@ public:
 	real_t get_vertex_spacing() const { return _vertex_spacing; }
 	void set_render_layers(const uint32_t p_layers);
 	uint32_t get_render_layers() const { return _render_layers; }
+	// Callers apply these with update(); they are read there, not on assignment,
+	// because update() reapplies every instance property in one pass anyway.
+	void set_cast_shadows(const RenderingServer::ShadowCastingSetting p_cast_shadows) { _cast_shadows = p_cast_shadows; }
+	RenderingServer::ShadowCastingSetting get_cast_shadows() const { return _cast_shadows; }
+	void set_gi_mode(const GeometryInstance3D::GIMode p_gi_mode) { _gi_mode = p_gi_mode; }
+	GeometryInstance3D::GIMode get_gi_mode() const { return _gi_mode; }
 };
 // Inline Functions
 

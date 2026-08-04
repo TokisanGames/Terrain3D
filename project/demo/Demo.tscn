@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://domhm87hbhbg1" path="res://demo/components/Player.tscn" id="3_ht63y"]
 [ext_resource type="PackedScene" uid="uid://djhl3foqkj4e2" path="res://demo/components/Tunnel.tscn" id="3_kdh0b"]
 [ext_resource type="Pasture3DMaterial" uid="uid://ccvn15t8km0ft" path="res://demo/data/M_terrain.tres" id="5_fwrtk"]
-[ext_resource type="Material" uid="uid://cgk4glwmc4vk2" path="res://addons/pasture_3d/extras/shaders/M_ocean.tres" id="7_fwrtk"]
+[ext_resource type="Material" path="res://addons/pasture_3d/extras/shaders/water/M_water_ocean.tres" id="7_fwrtk"]
 [ext_resource type="PackedScene" uid="uid://d3sr0a7dxfkr8" path="res://addons/pasture_3d/extras/particle_example/Pasture3DParticles.tscn" id="8_fwrtk"]
 [ext_resource type="Pasture3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="8_g2of2"]
 
