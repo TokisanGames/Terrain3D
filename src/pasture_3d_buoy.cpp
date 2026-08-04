@@ -31,9 +31,16 @@ Node *Pasture3DBuoy::_resolve_body() {
 	Node *cached = _get_body();
 	_ticks_since_resolve++;
 	if (cached && _ticks_since_resolve < RESOLVE_INTERVAL) {
-		// Cheap check first: the cached body is still the answer as long as it still contains us.
-		// This is the exact polygon test, not a box, so leaving a lake is noticed on the tick it
-		// happens rather than up to RESOLVE_INTERVAL later.
+		// The cached body is still the answer as long as it still contains us. This is the exact
+		// test, not a box, so leaving a lake is noticed on the tick it happens rather than up to
+		// RESOLVE_INTERVAL later.
+		//
+		// It is NOT cheap, whatever this comment used to claim: contains_point() bottoms out in
+		// get_water_height(), so it runs the same 16-iteration Gerstner inverse the height sample
+		// below does. The two are the same query at the same position in the same frame, and
+		// Pasture3DWaterBody.get_water_height() memoises exactly that pair -- so the second one is
+		// free, but only because that memo is there. Anything that moves this call to a different
+		// position, or off the physics frame, pays for a whole second solve.
 		if (cached->has_method("contains_point")) {
 			bool still_in = cached->call("contains_point", get_global_position());
 			if (still_in) {
@@ -90,11 +97,29 @@ RigidBody3D *Pasture3DBuoy::_find_parent_body() const {
  * would otherwise have every boat float wrong by exactly that ratio.
  */
 real_t Pasture3DBuoy::_gravity() const {
+	return _gravity_cached;
+}
+
+/**
+ * Re-reads the project's gravity into the cache.
+ *
+ * Called on entering the tree rather than on every tick. apply_buoyancy() needs this value
+ * once per submerged buoy per physics frame, and resolving it through ProjectSettings each
+ * time meant hashing a 28-character String, walking the settings dictionary and unboxing a
+ * Variant -- 3840 times a second at the 64 buoys §9.3 budgets, for a number that describes
+ * the project rather than the frame.
+ *
+ * Entering the tree, and not once per process, so that a project which changes its gravity
+ * still gets it: the setting is read after the project is loaded, and any buoy spawned or
+ * re-parented afterwards picks up the current value.
+ */
+void Pasture3DBuoy::_refresh_gravity() {
 	ProjectSettings *settings = ProjectSettings::get_singleton();
 	if (!settings) {
-		return 9.80665f;
+		_gravity_cached = 9.80665f;
+		return;
 	}
-	return (real_t)(double)settings->get_setting("physics/3d/default_gravity", 9.80665);
+	_gravity_cached = (real_t)(double)settings->get_setting("physics/3d/default_gravity", 9.80665);
 }
 
 ///////////////////////////
@@ -329,6 +354,7 @@ void Pasture3DBuoy::_notification(int p_what) {
 		}
 		case NOTIFICATION_ENTER_TREE: {
 			_parent_body = _find_parent_body();
+			_refresh_gravity();
 			// Re-resolve on the first tick after entering rather than trusting a cached body from
 			// wherever this buoy was before.
 			_body_id = 0;
@@ -337,6 +363,19 @@ void Pasture3DBuoy::_notification(int p_what) {
 			break;
 		}
 		case NOTIFICATION_EXIT_TREE: {
+			// Drop this body's damping accumulator. _body_ticks is static -- it has to be,
+			// since the whole point is that every buoy on a hull shares one entry -- so
+			// without this it grew by one entry per RigidBody3D ever floated and never
+			// shrank. Instance ids are not reused, so a level reloaded fifty times leaked
+			// fifty entries, for the life of the process and across scene changes.
+			//
+			// Erasing eagerly rather than refcounting the buoys on the body: the entry is
+			// re-inserted on demand by apply_buoyancy(), so the worst a surviving sibling
+			// buoy suffers is one tick with frac_prev back at 0, which costs it one tick
+			// of angular damping. That value is already deliberately a tick stale.
+			if (_parent_body) {
+				_body_ticks.erase(_parent_body->get_instance_id());
+			}
 			_parent_body = nullptr;
 			_held_valid = false;
 			break;

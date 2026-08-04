@@ -135,11 +135,17 @@ void WaterWaves::update() {
 	float length_min = MIN(MIN_WAVELENGTH, length_max * 0.5f);
 	float ratio = (_count > 1) ? std::pow(length_min / length_max, 1.0f / float(_count - 1)) : 1.0f;
 
+	_amp_sum = 0.0f;
 	for (int i = 0; i < WATER_MAX_WAVES; i++) {
 		if (i >= _count) {
 			// Inert: the shader weights steepness by amplitude, so a zero here
-			// contributes nothing to position, normal or jacobian.
+			// contributes nothing to position, normal or jacobian. w and omega are
+			// still filled in below rather than left at zero -- the evaluator divides
+			// by w, and a slot that is merely unused must not be a slot that produces
+			// a NaN if anything ever reads it.
 			_waves[i] = Wave{ 1.0f, 0.0f, 0.0f, MIN_WAVELENGTH };
+			_waves[i].w = TAU / MIN_WAVELENGTH;
+			_waves[i].omega = std::sqrt(GRAVITY * _waves[i].w);
 			continue;
 		}
 
@@ -164,6 +170,12 @@ void WaterWaves::update() {
 		// "Amplitude of the longest wave", scaled down with wavelength.
 		wave.amplitude = _amplitude * (wavelength / length_max);
 		wave.wavelength = wavelength;
+		// The same guard the evaluator used to apply per call, applied once. Deep-water
+		// dispersion: speed = sqrt(g*L/TAU), phase rate = speed*w, which collapses to
+		// sqrt(g*w).
+		wave.w = TAU / MAX(wave.wavelength, 1e-3f);
+		wave.omega = std::sqrt(GRAVITY * wave.w);
+		_amp_sum += wave.amplitude;
 	}
 }
 
@@ -178,11 +190,11 @@ PackedVector4Array WaterWaves::get_shader_table() const {
 }
 
 float WaterWaves::get_amplitude_sum() const {
-	float sum = 0.0f;
-	for (int i = 0; i < WATER_MAX_WAVES; i++) {
-		sum += _waves[i].amplitude;
-	}
-	return sum;
+	// Summed in update() rather than here. It was being re-summed inside get_position(),
+	// which solve_domain() calls up to 16 times per query. Slots past _count carry
+	// amplitude 0, so accumulating only the live ones gives the same float back: adding
+	// 0.0f is exact.
+	return _amp_sum;
 }
 
 ///////////////////////////
@@ -200,19 +212,17 @@ Vector3 WaterWaves::get_position(const Vector2 &p_domain_xz, const float p_time)
 	float domain_x = (float)p_domain_xz.x;
 	float domain_z = (float)p_domain_xz.y;
 
-	float sum_amp = get_amplitude_sum();
-	float steepness_per_amp = _steepness / MAX(sum_amp, 1e-6f);
+	float steepness_per_amp = _steepness / MAX(_amp_sum, 1e-6f);
 
 	float px = domain_x;
 	float py = 0.0f;
 	float pz = domain_z;
-	for (int i = 0; i < WATER_MAX_WAVES; i++) {
+	for (int i = 0; i < _count; i++) {
 		const Wave &wave = _waves[i];
 		float amp = wave.amplitude;
-		float wavelength = MAX(wave.wavelength, 1e-3f);
 
-		float w = TAU / wavelength;
-		float omega = std::sqrt(GRAVITY * w);
+		const float w = wave.w;
+		const float omega = wave.omega;
 
 		float qwa = steepness_per_amp * amp;
 		float qa = qwa / w;
@@ -262,19 +272,17 @@ Vector3 WaterWaves::get_normal(const Vector2 &p_domain_xz, const float p_time) c
 	float domain_x = (float)p_domain_xz.x;
 	float domain_z = (float)p_domain_xz.y;
 
-	float sum_amp = get_amplitude_sum();
-	float steepness_per_amp = _steepness / MAX(sum_amp, 1e-6f);
+	float steepness_per_amp = _steepness / MAX(_amp_sum, 1e-6f);
 
 	float nx = 0.0f;
 	float ny = 1.0f;
 	float nz = 0.0f;
-	for (int i = 0; i < WATER_MAX_WAVES; i++) {
+	for (int i = 0; i < _count; i++) {
 		const Wave &wave = _waves[i];
 		float amp = wave.amplitude;
-		float wavelength = MAX(wave.wavelength, 1e-3f);
 
-		float w = TAU / wavelength;
-		float omega = std::sqrt(GRAVITY * w);
+		const float w = wave.w;
+		const float omega = wave.omega;
 
 		float qwa = steepness_per_amp * amp;
 		float wa = w * amp;

@@ -89,7 +89,14 @@ private:
 	Vector2 _height_range_sent = V2_MAX;
 	real_t _sea_level_sent = FLT_MAX;
 
+	// Has this ocean handed itself to a manager yet? Sibling ENTER_TREE order decides
+	// whether there was one to hand itself to, so the attempt is retried on the physics
+	// tick until it lands rather than being made once and lost. See
+	// _try_register_with_manager().
+	bool _manager_registered = false;
+
 	Pasture3DPoolManager *_find_manager() const;
+	void _try_register_with_manager();
 	void _setup_mesher();
 	void _destroy_mesher(const bool p_final = false);
 	void _rebuild_runtime_material();

@@ -29,12 +29,27 @@ using namespace godot;
  */
 class WaterWaves {
 public:
-	// One table entry, matching the shader's vec4 layout exactly.
 	struct Wave {
+		// --- Uploaded. Matches the shader's vec4 layout exactly. ---
 		float dir_x = 1.0f;
 		float dir_z = 0.0f;
 		float amplitude = 0.0f;
 		float wavelength = 10.0f;
+
+		// --- Derived in update(). Never uploaded, never crosses the boundary. ---
+		// Angular wavenumber and phase rate. Pure functions of `wavelength`, which is
+		// fixed once the table is built, so the evaluator was recomputing a divide and a
+		// sqrt per wave per call -- and solve_domain() calls it up to 16 times, which made
+		// it up to 128 redundant divides and 128 redundant sqrts per height query, per
+		// buoy, per tick.
+		//
+		// Hoisting them does NOT weaken the parity contract in the class comment. The
+		// shader still derives its own w and omega per vertex; both sides compute
+		// TAU/wavelength and sqrt(GRAVITY*w) from the same float, and IEEE-754 requires
+		// `/` and `sqrt` to be correctly rounded, so the results are bit-identical
+		// whether they are formed once or a thousand times.
+		float w = 0.0f;
+		float omega = 0.0f;
 	};
 
 	// Where the generated series bottoms out, and the floor on `length_max`.
@@ -54,6 +69,11 @@ public:
 private:
 	Wave _waves[WATER_MAX_WAVES];
 	int _count = 8;
+	// Sum of the table's amplitudes, cached by update(). Invariant for the life of a
+	// built table, and the evaluator re-summed it on every call from inside the solve
+	// loop. Over the whole table, so it is unchanged by the loops below stopping at
+	// _count: slots past the count hold amplitude 0.
+	float _amp_sum = 0.0f;
 
 	// Art knobs (spec §4.2)
 	float _direction_deg = 0.0f;
@@ -101,12 +121,17 @@ public:
 	// --- Evaluator: transcription of water_eval_waves() ---------------------
 	// p_time is the same wrapped clock the shader gets, NOT Godot's TIME.
 	//
-	// Both loops run to WATER_MAX_WAVES rather than to _count, because the shader
-	// runs to its variant's WATER_WAVE_COUNT and has no way to learn _count. Slots
-	// past _count hold amplitude 0 on both sides, so summing them changes nothing
-	// and the two loops now agree whenever the variant reads at least _count
-	// waves. The reverse case -- _count above the variant's count -- cannot be
-	// fixed here and is reported as a configuration warning on the node instead.
+	// Both loops stop at _count. They used to run to WATER_MAX_WAVES to mirror the
+	// shader, which runs to its variant's WATER_WAVE_COUNT and has no way to learn
+	// _count -- but that is a parity argument about the SUMS, and a slot past _count
+	// holds amplitude 0, which makes every one of its contributions exactly 0.0f:
+	// qwa = steepness_per_amp * 0, qa = 0, wa = 0, and the height term is 0 * sin.
+	// Adding 0.0f is exact, so stopping early is arithmetically identical to running
+	// on and the two sides still agree whenever the variant reads at least _count
+	// waves. It also stops a 2-wave pond profile paying for eight sin/cos/sqrt.
+	//
+	// The reverse case -- _count above the variant's count -- cannot be fixed here
+	// and is reported as a configuration warning on the node instead.
 
 	// Displaced surface point for a DOMAIN-SPACE parameter, which is what the
 	// vertex shader computes for the same input. This is the parity contract with

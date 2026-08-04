@@ -244,6 +244,14 @@ var _fog: FogVolume = null
 ## this is a set and not just a pair of signal handlers.
 var _bodies_in_box := {}
 var _camera_under := false
+## One-entry memo for get_water_height(); see the docstring there. Vector2.INF cannot be a
+## real query, so the first call in any frame misses.
+var _height_cache_xz := Vector2.INF
+var _height_cache_frame := -1
+var _height_cache_y := 0.0
+## Physics frame on which the group scan in _resolve_manager() last came back empty, so the
+## scan is attempted at most once a frame rather than once a call.
+var _manager_miss_frame := -1
 var _overlay_layer: CanvasLayer = null
 var _overlay_rect: ColorRect = null
 var _overlay_amount := 0.0
@@ -330,6 +338,8 @@ func _notification(what: int) -> void:
 		remove_from_group(POOL_GROUP)
 		_unregister()
 		_manager_cache = null # water moved between scenes must re-resolve, not keep the old scene's
+		_manager_miss_frame = -1 # ...and must not inherit a "there is none" from the old scene either
+		_height_cache_frame = -1
 		# The overlay is a CanvasLayer: leaving it up after the water has gone would tint a scene
 		# with no water in it.
 		_drop_overlay()
@@ -349,6 +359,10 @@ func _notification(what: int) -> void:
 		# The domain origin is this node's position — it is what keeps wave phase precise far
 		# from the world origin — so it follows the node, not just a material assignment.
 		_update_domain_origin()
+		# get_water_height()'s memo is keyed on world XZ, but the answer also depends on
+		# this node's position through _wave_domain(). Moving the water inside a frame
+		# would otherwise hand back the pre-move height for the rest of it.
+		_height_cache_frame = -1
 		update_gizmos()
 	elif what == NOTIFICATION_PREDELETE:
 		_unregister()
@@ -387,10 +401,16 @@ func _on_curve_changed() -> void:
 ## its children, and a water body is a SIBLING of its brush by design (§7.7), so it is in
 ## neither set. A once-per-frame Transform3D comparison is the honest way to see it.
 ##
-## The cost is one is_equal_approx per body per frame and a debounced rebuild only when
-## the answer changes, which is why this is not gated to the editor: a runtime scene that
-## moves a brush should move its water too, and paying microseconds to make that true
+## The transform watch costs one is_equal_approx per body per frame and a debounced rebuild
+## only when the answer changes, which is why it is not gated to the editor: a runtime scene
+## that moves a brush should move its water too, and paying microseconds to make that true
 ## everywhere is better than an editor-only behaviour that surprises someone at runtime.
+##
+## It is not the only thing here, though, and it is by far the cheapest — the two calls above
+## it are the ones to watch. _poll_camera() ends in a full wave solve for any body the camera
+## is over, and both it and _update_overlay() bail immediately when their feature is off, so
+## the "microseconds" claim holds only for a body that is not using them. Anything added here
+## is on the render frame of every water body in the scene.
 func _process(p_delta: float) -> void:
 	_poll_camera()
 	_update_overlay(p_delta)
@@ -434,12 +454,30 @@ func _resolve_manager() -> Node:
 		return _manager_cache
 	if not is_inside_tree():
 		return null
+	# The MISS is throttled too, not just the hit. With no manager in the scene
+	# _manager_cache stays null, so without this the group scan below ran on every call —
+	# allocating and discarding an Array per buoy per physics tick, which is the exact cost
+	# the cache was added to remove, surviving in the one case nothing else covers. A scene
+	# whose manager was forgotten is precisely the misconfiguration the node warns about,
+	# so it is not a rare path.
+	var frame := Engine.get_physics_frames()
+	if _manager_miss_frame == frame:
+		return null
 	var found := get_tree().get_nodes_in_group(&"pasture3d_water_manager")
-	_manager_cache = found[0] if not found.is_empty() else null
+	if found.is_empty():
+		_manager_cache = null
+		_manager_miss_frame = frame
+		return null
+	_manager_cache = found[0]
 	return _manager_cache
 
 
 func _register() -> void:
+	# Force a fresh scan: registration happens once per enter and NOTHING retries it, so it
+	# must never be answered from the negative cache. A manager entering the tree later in
+	# the same frame as this body — which is just sibling order, and is exactly how
+	# Pasture3DOcean lost itself before it grew a retry — would otherwise be missed for good.
+	_manager_miss_frame = -1
 	var m := _resolve_manager()
 	if m and m.has_method("register_body"):
 		m.register_body(self)
@@ -766,10 +804,23 @@ func _physics_process(_delta: float) -> void:
 ## One rectangle test per body per frame in the common case; the exact test and the wave solve only
 ## run for a camera actually over this water.
 func _poll_camera() -> void:
+	# Out before _active_camera(), not just before the test. This runs once per body per
+	# RENDERED frame, and both halves of it are expensive: _active_camera() costs an
+	# EditorInterface round-trip in the editor, and is_point_underwater() ends in
+	# get_water_height(), i.e. a 16-iteration wave solve, for every body the camera is
+	# standing over. A body with the feature switched off was paying both for a flag
+	# nothing reads.
+	if not underwater_enabled:
+		# Still report the falling edge, so turning the feature off while submerged does
+		# not leave a listener believing it is underwater forever.
+		if _camera_under:
+			_camera_under = false
+			camera_submerged.emit(false)
+		return
 	var cam := _active_camera()
 	if cam == null:
 		return
-	var under := underwater_enabled and is_point_underwater(cam.global_position)
+	var under := is_point_underwater(cam.global_position)
 	if under != _camera_under:
 		_camera_under = under
 		camera_submerged.emit(under)
@@ -853,8 +904,30 @@ func _drop_overlay() -> void:
 
 ## Surface height at a world XZ, including waves. The still level plus the wave
 ## displacement, so it agrees with what the shader draws.
+## Memoised per (world XZ, physics frame).
+##
+## Not a speculative cache. Pasture3DBuoy asks this question TWICE per buoy per tick at the
+## same position, and the second ask is invisible from here: _resolve_body() calls
+## contains_point() to check the buoy has not left the body, contains_point() is
+## is_point_underwater(), and its last line is this function. apply_buoyancy() then calls it
+## directly. Each pass runs solve_domain() -- a 16-iteration Gerstner inverse over the whole
+## wave table -- so the pair cost twice what the physics budget was written against, and
+## `sample_interval`, the knob documented for relieving crowds of buoys, throttled only the
+## second of them.
+##
+## Keyed on the physics FRAME rather than on water_time: the manager advances the clock in
+## its own physics tick, so water_time is constant across a frame by construction, and the
+## frame counter is an integer compare instead of a float one. The transform notification
+## drops the entry, because the answer also depends on this node's position through
+## _wave_domain().
 func get_water_height(p_global_xz: Vector2) -> float:
-	return _still_surface_y(p_global_xz) + _wave_offset(p_global_xz)
+	var frame := Engine.get_physics_frames()
+	if frame == _height_cache_frame and p_global_xz == _height_cache_xz:
+		return _height_cache_y
+	_height_cache_y = _still_surface_y(p_global_xz) + _wave_offset(p_global_xz)
+	_height_cache_xz = p_global_xz
+	_height_cache_frame = frame
+	return _height_cache_y
 
 
 func get_water_normal(p_global_xz: Vector2) -> Vector3:

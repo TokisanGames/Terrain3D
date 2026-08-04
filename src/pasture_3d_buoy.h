@@ -63,6 +63,8 @@ private:
 	// the HEIGHT is held, not the force, so the buoy still responds to its own movement in between.
 	real_t _held_height = 0.f;
 	bool _held_valid = false;
+	// The project's gravity, resolved on entering the tree. See _refresh_gravity().
+	real_t _gravity_cached = 9.80665f;
 
 	// --- Per-body, per-tick angular damping ---------------------------------
 	// Angular drag is applied once per BODY per tick, not once per buoy: four buoys on a hull would
@@ -79,6 +81,7 @@ private:
 	Node *_get_body() const;
 	RigidBody3D *_find_parent_body() const;
 	real_t _gravity() const;
+	void _refresh_gravity();
 
 protected:
 	static void _bind_methods();

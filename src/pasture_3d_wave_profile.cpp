@@ -9,10 +9,22 @@
 // Public Functions
 ///////////////////////////
 
-// Every setter emits changed(). Pasture3DPoolManager listens for it and re-uploads the
-// table into the materials it has cached for this profile -- which is what makes
-// dragging a knob in the inspector move ten ponds at once, and is the only reason
+// Every setter emits changed() WHEN IT CHANGES SOMETHING. Pasture3DPoolManager listens for
+// it and re-uploads the table into the materials it has cached for this profile -- which is
+// what makes dragging a knob in the inspector move ten ponds at once, and is the only reason
 // the manager does not have to poll.
+//
+// The guard is not a micro-optimisation. One emission reaches _on_profile_changed(), which
+// re-uploads into EVERY cached material and then emits profiles_changed, which makes every
+// Pasture3DOcean rebuild its runtime material and force an AABB update. These used to emit
+// unconditionally while the WaterWaves setters underneath quietly no-opped, so loading a
+// scene -- where Godot writes each exported property once, at its stored value -- cost four
+// seeded profiles x six setters = 24 full re-upload passes over the cache for values that
+// had not moved.
+//
+// Compared against what WaterWaves actually STORED, not against the argument: every setter
+// there clamps, so set_spread_deg(200) stores 90, and comparing against the argument would
+// make that emit forever.
 
 void Pasture3DWaveProfile::set_profile_name(const StringName &p_name) {
 	if (_profile_name == p_name) {
@@ -23,32 +35,56 @@ void Pasture3DWaveProfile::set_profile_name(const StringName &p_name) {
 }
 
 void Pasture3DWaveProfile::set_wave_count(const int p_count) {
+	const int before = _waves.get_count();
 	_waves.set_count(p_count);
+	if (_waves.get_count() == before) {
+		return;
+	}
 	emit_changed();
 }
 
 void Pasture3DWaveProfile::set_direction_deg(const real_t p_deg) {
+	const float before = _waves.get_direction_deg();
 	_waves.set_direction_deg((float)p_deg);
+	if (_waves.get_direction_deg() == before) {
+		return;
+	}
 	emit_changed();
 }
 
 void Pasture3DWaveProfile::set_spread_deg(const real_t p_deg) {
+	const float before = _waves.get_spread_deg();
 	_waves.set_spread_deg((float)p_deg);
+	if (_waves.get_spread_deg() == before) {
+		return;
+	}
 	emit_changed();
 }
 
 void Pasture3DWaveProfile::set_amplitude(const real_t p_metres) {
+	const float before = _waves.get_amplitude();
 	_waves.set_amplitude((float)p_metres);
+	if (_waves.get_amplitude() == before) {
+		return;
+	}
 	emit_changed();
 }
 
 void Pasture3DWaveProfile::set_length_max(const real_t p_metres) {
+	const float before = _waves.get_length_max();
 	_waves.set_length_max((float)p_metres);
+	if (_waves.get_length_max() == before) {
+		return;
+	}
 	emit_changed();
 }
 
 void Pasture3DWaveProfile::set_steepness(const real_t p_steepness) {
+	const float before = _waves.get_steepness();
 	_waves.set_steepness((float)p_steepness);
+	if (_waves.get_steepness() == before) {
+		return;
+	}
 	emit_changed();
 }
 
@@ -150,7 +186,12 @@ void Pasture3DWaveProfile::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::STRING_NAME, "profile_name"), "set_profile_name", "get_profile_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "wave_count", PROPERTY_HINT_RANGE, "1,8,1"), "set_wave_count", "get_wave_count");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "direction_deg", PROPERTY_HINT_RANGE, "-360,360,0.5"), "set_direction_deg", "get_direction_deg");
-	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spread_deg", PROPERTY_HINT_RANGE, "0,180,0.5"), "set_spread_deg", "get_spread_deg");
+	// 0..90, matching WaterWaves::set_spread_deg's clamp. The hint said 0..180, so the
+	// top half of the slider moved and nothing happened -- the same defect
+	// pasture_3d_ocean.cpp:set_mesh_size documents, with the range too wide instead of
+	// too narrow. 90 is the real ceiling: the spread is applied as
+	// direction +/- spread, so 90 already fans the series across a full half-turn.
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "spread_deg", PROPERTY_HINT_RANGE, "0,90,0.5"), "set_spread_deg", "get_spread_deg");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "amplitude", PROPERTY_HINT_RANGE, "0,20,0.01,or_greater"), "set_amplitude", "get_amplitude");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "length_max", PROPERTY_HINT_RANGE, "1,1000,0.5,or_greater"), "set_length_max", "get_length_max");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "steepness", PROPERTY_HINT_RANGE, "0,0.6,0.01"), "set_steepness", "get_steepness");

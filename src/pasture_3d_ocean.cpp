@@ -30,6 +30,41 @@ Pasture3DPoolManager *Pasture3DOcean::_find_manager() const {
 	return Pasture3DPoolManager::get_active_manager();
 }
 
+/**
+ * Joins the manager's registry and its profiles_changed signal, if there is a manager yet.
+ *
+ * RETRIED, not done once. Siblings enter the tree in child order and Pasture3DPoolManager only
+ * appends itself to _managers in its own ENTER_TREE, so an ocean placed above the manager in
+ * the scene ran this with _managers empty. Nothing looked again: the PHYSICS_PROCESS
+ * recovery path below only fires while _runtime_material is null, and the first tick fills
+ * that in with or without a manager. The ocean then stayed invisible to body_at() for the
+ * life of the scene -- buoys in open water got no body and never floated -- and missed every
+ * profile change, all decided by the order of two nodes in the inspector.
+ *
+ * Idempotent and cheap once it has landed: the flag short-circuits it, and the two calls
+ * underneath are themselves guarded (register_body() de-dupes, is_connected() gates).
+ */
+void Pasture3DOcean::_try_register_with_manager() {
+	if (_manager_registered) {
+		return;
+	}
+	Pasture3DPoolManager *manager = _find_manager();
+	if (!manager) {
+		return;
+	}
+	Callable cb = callable_mp(this, &Pasture3DOcean::_on_profiles_changed);
+	if (!manager->is_connected("profiles_changed", cb)) {
+		manager->connect("profiles_changed", cb);
+	}
+	// So body_at() can hand out the ocean as the fallback for a point no pool claims --
+	// which is what makes a buoy work in open water.
+	manager->register_body(this);
+	_manager_registered = true;
+	// The table and the cull AABB were built against "no manager"; now there is one.
+	_rebuild_runtime_material();
+	_update_aabbs(true);
+}
+
 void Pasture3DOcean::_setup_mesher() {
 	if (!_enabled || !_is_inside_world) {
 		return;
@@ -447,16 +482,7 @@ void Pasture3DOcean::_notification(int p_what) {
 			// and re-enters the tree, and a group left behind is an ocean nothing can
 			// find.
 			add_to_group(OCEAN_GROUP);
-			Pasture3DPoolManager *manager = _find_manager();
-			if (manager) {
-				Callable cb = callable_mp(this, &Pasture3DOcean::_on_profiles_changed);
-				if (!manager->is_connected("profiles_changed", cb)) {
-					manager->connect("profiles_changed", cb);
-				}
-				// So body_at() can hand out the ocean as the fallback for a point no
-				// pool claims -- which is what makes a buoy work in open water.
-				manager->register_body(this);
-			}
+			_try_register_with_manager();
 			break;
 		}
 
@@ -466,6 +492,9 @@ void Pasture3DOcean::_notification(int p_what) {
 			if (exiting_manager) {
 				exiting_manager->unregister_body(this);
 			}
+			// Re-attempted on the next enter: this ocean may come back under a different
+			// manager, or under one that does not exist yet.
+			_manager_registered = false;
 			break;
 		}
 
@@ -488,6 +517,9 @@ void Pasture3DOcean::_notification(int p_what) {
 		}
 
 		case NOTIFICATION_PHYSICS_PROCESS: {
+			// Before the enabled/mesher guard: a disabled ocean still has to be findable
+			// by body_at(), and registration is about the registry, not about drawing.
+			_try_register_with_manager();
 			if (!_enabled || !_mesher) {
 				break;
 			}

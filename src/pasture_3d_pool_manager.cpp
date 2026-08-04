@@ -475,10 +475,18 @@ Node *Pasture3DPoolManager::body_at(const Vector3 &p_global_pos) const {
 			return body;
 		}
 	}
-	if (ocean && ocean->has_method("contains_point") &&
-			(bool)ocean->call("contains_point", p_global_pos)) {
-		return ocean;
-	}
+	// The ocean is the fallback for every point no finite body claimed, INCLUDING one
+	// above the surface -- so it is returned without being asked whether it contains the
+	// point. It used to be asked, and the answer was discarded: both the guarded branch
+	// and the fallthrough returned `ocean`, so a full Pasture3DOcean::contains_point() --
+	// which compares against the WAVE surface and therefore runs solve_domain(), 16
+	// Gerstner iterations -- was spent choosing between returning the ocean and returning
+	// the ocean. On the buoy resolve path that ran per buoy per physics tick.
+	//
+	// Returning it unconditionally is also the behaviour a buoy wants: a hull lifted clear
+	// of a crest must keep its body rather than drop to null and re-resolve on the next
+	// tick. Submersion decides whether it gets force; this only decides whose surface to
+	// measure against.
 	return ocean;
 }
 
