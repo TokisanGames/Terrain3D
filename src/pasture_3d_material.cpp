@@ -42,6 +42,9 @@ void Pasture3DMaterial::_preload_shaders() {
 #include "shaders/macro_variation.glsl"
 			, "macro_variation");
 	_parse_shader(
+#include "shaders/max_regions.glsl"
+			, "max_regions");
+	_parse_shader(
 #include "shaders/projection.glsl"
 			, "projection");
 	_parse_shader(
@@ -139,6 +142,13 @@ String Pasture3DMaterial::_apply_inserts(const String &p_shader, const Array &p_
 String Pasture3DMaterial::_generate_shader_code() const {
 	LOG(INFO, "Generating default shader code");
 	Array excludes;
+	// Exactly one MAX_REGIONS_* insert survives; it declares _region_locations and defines
+	// MAX_REGIONS. Excluding the rest is what keeps the uniform array at the chosen size.
+	for (const int size : { 64, 128, 256, 512, 1024 }) {
+		if (size != (int)_max_regions) {
+			excludes.push_back("MAX_REGIONS_" + String::num_int64(size));
+		}
+	}
 	if (_world_background != NONE) {
 		excludes.push_back("NONE_FUNCTIONS");
 		excludes.push_back("NONE_CHECK");
@@ -316,6 +326,13 @@ String Pasture3DMaterial::_strip_comments(const String &p_shader) const {
 String Pasture3DMaterial::_generate_buffer_shader_code() const {
 	LOG(INFO, "Generating default displacement buffer shader code");
 	Array excludes;
+	// Exactly one MAX_REGIONS_* insert survives; it declares _region_locations and defines
+	// MAX_REGIONS. Excluding the rest is what keeps the uniform array at the chosen size.
+	for (const int size : { 64, 128, 256, 512, 1024 }) {
+		if (size != (int)_max_regions) {
+			excludes.push_back("MAX_REGIONS_" + String::num_int64(size));
+		}
+	}
 	if (_world_background != NONE) {
 		excludes.push_back("NONE_FUNCTIONS");
 		excludes.push_back("NONE_CHECK");
@@ -653,7 +670,20 @@ void Pasture3DMaterial::_update_uniforms(const RID &p_material, const uint32_t p
 
 	TypedArray<Vector2i> region_locations = data->get_region_locations();
 	LOG(EXTREME, "Region_locations size: ", region_locations.size(), " ", region_locations);
-	RS->material_set_param(p_material, "_region_locations", region_locations);
+	// Padded to exactly the length the shader compiled. The array is no longer always 1024
+	// (see RegionMaximum), and a short upload would leave the tail of the uniform undefined
+	// while a long one would overrun it. Regions past the ceiling are dropped here and read as
+	// "no region" in the shader, which is what the MAX_REGIONS bounds check exists for.
+	if (region_locations.size() > (int)_max_regions) {
+		LOG(WARN, "Scene has ", region_locations.size(), " regions but max_regions is ",
+				(int)_max_regions, "; the excess will not render. Raise Pasture3DMaterial.max_regions.");
+	}
+	TypedArray<Vector2i> padded_locations;
+	padded_locations.resize((int)_max_regions);
+	for (int i = 0; i < MIN(region_locations.size(), (int)_max_regions); ++i) {
+		padded_locations[i] = region_locations[i];
+	}
+	RS->material_set_param(p_material, "_region_locations", padded_locations);
 
 	real_t region_size = real_t(_terrain->get_region_size());
 	LOG(EXTREME, "Setting region size in material: ", region_size);
@@ -851,6 +881,19 @@ void Pasture3DMaterial::set_projection_enabled(const bool p_enabled) {
 	SET_IF_DIFF(_projection_enabled, p_enabled);
 	LOG(INFO, "Enable projection: ", p_enabled);
 	_update_shader();
+}
+
+/**
+ * Sets the compiled length of the shader's _region_locations array.
+ *
+ * Costs a shader rebuild, because the length is a compile-time array declaration rather than a
+ * uniform -- which is the whole point: a uniform-length array would still reserve 1024 slots.
+ */
+void Pasture3DMaterial::set_max_regions(const RegionMaximum p_max) {
+	SET_IF_DIFF(_max_regions, RegionMaximum(CLAMP(closest_power_of_2((int)p_max), 64, 1024)));
+	LOG(INFO, "Set max region count: ", (int)_max_regions);
+	_update_shader();
+	update(REGION_ARRAYS);
 }
 
 void Pasture3DMaterial::set_shader_override_enabled(const bool p_enabled) {
@@ -1326,6 +1369,8 @@ void Pasture3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_macro_variation_enabled", "enabled"), &Pasture3DMaterial::set_macro_variation_enabled);
 	ClassDB::bind_method(D_METHOD("get_macro_variation_enabled"), &Pasture3DMaterial::get_macro_variation_enabled);
 	ClassDB::bind_method(D_METHOD("set_projection_enabled", "enabled"), &Pasture3DMaterial::set_projection_enabled);
+	ClassDB::bind_method(D_METHOD("set_max_regions", "count"), &Pasture3DMaterial::set_max_regions);
+	ClassDB::bind_method(D_METHOD("get_max_regions"), &Pasture3DMaterial::get_max_regions);
 	ClassDB::bind_method(D_METHOD("get_projection_enabled"), &Pasture3DMaterial::get_projection_enabled);
 
 	ClassDB::bind_method(D_METHOD("set_shader_override_enabled", "enabled"), &Pasture3DMaterial::set_shader_override_enabled);
@@ -1416,6 +1461,7 @@ void Pasture3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "dual_scaling_enabled"), "set_dual_scaling_enabled", "get_dual_scaling_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "macro_variation_enabled"), "set_macro_variation_enabled", "get_macro_variation_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "projection_enabled"), "set_projection_enabled", "get_projection_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_regions", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024"), "set_max_regions", "get_max_regions");
 
 	ADD_GROUP("PBR Output", "output_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "output_albedo"), "set_output_albedo_enabled", "get_output_albedo_enabled");

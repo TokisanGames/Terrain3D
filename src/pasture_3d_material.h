@@ -28,6 +28,19 @@ public: // Constants
 		NEAREST,
 	};
 
+	// Compiled length of the shader's _region_locations array. Ported from upstream Terrain3D
+	// 5e352f7. It was fixed at 1024, i.e. 8 KB of uniform data in every terrain material before
+	// anything else -- half of GLES3's guaranteed 16 KB uniform block, on projects that
+	// typically use a handful of regions. Values are the array length, so the enum's integers
+	// are meaningful rather than ordinal.
+	enum RegionMaximum {
+		MAX_REGIONS_64 = 64,
+		MAX_REGIONS_128 = 128,
+		MAX_REGIONS_256 = 256,
+		MAX_REGIONS_512 = 512,
+		MAX_REGIONS_1024 = 1024,
+	};
+
 	enum UpdateFlags {
 		UNIFORMS_ONLY = 0,
 		TEXTURE_ARRAYS = 1 << 0,
@@ -62,6 +75,8 @@ private:
 	bool _auto_shader_enabled = false;
 	bool _macro_variation_enabled = false;
 	bool _projection_enabled = false;
+	// Default keeps the pre-port behaviour: 1024 entries, as the shader hardcoded.
+	RegionMaximum _max_regions = MAX_REGIONS_1024;
 
 	// PBR Outputs
 	bool _output_albedo_enabled = true;
@@ -144,6 +159,8 @@ public:
 	bool get_macro_variation_enabled() const { return _macro_variation_enabled; }
 	void set_projection_enabled(const bool p_enabled);
 	bool get_projection_enabled() const { return _projection_enabled; }
+	void set_max_regions(const RegionMaximum p_max);
+	RegionMaximum get_max_regions() const { return _max_regions; }
 
 	void set_shader_override_enabled(const bool p_enabled);
 	bool is_shader_override_enabled() const { return _shader_override_enabled; }
@@ -233,6 +250,7 @@ protected:
 };
 
 VARIANT_ENUM_CAST(Pasture3DMaterial::WorldBackground);
+VARIANT_ENUM_CAST(Pasture3DMaterial::RegionMaximum);
 VARIANT_ENUM_CAST(Pasture3DMaterial::TextureFiltering);
 VARIANT_ENUM_CAST(Pasture3DMaterial::UpdateFlags);
 
