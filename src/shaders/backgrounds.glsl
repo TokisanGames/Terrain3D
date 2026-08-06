@@ -22,11 +22,10 @@ uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
 float check_region(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
-	int layer_index = 0;
-	if (uint(pos.x | pos.y) < uint(_region_map_size)) {
-		layer_index = clamp(_region_map[ pos.y * _region_map_size + pos.x ] - 1, -1, 0) + 1;
-	}
-	return float(layer_index);
+	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+	int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+	int is_valid = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	return float(is_valid);
 }
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
@@ -55,7 +54,7 @@ float get_region_blend(vec2 uv2) {
 	}
 
 //INSERT: WORLD_NOISE_UNIFORMS
-group_uniforms shader_uniforms.world_background_noise;
+group_uniforms world_background_noise;
 uniform bool world_noise_fragment_normals = false;
 uniform int world_noise_max_octaves : hint_range(0, 15) = 4;
 uniform int world_noise_min_octaves : hint_range(0, 15) = 2;
@@ -70,6 +69,7 @@ varying vec2 world_noise_ddxy;
 // World Noise Functions Start
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
+// Intentionally and subtly different from get_region_blend()
 float get_noise_region_blend(vec2 uv2) {
 	uv2 -= 0.5011; // correct for floating point error
 	const vec2 offset = vec2(0.0, 1.0);

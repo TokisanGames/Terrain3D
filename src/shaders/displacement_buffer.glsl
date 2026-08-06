@@ -34,6 +34,7 @@ R"(shader_type canvas_item;
 #endif
 
 // Private uniforms
+group_uniforms private;
 uniform float _tessellation_level = 0.;
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
@@ -44,7 +45,11 @@ uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1./region_size
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
-uniform vec2 _region_locations[1024];
+//INSERT: MAX_REGIONS_64
+//INSERT: MAX_REGIONS_128
+//INSERT: MAX_REGIONS_256
+//INSERT: MAX_REGIONS_512
+//INSERT: MAX_REGIONS_1024
 uniform float _texture_uv_scale_array[32];
 uniform vec2 _texture_detile_array[32];
 uniform vec2 _texture_displacement_array[32];
@@ -56,9 +61,10 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 //INSERT: TEXTURE_SAMPLERS_NEAREST
 uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
+group_uniforms;
 
 // Public uniforms
-group_uniforms shader_uniforms.general;
+group_uniforms general_uniforms;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 group_uniforms;
 //INSERT: AUTO_SHADER_UNIFORMS
@@ -69,7 +75,7 @@ group_uniforms;
 // Uniquely named displacement uniforms should be in this group.
 // Uniforms that are shared with the main shader are automatically synchronised.
 // Subgroups should work as expected.
-group_uniforms shader_uniforms.displacement;
+group_uniforms displacement;
 uniform float _displacement_sharpness : hint_range(0.0, 1.0, 0.01) = 0.25;
 group_uniforms;
 
@@ -93,7 +99,9 @@ ivec3 get_index_coord(const vec2 uv) {
 	vec2 r_uv = round(uv);
 	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+	int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	int layer_index = (raw_index * is_region) - (1 - is_region);
 	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
@@ -103,7 +111,9 @@ ivec3 get_index_coord(const vec2 uv) {
 vec3 get_index_uv(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
+	int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+	int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	int layer_index = (raw_index * is_region) - (1 - is_region);
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
 }
 

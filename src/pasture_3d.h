@@ -77,6 +77,9 @@ private:
 	// Tracked Targets
 	TargetNode3D _clipmap_target;
 	TargetNode3D _collision_target;
+	TargetNode3D _light_target;
+	Vector3 _light_dir_sent = V3_MAX; // Sentinel: never equal to a real direction, so the first
+	Color _light_color_sent = Color(-1.f, -1.f, -1.f); // frame always pushes.
 	TargetNode3D _camera; // Fallback target for clipmap and collision
 	// Pasture3D: explicit per-camera list for local split-screen (>=2 cameras). When set, the
 	// mesher renders one clipmap per camera; empty/single collapses to the single-view path above.
@@ -221,6 +224,8 @@ public:
 	void set_collision_target(Node3D *p_node);
 	Node3D *get_collision_target() const { return _collision_target.ptr(); }
 	Vector3 get_collision_target_position() const;
+	void set_light_target(Node3D *p_node);
+	Node3D *get_light_target() const { return _light_target.ptr(); }
 	void snap();
 
 	// Collision Aliases

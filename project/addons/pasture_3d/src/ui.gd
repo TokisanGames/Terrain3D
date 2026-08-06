@@ -9,6 +9,7 @@ const TerrainToolbar: Script = preload("res://addons/pasture_3d/src/toolbar.gd")
 const TerrainToolSettings: Script = preload("res://addons/pasture_3d/src/tool_settings.gd")
 const OperationBuilder: Script = preload("res://addons/pasture_3d/src/operation_builder.gd")
 const GradientOperationBuilder: Script = preload("res://addons/pasture_3d/src/gradient_operation_builder.gd")
+const LIVE_INFO_PANEL: String = "res://addons/pasture_3d/src/live_info_panel.tscn"
 
 # Decal colors
 const COLOR_RAISE := Color(1., 1., 1.) # White
@@ -46,6 +47,7 @@ var plugin: EditorPlugin # Actually Pasture3DEditorPlugin, but Godot still has C
 var toolbar: TerrainToolbar
 var tool_settings: TerrainToolSettings
 var terrain_menu: TerrainMenu
+var live_info_panel: Pasture3DLiveInfoPanel
 var setting_has_changed: bool = false
 var visible: bool = false
 var picking: int = Pasture3DEditor.TOOL_MAX
@@ -118,6 +120,7 @@ func _enter_tree() -> void:
 	editor_decal_timer.timeout.connect(func():
 		get_tree().create_tween().tween_property(self, "editor_decal_fade", 0.0, 0.15))
 	add_child(editor_decal_timer)
+	setup_live_info_panel()
 
 
 func _exit_tree() -> void:
@@ -129,6 +132,9 @@ func _exit_tree() -> void:
 	tool_settings.queue_free()
 	terrain_menu.queue_free()
 	editor_decal_timer.queue_free()
+	# Null when setup_live_info_panel() could not find the viewport container to parent it to.
+	if live_info_panel:
+		live_info_panel.queue_free()
 
 
 func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
@@ -144,6 +150,8 @@ func set_visible(p_visible: bool, p_menu_only: bool = false) -> void:
 		visible = p_visible
 		toolbar.set_visible(p_visible)
 		tool_settings.set_visible(p_visible)
+		if live_info_panel:
+			live_info_panel.set_visible(p_visible)
 
 	if plugin.editor and plugin.terrain and p_visible:
 			await get_tree().process_frame # Won't work, otherwise
@@ -688,10 +696,53 @@ func set_decal_rotation(p_rot: float) -> void:
 func _on_picking(p_type: Pasture3DEditor.Tool, p_callback: Callable) -> void:
 	picking = p_type
 	picking_callback = p_callback
+	# Only the instancer picker has anything to highlight; the rest read a pixel.
+	if picking == Pasture3DEditor.Tool.INSTANCER:
+		if not get_tree().process_frame.is_connected(_update_picker_highlight):
+			get_tree().process_frame.connect(_update_picker_highlight)
+	elif get_tree().process_frame.is_connected(_update_picker_highlight):
+		get_tree().process_frame.disconnect(_update_picker_highlight)
+
+
+## Tints the mesh asset currently under the cursor while the instancer picker is armed, so it is
+## clear which one a click would take. Runs every frame, which is affordable because
+## set_highlighted() early-outs when the flag is unchanged -- only a change reaches the dock.
+func _update_picker_highlight() -> void:
+	var assets: Pasture3DAssets = _picker_assets()
+	if assets == null:
+		return
+	var mesh_asset_id: int = -1
+	if plugin.terrain.data.has_regionp(plugin.mouse_global_position):
+		mesh_asset_id = plugin.terrain.instancer.get_closest_mesh_id(plugin.mouse_global_position)
+	for i: int in assets.get_mesh_count():
+		var ma: Pasture3DMeshAsset = assets.get_mesh_asset(i)
+		if ma:
+			ma.set_highlighted(i == mesh_asset_id)
 
 
 func clear_picking() -> void:
 	picking = Pasture3DEditor.TOOL_MAX
+	if not get_tree().process_frame.is_connected(_update_picker_highlight):
+		return
+	get_tree().process_frame.disconnect(_update_picker_highlight)
+	var assets: Pasture3DAssets = _picker_assets()
+	if assets == null:
+		return
+	for i: int in assets.get_mesh_count():
+		var ma: Pasture3DMeshAsset = assets.get_mesh_asset(i)
+		if ma:
+			ma.set_highlighted(false)
+	if plugin.asset_dock:
+		plugin.asset_dock.update_dock()
+
+
+## The highlight path runs from a frame signal and from teardown, so it can fire after the
+## terrain has gone away -- when the plugin is disabled mid-pick, or the node is deleted while
+## the picker is armed. Upstream reaches straight through this chain.
+func _picker_assets() -> Pasture3DAssets:
+	if plugin == null or not is_instance_valid(plugin.terrain):
+		return null
+	return plugin.terrain.assets
 
 
 func is_picking() -> bool:
@@ -735,11 +786,29 @@ func pick(p_global_position: Vector3) -> void:
 		if picking_callback.is_valid():
 			picking_callback.call(picking, color, p_global_position)
 			picking_callback = Callable()
-		picking = Pasture3DEditor.TOOL_MAX
-	
+		clear_picking()
+
 	elif operation_builder and operation_builder.is_picking():
 		operation_builder.pick(p_global_position, plugin.terrain)
 
 
 func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
 	p_button.icon = EditorInterface.get_base_control().get_theme_icon(p_icon_name, "EditorIcons")
+
+
+## Parents the live info readout into the 3D viewport itself rather than a dock, so the numbers
+## sit next to the cursor they describe. The container is found by class name because the editor
+## exposes no handle to it; a miss leaves live_info_panel null and every caller guards for that.
+func setup_live_info_panel() -> void:
+	var main_screen: Node = EditorInterface.get_editor_main_screen()
+	if not main_screen:
+		push_error("Pasture3DUI: setup_live_info_panel(): Failed to get main screen")
+		return
+	var viewport_container: Node = main_screen.find_child("*Node3DEditorViewportContainer*", true, false)
+	if not viewport_container:
+		push_error("Pasture3DUI: setup_live_info_panel(): Failed to get main viewport_container")
+		return
+	live_info_panel = load(LIVE_INFO_PANEL).instantiate()
+	live_info_panel.plugin = plugin
+	viewport_container.add_child(live_info_panel, true)
+	live_info_panel.visible = false

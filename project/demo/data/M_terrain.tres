@@ -47,13 +47,6 @@ _shader_parameters = {
 "noise2_scale": 0.076,
 "noise_texture": SubResource("NoiseTexture2D_bov7h"),
 &"region_blend": 0.9600000456,
-&"shader_uniforms": null,
-&"shader_uniforms/auto_shader": null,
-&"shader_uniforms/dual_scaling": null,
-&"shader_uniforms/general": null,
-&"shader_uniforms/macro_variation": null,
-&"shader_uniforms/mipmaps": null,
-&"shader_uniforms/world_background_noise": null,
 "tri_scale_reduction": 0.3,
 &"world_noise_fragment_normals": false,
 &"world_noise_height": 64.00001585487689,
@@ -63,7 +56,7 @@ _shader_parameters = {
 &"world_noise_offset": Vector3(-0.67, -4, -2.61),
 &"world_noise_scale": 5.0
 }
-world_background = 2
+world_background = 0
 auto_shader_enabled = true
 dual_scaling_enabled = true
 macro_variation_enabled = true

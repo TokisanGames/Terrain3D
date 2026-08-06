@@ -33,7 +33,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 #endif
 
 // Private uniforms
-group_uniforms shader_uniforms;
+group_uniforms private;
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform uint _background_mode = 1u; // NONE = 0, FLAT = 1, NOISE = 2
@@ -60,7 +60,7 @@ uniform highp sampler2DArray _texture_array_normal : hint_normal, filter_linear_
 group_uniforms;
 
 // Public uniforms
-group_uniforms shader_uniforms.general;
+group_uniforms general_uniforms;
 uniform float ground_level : hint_range(-1000., 1000.) = 0.0;
 uniform float region_blend : hint_range(.001, 1., 0.001) = 0.25;
 uniform bool flat_terrain_normals = false;
@@ -68,14 +68,14 @@ uniform bool textures_enabled = true;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 group_uniforms;
 
-group_uniforms shader_uniforms.auto_shader;
+group_uniforms auto_shader;
 uniform float auto_slope : hint_range(0, 10) = 1.0;
 uniform float auto_height_reduction : hint_range(0, 1) = 0.1;
 uniform int auto_base_texture : hint_range(0, 31) = 0;
 uniform int auto_overlay_texture : hint_range(0, 31) = 1;
 group_uniforms;
 
-group_uniforms shader_uniforms.macro_variation;
+group_uniforms macro_variation;
 uniform bool macro_variation_enabled = true;
 uniform vec3 macro_variation1 : source_color = vec3(1.);
 uniform vec3 macro_variation2 : source_color = vec3(1.);
@@ -142,15 +142,17 @@ float check_region(const vec2 uv2) {
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
 float get_region_blend(vec2 uv2) {
-	uv2 -= 0.5;
+	uv2 -= 0.5011; // correct for floating point error
 	const vec2 offset = vec2(0.0, 1.0);
 	float a = check_region(uv2 + offset.xy);
 	float b = check_region(uv2 + offset.yy);
 	float c = check_region(uv2 + offset.yx);
 	float d = check_region(uv2 + offset.xx);
-	vec2 w = smoothstep(vec2(0.0), vec2(1.0), fract(uv2));
+	vec2 blend_factor = vec2(2.0 + 126.0 * (1.0 - region_blend));
+	vec2 f = fract(uv2);
+	vec2 w = 1.0 / (1.0 + exp(blend_factor * log((1.0 - f) / f)));
 	float blend = mix(mix(d, c, w.x), mix(a, b, w.x), w.y);
-    return 1.0 - blend;
+	return (1.0 - blend) * 2.0;
 }
 
 float interpolated_height(vec2 pos) {
@@ -238,9 +240,9 @@ void vertex() {
 
 		// Apply background ground level and region blend
 		vec2 ruv = UV * _region_texel_size;
-		h += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv));
-		u += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(_region_texel_size, 0.)));
-		v += ground_level * smoothstep(1.0 - region_blend, 1.0, get_region_blend(ruv + vec2(0., _region_texel_size)));
+		h = mix(h, ground_level, smoothstep(0.0, 1.0, get_region_blend(ruv)));
+		u = mix(u, ground_level, smoothstep(0.0, 1.0, get_region_blend(ruv + vec2(_region_texel_size, 0.0))));
+		v = mix(v, ground_level, smoothstep(0.0, 1.0, get_region_blend(ruv + vec2(0.0, _region_texel_size))));
 
 		v_vertex.y = h;
 		v_normal = normalize(vec3(h - u, _vertex_spacing, h - v));
@@ -438,7 +440,7 @@ void fragment() {
 	// Apply PBR
 	ALBEDO = albedo_height.rgb * color_map.rgb * macrov;
 	ROUGHNESS = roughness;
-	SPECULAR = 1. - normal_rough.a;
+	SPECULAR = 1. - roughness;
 	// Repack final normal map value.
 	NORMAL_MAP = fma(normalize(normal_rough.xzy), vec3(0.5), vec3(0.5));
 	NORMAL_MAP_DEPTH = normal_map_depth;

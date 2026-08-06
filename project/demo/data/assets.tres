@@ -5,7 +5,6 @@
 [ext_resource type="Texture2D" uid="uid://ddprscrpsofah" path="res://demo/assets/textures/ground037_alb_ht.png" id="3_g8f2m"]
 [ext_resource type="Texture2D" uid="uid://dabyathlpy04p" path="res://demo/assets/textures/rock023_nrm_rgh.png" id="3_wncaf"]
 [ext_resource type="Texture2D" uid="uid://g80pbqtklcws" path="res://demo/assets/textures/ground037_nrm_rgh.png" id="4_aw5y1"]
-[ext_resource type="Texture2D" uid="uid://b3kmj0u8g1mdc" path="res://demo/assets/textures/noise_test_alb.png" id="5_noise"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_y3ibi"]
 transparency = 4
@@ -58,12 +57,6 @@ ao_strength = 1.0
 displacement_scale = 0.2
 detiling_rotation = 0.161
 
-[sub_resource type="Pasture3DTextureAsset" id="Pasture3DTextureAsset_noise"]
-name = "Noise"
-id = 2
-albedo_texture = ExtResource("5_noise")
-uv_scale = 0.1
-
 [resource]
 mesh_list = Array[Pasture3DMeshAsset]([SubResource("Pasture3DMeshAsset_2qf8x"), SubResource("Pasture3DMeshAsset_y3ibi")])
-texture_list = Array[Pasture3DTextureAsset]([SubResource("Pasture3DTextureAsset_lha57"), SubResource("Pasture3DTextureAsset_od0q7"), SubResource("Pasture3DTextureAsset_noise")])
+texture_list = Array[Pasture3DTextureAsset]([SubResource("Pasture3DTextureAsset_lha57"), SubResource("Pasture3DTextureAsset_od0q7")])

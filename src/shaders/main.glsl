@@ -42,7 +42,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_burley, specular_sc
 #endif
 
 // Private uniforms
-group_uniforms shader_uniforms;
+group_uniforms private;
 // Pasture3D: per-instance so each camera's clipmap geomorphs to its own snap center
 // (set via RenderingServer.instance_geometry_set_shader_parameter per clipmap view).
 instance uniform vec3 _target_pos = vec3(0.f);
@@ -57,7 +57,16 @@ uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1./region_size
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
-uniform vec2 _region_locations[1024];
+// _region_locations and MAX_REGIONS, sized by Pasture3DMaterial.max_regions. Exactly one of
+// these is spliced in; the rest are excluded in _generate_shader_code(). Ported from upstream
+// Terrain3D 5e352f7. It was a flat [1024] here, which is 8 KB of uniform data in every terrain
+// material before anything else -- half of GLES3's guaranteed 16 KB uniform block, on a project
+// that will typically use a handful of regions.
+//INSERT: MAX_REGIONS_64
+//INSERT: MAX_REGIONS_128
+//INSERT: MAX_REGIONS_256
+//INSERT: MAX_REGIONS_512
+//INSERT: MAX_REGIONS_1024
 uniform float _texture_normal_depth_array[32];
 uniform float _texture_ao_strength_array[32];
 uniform float _texture_ao_affect_array[32];
@@ -74,12 +83,20 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 uniform highp sampler2DArray _color_maps : source_color, FILTER_METHOD, repeat_disable;
 uniform highp sampler2DArray _texture_array_albedo : source_color, FILTER_METHOD, repeat_enable;
 uniform highp sampler2DArray _texture_array_normal : hint_normal, FILTER_METHOD, repeat_enable;
+// Driven from Pasture3D.light_target. Zero direction means "no light assigned", which the
+// fragment treats as fully lit -- see terrain_facing_light below.
+uniform vec3 _light_direction = vec3(0., 0., 0.);
+// Declared but unread by this shader. It is here for shader overrides, which is the whole point
+// of the private uniforms: a custom terrain shader gets the sun handed to it for free rather
+// than re-plumbing a DirectionalLight3D lookup. Godot strips it when nothing reads it.
+uniform vec3 _light_color : source_color = vec3(1.0, 1.0, .735);
 group_uniforms;
 
 // Public uniforms
-group_uniforms shader_uniforms.general;
+group_uniforms general_uniforms;
 //INSERT: FLAT_UNIFORMS
 uniform bool flat_terrain_normals = false;
+uniform float distant_normal_scale : hint_range(1.0, 10.0, 0.1) = 2.0;
 uniform float blend_sharpness : hint_range(0, 1) = 0.5;
 //INSERT: PROJECTION_UNIFORMS
 group_uniforms;
@@ -89,7 +106,7 @@ group_uniforms;
 //INSERT: DUAL_SCALING_UNIFORMS
 //INSERT: MACRO_VARIATION_UNIFORMS
 
-group_uniforms shader_uniforms.mipmaps;
+group_uniforms mipmaps;
 uniform float bias_distance : hint_range(0.0, 16384.0, 0.1) = 512.0;
 uniform float mipmap_bias : hint_range(0.5, 1.5, 0.01) = 1.0;
 uniform float depth_blur : hint_range(0.0, 35.0, 0.1) = 0.0;
@@ -126,7 +143,12 @@ ivec3 get_index_coord(const vec2 uv) {
 	vec2 r_uv = round(uv);
 	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-	int layer_index = _region_map[pos.y * _region_map_size + pos.x] * bounds - 1;
+	// Bounds-checked against MAX_REGIONS as well as the map: with _region_locations no longer
+	// always 1024 long, a region index past the compiled size would read off the end of the
+	// uniform array. Returns -1 (no region) instead, which every caller already handles.
+	int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+	int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	int layer_index = (raw_index * is_region) - (1 - is_region);
 	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
@@ -136,7 +158,9 @@ ivec3 get_index_coord(const vec2 uv) {
 vec3 get_index_uv(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-	int layer_index = _region_map[ pos.y * _region_map_size + pos.x ] * bounds - 1;
+	int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+	int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	int layer_index = (raw_index * is_region) - (1 - is_region);
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
 }
 
@@ -581,16 +605,34 @@ void fragment() {
 	mat.ao *= weight_inv;
 	mat.ao_affect *= weight_inv;
 
+	vec3 normal_map = fma(normalize(mat.normal_rough.xzy), vec3(0.5), vec3(0.5));
+	// Mips flatten the normal texture with distance, so amplify depth in step with how fast the
+	// world-space UV is changing per pixel. 1.0 up close, distant_normal_scale far away.
+	float distant_normal_amplifier = clamp(max(length(base_ddx.xz), length(base_ddy.xz)), 1., distant_normal_scale);
+	mat.normal_map_depth *= distant_normal_amplifier;
+
 	//INSERT: MACRO_VARIATION
-	
-	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values 
-	float roughness = clamp(fma(color_map.a - 0.5, 2.0, mat.normal_rough.a), 0., 1.);
-	
+
+	// Wetness/roughness modifier, converting 0 - 1 range to -1 to 1 range, clamped to Godot roughness values
+	float wetness = fma(color_map.a, -2., 1.);
+	float roughness = clamp(mat.normal_rough.a - wetness, 0., 1.);
+
+	// Specular w/ non-light-facing suppression. Apply wetness after so it reflects the sky after sunset.
+	// _light_direction is zero until a light_target is assigned, and normalize(vec3(0.)) is NaN,
+	// so guard it: an unconfigured scene reads as fully lit and keeps its previous specular
+	// rather than rendering undefined.
+	float light_len = length(_light_direction);
+	float terrain_facing_light = light_len > 0. ?
+		clamp(dot(w_normal, _light_direction / light_len), 0., 1.) : 1.;
+	float specular = (1. - mat.normal_rough.a) * terrain_facing_light;
+	specular = clamp(specular + wetness, 0., 1.);
+
 	// Apply PBR
 //INSERT: OUTPUT_ALBEDO
 //INSERT: OUTPUT_ALBEDO_GREY
 //INSERT: OUTPUT_ROUGHNESS
 //INSERT: OUTPUT_SPECULAR
+//INSERT: OUTPUT_SPECULAR_NONE
 //INSERT: OUTPUT_NORMAL_MAP
 //INSERT: OUTPUT_AMBIENT_OCCLUSION
 

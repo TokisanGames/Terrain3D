@@ -12,7 +12,7 @@ render_mode blend_mix,depth_draw_opaque,cull_back,diffuse_burley,specular_schlic
 
 // Private uniforms
 // Commented uniforms aren't needed for this shader, but are available for your own needs.
-group_uniforms shader_uniforms;
+group_uniforms private;
 uniform vec3 _target_pos = vec3(0.f);
 uniform float _mesh_size = 48.f;
 uniform float _subdiv = 1.f;
@@ -40,7 +40,7 @@ uniform highp sampler2DArray _control_maps : repeat_disable;
 group_uniforms;
 
 // Public uniforms
-group_uniforms shader_uniforms.general;
+group_uniforms general_uniforms;
 uniform bool flat_terrain_normals = false;
 group_uniforms;
 
