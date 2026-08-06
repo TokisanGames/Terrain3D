@@ -354,9 +354,9 @@ themselves — a boat crossing from a lake into the ocean does not need telling.
 | `displacement` | Cubic metres **this buoy** displaces at full submersion. |
 | `full_depth` | Metres of submersion for full force. |
 | `linear_drag` | Newtons per m/s at full submersion. |
-| `angular_drag` | Per second at full submersion. Applied once per **body**, not once per buoy. |
-| `sample_interval` | Evaluate the wave height every N ticks and hold it between. For crowds; leave at 1 on a hero boat. |
-| `water_body` | Optional override. Empty = ask the manager. |
+| `angular_drag` | Per second at full submersion. Applied once per **body**, not once per buoy — using the **largest** value among that body's buoys, so mixed values are not averaged and the node warns when it sees them. |
+| `sample_interval` | Re-read the wave height *and* re-check which water this is every N ticks, holding both between. Costs 1/N; in exchange the buoy notices it has left a body up to N ticks late. For crowds; leave at 1 on a hero boat. |
+| `water_body` | Optional override. Empty = ask the manager. A body removed from the tree counts as no body — the boat falls rather than floating on a surface nothing is drawing. |
 
 **The arithmetic that decides whether it floats**, and the reason `displacement` is in cubic metres
 rather than some tuning unit:
@@ -370,8 +370,21 @@ it settles at  f × full_depth  below the surface
 The node reports both numbers in its configuration warning, so "why does my boat sink" is a sentence
 rather than a puzzle.
 
-Budget: **64 buoys inside 0.5 ms per physics tick**, measured. `sample_interval` is the knob if you
-need more than that.
+Budget: **one wave solve per buoy per physics tick**, and 64 buoys inside 0.5 ms — both measured, on
+a lake and on the ocean. `sample_interval` is the knob if you need more than that; it divides the
+cost by N.
+
+Two things that surprise people, neither of which is a bug:
+
+**A floating boat may fall asleep, and that is fine.** Godot stops simulating a `RigidBody3D` that
+has been at rest, and a boat riding still water qualifies. The buoyancy force wakes it again the
+moment the water moves, so it rises on the next swell without any help. You do not need to set
+`can_sleep = false`.
+
+**Gravity does not change the waterline.** A hull with `gravity_scale = 2` weighs twice as much and
+displaces twice as hard, so it settles at exactly the same depth. The buoyancy follows whatever
+gravity the body is actually under, including an `Area3D` override — so if you want a boat to ride
+lower, change its mass or its displacement, not its gravity.
 
 ---
 
@@ -596,3 +609,12 @@ that gap is 1.7 cm.
 
 **A boat sinks.** Read the buoy's configuration warning: it quotes the displacement the body has and
 the displacement it needs. See §5.
+
+**A boat freezes mid-bob and stops responding.** It has not gone to sleep — that would fix itself on
+the next swell (§5). Check instead that its `water_body` override, if it has one, is still in the
+tree: a water body removed from the scene counts as no water, and the buoy stops applying force
+rather than floating the boat on a plane nobody is drawing.
+
+**A boat spins for too long, and changing `angular_drag` does nothing.** Angular damping is applied
+once per body using the **largest** `angular_drag` among that body's buoys, so raising one of four
+changes nothing unless it is already the largest. The buoy warns when a hull's values disagree.

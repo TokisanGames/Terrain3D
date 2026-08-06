@@ -709,12 +709,29 @@ a bobbing barrel. Each tick, for its own global position:
 h        = body.get_water_height(global_position.xz)         # world-space, wave surface
 depth    = h - global_position.y                             # >0 == submerged
 frac     = clamp(depth / full_depth, 0, 1)
-F_buoy   = ρ_water * g * displacement * frac * up            # ρ_water = 1000 kg/m³
-v_rel    = parent.linear_velocity at this point              # includes angular contribution
+
+g_vec    = parent.total_gravity          # project gravity x gravity_scale + Area3D overrides
+F_buoy   = ρ_water * |g_vec| * displacement * frac * -ĝ      # ρ_water = 1000 kg/m³
+
+com      = parent's centre of mass, world     # NOT the node origin; AUTO derives it from shapes
+v_rel    = parent.linear_velocity + parent.angular_velocity × (global_position - com)
 F_drag   = -(linear_drag * v_rel) * frac
-parent.apply_force(F_buoy + F_drag, global_position - parent.global_position)
-parent.angular_velocity *= 1 - angular_drag * frac * delta   # applied once per body, not per buoy
+
+parent.apply_force(F_buoy + F_drag, global_position - parent.global_position)   # origin-relative
+parent.angular_velocity *= 1 - angular_drag_max * frac_max * delta
 ```
+
+**Two offsets, two conventions, and they are not the same vector.** `apply_force()`'s second
+argument is relative to the body ORIGIN; `linear_velocity` is the velocity of the CENTRE OF MASS, so
+the lever arm in `v_rel` is COM-relative. They coincide only when the centre of mass sits on the node
+origin. Using one for both was a real defect — see PASTURE3D_BUOY_REMEDIATION_SPEC.md §4.2.
+
+`angular_drag_max` and `frac_max` are both maxima across the body's buoys, taken from the previous
+completed tick. Applying the damping once per body is what stops buoy count from changing how a hull
+spins; taking BOTH terms as maxima is what stops child order from doing the same (§5.2 there).
+
+Equilibrium is gravity-invariant: `ρ·g·V·frac = m·g` cancels `g`, so `gravity_scale` moves neither
+the required displacement nor the settling depth.
 
 ```gdscript
 @export var displacement: float = 0.25    # m³ displaced at full submersion, THIS buoy
@@ -732,8 +749,18 @@ parent.angular_velocity *= 1 - angular_drag * frac * delta   # applied once per 
 ### 9.2 Body resolution
 
 `water_body` if set, else `manager.body_at(global_position)`, cached. Re-resolved when the cached
-body's exact test starts failing, or every 30 ticks, whichever first — so a boat can leave a lake and
-enter the ocean without either being told or re-resolving 60 times a second.
+body's exact test starts failing, or every 30 physics ticks, whichever first — so a boat can leave a
+lake and enter the ocean without either being told or re-resolving 60 times a second.
+
+Both tests run **on sampling ticks only**, so a handoff is noticed within `sample_interval` ticks
+rather than on the tick it happens (§9.3). At the default N = 1 that is the same tick. The forced
+interval counts physics ticks, not sampling ticks, so raising N does not stretch it.
+
+`water_body` must be **valid**, not merely alive: a body removed from the tree is not water. It still
+answers `get_water_height()`, but a `Pasture3DWaterBody` outside a tree cannot reach the manager and
+reports its still level with no wave displacement, which floats boats on a plane nobody is drawing.
+An explicit `water_body` that has gone invalid means no body — it does **not** fall back to the
+registry, because silently moving a boat onto different water is worse than not floating it.
 
 No body → no force, no error. A boat driven onto land is a normal state, not a misconfiguration.
 
@@ -743,12 +770,22 @@ The guide is explicit that `get_water_height()` is not cheap: Gerstner waves dis
 as up, so the surface is not a heightfield and the query solves that inversion iteratively — 4 steps
 on calm water, 8 at ocean defaults. A 4-buoy boat is 4 solves per tick; a fleet of 20 is 80.
 
-- Budget: **64 buoys ≤ 0.5 ms per physics tick**, measured at the Phase 6 gate against a control that
-  fails (256 buoys, or `sample_interval = 1` on the ocean profile).
-- `sample_interval > 1` evaluates every N ticks and holds the value between. At 60 Hz physics and a
+- Budget: **one `solve_domain()` per buoy per tick**, and **64 buoys ≤ 0.5 ms per physics tick**.
+  Stated in solves first and milliseconds second, deliberately. A count is an integer, it is
+  reproducible on a contended machine, and it says which body implementation was measured — none of
+  which the millisecond figure did, which is how the ocean came to cost double for a while without
+  the gate noticing. `Pasture3DPoolManager.get_solve_count()` is the instrument.
+- **Both** body implementations memoise `get_water_height()` per (world XZ, physics frame). The
+  buoy asks the same question twice a tick — once through `contains_point()` in the body resolve,
+  once for the height sample — and the memo is what makes the pair cost one solve. The saving
+  depends on those two calls staying adjacent, at the same position, in the same frame.
+- `sample_interval > 1` evaluates every N ticks and holds the HEIGHT between, so the buoy still
+  answers its own motion in between. It throttles the body resolve as well as the sample, so the
+  cost is 1/N; the price is that a handoff is noticed within N ticks (§9.2). At 60 Hz physics and a
   120 s loop period, N = 2 is invisible on anything but a violent sea.
 - The manager could batch — one `solve_domain` call taking an array — if the gate says it must. Not
-  built speculatively.
+  built speculatively; one solve per buoy per tick is the floor for an unbatched design and that is
+  where it now sits.
 
 ---
 
@@ -1149,7 +1186,7 @@ nothing" from "measured well". Results are appended to this document as they are
 | **3** | Pasture3DPool core — ✅ **done 2026-07-29 (§11.4)** | Curve binding, loop meshing, level, `edge_offset`, presets/unique/save/load, registration, warnings | (a) 500 m lake rebuild ≤ 500 ms. (b) Auto vertex spacing meets the λ/8 rule; control = 4× spacing, which must show measurable surface sag. (c) Pool in a scene with no terrain. (d) Shared curve does not trip the brush's shared-curve warning |
 | **4** | Brush integration — ✅ **done 2026-07-30 (§11.5)** | `Add Water` on `Pasture3DTerrainBrush`, additive warning, undo, the manager's four shipped profiles | Button on each of Mound/Plow/Splat/Ridge/Trough produces a correctly bound pool; additive warning fires on raise-configured brushes and stays silent on carve-configured ones |
 | **5** | Underwater — ✅ **done 2026-07-30 (§11.7)**, timing pending | Area3D, exact test, camera polling, FogVolume, overlay shader | Camera crossing in both directions, above and below, in editor and runtime; concave pool rejects the peninsula point (control: the AABB test, which must accept it); overlay cost measured |
-| **6** | Pasture3DBuoy — ✅ **done 2026-07-30 (§11.9)** | Force model, drag, body resolution | Boat floats level and still; 64 buoys ≤ 0.5 ms/tick; body handoff lake → ocean without a frame of free-fall |
+| **6** | Pasture3DBuoy — ✅ **done 2026-07-30 (§11.9)**, remediated 2026-08-06 (§11.12) | Force model, drag, body resolution | Boat floats level and still; 64 buoys ≤ 0.5 ms/tick; body handoff lake → ocean without a frame of free-fall. Gate extended A–E → **A–T** by the remediation |
 | **7** | Ribbon + flow — ✅ **done 2026-07-30 (§11.10)** | Ribbon meshing, `ARRAY_COLOR` flow, `WATER_FLOW`, `water_river.gdshader`, `M_water_river.tres` | River follows spline Y downhill; flow direction correct through a 90° bend; no seam at the clock wrap (control: an unquantised half-period, which must seam); cost delta vs lake variant |
 | **8** | Docs — ✅ **done 2026-07-30 (§11.11)** | Rewrite guide §1/§5, add a water-bodies chapter, `ocean_*` → `Pasture3DOcean` mapping table, spec bookkeeping | The quick-start for a lake is "press the button", and the old property names are all findable |
 
@@ -1914,6 +1951,53 @@ will cry wolf until someone stops reading it.
 
 ---
 
+### 11.12 Phase 6 remediation — measured 2026-08-06 ✅
+
+Full detail in [PASTURE3D_BUOY_REMEDIATION_SPEC.md](PASTURE3D_BUOY_REMEDIATION_SPEC.md). Summary
+here because §11.9's numbers are no longer the current ones.
+
+A code review of `Pasture3DBuoy` found eight defects that had all survived §11.9's green gate. Not
+one of them was subtle; every one was invisible because of what the FIXTURE was rather than what the
+criteria said. Criterion E measured a `Pasture3DPool`, so the ocean's cost was never seen. The boat
+was a box centred on its origin at `gravity_scale` 1 with `can_sleep` off, so three force-model
+defects had nowhere to show. No criterion set `water_body`, froze a body, nested one, or gave two
+buoys different `angular_drag`.
+
+| Fixed | pre | post |
+|---|---|---|
+| Ocean paid two Gerstner solves per buoy per tick (`Pasture3DOcean` had no height memo; the pool did) | 128 solves/tick at 64 buoys | 64 |
+| `sample_interval` throttled only the already-memoised query, saving nothing at any N | 8 solves per 8 ticks at N=4 | 2 |
+| Drag's lever arm used the node origin where `linear_velocity` is the centre of mass's | net drag off by 4800 N on an offset-COM hull | within 160 N of prediction |
+| `gravity_scale` and Area3D gravity ignored | a `gravity_scale = 2` hull sank to −10.95 m | settles at −0.334 m, as predicted |
+| Explicit `water_body` never checked for tree membership | boat floated on a phantom plane, engine errors every tick | no body, free fall, no errors |
+| Angular damping took its coefficient from whichever buoy ran first | reversing child order changed spin by 84.3% | 0.09% |
+| A freeze carried `frac_prev` across it | first post-freeze tick cost a full tick of damping | 0.167% vs 2.45% |
+| `get_body_displacement()` descended into nested `RigidBody3D`s | hull with a dinghy reported 1.200 m³, owned 0.600 | 0.600 |
+
+**One review finding was wrong and was retracted**: `apply_force()` *does* wake a sleeping
+`RigidBody3D`, measured directly. A `keep_awake` export was built for the opposite belief and removed
+when the criterion written to prove it refused to fire. Recorded at length in that document's §4.4,
+because the misreading — treating this gate's `can_sleep = false` as a workaround rather than as the
+gate keeping its measurements clean — is more instructive than the retraction.
+
+**What changed about how this is gated**, and the part worth carrying to other phases:
+
+- **Cost claims are integers now.** `Pasture3DPoolManager.get_solve_count()` counts `solve_domain()`
+  entries, and every cost criterion asserts on it. A count is reproducible on a busy machine and
+  names which implementation ran; the millisecond budget did neither, which is how a 2× regression
+  sat inside a passing gate. Milliseconds are still measured under `RUN_TIMING=1`, now advisory.
+- **Every pre-fix number above was measured**, by reverting each fix, rebuilding and re-running —
+  not read off the code. Reading the code is what produced the one wrong finding.
+- **The gate runs headless.** `_settle()` awaited `RenderingServer.frame_post_draw`, which the dummy
+  renderer never emits, so `--headless` hung at criterion A with no message. It now awaits
+  `process_frame` when the display server is headless.
+- **Controls caught three of my own fixture bugs** and one wrong premise. Criterion K's *bound*
+  passed on the broken build (1 tick satisfies "≤ 4") and only its control saw the defect; criterion
+  P first ran long enough that both hulls damped to zero, making "they agree" a comparison of two
+  zeros. An agreement assertion needs a floor as well as a tolerance.
+
+---
+
 ## 12. Risks and open questions
 
 **Status as of 2026-07-30: all eight phases are done and gated.** What is still outstanding, in the
@@ -1924,7 +2008,9 @@ order it is worth caring about:
 | `ocean_high_pitch4` reads **+16.4%** for a bit-identical image, reproducibly, on a quiet machine. The one untested hypothesis is that the *reference* is wrong — settling it means rebuilding the pre-extraction commit and re-running Phase 0 | §11.3 |
 | Loop pools carry a neutral `ARRAY_COLOR` for the flow feature, which costs ~40 ms of build time on a 500 m lake for data that never varies. An instance uniform would avoid it | §11.10 |
 | Ribbon meshing has no native path; it is O(rows × cols) in GDScript, which is fine at river scale and untested at anything larger | §11.10 |
-| Phase 6's buoy budget passes with **17% of margin** on a square lake. A more intricate shoreline sends more containment queries to the exact test | §11.9 |
+| ~~Phase 6's buoy budget passes with **17% of margin** on a square lake~~ — **superseded 2026-08-06 (§11.12)**. The budget is now stated as one `solve_domain()` per buoy per tick and measured on the ocean as well as a pool. A more intricate shoreline still sends more containment queries to the exact test, but that is now one query rather than two | §11.12 |
+| The forced re-resolve interval is **ungated**. `_ticks_since_resolve` must count physics ticks, not sampling ticks, or `RESOLVE_INTERVAL` stretches to 30 × `sample_interval` — four seconds at N = 8. No criterion runs long enough to see it | §11.12 |
+| `update_configuration_warnings()` calls in the buoy's setters are **ungated**. They drive the editor's warning panel and nothing about them is observable headless, since the bound `get_buoyancy_warnings()` recomputes on every call | §11.12 |
 | Steam Deck figures throughout are extrapolated from desktop measurements. No Deck was available | water spec |
 
 

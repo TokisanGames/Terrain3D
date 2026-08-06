@@ -6,7 +6,6 @@
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
-#include "logger.h"
 #include "pasture_3d_buoy.h"
 #include "pasture_3d_pool_manager.h"
 
@@ -250,6 +249,9 @@ void Pasture3DBuoy::set_angular_drag(const real_t p_drag) {
 
 void Pasture3DBuoy::set_sample_interval(const int p_ticks) {
 	_sample_interval = MAX(p_ticks, 1);
+	// Drives warning text (the cost/latency note below), so the panel goes stale without this.
+	// Same rule as set_angular_drag: setters that change warning TEXT refresh warnings.
+	update_configuration_warnings();
 }
 
 void Pasture3DBuoy::set_water_body(Node *p_body) {
@@ -278,7 +280,7 @@ real_t Pasture3DBuoy::get_submersion() const {
 		return 0.f;
 	}
 	Vector3 pos = get_global_position();
-	real_t h = body->call("get_water_height", Vector2(pos.x, pos.z));
+	real_t h = (real_t)(double)body->call("get_water_height", Vector2(pos.x, pos.z));
 	return CLAMP((h - pos.y) / _full_depth, 0.f, 1.f);
 }
 
@@ -619,10 +621,10 @@ void Pasture3DBuoy::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_buoyancy_warnings"), &Pasture3DBuoy::get_buoyancy_warnings);
 
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "displacement", PROPERTY_HINT_RANGE,
-						 "0.001,10,0.001,or_greater,suffix:m3"),
+						 "0,10,0.001,or_greater,suffix:m3"),
 			"set_displacement", "get_displacement");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "full_depth", PROPERTY_HINT_RANGE,
-						 "0.01,5,0.01,or_greater,suffix:m"),
+						 "0.001,5,0.001,or_greater,suffix:m"),
 			"set_full_depth", "get_full_depth");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "linear_drag", PROPERTY_HINT_RANGE,
 						 "0,2000,1,or_greater"),

@@ -874,6 +874,42 @@ becoming the thing nobody updates next time. Criterion L's assertion is written 
 pseudocode's terms deliberately, so a future change to the model that does not update §9.1 fails a
 gate rather than aging quietly.
 
+### 6.7 Phase 5 results — measured 2026-08-06 ✅
+
+Same harness and conditions as §2.8. Criteria A–T, **PASS**. All 20 run headless; only E and G's
+millisecond halves need `RUN_TIMING=1`.
+
+Code changes are the four in §6.1–§6.3. Criterion T checks the hint/clamp agreement mechanically —
+five properties, each hint minimum compared against the value its setter actually clamps to, probed
+by assigning −1e9 and reading back:
+
+| | hint min | clamp |
+|---|---|---|
+| `displacement` | 0.0 | 0.0 |
+| `full_depth` | 0.001 | 0.001 |
+| `linear_drag` | 0.0 | 0.0 |
+| `angular_drag` | 0.0 | 0.0 |
+| `sample_interval` | 1 | 1 |
+
+**Criterion S is narrower than this spec proposed, and the original could not have worked.** It was
+written to assert that the setters call `update_configuration_warnings()` — but that drives the
+*editor's* warning panel, and nothing about it is observable from a headless run: the bound
+`get_buoyancy_warnings()` recomputes on every call, so it returns the new text whether or not the
+panel was ever told. Reading warnings before and after a setter would have passed on a build with
+every refresh call deleted. S now asserts what is observable — that each state which warrants a
+warning produces one, with a correctly configured buoy silent as the control — and the refresh calls
+themselves are listed as ungated in §7.
+
+Two fixture notes:
+
+- **Criterion T's first draft iterated every range-hinted property** and threw on `Node3D.rotation`,
+  which is range-hinted and is a `Vector3`. It now checks five properties by name, and fails if any
+  is missing — so a property added to the class has to be added to the list.
+- **T's comparison needs a tolerance**, not equality: the hint minimum is parsed from decimal text
+  into a double and the clamp comes back through a `real_t`, so 0.001 and 0.001f differ in the last
+  bits. 1e-6 absolute swallows that and still separates 0.01 from 0.001 by four orders of magnitude —
+  which is exactly the control, run against the old `full_depth` pair.
+
 ---
 
 ## 7. What this does not fix
@@ -885,6 +921,7 @@ gate rather than aging quietly.
 | Hull mesh integration / waterline solving | §1.2, and §9.1's whole premise |
 | Buoy-count-dependent COM caching for bodies whose shapes change mid-frame | `BodyTick` refreshes the COM once per frame. A body whose collision shape is swapped mid-frame reads a one-frame-stale COM. Not modelled: shape swaps are not a per-frame operation |
 | Steam Deck figures | Inherited standing caveat |
+| **`update_configuration_warnings()` calls in the setters are ungated.** They drive the editor's warning panel and nothing about them is observable headless, because the bound `get_buoyancy_warnings()` recomputes per call. Catching a missing one needs an editor-driven test, which this project does not have | §6.7 |
 | **The forced re-resolve interval is ungated.** `_ticks_since_resolve` must count physics ticks, not sampling ticks, or `RESOLVE_INTERVAL` stretches to 30 × `sample_interval` — four seconds at N = 8 for a boat waiting to notice it has left a lake. No criterion runs the 30+ ticks needed to see it. A criterion would have to park a buoy where the containment test keeps succeeding while the registry answer has changed underneath it, which is a fiddlier fixture than anything here; noted rather than built | §3.7 |
 
 ---

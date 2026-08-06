@@ -66,6 +66,13 @@
 #   R. a nested RigidBody3D's buoys do not count toward the hull. Control: the dinghy must have
 #      displacement of its own, or nothing was excluded
 #
+# S and T are Phase 5 (§6) — the inspector's side of the same work:
+#
+#   S. each state that warrants a configuration warning produces one. Control: a correctly
+#      configured buoy must be silent, or the warnings are noise
+#   T. every range hint's minimum equals the value its setter clamps to, checked mechanically.
+#      Control: the comparison must report the old full_depth pair (hint 0.01, clamp 0.001) unequal
+#
 # These are stated in SOLVE COUNTS rather than milliseconds on purpose. A count is an integer, it is
 # reproducible on a contended machine, and it says which implementation was measured — all three of
 # which the millisecond budget failed to do. Pasture3DPoolManager.get_solve_count() is the
@@ -89,7 +96,7 @@ const BUOY_COUNT := 64
 
 var _fail := 0
 var _completed := 0
-const CRITERIA := 18
+const CRITERIA := 20
 var _run_timing := false
 
 
@@ -130,6 +137,8 @@ func _ready() -> void:
 	await _gate_p_drag_order_independent()
 	await _gate_q_freeze_residue()
 	await _gate_r_nested_bodies()
+	await _gate_s_warnings()
+	await _gate_t_hints_match_clamps()
 
 	print("")
 	if _completed != CRITERIA:
@@ -1357,6 +1366,160 @@ func _owning_body(p_node: Node) -> Node:
 			return n
 		n = n.get_parent()
 	return null
+
+
+# ---- S: the warnings name the state they are about -------------------------------
+#
+# Criterion D covers the sinking warning. Phases 4 and 5 added three more, and each exists because
+# the thing it describes is otherwise invisible: a water_body that is not water resolves fine and
+# never floats; a hull whose buoys carry different angular_drag values uses only the largest, so
+# three of four sliders do nothing; sample_interval trades cost against handoff latency and the
+# ratio is not something anyone should have to work out.
+#
+# NOT tested here: whether the setters call update_configuration_warnings(). That drives the EDITOR's
+# warning panel and there is nothing observable from a headless run — get_buoyancy_warnings()
+# recomputes on every call, so it reports the new text whether or not the panel was told. Recorded in
+# PASTURE3D_BUOY_REMEDIATION_SPEC.md §7 rather than asserted badly.
+func _gate_s_warnings() -> void:
+	print("")
+	print("[S] the configuration warnings name the state they are about:")
+	var root := _make_world()
+	_make_manager(root, 0.0005)
+	_make_pool(root, 120.0)
+	await _settle()
+
+	var boat := _make_boat(root, 400.0, 4, 0.15, Vector3(0, 1, 0))
+	await _settle()
+	var buoy: Pasture3DBuoy = boat.get_child(1)
+	var other: Pasture3DBuoy = boat.get_child(2)
+
+	# Control FIRST: a correctly configured buoy must say none of these three. A node that warns
+	# about everything is a node whose warnings nobody reads, and it would pass every check below.
+	var quiet: PackedStringArray = buoy.get_buoyancy_warnings()
+	var noisy := ""
+	for w in quiet:
+		var t := String(w)
+		if t.contains("get_water_height()") or t.contains("angular_drag") \
+				or t.contains("sample_interval"):
+			noisy = t
+	if noisy == "":
+		print("    control (a correctly configured buoy): fires — silent on all three")
+	else:
+		_fail += 1
+		print("    !! control did NOT fire: a correct buoy already warns: %s" % noisy.substr(0, 80))
+
+	# 1. a water_body that is not water
+	var impostor := Node3D.new()
+	impostor.name = "NotWater"
+	root.add_child(impostor)
+	buoy.water_body = impostor
+	var hit_body := _has_warning(buoy, "get_water_height()")
+	buoy.water_body = null
+
+	# 2. buoys on one hull disagreeing about angular_drag
+	other.angular_drag = 8.0
+	var hit_drag := _has_warning(buoy, "angular_drag")
+	other.angular_drag = 2.0
+
+	# 3. sample_interval's cost/latency note
+	buoy.sample_interval = 4
+	var hit_interval := _has_warning(buoy, "sample_interval")
+	buoy.sample_interval = 1
+
+	print("    water_body is not water: %s | buoys disagree on angular_drag: %s | sample_interval: %s"
+		% [hit_body, hit_drag, hit_interval])
+	if hit_body and hit_drag and hit_interval:
+		print("    -> each state produces its warning")
+	else:
+		_fail += 1
+		print("    !! a state that should warn does not")
+	root.queue_free()
+	await _settle()
+	_completed += 1
+
+
+func _has_warning(p_buoy: Pasture3DBuoy, p_needle: String) -> bool:
+	for w in p_buoy.get_buoyancy_warnings():
+		if String(w).contains(p_needle):
+			return true
+	return false
+
+
+# ---- T: property hints agree with setter clamps ----------------------------------
+#
+# The convention is stated in this codebase, at Pasture3DOcean's ADD_PROPERTY block: "Ranges match
+# the clamps in the setters … A hint narrower than the clamp is a slider that stops short of" what
+# the property will actually accept. Pasture3DBuoy broke it twice — displacement hinted a 0.001
+# minimum against a clamp of 0, full_depth hinted 0.01 against a clamp of 0.001.
+#
+# Checked mechanically rather than by reading, because this is exactly the kind of agreement that
+# rots: the hint is one string and the clamp is one MAX() forty lines away, and nothing connects them.
+func _gate_t_hints_match_clamps() -> void:
+	print("")
+	print("[T] every range hint's minimum is the value its setter actually clamps to:")
+	var root := _make_world()
+	var buoy := Pasture3DBuoy.new()
+	root.add_child(buoy)
+	await _settle()
+
+	# By name, and not "every range-hinted property": Node3D.rotation is range-hinted too and is a
+	# Vector3, and the engine's own properties are not this criterion's business. A property added
+	# to Pasture3DBuoy has to be added here — the count assertion below is what says so.
+	const RANGED := ["displacement", "full_depth", "linear_drag", "angular_drag", "sample_interval"]
+	var hints := {}
+	for prop in buoy.get_property_list():
+		if RANGED.has(String(prop.name)) and prop.hint == PROPERTY_HINT_RANGE:
+			hints[String(prop.name)] = String(prop.hint_string)
+
+	var checked := 0
+	var bad := 0
+	for name in RANGED:
+		if not hints.has(name):
+			bad += 1
+			print("    !! %s has no range hint at all" % name)
+			continue
+		var hint_min := float(hints[name].split(",")[0])
+		# Probe the clamp rather than reading the source: ask for something far below any plausible
+		# floor and see where it lands.
+		buoy.set(name, -1.0e9)
+		var clamped := float(buoy.get(name))
+		checked += 1
+		if not _within(hint_min, clamped):
+			bad += 1
+			print("    !! %s: hint minimum %s but the setter clamps to %s"
+				% [name, hint_min, clamped])
+		else:
+			print("    %-16s hint %-8s clamp %s" % [name, hint_min, clamped])
+
+	# Control: the comparison has to be able to report a mismatch. Run it on the pair this criterion
+	# was written for — full_depth's old hint of 0.01 against its clamp of 0.001 — and require a
+	# disagreement. A comparator that returned true for everything would pass the loop above.
+	if not _within(0.01, 0.001):
+		print("    control (the old full_depth hint 0.01 vs its clamp 0.001): fires — reported unequal")
+	else:
+		_fail += 1
+		print("    !! control did NOT fire: the comparison calls 0.01 and 0.001 equal, so every")
+		print("       check above passes vacuously")
+	if checked == RANGED.size() and bad == 0:
+		print("    -> all %d range-hinted properties agree with their clamps" % checked)
+	elif checked != RANGED.size():
+		_fail += 1
+		print("    !! checked %d of the %d expected properties" % [checked, RANGED.size()])
+	else:
+		_fail += 1
+		print("    !! %d of %d hints disagree with their clamps" % [bad, checked])
+	root.queue_free()
+	await _settle()
+	_completed += 1
+
+
+## Equal to within float32 representation error, and nothing looser.
+##
+## Not exact equality: the hint minimum is parsed from decimal text into a double while the clamp
+## comes back through a real_t, so 0.001 and 0.001f differ in the last bits at no fault of anyone.
+## 1e-6 absolute swallows that and still separates 0.01 from 0.001 by four orders of magnitude.
+func _within(p_a: float, p_b: float) -> bool:
+	return absf(p_a - p_b) <= 1.0e-6
 
 
 # ---- helpers -------------------------------------------------------------------
