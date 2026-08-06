@@ -80,6 +80,28 @@ private:
 	StringName _wave_profile = "ocean_default";
 	Vector3 _domain_origin = V3_ZERO;
 
+	// One-entry memo for get_water_height(), keyed on (world XZ, physics frame).
+	//
+	// The SAME memo Pasture3DWaterBody.get_water_height() carries, on the other body
+	// implementation, for the same reason -- and it was missing here, which meant a boat in
+	// open water paid for it. Pasture3DBuoy asks this question twice per buoy per tick at one
+	// position: _resolve_body() calls contains_point(), which is a vertical test against
+	// get_water_height(), and apply_buoyancy() then calls get_water_height() directly. Each
+	// pass is a solve_domain(), a 16-iteration Gerstner inverse, so the ocean cost twice what
+	// §9.3's budget was written against. The pool memoised and the ocean did not, and the
+	// Phase 6 gate measured a pool.
+	//
+	// ONE entry and not a map: the pair is adjacent within one buoy's tick, so 64 interleaved
+	// buoys still hit -- buoy n fills, buoy n reads, buoy n+1 overwrites. A map would cost a
+	// hash per query to serve a pattern one slot already serves, and would need eviction.
+	//
+	// mutable because the query is const, as it must be: it answers a question about the
+	// world, and callers hold this node by const reference.
+	mutable Vector2 _height_memo_xz;
+	mutable uint64_t _height_memo_frame = UINT64_MAX; // a frame counter cannot reach this
+	mutable real_t _height_memo_y = 0.f;
+	mutable bool _height_memo_valid = false;
+
 	TargetNode3D _clipmap_target;
 
 	// Last height range applied to the cull AABB (water spec §4.5). Polled rather
@@ -96,6 +118,12 @@ private:
 	bool _manager_registered = false;
 
 	Pasture3DPoolManager *_find_manager() const;
+	// Drop the height memo. Called from the three places the answer depends on beyond the
+	// frame: this node's transform (sea level IS its Y, §6.1), the domain origin (subtracted
+	// before the solve) and the wave profile (a different table is a different surface).
+	// Anything else that enters get_water_height() later has to be added here -- Phase 1
+	// criterion H's first control is the standing guard against forgetting.
+	void _drop_height_memo() const { _height_memo_valid = false; }
 	void _try_register_with_manager();
 	void _setup_mesher();
 	void _destroy_mesher(const bool p_final = false);

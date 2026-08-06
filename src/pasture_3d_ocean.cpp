@@ -339,6 +339,7 @@ void Pasture3DOcean::set_material(const Ref<Material> &p_material) {
 
 void Pasture3DOcean::set_wave_profile(const StringName &p_name) {
 	SET_IF_DIFF(_wave_profile, p_name);
+	_drop_height_memo(); // a different table is a different surface
 	_rebuild_runtime_material();
 	_update_aabbs(true);
 	update_configuration_warnings();
@@ -346,6 +347,7 @@ void Pasture3DOcean::set_wave_profile(const StringName &p_name) {
 
 void Pasture3DOcean::set_domain_origin(const Vector3 &p_origin) {
 	SET_IF_DIFF(_domain_origin, p_origin);
+	_drop_height_memo(); // subtracted before the solve, so it moves the answer
 	_push_clipmap_uniforms();
 }
 
@@ -376,14 +378,38 @@ Vector3 Pasture3DOcean::get_water_surface_point(const Vector2 &p_domain_xz) cons
 	return Vector3(local.x + _domain_origin.x, local.y + get_sea_level(), local.z + _domain_origin.z);
 }
 
+/**
+ * Surface height at a world XZ, including waves. Memoised per (world XZ, physics frame);
+ * see _height_memo_xz for why that pair and why one entry.
+ *
+ * Keyed on the physics FRAME rather than on water_time, exactly as Pasture3DWaterBody does:
+ * the manager advances the clock in its own physics tick, so water_time is constant across a
+ * frame by construction, and an integer compare beats a float one.
+ *
+ * That does make the whole frame agree on whichever value was captured first. Node order
+ * decides whether that is the pre- or post-advance clock, so a query can lag the drawn
+ * surface by one frame -- but the alternative is what was there before, where callers on
+ * either side of the manager's tick disagreed with each other. Internally consistent and
+ * possibly one frame old beats inconsistent. Phase 1 criterion H pins the parity.
+ */
 real_t Pasture3DOcean::get_water_height(const Vector2 &p_xz) const {
+	const uint64_t frame = Engine::get_singleton()->get_physics_frames();
+	if (_height_memo_valid && _height_memo_frame == frame && _height_memo_xz == p_xz) {
+		return _height_memo_y;
+	}
 	Pasture3DPoolManager *manager = _find_manager();
 	if (!manager) {
+		// Not memoised: there is no solve to save, and a manager appearing mid-frame should
+		// not have to invalidate anything.
 		return get_sea_level();
 	}
 	Vector2 target(p_xz.x - _domain_origin.x, p_xz.y - _domain_origin.z);
 	Vector2 domain = manager->solve_domain(_wave_profile, target);
-	return get_sea_level() + manager->evaluate_height(_wave_profile, domain);
+	_height_memo_y = get_sea_level() + manager->evaluate_height(_wave_profile, domain);
+	_height_memo_xz = p_xz;
+	_height_memo_frame = frame;
+	_height_memo_valid = true;
+	return _height_memo_y;
 }
 
 Vector3 Pasture3DOcean::get_water_normal(const Vector2 &p_xz) const {
@@ -544,6 +570,10 @@ void Pasture3DOcean::_notification(int p_what) {
 
 		case NOTIFICATION_TRANSFORM_CHANGED: {
 			// Sea level IS this node's Y (§6.1), so moving the node moves the water.
+			// get_water_height()'s memo is keyed on world XZ and the frame, but the answer
+			// also carries sea level -- moving the ocean inside a frame would otherwise hand
+			// back the pre-move height for the rest of it.
+			_drop_height_memo();
 			_update_aabbs();
 			break;
 		}

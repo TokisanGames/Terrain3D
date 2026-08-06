@@ -1,6 +1,8 @@
 // Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/physics_direct_body_state3d.hpp>
+#include <godot_cpp/classes/physics_server3d.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/core/class_db.hpp>
 
@@ -20,6 +22,17 @@
  * RESOLVE_INTERVAL ticks. The first covers a boat leaving a lake; the second covers it arriving
  * somewhere the first cannot see, such as a pool that was built after the buoy last looked.
  *
+ * CALLED ON SAMPLING TICKS ONLY (§9.3). The containment test underneath this is a wave query, and
+ * pairing it with the height sample is what makes the pair cost one solve instead of two -- so a
+ * held tick that skipped the sample but still resolved would pay full price for the tick it was
+ * supposed to be saving. That is what `sample_interval` used to do, which is why it saved nothing.
+ * apply_buoyancy() owns the decision; this function assumes it has been made.
+ *
+ * `_ticks_since_resolve` is counted by the CALLER, in physics ticks, and only tested here. Counting
+ * it in here would count sampling ticks instead, and RESOLVE_INTERVAL would silently stretch by a
+ * factor of sample_interval -- four seconds at N = 8, for a boat waiting to notice it has left a
+ * lake.
+ *
  * No body is a normal state, not an error. A boat driven onto land, or dropped into a scene before
  * the water exists, gets no force and no message.
  */
@@ -29,18 +42,26 @@ Node *Pasture3DBuoy::_resolve_body() {
 		return obj ? Object::cast_to<Node>(obj) : nullptr;
 	}
 	Node *cached = _get_body();
-	_ticks_since_resolve++;
 	if (cached && _ticks_since_resolve < RESOLVE_INTERVAL) {
 		// The cached body is still the answer as long as it still contains us. This is the exact
 		// test, not a box, so leaving a lake is noticed on the tick it happens rather than up to
 		// RESOLVE_INTERVAL later.
 		//
-		// It is NOT cheap, whatever this comment used to claim: contains_point() bottoms out in
-		// get_water_height(), so it runs the same 16-iteration Gerstner inverse the height sample
-		// below does. The two are the same query at the same position in the same frame, and
-		// Pasture3DWaterBody.get_water_height() memoises exactly that pair -- so the second one is
-		// free, but only because that memo is there. Anything that moves this call to a different
-		// position, or off the physics frame, pays for a whole second solve.
+		// It is NOT cheap on its own: contains_point() bottoms out in get_water_height(), so it
+		// runs the same 16-iteration Gerstner inverse the height sample below does. The two are
+		// the same query at the same position in the same frame, and BOTH body implementations
+		// memoise exactly that pair -- Pasture3DWaterBody.get_water_height() in GDScript, and
+		// Pasture3DOcean::get_water_height() in C++ -- so the second one is free.
+		//
+		// Only the pool memoised until Phase 1 of the buoy remediation, and this comment claimed
+		// the saving for the ocean anyway. A boat in open water -- the case §9.3's budget is
+		// about -- paid two full solves per buoy per tick, and the Phase 6 gate did not catch it
+		// because criterion E measured a pool. Both are now counted, in solves, by criteria F
+		// and G.
+		//
+		// The memo is one entry keyed on (position, physics frame), so the saving depends on
+		// these two calls staying adjacent, at the same position, in the same frame. Anything
+		// that moves this call away from the sample below pays for a whole second solve.
 		if (cached->has_method("contains_point")) {
 			bool still_in = cached->call("contains_point", get_global_position());
 			if (still_in) {
@@ -120,6 +141,36 @@ void Pasture3DBuoy::_refresh_gravity() {
 		return;
 	}
 	_gravity_cached = (real_t)(double)settings->get_setting("physics/3d/default_gravity", 9.80665);
+}
+
+/**
+ * Read the body's centre of mass and effective gravity into its per-frame record.
+ *
+ * Both are only knowable from the physics server. RigidBody3D::get_center_of_mass() is the CUSTOM
+ * offset and says nothing under CENTER_OF_MASS_MODE_AUTO, which is the default and which derives
+ * the COM from the collision shapes; and gravity_scale plus any Area3D override compose into a
+ * vector only the server has. PhysicsDirectBodyState3D has both.
+ *
+ * Called once per body per frame from the BodyTick roll, not once per buoy -- a 64-buoy fleet would
+ * otherwise be 64 server calls a tick for two numbers that are properties of the body.
+ *
+ * The direct state is null outside the physics step and for a body the server is not simulating.
+ * The fallback is exactly the pre-Phase-3 behaviour plus gravity_scale: world-down at the project's
+ * gravity, and the origin as the centre of mass.
+ */
+void Pasture3DBuoy::_refresh_body_state(BodyTick *p_tick, RigidBody3D *p_body) const {
+	PhysicsServer3D *server = PhysicsServer3D::get_singleton();
+	PhysicsDirectBodyState3D *state =
+			server ? server->body_get_direct_state(p_body->get_rid()) : nullptr;
+	if (state) {
+		p_tick->com_offset = state->get_center_of_mass();
+		p_tick->gravity = state->get_total_gravity();
+		p_tick->state_valid = true;
+		return;
+	}
+	p_tick->com_offset = Vector3();
+	p_tick->gravity = Vector3(0.f, -_gravity() * p_body->get_gravity_scale(), 0.f);
+	p_tick->state_valid = false;
 }
 
 ///////////////////////////
@@ -223,19 +274,41 @@ void Pasture3DBuoy::apply_buoyancy(const double p_delta) {
 	if (!parent || parent->is_freeze_enabled()) {
 		return;
 	}
-	Node *body = _resolve_body();
+	// Physics ticks, not sampling ticks. See _resolve_body().
+	_ticks_since_resolve++;
+
+	// THE tick decision, and it covers the body resolve as well as the height sample.
+	//
+	// Both are the same wave query at the same position, and the memo underneath them makes the
+	// second free -- so skipping only the sample, which is what this used to do, skipped the free
+	// one and left the expensive one running every tick. `sample_interval` was documented in §9.3 as
+	// the relief valve for crowds of buoys and it saved, measurably, nothing:
+	//
+	//              before the memo   after the memo    after this
+	//   N = 1        2 solves/tick     1 solve/tick     1 solve/tick
+	//   N = 2      1.5 solves/tick     1 solve/tick   0.5 solves/tick
+	//
+	// The price is in §9.2's contract rather than in accuracy: the buoy now notices it has left its
+	// body within `sample_interval` ticks instead of on the tick it happens. At N = 2 that is 33 ms.
+	// A crowd is exactly the population that can afford it, and a hero boat stays at N = 1 -- which
+	// is what the configuration warning already tells people to do.
+	const bool sampling = !_held_valid || _ticks_since_sample >= _sample_interval - 1;
+
+	// _get_body() on a held tick: the cached body, with no containment test and so no wave query.
+	Node *body = sampling ? _resolve_body() : _get_body();
 	if (!body || !body->has_method("get_water_height")) {
+		// The next tick samples unconditionally, so losing a body self-heals immediately rather
+		// than waiting out the interval.
 		_held_valid = false;
 		return;
 	}
 
 	const Vector3 pos = get_global_position();
 
-	// Sampling. sample_interval > 1 re-uses the last HEIGHT rather than the last force, so the buoy
-	// still responds to its own motion between samples -- it is the wave query that is skipped, and
-	// that is the expensive part (§9.3). At 60 Hz against a 120 s loop, N=2 is invisible on
-	// anything short of a violent sea.
-	if (!_held_valid || _ticks_since_sample >= _sample_interval - 1) {
+	// The HEIGHT is held, not the force, so the buoy still responds to its own motion between
+	// samples -- it is the wave query that is skipped, and that is the expensive part (§9.3). At
+	// 60 Hz against a 120 s loop, N=2 is invisible on anything short of a violent sea.
+	if (sampling) {
 		_held_height = (real_t)(double)body->call("get_water_height", Vector2(pos.x, pos.z));
 		_held_valid = true;
 		_ticks_since_sample = 0;
@@ -267,10 +340,17 @@ void Pasture3DBuoy::apply_buoyancy(const double p_delta) {
 		tick->frame = frame;
 		tick->frac_prev = tick->frac_now;
 		tick->frac_now = 0.f;
+		// The body's own facts, once for every buoy on it. See _refresh_body_state().
+		_refresh_body_state(tick, parent);
 		if (_angular_drag > 0.f && tick->frac_prev > 0.f) {
 			const real_t keep = MAX(1.f - _angular_drag * tick->frac_prev * (real_t)p_delta, 0.f);
 			parent->set_angular_velocity(parent->get_angular_velocity() * keep);
 		}
+		// NOTHING here wakes the body, and nothing needs to. apply_force() wakes a sleeping
+		// RigidBody3D by itself -- measured on 4.7, and criterion N holds it to that -- so a boat
+		// that settles and sleeps still rises when the water does. A keep_awake export was written
+		// for the opposite belief and removed when the probe disagreed with it; see
+		// PASTURE3D_BUOY_REMEDIATION_SPEC.md §4.4.
 	}
 	tick->frac_now = MAX(tick->frac_now, frac);
 
@@ -278,18 +358,38 @@ void Pasture3DBuoy::apply_buoyancy(const double p_delta) {
 		return;
 	}
 
-	// Archimedes: the weight of the water displaced. Up is world up, not the body's up -- a
-	// capsized hull is still pushed toward the sky, which is what rights it.
-	const Vector3 buoyant = Vector3(0.f, WATER_DENSITY * _gravity() * _displacement * frac, 0.f);
+	// Archimedes: the weight of the water displaced, pushed OPPOSITE the gravity this body is
+	// actually under -- not the body's own up, so a capsized hull is still pushed toward the sky,
+	// which is what rights it. Under ordinary gravity that direction IS world up and this is
+	// identical to what it replaces; under a tilted Area3D override it is the physical answer.
+	//
+	// The magnitude matters more than the direction in practice: gravity_scale multiplies the
+	// weight the buoyancy has to balance, and reading it from the project setting alone meant a
+	// hull at scale 2 sank however correct its displacement was. Note that the equilibrium itself
+	// is scale-INVARIANT -- rho*g*V*frac = m*g cancels g -- so get_required_displacement() and the
+	// configuration warning were right all along and are untouched.
+	const real_t g_mag = tick->gravity.length();
+	const Vector3 up = g_mag > (real_t)CMP_EPSILON ? -tick->gravity / g_mag : Vector3(0.f, 1.f, 0.f);
+	const Vector3 buoyant = up * (WATER_DENSITY * g_mag * _displacement * frac);
 
-	// Velocity OF THIS POINT, not of the body: the angular term is what makes drag resist rotation
-	// and what stops a boat rocking forever.
-	const Vector3 offset = pos - parent->get_global_position();
+	// TWO offsets, because two engine conventions meet here and using one for both was wrong.
+	//
+	//   force_offset  is ORIGIN-relative: apply_force()'s second argument is documented that way,
+	//                 and the server does the (position - centre_of_mass) subtraction itself.
+	//   lever         is CENTRE-OF-MASS-relative: get_linear_velocity() returns the velocity of the
+	//                 centre of mass, so the rigid-body identity is v_point = v_com + w x (p - com).
+	//
+	// They coincide only when the COM sits on the node origin, which is exactly the case the Phase 6
+	// fixture built (a BoxShape3D centred on the origin) and is not the case for a boat, whose hull
+	// shape hangs below its origin. With the wrong arm the drag on a spinning hull does not cancel
+	// about the true centre and a pure spin bleeds into linear drift.
+	const Vector3 force_offset = pos - parent->get_global_position();
+	const Vector3 lever = force_offset - tick->com_offset;
 	const Vector3 point_velocity = parent->get_linear_velocity() +
-			parent->get_angular_velocity().cross(offset);
+			parent->get_angular_velocity().cross(lever);
 	const Vector3 drag = -point_velocity * _linear_drag * frac;
 
-	parent->apply_force(buoyant + drag, offset);
+	parent->apply_force(buoyant + drag, force_offset);
 }
 
 PackedStringArray Pasture3DBuoy::_get_configuration_warnings() const {
@@ -331,10 +431,13 @@ PackedStringArray Pasture3DBuoy::get_buoyancy_warnings() const {
 		}
 	}
 	if (_sample_interval > 1) {
-		warnings.push_back(vformat("sample_interval is %d, so the wave height under this buoy is "
-								   "re-read every %d physics ticks and held in between. Intended "
-								   "for crowds of buoys; on a hero boat leave it at 1.",
-				_sample_interval, _sample_interval));
+		warnings.push_back(vformat("sample_interval is %d, so this buoy reads the wave height and "
+								   "re-checks which water it is in every %d physics ticks, holding "
+								   "both in between -- about a %.0f%% saving, at the cost of "
+								   "noticing it has left a body up to %d ticks late. Intended for "
+								   "crowds of buoys; on a hero boat leave it at 1.",
+				_sample_interval, _sample_interval,
+				(1.f - 1.f / (real_t)_sample_interval) * 100.f, _sample_interval));
 	}
 	return warnings;
 }

@@ -519,6 +519,10 @@ Vector2 Pasture3DPoolManager::solve_domain(const StringName &p_profile, const Ve
 	if (profile.is_null()) {
 		return p_target_xz;
 	}
+	// Counted AFTER the null check, so the number is solves actually run and not calls made.
+	// A fixture whose profile does not resolve then reads zero, which is the honest answer:
+	// nothing was solved, and a gate asserting on the count should fail rather than pass.
+	_solve_count++;
 	return profile->solve_domain(p_target_xz, (real_t)_water_time);
 }
 
@@ -612,6 +616,8 @@ void Pasture3DPoolManager::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_material_for", "base", "profile"), &Pasture3DPoolManager::get_material_for);
 	ClassDB::bind_method(D_METHOD("get_cached_material_count"), &Pasture3DPoolManager::get_cached_material_count);
 	ClassDB::bind_method(D_METHOD("get_upload_count"), &Pasture3DPoolManager::get_upload_count);
+	ClassDB::bind_method(D_METHOD("get_solve_count"), &Pasture3DPoolManager::get_solve_count);
+	ClassDB::bind_method(D_METHOD("reset_solve_count"), &Pasture3DPoolManager::reset_solve_count);
 	ClassDB::bind_method(D_METHOD("clear_material_cache"), &Pasture3DPoolManager::clear_material_cache);
 	ClassDB::bind_method(D_METHOD("rebuild_tables"), &Pasture3DPoolManager::rebuild_tables);
 	ClassDB::bind_method(D_METHOD("upload_profile_into", "material", "profile"), &Pasture3DPoolManager::upload_profile_into);

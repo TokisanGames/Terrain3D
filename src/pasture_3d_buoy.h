@@ -41,9 +41,12 @@ public: // Constants
 	// cubic metres rather than in some arbitrary "strength" unit -- it means a hull whose volume you
 	// know can be floated by arithmetic instead of by tuning.
 	static constexpr real_t WATER_DENSITY = 1000.f;
-	// Ticks between forced re-resolutions of the water body, when nothing else has invalidated it.
-	// A boat crossing from a lake into the ocean must not need telling, and must not pay for a
-	// registry walk sixty times a second either (§9.2).
+	// PHYSICS ticks between forced re-resolutions of the water body, when nothing else has
+	// invalidated it. A boat crossing from a lake into the ocean must not need telling, and must not
+	// pay for a registry walk sixty times a second either (§9.2).
+	//
+	// Physics ticks and not sampling ticks: the forced re-resolve lands on the first sampling tick
+	// at or after this many physics ticks, so raising sample_interval does not stretch it.
 	static constexpr int RESOLVE_INTERVAL = 30;
 
 private:
@@ -57,6 +60,7 @@ private:
 	// --- Per-instance runtime state -----------------------------------------
 	RigidBody3D *_parent_body = nullptr;
 	uint64_t _body_id = 0; // resolved water body
+	// Counted by apply_buoyancy() in physics ticks; only TESTED by _resolve_body(). See both.
 	int _ticks_since_resolve = 0;
 	int _ticks_since_sample = 0;
 	// Water height as of the last evaluation. Held between samples when sample_interval > 1 --
@@ -66,14 +70,30 @@ private:
 	// The project's gravity, resolved on entering the tree. See _refresh_gravity().
 	real_t _gravity_cached = 9.80665f;
 
-	// --- Per-body, per-tick angular damping ---------------------------------
+	// --- Per-body, per-tick state -------------------------------------------
 	// Angular drag is applied once per BODY per tick, not once per buoy: four buoys on a hull would
 	// otherwise damp it four times as hard as one, and the same boat would spin differently for
 	// having more sample points. Keyed on the body's instance id.
+	//
+	// It also carries the two facts about the body that every buoy on it needs and that are constant
+	// across a frame -- its centre of mass and the gravity actually acting on it. Both come from
+	// PhysicsDirectBodyState3D, which is one server call, so caching them here makes it one call per
+	// BODY per frame instead of one per buoy. The frame roll below was already the place that
+	// happens exactly once per body per frame; this is that machinery paying for itself twice.
 	struct BodyTick {
 		uint64_t frame = 0; // physics frame this entry was last rotated on
 		real_t frac_now = 0.f; // largest submersion fraction seen so far THIS frame
 		real_t frac_prev = 0.f; // the completed value from the previous frame
+		// Global-space offset from the body's ORIGIN to its centre of mass. Not zero in general:
+		// under CENTER_OF_MASS_MODE_AUTO Godot derives it from the collision shapes, and a hull
+		// shape sitting below its node origin is the ordinary case for a boat.
+		Vector3 com_offset;
+		// The total gravity vector on this body: project gravity, times gravity_scale, plus any
+		// Area3D override. Buoyancy has to balance whatever the body is actually falling under.
+		Vector3 gravity;
+		// False when the physics server had no direct state to give -- outside the physics step, or
+		// for a body it is not simulating. The fields above then hold the fallbacks.
+		bool state_valid = false;
 	};
 	static inline HashMap<uint64_t, BodyTick> _body_ticks;
 
@@ -82,6 +102,7 @@ private:
 	RigidBody3D *_find_parent_body() const;
 	real_t _gravity() const;
 	void _refresh_gravity();
+	void _refresh_body_state(BodyTick *p_tick, RigidBody3D *p_body) const;
 
 protected:
 	static void _bind_methods();

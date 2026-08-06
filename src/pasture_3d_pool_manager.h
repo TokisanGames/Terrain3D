@@ -109,6 +109,18 @@ private:
 	// profile produce exactly one; it is kept afterwards because "how many uploads
 	// did that inspector drag cost" is the question this class exists to answer.
 	int _upload_count = 0;
+	// Cumulative count of solve_domain() solves. The same instrument as _upload_count, for
+	// the other expensive thing this class does.
+	//
+	// A Gerstner inverse is 16 iterations over the whole wave table and it is the entire cost
+	// of every CPU water query -- so "how many did that tick cost" is the only question worth
+	// asking about buoy performance, and it is an INTEGER. The buoy budget used to be stated
+	// in milliseconds and verified on whatever machine was free, which is how a doubling on
+	// the ocean path survived a green gate. A count is reproducible on a contended machine
+	// and says which of two implementations was measured.
+	//
+	// mutable because solve_domain() is const and must stay const.
+	mutable int _solve_count = 0;
 
 	String _cache_key(const Ref<Material> &p_base, const StringName &p_profile) const;
 	void _upload_into(const Ref<Material> &p_material, const Ref<Pasture3DWaveProfile> &p_profile);
@@ -205,6 +217,9 @@ public:
 	void upload_profile_into(const Ref<Material> &p_material, const StringName &p_profile);
 	int get_cached_material_count() const { return _material_cache.size(); }
 	int get_upload_count() const { return _upload_count; }
+	// Solves run since the last reset. See _solve_count.
+	int get_solve_count() const { return _solve_count; }
+	void reset_solve_count() { _solve_count = 0; }
 	void clear_material_cache();
 
 	// Rebuilds every profile's table and re-uploads it into every cached material.
