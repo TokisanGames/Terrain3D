@@ -37,9 +37,8 @@
  * the water exists, gets no force and no message.
  */
 Node *Pasture3DBuoy::_resolve_body() {
-	if (_water_body_id != 0) {
-		Object *obj = ObjectDB::get_instance(_water_body_id);
-		return obj ? Object::cast_to<Node>(obj) : nullptr;
+	if (_water_body.is_set()) {
+		return _get_body();
 	}
 	Node *cached = _get_body();
 	if (cached && _ticks_since_resolve < RESOLVE_INTERVAL) {
@@ -74,24 +73,69 @@ Node *Pasture3DBuoy::_resolve_body() {
 	_ticks_since_resolve = 0;
 	Pasture3DPoolManager *manager = Pasture3DPoolManager::get_active_manager();
 	if (!manager) {
-		_body_id = 0;
+		_resolved_body.clear();
 		return nullptr;
 	}
 	Node *found = manager->body_at(get_global_position());
-	_body_id = found ? found->get_instance_id() : 0;
+	_resolved_body.set_target(found);
 	return found;
 }
 
+/**
+ * The water body currently in force, or null. No resolving, no side effects.
+ *
+ * Both branches demand VALIDITY and not merely existence -- inside the tree and not queued for
+ * deletion, which is what TargetNode::is_valid() means. A body removed from the tree is not water
+ * any more: it still answers has_method("get_water_height"), but Pasture3DWaterBody cannot reach a
+ * manager when it is not inside a tree and so reports its still level with no wave displacement at
+ * all. A boat then floats on a phantom flat plane, which looks like the buoy working.
+ *
+ * An explicit water_body that has gone invalid means NO body, NOT a fall back to the registry:
+ * silently floating a boat on different water than it was told to is worse than not floating it.
+ * is_set() is what distinguishes that from nobody having set one.
+ */
 Node *Pasture3DBuoy::_get_body() const {
-	if (_water_body_id != 0) {
-		Object *obj = ObjectDB::get_instance(_water_body_id);
-		return obj ? Object::cast_to<Node>(obj) : nullptr;
+	if (_water_body.is_set()) {
+		return _water_body.is_valid() ? _water_body.ptr() : nullptr;
 	}
-	if (_body_id == 0) {
-		return nullptr;
+	return _resolved_body.is_valid() ? _resolved_body.ptr() : nullptr;
+}
+
+/**
+ * Every buoy on p_body, stopping at any nested RigidBody3D.
+ *
+ * The invariant, and it is the testable one: this visits exactly the buoys for which
+ * _find_parent_body() returns p_body. A boat towing a dinghy is two bodies, and the dinghy's buoys
+ * belong to the dinghy -- they answer _find_parent_body() with it, so counting them toward the hull
+ * made get_body_displacement() report more buoyancy than the hull had, in the one message a user
+ * reads when a boat will not float.
+ *
+ * One traversal for both callers, so the displacement total and the angular_drag range can never
+ * disagree about which buoys are on a hull.
+ */
+void Pasture3DBuoy::_collect_body_buoys(RigidBody3D *p_body, Vector<Pasture3DBuoy *> &r_out) const {
+	if (!p_body) {
+		return;
 	}
-	Object *obj = ObjectDB::get_instance(_body_id);
-	return obj ? Object::cast_to<Node>(obj) : nullptr;
+	Vector<Node *> stack;
+	stack.push_back(p_body);
+	while (!stack.is_empty()) {
+		Node *n = stack[stack.size() - 1];
+		stack.remove_at(stack.size() - 1);
+		Pasture3DBuoy *buoy = Object::cast_to<Pasture3DBuoy>(n);
+		if (buoy) {
+			r_out.push_back(buoy);
+		}
+		for (int i = 0; i < n->get_child_count(); i++) {
+			Node *child = n->get_child(i);
+			// Another body's buoys are its own. Descending would count them twice -- once for the
+			// hull that does not own them and once for the body that does.
+			if (Object::cast_to<RigidBody3D>(child)) {
+				continue;
+			}
+			stack.push_back(child);
+		}
+	}
 }
 
 /**
@@ -198,6 +242,10 @@ void Pasture3DBuoy::set_linear_drag(const real_t p_drag) {
 
 void Pasture3DBuoy::set_angular_drag(const real_t p_drag) {
 	_angular_drag = MAX(p_drag, 0.f);
+	// This one drives warning text -- the "buoys disagree" message compares it across the hull --
+	// so the panel goes stale without this. The rule is that setters which change warning TEXT
+	// refresh warnings, not that every setter does; full_depth and linear_drag drive none.
+	update_configuration_warnings();
 }
 
 void Pasture3DBuoy::set_sample_interval(const int p_ticks) {
@@ -205,20 +253,23 @@ void Pasture3DBuoy::set_sample_interval(const int p_ticks) {
 }
 
 void Pasture3DBuoy::set_water_body(Node *p_body) {
-	_water_body_id = p_body ? p_body->get_instance_id() : 0;
+	_water_body.set_target(p_body);
 	// A manual assignment invalidates whatever was resolved, in both directions: clearing it must
 	// hand control back to the registry rather than leave the last explicit body pinned.
-	_body_id = 0;
+	_resolved_body.clear();
 	_ticks_since_resolve = RESOLVE_INTERVAL;
 	update_configuration_warnings();
 }
 
+/**
+ * The property getter, which is deliberately NOT _get_body().
+ *
+ * This reports what was assigned, so the inspector round-trips it and a scene save does not drop a
+ * reference just because the body happens to be out of the tree at the time. _get_body() is the one
+ * that decides whether that assignment is currently usable.
+ */
 Node *Pasture3DBuoy::get_water_body() const {
-	if (_water_body_id == 0) {
-		return nullptr;
-	}
-	Object *obj = ObjectDB::get_instance(_water_body_id);
-	return obj ? Object::cast_to<Node>(obj) : nullptr;
+	return _water_body.get_target();
 }
 
 real_t Pasture3DBuoy::get_submersion() const {
@@ -237,20 +288,13 @@ real_t Pasture3DBuoy::get_body_displacement() const {
 		return _displacement;
 	}
 	// Every buoy under the same hull, at any depth -- a boat is free to group them under an
-	// anchor Node3D per side, and that must not change the answer.
+	// anchor Node3D per side, and that must not change the answer -- but NOT the buoys of a nested
+	// RigidBody3D, which are that body's. See _collect_body_buoys().
+	Vector<Pasture3DBuoy *> buoys;
+	_collect_body_buoys(parent, buoys);
 	real_t total = 0.f;
-	Vector<Node *> stack;
-	stack.push_back(parent);
-	while (!stack.is_empty()) {
-		Node *n = stack[stack.size() - 1];
-		stack.remove_at(stack.size() - 1);
-		Pasture3DBuoy *buoy = Object::cast_to<Pasture3DBuoy>(n);
-		if (buoy) {
-			total += buoy->get_displacement();
-		}
-		for (int i = 0; i < n->get_child_count(); i++) {
-			stack.push_back(n->get_child(i));
-		}
+	for (Pasture3DBuoy *buoy : buoys) {
+		total += buoy->get_displacement();
 	}
 	return total;
 }
@@ -271,9 +315,71 @@ real_t Pasture3DBuoy::get_required_displacement() const {
  */
 void Pasture3DBuoy::apply_buoyancy(const double p_delta) {
 	RigidBody3D *parent = _parent_body;
-	if (!parent || parent->is_freeze_enabled()) {
+	if (!parent) {
 		return;
 	}
+
+	// The body's per-frame record comes FIRST, ahead of every early return below it, because those
+	// returns are exactly the states whose bookkeeping used to be skipped and then remembered:
+	//
+	//   frozen       -- returned before the roll, so frac_prev survived the freeze and the first
+	//                   tick after unfreezing damped against a submersion from before it
+	//   no body      -- likewise, so a boat driven onto land kept its last wet frac indefinitely
+	//                   and damped once against it the moment it touched water again
+	//
+	// Both are the same mistake: a body that is not being floated has to report that, not go quiet.
+	const uint64_t body_key = parent->get_instance_id();
+	const uint64_t frame = Engine::get_singleton()->get_physics_frames();
+	BodyTick *tick = _body_ticks.getptr(body_key);
+	if (!tick) {
+		_body_ticks.insert(body_key, BodyTick());
+		tick = _body_ticks.getptr(body_key);
+	}
+	if (parent->is_freeze_enabled()) {
+		// A frozen body integrates nothing and must therefore remember nothing.
+		tick->frame = frame;
+		tick->frac_prev = 0.f;
+		tick->frac_now = 0.f;
+		tick->drag_prev = 0.f;
+		tick->drag_now = 0.f;
+		return;
+	}
+
+	if (tick->frame != frame) {
+		// First buoy of this body to run this tick. Roll the accumulators over and apply the body's
+		// angular damping once, using the PREVIOUS tick's completed values.
+		//
+		// Previous rather than current, deliberately: the current tick's maximum is not known until
+		// every buoy has run, and there is no "last buoy" to hook. Using whichever buoy happens to
+		// run first would mean a hull with two buoys in the water and two in the air damps or does
+		// not damp depending on child order -- the bug this whole block exists to avoid. One tick
+		// of lag on a damping term at 60 Hz is not observable; child-order-dependent physics is.
+		//
+		// BOTH terms are the body's, not this buoy's. frac always was; the coefficient was taken
+		// from whichever buoy ran first, which reintroduced the child-order dependence through the
+		// one field that was not accumulated. See BodyTick::drag_now.
+		tick->frame = frame;
+		tick->frac_prev = tick->frac_now;
+		tick->frac_now = 0.f;
+		tick->drag_prev = tick->drag_now;
+		tick->drag_now = 0.f;
+		// The body's own facts, once for every buoy on it. See _refresh_body_state().
+		_refresh_body_state(tick, parent);
+		if (tick->drag_prev > 0.f && tick->frac_prev > 0.f) {
+			const real_t keep =
+					MAX(1.f - tick->drag_prev * tick->frac_prev * (real_t)p_delta, 0.f);
+			parent->set_angular_velocity(parent->get_angular_velocity() * keep);
+		}
+		// NOTHING here wakes the body, and nothing needs to. apply_force() wakes a sleeping
+		// RigidBody3D by itself -- measured on 4.7, and criterion N holds it to that -- so a boat
+		// that settles and sleeps still rises when the water does. A keep_awake export was written
+		// for the opposite belief and removed when the probe disagreed with it; see
+		// PASTURE3D_BUOY_REMEDIATION_SPEC.md §4.4.
+	}
+	// Reported before any early return below, for the same reason a dry buoy reports frac 0: the
+	// body's maximum is only a maximum if every buoy on it contributes.
+	tick->drag_now = MAX(tick->drag_now, _angular_drag);
+
 	// Physics ticks, not sampling ticks. See _resolve_body().
 	_ticks_since_resolve++;
 
@@ -319,39 +425,6 @@ void Pasture3DBuoy::apply_buoyancy(const double p_delta) {
 	const real_t depth = _held_height - pos.y;
 	const real_t frac = CLAMP(depth / _full_depth, 0.f, 1.f);
 
-	// Per-body angular damping bookkeeping, done whether or not this buoy is wet: a buoy in the air
-	// still has to report its zero, or the body's maximum would be wrong.
-	const uint64_t body_key = parent->get_instance_id();
-	const uint64_t frame = Engine::get_singleton()->get_physics_frames();
-	BodyTick *tick = _body_ticks.getptr(body_key);
-	if (!tick) {
-		_body_ticks.insert(body_key, BodyTick());
-		tick = _body_ticks.getptr(body_key);
-	}
-	if (tick->frame != frame) {
-		// First buoy of this body to run this tick. Roll the accumulator over and apply the body's
-		// angular damping once, using the PREVIOUS tick's completed maximum.
-		//
-		// Previous rather than current, deliberately: the current tick's maximum is not known until
-		// every buoy has run, and there is no "last buoy" to hook. Using whichever buoy happens to
-		// run first would mean a hull with two buoys in the water and two in the air damps or does
-		// not damp depending on child order -- the bug this whole block exists to avoid. One tick
-		// of lag on a damping term at 60 Hz is not observable; child-order-dependent physics is.
-		tick->frame = frame;
-		tick->frac_prev = tick->frac_now;
-		tick->frac_now = 0.f;
-		// The body's own facts, once for every buoy on it. See _refresh_body_state().
-		_refresh_body_state(tick, parent);
-		if (_angular_drag > 0.f && tick->frac_prev > 0.f) {
-			const real_t keep = MAX(1.f - _angular_drag * tick->frac_prev * (real_t)p_delta, 0.f);
-			parent->set_angular_velocity(parent->get_angular_velocity() * keep);
-		}
-		// NOTHING here wakes the body, and nothing needs to. apply_force() wakes a sleeping
-		// RigidBody3D by itself -- measured on 4.7, and criterion N holds it to that -- so a boat
-		// that settles and sleeps still rises when the water does. A keep_awake export was written
-		// for the opposite belief and removed when the probe disagreed with it; see
-		// PASTURE3D_BUOY_REMEDIATION_SPEC.md §4.4.
-	}
 	tick->frac_now = MAX(tick->frac_now, frac);
 
 	if (frac <= 0.f) {
@@ -430,6 +503,35 @@ PackedStringArray Pasture3DBuoy::get_buoyancy_warnings() const {
 					have, need, equilibrium * 100.f));
 		}
 	}
+	// An explicit water_body pointing at something that is not water. It resolves, it is in the
+	// tree, and the buoy silently never floats -- there is nothing to see in the inspector but a
+	// node reference that looks assigned.
+	Node *explicit_body = _water_body.get_target();
+	if (explicit_body && !explicit_body->has_method("get_water_height")) {
+		warnings.push_back(vformat("water_body is set to '%s', which has no get_water_height() -- "
+								   "this buoy will never float. A water body is a Pasture3DPool, a "
+								   "Pasture3DStream or a Pasture3DOcean. Clear it to resolve from "
+								   "the Pasture3DPoolManager's registry instead.",
+				explicit_body->get_name()));
+	}
+	// Angular damping is applied once per body using the LARGEST angular_drag among its buoys, so
+	// buoys carrying different values is not an error but is very likely a surprise: three of them
+	// have no effect on the hull's spin at all. Naming the rule is cheaper than having someone
+	// discover it by tuning a number that does nothing.
+	Vector<Pasture3DBuoy *> siblings;
+	_collect_body_buoys(parent, siblings);
+	real_t drag_min = _angular_drag;
+	real_t drag_max = _angular_drag;
+	for (Pasture3DBuoy *buoy : siblings) {
+		drag_min = MIN(drag_min, buoy->get_angular_drag());
+		drag_max = MAX(drag_max, buoy->get_angular_drag());
+	}
+	if (drag_max - drag_min > 0.001f) {
+		warnings.push_back(vformat("This body's buoys have different angular_drag values (%.2f to "
+								   "%.2f). Angular damping is applied once per BODY using the "
+								   "largest, so the others have no effect on it.",
+				drag_min, drag_max));
+	}
 	if (_sample_interval > 1) {
 		warnings.push_back(vformat("sample_interval is %d, so this buoy reads the wave height and "
 								   "re-checks which water it is in every %d physics ticks, holding "
@@ -460,7 +562,7 @@ void Pasture3DBuoy::_notification(int p_what) {
 			_refresh_gravity();
 			// Re-resolve on the first tick after entering rather than trusting a cached body from
 			// wherever this buoy was before.
-			_body_id = 0;
+			_resolved_body.clear();
 			_ticks_since_resolve = RESOLVE_INTERVAL;
 			_held_valid = false;
 			break;

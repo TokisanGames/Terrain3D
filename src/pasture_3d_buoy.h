@@ -8,8 +8,10 @@
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/rigid_body3d.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
+#include <godot_cpp/templates/vector.hpp>
 
 #include "constants.h"
+#include "target_node_3d.h"
 
 using namespace godot;
 
@@ -55,11 +57,18 @@ private:
 	real_t _linear_drag = 400.f;
 	real_t _angular_drag = 2.f;
 	int _sample_interval = 1;
-	uint64_t _water_body_id = 0; // explicit override; 0 = resolve from the manager
+	// The explicit override. Unset = resolve from the manager's registry.
+	//
+	// A TargetNode rather than a bare instance id so that "set but no longer in the tree" is a state
+	// this can see. A body removed from the tree still answers has_method("get_water_height"), and
+	// Pasture3DWaterBody returns its still level with no wave offset when it is not inside a tree --
+	// so a bare id floated boats on a phantom flat plane instead of dropping them. is_set() and
+	// is_valid() are both needed and mean different things; see _get_body().
+	TargetNode _water_body;
 
 	// --- Per-instance runtime state -----------------------------------------
 	RigidBody3D *_parent_body = nullptr;
-	uint64_t _body_id = 0; // resolved water body
+	TargetNode _resolved_body; // what the registry last answered
 	// Counted by apply_buoyancy() in physics ticks; only TESTED by _resolve_body(). See both.
 	int _ticks_since_resolve = 0;
 	int _ticks_since_sample = 0;
@@ -84,6 +93,15 @@ private:
 		uint64_t frame = 0; // physics frame this entry was last rotated on
 		real_t frac_now = 0.f; // largest submersion fraction seen so far THIS frame
 		real_t frac_prev = 0.f; // the completed value from the previous frame
+		// The angular_drag the damping above is applied WITH, accumulated the same way frac is:
+		// as a max across the body's buoys, rotated with the frame.
+		//
+		// It used to be whichever buoy happened to run first, while frac was already a max -- so a
+		// hull whose buoys carried different angular_drag values damped differently depending on
+		// child order. That is the exact failure the comment in apply_buoyancy() says this whole
+		// block exists to avoid, reintroduced by the one field that was not accumulated.
+		real_t drag_now = 0.f;
+		real_t drag_prev = 0.f;
 		// Global-space offset from the body's ORIGIN to its centre of mass. Not zero in general:
 		// under CENTER_OF_MASS_MODE_AUTO Godot derives it from the collision shapes, and a hull
 		// shape sitting below its node origin is the ordinary case for a boat.
@@ -100,6 +118,9 @@ private:
 	Node *_resolve_body();
 	Node *_get_body() const;
 	RigidBody3D *_find_parent_body() const;
+	// Every buoy whose _find_parent_body() is p_body -- no more and no less. One traversal, so the
+	// displacement total and the angular_drag range cannot disagree about which buoys are on a hull.
+	void _collect_body_buoys(RigidBody3D *p_body, Vector<Pasture3DBuoy *> &r_out) const;
 	real_t _gravity() const;
 	void _refresh_gravity();
 	void _refresh_body_state(BodyTick *p_tick, RigidBody3D *p_body) const;

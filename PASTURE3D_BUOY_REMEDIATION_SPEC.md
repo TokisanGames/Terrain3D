@@ -749,6 +749,40 @@ Low. Each fix is local and each has a criterion that fails without it. `TargetNo
 existing header used by `Pasture3DPoolManager`; the alias keeps every call site identical, and a
 clean build is the proof.
 
+### 5.8 Phase 4 results — measured 2026-08-06 ✅
+
+Same harness and conditions as §2.8. Criteria A–R, **PASS**.
+
+| | pre-fix | post-fix |
+|---|---|---|
+| O — explicit `water_body` removed from the tree | still resolved it; boat fell at **0.00 m/s** on a phantom plane, with `get_global_transform` errors spamming the log | no body; boat falls at 4.78 m/s |
+| P — spin left after 0.5 s, buoys `[2,2,8,8]` | **1.0521** | **0.1652** |
+| P — same hull, child order `[8,8,2,2]` | **0.1651** | **0.1651** |
+| P — all buoys at 2 (reference) | 1.0519 | 1.0519 |
+| Q — spin lost on the first tick out of a freeze | **2.458%** (an ordinary tick costs 2.45%) | 0.167% |
+| R — hull displacement with a dinghy attached | **1.200 m³** (it owns 0.600) | 0.600 m³ |
+
+**P was much worse than the review estimated.** Reversing child order changed the remaining spin by
+**84.3%** — and the `[2,2,8,8]` hull read 1.0521 against the all-2 reference's 1.0519, i.e. the
+hull's damping was *exactly* the first buoy's coefficient and the other three were inert. The review
+called this "child-order dependent"; it is more precisely "three of four buoys do nothing".
+
+**O's defect announced itself once the fixture existed.** The pre-fix run filled the log with
+`Condition "!is_inside_tree()" is true. Returning: Transform3D()` from
+`Pasture3DWaterBody._still_surface_y` — the out-of-tree body was being asked for its global
+transform every tick, returning identity, and reporting a water level of y = 0. That error was
+reachable before this phase and nobody had run the case; the post-fix run logs zero errors.
+
+Two fixture notes, both caught by controls rather than by inspection:
+
+- **Criterion O's first draft settled for 120 ticks** and its control failed: the boat was still
+  moving at 0.112 m/s, so "it floats" could not be asserted. Criterion A's 420 ticks fixed it. The
+  code was never wrong.
+- **Criterion P's first draft ran for 2 s**, by which time both mixed hulls had damped to exactly
+  0.0000 — "they agree" was a comparison of two zeros, which is true of any implementation that also
+  reaches zero. The window is now 0.5 s, and the control explicitly requires the compared value to
+  be non-zero. Worth generalising: an agreement assertion needs a floor as well as a tolerance.
+
 ---
 
 ## 6. Phase 5 — conventions, inspector, and the paperwork

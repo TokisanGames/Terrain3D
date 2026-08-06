@@ -54,6 +54,18 @@
 #   N. a settled boat that has gone to sleep still rises when the water does. Control: it must
 #      actually have been asleep first
 #
+# O, P, Q and R are Phase 4 (§5) — the buoy's bookkeeping rather than its physics. Each is state that
+# outlives the tick it describes, or a set membership nobody checked:
+#
+#   O. an explicit water_body that has left the tree is no body, and the boat falls rather than
+#      floating on a phantom flat plane. Control: with the body in the tree it must float
+#   P. angular damping does not depend on child order even when the buoys carry different
+#      angular_drag. Control: an all-low hull must damp measurably differently
+#   Q. unfreezing does not apply damping saved from before the freeze. Control: an ordinary tick
+#      must take a visible bite, or "it lost nothing" is what any tick would say
+#   R. a nested RigidBody3D's buoys do not count toward the hull. Control: the dinghy must have
+#      displacement of its own, or nothing was excluded
+#
 # These are stated in SOLVE COUNTS rather than milliseconds on purpose. A count is an integer, it is
 # reproducible on a contended machine, and it says which implementation was measured — all three of
 # which the millisecond budget failed to do. Pasture3DPoolManager.get_solve_count() is the
@@ -77,7 +89,7 @@ const BUOY_COUNT := 64
 
 var _fail := 0
 var _completed := 0
-const CRITERIA := 14
+const CRITERIA := 18
 var _run_timing := false
 
 
@@ -114,6 +126,10 @@ func _ready() -> void:
 	await _gate_l_centre_of_mass_lever()
 	await _gate_m_gravity_scale()
 	await _gate_n_sleep()
+	await _gate_o_water_body_validity()
+	await _gate_p_drag_order_independent()
+	await _gate_q_freeze_residue()
+	await _gate_r_nested_bodies()
 
 	print("")
 	if _completed != CRITERIA:
@@ -1075,6 +1091,272 @@ func _gate_n_sleep() -> void:
 	root.queue_free()
 	await _settle()
 	_completed += 1
+
+
+# ---- O: an explicit water_body out of the tree is no body ------------------------
+#
+# A body removed from the tree still answers has_method("get_water_height"), and
+# Pasture3DWaterBody cannot reach a manager when it is not inside a tree — so it returns its still
+# level with NO wave displacement rather than failing. The buoy resolved the instance id and asked,
+# and a boat went on floating on a flat plane that was not being drawn. Free fall is the correct
+# behaviour: the water this buoy was told to use is gone.
+func _gate_o_water_body_validity() -> void:
+	print("")
+	print("[O] an explicit water_body that has left the tree is no body:")
+	var root := _make_world()
+	_make_manager(root, 0.0005)
+	var pool := _make_pool(root, 120.0)
+	await _settle()
+
+	var boat := _make_boat(root, 400.0, 4, 0.15, Vector3(0, pool.global_position.y, 0))
+	for c in boat.get_children():
+		if c is Pasture3DBuoy:
+			c.water_body = pool
+	var buoy: Pasture3DBuoy = boat.get_child(1)
+	await _run_physics(420) # criterion A's settling time; 120 leaves it still moving at 0.1 m/s
+
+	# Control FIRST: while the body IS in the tree the boat must float, or "it fell" below proves
+	# nothing — a boat can fall for plenty of reasons.
+	var y_floating: float = boat.global_position.y
+	var resolved_before = buoy.get_resolved_body()
+	if resolved_before != null and absf(boat.linear_velocity.y) < 0.05:
+		print("    control (water_body in the tree): fires — resolved %s, floating at %.3f m"
+			% [resolved_before.name, y_floating])
+	else:
+		_fail += 1
+		print("    !! control did NOT fire: with water_body set and in the tree the boat resolved")
+		print("       %s and had %.3f m/s of vertical motion" % [resolved_before, boat.linear_velocity.y])
+
+	# Out of the tree, still alive and still assigned. The property must keep reporting it — a scene
+	# save has to round-trip — while the buoy declines to float on it.
+	root.remove_child(pool)
+	await _run_physics(30)
+	var resolved_after = buoy.get_resolved_body()
+	var kept: bool = buoy.water_body == pool
+	var fell: float = -boat.linear_velocity.y
+	print("    after remove_child: resolved body %s | property still set %s | falling at %.2f m/s"
+		% [resolved_after, kept, fell])
+	if resolved_after == null and fell > 1.0:
+		print("    -> no body, and the boat is in free fall rather than on a phantom surface")
+	else:
+		_fail += 1
+		print("    !! it still resolved %s / fell at %.2f m/s" % [resolved_after, fell])
+	if kept:
+		print("    -> the property round-trips: what was assigned is still reported")
+	else:
+		_fail += 1
+		print("    !! the water_body property forgot its assignment, so a scene save would drop it")
+	pool.free() # it is out of the tree, so queue_free would leave it to nobody
+	root.queue_free()
+	await _settle()
+	_completed += 1
+
+
+# ---- P: angular damping does not depend on child order ---------------------------
+#
+# Criterion B proved the damping is applied once per BODY rather than once per buoy — but every buoy
+# in its fixture carried the same angular_drag, so it could not see that the COEFFICIENT was taken
+# from whichever buoy ran first while the submersion fraction was properly a max. A hull with mixed
+# values therefore damped differently depending on the order its buoys sat in the inspector, which
+# is precisely what B exists to forbid.
+func _gate_p_drag_order_independent() -> void:
+	print("")
+	print("[P] angular damping is the same whatever order the buoys are in:")
+	var root := _make_world()
+	_make_manager(root, 0.0005)
+	_make_pool(root, 120.0)
+	await _settle()
+
+	var w_asc := await _spin_decay(root, [2.0, 2.0, 8.0, 8.0], Vector3(0, 0, 0))
+	var w_desc := await _spin_decay(root, [8.0, 8.0, 2.0, 2.0], Vector3(40, 0, 0))
+	# Control: a hull where every buoy carries the LOW value must damp measurably less than the
+	# mixed ones, which are damped at the high value. Without it, two hulls agreeing would also be
+	# true of a fixture where angular_drag does nothing at all.
+	var w_low := await _spin_decay(root, [2.0, 2.0, 2.0, 2.0], Vector3(-40, 0, 0))
+	print("    spin after 0.5 s from 2.00 rad/s: [2,2,8,8] %.4f | [8,8,2,2] %.4f | all-2 %.4f"
+		% [w_asc, w_desc, w_low])
+
+	var spread: float = absf(w_asc - w_desc) / maxf(w_asc, 1e-9)
+	var vs_low: float = absf(w_asc - w_low) / maxf(w_low, 1e-9)
+	# Both halves of the control matter. The mixed hulls must still have spin left to compare —
+	# two hulls damped to exactly zero "agree" no matter how the coefficient is chosen — and an
+	# all-low hull must land somewhere else, or the fixture is blind to the coefficient entirely.
+	if w_asc < 0.01:
+		_fail += 1
+		print("    !! control did NOT fire: the mixed hulls damped to %.4f, so the agreement below"
+			% w_asc)
+		print("       is a comparison of two zeros")
+	elif vs_low > 0.2:
+		print("    control (all buoys at the low value): fires — %.0f%% away from the mixed hulls"
+			% (vs_low * 100.0))
+	else:
+		_fail += 1
+		print("    !! control did NOT fire: an all-low hull is only %.0f%% from a mixed one, so"
+			% (vs_low * 100.0))
+		print("       this fixture cannot see the coefficient change at all")
+	if spread < 0.01:
+		print("    -> the two orders agree to within %.2f%%" % (spread * 100.0))
+	else:
+		_fail += 1
+		print("    !! the two child orders disagree by %.1f%% — the coefficient is first-buoy-wins"
+			% (spread * 100.0))
+	root.queue_free()
+	await _settle()
+	_completed += 1
+
+
+## Angular speed left after half a second, for a hull whose buoys carry `p_drags` in that child order.
+##
+## The buoys are STACKED at the hull's centre, for the reason criterion B documents: separated buoys
+## drag a spinning body through the water linearly and that term swamps the angular one.
+##
+## HALF a second, not the two that criterion B uses. At angular_drag 8 the spin is annihilated inside
+## a second — both mixed hulls read 0.0000 and "they agree" becomes a comparison of two zeros, which
+## is true of any broken implementation that also reaches zero. The window is chosen so the number
+## being compared is still moving.
+func _spin_decay(p_root: Node3D, p_drags: Array, p_pos: Vector3) -> float:
+	var boat := _make_boat(p_root, 400.0, p_drags.size(), 0.6 / p_drags.size(), p_pos, 0.0)
+	var i := 0
+	for c in boat.get_children():
+		if c is Pasture3DBuoy:
+			c.angular_drag = p_drags[i]
+			i += 1
+	await _settle()
+	await _run_physics(60)
+	boat.angular_velocity = Vector3(0, 2.0, 0)
+	await _run_physics(30)
+	var w: float = boat.angular_velocity.length()
+	boat.queue_free()
+	await _settle()
+	return w
+
+
+# ---- Q: a freeze leaves no residue -----------------------------------------------
+#
+# The frozen-body path returned before the per-body bookkeeping, so frac_prev survived the freeze —
+# and the first tick after unfreezing damped the body against a submersion from before it. Small,
+# but it is the same class of mistake as the child-order one: state that outlives the tick it
+# describes.
+func _gate_q_freeze_residue() -> void:
+	print("")
+	print("[Q] unfreezing does not apply damping saved up from before the freeze:")
+	var root := _make_world()
+	_make_manager(root, 0.0005)
+	var pool := _make_pool(root, 120.0)
+	await _settle()
+
+	var boat := _make_boat(root, 400.0, 4, 0.15, Vector3(0, pool.global_position.y, 0), 0.0)
+	await _run_physics(120)
+	boat.angular_velocity = Vector3(0, 2.0, 0)
+	await _run_physics(1)
+	var w_before: float = boat.angular_velocity.length()
+
+	boat.freeze = true
+	await _run_physics(30)
+	# A frozen body integrates nothing, so its spin must be exactly what it was.
+	boat.freeze = false
+	boat.angular_velocity = Vector3(0, w_before, 0)
+	await _run_physics(1)
+	var w_after: float = boat.angular_velocity.length()
+	var drop: float = (w_before - w_after) / maxf(w_before, 1e-9)
+	print("    spin %.4f before the freeze, %.4f on the first tick after it (%.3f%% lost)"
+		% [w_before, w_after, drop * 100.0])
+
+	# Control: the damping must be capable of taking a visible bite in one tick, or "it lost nothing"
+	# is what any tick would have reported.
+	await _run_physics(1)
+	var w_damped: float = boat.angular_velocity.length()
+	var bite: float = (w_after - w_damped) / maxf(w_after, 1e-9)
+	if bite > 0.005:
+		print("    control (an ordinary submerged tick): fires — it takes %.2f%% per tick"
+			% (bite * 100.0))
+	else:
+		_fail += 1
+		print("    !! control did NOT fire: a normal tick only damps %.3f%%, so a stale one would"
+			% (bite * 100.0))
+		print("       not have been visible either")
+	if drop < bite * 0.5:
+		print("    -> the first post-freeze tick is not carrying a stale submersion")
+	else:
+		_fail += 1
+		print("    !! it lost %.3f%% on the first tick out of the freeze, comparable to a full"
+			% (drop * 100.0))
+		print("       submerged tick — frac_prev survived the freeze")
+	root.queue_free()
+	await _settle()
+	_completed += 1
+
+
+# ---- R: a nested rigid body's buoys are its own ----------------------------------
+#
+# get_body_displacement() walked the hull's whole subtree without stopping at another RigidBody3D, so
+# a boat towing a dinghy counted the dinghy's buoys toward the hull. That inflates the one message
+# somebody reads when a boat will not float, and it is asymmetric: the dinghy's buoys correctly find
+# the dinghy through _find_parent_body().
+#
+# The assertion is that invariant rather than two magic numbers: the traversal must visit exactly the
+# buoys whose parent body is this body.
+func _gate_r_nested_bodies() -> void:
+	print("")
+	print("[R] a nested RigidBody3D's buoys do not count toward the hull:")
+	var root := _make_world()
+	_make_manager(root, 0.0005)
+	var pool := _make_pool(root, 120.0)
+	await _settle()
+
+	var boat := _make_boat(root, 400.0, 4, 0.15, Vector3(0, pool.global_position.y, 0)) # 0.600
+	var dinghy := _make_boat(boat, 100.0, 2, 0.30, Vector3(0, pool.global_position.y, 0)) # 0.600
+	await _settle()
+
+	var hull_buoy: Pasture3DBuoy = boat.get_child(1)
+	var dinghy_buoy: Pasture3DBuoy = dinghy.get_child(1)
+	var hull_total: float = hull_buoy.get_body_displacement()
+	var dinghy_total: float = dinghy_buoy.get_body_displacement()
+	print("    hull reports %.3f m3 | dinghy reports %.3f m3" % [hull_total, dinghy_total])
+
+	# Control: the dinghy has to be carrying displacement of its own, or there was nothing to
+	# exclude and the hull's total would be right by accident.
+	if dinghy_total > 0.001:
+		print("    control (the dinghy has buoys of its own): fires — %.3f m3" % dinghy_total)
+	else:
+		_fail += 1
+		print("    !! control did NOT fire: the dinghy reports no displacement, so this criterion")
+		print("       is measuring an empty set")
+
+	# The invariant, checked directly rather than against a constant: every Pasture3DBuoy anywhere
+	# under the hull, partitioned by which body it actually belongs to.
+	var expect_hull := 0.0
+	for b in _all_buoys(boat):
+		if _owning_body(b) == boat:
+			expect_hull += b.displacement
+	if absf(hull_total - expect_hull) < 0.0001:
+		print("    -> the hull counts exactly the buoys whose parent body is the hull (%.3f m3)"
+			% expect_hull)
+	else:
+		_fail += 1
+		print("    !! the hull reports %.3f m3 but owns %.3f m3" % [hull_total, expect_hull])
+	root.queue_free()
+	await _settle()
+	_completed += 1
+
+
+func _all_buoys(p_node: Node) -> Array:
+	var out: Array = []
+	if p_node is Pasture3DBuoy:
+		out.append(p_node)
+	for c in p_node.get_children():
+		out.append_array(_all_buoys(c))
+	return out
+
+
+## The nearest RigidBody3D ancestor — the GDScript twin of Pasture3DBuoy::_find_parent_body().
+func _owning_body(p_node: Node) -> Node:
+	var n := p_node.get_parent()
+	while n != null:
+		if n is RigidBody3D:
+			return n
+		n = n.get_parent()
+	return null
 
 
 # ---- helpers -------------------------------------------------------------------
