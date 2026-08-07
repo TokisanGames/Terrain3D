@@ -146,6 +146,13 @@ void Terrain3D::__physics_process(const double p_delta) {
 	if (_collision && _collision->is_dynamic_mode()) {
 		_collision->update();
 	}
+	// Streaming doesn't need frame-perfect responsiveness the way LOD/collision
+	// snapping does, and each call can touch disk (FileAccess::file_exists per
+	// candidate region) -- throttled to a modest cadence rather than every
+	// physics tick, to keep that cost bounded regardless of physics tick rate.
+	if (_region_streaming_radius > 0.f && Engine::get_singleton()->get_physics_frames() % 30 == 0) {
+		_update_streaming();
+	}
 }
 
 /**
@@ -163,6 +170,59 @@ void Terrain3D::_grab_camera() {
 	if (!_camera.is_valid() && !_clipmap_target.is_valid()) {
 		set_physics_process(false); // No target to follow, disable snapping until one set
 		LOG(ERROR, "Cannot find clipmap target or active camera. LODs won't be updated. Set manually with set_clipmap_target() or set_camera()");
+	}
+}
+
+// Gathers the current world position of every tracked target -- the usual
+// clipmap/collision/camera targets plus anything registered via
+// add_streaming_target() (e.g. other connected players on a server) -- and
+// hands the whole list to Terrain3DData::update_streaming() in one call, so
+// it can compute the union of "needed nearby" across all of them before
+// evicting anything. See that function's own header comment for why passing
+// them individually (evicting per-target rather than against the union)
+// would risk unloading a region a different target still needs.
+void Terrain3D::_update_streaming() {
+	if (!_data) {
+		return;
+	}
+	PackedVector3Array positions;
+	if (_clipmap_target.is_valid()) {
+		positions.push_back(_clipmap_target.ptr()->get_global_position());
+	}
+	if (_collision_target.is_valid()) {
+		positions.push_back(_collision_target.ptr()->get_global_position());
+	}
+	if (_camera.is_valid()) {
+		positions.push_back(_camera.ptr()->get_global_position());
+	}
+	for (int i = 0; i < _streaming_target_ids.size(); i++) {
+		Object *obj = ObjectDB::get_instance(ObjectID(_streaming_target_ids[i]));
+		Node3D *node = obj ? cast_to<Node3D>(obj) : nullptr;
+		if (node) {
+			positions.push_back(node->get_global_position());
+		}
+	}
+	_data->update_streaming(positions, _region_streaming_radius);
+}
+
+void Terrain3D::add_streaming_target(Node3D *p_node) {
+	if (!p_node) {
+		return;
+	}
+	int64_t id = int64_t(p_node->get_instance_id());
+	if (!_streaming_target_ids.has(id)) {
+		_streaming_target_ids.push_back(id);
+	}
+}
+
+void Terrain3D::remove_streaming_target(Node3D *p_node) {
+	if (!p_node) {
+		return;
+	}
+	int64_t id = int64_t(p_node->get_instance_id());
+	int idx = _streaming_target_ids.find(id);
+	if (idx >= 0) {
+		_streaming_target_ids.remove_at(idx);
 	}
 }
 
@@ -1388,6 +1448,10 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_label_distance"), &Terrain3D::get_label_distance);
 	ClassDB::bind_method(D_METHOD("set_label_size", "size"), &Terrain3D::set_label_size);
 	ClassDB::bind_method(D_METHOD("get_label_size"), &Terrain3D::get_label_size);
+	ClassDB::bind_method(D_METHOD("set_region_streaming_radius", "radius"), &Terrain3D::set_region_streaming_radius);
+	ClassDB::bind_method(D_METHOD("get_region_streaming_radius"), &Terrain3D::get_region_streaming_radius);
+	ClassDB::bind_method(D_METHOD("add_streaming_target", "node"), &Terrain3D::add_streaming_target);
+	ClassDB::bind_method(D_METHOD("remove_streaming_target", "node"), &Terrain3D::remove_streaming_target);
 
 	// Target Tracking
 	ClassDB::bind_method(D_METHOD("set_camera", "camera"), &Terrain3D::set_camera);
@@ -1551,6 +1615,9 @@ void Terrain3D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "label_distance", PROPERTY_HINT_RANGE, "0.0,10000.0,0.5,or_greater"), "set_label_distance", "get_label_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "label_size", PROPERTY_HINT_RANGE, "24,128,1"), "set_label_size", "get_label_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid"), "set_show_region_grid", "get_show_region_grid");
+	// 0 (default) disables streaming -- existing eager load_directory() behavior
+	// is unaffected unless this is explicitly set above 0.
+	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "region_streaming_radius", PROPERTY_HINT_RANGE, "0.0,100000.0,1.0,or_greater"), "set_region_streaming_radius", "get_region_streaming_radius");
 
 	ADD_GROUP("Collision", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mode", PROPERTY_HINT_ENUM, "Disabled,Dynamic / Game,Dynamic / Editor,Full / Game,Full / Editor"), "set_collision_mode", "get_collision_mode");
