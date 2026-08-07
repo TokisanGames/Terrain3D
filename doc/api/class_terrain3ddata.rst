@@ -122,6 +122,8 @@ Methods
    +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``float``                                                                  | :ref:`get_roughness<class_Terrain3DData_method_get_roughness>`\ (\ global_position\: ``Vector3``\ ) |const|                                                                                                                  |
    +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``float``                                                                  | :ref:`get_surface_height<class_Terrain3DData_method_get_surface_height>`\ (\ global_position\: ``Vector3``\ ) |const|                                                                                                        |
+   +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Vector3``                                                                | :ref:`get_texture_id<class_Terrain3DData_method_get_texture_id>`\ (\ global_position\: ``Vector3``\ ) |const|                                                                                                                |
    +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``bool``                                                                   | :ref:`has_region<class_Terrain3DData_method_has_region>`\ (\ region_location\: ``Vector2i``\ ) |const|                                                                                                                       |
@@ -709,11 +711,7 @@ Returns ``NAN`` if the position is outside of defined regions.
 
 ``float`` **get_height**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_height>`
 
-Returns the height at the requested position. If the position is close to a vertex, the pixel height on the heightmap is returned. Otherwise the value is interpolated from the 4 vertices surrounding the position.
-
-Returns ``NAN`` if the requested position is a hole or outside of defined regions.
-
-Also see :ref:`Terrain3D.get_raycast_result()<class_Terrain3D_method_get_raycast_result>` and :ref:`Terrain3D.get_intersection()<class_Terrain3D_method_get_intersection>` for alternative functions
+Returns the height value on the heightmap at the specified position. Though this returns the data in the region, this is may not be the apparent ground level. See :ref:`get_surface_height()<class_Terrain3DData_method_get_surface_height>`.
 
 .. rst-class:: classref-item-separator
 
@@ -781,7 +779,7 @@ Returns the position of a terrain vertex at a certain LOD. If the position is ou
 
 ``Vector3`` **get_normal**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_normal>`
 
-Returns the terrain normal at the specified position. This function uses :ref:`get_height()<class_Terrain3DData_method_get_height>`.
+Returns the terrain normal at the specified position. This function calls :ref:`get_surface_height()<class_Terrain3DData_method_get_surface_height>` 3 times.
 
 Returns ``Vector3(NAN, NAN, NAN)`` if the requested position is a hole or outside of defined regions.
 
@@ -795,7 +793,7 @@ Returns ``Vector3(NAN, NAN, NAN)`` if the requested position is a hole or outsid
 
 ``Color`` **get_pixel**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`, global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_pixel>`
 
-Returns the pixel for the map type associated with the specified position.
+Returns the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates.
 
 Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regions.
 
@@ -942,6 +940,22 @@ Returns all regions in a dictionary indexed by region location. Some regions may
 Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position.
 
 Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regions.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_get_surface_height:
+
+.. rst-class:: classref-method
+
+``float`` **get_surface_height**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_surface_height>`
+
+Returns the rendered height at the requested global position. This method starts with the raw height in the region data returned by :ref:`get_height()<class_Terrain3DData_method_get_height>`. It then mixes in the ``ground_level`` and ``region_blend`` values from the material if they exist. Next, if global_position is very close to a vertex the value is returned. Otherwise, this is repeated 3 more times and the final height value is interpolated. Thus it's 4x faster to snap your vertex to :ref:`Terrain3D.vertex_spacing<class_Terrain3D_property_vertex_spacing>` before calling it. This function is used for collision, navigation baking, and instancer placement.
+
+Returns ``NAN`` if the requested position is a hole or outside of defined regions.
+
+Also see :ref:`Terrain3D.get_raycast_result()<class_Terrain3D_method_get_raycast_result>` and :ref:`Terrain3D.get_intersection()<class_Terrain3D_method_get_intersection>` for alternative functions.
 
 .. rst-class:: classref-item-separator
 
@@ -1291,9 +1305,7 @@ See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important infor
 
 |void| **set_height**\ (\ global_position\: ``Vector3``, height\: ``float``\ ) :ref:`🔗<class_Terrain3DData_method_set_height>`
 
-Sets the height value on the heightmap pixel associated with the specified position. See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information.
-
-Unlike :ref:`get_height()<class_Terrain3DData_method_get_height>`, which interpolates between vertices, this function does not and will set the pixel at floored coordinates.
+Sets the height value on the heightmap at the specified position. See :ref:`set_pixel()<class_Terrain3DData_method_set_pixel>` for important information. Also see :ref:`get_height()<class_Terrain3DData_method_get_height>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1305,7 +1317,7 @@ Unlike :ref:`get_height()<class_Terrain3DData_method_get_height>`, which interpo
 
 |void| **set_pixel**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`, global_position\: ``Vector3``, pixel\: ``Color``\ ) :ref:`🔗<class_Terrain3DData_method_set_pixel>`
 
-Sets the pixel for the map type associated with the specified position. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use :ref:`Terrain3DRegion.get_map()<class_Terrain3DRegion_method_get_map>`, then edit the images directly.
+Sets the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use :ref:`Terrain3DRegion.get_map()<class_Terrain3DRegion_method_get_map>`, then edit the images directly.
 
 After setting pixels you need to call :ref:`update_maps()<class_Terrain3DData_method_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
 

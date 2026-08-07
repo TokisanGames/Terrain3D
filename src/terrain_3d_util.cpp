@@ -507,7 +507,7 @@ void Terrain3DUtil::benchmark(Terrain3D *p_terrain) {
 	for (int i = 0; i < 3; i++) {
 		start_time = Time::get_singleton()->get_ticks_msec();
 		for (int j = 0; j < 1000000; j++) {
-			data->get_height(vec);
+			data->get_surface_height(vec);
 		}
 		LOG(MESG, "get_height() 1M interpolated: ", Time::get_singleton()->get_ticks_msec() - start_time, "ms");
 	}

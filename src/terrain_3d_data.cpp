@@ -43,6 +43,45 @@ void Terrain3DData::_copy_paste_dfr(const Terrain3DRegion *p_src_region, const R
 	_terrain->get_instancer()->copy_paste_dfr(p_src_region, p_src_rect, p_dst_region);
 }
 
+Error Terrain3DData::_save_export_image(const MapType p_map_type, const Ref<Image> &p_img, const String &p_path,
+		const String &p_ext) const {
+	if (p_map_type == TYPE_HEIGHT && (p_ext == "r16" || p_ext == "raw")) {
+		Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::WRITE);
+		if (file.is_null()) {
+			return ERR_CANT_OPEN;
+		}
+		Vector2 minmax = _master_height_range;
+		if (minmax.x >= minmax.y) {
+			// Global height range wasn't calculated, fall back to range for this image
+			minmax = Util::get_min_max(p_img);
+			LOG(MESG, "  Height range (per image fallback): ", vformat("%.2f", minmax.x), " to ", vformat("%.2f", minmax.y));
+		} else {
+			LOG(MESG, "  Height range (global scale): ", vformat("%.2f", minmax.x), " to ", vformat("%.2f", minmax.y));
+		}
+		float range = minmax.y - minmax.x;
+		real_t hscale = 65535.f / (range != 0.f ? range : 1.f);
+		for (int y = 0; y < p_img->get_height(); y++) {
+			for (int x = 0; x < p_img->get_width(); x++) {
+				int h = int((p_img->get_pixel(x, y).r - minmax.x) * hscale);
+				h = CLAMP(h, 0, 65535);
+				file->store_16(h);
+			}
+		}
+		return file->get_error();
+	} else if (p_ext == "exr") {
+		return p_img->save_exr(p_path, (p_map_type == TYPE_HEIGHT));
+	} else if (p_ext == "png") {
+		return p_img->save_png(p_path);
+	} else if (p_ext == "jpg") {
+		return p_img->save_jpg(p_path);
+	} else if (p_ext == "webp") {
+		return p_img->save_webp(p_path);
+	} else if (p_ext == "res" || p_ext == "tres") {
+		return ResourceSaver::get_singleton()->save(p_img, p_path, ResourceSaver::FLAG_COMPRESS);
+	}
+	return ERR_FILE_UNRECOGNIZED;
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -605,86 +644,144 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 		LOG(ERROR, "Specified map type out of range");
 		return;
 	}
-	Vector2i region_loc = get_region_location(p_global_position);
+	Vector2i vgrid = world_to_vgrid(p_global_position);
+	Vector2i region_loc = V2I_DIVIDE_FLOOR(vgrid, _region_size);
 	Terrain3DRegion *region = get_region_ptr(region_loc);
-	if (!region) {
+	if (!region || region->is_deleted()) {
 		LOG(ERROR, "No active region found at: ", p_global_position);
 		return;
 	}
-	if (region->is_deleted()) {
-		LOG(ERROR, "No active region found at: ", p_global_position);
-		return;
-	}
-	Vector2i global_offset = region_loc * _region_size;
-	Vector3 descaled_pos = p_global_position / _vertex_spacing;
-	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
-	img_pos = img_pos.clamp(V2I_ZERO, V2I(_region_size - 1));
 	Image *map = region->get_map_ptr(p_map_type);
 	if (map) {
+		// Local pixel in the region is always [0, region_size)
+		Vector2i img_pos(Math::posmod(vgrid.x, _region_size), Math::posmod(vgrid.y, _region_size));
 		map->set_pixelv(img_pos, p_pixel);
 		region->set_modified(true);
 	}
 }
 
-Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const {
+// Expects descaled, snapped/floored, global position - vertex grid
+Color Terrain3DData::get_pixel_descaled(const MapType p_map_type, const Vector2i &p_vgrid) const {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
 		return COLOR_NAN;
 	}
-	Vector2i region_loc = get_region_location(p_global_position);
+	Vector2i region_loc = V2I_DIVIDE_FLOOR(p_vgrid, _region_size);
 	const Terrain3DRegion *region = get_region_ptr(region_loc);
-	if (!region) {
+	if (!region || region->is_deleted()) {
 		return COLOR_NAN;
 	}
-	if (region->is_deleted()) {
-		return COLOR_NAN;
-	}
-	Vector2i global_offset = region_loc * _region_size;
-	Vector3 descaled_pos = p_global_position / _vertex_spacing;
-	Vector2i img_pos = Vector2i(descaled_pos.x - global_offset.x, descaled_pos.z - global_offset.y);
-	img_pos = img_pos.clamp(V2I_ZERO, V2I(_region_size - 1));
 	Image *map = region->get_map_ptr(p_map_type);
 	if (map) {
+		// Local pixel in the region is always [0, region_size)
+		Vector2i img_pos(Math::posmod(p_vgrid.x, _region_size), Math::posmod(p_vgrid.y, _region_size));
 		return map->get_pixelv(img_pos);
 	} else {
 		return COLOR_NAN;
 	}
 }
 
-real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
-	if (is_hole(get_control(p_global_position))) {
-		return NAN;
-	}
+real_t Terrain3DData::get_surface_height(const Vector3 &p_global_position) const {
 	Vector3 pos = p_global_position;
 	const real_t &step = _vertex_spacing;
 	pos.y = 0.f;
-	// Round to nearest vertex
+	// Compare position to nearest vertex, and if close don't interpolate
 	Vector3 pos_round = pos.snapped(Vector3(step, 0.f, step));
-	// If requested position is close to a vertex, return its height
 	if ((pos - pos_round).length_squared() < 0.0001f) {
-		return get_pixel(TYPE_HEIGHT, pos).r;
+		return get_modified_height(world_to_vgrid(pos_round));
 	} else {
 		// Otherwise, bilinearly interpolate 4 surrounding vertices
-		Vector3 pos00 = Vector3(floor(pos.x / step) * step, 0.f, floor(pos.z / step) * step);
-		real_t ht00 = get_pixel(TYPE_HEIGHT, pos00).r;
-		Vector3 pos01 = pos00 + Vector3(0.f, 0.f, step);
-		real_t ht01 = get_pixel(TYPE_HEIGHT, pos01).r;
-		Vector3 pos10 = pos00 + Vector3(step, 0.f, 0.f);
-		real_t ht10 = get_pixel(TYPE_HEIGHT, pos10).r;
-		Vector3 pos11 = pos00 + Vector3(step, 0.f, step);
-		real_t ht11 = get_pixel(TYPE_HEIGHT, pos11).r;
-		return bilerp(ht00, ht01, ht10, ht11, pos00, pos11, pos);
+		Vector2i v00 = world_to_vgrid(pos);
+		real_t ht00 = get_modified_height(v00);
+		Vector2i v01 = v00 + Vector2i(0, 1);
+		real_t ht01 = get_modified_height(v01);
+		Vector2i v10 = v00 + Vector2i(1, 0);
+		real_t ht10 = get_modified_height(v10);
+		Vector2i v11 = v00 + Vector2i(1, 1);
+		real_t ht11 = get_modified_height(v11);
+		return bilerp(ht00, ht01, ht10, ht11, Vector2(v00), Vector2(v11), v3v2(pos / step));
 	}
+}
+
+// Expects descaled, snapped/floored global position - vertex grid
+// Returns height modified by world background region blend, ground level
+real_t Terrain3DData::get_modified_height(const Vector2i &p_vgrid) const {
+	real_t control = get_pixel_descaled(TYPE_CONTROL, p_vgrid).r;
+	if (is_hole(control)) {
+		return NAN;
+	}
+	real_t height = get_pixel_descaled(TYPE_HEIGHT, p_vgrid).r;
+	const Ref<Terrain3DMaterial> material = _terrain->get_material();
+	if (material.is_valid()) {
+		const Terrain3DMaterial::WorldBackground bg_mode = material->get_world_background();
+		if (bg_mode == Terrain3DMaterial::WorldBackground::FLAT || bg_mode == Terrain3DMaterial::WorldBackground::NOISE) {
+			Variant var_gl = material->get("ground_level");
+			Variant var_rb = material->get("region_blend");
+			if (var_gl.get_type() == Variant::NIL || var_rb.get_type() == Variant::NIL) {
+				return height;
+			}
+			const real_t ground_level = var_gl;
+			const real_t region_texel_size = 1.f / real_t(_region_size);
+			Vector2 uv2 = Vector2(p_vgrid) * region_texel_size;
+			height = Math::lerp(height, ground_level, smoothstep(0.f, 1.f, get_region_blend(uv2)));
+		}
+	}
+	return height;
+}
+
+real_t Terrain3DData::get_region_blend(const Vector2 &p_uv2) const {
+	const Ref<Terrain3DMaterial> material = _terrain->get_material();
+	if (!material.is_valid()) {
+		return 0.f;
+	}
+	Variant var_rb = material->get("region_blend");
+	if (var_rb.get_type() == Variant::NIL) {
+		return 0.f;
+	}
+	const real_t region_blend = var_rb;
+
+	auto check_region = [&](const Vector2 &uv2) -> real_t {
+		int idx = get_region_map_index(Vector2i(Math::floor(uv2.x), Math::floor(uv2.y)));
+		return (idx >= 0 && _region_map[idx] > 0) ? 1.f : 0.f;
+	};
+
+	// Floating point bias (must match shader)
+	Vector2 uv2 = p_uv2 - Vector2(0.5011f, 0.5011f);
+
+	real_t a = check_region(uv2 + Vector2(0.0f, 1.0f));
+	real_t b = check_region(uv2 + Vector2(1.0f, 1.0f));
+	real_t c = check_region(uv2 + Vector2(1.0f, 0.0f));
+	real_t d = check_region(uv2 + Vector2(0.0f, 0.0f));
+
+	real_t blend_factor = 2.0f + 126.0f * (1.0f - region_blend);
+	Vector2 f = Vector2(uv2.x - Math::floor(uv2.x), uv2.y - Math::floor(uv2.y));
+	f.x = Math::clamp(f.x, real_t(1e-8f), real_t(1.0f - 1e-8f));
+	f.y = Math::clamp(f.y, real_t(1e-8f), real_t(1.0f - 1e-8f));
+	Vector2 w = Vector2(1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.x) / f.x))),
+			1.f / (1.f + Math::exp(blend_factor * Math::log((1.f - f.y) / f.y))));
+	real_t blend = Math::lerp(Math::lerp(d, c, w.x), Math::lerp(a, b, w.x), w.y);
+
+	return (1.f - blend) * 2.f;
 }
 
 Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
 	if (get_region_idp(p_global_position) < 0 || is_hole(get_control(p_global_position))) {
 		return V3_NAN;
 	}
-	real_t height = get_height(p_global_position);
-	real_t u = height - get_height(p_global_position + Vector3(_vertex_spacing, 0.0f, 0.0f));
-	real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, _vertex_spacing));
-	Vector3 normal = Vector3(u, _vertex_spacing, v);
+	const real_t step = _vertex_spacing;
+	real_t h = get_surface_height(p_global_position);
+	if (!std::isfinite(h)) {
+		return V3_NAN;
+	}
+	real_t hx = get_surface_height(p_global_position + Vector3(step, 0.f, 0.f));
+	if (!std::isfinite(hx)) {
+		return V3_NAN;
+	}
+	real_t hz = get_surface_height(p_global_position + Vector3(0.f, 0.f, step));
+	if (!std::isfinite(hx)) {
+		return V3_NAN;
+	}
+	Vector3 normal(h - hx, step, h - hz);
 	normal.normalize();
 	return normal;
 }
@@ -702,24 +799,10 @@ bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
 		slope_normal.normalize();
 	} else {
 		// Else, compute terrain normal
-		if (get_region_idp(p_global_position) < 0) {
+		slope_normal = get_normal(p_global_position);
+		if (!slope_normal.is_finite()) {
 			return false;
 		}
-		// Adapted from get_height() to work with holes
-		auto get_height = [&](Vector3 pos) -> real_t {
-			real_t step = _terrain->get_vertex_spacing();
-			// Round to nearest vertex
-			Vector3 pos_round = pos.snapped(Vector3(step, 0.f, step));
-			real_t height = get_pixel(TYPE_HEIGHT, pos_round).r;
-			return std::isnan(height) ? 0.f : height;
-		};
-
-		const real_t vertex_spacing = _terrain->get_vertex_spacing();
-		const real_t height = get_height(p_global_position);
-		const real_t u = height - get_height(p_global_position + Vector3(vertex_spacing, 0.0f, 0.0f));
-		const real_t v = height - get_height(p_global_position + Vector3(0.f, 0.f, vertex_spacing));
-		slope_normal = Vector3(u, vertex_spacing, v);
-		slope_normal.normalize();
 	}
 
 	const real_t slope_angle = slope_normal.angle_to(V3_UP);
@@ -738,39 +821,33 @@ bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
  * value of .3-.5, otherwise it's the base texture.
  **/
 Vector3 Terrain3DData::get_texture_id(const Vector3 &p_global_position) const {
-	// Verify in a region
-	int region_id = get_region_idp(p_global_position);
-	if (region_id < 0) {
-		return V3_NAN;
-	}
+	Vector2i vgrid = world_to_vgrid(p_global_position);
 
-	// Verify not in a hole
-	float src = get_pixel(TYPE_CONTROL, p_global_position).r; // 32-bit float, not double/real
-	if (is_hole(src)) {
+	// Region + hole check
+	real_t control = get_pixel_descaled(TYPE_CONTROL, vgrid).r;
+	if (std::isnan(control) || is_hole(control)) {
 		return V3_NAN;
 	}
 
 	// If material available, autoshader enabled, and pixel set to auto
 	if (_terrain) {
-		Ref<Terrain3DMaterial> t_material = _terrain->get_material();
-		bool auto_enabled = t_material->get_auto_shader_enabled();
-		bool control_auto = is_auto(src);
-		if (auto_enabled && control_auto) {
-			real_t auto_slope = real_t(t_material->get_shader_param("auto_slope"));
-			real_t auto_height_reduction = real_t(t_material->get_shader_param("auto_height_reduction"));
-			real_t height = get_height(p_global_position);
+		Ref<Terrain3DMaterial> mat = _terrain->get_material();
+		if (mat.is_valid() && mat->get_auto_shader_enabled() && is_auto(control)) {
+			real_t auto_slope = real_t(mat->get_shader_param("auto_slope"));
+			real_t auto_height_reduction = real_t(mat->get_shader_param("auto_height_reduction"));
+			real_t height = get_modified_height(vgrid);
 			Vector3 normal = get_normal(p_global_position);
-			uint32_t base_id = t_material->get_shader_param("auto_base_texture");
-			uint32_t overlay_id = t_material->get_shader_param("auto_overlay_texture");
+			uint32_t base_id = mat->get_shader_param("auto_base_texture");
+			uint32_t overlay_id = mat->get_shader_param("auto_overlay_texture");
 			real_t blend = CLAMP((auto_slope * 2.f * (normal.y - 1.f) + 1.f) - auto_height_reduction * .01f * height, 0.f, 1.f);
 			return Vector3(real_t(base_id), real_t(overlay_id), blend);
 		}
 	}
 
 	// Else, just get textures from control map
-	uint32_t base_id = get_base(src);
-	uint32_t overlay_id = get_overlay(src);
-	real_t blend = real_t(get_blend(src)) / 255.0f;
+	uint32_t base_id = get_base(control);
+	uint32_t overlay_id = get_overlay(control);
+	real_t blend = real_t(get_blend(control)) / 255.f;
 	return Vector3(real_t(base_id), real_t(overlay_id), blend);
 }
 
@@ -785,27 +862,32 @@ Vector3 Terrain3DData::get_texture_id(const Vector3 &p_global_position) const {
  */
 Vector3 Terrain3DData::get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const {
 	LOG(INFO, "Calculating vertex location");
-	int32_t step = 1 << CLAMP(p_lod, 0, 8);
-	real_t height = 0.0f;
+	Vector2i vgrid = world_to_vgrid(p_global_position);
+	real_t height = get_mesh_vertex_height(p_lod, p_filter, vgrid);
+	return Vector3(p_global_position.x, height, p_global_position.z);
+}
 
+real_t Terrain3DData::get_mesh_vertex_height(const int32_t p_lod, const HeightFilter p_filter, const Vector2i &p_vgrid) const {
+	const int32_t lod_step = 1 << CLAMP(p_lod, 0, 8);
+	real_t height = 0.f;
 	switch (p_filter) {
 		case HEIGHT_FILTER_NEAREST: {
-			if (is_hole(get_control(p_global_position))) {
-				height = NAN;
-			} else {
-				height = get_height(p_global_position);
-			}
+			height = get_modified_height(p_vgrid);
 		} break;
+
 		case HEIGHT_FILTER_MINIMUM: {
-			height = get_height(p_global_position);
-			for (int32_t dx = -step / 2; dx < step / 2; dx += 1) {
-				for (int32_t dz = -step / 2; dz < step / 2; dz += 1) {
-					Vector3 position = p_global_position + Vector3(dx, 0.f, dz) * _vertex_spacing;
-					if (is_hole(get_control(position))) {
+			height = get_modified_height(p_vgrid);
+			if (std::isnan(height)) {
+				break;
+			}
+			const int half = lod_step / 2;
+			for (int32_t dx = -half; dx < half; ++dx) {
+				for (int32_t dz = -half; dz < half; ++dz) {
+					real_t h = get_modified_height(p_vgrid + Vector2i(dx, dz));
+					if (std::isnan(h)) {
 						height = NAN;
-						break;
+						return height;
 					}
-					real_t h = get_height(position);
 					if (h < height) {
 						height = h;
 					}
@@ -813,7 +895,7 @@ Vector3 Terrain3DData::get_mesh_vertex(const int32_t p_lod, const HeightFilter p
 			}
 		} break;
 	}
-	return Vector3(p_global_position.x, height, p_global_position.z);
+	return height;
 }
 
 void Terrain3DData::add_edited_area(const AABB &p_area) {
@@ -848,17 +930,17 @@ void Terrain3DData::calc_height_range(const bool p_recursive) {
  * It does NOT normalize values to 0-1. You must do that using get_min_max() and adjusting scale and offset.
  * Parameters:
  *	p_images - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null
- *	p_global_position - X,0,Z location on the region map. Valid range is ~ (+/-8192, +/-8192)
+ *	p_global_position - X,0,Z location on the region map. Valid range is +/-16 * region_size
  *	p_offset - Add this factor to all height values, can be negative
  *	p_scale - Scale all height values by this factor (applied after offset)
  */
 void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position, const real_t p_offset, const real_t p_scale) {
 	IS_INIT_MESG("Data not initialized", VOID);
+	// Validate images and determine common size
 	if (p_images.size() != TYPE_MAX) {
 		LOG(ERROR, "p_images.size() is ", p_images.size(), ". It should be ", TYPE_MAX, " even if some Images are blank or null");
 		return;
 	}
-
 	Vector2i img_size = V2I_ZERO;
 	for (int i = 0; i < TYPE_MAX; i++) {
 		Ref<Image> img = p_images[i];
@@ -880,35 +962,56 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		return;
 	}
 
-	Vector3 descaled_position = p_global_position / _vertex_spacing;
-	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
-	if ((std::abs(descaled_position.x) > max_dimension) || (std::abs(descaled_position.z) > max_dimension)) {
-		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _vertex_spacing);
-		return;
-	}
-	if ((descaled_position.x + img_size.x > max_dimension) ||
-			(descaled_position.z + img_size.y > max_dimension)) {
-		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
-				". Try ", -(img_size * _vertex_spacing) / 2.f, " to center, or increase region_size");
+	// Convert import origin to floored, descaled vertex grid
+	const Vector2i img_start = world_to_vgrid(p_global_position);
+	const Vector2i img_end = img_start + img_size - Vector2i(1, 1);
+
+	// Validate vertex-grid range for the current region_size
+	// Regions run from -HALF .. HALF-1, each covering _region_size vertices
+	const int half = REGION_MAP_SIZE / 2;
+	const int min_v = -half * _region_size;
+	const int max_v = (half * _region_size) - 1; // inclusive
+
+	if (img_start.x < min_v || img_start.y < min_v ||
+			img_end.x > max_v || img_end.y > max_v) {
+		// How large does region_size need to be for this image to fit
+		// (centred or placed at the requested position)?
+		const int required_span = MAX(img_size.x, img_size.y);
+		int min_region_size = _region_size;
+		while (min_region_size < Terrain3D::RegionSize::SIZE_2048 &&
+				required_span > min_region_size * REGION_MAP_SIZE) {
+			min_region_size <<= 1;
+		}
+
+		LOG(ERROR, "Image of size ", img_size, " at ", v3v2i(p_global_position),
+				" does not fit within max width of ", REGION_MAP_SIZE, " * region_size ", _region_size,
+				" = ", REGION_MAP_SIZE * _region_size);
+
+		if (min_region_size > _region_size) {
+			LOG(ERROR, "Increase region_size to at least ", min_region_size,
+					" and place the image so its center covers the the origin.");
+		} else {
+			LOG(ERROR, "Try a position near ",
+					-Vector3(img_size.x, 0.f, img_size.y) * _vertex_spacing * 0.5f,
+					" to center the image.");
+		}
 		return;
 	}
 
+	// Apply scale and offsets to the heightmap and filter out invalid data
 	TypedArray<Image> src_images;
 	src_images.resize(TYPE_MAX);
-
 	for (int i = 0; i < TYPE_MAX; i++) {
 		Ref<Image> img = p_images[i];
 		src_images[i] = img;
-		if (img.is_null()) {
+		if (img.is_null() || img->is_empty()) {
 			continue;
 		}
-
-		// Apply scale and offsets to the heightmap and filter out invalid data
-		if (i == TYPE_HEIGHT) {
+		if (i == TYPE_HEIGHT && (p_scale != 1.f || p_offset != 0.f)) {
 			LOG(DEBUG, "Creating new temp image to adjust scale: ", p_scale, " offset: ", p_offset);
-			Ref<Image> newimg = Image::create_empty(img->get_size().x, img->get_size().y, false, FORMAT[TYPE_HEIGHT]);
-			for (int y = 0; y < img->get_height(); y++) {
-				for (int x = 0; x < img->get_width(); x++) {
+			Ref<Image> newimg = Image::create_empty(img_size.x, img_size.y, false, FORMAT[TYPE_HEIGHT]);
+			for (int y = 0; y < img_size.y; y++) {
+				for (int x = 0; x < img_size.x; x++) {
 					Color clr = img->get_pixel(x, y);
 					if (std::isnormal(clr.r)) {
 						clr.r = (clr.r * p_scale) + p_offset;
@@ -923,55 +1026,34 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 	}
 
 	// Calculate regions this image will span
-	int img_start_x = (int)Math::floor(descaled_position.x);
-	int img_start_z = (int)Math::floor(descaled_position.z);
-	int img_end_x = img_start_x + img_size.x - 1;
-	int img_end_z = img_start_z + img_size.y - 1;
-
-	int start_region_x = (int)Math::floor(real_t(img_start_x) / real_t(_region_size));
-	int start_region_z = (int)Math::floor(real_t(img_start_z) / real_t(_region_size));
-	int end_region_x = (int)Math::floor(real_t(img_end_x) / real_t(_region_size));
-	int end_region_z = (int)Math::floor(real_t(img_end_z) / real_t(_region_size));
-
-	// Clamp region indices to valid range
-	int half_region_map = REGION_MAP_SIZE / 2;
-	start_region_x = CLAMP(start_region_x, -half_region_map, half_region_map - 1);
-	start_region_z = CLAMP(start_region_z, -half_region_map, half_region_map - 1);
-	end_region_x = CLAMP(end_region_x, -half_region_map, half_region_map - 1);
-	end_region_z = CLAMP(end_region_z, -half_region_map, half_region_map - 1);
-
-	LOG(DEBUG, "Image spans regions (", start_region_x, ",", start_region_z, ") to (", end_region_x, ",", end_region_z, ")");
+	const Vector2i start_region = V2I_DIVIDE_FLOOR(img_start, _region_size);
+	const Vector2i end_region = V2I_DIVIDE_FLOOR(img_end, _region_size);
+	LOG(DEBUG, "Image spans regions ", start_region, " to ", end_region);
 
 	bool generate_mipmaps = false;
-	for (int rz = start_region_z; rz <= end_region_z; rz++) {
-		for (int rx = start_region_x; rx <= end_region_x; rx++) {
-			Vector2i region_loc = Vector2i(rx, rz);
+	for (int rz = start_region.y; rz <= end_region.y; rz++) {
+		for (int rx = start_region.x; rx <= end_region.x; rx++) {
+			const Vector2i region_loc = Vector2i(rx, rz);
+			const Vector2i region_origin = region_loc * _region_size;
 
-			int region_start_x = rx * _region_size;
-			int region_start_z = rz * _region_size;
-			int region_end_x = region_start_x + _region_size - 1;
-			int region_end_z = region_start_z + _region_size - 1;
-
-			int overlap_start_x = MAX(region_start_x, img_start_x);
-			int overlap_start_z = MAX(region_start_z, img_start_z);
-			int overlap_end_x = MIN(region_end_x, img_end_x);
-			int overlap_end_z = MIN(region_end_z, img_end_z);
+			// Overlap in descaled vertex space
+			const int overlap_start_x = MAX(region_origin.x, img_start.x);
+			const int overlap_start_z = MAX(region_origin.y, img_start.y);
+			const int overlap_end_x = MIN(region_origin.x + _region_size - 1, img_end.x);
+			const int overlap_end_z = MIN(region_origin.y + _region_size - 1, img_end.y);
 
 			// Skip if no overlap
 			if (overlap_end_x < overlap_start_x || overlap_end_z < overlap_start_z) {
 				continue;
 			}
 
-			int copy_width = overlap_end_x - overlap_start_x + 1;
-			int copy_height = overlap_end_z - overlap_start_z + 1;
-
-			int src_x = overlap_start_x - img_start_x;
-			int src_z = overlap_start_z - img_start_z;
-			int dst_x = overlap_start_x - region_start_x;
-			int dst_z = overlap_start_z - region_start_z;
+			const int copy_width = overlap_end_x - overlap_start_x + 1;
+			const int copy_height = overlap_end_z - overlap_start_z + 1;
+			const Vector2i src_pos(overlap_start_x - img_start.x, overlap_start_z - img_start.y);
+			const Vector2i dst_pos(overlap_start_x - region_origin.x, overlap_start_z - region_origin.y);
 
 			LOG(DEBUG, "Region ", region_loc, ": copying ", Vector2i(copy_width, copy_height),
-					" from img(", src_x, ",", src_z, ") to region(", dst_x, ",", dst_z, ")");
+					" from img", src_pos, " to region", dst_pos);
 
 			Ref<Terrain3DRegion> region = get_region(region_loc);
 			if (region.is_null()) {
@@ -986,11 +1068,11 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 				region->set_region_size(_region_size);
 				region->set_vertex_spacing(_vertex_spacing);
 			}
+
 			for (int i = 0; i < TYPE_MAX; i++) {
 				Ref<Image> img = src_images[i];
 				if (img.is_valid() && !img->is_empty()) {
 					Ref<Image> region_map;
-
 					Ref<Image> existing_map = region->get_map(static_cast<MapType>(i));
 					if (existing_map.is_valid() && !existing_map->is_empty()) {
 						region_map.instantiate();
@@ -1001,7 +1083,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 					} else {
 						region_map = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
 					}
-					region_map->blit_rect(img, Rect2i(src_x, src_z, copy_width, copy_height), Vector2i(dst_x, dst_z));
+					region_map->blit_rect(img, Rect2i(src_pos, Vector2i(copy_width, copy_height)), dst_pos);
 					region->set_map(static_cast<MapType>(i), region_map);
 					if (i == TYPE_COLOR) {
 						generate_mipmaps = true;
@@ -1013,6 +1095,13 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		}
 	}
 	update_maps(TYPE_MAX, true, generate_mipmaps);
+
+	if (_master_height_range.y - _master_height_range.x < 2.f) {
+		Ref<Image> htimg = p_images[TYPE_HEIGHT];
+		if (htimg.is_valid() && !htimg->is_empty()) {
+			LOG(WARN, "No heights > 2m detected. Are you importing a normalized (0-1) heightmap? Scale it 300-500x");
+		}
+	}
 }
 
 /** Exports a specified map as one of r16/raw, exr, jpg, png, webp, res, tres
@@ -1119,7 +1208,7 @@ Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map
 			LOG(MESG, "  Position: ", Vector2(region_loc * _region_size) * _vertex_spacing);
 			LOG(MESG, "  Image Size: ", img->get_size(), " px");
 
-			Error err = _save_export_image(img, path, ext, p_map_type);
+			Error err = _save_export_image(p_map_type, img, path, ext);
 			if (err != OK) {
 				last_error = err;
 			} else {
@@ -1152,7 +1241,7 @@ Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map
 				LOG(MESG, "  Position: ", Vector2(slice_origin) * _vertex_spacing);
 				LOG(MESG, "  Image Size: ", img->get_size(), "px");
 
-				Error err = _save_export_image(img, path, ext, p_map_type);
+				Error err = _save_export_image(p_map_type, img, path, ext);
 				if (err != OK) {
 					last_error = err;
 				} else {
@@ -1164,45 +1253,6 @@ Error Terrain3DData::export_image(const String &p_file_name, const MapType p_map
 
 	LOG(MESG, "=== Export complete: ", files_exported, " file(s) ===");
 	return last_error;
-}
-
-Error Terrain3DData::_save_export_image(const Ref<Image> &p_img, const String &p_path,
-		const String &p_ext, const MapType p_map_type) const {
-	if (p_map_type == TYPE_HEIGHT && (p_ext == "r16" || p_ext == "raw")) {
-		Ref<FileAccess> file = FileAccess::open(p_path, FileAccess::WRITE);
-		if (file.is_null()) {
-			return ERR_CANT_OPEN;
-		}
-		Vector2 minmax = _master_height_range;
-		if (minmax.x >= minmax.y) {
-			// Global height range wasn't calculated, fall back to range for this image
-			minmax = Util::get_min_max(p_img);
-			LOG(MESG, "  Height range (per image fallback): ", vformat("%.2f", minmax.x), " to ", vformat("%.2f", minmax.y));
-		} else {
-			LOG(MESG, "  Height range (global scale): ", vformat("%.2f", minmax.x), " to ", vformat("%.2f", minmax.y));
-		}
-		float range = minmax.y - minmax.x;
-		real_t hscale = 65535.0 / (range != 0.f ? range : 1.f);
-		for (int y = 0; y < p_img->get_height(); y++) {
-			for (int x = 0; x < p_img->get_width(); x++) {
-				int h = int((p_img->get_pixel(x, y).r - minmax.x) * hscale);
-				h = CLAMP(h, 0, 65535);
-				file->store_16(h);
-			}
-		}
-		return file->get_error();
-	} else if (p_ext == "exr") {
-		return p_img->save_exr(p_path, (p_map_type == TYPE_HEIGHT));
-	} else if (p_ext == "png") {
-		return p_img->save_png(p_path);
-	} else if (p_ext == "jpg") {
-		return p_img->save_jpg(p_path);
-	} else if (p_ext == "webp") {
-		return p_img->save_webp(p_path);
-	} else if (p_ext == "res" || p_ext == "tres") {
-		return ResourceSaver::get_singleton()->save(p_img, p_path, ResourceSaver::FLAG_COMPRESS);
-	}
-	return ERR_FILE_UNRECOGNIZED;
 }
 
 Ref<Image> Terrain3DData::layered_to_image(const MapType p_map_type, const Rect2i &p_bounds) const {
@@ -1354,21 +1404,24 @@ void Terrain3DData::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_pixel", "map_type", "global_position", "pixel"), &Terrain3DData::set_pixel);
 	ClassDB::bind_method(D_METHOD("get_pixel", "map_type", "global_position"), &Terrain3DData::get_pixel);
+
+	// Height Map
 	ClassDB::bind_method(D_METHOD("set_height", "global_position", "height"), &Terrain3DData::set_height);
 	ClassDB::bind_method(D_METHOD("get_height", "global_position"), &Terrain3DData::get_height);
-	ClassDB::bind_method(D_METHOD("set_color", "global_position", "color"), &Terrain3DData::set_color);
-	ClassDB::bind_method(D_METHOD("get_color", "global_position"), &Terrain3DData::get_color);
+	ClassDB::bind_method(D_METHOD("get_surface_height", "global_position"), &Terrain3DData::get_surface_height);
+	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DData::get_normal);
+	ClassDB::bind_method(D_METHOD("is_in_slope", "global_position", "slope_range", "normal"), &Terrain3DData::is_in_slope, DEFVAL(V3_ZERO));
+
+	// Control Map
 	ClassDB::bind_method(D_METHOD("set_control", "global_position", "control"), &Terrain3DData::set_control);
 	ClassDB::bind_method(D_METHOD("get_control", "global_position"), &Terrain3DData::get_control);
-	ClassDB::bind_method(D_METHOD("set_roughness", "global_position", "roughness"), &Terrain3DData::set_roughness);
-	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DData::get_roughness);
-
 	ClassDB::bind_method(D_METHOD("set_control_base_id", "global_position", "texture_id"), &Terrain3DData::set_control_base_id);
 	ClassDB::bind_method(D_METHOD("get_control_base_id", "global_position"), &Terrain3DData::get_control_base_id);
 	ClassDB::bind_method(D_METHOD("set_control_overlay_id", "global_position", "texture_id"), &Terrain3DData::set_control_overlay_id);
 	ClassDB::bind_method(D_METHOD("get_control_overlay_id", "global_position"), &Terrain3DData::get_control_overlay_id);
 	ClassDB::bind_method(D_METHOD("set_control_blend", "global_position", "blend_value"), &Terrain3DData::set_control_blend);
 	ClassDB::bind_method(D_METHOD("get_control_blend", "global_position"), &Terrain3DData::get_control_blend);
+	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DData::get_texture_id);
 	ClassDB::bind_method(D_METHOD("set_control_angle", "global_position", "degrees"), &Terrain3DData::set_control_angle);
 	ClassDB::bind_method(D_METHOD("get_control_angle", "global_position"), &Terrain3DData::get_control_angle);
 	ClassDB::bind_method(D_METHOD("set_control_scale", "global_position", "percentage_modifier"), &Terrain3DData::set_control_scale);
@@ -1380,9 +1433,12 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_control_auto", "global_position", "enable"), &Terrain3DData::set_control_auto);
 	ClassDB::bind_method(D_METHOD("get_control_auto", "global_position"), &Terrain3DData::get_control_auto);
 
-	ClassDB::bind_method(D_METHOD("get_normal", "global_position"), &Terrain3DData::get_normal);
-	ClassDB::bind_method(D_METHOD("is_in_slope", "global_position", "slope_range", "normal"), &Terrain3DData::is_in_slope, DEFVAL(V3_ZERO));
-	ClassDB::bind_method(D_METHOD("get_texture_id", "global_position"), &Terrain3DData::get_texture_id);
+	// Color Map
+	ClassDB::bind_method(D_METHOD("set_color", "global_position", "color"), &Terrain3DData::set_color);
+	ClassDB::bind_method(D_METHOD("get_color", "global_position"), &Terrain3DData::get_color);
+	ClassDB::bind_method(D_METHOD("set_roughness", "global_position", "roughness"), &Terrain3DData::set_roughness);
+	ClassDB::bind_method(D_METHOD("get_roughness", "global_position"), &Terrain3DData::get_roughness);
+
 	ClassDB::bind_method(D_METHOD("get_mesh_vertex", "lod", "filter", "global_position"), &Terrain3DData::get_mesh_vertex);
 
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DData::get_height_range);

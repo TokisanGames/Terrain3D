@@ -176,9 +176,7 @@
 			<return type="float" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the height at the requested position. If the position is close to a vertex, the pixel height on the heightmap is returned. Otherwise the value is interpolated from the 4 vertices surrounding the position.
-				Returns [code skip-lint]NAN[/code] if the requested position is a hole or outside of defined regions.
-				Also see [method Terrain3D.get_raycast_result] and [method Terrain3D.get_intersection] for alternative functions
+				Returns the height value on the heightmap at the specified position. Though this returns the data in the region, this is may not be the apparent ground level. See [method get_surface_height].
 			</description>
 		</method>
 		<method name="get_height_maps_rid" qualifiers="const">
@@ -217,7 +215,7 @@
 			<return type="Vector3" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the terrain normal at the specified position. This function uses [method get_height].
+				Returns the terrain normal at the specified position. This function calls [method get_surface_height] 3 times.
 				Returns [code skip-lint]Vector3(NAN, NAN, NAN)[/code] if the requested position is a hole or outside of defined regions.
 			</description>
 		</method>
@@ -226,7 +224,7 @@
 			<param index="0" name="map_type" type="int" enum="Terrain3DRegion.MapType" />
 			<param index="1" name="global_position" type="Vector3" />
 			<description>
-				Returns the pixel for the map type associated with the specified position.
+				Returns the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates.
 				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
 			</description>
 		</method>
@@ -309,6 +307,15 @@
 			<description>
 				Returns the roughness modifier (wetness) on the color map alpha channel associated with the specified position.
 				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
+			</description>
+		</method>
+		<method name="get_surface_height" qualifiers="const">
+			<return type="float" />
+			<param index="0" name="global_position" type="Vector3" />
+			<description>
+				Returns the rendered height at the requested global position. This method starts with the raw height in the region data returned by [method get_height]. It then mixes in the [code skip-lint]ground_level[/code] and [code skip-lint]region_blend[/code] values from the material if they exist. Next, if global_position is very close to a vertex the value is returned. Otherwise, this is repeated 3 more times and the final height value is interpolated. Thus it's 4x faster to snap your vertex to [member Terrain3D.vertex_spacing] before calling it. This function is used for collision, navigation baking, and instancer placement.
+				Returns [code skip-lint]NAN[/code] if the requested position is a hole or outside of defined regions.
+				Also see [method Terrain3D.get_raycast_result] and [method Terrain3D.get_intersection] for alternative functions.
 			</description>
 		</method>
 		<method name="get_texture_id" qualifiers="const">
@@ -533,8 +540,7 @@
 			<param index="0" name="global_position" type="Vector3" />
 			<param index="1" name="height" type="float" />
 			<description>
-				Sets the height value on the heightmap pixel associated with the specified position. See [method set_pixel] for important information.
-				Unlike [method get_height], which interpolates between vertices, this function does not and will set the pixel at floored coordinates.
+				Sets the height value on the heightmap at the specified position. See [method set_pixel] for important information. Also see [method get_height].
 			</description>
 		</method>
 		<method name="set_pixel">
@@ -543,7 +549,7 @@
 			<param index="1" name="global_position" type="Vector3" />
 			<param index="2" name="pixel" type="Color" />
 			<description>
-				Sets the pixel for the map type associated with the specified position. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use [method Terrain3DRegion.get_map], then edit the images directly.
+				Sets the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use [method Terrain3DRegion.get_map], then edit the images directly.
 				After setting pixels you need to call [method update_maps]. You may also need to regenerate collision if you don't have dynamic collision enabled.
 			</description>
 		</method>

@@ -165,8 +165,8 @@ func _ready() -> void:
 	collision_list = create_submenu(main_list, "Collision", Layout.VERTICAL)
 	add_setting({ "name":"on_collision", "label":"On Collision", "type":SettingType.CHECKBOX, "list":collision_list,
 							"default":true })
-	add_setting({ "name":"raycast_height", "label":"Raycast Height", "type":SettingType.SLIDER, 
-							"list":collision_list, "default":10, "unit":"m", "range":Vector3(0, 200, .25) })
+	add_setting({ "name":"raycast_height", "label":"Raycast Height", "type":SettingType.SLIDER, "list":collision_list,
+							"default":10, "unit":"m", "range":Vector3(0, 200, .25), "flags":ALLOW_LARGER })
 
 	if DisplayServer.is_touchscreen_available():
 		add_setting({ "name":"invert", "label":"Invert", "type":SettingType.CHECKBOX, "list":main_list, "default":false, "flags":ADD_SEPARATOR })

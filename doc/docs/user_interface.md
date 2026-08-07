@@ -36,7 +36,7 @@ After selecting the Terrain3D node, the Terrain3D menu appears at the top of the
 The Live Info Panel can be enabled from the Terrain3D menu. When active, it displays real‑time information about the terrain under your mouse cursor, at the center of your brush, including:
 
 * X, Z mouse position on the terrain
-* Height
+* Height (surface)
 * Slope angle
 * Texture data, such as:
   * Base texture index
@@ -48,7 +48,11 @@ The Live Info Panel can be enabled from the Terrain3D menu. When active, it disp
 :target: ../_images/ui_live_info_panel.png
 ```
 
+Notes:
+
 When the Region Tool is selected, the panel shows only the current region coordinates, and an approximate mouse position. Change to any other tool, and set brush size to zero for the most accurate information.
+
+Height may show two values, the first is the actual sculpted height stored in the region. The second, if it appears is the value from `Terrain3DData.get_surface_height()`. This is the rendered height used by collision, navigation, and instancer placement. It is modified by the `ground_level` and `region_blend` uniforms from the material and interpolates adjacent vertices.
 
 ---
 
