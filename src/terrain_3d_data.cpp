@@ -930,17 +930,17 @@ void Terrain3DData::calc_height_range(const bool p_recursive) {
  * It does NOT normalize values to 0-1. You must do that using get_min_max() and adjusting scale and offset.
  * Parameters:
  *	p_images - MapType.TYPE_MAX sized array of Images for Height, Control, Color. Images can be blank or null
- *	p_global_position - X,0,Z location on the region map. Valid range is ~ (+/-8192, +/-8192)
+ *	p_global_position - X,0,Z location on the region map. Valid range is +/-16 * region_size
  *	p_offset - Add this factor to all height values, can be negative
  *	p_scale - Scale all height values by this factor (applied after offset)
  */
 void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vector3 &p_global_position, const real_t p_offset, const real_t p_scale) {
 	IS_INIT_MESG("Data not initialized", VOID);
+	// Validate images and determine common size
 	if (p_images.size() != TYPE_MAX) {
 		LOG(ERROR, "p_images.size() is ", p_images.size(), ". It should be ", TYPE_MAX, " even if some Images are blank or null");
 		return;
 	}
-
 	Vector2i img_size = V2I_ZERO;
 	for (int i = 0; i < TYPE_MAX; i++) {
 		Ref<Image> img = p_images[i];
@@ -962,35 +962,56 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		return;
 	}
 
-	Vector3 descaled_position = p_global_position / _vertex_spacing;
-	int max_dimension = _region_size * REGION_MAP_SIZE / 2;
-	if ((std::abs(descaled_position.x) > max_dimension) || (std::abs(descaled_position.z) > max_dimension)) {
-		LOG(ERROR, "Specify a position within +/-", Vector3(max_dimension, 0.f, max_dimension) * _vertex_spacing);
-		return;
-	}
-	if ((descaled_position.x + img_size.x > max_dimension) ||
-			(descaled_position.z + img_size.y > max_dimension)) {
-		LOG(ERROR, img_size, " image will not fit at ", p_global_position,
-				". Try ", -(img_size * _vertex_spacing) / 2.f, " to center, or increase region_size");
+	// Convert import origin to floored, descaled vertex grid
+	const Vector2i img_start = world_to_vgrid(p_global_position);
+	const Vector2i img_end = img_start + img_size - Vector2i(1, 1);
+
+	// Validate vertex-grid range for the current region_size
+	// Regions run from -HALF .. HALF-1, each covering _region_size vertices
+	const int half = REGION_MAP_SIZE / 2;
+	const int min_v = -half * _region_size;
+	const int max_v = (half * _region_size) - 1; // inclusive
+
+	if (img_start.x < min_v || img_start.y < min_v ||
+			img_end.x > max_v || img_end.y > max_v) {
+		// How large does region_size need to be for this image to fit
+		// (centred or placed at the requested position)?
+		const int required_span = MAX(img_size.x, img_size.y);
+		int min_region_size = _region_size;
+		while (min_region_size < Terrain3D::RegionSize::SIZE_2048 &&
+				required_span > min_region_size * REGION_MAP_SIZE) {
+			min_region_size <<= 1;
+		}
+
+		LOG(ERROR, "Image of size ", img_size, " at ", v3v2i(p_global_position),
+				" does not fit within max width of ", REGION_MAP_SIZE, " * region_size ", _region_size,
+				" = ", REGION_MAP_SIZE * _region_size);
+
+		if (min_region_size > _region_size) {
+			LOG(ERROR, "Increase region_size to at least ", min_region_size,
+					" and place the image so its center covers the the origin.");
+		} else {
+			LOG(ERROR, "Try a position near ",
+					-Vector3(img_size.x, 0.f, img_size.y) * _vertex_spacing * 0.5f,
+					" to center the image.");
+		}
 		return;
 	}
 
+	// Apply scale and offsets to the heightmap and filter out invalid data
 	TypedArray<Image> src_images;
 	src_images.resize(TYPE_MAX);
-
 	for (int i = 0; i < TYPE_MAX; i++) {
 		Ref<Image> img = p_images[i];
 		src_images[i] = img;
-		if (img.is_null()) {
+		if (img.is_null() || img->is_empty()) {
 			continue;
 		}
-
-		// Apply scale and offsets to the heightmap and filter out invalid data
-		if (i == TYPE_HEIGHT) {
+		if (i == TYPE_HEIGHT && (p_scale != 1.f || p_offset != 0.f)) {
 			LOG(DEBUG, "Creating new temp image to adjust scale: ", p_scale, " offset: ", p_offset);
-			Ref<Image> newimg = Image::create_empty(img->get_size().x, img->get_size().y, false, FORMAT[TYPE_HEIGHT]);
-			for (int y = 0; y < img->get_height(); y++) {
-				for (int x = 0; x < img->get_width(); x++) {
+			Ref<Image> newimg = Image::create_empty(img_size.x, img_size.y, false, FORMAT[TYPE_HEIGHT]);
+			for (int y = 0; y < img_size.y; y++) {
+				for (int x = 0; x < img_size.x; x++) {
 					Color clr = img->get_pixel(x, y);
 					if (std::isnormal(clr.r)) {
 						clr.r = (clr.r * p_scale) + p_offset;
@@ -1005,55 +1026,34 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 	}
 
 	// Calculate regions this image will span
-	int img_start_x = (int)Math::floor(descaled_position.x);
-	int img_start_z = (int)Math::floor(descaled_position.z);
-	int img_end_x = img_start_x + img_size.x - 1;
-	int img_end_z = img_start_z + img_size.y - 1;
-
-	int start_region_x = (int)Math::floor(real_t(img_start_x) / real_t(_region_size));
-	int start_region_z = (int)Math::floor(real_t(img_start_z) / real_t(_region_size));
-	int end_region_x = (int)Math::floor(real_t(img_end_x) / real_t(_region_size));
-	int end_region_z = (int)Math::floor(real_t(img_end_z) / real_t(_region_size));
-
-	// Clamp region indices to valid range
-	int half_region_map = REGION_MAP_SIZE / 2;
-	start_region_x = CLAMP(start_region_x, -half_region_map, half_region_map - 1);
-	start_region_z = CLAMP(start_region_z, -half_region_map, half_region_map - 1);
-	end_region_x = CLAMP(end_region_x, -half_region_map, half_region_map - 1);
-	end_region_z = CLAMP(end_region_z, -half_region_map, half_region_map - 1);
-
-	LOG(DEBUG, "Image spans regions (", start_region_x, ",", start_region_z, ") to (", end_region_x, ",", end_region_z, ")");
+	const Vector2i start_region = V2I_DIVIDE_FLOOR(img_start, _region_size);
+	const Vector2i end_region = V2I_DIVIDE_FLOOR(img_end, _region_size);
+	LOG(DEBUG, "Image spans regions ", start_region, " to ", end_region);
 
 	bool generate_mipmaps = false;
-	for (int rz = start_region_z; rz <= end_region_z; rz++) {
-		for (int rx = start_region_x; rx <= end_region_x; rx++) {
-			Vector2i region_loc = Vector2i(rx, rz);
+	for (int rz = start_region.y; rz <= end_region.y; rz++) {
+		for (int rx = start_region.x; rx <= end_region.x; rx++) {
+			const Vector2i region_loc = Vector2i(rx, rz);
+			const Vector2i region_origin = region_loc * _region_size;
 
-			int region_start_x = rx * _region_size;
-			int region_start_z = rz * _region_size;
-			int region_end_x = region_start_x + _region_size - 1;
-			int region_end_z = region_start_z + _region_size - 1;
-
-			int overlap_start_x = MAX(region_start_x, img_start_x);
-			int overlap_start_z = MAX(region_start_z, img_start_z);
-			int overlap_end_x = MIN(region_end_x, img_end_x);
-			int overlap_end_z = MIN(region_end_z, img_end_z);
+			// Overlap in descaled vertex space
+			const int overlap_start_x = MAX(region_origin.x, img_start.x);
+			const int overlap_start_z = MAX(region_origin.y, img_start.y);
+			const int overlap_end_x = MIN(region_origin.x + _region_size - 1, img_end.x);
+			const int overlap_end_z = MIN(region_origin.y + _region_size - 1, img_end.y);
 
 			// Skip if no overlap
 			if (overlap_end_x < overlap_start_x || overlap_end_z < overlap_start_z) {
 				continue;
 			}
 
-			int copy_width = overlap_end_x - overlap_start_x + 1;
-			int copy_height = overlap_end_z - overlap_start_z + 1;
-
-			int src_x = overlap_start_x - img_start_x;
-			int src_z = overlap_start_z - img_start_z;
-			int dst_x = overlap_start_x - region_start_x;
-			int dst_z = overlap_start_z - region_start_z;
+			const int copy_width = overlap_end_x - overlap_start_x + 1;
+			const int copy_height = overlap_end_z - overlap_start_z + 1;
+			const Vector2i src_pos(overlap_start_x - img_start.x, overlap_start_z - img_start.y);
+			const Vector2i dst_pos(overlap_start_x - region_origin.x, overlap_start_z - region_origin.y);
 
 			LOG(DEBUG, "Region ", region_loc, ": copying ", Vector2i(copy_width, copy_height),
-					" from img(", src_x, ",", src_z, ") to region(", dst_x, ",", dst_z, ")");
+					" from img", src_pos, " to region", dst_pos);
 
 			Ref<Terrain3DRegion> region = get_region(region_loc);
 			if (region.is_null()) {
@@ -1068,11 +1068,11 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 				region->set_region_size(_region_size);
 				region->set_vertex_spacing(_vertex_spacing);
 			}
+
 			for (int i = 0; i < TYPE_MAX; i++) {
 				Ref<Image> img = src_images[i];
 				if (img.is_valid() && !img->is_empty()) {
 					Ref<Image> region_map;
-
 					Ref<Image> existing_map = region->get_map(static_cast<MapType>(i));
 					if (existing_map.is_valid() && !existing_map->is_empty()) {
 						region_map.instantiate();
@@ -1083,7 +1083,7 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 					} else {
 						region_map = Util::get_filled_image(_region_sizev, COLOR[i], false, img->get_format());
 					}
-					region_map->blit_rect(img, Rect2i(src_x, src_z, copy_width, copy_height), Vector2i(dst_x, dst_z));
+					region_map->blit_rect(img, Rect2i(src_pos, Vector2i(copy_width, copy_height)), dst_pos);
 					region->set_map(static_cast<MapType>(i), region_map);
 					if (i == TYPE_COLOR) {
 						generate_mipmaps = true;
@@ -1095,6 +1095,13 @@ void Terrain3DData::import_images(const TypedArray<Image> &p_images, const Vecto
 		}
 	}
 	update_maps(TYPE_MAX, true, generate_mipmaps);
+
+	if (_master_height_range.y - _master_height_range.x < 2.f) {
+		Ref<Image> htimg = p_images[TYPE_HEIGHT];
+		if (htimg.is_valid() && !htimg->is_empty()) {
+			LOG(WARN, "No heights > 2m detected. Are you importing a normalized (0-1) heightmap? Scale it 300-500x");
+		}
+	}
 }
 
 /** Exports a specified map as one of r16/raw, exr, jpg, png, webp, res, tres

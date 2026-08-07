@@ -16,7 +16,7 @@ func reset_settings() -> void:
 	destination_directory = ""
 	import_position = Vector2i.ZERO
 	height_offset = 0.0
-	import_scale = 1.0
+	height_scale = 1.0
 	r16_range = Vector2(0, 1)
 	r16_size = Vector2i(1024, 1024)
 	material = null
@@ -47,7 +47,7 @@ func update_heights() -> void:
 ## The top left (-X, -Y) corner position of where to place the imported data. Positions are descaled and ignore the vertex_spacing setting.
 @export var import_position: Vector2i = Vector2i(0, 0) : set = set_import_position
 ## This scales the height of imported values.
-@export var import_scale: float = 1.0
+@export var height_scale: float = 1.0
 ## This vertically offsets the height of imported values.
 @export var height_offset: float = 0.0
 ## The lowest and highest height values of the imported image. Only use for r16 files.
@@ -71,13 +71,22 @@ func set_r16_size(p_value: Vector2i) -> void:
 
 
 func start_import() -> void:
-	print("Terrain3DImporter: Importing files:\n\t%s\n\t%s\n\t%s" % [ height_file_name, control_file_name, color_file_name])
+	print("Terrain3DImporter: Importing files:")
+	var output_names: String = ""
+	for str: String in [ height_file_name, control_file_name, color_file_name]:
+		if not str.is_empty():
+			output_names += "\t" + str + "\n" 
+	print(output_names)
 
 	var imported_images: Array[Image]
 	imported_images.resize(Terrain3DRegion.TYPE_MAX)
 	var min_max := Vector2(0, 1)
 	var img: Image
 	if height_file_name:
+		if height_file_name.get_extension() == "png":
+			push_warning("Terrain3DImporter: 16-bit height map PNGs aren't supported by Godot. All PNGs are read as 8-bit.")
+		if  height_file_name.get_extension() in [ "png", "jpg" ]:
+			push_warning("Terrain3DImporter: 8-bit height map detected. Heights will be terraced. Use a 16-bit data source and file type for smooth heights.")			
 		img = Terrain3DUtil.load_image(height_file_name, ResourceLoader.CACHE_MODE_IGNORE, r16_range, r16_size)
 		min_max = Terrain3DUtil.get_min_max(img)
 		imported_images[Terrain3DRegion.TYPE_HEIGHT] = img
@@ -91,7 +100,7 @@ func start_import() -> void:
 			material.show_checkered = false
 			material.show_colormap = true
 	var pos := Vector3(import_position.x * vertex_spacing, 0, import_position.y * vertex_spacing)
-	data.import_images(imported_images, pos, height_offset, import_scale)
+	data.import_images(imported_images, pos, height_offset, height_scale)
 	print("Terrain3DImporter: Import finished")
 
 
