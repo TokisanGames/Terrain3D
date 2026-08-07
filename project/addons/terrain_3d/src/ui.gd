@@ -403,9 +403,7 @@ func update_decal() -> void:
 			if plugin.terrain.material.get_world_background() == Terrain3DMaterial.WorldBackground.NONE:
 				if r_map[index] == 0 and active_operation == Terrain3DEditor.ADD:
 					r_map[index] = -index - 1
-				else:
-					r_map[index] = r_map[index]
-			
+
 			match active_operation:
 				Terrain3DEditor.ADD:
 					if r_map[index] <= 0:
