@@ -240,6 +240,17 @@ void fragment() {
 #endif
 
 #endif // WATER_DEBUG_GLOBALS
+
+#ifdef WATER_SHORE_MASK
+	// Outside every #if above, deliberately: the debug readouts are how the shore
+	// is measured, and a mask that applied to the shipping path but not to the
+	// readout would be measured as perfect by construction.
+	//
+	// Multiplied into whatever alpha the branch above arrived at, so shore foam
+	// still raises it and then this takes it away again at the waterline -- foam
+	// that fades out with the water it sits on rather than surviving it.
+	ALPHA *= water_shore_alpha(v_shore_xz);
+#endif
 }
 
 #endif // WATER_SHADING_INC

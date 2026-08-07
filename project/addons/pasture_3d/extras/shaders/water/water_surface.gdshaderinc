@@ -82,6 +82,25 @@ void vertex() {
 
 	VERTEX = (VIEW_MATRIX * vec4(wave.position, 1.0)).xyz;
 	NORMAL = normalize(mat3(VIEW_MATRIX) * wave.normal);
+
+#ifdef WATER_SHORE_MASK
+	// Kill triangles that are wholly outside the shore. NaN in a vertex position
+	// takes every triangle using it out of rasterisation, which is how the terrain
+	// draws holes in its own clipmap (src/shaders/main.glsl) -- and it happens here
+	// rather than as a fragment discard so the area a finite body does NOT cover
+	// costs geometry only.
+	//
+	// Tested against the UNDISPLACED xz, not wave.position.xz: the waves move the
+	// surface horizontally as well as vertically, so a crest near the rim would
+	// otherwise flicker in and out of the cut as it swept across the threshold.
+	//
+	// Last in vertex() because Godot's shader language rejects `return` inside an
+	// entry point, so an early exit has to be written as an overwrite at the end.
+	v_shore_xz = world_pos.xz;
+	if (water_shore_distance(world_pos.xz) > _shore_kill_margin) {
+		VERTEX = vec3(0.0 / 0.0);
+	}
+#endif
 }
 
 #endif // WATER_SURFACE_INC
