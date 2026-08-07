@@ -706,7 +706,9 @@ real_t Terrain3DData::get_surface_height(const Vector3 &p_global_position) const
 // Expects descaled, snapped/floored global position - vertex grid
 // Returns height modified by world background region blend, ground level
 real_t Terrain3DData::get_modified_height(const Vector2i &p_vgrid) const {
-	real_t control = get_pixel_descaled(TYPE_CONTROL, p_vgrid).r;
+	// Control map is always packed as a float32 Color component, regardless
+	// of engine precision, so this must stay float, not real_t.
+	float control = get_pixel_descaled(TYPE_CONTROL, p_vgrid).r;
 	if (is_hole(control)) {
 		return NAN;
 	}
@@ -823,8 +825,8 @@ bool Terrain3DData::is_in_slope(const Vector3 &p_global_position, const Vector2 
 Vector3 Terrain3DData::get_texture_id(const Vector3 &p_global_position) const {
 	Vector2i vgrid = world_to_vgrid(p_global_position);
 
-	// Region + hole check
-	real_t control = get_pixel_descaled(TYPE_CONTROL, vgrid).r;
+	// Region + hole check. See get_modified_height() above for why this is float, not real_t.
+	float control = get_pixel_descaled(TYPE_CONTROL, vgrid).r;
 	if (std::isnan(control) || is_hole(control)) {
 		return V3_NAN;
 	}

@@ -302,7 +302,9 @@ inline void Terrain3DData::set_control(const Vector3 &p_global_position, const u
 }
 
 inline uint32_t Terrain3DData::get_control(const Vector3 &p_global_position) const {
-	real_t val = get_pixel(TYPE_CONTROL, p_global_position).r;
+	// Always float: control map is packed as a float32 Color component
+	// regardless of engine precision.
+	float val = get_pixel(TYPE_CONTROL, p_global_position).r;
 	return (std::isnan(val)) ? UINT32_MAX : as_uint(val);
 }
 

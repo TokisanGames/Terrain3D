@@ -455,8 +455,9 @@ void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVe
 		}
 	}
 
-	// Get control pixels
-	real_t val = _data->get_pixel_descaled(TYPE_CONTROL, v1g).r;
+	// Get control pixels. Always float: control map is packed as a float32
+	// Color component regardless of engine precision.
+	float val = _data->get_pixel_descaled(TYPE_CONTROL, v1g).r;
 	uint32_t ctrl1 = (std::isnan(val)) ? UINT32_MAX : as_uint(val);
 	val = _data->get_pixel_descaled(TYPE_CONTROL, v2g).r;
 	uint32_t ctrl2 = (std::isnan(val)) ? UINT32_MAX : as_uint(val);
