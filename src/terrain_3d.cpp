@@ -743,6 +743,50 @@ void Terrain3D::snap() {
 	}
 }
 
+// Shifts the whole terrain (region data, collision, instanced meshes, render mesh) by p_delta, so a
+// host application can implement floating origin: periodically move the camera/player and every other
+// dynamic Node3D back near true origin to avoid float32 precision loss at large world coordinates, and
+// call this so the terrain's own absolute-position state (baked collision shapes, MultiMesh instance
+// transforms, region data) stays correctly positioned relative to everything else that moved.
+//
+// p_delta must be a multiple of region_size * vertex_spacing on X and Z (Y is ignored; height data
+// isn't addressed by world Y). This is what lets region data be relabeled instead of resampled: every
+// region's pixel content is unchanged, only which world location it's addressed at changes. A host
+// wanting an arbitrary, non-region-aligned floating origin threshold should round the shift they apply
+// to the rest of the scene down to this same grid, not shift the terrain by an unaligned amount.
+void Terrain3D::rebase(const Vector3 &p_delta) {
+	if (!_initialized || !_data) {
+		return;
+	}
+	real_t grid_unit = real_t(_region_size) * _vertex_spacing;
+	Vector2i region_offset(
+			int(Math::round(p_delta.x / grid_unit)),
+			int(Math::round(p_delta.z / grid_unit)));
+	Vector3 aligned_delta(real_t(region_offset.x) * grid_unit, 0.f, real_t(region_offset.y) * grid_unit);
+	// Warn on misalignment before the zero-offset early-out below, so a small unaligned delta that
+	// rounds down to no shift at all is reported rather than silently doing nothing.
+	if (!Vector3(p_delta.x, 0.f, p_delta.z).is_equal_approx(aligned_delta)) {
+		LOG(ERROR, "rebase() delta ", p_delta, " isn't a multiple of region_size * vertex_spacing (",
+				grid_unit, "). Rounding to nearest region-aligned shift: ", aligned_delta);
+	}
+	if (region_offset == Vector2i()) {
+		return;
+	}
+	LOG(INFO, "Rebasing terrain by ", aligned_delta, " (", region_offset, " regions)");
+
+	_data->rebase(region_offset);
+	if (_collision) {
+		_collision->update(V2I_MAX, true);
+	}
+	snap();
+	if (_terrain_mesher) {
+		_terrain_mesher->snap();
+	}
+	if (_ocean_enabled && _ocean_mesher) {
+		_ocean_mesher->snap();
+	}
+}
+
 void Terrain3D::set_material(const Ref<Terrain3DMaterial> &p_material) {
 	SET_IF_DIFF(_material, p_material);
 	LOG(INFO, "Setting material");
@@ -1401,6 +1445,7 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_light_target", "node"), &Terrain3D::set_light_target);
 	ClassDB::bind_method(D_METHOD("get_light_target"), &Terrain3D::get_light_target);
 	ClassDB::bind_method(D_METHOD("snap"), &Terrain3D::snap);
+	ClassDB::bind_method(D_METHOD("rebase", "delta"), &Terrain3D::rebase);
 
 	// Collision
 	ClassDB::bind_method(D_METHOD("set_collision_mode", "mode"), &Terrain3D::set_collision_mode);

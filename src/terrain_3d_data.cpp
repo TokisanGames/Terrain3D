@@ -215,6 +215,57 @@ void Terrain3DData::change_region_size(int p_new_size) {
 	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
 }
 
+// Relabels every active region's location by a fixed region-grid offset, without touching any
+// pixel data. Used to support floating origin rebasing: unlike change_region_size(), this never
+// resamples map images, since a region-aligned shift means every region's content is byte-for-byte
+// identical, just addressed at a different location. p_region_offset is in region-grid units, not
+// world units (eg. an offset of (1, 0) moves every region size*vertex_spacing meters on world +X).
+void Terrain3DData::rebase(const Vector2i &p_region_offset) {
+	if (p_region_offset == Vector2i()) {
+		return;
+	}
+	LOG(INFO, "Rebasing all regions by region-grid offset: ", p_region_offset);
+
+	// Validate every destination is in bounds before changing anything, so a rebase either
+	// fully applies or doesn't touch state at all.
+	for (const Vector2i &region_loc : _region_locations) {
+		if (get_region_map_index(region_loc + p_region_offset) < 0) {
+			LOG(ERROR, "Rebase by ", p_region_offset, " would move region ", region_loc, " outside the ",
+					REGION_MAP_SIZE, "x", REGION_MAP_SIZE, " region map. Aborting rebase.");
+			return;
+		}
+	}
+
+	// Mirrors change_region_size()'s established remove/duplicate/add pattern. Must duplicate
+	// rather than mutate location in place and re-add the same object: remove_region() only
+	// soft-deletes (drops from _region_locations, kept in _regions until saved, for undo/disk
+	// cleanup), so re-adding the *same* object at a new key resurrects its old dictionary entry
+	// too, since both keys would then point at one object reporting itself as not-deleted.
+	_terrain->get_instancer()->destroy();
+	TypedArray<Terrain3DRegion> old_regions = get_regions_active();
+	TypedArray<Terrain3DRegion> new_regions;
+	for (const Ref<Terrain3DRegion> &region : old_regions) {
+		Ref<Terrain3DRegion> new_region = region->duplicate(false); // Shallow: shares map Images, no pixel copy
+		new_region->set_location(region->get_location() + p_region_offset);
+		new_regions.push_back(new_region);
+	}
+	for (const Ref<Terrain3DRegion> &region : old_regions) {
+		remove_region(region, false);
+	}
+	for (const Ref<Terrain3DRegion> &region : new_regions) {
+		add_region(region, false);
+	}
+
+	if (_edited_area.has_surface()) {
+		Vector3 world_offset(real_t(p_region_offset.x) * real_t(_region_size) * _vertex_spacing, 0.f,
+				real_t(p_region_offset.y) * real_t(_region_size) * _vertex_spacing);
+		_edited_area.position += world_offset;
+	}
+
+	update_maps(TYPE_MAX, true, true);
+	_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
+}
+
 void Terrain3DData::set_region_modified(const Vector2i &p_region_loc, const bool p_modified) {
 	Terrain3DRegion *region = get_region_ptr(p_region_loc);
 	if (!region) {
@@ -1366,6 +1417,7 @@ void Terrain3DData::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("do_for_regions", "area", "callback"), &Terrain3DData::do_for_regions);
 	ClassDB::bind_method(D_METHOD("change_region_size", "region_size"), &Terrain3DData::change_region_size);
+	ClassDB::bind_method(D_METHOD("rebase", "region_offset"), &Terrain3DData::rebase);
 
 	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DData::get_region_location);
 	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DData::get_region_id);
