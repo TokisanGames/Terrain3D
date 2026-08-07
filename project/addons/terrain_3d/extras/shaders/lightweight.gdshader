@@ -107,10 +107,16 @@ ivec3 get_index_coord(const vec2 uv) {
 	vec2 r_uv = round(uv);
 	ivec2 pos = ivec2(floor(r_uv * _region_texel_size)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-    int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
-    int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
-    int layer_index = (raw_index * is_region) - (1 - is_region);
-    return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
+	int map_val = _region_map[pos.y * _region_map_size + pos.x];
+	int raw_index = map_val - 1;
+	// Real regions limited by max_regions
+	int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	// Editor dummies are negative; keep them != -1 so the shader still sees a region
+	int is_dummy = bounds * int(map_val < 0);
+	int layer_index = is_region * raw_index
+	               + is_dummy * (map_val - 1)
+	               - (1 - is_region - is_dummy);
+	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
 // Takes in descaled (world_space / region_size) world to region space XZ (UV2) coordinates, returns vec3 with:
@@ -119,9 +125,13 @@ ivec3 get_index_coord(const vec2 uv) {
 vec3 get_index_uv(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
 	int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
-    int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
-    int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
-    int layer_index = (raw_index * is_region) - (1 - is_region);
+	int map_val = _region_map[pos.y * _region_map_size + pos.x];
+	int raw_index = map_val - 1;
+	int is_region = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	int is_dummy = bounds * int(map_val < 0);
+	int layer_index = is_region * raw_index
+	               + is_dummy * (map_val - 1)
+	               - (1 - is_region - is_dummy);
 	return vec3(uv2 - _region_locations[layer_index], float(layer_index));
 }
 
