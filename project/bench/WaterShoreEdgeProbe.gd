@@ -275,13 +275,14 @@ func _kill_margin(p_spacing: float) -> float:
 ## the mask's own alpha over black makes the composited red channel the coverage itself.
 ## The mask code is the shipped code -- water_common's helpers -- so what is measured is
 ## what would ship; only the shading is replaced.
-func _coverage_shader(p_masked: bool, p_hard: bool) -> Shader:
+func _coverage_shader(p_masked: bool, p_hard: bool, p_sqrt: bool = false) -> Shader:
 	var sh := Shader.new()
 	sh.code = "\n".join([
 		"shader_type spatial;",
 		"render_mode unshaded, cull_disabled, depth_draw_never, skip_vertex_transform;",
 		"#define WATER_SHORE_MASK" if p_masked else "",
 		"#define WATER_SHORE_HARD" if p_hard else "",
+		"#define WATER_SHORE_SQRT" if p_sqrt else "",
 		'#include "%swater_common.gdshaderinc"' % WATER_DIR,
 		"void vertex() {",
 		"	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;",
@@ -321,19 +322,35 @@ func _apply_shore_uniforms(p_mat: ShaderMaterial, p_sdf: Dictionary, p_spacing: 
 # ---- the case matrix ---------------------------------------------------------
 
 func _run_cases() -> void:
+	# Float, so the reference cases carry no quantisation of their own and the format's cost
+	# can be read off separately.
 	var sdf_fine := SDF.bake(_poly, _view_min, _view_size, SDF_TEXEL, Image.FORMAT_RF, SDF_RANGE, false)
 	var sdf_coarse := SDF.bake(_poly, _view_min, _view_size, 4.0, Image.FORMAT_RF, SDF_RANGE, false)
+	# One byte per texel, linear. The cheap option, and the parity partner for the C++ R8.
 	var sdf_r8 := SDF.bake(_poly, _view_min, _view_size, SDF_TEXEL, Image.FORMAT_R8, SDF_RANGE, false)
-	# The same R8 field over a range that only just covers the 5 m case's kill margin.
-	# R8's step is range / 128, so the range is not a free parameter once the format is
-	# a byte -- it trades reach for precision, and reach is what the vertex kill spends.
-	var sdf_r8_near := SDF.bake(_poly, _view_min, _view_size, SDF_TEXEL, Image.FORMAT_R8, 8.0, false)
-	print("SDF bakes: %d^2 @ %.1f m (%.0f ms), %d^2 @ 4.0 m (%.0f ms), R8 %d^2 (%.0f ms)" % [
+	# The C++ baker: R16F, which is the shipping format, and R8 to sit against sdf_r8.
+	var sdf_rh := SDF.bake_native(_poly, _view_min, _view_size, SDF_TEXEL, SDF_RANGE, 2, true)
+	var sdf_native_r8 := SDF.bake_native(_poly, _view_min, _view_size, SDF_TEXEL, SDF_RANGE, 2, false)
+	# The clever encoding that did not work. Same field, same format, sqrt-mapped: a control
+	# for the claim that the sampler has to be interpolating distance itself.
+	var sdf_sqrt := SDF.bake_native(_poly, _view_min, _view_size, SDF_TEXEL, SDF_RANGE, 2, true, true)
+	print("SDF bakes: RF %d^2 @ %.1f m (%.0f ms), RF %d^2 @ 4.0 m (%.0f ms), R8 %d^2 (%.0f ms)" % [
 		sdf_fine["texels"], SDF_TEXEL, sdf_fine["ms"],
 		sdf_coarse["texels"], sdf_coarse["ms"],
 		sdf_r8["texels"], sdf_r8["ms"]])
-	print("        R8 step: %.3f m at range %.0f m, %.3f m at range 8 m" % [
-		SDF_RANGE * 2.0 / 256.0, SDF_RANGE, 16.0 / 256.0])
+	if sdf_rh.is_empty():
+		_fail += 1
+		print("        !! Pasture3DUtil.build_shore_sdf is missing -- the extension is stale")
+	else:
+		# Against the BANDED GDScript baker, which is the same algorithm. The brute-force
+		# oracle above is a different algorithm and comparing against it would flatter this.
+		var banded := SDF.bake(_poly, _view_min, _view_size, SDF_TEXEL, Image.FORMAT_R8,
+			SDF_RANGE, true, 2)
+		print("        native RH %d^2 (%.1f ms) vs GDScript banded (%.0f ms) = %.0fx" % [
+			sdf_rh["texels"], sdf_rh["ms"], banded["ms"],
+			banded["ms"] / maxf(sdf_rh["ms"], 0.001)])
+	print("        R8 step at range %.0f m: %.3f m. R16F near the shore: under a mm." % [
+		SDF_RANGE, SDF_RANGE * 2.0 / 256.0])
 	print("        kill margins: %.1f m @1.27, %.1f m @5, %.1f m @10 -- the field's range" % [
 		_kill_margin(SPACING_LOD0), _kill_margin(SPACING_MID),
 		_kill_margin(SPACING_COARSE)])
@@ -385,14 +402,18 @@ func _run_cases() -> void:
 			"sdf": sdf_fine, "hard": false},
 		{"name": "B3_mask_10m", "exact": false, "spacing": SPACING_COARSE,
 			"sdf": sdf_fine, "hard": false},
-		{"name": "B4_mask_5m_sdf4m", "exact": false, "spacing": SPACING_MID,
-			"sdf": sdf_coarse, "hard": false},
-		{"name": "B5_mask_5m_r8", "exact": false, "spacing": SPACING_MID,
+		{"name": "B4_native_rh_5m", "exact": false, "spacing": SPACING_MID,
+			"sdf": sdf_rh, "hard": false},
+		{"name": "B5_native_r8_5m", "exact": false, "spacing": SPACING_MID,
+			"sdf": sdf_native_r8, "hard": false},
+		{"name": "P_gdscript_r8_5m", "exact": false, "spacing": SPACING_MID,
 			"sdf": sdf_r8, "hard": false},
-		{"name": "B6_mask_5m_r8_r8m", "exact": false, "spacing": SPACING_MID,
-			"sdf": sdf_r8_near, "hard": false},
 		{"name": "C_hard_cut_5m", "exact": false, "spacing": SPACING_MID,
 			"sdf": sdf_fine, "hard": true},
+		{"name": "C_sdf_4m", "exact": false, "spacing": SPACING_MID,
+			"sdf": sdf_coarse, "hard": false},
+		{"name": "C_sqrt_encoding", "exact": false, "spacing": SPACING_MID,
+			"sdf": sdf_sqrt, "hard": false, "sqrt": true},
 	]
 
 	print("%-20s %8s %9s %9s %9s %9s" % [
@@ -403,10 +424,17 @@ func _run_cases() -> void:
 		if mesh == null:
 			print("%-20s  -- mesh could not be built (extension missing?)" % c["name"])
 			continue
+		var sdf = c["sdf"]
+		if not c["exact"] and (sdf == null or (sdf as Dictionary).is_empty()):
+			# Skipped rather than scored. A case whose field never got baked would otherwise
+			# render an unwired mask -- inert, so the whole sheet draws -- and post a number.
+			_fail += 1
+			print("%-20s  !! no field to test" % c["name"])
+			continue
 		var mat := ShaderMaterial.new()
-		mat.shader = _coverage_shader(not c["exact"], c["hard"])
-		if c["sdf"] != null:
-			_apply_shore_uniforms(mat, c["sdf"], c["spacing"])
+		mat.shader = _coverage_shader(not c["exact"], c["hard"], c.get("sqrt", false))
+		if sdf != null:
+			_apply_shore_uniforms(mat, sdf, c["spacing"])
 		mi.mesh = mesh
 		mi.material_override = mat
 		for i in 4:
@@ -464,8 +492,8 @@ func _criterion_a_floor() -> void:
 ## The cases that are SUPPOSED to meet the budget: a well-resolved field, read with the
 ## feather. The rest of the matrix exists to find where that stops being true, and is
 ## scored by criterion D instead.
-const BUDGET_CASES := ["B1_mask_1.27m", "B2_mask_5m", "B3_mask_10m", "B5_mask_5m_r8",
-	"B6_mask_5m_r8_r8m"]
+const BUDGET_CASES := ["B1_mask_1.27m", "B2_mask_5m", "B3_mask_10m", "B4_native_rh_5m",
+	"B5_native_r8_5m", "P_gdscript_r8_5m"]
 
 
 func _criterion_b_accuracy() -> void:
@@ -557,7 +585,8 @@ func _criterion_d_control() -> void:
 		return
 	var controls := [
 		["C_hard_cut_5m", "feather removed"],
-		["B4_mask_5m_sdf4m", "field coarsened to 4 m texels"],
+		["C_sdf_4m", "field coarsened to 4 m texels"],
+		["C_sqrt_encoding", "distance stored sqrt-mapped instead of linear"],
 	]
 	for c in controls:
 		var s := _need(c[0])
@@ -571,6 +600,26 @@ func _criterion_d_control() -> void:
 			_fail += 1
 			print("       the candidate's %.3f m therefore does not demonstrate anything:" % soft["p99"])
 			print("       this metric cannot see the difference the control removed")
+
+	# PARITY. The C++ baker and the GDScript one are handed the same outline at the same
+	# resolution, so their waterlines must land in the same place. This is the check that
+	# catches a port that is fast and wrong, and it is worth more than any timing here.
+	var gd := _need("P_gdscript_r8_5m")
+	var native := _need("B5_native_r8_5m")
+	if not gd.is_empty() and not native.is_empty():
+		var delta: float = absf(native["p99"] - gd["p99"])
+		print("    parity: native %.3f m vs GDScript %.3f m, delta %.4f m (floor %.4f m)" % [
+			native["p99"], gd["p99"], delta, _mpp])
+		if delta > _mpp:
+			_fail += 1
+			print("    !! the C++ baker does not agree with its oracle -- do not ship it")
+
+	# FORMAT. Both are linear and differ only in bits per texel, so this is the price of the
+	# cheap option stated rather than assumed.
+	var rh := _need("B4_native_rh_5m")
+	if not rh.is_empty() and not native.is_empty():
+		print("    format: R16F %.3f m (%d B/texel) vs R8 %.3f m (1 B/texel)" % [
+			rh["p99"], 2, native["p99"]])
 	_completed += 1
 
 

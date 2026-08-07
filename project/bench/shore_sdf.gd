@@ -112,13 +112,27 @@ static func _exact_distance(p: Vector2, p_poly: PackedVector2Array, p_idx: Dicti
 	return sqrt(best) if best < INF else 1e9
 
 
+## Encode a signed distance the way water_common.gdshaderinc decodes it.
+##
+## LINEAR by default, matching the shader's default branch. The sqrt variant is reachable only
+## because it is the control that must fail: interpolating in sqrt space and squaring afterwards is
+## not interpolating the distance, and it measured nearly twice as bad. Kept as one function so
+## these two bakers and the C++ one cannot drift into three conventions, which would show up as a
+## waterline in the wrong place and be blamed on the geometry.
+static func encode(p_signed_d: float, p_range: float, p_sqrt: bool) -> float:
+	if not p_sqrt:
+		return clampf(p_signed_d / p_range * 0.5 + 0.5, 0.0, 1.0)
+	var mag := sqrt(minf(absf(p_signed_d) / p_range, 1.0))
+	return clampf((-mag if p_signed_d < 0.0 else mag) * 0.5 + 0.5, 0.0, 1.0)
+
+
 ## Bake the outline into a signed distance texture. Negative inside.
 ##
-## Returns the texture plus everything the shader needs to map world XZ through it, and
-## the timings the rebuild probe reads.
+## Returns the texture plus everything the shader needs to map world XZ through it, and the
+## timings the rebuild probe reads.
 static func bake(p_poly: PackedVector2Array, p_view_min: Vector2, p_view_size: float,
 		p_texel: float, p_format: int, p_range: float,
-		p_banded: bool = true, p_exact_band: int = 2) -> Dictionary:
+		p_banded: bool = true, p_exact_band: int = 2, p_sqrt: bool = false) -> Dictionary:
 	var t0 := Time.get_ticks_usec()
 	var n := int(ceil(p_view_size / p_texel))
 	var origin := p_view_min + Vector2(0.5, 0.5) * p_texel
@@ -217,8 +231,7 @@ static func bake(p_poly: PackedVector2Array, p_view_min: Vector2, p_view_size: f
 		for ix in n:
 			var i := iy * n + ix
 			var signed_d: float = dist[i] * (-1.0 if inside[i] == 1 else 1.0)
-			img.set_pixel(ix, iy, Color(
-				clampf(signed_d / p_range * 0.5 + 0.5, 0.0, 1.0), 0.0, 0.0))
+			img.set_pixel(ix, iy, Color(encode(signed_d, p_range, p_sqrt), 0.0, 0.0))
 
 	var bytes := n * n * (1 if p_format == Image.FORMAT_R8 else 4)
 	return {
@@ -228,6 +241,7 @@ static func bake(p_poly: PackedVector2Array, p_view_min: Vector2, p_view_size: f
 		"texel_size": p_texel,
 		"range": p_range,
 		"banded": p_banded,
+		"sqrt": p_sqrt,
 		"exact_texels": exact_count,
 		"format": "R8" if p_format == Image.FORMAT_R8 else "RF",
 		"bytes": bytes,
@@ -238,6 +252,40 @@ static func bake(p_poly: PackedVector2Array, p_view_min: Vector2, p_view_size: f
 		"ms_mask": float(t_mask - t0) / 1000.0,
 		"ms_dist": float(t_dist - t_mask) / 1000.0,
 		"ms_encode": float(Time.get_ticks_usec() - t_dist) / 1000.0,
+	}
+
+
+## The C++ baker, wrapped to return the same dictionary the GDScript ones do.
+##
+## Same shape on purpose: a probe can put this and bake() through identical code and compare the
+## rendered waterlines, which is the only check that catches a port that is fast and wrong.
+static func bake_native(p_poly: PackedVector2Array, p_view_min: Vector2, p_view_size: float,
+		p_texel: float, p_range: float, p_exact_band: int = 2, p_half_float: bool = true,
+		p_sqrt: bool = false) -> Dictionary:
+	if not (ClassDB.class_exists("Pasture3DUtil")
+			and ClassDB.class_has_method("Pasture3DUtil", "build_shore_sdf", true)):
+		return {}
+	var t0 := Time.get_ticks_usec()
+	var n := int(ceil(p_view_size / p_texel))
+	var img: Image = Pasture3DUtil.build_shore_sdf(p_poly, p_view_min, p_texel, n, p_range,
+		p_exact_band, p_half_float, p_sqrt)
+	var ms := float(Time.get_ticks_usec() - t0) / 1000.0
+	if img == null:
+		return {}
+	return {
+		"texture": ImageTexture.create_from_image(img),
+		"image": img,
+		"texels": n,
+		"texel_size": p_texel,
+		"range": p_range,
+		"banded": true,
+		"sqrt": p_sqrt,
+		"native": true,
+		"exact_texels": -1, # not reported across the binding
+		"format": "R8",
+		"bytes": n * n,
+		"rect": Vector4(p_view_min.x, p_view_min.y, n * p_texel, n * p_texel),
+		"ms": ms, "ms_mask": 0.0, "ms_dist": ms, "ms_encode": 0.0,
 	}
 
 

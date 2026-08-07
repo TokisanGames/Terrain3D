@@ -444,10 +444,11 @@ group_uniforms;
 //           by the mesh's -- which is the whole hypothesis: the same rim at
 //           LOD0 spacing and at LOD3 spacing.
 //
-// Stored NORMALISED to [0,1] over +-_shore_range rather than as metres, so the
-// texture format can drop to R8 without touching the shader. R8 quantises the
-// distance to _shore_range / 128 -- 6 cm at the 8 m default, which the probe
-// measures rather than assumes.
+// Stored NORMALISED to [0,1] over +-_shore_range and LINEARLY, so the sampler's
+// bilinear filter interpolates distance itself. R16F at 1.5 m texels is 1.8 MB for a
+// 1.4 km lake against 17 MB of the vertices it replaces; R8 halves that again and
+// costs accuracy. WATER_SHORE_SQRT selects a cleverer encoding that measured worse --
+// see water_shore_distance().
 // ---------------------------------------------------------------------------
 group_uniforms shore;
 // Signed distance to the outline in the red channel, negative INSIDE the water.
@@ -591,8 +592,29 @@ float water_shore_distance(vec2 p_world_xz) {
 	// so both paths share one sampler and differ only in how they read it.
 	uv = (floor(uv * _shore_texels) + 0.5) / _shore_texels;
 #endif
-	float encoded = texture(_shore_sdf, clamp(uv, 0.0, 1.0)).r;
-	return (encoded * 2.0 - 1.0) * _shore_range - _shore_offset;
+	float t = texture(_shore_sdf, clamp(uv, 0.0, 1.0)).r * 2.0 - 1.0;
+#ifdef WATER_SHORE_SQRT
+	// The control, and a mistake worth keeping the evidence of.
+	//
+	// Storing sign(d) * sqrt(|d| / range) and squaring back looks like free precision: it
+	// spends the byte near the shore, where the ramp reads, instead of spreading it over a
+	// range only the vertex kill cares about. Measured, it is nearly TWICE AS BAD as the
+	// linear encoding -- and the float-format case is just as bad, so this is not about
+	// quantisation at all.
+	//
+	// The sampler interpolates the STORED value, and squaring afterwards is not the same as
+	// interpolating the distance. Between texels at -0.2 m and +1.8 m the true crossing is
+	// 10% into the cell; in sqrt space the interpolant reaches zero at 25%. Linear
+	// interpolation of a distance field is an approximation of distance, which is the entire
+	// reason an SDF texture works, and a nonlinear encoding throws that away.
+	return t * abs(t) * _shore_range - _shore_offset;
+#else
+	// Linear, so the hardware's bilinear filter is interpolating distance itself. The
+	// precision comes from the FORMAT instead: R16F resolves better than a millimetre near
+	// the shore at any usable range, and R8 lands at 0.249 m against a 0.25 m budget, which
+	// is why the byte is the cheap option and not the default.
+	return t * _shore_range - _shore_offset;
+#endif
 }
 
 /**

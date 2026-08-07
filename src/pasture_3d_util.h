@@ -83,6 +83,17 @@ public:
 	static PackedByteArray build_inside_mask(const PackedVector2Array &p_poly, const Vector2 &p_min,
 			const real_t p_spacing, const int p_grid_w, const int p_grid_h);
 
+	// The shore mask's signed distance field: the alternative to meshing an outline at all.
+	// Negative inside. See the .cpp for the banding, the encoding and why both exist.
+	//
+	// bench/shore_sdf.gd is the GDScript oracle, kept for the same reason pool.gd's mesher is:
+	// bench/WaterShoreRebuildProbe.gd renders both and requires the waterline to land in the
+	// same place, so a port that silently diverges cannot pass.
+	static Ref<Image> build_shore_sdf(const PackedVector2Array &p_poly, const Vector2 &p_min,
+			const real_t p_texel, const int p_texels, const real_t p_range,
+			const int p_exact_band = 2, const bool p_half_float = true,
+			const bool p_sqrt_encoding = false);
+
 protected:
 	static void _bind_methods();
 };

@@ -787,6 +787,321 @@ PackedByteArray Pasture3DUtil::build_inside_mask(const PackedVector2Array &p_pol
 	return mask;
 }
 
+/**
+ * Squared distance from a point to a segment. Doubles throughout: the caller compares these
+ * against a search radius to decide whether it may stop early, and a float there can stop one
+ * ring too soon on a near-tie.
+ */
+static inline double _dist_sq_point_seg(const double p_px, const double p_pz,
+		const double p_ax, const double p_az, const double p_bx, const double p_bz) {
+	const double dx = p_bx - p_ax;
+	const double dz = p_bz - p_az;
+	const double len2 = dx * dx + dz * dz;
+	double t = 0.0;
+	if (len2 > 0.0) {
+		t = ((p_px - p_ax) * dx + (p_pz - p_az) * dz) / len2;
+		t = CLAMP(t, 0.0, 1.0);
+	}
+	const double qx = p_ax + t * dx - p_px;
+	const double qz = p_az + t * dz - p_pz;
+	return qx * qx + qz * qz;
+}
+
+/**
+ * IEEE 754 binary32 -> binary16, round-to-nearest, clamped to the largest finite half.
+ *
+ * Hand-rolled because godot-cpp exposes Image::FORMAT_RH but no float-to-half helper, and the shore
+ * field wants a 16-bit FILTERABLE format: bilinear interpolation of the stored value is the whole
+ * mechanism, so packing 16 bits across two 8-bit channels is not an option -- the hardware would
+ * interpolate each byte separately and the low byte would wrap.
+ */
+static inline uint16_t _float_to_half(const float p_value) {
+	union {
+		float f;
+		uint32_t u;
+	} v;
+	v.f = p_value;
+	const uint32_t sign = (v.u >> 16) & 0x8000u;
+	const int32_t exp = (int32_t)((v.u >> 23) & 0xFFu) - 127 + 15;
+	uint32_t mant = v.u & 0x7FFFFFu;
+	if (exp <= 0) {
+		// Subnormal half, or too small to represent at all. The shore field lives in [0,1], so
+		// this branch is reached routinely -- it is not an edge case here.
+		if (exp < -10) {
+			return (uint16_t)sign;
+		}
+		mant |= 0x800000u; // restore the implicit leading 1 before shifting it down
+		const uint32_t shift = (uint32_t)(14 - exp);
+		uint32_t half_mant = mant >> shift;
+		if ((mant >> (shift - 1)) & 1u) {
+			half_mant++; // round to nearest
+		}
+		return (uint16_t)(sign | half_mant);
+	}
+	if (exp >= 31) {
+		return (uint16_t)(sign | 0x7BFFu); // clamp rather than emit an infinity
+	}
+	uint16_t out = (uint16_t)(sign | ((uint32_t)exp << 10) | (mant >> 13));
+	if ((mant >> 12) & 1u) {
+		out++;
+	}
+	return out;
+}
+
+/**
+ * The shore mask's signed distance field. Negative inside the water.
+ *
+ * WHY THIS EXISTS. A body meshed at wave resolution does not scale: a 1.4 km lake at lake_calm's
+ * automatic 1.27 m spacing wants over a million vertices and build_pool_mesh refuses it. Cutting an
+ * unaware sheet with a field instead makes the drawn vertex count a property of the CLIPMAP rather
+ * than of the lake, and the measured rim is as good as the meshed one -- 0.164 m from the true
+ * outline against the 2 m edge_offset that buries it in the bank (bench/WaterShoreEdgeProbe.gd).
+ *
+ * BANDED, in two tiers, because the two halves of the field are read by different things:
+ *
+ *   - Within p_exact_band texels of the boundary, the real distance to the polygon. This is the
+ *     band the fragment stage's alpha ramp reads, so it is the band that IS the waterline, and
+ *     sub-texel accuracy here is the entire product. Measured: a bake with this band removed --
+ *     pure chamfer over a binary mask -- puts the waterline 0.476 m out, which is within noise of
+ *     not feathering at all, because both lose the same sub-texel information.
+ *
+ *   - Everywhere else, a two-pass chamfer sweep seeded from that band. Its only consumer is the
+ *     vertex kill comparing against a threshold metres away from anything it decides, and a few
+ *     percent of error at 10 m out changes no pixel. O(texels) with no segments in the loop.
+ *
+ * LINEAR ENCODING, in R16F by default. The obvious saving here is to store
+ * sign(d) * sqrt(|d| / range) in a single byte, spending the precision near the shore where the
+ * alpha ramp reads it instead of spreading it over a range only the vertex kill cares about. That
+ * was tried and it measured nearly twice as bad as linear, in a float format as well as a byte, so
+ * it is not a quantisation effect: the sampler interpolates the STORED value, and squaring
+ * afterwards is not the same as interpolating the distance. Linear interpolation of a distance field
+ * being a good approximation of distance is the whole reason an SDF texture works at all.
+ *
+ * So the precision comes from the format instead. R16F resolves better than a millimetre near the
+ * shore at any usable range, at 1.8 MB for a 1.4 km lake against 17 MB of the vertices it replaces.
+ * R8 halves that again and lands at 0.249 m against a 0.25 m budget, which makes it the cheap
+ * option rather than the default. Both encodings stay reachable because the sqrt one is now a
+ * control that must fail.
+ */
+Ref<Image> Pasture3DUtil::build_shore_sdf(const PackedVector2Array &p_poly, const Vector2 &p_min,
+		const real_t p_texel, const int p_texels, const real_t p_range,
+		const int p_exact_band, const bool p_half_float, const bool p_sqrt_encoding) {
+	Ref<Image> img;
+	if (p_poly.size() < 3 || p_texels < 2 || p_texel <= 0.f || p_range <= 0.f) {
+		return img;
+	}
+	const int n = p_texels;
+	const int seg_count = p_poly.size();
+	const Vector2 *poly = p_poly.ptr();
+	const double texel = (double)p_texel;
+	// Texel CENTRES, so a sample at UV (i + 0.5) / n reads the value baked for that texel. Off by
+	// half a texel here and the whole field is biased by 0.75 m at the shipping resolution.
+	const double ox = (double)p_min.x + texel * 0.5;
+	const double oz = (double)p_min.y + texel * 0.5;
+
+	PackedByteArray inside;
+	inside.resize(n * n);
+	_pool_inside_mask(p_poly, ox, oz, texel, n, n, inside.ptrw());
+	const uint8_t *ins = inside.ptr();
+
+	Vector<float> dist;
+	dist.resize(n * n);
+	float *d = dist.ptrw();
+	const float far = (float)(p_range * 4.0); // any value the chamfer will beat
+	for (int i = 0; i < n * n; i++) {
+		d[i] = far;
+	}
+
+	// --- a CSR grid index over the segments -----------------------------------
+	// Without it a band texel tests every segment, and a kilometre-scale outline decimates to
+	// hundreds of them. With it a texel tests a handful.
+	const double cell = MAX(texel * 8.0, 8.0);
+	double bx0 = (double)poly[0].x, bz0 = (double)poly[0].y;
+	double bx1 = bx0, bz1 = bz0;
+	for (int i = 0; i < seg_count; i++) {
+		bx0 = MIN(bx0, (double)poly[i].x);
+		bz0 = MIN(bz0, (double)poly[i].y);
+		bx1 = MAX(bx1, (double)poly[i].x);
+		bz1 = MAX(bz1, (double)poly[i].y);
+	}
+	const int cgx = MAX((int)Math::floor((bx1 - bx0) / cell) + 1, 1);
+	const int cgz = MAX((int)Math::floor((bz1 - bz0) / cell) + 1, 1);
+	Vector<int32_t> cell_start;
+	cell_start.resize(cgx * cgz + 1);
+	int32_t *starts = cell_start.ptrw();
+	memset(starts, 0, sizeof(int32_t) * (size_t)(cgx * cgz + 1));
+	// Pass 1: count. A segment lands in every cell its bounding box touches, which over-counts a
+	// diagonal but never misses -- and missing is the only error that would matter.
+	for (int i = 0; i < seg_count; i++) {
+		const Vector2 &a = poly[i];
+		const Vector2 &b = poly[(i + 1) % seg_count];
+		const int x0 = CLAMP((int)Math::floor((MIN((double)a.x, (double)b.x) - bx0) / cell), 0, cgx - 1);
+		const int x1 = CLAMP((int)Math::floor((MAX((double)a.x, (double)b.x) - bx0) / cell), 0, cgx - 1);
+		const int z0 = CLAMP((int)Math::floor((MIN((double)a.y, (double)b.y) - bz0) / cell), 0, cgz - 1);
+		const int z1 = CLAMP((int)Math::floor((MAX((double)a.y, (double)b.y) - bz0) / cell), 0, cgz - 1);
+		for (int cz = z0; cz <= z1; cz++) {
+			for (int cx = x0; cx <= x1; cx++) {
+				starts[cz * cgx + cx + 1]++;
+			}
+		}
+	}
+	for (int i = 0; i < cgx * cgz; i++) {
+		starts[i + 1] += starts[i];
+	}
+	Vector<int32_t> cell_items;
+	cell_items.resize(starts[cgx * cgz]);
+	int32_t *items = cell_items.ptrw();
+	Vector<int32_t> cursor = cell_start;
+	int32_t *cur = cursor.ptrw();
+	for (int i = 0; i < seg_count; i++) {
+		const Vector2 &a = poly[i];
+		const Vector2 &b = poly[(i + 1) % seg_count];
+		const int x0 = CLAMP((int)Math::floor((MIN((double)a.x, (double)b.x) - bx0) / cell), 0, cgx - 1);
+		const int x1 = CLAMP((int)Math::floor((MAX((double)a.x, (double)b.x) - bx0) / cell), 0, cgx - 1);
+		const int z0 = CLAMP((int)Math::floor((MIN((double)a.y, (double)b.y) - bz0) / cell), 0, cgz - 1);
+		const int z1 = CLAMP((int)Math::floor((MAX((double)a.y, (double)b.y) - bz0) / cell), 0, cgz - 1);
+		for (int cz = z0; cz <= z1; cz++) {
+			for (int cx = x0; cx <= x1; cx++) {
+				items[cur[cz * cgx + cx]++] = i;
+			}
+		}
+	}
+
+	// --- exact distance in the band -------------------------------------------
+	const int band = MAX(p_exact_band, 0);
+	for (int iz = 0; iz < n; iz++) {
+		for (int ix = 0; ix < n; ix++) {
+			const uint8_t here = ins[iz * n + ix];
+			const bool edge = (ix + 1 < n && ins[iz * n + ix + 1] != here) ||
+					(iz + 1 < n && ins[(iz + 1) * n + ix] != here);
+			if (!edge) {
+				continue;
+			}
+			const int z_lo = MAX(iz - band, 0), z_hi = MIN(iz + band, n - 1);
+			const int x_lo = MAX(ix - band, 0), x_hi = MIN(ix + band, n - 1);
+			for (int bz = z_lo; bz <= z_hi; bz++) {
+				for (int bxi = x_lo; bxi <= x_hi; bxi++) {
+					const int at = bz * n + bxi;
+					if (d[at] < far) {
+						continue; // already exact from a neighbouring boundary texel
+					}
+					const double px = ox + (double)bxi * texel;
+					const double pz = oz + (double)bz * texel;
+					// Ring search. A k-ring around the point's own cell contains everything
+					// closer than k * cell -- the point sits inside its cell, so the nearest
+					// unexamined ground is at least k cells away on every side -- so stopping at
+					// that bound is exact rather than an approximation.
+					const int pcx = CLAMP((int)Math::floor((px - bx0) / cell), 0, cgx - 1);
+					const int pcz = CLAMP((int)Math::floor((pz - bz0) / cell), 0, cgz - 1);
+					double best = 1e30;
+					const int k_max = MAX(cgx, cgz);
+					for (int k = 1; k <= k_max; k++) {
+						for (int cz = pcz - k; cz <= pcz + k; cz++) {
+							if (cz < 0 || cz >= cgz) {
+								continue;
+							}
+							for (int cx = pcx - k; cx <= pcx + k; cx++) {
+								if (cx < 0 || cx >= cgx) {
+									continue;
+								}
+								// Only the ring this k added; the interior was covered already.
+								if (k > 1 && ABS(cx - pcx) < k && ABS(cz - pcz) < k) {
+									continue;
+								}
+								const int c = cz * cgx + cx;
+								for (int s = starts[c]; s < starts[c + 1]; s++) {
+									const int si = items[s];
+									const Vector2 &a = poly[si];
+									const Vector2 &b = poly[(si + 1) % seg_count];
+									const double dd = _dist_sq_point_seg(px, pz,
+											(double)a.x, (double)a.y, (double)b.x, (double)b.y);
+									best = MIN(best, dd);
+								}
+							}
+						}
+						const double covered = (double)k * cell;
+						if (best <= covered * covered) {
+							break;
+						}
+					}
+					d[at] = (float)Math::sqrt(best);
+				}
+			}
+		}
+	}
+
+	// --- chamfer the rest -----------------------------------------------------
+	const float d_ortho = (float)texel;
+	const float d_diag = (float)(texel * Math_SQRT2);
+	for (int iz = 0; iz < n; iz++) {
+		for (int ix = 0; ix < n; ix++) {
+			const int i = iz * n + ix;
+			float v = d[i];
+			if (iz > 0) {
+				v = MIN(v, d[i - n] + d_ortho);
+				if (ix > 0) {
+					v = MIN(v, d[i - n - 1] + d_diag);
+				}
+				if (ix + 1 < n) {
+					v = MIN(v, d[i - n + 1] + d_diag);
+				}
+			}
+			if (ix > 0) {
+				v = MIN(v, d[i - 1] + d_ortho);
+			}
+			d[i] = v;
+		}
+	}
+	for (int iz = n - 1; iz >= 0; iz--) {
+		for (int ix = n - 1; ix >= 0; ix--) {
+			const int i = iz * n + ix;
+			float v = d[i];
+			if (iz + 1 < n) {
+				v = MIN(v, d[i + n] + d_ortho);
+				if (ix > 0) {
+					v = MIN(v, d[i + n - 1] + d_diag);
+				}
+				if (ix + 1 < n) {
+					v = MIN(v, d[i + n + 1] + d_diag);
+				}
+			}
+			if (ix + 1 < n) {
+				v = MIN(v, d[i + 1] + d_ortho);
+			}
+			d[i] = v;
+		}
+	}
+
+	// --- encode ---------------------------------------------------------------
+	// Straight into a byte buffer rather than per-texel set_pixel, which in the GDScript oracle
+	// was 106 ms of a 738 ms bake on its own.
+	const int stride = p_half_float ? 2 : 1;
+	PackedByteArray data;
+	data.resize(n * n * stride);
+	uint8_t *out = data.ptrw();
+	const double range = (double)p_range;
+	for (int i = 0; i < n * n; i++) {
+		const double sd = (double)d[i] * (ins[i] == 1 ? -1.0 : 1.0);
+		double t; // in [-1, 1]
+		if (p_sqrt_encoding) {
+			const double mag = Math::sqrt(MIN(ABS(sd) / range, 1.0));
+			t = sd < 0.0 ? -mag : mag;
+		} else {
+			t = CLAMP(sd / range, -1.0, 1.0);
+		}
+		const double stored = t * 0.5 + 0.5; // [0,1], which is what the shader un-maps
+		if (p_half_float) {
+			const uint16_t h = _float_to_half((float)stored);
+			out[i * 2 + 0] = (uint8_t)(h & 0xFF);
+			out[i * 2 + 1] = (uint8_t)(h >> 8);
+		} else {
+			out[i] = (uint8_t)CLAMP((int)Math::round(stored * 255.0), 0, 255);
+		}
+	}
+	return Image::create_from_data(n, n, false,
+			p_half_float ? Image::FORMAT_RH : Image::FORMAT_R8, data);
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -825,6 +1140,10 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("build_inside_mask", "polygon", "min", "spacing", "grid_w", "grid_h"),
 			&Pasture3DUtil::build_inside_mask);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("build_shore_sdf", "polygon", "min", "texel", "texels", "range",
+					"exact_band", "half_float", "sqrt_encoding"),
+			&Pasture3DUtil::build_shore_sdf, DEFVAL(2), DEFVAL(true), DEFVAL(false));
 
 	// Image handling
 	ClassDB::bind_static_method("Pasture3DUtil", D_METHOD("black_to_alpha", "image"), &Pasture3DUtil::black_to_alpha);

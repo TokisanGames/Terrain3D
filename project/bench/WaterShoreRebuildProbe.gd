@@ -250,8 +250,8 @@ func _criterion_b_the_motivating_refusal() -> void:
 
 func _criterion_c_rebuild_cost() -> void:
 	print("[C] rebuild cost per edit, mesh vs field:")
-	print("    %-10s %9s %12s %12s %10s" % [
-		"span", "spacing", "mesh build", "field bake", "verts"])
+	print("    %-10s %9s %12s %12s %12s %10s" % [
+		"span", "spacing", "mesh build", "field (gd)", "field (C++)", "verts"])
 	var results := {}
 	for spec in [[104.0, 1.0], [500.0, 4.8], [1400.0, 13.5]]:
 		var span: float = spec[0]
@@ -281,15 +281,22 @@ func _criterion_c_rebuild_cost() -> void:
 		for i in SAMPLES:
 			bake = SDF.bake(poly, vmin, extent, SDF_TEXEL, Image.FORMAT_R8, SDF_RANGE, true, 2)
 			bake_ms.append(bake["ms"])
+		# The one that would actually run on a spline drag.
+		var native_ms := []
+		var native := {}
+		for i in SAMPLES:
+			native = SDF.bake_native(poly, vmin, extent, SDF_TEXEL, SDF_RANGE)
+			native_ms.append(native.get("ms", INF))
 
 		var m := _median(mesh_ms)
 		var f := _median(bake_ms)
-		print("    %-10s %8.2fm %10.0f ms %10.0f ms %10d" % [
-			"%.0f m" % span, spacing, m, f, verts])
+		var nf := _median(native_ms)
+		print("    %-10s %8.2fm %10.0f ms %10.0f ms %10.1f ms %10d" % [
+			"%.0f m" % span, spacing, m, f, nf, verts])
 		print("       %s field: %d^2 texels, %.2f MB, %d exact (mask %.0f / dist %.0f / encode %.0f ms)" % [
 			" ".repeat(0), bake["texels"], float(bake["bytes"]) / 1048576.0,
 			bake["exact_texels"], bake["ms_mask"], bake["ms_dist"], bake["ms_encode"]])
-		results[span] = {"mesh": m, "field": f, "verts": verts, "bake": bake}
+		results[span] = {"mesh": m, "field": f, "native": nf, "verts": verts, "bake": bake}
 		root.queue_free()
 		await get_tree().process_frame
 
@@ -304,6 +311,15 @@ func _criterion_c_rebuild_cost() -> void:
 		_fail += 1
 		print("    !! the field is not scaling better than the mesh, which is the only")
 		print("       reason to prefer it here")
+	# The number that decides whether a spline drag is interactive. The brushes debounce at
+	# 0.1 s, so a rebuild inside that budget disappears into the debounce.
+	var worst_native: float = big["native"]
+	print("    C++ bake on the 1400 m body: %.1f ms against the brushes' %.0f ms debounce" % [
+		worst_native, 100.0])
+	if worst_native > 100.0:
+		_fail += 1
+		print("    !! a spline drag would not keep up: the bake outlasts the debounce that")
+		print("       is supposed to hide it")
 	_completed += 1
 
 
