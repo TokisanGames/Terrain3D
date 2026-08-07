@@ -230,6 +230,10 @@ func _criterion_b_the_motivating_refusal() -> void:
 	print("[B] today's mesher on a 1.4 km lake at automatic spacing:")
 	var root := _make_scene()
 	var pool := _make_pool(root, _curve_of(_test_outline(13.5)))
+	# PINNED to MESHED, because surface_mode defaults to AUTO and now rescues a body this size --
+	# which is the feature working, and would turn this criterion into a green light that the
+	# problem never existed. It is asserting something about the MESHED path specifically.
+	pool.surface_mode = pool.SurfaceMode.MESHED
 	await get_tree().process_frame
 	var stats := pool.rebuild()
 	print("    spacing %.2f m -> ok=%s" % [stats.get("spacing", 0.0), stats.get("ok", false)])
@@ -258,8 +262,11 @@ func _criterion_c_rebuild_cost() -> void:
 		var poly := _test_outline(spec[1])
 		var root := _make_scene()
 		var pool := _make_pool(root, _curve_of(poly))
-		# Raised so the mesh path actually BUILDS rather than refusing. Timing a refusal
-		# against a bake would report today's path as instant.
+		# MESHED and a raised ceiling: the mode so this times the mesher rather than the masked
+		# sheet AUTO would pick at these sizes, and the ceiling so the mesher actually BUILDS
+		# rather than refusing. Timing a refusal against a bake would report today's path as
+		# instant; timing the masked path against the field would compare it with itself.
+		pool.surface_mode = pool.SurfaceMode.MESHED
 		pool.max_vertices = 40000000
 		await get_tree().process_frame
 

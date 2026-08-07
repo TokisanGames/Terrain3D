@@ -1,0 +1,506 @@
+# Pasture3D Water — Pasture3DPool masked-surface probe.
+#
+# The previous three probes measured the MECHANISM on synthetic sheets. This one measures the NODE:
+# a real Pasture3DPool, with a real manager and a real preset material, switched between its two
+# surface modes.
+#
+# Four things have to be true before the masked path is worth having, and only the first is about
+# the thing the earlier probes looked at:
+#
+#   A. it builds the body that MESHED refuses, and its vertex count is a property of the SHEET
+#      rather than of the lake. Control: the same outline in MESHED mode must still refuse, or the
+#      comparison is against a problem that went away by itself.
+#
+#   B. the waterline the NODE produces is where the node's own polygon is. The earlier probes fed
+#      the field a polygon directly; here the pool decimates the curve, offsets it by edge_offset,
+#      pads its bounds and frames the bake itself, and any of those can be off by a step.
+#      Control: mask_texel coarsened, which must show up.
+#
+#   C. THE CPU SIDE DOES NOT CHANGE. This is the load-bearing claim of the whole plan -- buoys, the
+#      Area3D, is_point_underwater() and get_water_height() read the polygon and the analytic wave
+#      sum, never the mesh, so switching how the water is DRAWN must not move where the water IS.
+#      Control: a deliberately displaced query set, which must disagree.
+#
+#   D. the wave table survives the shader swap. MASKED mode copies the manager's resolved material
+#      onto a different shader, and a copy that lost `_waves` is not obviously broken -- it is a
+#      lake with the shader's compile-time waves, drawn out of step with what get_water_height()
+#      reports. Control: compare against the resolved material's own table.
+#
+# Run: Godot_v4.7-stable_win64_console.exe --path project bench/WaterShorePoolProbe.tscn
+#      BENCH_OUT=<dir> for the captures.
+extends Node
+
+const SDF := preload("res://bench/shore_sdf.gd")
+const WATER_DIR := "res://addons/pasture_3d/extras/shaders/water/"
+const LAKE_MAT := WATER_DIR + "M_water_lake.tres"
+
+const IMG := 1024
+## The body criterion B measures. Small enough that the instrument resolves the rim.
+const PROBE_SCALE := 1.0
+## The body criterion A measures: 1.4 km, the size that started this.
+const BIG_SCALE := 13.5
+const ACCURACY_BUDGET_M := 0.25
+
+var _fail := 0
+var _completed := 0
+const CRITERIA := 4
+var _out_dir := ""
+
+
+func _ready() -> void:
+	var bail := Timer.new()
+	bail.wait_time = 1800.0
+	bail.one_shot = true
+	bail.timeout.connect(func():
+		push_error("probe timed out")
+		get_tree().quit(2))
+	add_child(bail)
+	bail.start()
+
+	_out_dir = OS.get_environment("BENCH_OUT")
+	if _out_dir == "":
+		_out_dir = "user://"
+	if not _out_dir.ends_with("/"):
+		_out_dir += "/"
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	RenderingServer.global_shader_parameter_set("water_time", 0.0)
+	RenderingServer.global_shader_parameter_set("water_time_period", 120.0)
+
+	print("=== Pasture3D — Pasture3DPool masked surface ===")
+	print("Godot %s | %s" % [
+		Engine.get_version_info().string, RenderingServer.get_video_adapter_name()])
+	print("")
+
+	await _criterion_a_it_builds()
+	await _criterion_b_waterline()
+	await _criterion_c_queries_unchanged()
+	await _criterion_d_wave_table()
+
+	print("")
+	print("completed %d/%d criteria, %d failures" % [_completed, CRITERIA, _fail])
+	if _completed < CRITERIA:
+		print("!! a criterion did not run to completion -- treat as FAIL")
+	print("VERDICT: %s" % ("PASS" if _fail == 0 and _completed == CRITERIA else "FAIL"))
+	get_tree().quit(1 if (_fail > 0 or _completed < CRITERIA) else 0)
+
+
+# ---- A: it builds what the mesher refuses ------------------------------------
+
+func _criterion_a_it_builds() -> void:
+	print("[A] a 1.4 km lake, both modes:")
+	var root := _scene()
+	var pool := _pool(root, BIG_SCALE)
+
+	pool.surface_mode = pool.SurfaceMode.MESHED
+	var meshed := await _rebuild(pool)
+	print("    MESHED: ok=%s  %s" % [meshed.get("ok", false), meshed.get("reason", "")])
+	# CONTROL. If the mesher no longer refuses this body, the masked path is solving a problem
+	# that is not there and the numbers below say nothing about whether it was needed.
+	if meshed.get("ok", false):
+		_fail += 1
+		print("    !! MESHED did not refuse -- the premise has changed, re-argue before building")
+
+	pool.surface_mode = pool.SurfaceMode.MASKED
+	var masked := await _rebuild(pool)
+	print("    MASKED: ok=%s  verts=%d  tris=%d  sheet %.2f m  field=%d^2 (%.2f MB)  %.0f ms" % [
+		masked.get("ok", false), masked.get("vertices", 0), masked.get("triangles", 0),
+		masked.get("sheet_spacing", 0.0), masked.get("sdf_texels", 0),
+		float(masked.get("sdf_bytes", 0)) / 1048576.0, masked.get("ms", 0.0)])
+	if not masked.get("ok", false):
+		_fail += 1
+		print("    !! MASKED did not build: %s" % masked.get("reason", ""))
+	else:
+		# The point is not that the count is small, it is that it is the SHEET's. A sheet at the
+		# same spacing over the same bounds has a count that does not know about the outline.
+		var needed := 1103455 # what MESHED reported it wanted, give or take the fixture
+		print("    -> %d vertices where the meshed path wanted ~%d (%.0fx fewer)" % [
+			masked.get("vertices", 0), needed,
+			float(needed) / maxf(masked.get("vertices", 1), 1.0)])
+	# And it must be reachable without touching surface_mode at all, which is what AUTO is for.
+	pool.surface_mode = pool.SurfaceMode.AUTO
+	var auto := await _rebuild(pool)
+	print("    AUTO (masks only what will not fit max_vertices=%d): masked=%s, ok=%s" % [
+		pool.max_vertices, auto.get("masked", false), auto.get("ok", false)])
+	if not auto.get("masked", false) or not auto.get("ok", false):
+		_fail += 1
+		print("    !! AUTO did not rescue a body the mesher refuses")
+	# CONTROL: a body that DOES fit must be left alone by AUTO, or the default silently re-draws
+	# every large lake in an existing project.
+	var small := _pool(root, PROBE_SCALE)
+	small.surface_mode = small.SurfaceMode.AUTO
+	var small_stats := await _rebuild(small)
+	print("    CONTROL, a body that fits: masked=%s, ok=%s, verts=%d" % [
+		small_stats.get("masked", false), small_stats.get("ok", false),
+		small_stats.get("vertices", 0)])
+	if small_stats.get("masked", false) or not small_stats.get("ok", false):
+		_fail += 1
+		print("    !! AUTO masked a body that meshes fine -- existing scenes would change")
+	root.queue_free()
+	await get_tree().process_frame
+	_completed += 1
+
+
+# ---- B: the node's waterline -------------------------------------------------
+
+func _criterion_b_waterline() -> void:
+	print("[B] the waterline the NODE frames, against the node's own polygon:")
+	var root := _scene()
+	var pool := _pool(root, PROBE_SCALE)
+	pool.surface_mode = pool.SurfaceMode.MASKED
+	await _rebuild(pool)
+
+	var poly := pool.get_polygon()
+	if poly.size() < 3:
+		_fail += 1
+		print("    !! the pool has no polygon to compare against")
+		root.queue_free()
+		_completed += 1
+		return
+
+	# The analysed square is derived from the POOL's polygon, so this is measuring the node's own
+	# framing rather than re-deriving one that happens to agree with it.
+	var mn := poly[0]
+	var mx := poly[0]
+	for v in poly:
+		mn = Vector2(minf(mn.x, v.x), minf(mn.y, v.y))
+		mx = Vector2(maxf(mx.x, v.x), maxf(mx.y, v.y))
+	var extent: float = maxf(mx.x - mn.x, mx.y - mn.y) + 40.0
+	var view_min: Vector2 = (mn + mx) * 0.5 - Vector2(extent, extent) * 0.5
+	var mpp := extent / float(IMG)
+	var truth := SDF.inside_mask(poly, view_min + Vector2(0.5, 0.5) * mpp, mpp, IMG, IMG)
+	var truth_area := 0
+	for b in truth:
+		truth_area += int(b)
+
+	var vp := _ortho(view_min, extent)
+	# Re-parent the pool's own Surface into the measuring viewport. The MESH and the FIELD are the
+	# node's; only the shading is swapped for the flat readout, because thresholding shaded water
+	# measures a specular highlight rather than a waterline.
+	var surface: MeshInstance3D = pool.get_node_or_null("Surface")
+	if surface == null:
+		_fail += 1
+		print("    !! the pool built no Surface child")
+		root.queue_free()
+		vp.queue_free()
+		_completed += 1
+		return
+
+	var results := {}
+	for case in [["node as built", pool.mask_texel], ["CONTROL texel 8 m", 8.0]]:
+		pool.mask_texel = case[1]
+		await _rebuild(pool)
+		var cover := ShaderMaterial.new()
+		cover.shader = _coverage_shader()
+		# Copied off the node's own runtime material, so what is measured is the field the pool
+		# baked and framed -- not one this probe built to the same recipe.
+		var rt: ShaderMaterial = pool._runtime_material
+		if rt == null:
+			_fail += 1
+			print("    !! %s: the pool has no runtime material" % case[0])
+			continue
+		for nm in ["_shore_sdf", "_shore_rect", "_shore_texels", "_shore_range",
+				"_shore_feather", "_shore_offset", "_shore_kill_margin"]:
+			cover.set_shader_parameter(nm, rt.get_shader_parameter(nm))
+		var previous := surface.material_override
+		var old_parent := surface.get_parent()
+		old_parent.remove_child(surface)
+		vp.add_child(surface)
+		# RE-ASSERTED every frame, not set once. Writing mask_texel schedules a DEBOUNCED rebuild
+		# (0.1 s, as the brushes do), and if that fires while the capture is in flight it calls
+		# _apply_material and puts the water material back -- which over this black, unlit viewport
+		# renders as nothing and reads as an empty frame. That cost a round of debugging on its own,
+		# because it looks exactly like a culled surface.
+		for i in 5:
+			surface.material_override = cover
+			await RenderingServer.frame_post_draw
+		var img := vp.get_texture().get_image()
+		vp.remove_child(surface)
+		old_parent.add_child(surface)
+		surface.material_override = previous
+		var s := SDF.score(img, truth, poly, view_min, mpp, IMG, truth_area)
+		results[case[0]] = s
+		# Coverage FIRST, because it is what tells an empty frame from a full one -- and both of
+		# those score around 40 m on this fixture, which is the polygon's inradius. Two rounds of
+		# debugging went into a number that could not distinguish them.
+		print("    %-18s p99 %.3f m  max %.3f m  coverage %.2fx truth  (texel %.2f m)" % [
+			case[0], s["p99"], s["max"],
+			float(s["covered"]) / float(maxi(truth_area, 1)), case[1]])
+		print("       aabb %s  mesh %s" % [surface.custom_aabb, surface.mesh.get_aabb()])
+		_save(img, "pool_mask_%s.png" % str(case[0]).replace(" ", "_"))
+
+	if results.has("node as built"):
+		var ok: bool = results["node as built"]["p99"] <= ACCURACY_BUDGET_M
+		if not ok:
+			_fail += 1
+			print("    !! the node's waterline is outside the %.2f m budget" % ACCURACY_BUDGET_M)
+		else:
+			print("    -> the node frames its own bake correctly")
+	if results.has("CONTROL texel 8 m"):
+		if results["CONTROL texel 8 m"]["p99"] <= results["node as built"]["p99"] * 1.5:
+			_fail += 1
+			print("    !! the control did not degrade, so this is not measuring the field")
+		else:
+			print("    -> coarsening the field moves the rim, so the metric is live")
+	vp.queue_free()
+	root.queue_free()
+	await get_tree().process_frame
+	_completed += 1
+
+
+# ---- C: the CPU side does not change ----------------------------------------
+
+func _criterion_c_queries_unchanged() -> void:
+	print("[C] containment and height, MESHED vs MASKED on the same outline:")
+	var root := _scene()
+	var pool := _pool(root, PROBE_SCALE)
+
+	# A grid over the bounds plus a margin, so the sample set straddles the shore rather than
+	# sitting comfortably inside it where any implementation would agree.
+	var probes: Array[Vector3] = []
+	for iz in 41:
+		for ix in 41:
+			probes.append(Vector3(
+				lerpf(-75.0, 75.0, float(ix) / 40.0), -0.4,
+				lerpf(-60.0, 60.0, float(iz) / 40.0)))
+
+	pool.surface_mode = pool.SurfaceMode.MESHED
+	await _rebuild(pool)
+	var meshed_in: Array[bool] = []
+	var meshed_h: Array[float] = []
+	for p in probes:
+		meshed_in.append(pool.is_point_underwater(p))
+		meshed_h.append(pool.get_water_height(Vector2(p.x, p.z)))
+
+	pool.surface_mode = pool.SurfaceMode.MASKED
+	await _rebuild(pool)
+	var disagree := 0
+	var worst_h := 0.0
+	var inside_count := 0
+	for i in probes.size():
+		var now: bool = pool.is_point_underwater(probes[i])
+		if meshed_in[i]:
+			inside_count += 1
+		if now != meshed_in[i]:
+			disagree += 1
+		worst_h = maxf(worst_h, absf(pool.get_water_height(
+			Vector2(probes[i].x, probes[i].z)) - meshed_h[i]))
+	print("    %d probes, %d reported underwater by the meshed build" % [
+		probes.size(), inside_count])
+	print("    containment disagreements: %d    worst height delta: %.6f m" % [
+		disagree, worst_h])
+	# Anti-null: a sample set that never entered the water would agree trivially.
+	if inside_count < 100:
+		_fail += 1
+		print("    !! too few probes landed in the water for agreement to mean anything")
+	elif disagree > 0 or worst_h > 1e-5:
+		_fail += 1
+		print("    !! the queries moved. The mesh is supposed to be the only thing that changed.")
+	else:
+		print("    -> identical. Drawing the water differently did not move where it is.")
+
+	# CONTROL. The same comparison against probes displaced by 3 m must disagree, or the check
+	# above is insensitive to containment entirely.
+	var control_disagree := 0
+	for i in probes.size():
+		if pool.is_point_underwater(probes[i] + Vector3(3.0, 0.0, 3.0)) != meshed_in[i]:
+			control_disagree += 1
+	print("    CONTROL, probes displaced 3 m: %d disagreements" % control_disagree)
+	if control_disagree < 10:
+		_fail += 1
+		print("    !! displacing the probes changed almost nothing -- the comparison is blind")
+	root.queue_free()
+	await get_tree().process_frame
+	_completed += 1
+
+
+# ---- D: the wave table survived the shader swap -----------------------------
+
+func _criterion_d_wave_table() -> void:
+	print("[D] the wave table across the shader swap:")
+	var root := _scene()
+	var pool := _pool(root, PROBE_SCALE)
+	pool.surface_mode = pool.SurfaceMode.MASKED
+	await _rebuild(pool)
+
+	var rt: ShaderMaterial = pool._runtime_material
+	var src: ShaderMaterial = pool._runtime_source as ShaderMaterial
+	if rt == null or src == null:
+		_fail += 1
+		print("    !! no runtime material to compare (masked build did not produce one)")
+		root.queue_free()
+		_completed += 1
+		return
+
+	var a = src.get_shader_parameter("_waves")
+	var b = rt.get_shader_parameter("_waves")
+	var amp_a := _amp_sum(a)
+	var amp_b := _amp_sum(b)
+	print("    resolved shader: %s" % src.shader.resource_path.get_file())
+	print("    runtime shader:  %s" % rt.shader.resource_path.get_file())
+	print("    _waves amplitude sum: resolved %.4f, runtime %.4f" % [amp_a, amp_b])
+	if amp_a <= 0.0:
+		_fail += 1
+		print("    !! the RESOLVED material has no wave table, so this comparison is vacuous")
+		print("       (is there a Pasture3DPoolManager in the scene, with a lake_calm profile?)")
+	elif absf(amp_a - amp_b) > 1e-4:
+		_fail += 1
+		print("    !! the table did not survive the copy. The lake would draw the shader's")
+		print("       compile-time waves, out of step with get_water_height().")
+	else:
+		print("    -> carried across intact")
+	if rt.shader == src.shader:
+		_fail += 1
+		print("    !! the runtime material is on the SAME shader, so no mask was applied")
+	root.queue_free()
+	await get_tree().process_frame
+	_completed += 1
+
+
+func _amp_sum(p_waves) -> float:
+	if p_waves == null:
+		return 0.0
+	var total := 0.0
+	for v in (p_waves as Array):
+		total += absf((v as Vector4).z)
+	return total
+
+
+# ---- plumbing ---------------------------------------------------------------
+
+func _scene() -> Node3D:
+	var root := Node3D.new()
+	add_child(root)
+	var sun := DirectionalLight3D.new()
+	sun.name = "Sun"
+	root.add_child(sun)
+	var m := Pasture3DPoolManager.new()
+	m.name = "Pasture3DPoolManager"
+	root.add_child(m)
+	m.sun_light = sun
+	# FROZEN. The manager writes water_time every physics tick, so criterion C's two passes were
+	# sampling different wave phases and its "the queries moved" failure was this, not the node:
+	# get_water_height() includes the wave displacement, and probes 0.4 m under a surface with a
+	# 0.67 m amplitude sum flip as the crests go past. Setting the global once at startup is not
+	# enough -- the node overwrites it.
+	m.set_physics_process(false)
+	RenderingServer.global_shader_parameter_set("water_time", 0.0)
+	return root
+
+
+func _pool(p_root: Node3D, p_scale: float) -> Pasture3DPool:
+	var pool := Pasture3DPool.new()
+	pool.name = "Pool"
+	pool.curve = _curve(p_scale)
+	pool.wave_profile = &"lake_calm"
+	pool.material = load(LAKE_MAT)
+	pool.underwater_enabled = false
+	p_root.add_child(pool)
+	return pool
+
+
+## The shore probes' outline, as a closed Curve3D.
+func _curve(p_scale: float) -> Curve3D:
+	var c := Curve3D.new()
+	const N := 96
+	var chord_a := deg_to_rad(28.0)
+	var chord_b := deg_to_rad(74.0)
+	var inlet_at := deg_to_rad(163.0)
+	var head_at := deg_to_rad(252.0)
+	var inlet_done := false
+	var head_done := false
+	for i in N:
+		var a := TAU * float(i) / float(N)
+		if a > chord_a and a < chord_b:
+			continue
+		if not inlet_done and a >= inlet_at:
+			for p in [_e(inlet_at - deg_to_rad(2.2), p_scale),
+					_e(inlet_at - deg_to_rad(2.2), p_scale * 0.62),
+					_e(inlet_at + deg_to_rad(2.2), p_scale * 0.62),
+					_e(inlet_at + deg_to_rad(2.2), p_scale)]:
+				c.add_point(p)
+			inlet_done = true
+			continue
+		if not head_done and a >= head_at:
+			c.add_point(_e(head_at, p_scale * 1.34))
+			head_done = true
+			continue
+		c.add_point(_e(a, p_scale))
+	c.closed = true
+	return c
+
+
+func _e(p_angle: float, p_scale: float) -> Vector3:
+	return Vector3(cos(p_angle) * 52.0, 0.0, sin(p_angle) * 41.0) * p_scale
+
+
+## Rebuild and let the frame settle, so a mesh assigned this frame is drawable next.
+##
+## Re-freezes the clock: process_frame runs a physics tick, and any manager that is not held still
+## advances water_time across it.
+func _rebuild(p_pool: Pasture3DPool) -> Dictionary:
+	RenderingServer.global_shader_parameter_set("water_time", 0.0)
+	var stats: Dictionary = p_pool.rebuild()
+	await get_tree().process_frame
+	return stats
+
+
+func _ortho(p_view_min: Vector2, p_extent: float) -> SubViewport:
+	var vp := SubViewport.new()
+	vp.size = Vector2i(IMG, IMG)
+	vp.own_world_3d = true
+	vp.transparent_bg = false
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	add_child(vp)
+	var env := WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_COLOR
+	e.background_color = Color.BLACK
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color.BLACK
+	e.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	env.environment = e
+	vp.add_child(env)
+	var cam := Camera3D.new()
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.size = p_extent
+	cam.near = 1.0
+	cam.far = 2000.0
+	cam.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
+	cam.position = Vector3(p_view_min.x + p_extent * 0.5, 400.0,
+		p_view_min.y + p_extent * 0.5)
+	cam.current = true
+	vp.add_child(cam)
+	return vp
+
+
+func _coverage_shader() -> Shader:
+	var sh := Shader.new()
+	sh.code = "\n".join([
+		"shader_type spatial;",
+		"render_mode unshaded, cull_disabled, depth_draw_never, skip_vertex_transform;",
+		"#define WATER_SHORE_MASK",
+		'#include "%swater_common.gdshaderinc"' % WATER_DIR,
+		"void vertex() {",
+		"	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;",
+		"	v_world_pos = wp;",
+		"	v_shore_xz = wp.xz;",
+		"	VERTEX = (VIEW_MATRIX * vec4(wp, 1.0)).xyz;",
+		"	NORMAL = normalize(mat3(VIEW_MATRIX) * vec3(0.0, 1.0, 0.0));",
+		"	if (water_shore_distance(wp.xz) > _shore_kill_margin) {",
+		"		VERTEX = vec3(0.0 / 0.0);",
+		"	}",
+		"}",
+		"void fragment() {",
+		"	ALBEDO = vec3(1.0);",
+		"	ALPHA = water_shore_alpha(v_shore_xz);",
+		"}",
+	])
+	return sh
+
+
+func _save(p_img: Image, p_name: String) -> void:
+	var path := _out_dir + p_name
+	if p_img.save_png(path) != OK or not FileAccess.file_exists(path):
+		_fail += 1
+		print("    !! save %s failed" % path)

@@ -613,14 +613,27 @@ func _effective_spacing() -> float:
 func _apply_cull_box(p_min: Vector2, p_max: Vector2) -> void:
 	if _surface == null:
 		return
-	var amp := 1.0
+	var amp := _wave_amplitude_sum()
+	var size := Vector3(p_max.x - p_min.x, amp * 2.0, p_max.y - p_min.y)
+	_surface.custom_aabb = AABB(Vector3(p_min.x, -amp, p_min.y), size)
+	# Cleared, because this box already accounts for the displacement the margin would. A body that
+	# had been built the other way round (see Pasture3DPool's masked path) must not keep both.
+	_surface.extra_cull_margin = 0.0
+
+
+## The height the surface actually reaches: the profile's amplitude sum, not the `amplitude` knob,
+## which is only the longest wave's. At the ocean defaults the knob reads 1.6 m and the surface
+## reaches 4.9 m — see the water guide §3.
+##
+## Floored, so a body with no manager still has something to grow a cull volume by rather than
+## collapsing it to the flat sheet and culling itself whenever a crest is the only thing on screen.
+func _wave_amplitude_sum() -> float:
 	var m := _resolve_manager()
 	if m and m.has_method("get_profile"):
 		var profile = m.get_profile(wave_profile)
 		if profile != null:
-			amp = maxf(profile.get_amplitude_sum(), 0.1)
-	var size := Vector3(p_max.x - p_min.x, amp * 2.0, p_max.y - p_min.y)
-	_surface.custom_aabb = AABB(Vector3(p_min.x, -amp, p_min.y), size)
+			return maxf(profile.get_amplitude_sum(), 0.1)
+	return 1.0
 
 
 ## Vertex and triangle counts of a built surface, as a Vector2i. Read back off the mesh rather than
