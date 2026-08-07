@@ -1179,6 +1179,21 @@ Error Pasture3DMaterial::save(const String &p_path) {
 ///////////////////////////
 
 // Add shader uniforms to properties. Hides uniforms that begin with _
+// Appends to grouped_params[p_group], creating the bucket if needed. Godot renders a group heading
+// as owning every property that follows it, so entries have to be emitted contiguously per group
+// rather than in shader declaration order.
+static void _append_to_group(Dictionary &r_grouped, const StringName &p_group, const Dictionary &p_dict) {
+	Array group;
+	if (r_grouped.has(p_group)) {
+		group = r_grouped[p_group];
+	} else {
+		r_grouped[p_group] = Array();
+		group = r_grouped[p_group];
+	}
+	group.push_back(p_dict);
+	r_grouped[p_group] = group;
+}
+
 void Pasture3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 	Resource::_get_property_list(p_list);
 	IS_INIT(VOID);
@@ -1226,28 +1241,37 @@ void Pasture3DMaterial::_get_property_list(List<PropertyInfo> *p_list) const {
 				// Ensure sub groups are batched with their parent group
 				current_group = split_name[0].capitalize();
 				dict["usage"] = name.contains("::") ? PROPERTY_USAGE_SUBGROUP : PROPERTY_USAGE_GROUP;
-			} else {
-				// Filter out duplicate non-groups entries from displacement buffer shader
-				if (new_active_params.has(name)) {
-					continue;
-				}
-				dict["usage"] = PROPERTY_USAGE_EDITOR;
+				// A group marker is inspector layout, not state. It used to fall through to the
+				// code below and be recorded as though it were a parameter, which put its name in
+				// _active_params -- making _set/_get/_property_*_revert all claim to handle it --
+				// and wrote a null entry for it into _shader_params, which is saved to the .tres.
+				// Six of M_terrain.tres's 39 stored "parameters" were group names.
+				//
+				// The entries also accumulated: only groups behind an enabled //INSERT: appear, so
+				// switching a feature on once wrote its group name permanently, and switching the
+				// feature back off did not remove it.
+				//
+				// Erasing here heals a material that already recorded one. It runs on every
+				// inspector refresh, so no migration step is needed; keys under group names the
+				// shader no longer declares are cleared by the prune in save().
+				_shader_params.erase(name);
+				_append_to_group(grouped_params, current_group, dict);
+				continue;
 			}
+			// Filter out duplicate non-groups entries from displacement buffer shader
+			if (new_active_params.has(name)) {
+				continue;
+			}
+			dict["usage"] = PROPERTY_USAGE_EDITOR;
 			// Filter out extraneous parameters from the inspector if they are not present in the terrain shader.
-			if (i >= buffer_param && (!new_active_params.has(name) && use != PROPERTY_USAGE_GROUP) && !current_group.contains("Displacement")) {
+			// Groups returned above, so the `use != PROPERTY_USAGE_GROUP` term this used to carry
+			// is now always true and is gone.
+			if (i >= buffer_param && !new_active_params.has(name) && !current_group.contains("Displacement")) {
 				LOG(INFO, "Displacement buffer has active parameter: ", name, " not present in terrain shader.");
 				continue;
 			}
 			// Write dict to grouped arrays to ensure property list groups are populated contigiously.
-			Array group;
-			if (grouped_params.has(current_group)) {
-				group = grouped_params[current_group];
-			} else {
-				grouped_params[current_group] = Array();
-				group = grouped_params[current_group];
-			}
-			group.push_back(dict);
-			grouped_params[current_group] = group;
+			_append_to_group(grouped_params, current_group, dict);
 
 			// Populate list of public parameters for current shader
 			new_active_params.push_back(name);

@@ -2358,27 +2358,16 @@ Error Pasture3DData::export_image(const String &p_file_name, const MapType p_map
 		DirAccess::remove_absolute(file_name);
 	}
 
-	// Calculate terrain extents
-	Vector2i top_left = V2I_ZERO;
-	Vector2i bottom_right = V2I_ZERO;
-	for (const Vector2i &region_loc : _region_locations) {
-		if (region_loc.x < top_left.x) {
-			top_left.x = region_loc.x;
-		} else if (region_loc.x > bottom_right.x) {
-			bottom_right.x = region_loc.x;
-		}
-		if (region_loc.y < top_left.y) {
-			top_left.y = region_loc.y;
-		} else if (region_loc.y > bottom_right.y) {
-			bottom_right.y = region_loc.y;
-		}
+	const Rect2i terrain_rect = _region_bounds_px();
+	if (!terrain_rect.has_area()) {
+		LOG(ERROR, "No active regions. Nothing to export");
+		return FAILED;
 	}
-	Vector2i terrain_origin = top_left * _region_size;
-	Vector2i terrain_size = Vector2i(1 + bottom_right.x - top_left.x, 1 + bottom_right.y - top_left.y) * _region_size;
+	const Vector2i terrain_origin = terrain_rect.position;
+	const Vector2i terrain_size = terrain_rect.size;
 
 	LOG(MESG, "=== Pasture3D Export ===");
 	LOG(MESG, "Map type: ", TYPESTR[p_map_type]);
-	LOG(MESG, "Regions: ", top_left, " to ", bottom_right);
 	LOG(MESG, "Total size: ", terrain_size, " px");
 	LOG(MESG, "Origin: ", terrain_origin, " px, ", Vector2(terrain_origin) * _vertex_spacing, " world");
 
@@ -2489,32 +2478,63 @@ Error Pasture3DData::_save_export_image(const Ref<Image> &p_img, const String &p
 	return ERR_FILE_UNRECOGNIZED;
 }
 
+// Exact pixel rect covering every active region. Empty when there are none.
+//
+// This used to be written inline, twice, and both copies were wrong the same two ways: the corners
+// were seeded at (0,0) rather than at a region, and the min/max tests were chained with `else if`
+// so a single region could only move one corner. Together those pinned the box to always contain
+// the world origin. It never cropped -- the result always enclosed the true extent -- so the only
+// symptom was inflation, and on the demo terrain (regions at (0,0), (0,-1), (0,-2), which really do
+// straddle the origin) the wrong answer and the right one are identical. That is why it survived.
+//
+// The inflation was not free. Slicing is measured from this origin, so a terrain sitting far from
+// (0,0) got split into several suffixed files where one unsuffixed file was correct; and the r16
+// writer derives its 16-bit scale from the min/max of each tile, so the background fill padding the
+// extra area dragged the height range down and cost real precision in the exported file.
+//
+// Deleted regions are excluded. _region_locations is normally kept clear of them -- remove_region()
+// drops the entry as it sets the flag -- but set_region_deleted() is bound to GDScript and sets the
+// flag alone, without touching the array or dirtying the region map. So a deleted region can sit in
+// _region_locations indefinitely, and the callers of this already skip those.
+Rect2i Pasture3DData::_region_bounds_px() const {
+	bool found = false;
+	Vector2i top_left;
+	Vector2i bottom_right;
+	for (const Vector2i &region_loc : _region_locations) {
+		const Pasture3DRegion *region = get_region_ptr(region_loc);
+		if (!region || region->is_deleted()) {
+			continue;
+		}
+		if (!found) {
+			top_left = region_loc;
+			bottom_right = region_loc;
+			found = true;
+			continue;
+		}
+		top_left.x = MIN(top_left.x, region_loc.x);
+		top_left.y = MIN(top_left.y, region_loc.y);
+		bottom_right.x = MAX(bottom_right.x, region_loc.x);
+		bottom_right.y = MAX(bottom_right.y, region_loc.y);
+	}
+	if (!found) {
+		return Rect2i();
+	}
+	return Rect2i(top_left * _region_size,
+			(bottom_right - top_left + Vector2i(1, 1)) * _region_size);
+}
+
 Ref<Image> Pasture3DData::layered_to_image(const MapType p_map_type, const Rect2i &p_bounds) const {
 	LOG(INFO, "Generating a full sized image for all regions including empty regions");
 	MapType map_type = p_map_type;
 	if (map_type >= TYPE_MAX) {
 		map_type = TYPE_HEIGHT;
 	}
-	Vector2i top_left = V2I_ZERO;
-	Vector2i bottom_right = V2I_ZERO;
-	for (const Vector2i &region_loc : _region_locations) {
-		LOG(DEBUG, "Region location: ", region_loc);
-		if (region_loc.x < top_left.x) {
-			top_left.x = region_loc.x;
-		} else if (region_loc.x > bottom_right.x) {
-			bottom_right.x = region_loc.x;
-		}
-		if (region_loc.y < top_left.y) {
-			top_left.y = region_loc.y;
-		} else if (region_loc.y > bottom_right.y) {
-			bottom_right.y = region_loc.y;
-		}
+	const Rect2i terrain_rect = _region_bounds_px();
+	if (!terrain_rect.has_area()) {
+		LOG(ERROR, "No active regions to build an image from");
+		return Ref<Image>();
 	}
-
-	LOG(DEBUG, "Full range to cover all regions: ", top_left, " to ", bottom_right);
-	Vector2i terrain_origin = top_left * _region_size;
-	Vector2i terrain_size = Vector2i(1 + bottom_right.x - top_left.x, 1 + bottom_right.y - top_left.y) * _region_size;
-	Rect2i terrain_rect(terrain_origin, terrain_size);
+	LOG(DEBUG, "Full range to cover all regions: ", terrain_rect);
 
 	Rect2i export_rect = p_bounds.has_area() ? p_bounds.intersection(terrain_rect) : terrain_rect;
 	if (!export_rect.has_area()) {
@@ -2527,7 +2547,9 @@ Ref<Image> Pasture3DData::layered_to_image(const MapType p_map_type, const Rect2
 
 	for (const Vector2i &region_loc : _region_locations) {
 		const Pasture3DRegion *region = get_region_ptr(region_loc);
-		if (!region) {
+		// Deleted regions are outside the bounds this image was sized to, so blitting one would
+		// draw a region the export deliberately excluded.
+		if (!region || region->is_deleted()) {
 			continue;
 		}
 		Rect2i region_rect(region_loc * _region_size, _region_sizev);
