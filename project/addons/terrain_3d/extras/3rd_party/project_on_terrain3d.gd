@@ -94,7 +94,7 @@
 		#var t: Transform3D = transforms.list[i]
 		#
 		#var location: Vector3 = (gt * t).origin
-		#var height: float = _terrain.data.get_height(location)		
+		#var height: float = _terrain.data.get_surface_height(location)
 		#if is_nan(height):
 			#continue
 		#

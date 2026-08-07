@@ -45,9 +45,7 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 			// int index = z * hshape_size + x;
 			// Array Index Rotated Y=-90 - must rotate shape Y=+90 (xform below)
 			int index = hshape_size - 1 - z + x * hshape_size;
-
-			Vector2i shape_pos = p_position + Vector2i(x, z);
-			real_t height = data->get_height(Vector3(shape_pos.x, 0., shape_pos.y) * _terrain->get_vertex_spacing());
+			real_t height = data->get_modified_height(p_position + Vector2i(x, z));
 			map_data[index] = height;
 			if (!std::isnan(height)) {
 				min_height = MIN(min_height, height);

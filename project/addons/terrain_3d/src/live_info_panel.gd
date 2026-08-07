@@ -33,7 +33,8 @@ func update(cursor_position: Vector3) -> void:
 		lbl_text += "Slope: -\n"
 		lbl_text += "Texture: -"
 	else:
-		lbl_text += "Height: %0.2f\n" % plugin.terrain.data.get_height(cursor_position)
+		var heights := Vector2(plugin.terrain.data.get_height(cursor_position), plugin.terrain.data.get_surface_height(cursor_position))
+		lbl_text += "Height: %0.2f" % heights.x + ( " (%.2f)\n" % heights.y if abs(heights.x - heights.y) > .1 else "\n" )
 		lbl_text += "Slope: %0.1f°\n" % slope
 		var texture_id: Vector3 = plugin.terrain.data.get_texture_id(cursor_position)
 		var auto: String = "Auto" if plugin.terrain.data.get_control_auto(cursor_position) else "-"

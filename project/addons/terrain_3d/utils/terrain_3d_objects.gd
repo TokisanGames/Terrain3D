@@ -60,7 +60,7 @@ func _get_terrain_height(p_global_position: Vector3) -> float:
 	var terrain: Terrain3D = get_terrain()
 	if not terrain or not terrain.data:
 		return 0.0
-	var height: float = terrain.data.get_height(p_global_position)
+	var height: float = terrain.data.get_surface_height(p_global_position)
 	if is_nan(height):
 		return 0.0
 	return height

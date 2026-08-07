@@ -387,15 +387,20 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 			}
 		}
 	} else {
-		// Bake within an AABB, e.g. runtime navigation baker
-		int32_t z_start = (int32_t)Math::ceil(p_global_aabb.position.z / _vertex_spacing);
-		int32_t z_end = (int32_t)Math::floor(p_global_aabb.get_end().z / _vertex_spacing) + 1;
-		int32_t x_start = (int32_t)Math::ceil(p_global_aabb.position.x / _vertex_spacing);
-		int32_t x_end = (int32_t)Math::floor(p_global_aabb.get_end().x / _vertex_spacing) + 1;
+		// Bake within an AABB
+		const real_t vs = _vertex_spacing;
+		const int32_t start_x = int32_t(Math::ceil(p_global_aabb.position.x / vs));
+		const int32_t start_z = int32_t(Math::ceil(p_global_aabb.position.z / vs));
+		const int32_t end_x = int32_t(Math::floor(p_global_aabb.get_end().x / vs)) + 1;
+		const int32_t end_z = int32_t(Math::floor(p_global_aabb.get_end().z / vs)) + 1;
 
-		for (int32_t z = z_start; z < z_end; ++z) {
-			for (int32_t x = x_start; x < x_end; ++x) {
-				real_t height = _data->get_height(Vector3(x, 0.f, z));
+		for (int32_t z = start_z; z < end_z; ++z) {
+			for (int32_t x = start_x; x < end_x; ++x) {
+				const real_t height = _data->get_modified_height(Vector2i(x, z));
+				if (std::isnan(height)) {
+					continue;
+				}
+
 				if (height >= p_global_aabb.position.y && height <= p_global_aabb.get_end().y) {
 					_generate_triangle_pair(p_vertices, p_uvs, p_lod, p_filter, p_require_nav, x, z);
 				}
@@ -415,55 +420,69 @@ void Terrain3D::_generate_triangles(PackedVector3Array &p_vertices, PackedVector
 void Terrain3D::_generate_triangle_pair(PackedVector3Array &p_vertices, PackedVector2Array *p_uvs,
 		const int32_t p_lod, const Terrain3DData::HeightFilter p_filter, const bool p_require_nav,
 		const int32_t x, const int32_t z) const {
-	int32_t step = 1 << CLAMP(p_lod, 0, 8);
-	Vector3 xz = Vector3(x, 0.0f, z) * _vertex_spacing;
-	Vector3 xsz = Vector3(x + step, 0.0f, z) * _vertex_spacing;
-	Vector3 xzs = Vector3(x, 0.0f, z + step) * _vertex_spacing;
-	Vector3 xszs = Vector3(x + step, 0.0f, z + step) * _vertex_spacing;
-	Vector3 v1 = _data->get_mesh_vertex(p_lod, p_filter, xz);
-	bool nan1 = std::isnan(v1.y);
-	if (nan1) {
+	const int32_t step = 1 << CLAMP(p_lod, 0, 8);
+	const Vector2i v1g(x, z);
+	const Vector2i v2g(x + step, z);
+	const Vector2i v3g(x, z + step);
+	const Vector2i v4g(x + step, z + step);
+	real_t h1 = _data->get_mesh_vertex_height(p_lod, p_filter, v1g);
+	if (std::isnan(h1)) {
 		return;
 	}
-	Vector3 v2 = _data->get_mesh_vertex(p_lod, p_filter, xsz);
-	Vector3 v3 = _data->get_mesh_vertex(p_lod, p_filter, xzs);
-	Vector3 v4 = _data->get_mesh_vertex(p_lod, p_filter, xszs);
-	bool nan2 = std::isnan(v2.y);
-	bool nan3 = std::isnan(v3.y);
-	bool nan4 = std::isnan(v4.y);
+	real_t h2 = _data->get_mesh_vertex_height(p_lod, p_filter, v2g);
+	real_t h3 = _data->get_mesh_vertex_height(p_lod, p_filter, v3g);
+	real_t h4 = _data->get_mesh_vertex_height(p_lod, p_filter, v4g);
+	bool nan2 = std::isnan(h2);
+	bool nan3 = std::isnan(h3);
+	bool nan4 = std::isnan(h4);
 	// If on the region edge, duplicate the edge pixels
 	// Check #2 upper right
 	if (nan2) {
-		v2.y = v1.y;
+		h2 = h1;
 	}
 	// Check #3 lower left
 	if (nan3) {
-		v3.y = v1.y;
+		h3 = h1;
 	}
 	// Check #4 lower right
 	if (nan4) {
 		if (!nan2) {
-			v4.y = v2.y;
+			h4 = h2;
 		} else if (!nan3) {
-			v4.y = v3.y;
+			h4 = h3;
 		} else {
-			v4.y = v1.y;
+			h4 = h1;
 		}
 	}
-	uint32_t ctrl1 = _data->get_control(xz);
-	uint32_t ctrl2 = _data->get_control(xsz);
-	uint32_t ctrl3 = _data->get_control(xzs);
-	uint32_t ctrl4 = _data->get_control(xszs);
+
+	// Get control pixels
+	real_t val = _data->get_pixel_descaled(TYPE_CONTROL, v1g).r;
+	uint32_t ctrl1 = (std::isnan(val)) ? UINT32_MAX : as_uint(val);
+	val = _data->get_pixel_descaled(TYPE_CONTROL, v2g).r;
+	uint32_t ctrl2 = (std::isnan(val)) ? UINT32_MAX : as_uint(val);
+	val = _data->get_pixel_descaled(TYPE_CONTROL, v3g).r;
+	uint32_t ctrl3 = (std::isnan(val)) ? UINT32_MAX : as_uint(val);
+	val = _data->get_pixel_descaled(TYPE_CONTROL, v4g).r;
+	uint32_t ctrl4 = (std::isnan(val)) ? UINT32_MAX : as_uint(val);
+
 	// Holes are only where the control map is valid and the bit is set
 	bool hole1 = ctrl1 != UINT32_MAX && is_hole(ctrl1);
 	bool hole2 = ctrl2 != UINT32_MAX && is_hole(ctrl2);
 	bool hole3 = ctrl3 != UINT32_MAX && is_hole(ctrl3);
 	bool hole4 = ctrl4 != UINT32_MAX && is_hole(ctrl4);
+
 	// Navigation is where the control map is valid and the bit is set, or it's the region edge and nav1 is set
-	bool nav1 = ctrl1 != UINT32_MAX && is_nav(ctrl1);
-	bool nav2 = ctrl2 != UINT32_MAX && is_nav(ctrl2) || nan2 && nav1;
-	bool nav3 = ctrl3 != UINT32_MAX && is_nav(ctrl3) || nan3 && nav1;
-	bool nav4 = ctrl4 != UINT32_MAX && is_nav(ctrl4) || nan4 && nav1;
+	bool nav1 = (ctrl1 != UINT32_MAX && is_nav(ctrl1));
+	bool nav2 = (ctrl2 != UINT32_MAX && is_nav(ctrl2)) || (nan2 && nav1);
+	bool nav3 = (ctrl3 != UINT32_MAX && is_nav(ctrl3)) || (nan3 && nav1);
+	bool nav4 = (ctrl4 != UINT32_MAX && is_nav(ctrl4)) || (nan4 && nav1);
+
+	const real_t vs = _vertex_spacing;
+	Vector3 v1(v1g.x * vs, h1, v1g.y * vs);
+	Vector3 v2(v2g.x * vs, h2, v2g.y * vs);
+	Vector3 v3(v3g.x * vs, h3, v3g.y * vs);
+	Vector3 v4(v4g.x * vs, h4, v4g.y * vs);
+
 	//Bottom 143 triangle
 	if (!(hole1 || hole4 || hole3) && (!p_require_nav || (nav1 && nav4 && nav3))) {
 		p_vertices.push_back(v1);
@@ -630,7 +649,7 @@ void Terrain3D::update_region_labels() {
 			label->set_visibility_range_fade_mode(GeometryInstance3D::VISIBILITY_RANGE_FADE_SELF);
 			_label_parent->add_child(label, true);
 			Vector3 pos = Vector3(real_t(region_loc.x) + .5f, 0.f, real_t(region_loc.y) + .5f) * _region_size * _vertex_spacing;
-			real_t height = _data->get_height(pos);
+			real_t height = _data->get_surface_height(pos);
 			pos.y = (std::isnan(height)) ? 0.f : height;
 			label->set_position(pos);
 		}
@@ -941,7 +960,7 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	Vector3 direction = p_direction.normalized();
 	// If looking straight down in a region, use get_height
 	if (direction.y < -.99999f) {
-		real_t height = _data->get_height(p_src_pos);
+		real_t height = _data->get_surface_height(p_src_pos);
 		if (std ::isfinite(height)) {
 			return Vector3(p_src_pos.x, height, p_src_pos.z);
 		}
@@ -950,14 +969,14 @@ Vector3 Terrain3D::get_intersection(const Vector3 &p_src_pos, const Vector3 &p_d
 	// Raymarching mode
 	if (!p_gpu_mode) {
 		// Must start above terrain if in a region
-		real_t height = _data->get_height(p_src_pos);
+		real_t height = _data->get_surface_height(p_src_pos);
 		if (height > p_src_pos.y) { // False if Nan
 			return V3_MAX;
 		}
 		// Raymarch down the ray in small increments until we find the terrain height
 		Vector3 point = p_src_pos;
 		for (int i = 0; i < 4000; i++) {
-			height = _data->get_height(point);
+			height = _data->get_surface_height(point);
 			if (point.y - height <= 0.f) { // Nan comparison is false, which continues loop
 				return point;
 			}

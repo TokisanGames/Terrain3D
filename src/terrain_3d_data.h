@@ -101,6 +101,7 @@ public:
 	void do_for_regions(const Rect2i &p_area, const Callable &p_callback);
 	void change_region_size(int region_size);
 
+	Vector2i world_to_vgrid(const Vector3 &p_global_position) const;
 	Vector2i get_region_location(const Vector3 &p_global_position) const;
 	int get_region_id(const Vector2i &p_region_loc) const;
 	int get_region_idp(const Vector3 &p_global_position) const;
@@ -143,11 +144,14 @@ public:
 
 	void set_pixel(const MapType p_map_type, const Vector3 &p_global_position, const Color &p_pixel);
 	Color get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const;
+	Color get_pixel_descaled(const MapType p_map_type, const Vector2i &p_vgrid) const;
 
 	// Height Map
 	void set_height(const Vector3 &p_global_position, const real_t p_height);
 	real_t get_height(const Vector3 &p_global_position) const;
-	real_t get_region_blend(const Vector3 &p_global_position) const;
+	real_t get_surface_height(const Vector3 &p_global_position) const;
+	real_t get_modified_height(const Vector2i &p_vgrid) const;
+	real_t get_region_blend(const Vector2 &p_uv2) const;
 	Vector3 get_normal(const Vector3 &p_global_position) const;
 	bool is_in_slope(const Vector3 &p_global_position, const Vector2 &p_slope_range, const Vector3 &p_normal = V3_ZERO) const;
 
@@ -179,6 +183,7 @@ public:
 	real_t get_roughness(const Vector3 &p_global_position) const;
 
 	Vector3 get_mesh_vertex(const int32_t p_lod, const HeightFilter p_filter, const Vector3 &p_global_position) const;
+	real_t get_mesh_vertex_height(const int32_t p_lod, const HeightFilter p_filter, const Vector2i &p_vgrid) const;
 
 	void add_edited_area(const AABB &p_area);
 	void clear_edited_area() { _edited_area = AABB(); }
@@ -222,8 +227,7 @@ inline int Terrain3DData::get_region_map_index(const Vector2i &p_region_loc) {
 
 // Returns a region location given a global position. No bounds checking nor data access.
 inline Vector2i Terrain3DData::get_region_location(const Vector3 &p_global_position) const {
-	Vector2 descaled_position = v3v2(p_global_position) / _vertex_spacing;
-	return Vector2i((descaled_position / real_t(_region_size)).floor());
+	return V2I_DIVIDE_FLOOR(world_to_vgrid(p_global_position), _region_size);
 }
 
 // Returns id of any active region. -1 if out of bounds or no region, or region id
@@ -275,8 +279,22 @@ inline Ref<Terrain3DRegion> Terrain3DData::get_regionp(const Vector3 &p_global_p
 
 // Inline Map Functions
 
+// Descale and floor global position to vertex grid
+inline Vector2i Terrain3DData::world_to_vgrid(const Vector3 &p_global_position) const {
+	return Vector2i(Math::floor(p_global_position.x / _vertex_spacing),
+			Math::floor(p_global_position.z / _vertex_spacing));
+}
+
+inline Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const {
+	return get_pixel_descaled(p_map_type, world_to_vgrid(p_global_position));
+}
+
 inline void Terrain3DData::set_height(const Vector3 &p_global_position, const real_t p_height) {
 	set_pixel(TYPE_HEIGHT, p_global_position, Color(p_height, 0.f, 0.f, 1.f));
+}
+
+inline real_t Terrain3DData::get_height(const Vector3 &p_global_position) const {
+	return get_pixel(TYPE_HEIGHT, p_global_position).r;
 }
 
 inline void Terrain3DData::set_control(const Vector3 &p_global_position, const uint32_t p_control) {

@@ -220,8 +220,9 @@ func _update_process_parameters() -> void:
 		var process_rid: RID = process_material.get_rid()
 		if terrain and process_rid.is_valid():
 			RenderingServer.material_set_param(process_rid, "_background_mode", terrain.material.world_background)
-			if terrain.material.world_background > 0:
+			if "ground_level" in terrain.material:
 				RenderingServer.material_set_param(process_rid, "ground_level", terrain.material.ground_level)
+			if "region_blend" in terrain.material:
 				RenderingServer.material_set_param(process_rid, "region_blend", terrain.material.region_blend)
 			RenderingServer.material_set_param(process_rid, "_vertex_spacing", terrain.vertex_spacing)
 			RenderingServer.material_set_param(process_rid, "_vertex_density", 1.0 / terrain.vertex_spacing)
