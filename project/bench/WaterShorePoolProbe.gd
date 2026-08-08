@@ -43,7 +43,7 @@ const ACCURACY_BUDGET_M := 0.25
 
 var _fail := 0
 var _completed := 0
-const CRITERIA := 7
+const CRITERIA := 8
 var _out_dir := ""
 
 
@@ -78,6 +78,7 @@ func _ready() -> void:
 	await _criterion_e_clipmap_scales()
 	await _criterion_f_carriers_agree()
 	await _criterion_g_it_draws()
+	await _criterion_h_coarse_rings()
 
 	print("")
 	print("completed %d/%d criteria, %d failures" % [_completed, CRITERIA, _fail])
@@ -719,6 +720,136 @@ func _iou(p_a: PackedByteArray, p_b: PackedByteArray) -> float:
 	return float(inter) / float(maxi(uni, 1))
 
 
+# ---- H: the shore, where the rings are coarse --------------------------------
+
+## The reported symptom: a pond expanded until masking kicked in, and its edges came out jagged.
+##
+## Criterion G compares the two carriers on a 104 m body, where the derived ring count is three and
+## the coarsest cell is 5 m -- small enough that nothing shows. On a 1.4 km body it is six rings, the
+## outer cell is 40 m, and the shore spends most of its length out there.
+##
+## The control is the STATIC SHEET on the SAME body, which is what the clipmap replaced: one uniform
+## cell size, and a margin derived from it, so its waterline is as good as the field allows. A
+## clipmap materially worse than the sheet it replaced is the bug whatever the absolute number, and
+## comparing the two needs no threshold anyone has to choose.
+func _criterion_h_coarse_rings() -> void:
+	print("[H] the waterline on a body big enough to have coarse rings:")
+	var root := _scene()
+	var pool := _pool(root, BIG_SCALE)
+	pool.surface_mode = pool.SurfaceMode.MASKED
+	await _rebuild(pool)
+	var poly := pool.get_polygon()
+	if poly.size() < 3:
+		_fail += 1
+		print("    !! no polygon")
+		root.queue_free()
+		_completed += 1
+		return
+
+	var mn := poly[0]
+	var mx := poly[0]
+	for v in poly:
+		mn = Vector2(minf(mn.x, v.x), minf(mn.y, v.y))
+		mx = Vector2(maxf(mx.x, v.x), maxf(mx.y, v.y))
+	var extent: float = maxf(mx.x - mn.x, mx.y - mn.y) + 120.0
+	var view_min: Vector2 = (mn + mx) * 0.5 - Vector2(extent, extent) * 0.5
+	var mpp := extent / float(IMG)
+	var truth := SDF.inside_mask(poly, view_min + Vector2(0.5, 0.5) * mpp, mpp, IMG, IMG)
+	var truth_area := 0
+	for b in truth:
+		truth_area += int(b)
+	print("    %.0f m body at %.2f m/px -- the instrument floor here" % [extent, mpp])
+
+	# The measuring viewport owns the world, because the clipmap draws into whatever world it is in
+	# and centres on that viewport's camera -- which puts the rings' centre over the middle of the
+	# lake, so the shore falls in the outer rings exactly as it does for someone standing in it.
+	var vp := _ortho(view_min, extent)
+	root.get_parent().remove_child(root)
+	vp.add_child(root)
+	await get_tree().process_frame
+
+	var scores := {}
+	for case in [["clipmap", false], ["clipmap, mesh_size 64", false],
+			["CONTROL static sheet", true]]:
+		pool.mask_static_sheet = case[1]
+		# A wider ring reaches further, so the same body needs fewer of them and the COARSEST cell
+		# is finer. If the residual below still tracks cell size, the per-ring margin has not
+		# finished the job; if it does not, what is left is the instrument and the field.
+		pool.mask_clipmap_mesh_size = 64 if str(case[0]).ends_with("64") else 16
+		pool.rebuild()
+		await get_tree().process_frame
+		var rt: ShaderMaterial = pool._runtime_material
+		if rt == null:
+			_fail += 1
+			print("    !! no runtime material for %s" % case[0])
+			continue
+		var cover := ShaderMaterial.new()
+		cover.shader = _coverage_shader(not case[1])
+		for nm in ["_shore_sdf", "_shore_rect", "_shore_texels", "_shore_range",
+				"_shore_feather", "_shore_offset", "_shore_kill_margin", "sea_level"]:
+			cover.set_shader_parameter(nm, rt.get_shader_parameter(nm))
+		var clip: Node = pool.get_node_or_null("Clipmap")
+		var surface: MeshInstance3D = pool.get_node_or_null("Surface")
+		var cell := 0.0
+		if not case[1]:
+			if clip == null:
+				_fail += 1
+				print("    !! %s: expected a clipmap and found none" % case[0])
+				continue
+			cell = clip.vertex_spacing * pow(2.0, float(clip.mesh_lods - 1))
+		# RE-ASSERTED every frame, for the reason criterion B is: writing mask_static_sheet
+		# schedules a DEBOUNCED rebuild, and when it fires it calls _apply_material and _ensure_
+		# clipmap, both of which put the water material back. The first version of this set the
+		# readout material once and measured the WATER -- brightest pixel 0.09 against a threshold
+		# of 0.5, which reads as an empty frame and, because it happened to both cases equally,
+		# reads as the two carriers agreeing perfectly.
+		#
+		# Swapping the CLIPMAP's material is the only way to read its footprint at all: the geometry
+		# is RenderingServer instances, and set_material re-initialises the mesher onto the new RID
+		# and re-pushes _mesh_size / _vertex_spacing / _subdiv into it.
+		for i in 8:
+			if case[1]:
+				surface.material_override = cover
+			else:
+				clip.material = cover
+			await RenderingServer.frame_post_draw
+		var img := vp.get_texture().get_image()
+		var sc := SDF.score(img, truth, poly, view_min, mpp, IMG, truth_area)
+		scores[case[0]] = sc
+		print("    %-21s p99 %6.2f m  max %6.2f m  coverage %.2fx  rings=%d coarsest cell %.1f m" % [
+			case[0], sc["p99"], sc["max"],
+			float(sc["covered"]) / float(maxi(truth_area, 1)),
+			0 if clip == null else clip.mesh_lods, cell])
+		_save(img, "pool_coarse_%s.png" % str(case[0]).replace(" ", "_"))
+
+	if scores.has("clipmap") and scores.has("CONTROL static sheet"):
+		var c: float = scores["clipmap"]["p99"]
+		var sheet: float = scores["CONTROL static sheet"]["p99"]
+		print("    clipmap %.2f m vs the sheet it replaced %.2f m  (%.1fx)" % [
+			c, sheet, c / maxf(sheet, 1e-3)])
+		# The mesh_size 64 row is a READING, not an assertion, and it is the interesting one: a
+		# FINER coarsest cell scores WORSE, so what is left after the per-ring margin is not the
+		# cull. With four rings instead of six the outermost ring's geomorph band begins at 694 m
+		# and this shore sits at ~700 m, right inside it. Recorded on the export rather than gated
+		# here, because the default is what ships and 64 is a knob with a stated cost.
+		if scores.has("clipmap, mesh_size 64"):
+			print("    reading: at mesh_size 64 (4 rings, 10.2 m coarsest) it is %.2f m --" % (
+				scores["clipmap, mesh_size 64"]["p99"]))
+			print("             finer cells, worse rim, so the residual is the morph band")
+		# The bound is edge_offset, because that is the physical thing that matters: the rim is
+		# meant to be buried in the bank, and a waterline inside the offset is a waterline nobody
+		# can see. Not a ratio against the sheet -- the sheet is better here and saying so is
+		# information, not a failure -- and not a multiple of the pixel size, which would have let
+		# the 35 m version pass on a coarse instrument.
+		if c > pool.edge_offset:
+			_fail += 1
+			print("    !! the clipmap's rim reaches past edge_offset (%.2f m), so it emerges from" % pool.edge_offset)
+			print("       the bank. One kill margin for every ring removes whole coarse cells")
+			print("       that straddle the shore, and the edge then steps at cell size.")
+	vp.queue_free()
+	_completed += 1
+
+
 # ---- plumbing ---------------------------------------------------------------
 
 func _scene() -> Node3D:
@@ -828,28 +959,45 @@ func _ortho(p_view_min: Vector2, p_extent: float) -> SubViewport:
 	return vp
 
 
-func _coverage_shader() -> Shader:
-	var sh := Shader.new()
-	sh.code = "\n".join([
+## Unlit flat coverage over the shore mask.
+##
+## p_clipmap includes the SHIPPED vertex stage instead of a hand-written one, because on a clipmap
+## the geomorph, the sea_level lift and the vertex kill are the things under test and a substitute
+## would be testing this probe. Only fragment() is ours; water_shading is left out so it can be.
+func _coverage_shader(p_clipmap: bool = false) -> Shader:
+	var lines := [
 		"shader_type spatial;",
 		"render_mode unshaded, cull_disabled, depth_draw_never, skip_vertex_transform;",
 		"#define WATER_SHORE_MASK",
-		'#include "%swater_common.gdshaderinc"' % WATER_DIR,
-		"void vertex() {",
-		"	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;",
-		"	v_world_pos = wp;",
-		"	v_shore_xz = wp.xz;",
-		"	VERTEX = (VIEW_MATRIX * vec4(wp, 1.0)).xyz;",
-		"	NORMAL = normalize(mat3(VIEW_MATRIX) * vec3(0.0, 1.0, 0.0));",
-		"	if (water_shore_distance(wp.xz) > _shore_kill_margin) {",
-		"		VERTEX = vec3(0.0 / 0.0);",
-		"	}",
-		"}",
+		"#define WATER_WAVE_COUNT 4",
+	]
+	if p_clipmap:
+		lines.append("#define WATER_CLIPMAP")
+	lines.append('#include "%swater_common.gdshaderinc"' % WATER_DIR)
+	if p_clipmap:
+		lines.append('#include "%swater_waves.gdshaderinc"' % WATER_DIR)
+		lines.append('#include "%swater_surface.gdshaderinc"' % WATER_DIR)
+	else:
+		lines.append_array([
+			"void vertex() {",
+			"	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;",
+			"	v_world_pos = wp;",
+			"	v_shore_xz = wp.xz;",
+			"	VERTEX = (VIEW_MATRIX * vec4(wp, 1.0)).xyz;",
+			"	NORMAL = normalize(mat3(VIEW_MATRIX) * vec3(0.0, 1.0, 0.0));",
+			"	if (water_shore_distance(wp.xz) > _shore_kill_margin) {",
+			"		VERTEX = vec3(0.0 / 0.0);",
+			"	}",
+			"}",
+		])
+	lines.append_array([
 		"void fragment() {",
 		"	ALBEDO = vec3(1.0);",
 		"	ALPHA = water_shore_alpha(v_shore_xz);",
 		"}",
 	])
+	var sh := Shader.new()
+	sh.code = "\n".join(lines)
 	return sh
 
 

@@ -122,6 +122,14 @@ enum SurfaceMode {
 		mask_clipmap_lods = clampi(v, 0, 10)
 		_schedule_rebuild()
 ## Vertices across one clipmap ring. Trades the count against how far LOD0's fine spacing reaches.
+##
+## RAISING IT CAN COST RIM ACCURACY, which is not obvious and is worth knowing before you do. A
+## wider ring reaches further, so the same body needs fewer of them, and the ring boundaries -- and
+## with them the geomorph bands -- land in different places. On the 1.4 km fixture in
+## bench/WaterShorePoolProbe.gd criterion H, 16 puts the waterline 1.35 m from the outline and 64
+## puts it at 2.97 m, past the default edge_offset, because at four rings the outermost band begins
+## at 694 m and that shore sits at 700 m. Finer cells, worse rim: the cost is the morph, not the
+## tessellation. If you raise this, check the rim on your own body.
 @export_range(8, 64, 2) var mask_clipmap_mesh_size: int = 16:
 	set(v):
 		mask_clipmap_mesh_size = clampi(v, 8, 64)
@@ -685,6 +693,10 @@ func _apply_shore_uniforms(p_texture: Texture2D, p_sheet_spacing: float) -> void
 	# it stays that way here, because _build_surface offsets the loop before the field is baked from
 	# it. So this is zero, not edge_offset: adding it again would apply the same rim twice.
 	_runtime_material.set_shader_parameter("_shore_offset", 0.0)
+	# Read only by the STATIC SHEET. Under WATER_CLIPMAP the shader derives the margin per ring
+	# from the instance's own cell size, because one number cannot serve rings whose cells differ
+	# by 32x -- see water_surface.gdshaderinc. Still written, so the two carriers can be swapped
+	# without a rebuild deciding which uniforms exist.
 	_runtime_material.set_shader_parameter("_shore_kill_margin",
 		_kill_margin(p_sheet_spacing))
 	_push_sea_level()

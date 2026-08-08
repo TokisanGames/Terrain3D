@@ -97,7 +97,26 @@ void vertex() {
 	// Last in vertex() because Godot's shader language rejects `return` inside an
 	// entry point, so an early exit has to be written as an overwrite at the end.
 	v_shore_xz = world_pos.xz;
-	if (water_shore_distance(world_pos.xz) > _shore_kill_margin) {
+
+	// THE MARGIN IS PER RING on a clipmap, and it has to be.
+	//
+	// The threshold has to exceed the cell diagonal, or a cell that straddles the shore loses a
+	// corner and the whole cell goes with it -- so the drawn edge steps at CELL SIZE. One uniform
+	// margin cannot serve rings whose cells differ by 32x: sized for LOD0 it removes whole 40 m
+	// cells along the far shore, which is a 1.4 km lake with a visibly jagged rim (measured 35.5 m
+	// against the static sheet's 0.11 m on the same body). Sized for the coarsest ring instead, it
+	// would stop culling anything anywhere.
+	//
+	// MODEL_MATRIX[0][0] is the ring's own cell size, so each ring gets the margin it needs. Where
+	// that exceeds _shore_range the field clamps below it and nothing on that ring is ever killed,
+	// which is the right answer: the fragment stage cuts the edge exactly, and the rings where the
+	// geometric cull is worth having -- the fine ones, which is where the vertices are -- keep it.
+#ifdef WATER_CLIPMAP
+	float shore_kill = scale * 1.5 + _shore_feather;
+#else
+	float shore_kill = _shore_kill_margin;
+#endif
+	if (water_shore_distance(world_pos.xz) > shore_kill) {
 		VERTEX = vec3(0.0 / 0.0);
 	}
 #endif
