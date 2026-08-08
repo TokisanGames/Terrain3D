@@ -152,6 +152,8 @@ Properties
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_roughmap<class_Terrain3D_property_show_roughmap>`                                   | ``false``       |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
+   | ``bool``                                                    | :ref:`show_slope<class_Terrain3D_property_show_slope>`                                         | ``false``       |
+   +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_texture_albedo<class_Terrain3D_property_show_texture_albedo>`                       | ``false``       |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``bool``                                                    | :ref:`show_texture_ao<class_Terrain3D_property_show_texture_ao>`                               | ``false``       |
@@ -1372,7 +1374,7 @@ Alias for :ref:`Terrain3DMaterial.show_heightmap<class_Terrain3DMaterial_propert
 - |void| **set_show_instancer_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_instancer_grid**\ (\ )
 
-Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. With the mouse in the viewport you can press the hotkey to toggle visibility (default `4`).
+Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned.
 
 Alias for :ref:`Terrain3DMaterial.show_instancer_grid<class_Terrain3DMaterial_property_show_instancer_grid>`.
 
@@ -1451,6 +1453,25 @@ Alias for :ref:`Terrain3DMaterial.show_region_grid<class_Terrain3DMaterial_prope
 Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 means no roughness modification. Black would be high gloss while white is very rough.
 
 Alias for :ref:`Terrain3DMaterial.show_roughmap<class_Terrain3DMaterial_property_show_roughmap>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_show_slope:
+
+.. rst-class:: classref-property
+
+``bool`` **show_slope** = ``false`` :ref:`🔗<class_Terrain3D_property_show_slope>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_slope**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_slope**\ (\ )
+
+Overlays slope color on the terrain. Customize the options in the material when enabled. With the mouse in the viewport you can press the hotkey to toggle visibility (default `4`).
+
+Alias for :ref:`Terrain3DMaterial.show_slope<class_Terrain3DMaterial_property_show_slope>`.
 
 .. rst-class:: classref-item-separator
 

@@ -102,6 +102,8 @@ Properties
    +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_roughmap<class_Terrain3DMaterial_property_show_roughmap>`                                   | ``false`` |
    +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
+   | ``bool``                                                         | :ref:`show_slope<class_Terrain3DMaterial_property_show_slope>`                                         | ``false`` |
+   +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_texture_albedo<class_Terrain3DMaterial_property_show_texture_albedo>`                       | ``false`` |
    +------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------+-----------+
    | ``bool``                                                         | :ref:`show_texture_ao<class_Terrain3DMaterial_property_show_texture_ao>`                               | ``false`` |
@@ -685,7 +687,7 @@ Shows the color map in the albedo channel.
 - |void| **set_show_contours**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_contours**\ (\ )
 
-Overlays contour lines on the terrain. Customize the options in the material when enabled. Press `4` with the mouse in the viewport to toggle.
+Overlays contour lines on the terrain. Customize the options in the material when enabled. With the mouse in the viewport you can press the hotkey to toggle visibility (default `3`).
 
 .. rst-class:: classref-item-separator
 
@@ -821,7 +823,7 @@ Albedo is a white to black gradient depending on height. The gradient is scaled 
 - |void| **set_show_instancer_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_instancer_grid**\ (\ )
 
-Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned. Press `2` with the mouse in the viewport to toggle.
+Overlays the 32x32m instancer grid on the terrain, which shows how the instancer data is partitioned.
 
 .. rst-class:: classref-item-separator
 
@@ -872,7 +874,7 @@ Displays the area designated for generating the navigation mesh.
 - |void| **set_show_region_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_region_grid**\ (\ )
 
-Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. Press `1` with the mouse in the viewport to toggle.
+Overlays the region grid on the terrain. This is more accurate than the region grid gizmo for determining where the region border is when editing. With the mouse in the viewport you can press the hotkey to toggle visibility (default `1`).
 
 .. rst-class:: classref-item-separator
 
@@ -890,6 +892,23 @@ Overlays the region grid on the terrain. This is more accurate than the region g
 - ``bool`` **get_show_roughmap**\ (\ )
 
 Albedo is set to the roughness modification map as grey scale. Middle grey, 0.5 means no roughness modification. Black would be high gloss while white is very rough.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DMaterial_property_show_slope:
+
+.. rst-class:: classref-property
+
+``bool`` **show_slope** = ``false`` :ref:`🔗<class_Terrain3DMaterial_property_show_slope>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_show_slope**\ (\ value\: ``bool``\ )
+- ``bool`` **get_show_slope**\ (\ )
+
+Overlays slope color on the terrain. Customize the options in the material when enabled. With the mouse in the viewport you can press the hotkey to toggle visibility (default `4`).
 
 .. rst-class:: classref-item-separator
 
@@ -991,7 +1010,7 @@ Albedo is set to the painted Roughness textures. This is different from the roug
 - |void| **set_show_vertex_grid**\ (\ value\: ``bool``\ )
 - ``bool`` **get_show_vertex_grid**\ (\ )
 
-Overlays the vertex grid on the terrain, showing where each vertex is. Press `3` with the mouse in the viewport to toggle.
+Overlays the vertex grid on the terrain, showing where each vertex is. With the mouse in the viewport you can press the hotkey to toggle visibility (default `5`).
 
 .. rst-class:: classref-item-separator
 

@@ -260,7 +260,7 @@
 			<return type="Vector2i" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the calculated region location for the given global position. This is just a calculation and does no bounds checking or verification that a region exists. See [method get_region_map_index] for bounds checking, or [method has_region] for checking existance.
+				Returns the calculated region location for the given global position. This is just a calculation and does no bounds checking or verification that a region exists. See [method get_region_map_index] for bounds checking, or [method has_region] for checking if it exists.
 			</description>
 		</method>
 		<method name="get_region_map" qualifiers="const">

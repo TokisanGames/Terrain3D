@@ -38,7 +38,7 @@ The Live Info Panel can be enabled from the Terrain3D menu. When active, it disp
 * X, Z mouse position on the terrain
 * Height (surface)
 * Slope angle
-* Texture data, such as:
+* Texture data:
   * Base texture index
   * Overlay texture index
   * Blend value
@@ -48,11 +48,11 @@ The Live Info Panel can be enabled from the Terrain3D menu. When active, it disp
 :target: ../_images/ui_live_info_panel.png
 ```
 
-Notes:
+Height may show two values: The first is the actual height stored in the region data. The second might appear in parentheses. Inside of regions this number is the value from `Terrain3DData.get_surface_height()` and represents the rendered height used by collision, navigation baking, and instancer placement. It is modified by the `ground_level` and `region_blend` uniforms from the material and interpolates adjacent vertices. Outside of regions, this number comes from `Terrain3D.get_intersection()` and uses the GPU to snapshot where the mesh is.
 
-When the Region Tool is selected, the panel shows only the current region coordinates, and an approximate mouse position. Change to any other tool, and set brush size to zero for the most accurate information.
+Slope is derived from `Terrain3DData.get_normal()`.
 
-Height may show two values, the first is the actual sculpted height stored in the region. The second, if it appears is the value from `Terrain3DData.get_surface_height()`. This is the rendered height used by collision, navigation, and instancer placement. It is modified by the `ground_level` and `region_blend` uniforms from the material and interpolates adjacent vertices.
+Texture data is read from `Terrain3DData.get_texture_id()`.
 
 ---
 

@@ -31,7 +31,7 @@ These toggle the Overlays found in the inspector. The mouse must be in the 3D Vi
 * <kbd>1</kbd> - Toggle **Region Grid**.
 * <kbd>2</kbd> - Toggle **Region Label Distance** between 0 and 4096.
 * <kbd>3</kbd> - Toggle **Contour Lines**. Customize in the material when enabled.
-* <kbd>4</kbd> - Toggle **Instancer Grid**.
+* <kbd>4</kbd> - Toggle **Slope Colorizer**. Customize in the material when enabled.
 * <kbd>5</kbd> - Toggle **Vertex Grid**.
 
 

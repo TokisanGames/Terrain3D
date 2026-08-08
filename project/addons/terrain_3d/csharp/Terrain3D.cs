@@ -349,6 +349,10 @@ public partial class Terrain3D : Node3D
 		/// </summary>
 		public new static readonly StringName ShowContours = "show_contours";
 		/// <summary>
+		/// Cached name for the 'show_slope' member.
+		/// </summary>
+		public new static readonly StringName ShowSlope = "show_slope";
+		/// <summary>
 		/// Cached name for the 'show_navigation' member.
 		/// </summary>
 		public new static readonly StringName ShowNavigation = "show_navigation";
@@ -728,6 +732,12 @@ public partial class Terrain3D : Node3D
 	{
 		get => Get(GDExtensionPropertyName.ShowContours).As<bool>();
 		set => Set(GDExtensionPropertyName.ShowContours, value);
+	}
+
+	public new bool ShowSlope
+	{
+		get => Get(GDExtensionPropertyName.ShowSlope).As<bool>();
+		set => Set(GDExtensionPropertyName.ShowSlope, value);
 	}
 
 	public new bool ShowNavigation
