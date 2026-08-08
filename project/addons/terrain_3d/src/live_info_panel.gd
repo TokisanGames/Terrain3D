@@ -22,14 +22,14 @@ func update(cursor_position: Vector3) -> void:
 		return
 		
 	var region_loc: Vector2i = plugin.terrain.data.get_region_location(cursor_position)
+	var in_region: bool = plugin.terrain.data.has_region(region_loc)
 	var lbl_text: String
-	var in_region: bool = plugin.editor.get_tool() == Terrain3DEditor.REGION
-	lbl_text += "Cursor Pos: %0.1f, %0.1f%s\n" % [ cursor_position.x, cursor_position.z, " *" if in_region else "" ]
+	lbl_text += "Cursor Pos: %0.1f, %0.1f\n" % [ cursor_position.x, cursor_position.z ]
 	lbl_text += "Region: %s, %s\n" % [region_loc.x, region_loc.y]
 
 	var slope: float = rad_to_deg(plugin.terrain.data.get_normal(cursor_position).angle_to(Vector3.UP))
-	if  in_region or is_nan(slope):
-		lbl_text += "Height: -\n"
+	if  not in_region or is_nan(slope):
+		lbl_text += "Height: (%.2f)\n" % cursor_position.y
 		lbl_text += "Slope: -\n"
 		lbl_text += "Texture: -"
 	else:
