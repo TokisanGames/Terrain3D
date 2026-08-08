@@ -94,8 +94,12 @@ const FLOW_NEUTRAL := Color(0.5, 0.5, 0.0, 1.0)
 	set(v):
 		edge_offset = v
 		_schedule_rebuild()
-## Metres added to the surface height when Fit to Curve runs. Negative sits the water
-## below the rim, which is where a basin's water actually is.
+## Metres added to the surface height when the level is taken from the spline. Negative sits the
+## water below the rim, which is where a basin's water actually is.
+##
+## Applied by Fit to Curve, and on every rebuild when `level_from_spline` is on -- which is what
+## makes this a live dial rather than a number that only means something the moment a button is
+## pressed.
 ##
 ## On a Pasture3DStream this is the FALLBACK level rather than the level: the surface comes from
 ## the banks whenever there is terrain to sample, and this is what a stream over a bare mesh gets
@@ -104,6 +108,22 @@ const FLOW_NEUTRAL := Color(0.5, 0.5, 0.0, 1.0)
 	set(v):
 		fill_offset = v
 		_schedule_rebuild()
+## Take the water level from the spline on every rebuild, instead of only when Fit to Curve is
+## pressed. `fill_offset` then becomes a live dial: type a depth and the water moves.
+##
+## OFF BY DEFAULT, and the reason is worth reading before turning it on. The brushes re-snap their
+## spline points to the terrain surface, so with this on the water level follows the GROUND under
+## the rim -- sculpt the basin deeper and the water goes down with it. That is either exactly what
+## you want or a level that will not hold still, depending on whether the spline is the thing you
+## are authoring the level with. Fit to Curve stays the one-shot version for the other case.
+##
+## Needs a `source_spline`. A bare `curve` is authored in this node's own space, so its rim travels
+## with the node and there is no level to solve for -- see fit_to_curve().
+@export var level_from_spline: bool = false:
+	set(v):
+		level_from_spline = v
+		_schedule_rebuild()
+		update_configuration_warnings()
 ## Ceiling on generated vertices, for when a body genuinely needs to be denser than the
 ## default guard allows. This is the water body's frame-time dial in the same sense mesh_size is
 ## the ocean's: raise it to buy resolution on a large body, lower it to catch a spacing
@@ -229,6 +249,9 @@ var _dirty := false
 var _last_stats := {}
 ## World transform of source_spline as of the last rebuild. See _process.
 var _source_xform := Transform3D()
+## This node's own world XZ as of the last transform notification, so a Y-only move can be told
+## from one that slides the body off its spline. See _notification.
+var _last_xz := Vector2.INF
 ## Last resolved manager. See _resolve_manager.
 var _manager_cache: Node = null
 ## LOCAL XZ bounds of whatever was last built. The broad phase for every containment query and the
@@ -360,7 +383,13 @@ func _notification(what: int) -> void:
 		# by a rebuild — otherwise the mesh slides off its spline and stays there until the
 		# next curve edit silently snaps it back. With a bare `curve` the points are in this
 		# node's space and genuinely travel with it, so there is nothing to recompute.
-		if curve == null and source_spline != null and is_instance_valid(source_spline):
+		# XZ, specifically. The comment above already says a Y move needs nothing, but this used
+		# to fire on ANY transform change -- harmless while nothing wrote the transform from inside
+		# a build, and an endless debounced rebuild loop the moment level_from_spline does.
+		var pos := global_position
+		var moved_xz := not (is_equal_approx(pos.x, _last_xz.x) and is_equal_approx(pos.z, _last_xz.y))
+		_last_xz = Vector2(pos.x, pos.z)
+		if moved_xz and curve == null and source_spline != null and is_instance_valid(source_spline):
 			_schedule_rebuild()
 		# The domain origin is this node's position — it is what keeps wave phase precise far
 		# from the world origin — so it follows the node, not just a material assignment.
@@ -545,6 +574,9 @@ func rebuild() -> Dictionary:
 	if not is_inside_tree():
 		_last_stats["reason"] = "not in tree"
 		return _last_stats
+	# BEFORE the baseline and before the build: the level is part of the pose this build reflects,
+	# and a stream reads its banks relative to it.
+	_apply_spline_level()
 	# Baseline the spline-move watcher (_process) against the pose this build reflects, so a
 	# rebuild triggered by anything else does not leave it looking like a move.
 	if source_spline != null and is_instance_valid(source_spline):
@@ -1074,15 +1106,45 @@ func fit_to_curve() -> void:
 	var src: Curve3D = source_spline.curve
 	if src == null or src.point_count == 0:
 		return
+	var level := _spline_level()
+	if not is_finite(level):
+		return
+	var origin := source_spline.global_position
+	global_position = Vector3(origin.x, level, origin.z)
+	_schedule_rebuild()
+
+
+## The level the spline implies: its lowest baked point in WORLD y, plus fill_offset.
+##
+## INF when there is nothing to solve from, which the callers treat as "leave the level alone"
+## rather than as zero -- a body that silently dropped to y = 0 because its spline was missing for
+## one frame would be a lake at the bottom of the world.
+func _spline_level() -> float:
+	if curve != null or source_spline == null or not is_instance_valid(source_spline):
+		return INF
+	var src: Curve3D = source_spline.curve
+	if src == null or src.point_count == 0:
+		return INF
 	var xf := source_spline.global_transform
 	var lowest := INF
 	for p in src.get_baked_points():
 		lowest = minf(lowest, (xf * p).y)
 	if not is_finite(lowest):
+		return INF
+	return lowest + fill_offset
+
+
+## Move this node's Y onto the spline-implied level, if that is what was asked for.
+##
+## Y only. Fit to Curve also seats the XZ, because a press is a deliberate act; doing it every
+## rebuild would drag the body under the user's cursor. Guarded on an actual change so it does not
+## write the transform -- and notify everything that listens -- on every rebuild of a still body.
+func _apply_spline_level() -> void:
+	if not level_from_spline:
 		return
-	var origin := source_spline.global_position
-	global_position = Vector3(origin.x, lowest + fill_offset, origin.z)
-	_schedule_rebuild()
+	var level := _spline_level()
+	if is_finite(level) and not is_equal_approx(level, global_position.y):
+		global_position.y = level
 
 
 ## Duplicate the resolved material into the scene so a plugin update cannot overwrite
@@ -1259,6 +1321,10 @@ func _get_configuration_warnings() -> PackedStringArray:
 		w.append("No wave profile named '%s' on the Pasture3DPoolManager." % wave_profile)
 	if material == null:
 		w.append("No material.")
+	if level_from_spline and not is_finite(_spline_level()):
+		w.append("level_from_spline is on but there is no spline to take a level from. It needs a "
+			+ "source_spline with points; a bare `curve` is authored in this node's own space, so "
+			+ "its rim travels with the node and there is no level to solve for.")
 	if not _last_stats.is_empty() and not _last_stats.get("ok", false) \
 			and _last_stats.get("reason", "") != "":
 		w.append("The surface could not be built: %s." % _last_stats["reason"])

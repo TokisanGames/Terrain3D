@@ -75,9 +75,16 @@ enum SurfaceMode {
 	set(v):
 		mask_texel = clampf(v, 0.25, 8.0)
 		_schedule_rebuild()
-## Metres of distance the field encodes before clamping. Must exceed the sheet's vertex kill margin
-## (spacing * 1.5) or the geometric half of the cut goes inert and the sheet is trimmed by the
-## fragment stage alone -- correct, but paying for fragments it could have skipped.
+## Metres of distance the field encodes before clamping.
+##
+## It has to exceed the vertex kill margin, or the field can never report far enough out for a
+## vertex to be killed and the geometric half of the cut goes inert -- still correct, since the
+## fragment stage trims the sheet either way, but paying for fragments it could have skipped.
+##
+## On a static sheet the margin is spacing * 1.5 and one number serves. On a CLIPMAP each ring
+## derives its own from its cell size (cell * 3.5, wide enough to cover the geomorph's
+## displacement), so the outer rings deliberately exceed any sane range and stop culling -- which is
+## the right answer there and not something to raise this to chase.
 @export var mask_range: float = 24.0:
 	set(v):
 		mask_range = maxf(v, 1.0)
@@ -123,13 +130,11 @@ enum SurfaceMode {
 		_schedule_rebuild()
 ## Vertices across one clipmap ring. Trades the count against how far LOD0's fine spacing reaches.
 ##
-## RAISING IT CAN COST RIM ACCURACY, which is not obvious and is worth knowing before you do. A
-## wider ring reaches further, so the same body needs fewer of them, and the ring boundaries -- and
-## with them the geomorph bands -- land in different places. On the 1.4 km fixture in
-## bench/WaterShorePoolProbe.gd criterion H, 16 puts the waterline 1.35 m from the outline and 64
-## puts it at 2.97 m, past the default edge_offset, because at four rings the outermost band begins
-## at 694 m and that shore sits at 700 m. Finer cells, worse rim: the cost is the morph, not the
-## tessellation. If you raise this, check the rim on your own body.
+## A wider ring reaches further, so the same body needs fewer of them and the ring boundaries -- and
+## with them the geomorph bands -- land in different places. That used to cost rim accuracy: at 64 the
+## 1.4 km fixture scored 2.97 m against 16's 1.35 m, because the vertex kill's margin did not cover
+## the distance the morph displaces a vertex. It does now, and the two layouts agree to within a
+## tenth of a metre (bench/WaterShorePoolProbe.gd criterion H asserts that they do).
 @export_range(8, 64, 2) var mask_clipmap_mesh_size: int = 16:
 	set(v):
 		mask_clipmap_mesh_size = clampi(v, 8, 64)

@@ -43,7 +43,7 @@ const ACCURACY_BUDGET_M := 0.25
 
 var _fail := 0
 var _completed := 0
-const CRITERIA := 8
+const CRITERIA := 9
 var _out_dir := ""
 
 
@@ -79,6 +79,7 @@ func _ready() -> void:
 	await _criterion_f_carriers_agree()
 	await _criterion_g_it_draws()
 	await _criterion_h_coarse_rings()
+	await _criterion_i_level_from_spline()
 
 	print("")
 	print("completed %d/%d criteria, %d failures" % [_completed, CRITERIA, _fail])
@@ -827,15 +828,20 @@ func _criterion_h_coarse_rings() -> void:
 		var sheet: float = scores["CONTROL static sheet"]["p99"]
 		print("    clipmap %.2f m vs the sheet it replaced %.2f m  (%.1fx)" % [
 			c, sheet, c / maxf(sheet, 1e-3)])
-		# The mesh_size 64 row is a READING, not an assertion, and it is the interesting one: a
-		# FINER coarsest cell scores WORSE, so what is left after the per-ring margin is not the
-		# cull. With four rings instead of six the outermost ring's geomorph band begins at 694 m
-		# and this shore sits at ~700 m, right inside it. Recorded on the export rather than gated
-		# here, because the default is what ships and 64 is a knob with a stated cost.
+		# The mesh_size 64 row is a READING, not an assertion, and it is how the morph was pinned:
+		# with the margin at 1.5 * cell it scored 2.97 m against 16's 1.35 m -- a FINER coarsest
+		# cell scoring worse, which ruled out the cull and pointed at the geomorph, since four
+		# rings put the outermost morph band at 694 m and this shore sits at ~700 m. With the
+		# margin widened to cover the morph's 2 * cell displacement the two agree, and that
+		# agreement is the evidence the diagnosis was right.
 		if scores.has("clipmap, mesh_size 64"):
-			print("    reading: at mesh_size 64 (4 rings, 10.2 m coarsest) it is %.2f m --" % (
-				scores["clipmap, mesh_size 64"]["p99"]))
-			print("             finer cells, worse rim, so the residual is the morph band")
+			var wide: float = scores["clipmap, mesh_size 64"]["p99"]
+			print("    reading: mesh_size 64 (4 rings, 10.2 m coarsest) is %.2f m against 16's %.2f m" % [
+				wide, c])
+			if wide > c * 1.5:
+				_fail += 1
+				print("    !! the two ring layouts disagree, so something is still tracking the")
+				print("       ring geometry rather than the field")
 		# The bound is edge_offset, because that is the physical thing that matters: the rim is
 		# meant to be buried in the bank, and a waterline inside the offset is a waterline nobody
 		# can see. Not a ratio against the sheet -- the sheet is better here and saying so is
@@ -847,6 +853,87 @@ func _criterion_h_coarse_rings() -> void:
 			print("       the bank. One kill margin for every ring removes whole coarse cells")
 			print("       that straddle the shore, and the edge then steps at cell size.")
 	vp.queue_free()
+	_completed += 1
+
+
+# ---- I: the water level, taken from the spline --------------------------------
+
+## fill_offset used to mean something only at the instant Fit to Curve was pressed. level_from_spline
+## makes it a live dial, which is what authoring a basin actually needs -- and the risk in doing that
+## is a rebuild loop, because writing this node's transform is what a rebuild would then do.
+##
+## A loop would hang the probe rather than fail it, so the bail timer is the backstop; what is
+## asserted here is that the level lands where the spline says, that changing the offset moves it,
+## and that with the flag OFF nothing moves at all.
+func _criterion_i_level_from_spline() -> void:
+	print("[I] the water level relative to the spline:")
+	var root := _scene()
+	# A source_spline, not a bare curve: the level is solved in WORLD space and a bare curve travels
+	# with the node, so there is nothing to solve for -- the node says so and this checks that too.
+	var path := Path3D.new()
+	path.curve = _curve(PROBE_SCALE)
+	path.position = Vector3(0.0, 12.0, 0.0)
+	root.add_child(path)
+	var pool := Pasture3DPool.new()
+	pool.name = "LevelPool"
+	pool.source_spline = path
+	pool.wave_profile = &"lake_calm"
+	pool.material = load(LAKE_MAT)
+	pool.underwater_enabled = false
+	root.add_child(pool)
+	await get_tree().process_frame
+
+	# The spline's lowest baked point in world Y. The curve is flat at y = 0 in its own space and the
+	# Path3D sits at 12, so the level should come out at 12 + fill_offset.
+	pool.fill_offset = -0.5
+	pool.level_from_spline = false
+	await _rebuild(pool)
+	var before := pool.global_position.y
+	print("    flag off: pool Y = %.3f (spline lowest 12.00, offset -0.50)" % before)
+
+	pool.level_from_spline = true
+	await _rebuild(pool)
+	var on := pool.global_position.y
+	print("    flag on:  pool Y = %.3f  (want 11.50)" % on)
+	if not is_equal_approx(on, 11.5):
+		_fail += 1
+		print("    !! the level did not land on the spline's lowest point + fill_offset")
+
+	pool.fill_offset = -3.0
+	await _rebuild(pool)
+	var moved := pool.global_position.y
+	print("    offset -3.0: pool Y = %.3f  (want 9.00)" % moved)
+	if not is_equal_approx(moved, 9.0):
+		_fail += 1
+		print("    !! fill_offset is not live with the flag on")
+
+	# CONTROL. With the flag off, the same edit must move nothing -- otherwise the level is being
+	# taken from the spline unconditionally and every existing scene's water has just moved.
+	pool.level_from_spline = false
+	pool.global_position.y = 40.0
+	pool.fill_offset = -7.0
+	await _rebuild(pool)
+	print("    CONTROL, flag off and offset -7.0: pool Y = %.3f (want 40.00)" % pool.global_position.y)
+	if not is_equal_approx(pool.global_position.y, 40.0):
+		_fail += 1
+		print("    !! the level moved with the flag off -- existing scenes would change")
+
+	# And the warning has to name the case it cannot serve, rather than sitting at whatever Y it
+	# happened to be left at.
+	var bare := Pasture3DPool.new()
+	bare.curve = _curve(PROBE_SCALE)
+	bare.level_from_spline = true
+	bare.material = load(LAKE_MAT)
+	root.add_child(bare)
+	await get_tree().process_frame
+	var warns := "\n".join(Array(bare._get_configuration_warnings()))
+	var names_it := warns.contains("level_from_spline")
+	print("    a bare curve warns about it: %s" % names_it)
+	if not names_it:
+		_fail += 1
+		print("    !! level_from_spline on a bare curve is silently inert")
+	root.queue_free()
+	await get_tree().process_frame
 	_completed += 1
 
 

@@ -111,8 +111,19 @@ void vertex() {
 	// that exceeds _shore_range the field clamps below it and nothing on that ring is ever killed,
 	// which is the right answer: the fragment stage cuts the edge exactly, and the rings where the
 	// geometric cull is worth having -- the fine ones, which is where the vertices are -- keep it.
+	//
+	// THE MULTIPLIER HAS TO COVER THE MORPH, not just the cell. A triangle dies if ANY of its
+	// vertices is killed, so the margin must reach every vertex of every triangle that touches the
+	// shore -- and the geomorph above has already moved them. `shift` is built from
+	// fract(VERTEX.xz * 0.5) * 2.0 times a sign, so it spans [-2, 2) per axis, and a vertex can
+	// therefore travel 2 * scale before this test sees it. Add the cell diagonal it started with,
+	// 1.414 * scale, and the worst case is 3.41; 3.5 covers it with a little room.
+	//
+	// 1.5 was the first value here -- the cell diagonal alone -- and it left small gaps along the
+	// shore on the rings where the morph is active, because a triangle straddling the waterline
+	// could have one corner flung past the margin by the morph and take the whole triangle with it.
 #ifdef WATER_CLIPMAP
-	float shore_kill = scale * 1.5 + _shore_feather;
+	float shore_kill = scale * 3.5 + _shore_feather;
 #else
 	float shore_kill = _shore_kill_margin;
 #endif
