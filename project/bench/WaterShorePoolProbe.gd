@@ -43,7 +43,7 @@ const ACCURACY_BUDGET_M := 0.25
 
 var _fail := 0
 var _completed := 0
-const CRITERIA := 4
+const CRITERIA := 7
 var _out_dir := ""
 
 
@@ -75,6 +75,9 @@ func _ready() -> void:
 	await _criterion_b_waterline()
 	await _criterion_c_queries_unchanged()
 	await _criterion_d_wave_table()
+	await _criterion_e_clipmap_scales()
+	await _criterion_f_carriers_agree()
+	await _criterion_g_it_draws()
 
 	print("")
 	print("completed %d/%d criteria, %d failures" % [_completed, CRITERIA, _fail])
@@ -147,6 +150,11 @@ func _criterion_b_waterline() -> void:
 	var root := _scene()
 	var pool := _pool(root, PROBE_SCALE)
 	pool.surface_mode = pool.SurfaceMode.MASKED
+	# THE STATIC SHEET, because this criterion renders the body's own Surface and a clipmapped body
+	# has none -- its geometry is RenderingServer instances the clipmap owns, which cannot be
+	# reparented into a measuring viewport. What is under test here is the NODE's framing of its
+	# bake, and criterion F establishes that both carriers frame it identically.
+	pool.mask_static_sheet = true
 	await _rebuild(pool)
 
 	var poly := pool.get_polygon()
@@ -363,6 +371,352 @@ func _amp_sum(p_waves) -> float:
 	for v in (p_waves as Array):
 		total += absf((v as Vector4).z)
 	return total
+
+
+# ---- E: the clipmap's count does not know how large the lake is --------------
+
+func _criterion_e_clipmap_scales() -> void:
+	print("[E] the clipmap's cost against the body's size:")
+	if not ClassDB.class_exists("Pasture3DWaterClipmap"):
+		_fail += 1
+		print("    !! Pasture3DWaterClipmap is missing -- the extension is stale")
+		_completed += 1
+		return
+	var counts := []
+	for scale in [1.0, 4.8, 13.5]:
+		var root := _scene()
+		var pool := _pool(root, scale)
+		pool.surface_mode = pool.SurfaceMode.MASKED
+		var st := await _rebuild(pool)
+		var clip: Node = pool.get_node_or_null("Clipmap")
+		print("    scale %5.1f  clipmap=%s  verts=%d  lods=%d  reach=%.0f m  LOD0 %.2f m" % [
+			scale, st.get("clipmap", false), st.get("vertices", 0),
+			st.get("clipmap_lods", 0), st.get("clipmap_reach", 0.0),
+			clip.vertex_spacing if clip else 0.0])
+		if not st.get("clipmap", false) or clip == null:
+			_fail += 1
+			print("    !! the masked build did not put a clipmap up")
+		else:
+			counts.append(st.get("vertices", 0))
+			# The reach has to span the body from anywhere in it, or a camera at one end is
+			# handed nothing at the other.
+			var need: float = (52.0 * scale) * 2.0 * 0.5
+			if st.get("clipmap_reach", 0.0) < need:
+				_fail += 1
+				print("    !! reach %.0f m does not cover a %.0f m half-diagonal" % [
+					st.get("clipmap_reach", 0.0), need])
+			# And LOD0 must still be at the WAVE spacing -- the whole point is that a body too
+			# large to mesh at 1.27 m is still drawn at 1.27 m where the camera is.
+			if absf(clip.vertex_spacing - st.get("spacing", 0.0)) > 1e-4:
+				_fail += 1
+				print("    !! LOD0 is not at the wave spacing, so the detail was not bought back")
+		root.queue_free()
+		await get_tree().process_frame
+
+	if counts.size() == 3:
+		# 13.5x the span. The meshed path grows with the AREA -- 182x by the rebuild probe -- and
+		# the sheet grows with it too. This must not.
+		var growth: float = float(counts[2]) / maxf(float(counts[0]), 1.0)
+		print("    13.5x span -> %.2fx the vertices (meshed grows ~180x)" % growth)
+		if growth > 2.0:
+			_fail += 1
+			print("    !! the clipmap's count is still tracking the body's size")
+		else:
+			print("    -> the count is a property of the clipmap, not of the lake")
+	_completed += 1
+
+
+# ---- F: the two carriers put the waterline in the same place -----------------
+
+func _criterion_f_carriers_agree() -> void:
+	print("[F] clipmap vs static sheet, on one body:")
+	var root := _scene()
+	var pool := _pool(root, PROBE_SCALE)
+	pool.surface_mode = pool.SurfaceMode.MASKED
+	# OFF the origin, so the sea_level check below is not satisfied by a zero that would have been
+	# there anyway. The clipmap is world-anchored and reads the level from a uniform; a body at
+	# y = 0 cannot tell a written level from an unwritten one.
+	pool.position = Vector3(0.0, 7.25, 0.0)
+	await _rebuild(pool)
+	var poly := pool.get_polygon()
+	if poly.size() < 3:
+		_fail += 1
+		print("    !! no polygon")
+		root.queue_free()
+		_completed += 1
+		return
+
+	# The clipmap draws through RenderingServer instances this probe cannot reparent into a
+	# measuring viewport, so the comparison is made on the FIELD and its framing -- which is the
+	# only thing the two carriers could disagree about. The shore metric itself already covers the
+	# static sheet's rendering (criterion B), and the edge probe covers spacing independence, so a
+	# clipmap that reads the same field through the same shader lands in the same place.
+	var readings := {}
+	for use_sheet in [false, true]:
+		pool.mask_static_sheet = use_sheet
+		await _rebuild(pool)
+		var rt: ShaderMaterial = pool._runtime_material
+		if rt == null:
+			_fail += 1
+			print("    !! no runtime material for static_sheet=%s" % use_sheet)
+			continue
+		readings["sheet" if use_sheet else "clipmap"] = {
+			"rect": rt.get_shader_parameter("_shore_rect"),
+			"texels": rt.get_shader_parameter("_shore_texels"),
+			"range": rt.get_shader_parameter("_shore_range"),
+			"feather": rt.get_shader_parameter("_shore_feather"),
+			"shader": rt.shader.resource_path.get_file(),
+			"sea_level": rt.get_shader_parameter("sea_level"),
+		}
+	if readings.size() == 2:
+		var a: Dictionary = readings["clipmap"]
+		var b: Dictionary = readings["sheet"]
+		print("    clipmap: %s  rect=%s" % [a["shader"], a["rect"]])
+		print("    sheet:   %s  rect=%s" % [b["shader"], b["rect"]])
+		var same_field: bool = a["rect"] == b["rect"] and a["texels"] == b["texels"] 			and a["range"] == b["range"] and a["feather"] == b["feather"]
+		if not same_field:
+			_fail += 1
+			print("    !! the two carriers frame the field differently, so the A/B switch")
+			print("       changes the shore as well as what draws it")
+		else:
+			print("    -> identical field and framing; only the carrier differs")
+		# CONTROL: the shaders must NOT be the same, or nothing was switched.
+		if a["shader"] == b["shader"]:
+			_fail += 1
+			print("    !! both used %s -- the clipmap variant was never selected" % a["shader"])
+		else:
+			print("    -> and the shader did change, so the switch is doing something")
+		# The clipmap is world-anchored, so it needs the level as a uniform; the sheet is a child
+		# and does not. Both are written, and the clipmap's has to be right or the lake sits at 0.
+		print("    sea_level written: clipmap=%s sheet=%s (pool Y=%.2f)" % [
+			a["sea_level"], b["sea_level"], pool.global_position.y])
+		if a["sea_level"] == null or absf(float(a["sea_level"]) - pool.global_position.y) > 1e-4:
+			_fail += 1
+			print("    !! the clipmap's sea_level does not match the body's Y")
+	root.queue_free()
+	await get_tree().process_frame
+	_completed += 1
+
+
+# ---- G: the clipmap actually puts water on the screen ------------------------
+
+## Everything above this measures plumbing: counts, uniforms, framing. None of it would notice a
+## clipmap that produced no pixels, because its geometry is RenderingServer instances that no
+## MeshInstance3D owns and no viewport re-parent can reach. So this renders the real thing, from a
+## real camera, and compares its silhouette against the static sheet's on the same body.
+func _criterion_g_it_draws() -> void:
+	print("[G] the clipmap on screen, against the sheet it replaces:")
+	var vp := SubViewport.new()
+	vp.size = Vector2i(640, 480)
+	vp.own_world_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	add_child(vp)
+	var env := WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_SKY
+	var sky := Sky.new()
+	sky.sky_material = ProceduralSkyMaterial.new()
+	e.sky = sky
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.environment = e
+	vp.add_child(env)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-58.0, -72.0, 0.0)
+	vp.add_child(sun)
+	RenderingServer.global_shader_parameter_set("water_sun_direction",
+		-sun.global_transform.basis.z)
+	RenderingServer.global_shader_parameter_set("water_sun_color", Vector3(1.0, 0.97, 0.9))
+	var bank := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(2000.0, 2000.0)
+	bank.mesh = plane
+	var bm := StandardMaterial3D.new()
+	bm.albedo_color = Color(0.42, 0.35, 0.26)
+	bm.roughness = 0.95
+	bank.material_override = bm
+	bank.position = Vector3(0.0, -2.5, 0.0)
+	vp.add_child(bank)
+	var cam := Camera3D.new()
+	cam.near = 0.05
+	cam.far = 3000.0
+	cam.position = Vector3(-58.0, 19.0, 46.0)
+	cam.current = true
+	vp.add_child(cam)
+	cam.look_at(Vector3(0.0, 0.0, 0.0), Vector3.UP)
+
+	# The body lives INSIDE the measured viewport, so the clipmap's world is this one.
+	var root := _scene()
+	remove_child(root)
+	vp.add_child(root)
+	var pool := _pool(root, PROBE_SCALE)
+	pool.surface_mode = pool.SurfaceMode.MASKED
+
+	for i in 6:
+		await RenderingServer.frame_post_draw
+	var dry := vp.get_texture().get_image()
+	# ANTI-NULL, and it has to come first: every number below is a count of "blue-ish" pixels, and
+	# a bank or a sky that reads blue-ish would make all of them meaningless.
+	var dry_px := 0
+	for b in _water_mask(dry, dry):
+		dry_px += int(b)
+	print("    the water-free frame against itself: %d px of water (must be 0)" % dry_px)
+	if dry_px > 0:
+		_fail += 1
+		print("    !! the cue fires on bare ground -- every count below is noise")
+
+	var shots := {}
+	for case in [["sheet", true], ["clipmap", false]]:
+		pool.mask_static_sheet = case[1]
+		pool.rebuild()
+		var clip: Node = pool.get_node_or_null("Clipmap")
+		if clip != null:
+			clip.set_clipmap_target(cam)
+		for i in 8:
+			await RenderingServer.frame_post_draw
+		shots[case[0]] = vp.get_texture().get_image()
+		_save(shots[case[0]], "pool_view_%s.png" % case[0])
+
+	var masks := {}
+	for name in shots.keys():
+		masks[name] = _fill_columns(_water_mask(dry, shots[name]))
+		var px := 0
+		for b in masks[name]:
+			px += int(b)
+		print("    %-8s covers %d px (%.1f%% of frame)" % [
+			name, px, 100.0 * float(px) / float(640 * 480)])
+		if px < 640 * 480 / 25:
+			_fail += 1
+			print("    !! %s drew (almost) nothing" % name)
+
+	if masks.size() == 2:
+		# Where they disagree, as a picture: red = sheet only, green = clipmap only.
+		var xor_img := Image.create(640, 480, false, Image.FORMAT_RGB8)
+		for y in 480:
+			for x in 640:
+				var i := y * 640 + x
+				var a: bool = masks["sheet"][i] == 1
+				var b: bool = masks["clipmap"][i] == 1
+				if a and b:
+					xor_img.set_pixel(x, y, Color(0.2, 0.2, 0.2))
+				elif a:
+					xor_img.set_pixel(x, y, Color(1, 0, 0))
+				elif b:
+					xor_img.set_pixel(x, y, Color(0, 1, 0))
+				else:
+					xor_img.set_pixel(x, y, Color.BLACK)
+		_save(xor_img, "pool_view_xor.png")
+		var iou := _iou(masks["sheet"], masks["clipmap"])
+		print("    silhouette IoU, clipmap vs sheet: %.4f" % iou)
+		if iou < 0.95:
+			_fail += 1
+			print("    !! the two carriers do not put the water in the same place")
+		else:
+			print("    -> the clipmap draws the same body the sheet does")
+		# CONTROL: MOVE THE BODY 40 m and the water must move with it.
+		#
+		# The first version poked _shore_rect on the runtime material directly and the frame came
+		# back pixel-identical -- a live uniform edit does not reach geometry the mesher owns, and
+		# nothing in the node depends on one, because every mask_* setter schedules a rebuild. So
+		# the control now does what a user would: it drags the lake. That also makes it a test of
+		# something real, and it caught the bug that the field was being framed in the body's LOCAL
+		# xz while both carriers sample in WORLD xz -- invisible until a body sits off the origin,
+		# which no fixture had.
+		# ACROSS the view, not along it. The first attempt moved it 40 m in +X, which from this
+		# camera is mostly straight away -- the lake receded instead of translating and the
+		# silhouettes still overlapped at 0.91. This is 60 m along the screen-right axis.
+		pool.position = Vector3(37.0, 0.0, 47.0)
+		pool.rebuild()
+		var clip2: Node = pool.get_node_or_null("Clipmap")
+		if clip2 != null:
+			clip2.set_clipmap_target(cam)
+		for i in 8:
+			await RenderingServer.frame_post_draw
+		var moved_img := vp.get_texture().get_image()
+		_save(moved_img, "pool_view_shifted.png")
+		var moved := _fill_columns(_water_mask(dry, moved_img))
+		var moved_iou := _iou(masks["sheet"], moved)
+		print("    CONTROL, body moved 60 m across the view: IoU %.4f" % moved_iou)
+		# The GAP is the evidence, not either number alone: a mask made of noise could not
+		# agree at 0.95 with one frame and disagree at 0.8 with another.
+		if moved_iou > 0.8:
+			_fail += 1
+			print("    !! moving the body barely changed the silhouette -- either the water is")
+			print("       not following its outline, or this is not measuring where it is")
+	vp.queue_free()
+	await get_tree().process_frame
+	_completed += 1
+
+
+## The water's FOOTPRINT: every pixel the body changed against the same frame without it.
+##
+## Three attempts, and the two failures are worth keeping because they are the same mistake in
+## opposite directions -- measuring shading when the question is coverage:
+##
+##   difference at 0.02 scored an IoU of 0.42 between two frames that are visually identical. That
+##   threshold is above the pale, foam-covered shallows and below the specular sparkle, so what
+##   survived was the sparkle -- which DOES differ between two tessellations of the same waves;
+##
+##   chroma (blue over red) counted the SKY, reporting 22891 px of water in a frame with none, and
+##   with the sky excluded its boundary then ran through the MIDDLE of the lake, because the pale
+##   shallows are not blue. Same failure again: a cue that tracks shading, not extent.
+##
+## The threshold is 0.005 because that is below the darkening the pale shallows get and still far
+## above the zero that the untouched sky and dry bank produce -- which is what the dry-against-dry
+## control asserts, and it comes out at exactly 0 px rather than "small".
+func _water_mask(p_dry: Image, p_wet: Image) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(640 * 480)
+	for y in 480:
+		for x in 640:
+			var a := p_dry.get_pixel(x, y)
+			var b := p_wet.get_pixel(x, y)
+			var moved: float = maxf(maxf(absf(a.r - b.r), absf(a.g - b.g)), absf(a.b - b.b))
+			out[y * 640 + x] = 1 if moved > 0.005 else 0
+	return out
+
+
+## Solid footprint from a speckled mask: per screen column, everything between the topmost and
+## bottommost water pixel.
+##
+## Needed because the raw mask disagreed on 32% of its own pixels between two frames that a picture
+## of the disagreement showed to be scattered through the INTERIOR, with the outline matching all
+## the way round. In the pale, foam-covered shallows the difference-from-dry sits right at the
+## threshold, so a hair of shading between two tessellations flips pixels across it. That is a real
+## difference and it is not the one under test: this criterion asks where the water ENDS.
+##
+## A column crossing the inlet twice is filled across the gap. That is a known and acceptable loss --
+## it happens identically to both masks, and no other criterion depends on this one resolving a slot
+## six metres wide.
+func _fill_columns(p_mask: PackedByteArray) -> PackedByteArray:
+	var out := PackedByteArray()
+	out.resize(p_mask.size())
+	for x in 640:
+		var top := -1
+		var bottom := -1
+		for y in 480:
+			if p_mask[y * 640 + x] == 1:
+				if top < 0:
+					top = y
+				bottom = y
+		if top < 0:
+			continue
+		for y in range(top, bottom + 1):
+			out[y * 640 + x] = 1
+	return out
+
+
+func _iou(p_a: PackedByteArray, p_b: PackedByteArray) -> float:
+	var inter := 0
+	var uni := 0
+	for i in p_a.size():
+		var a := p_a[i] == 1
+		var b := p_b[i] == 1
+		if a and b:
+			inter += 1
+		if a or b:
+			uni += 1
+	return float(inter) / float(maxi(uni, 1))
 
 
 # ---- plumbing ---------------------------------------------------------------
