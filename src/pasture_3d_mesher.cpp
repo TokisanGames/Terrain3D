@@ -388,14 +388,67 @@ void Pasture3DMesher::snap() {
 	if (!_host) {
 		return;
 	}
+	const bool host_visible = _host->is_clipmap_visible();
 	for (ClipmapView &view : _views) {
-		_snap_view(view);
+		const Vector3 target_pos = _resolve_view_target(view);
+		// The per-view range test, BEFORE any instance traffic. A host that does not override it
+		// answers true for every view and this costs one virtual call per view per frame.
+		const bool in_range = _host->is_clipmap_view_in_range(v3v2(target_pos));
+		if (in_range != view.in_range) {
+			view.in_range = in_range;
+			if (in_range) {
+				// Coming back into range. The rings are wherever they were left when the view was
+				// hidden, and _snap_view's early-out compares against last_target_position -- so
+				// without forgetting it, a view can return VISIBLE and still centred on wherever its
+				// camera was standing when it left. Same reasoning as reset_target_position().
+				view.last_target_position = V2_MAX;
+				view.last_shader_target_pos = V3_MAX;
+			}
+			_apply_view_visibility(view, host_visible);
+		}
+		if (!view.in_range) {
+			// The saving. A hidden instance is not drawn, but it is still an instance the
+			// RenderingServer is told the transform of: skipping the snap is what makes an
+			// out-of-reach view cost nothing rather than cost only its rasterisation.
+			continue;
+		}
+		_snap_view(view, target_pos);
 	}
 	return;
 }
 
-void Pasture3DMesher::_snap_view(ClipmapView &p_view) {
-	Vector3 target_pos = _resolve_view_target(p_view);
+void Pasture3DMesher::_apply_view_visibility(ClipmapView &p_view, const bool p_host_visible) {
+	// The node's own visibility still gates everything: hiding the node hides every view, and a view
+	// out of range stays hidden when the node is shown again.
+	const bool visible = p_host_visible && p_view.in_range;
+	if (visible == p_view.visible_sent) {
+		return;
+	}
+	p_view.visible_sent = visible;
+	for (const RID &rid : p_view.instance_rids) {
+		RS->instance_set_visible(rid, visible);
+	}
+}
+
+int Pasture3DMesher::get_in_range_view_count() const {
+	int n = 0;
+	for (const ClipmapView &view : _views) {
+		if (view.in_range) {
+			n++;
+		}
+	}
+	return n;
+}
+
+bool Pasture3DMesher::is_view_in_range(const int p_view) const {
+	if (p_view < 0 || p_view >= _views.size()) {
+		return false;
+	}
+	return _views[p_view].in_range;
+}
+
+void Pasture3DMesher::_snap_view(ClipmapView &p_view, const Vector3 &p_target_pos) {
+	Vector3 target_pos = p_target_pos;
 
 	// Update _target_pos every frame so LOD geomorphing stays smooth between discrete ring snaps.
 	// Terrain: per-instance (each view morphs to its own center). Ocean: on the shared material.
@@ -549,10 +602,17 @@ void Pasture3DMesher::update() {
 	}
 
 	RenderingServer::ShadowCastingSetting node_cast_shadows = _cast_shadows;
-	bool visible = _host->is_clipmap_visible();
+	bool host_visible = _host->is_clipmap_visible();
 
 	LOG(INFO, "Updating all mesh instances for ", _views.size(), " view(s)");
-	for (const ClipmapView &view : _views) {
+	for (ClipmapView &view : _views) {
+		// The per-view range test is honoured HERE too, not only in snap(). This is the full-reassert
+		// pass -- it runs on a visibility change, a material swap, a GI change -- and a version that
+		// wrote the host's answer alone would silently un-hide every out-of-range view until the next
+		// snap happened to notice. That would show up as water flickering back on when something
+		// unrelated touched the node.
+		bool visible = host_visible && view.in_range;
+		view.visible_sent = visible;
 		// Only the first view casts shadows; identical geometry across views would otherwise
 		// double-shadow / z-fight (guide §4).
 		RenderingServer::ShadowCastingSetting cast_shadows = view.cast_shadows ? node_cast_shadows : RenderingServer::SHADOW_CASTING_SETTING_OFF;

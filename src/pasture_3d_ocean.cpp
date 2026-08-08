@@ -74,9 +74,14 @@ void Pasture3DOcean::_setup_mesher() {
 		_mesher = new Pasture3DMesher();
 	}
 	_rebuild_runtime_material();
+	// TRUE since the split-screen work reached the water: _target_pos is an instance uniform now
+	// (water_common.gdshaderinc), so writing it material-wide would write to a uniform that is no
+	// longer there and every view would morph toward the origin. The ocean was single-view purely
+	// because this said false.
 	_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing,
 			_runtime_material.is_valid() ? _runtime_material->get_rid() : RID(),
-			_render_layers, false, _cast_shadows, _gi_mode);
+			_render_layers, true, _cast_shadows, _gi_mode);
+	_apply_views();
 	_push_clipmap_uniforms();
 	_update_aabbs(true);
 }
@@ -351,6 +356,40 @@ void Pasture3DOcean::set_domain_origin(const Vector3 &p_origin) {
 	_push_clipmap_uniforms();
 }
 
+/**
+ * CAMERA_USER_GROUP's method: one clipmap view per camera, on the layer that camera reads.
+ *
+ * The ocean subscribes directly rather than through Pasture3DPoolManager, because it works in a
+ * scene with no manager at all (water spec W4) and a camera list routed through one would be lost
+ * in exactly that case.
+ */
+void Pasture3DOcean::set_cameras(const TypedArray<Camera3D> &p_cameras,
+		const PackedInt32Array &p_layers) {
+	_view_cameras = p_cameras;
+	_view_layers = p_layers;
+	_apply_views();
+}
+
+void Pasture3DOcean::_apply_views() {
+	if (!_mesher) {
+		return;
+	}
+	Vector<uint64_t> ids;
+	Vector<uint32_t> layers;
+	for (int i = 0; i < _view_cameras.size(); i++) {
+		Camera3D *cam = Object::cast_to<Camera3D>(_view_cameras[i]);
+		if (!cam) {
+			continue;
+		}
+		ids.push_back(cam->get_instance_id());
+		layers.push_back(i < _view_layers.size() ? (uint32_t)_view_layers[i] : _render_layers);
+	}
+	_mesher->set_views(ids, layers);
+	_push_clipmap_uniforms();
+	_height_range_sent = V2_MAX; // re-created instances need the cull volume again
+	_update_aabbs(true);
+}
+
 void Pasture3DOcean::set_clipmap_target(Node3D *p_node) {
 	_clipmap_target.set_target(p_node);
 	if (_mesher) {
@@ -540,12 +579,14 @@ void Pasture3DOcean::_notification(int p_what) {
 			// and re-enters the tree, and a group left behind is an ocean nothing can
 			// find.
 			add_to_group(OCEAN_GROUP);
+			add_to_group(Pasture3D::CAMERA_USER_GROUP);
 			_try_register_with_manager();
 			break;
 		}
 
 		case NOTIFICATION_EXIT_TREE: {
 			remove_from_group(OCEAN_GROUP);
+			remove_from_group(Pasture3D::CAMERA_USER_GROUP);
 			Pasture3DPoolManager *exiting_manager = _find_manager();
 			if (exiting_manager) {
 				exiting_manager->unregister_body(this);
@@ -640,6 +681,7 @@ void Pasture3DOcean::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_water_surface_point", "domain_xz"), &Pasture3DOcean::get_water_surface_point);
 	ClassDB::bind_method(D_METHOD("get_water_time"), &Pasture3DOcean::get_water_time);
 	ClassDB::bind_method(D_METHOD("contains_point", "global_pos"), &Pasture3DOcean::contains_point);
+	ClassDB::bind_method(D_METHOD("set_cameras", "cameras", "layers"), &Pasture3DOcean::set_cameras);
 	ClassDB::bind_method(D_METHOD("get_ocean_warnings"), &Pasture3DOcean::get_ocean_warnings);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "is_enabled");

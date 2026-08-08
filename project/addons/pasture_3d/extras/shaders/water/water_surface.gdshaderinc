@@ -82,6 +82,55 @@ void vertex() {
 
 	VERTEX = (VIEW_MATRIX * vec4(wave.position, 1.0)).xyz;
 	NORMAL = normalize(mat3(VIEW_MATRIX) * wave.normal);
+
+#ifdef WATER_SHORE_MASK
+	// Kill triangles that are wholly outside the shore. NaN in a vertex position
+	// takes every triangle using it out of rasterisation, which is how the terrain
+	// draws holes in its own clipmap (src/shaders/main.glsl) -- and it happens here
+	// rather than as a fragment discard so the area a finite body does NOT cover
+	// costs geometry only.
+	//
+	// Tested against the UNDISPLACED xz, not wave.position.xz: the waves move the
+	// surface horizontally as well as vertically, so a crest near the rim would
+	// otherwise flicker in and out of the cut as it swept across the threshold.
+	//
+	// Last in vertex() because Godot's shader language rejects `return` inside an
+	// entry point, so an early exit has to be written as an overwrite at the end.
+	v_shore_xz = world_pos.xz;
+
+	// THE MARGIN IS PER RING on a clipmap, and it has to be.
+	//
+	// The threshold has to exceed the cell diagonal, or a cell that straddles the shore loses a
+	// corner and the whole cell goes with it -- so the drawn edge steps at CELL SIZE. One uniform
+	// margin cannot serve rings whose cells differ by 32x: sized for LOD0 it removes whole 40 m
+	// cells along the far shore, which is a 1.4 km lake with a visibly jagged rim (measured 35.5 m
+	// against the static sheet's 0.11 m on the same body). Sized for the coarsest ring instead, it
+	// would stop culling anything anywhere.
+	//
+	// MODEL_MATRIX[0][0] is the ring's own cell size, so each ring gets the margin it needs. Where
+	// that exceeds _shore_range the field clamps below it and nothing on that ring is ever killed,
+	// which is the right answer: the fragment stage cuts the edge exactly, and the rings where the
+	// geometric cull is worth having -- the fine ones, which is where the vertices are -- keep it.
+	//
+	// THE MULTIPLIER HAS TO COVER THE MORPH, not just the cell. A triangle dies if ANY of its
+	// vertices is killed, so the margin must reach every vertex of every triangle that touches the
+	// shore -- and the geomorph above has already moved them. `shift` is built from
+	// fract(VERTEX.xz * 0.5) * 2.0 times a sign, so it spans [-2, 2) per axis, and a vertex can
+	// therefore travel 2 * scale before this test sees it. Add the cell diagonal it started with,
+	// 1.414 * scale, and the worst case is 3.41; 3.5 covers it with a little room.
+	//
+	// 1.5 was the first value here -- the cell diagonal alone -- and it left small gaps along the
+	// shore on the rings where the morph is active, because a triangle straddling the waterline
+	// could have one corner flung past the margin by the morph and take the whole triangle with it.
+#ifdef WATER_CLIPMAP
+	float shore_kill = scale * 3.5 + _shore_feather;
+#else
+	float shore_kill = _shore_kill_margin;
+#endif
+	if (water_shore_distance(world_pos.xz) > shore_kill) {
+		VERTEX = vec3(0.0 / 0.0);
+	}
+#endif
 }
 
 #endif // WATER_SURFACE_INC

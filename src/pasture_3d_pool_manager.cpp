@@ -1,5 +1,6 @@
 // Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/shader.hpp>
@@ -8,6 +9,7 @@
 
 #include "logger.h"
 #include "pasture_3d_ocean.h"
+#include "pasture_3d.h"
 #include "pasture_3d_pool_manager.h"
 
 ///////////////////////////
@@ -425,9 +427,22 @@ void Pasture3DPoolManager::rebuild_tables() {
 	_on_profile_changed();
 }
 
+/**
+ * Hands the current pair to one body, for a body that registered after the last camera change.
+ *
+ * The push/pull pair again, one level down: the manager pushes on change and a newcomer pulls on
+ * arrival, so neither side needs to retry and a body added mid-game is not stuck on a single view.
+ */
+void Pasture3DPoolManager::_push_cameras_to_body(Node *p_body) {
+	if (p_body && p_body->has_method("set_view_cameras")) {
+		p_body->call("set_view_cameras", _view_cameras, _view_layers);
+	}
+}
+
 void Pasture3DPoolManager::register_body(Node *p_body) {
 	if (p_body && !_bodies.has(p_body)) {
 		_bodies.push_back(p_body);
+		_push_cameras_to_body(p_body);
 	}
 }
 
@@ -573,6 +588,12 @@ void Pasture3DPoolManager::_notification(int p_what) {
 				_managers.push_back(this);
 			}
 			add_to_group(MANAGER_GROUP);
+			add_to_group(Pasture3D::CAMERA_USER_GROUP);
+			// A terrain that set its cameras before this manager entered the tree has already
+			// broadcast, and a group broadcast reaches nobody who was not there to hear it. So the
+			// manager asks once on the way in. This is the pull half of the push/pull pair, and it
+			// is why no retry loop is needed on either side.
+			_resolve_cameras();
 			_connect_profiles();
 			set_physics_process(true);
 			update_configuration_warnings();
@@ -583,6 +604,7 @@ void Pasture3DPoolManager::_notification(int p_what) {
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
 			_managers.erase(this);
 			remove_from_group(MANAGER_GROUP);
+			remove_from_group(Pasture3D::CAMERA_USER_GROUP);
 			set_physics_process(false);
 			break;
 		}
@@ -594,6 +616,127 @@ void Pasture3DPoolManager::_notification(int p_what) {
 				_poll_base_materials();
 			}
 			break;
+		}
+	}
+}
+
+/**
+ * Takes a camera list and the layer each camera reads, and hands it to every registered body.
+ *
+ * Called by Pasture3D's broadcast, and by hand in a scene with no terrain. Which of those a pair
+ * came from decides precedence: see the members.
+ */
+void Pasture3DPoolManager::set_cameras(const TypedArray<Camera3D> &p_cameras,
+		const PackedInt32Array &p_layers) {
+	// A push from a terrain is distinguishable from a hand-set only by who is calling, and the
+	// group broadcast is the only caller that is a terrain. Rather than sniff the caller, the
+	// terrain's arrival is recorded the first time a broadcast lands -- and a broadcast is the only
+	// thing that reaches this while a Pasture3D is in the tree.
+	// Reaching here AT ALL is what marks the pair as the terrain's. The first version of this tried
+	// to infer it by scanning the scene for a Pasture3D, which cannot work: with a terrain present a
+	// hand-set call and a broadcast look identical, so the hand-set won and the precedence rule was
+	// not implemented at all. Worse, the scan found a terrain in a DIFFERENT fixture and a manager
+	// with no terrain of its own reported itself as terrain-driven. Who called is the only honest
+	// signal, and splitting the two entry points is how to have it.
+	_cameras_from_terrain = true;
+	_view_cameras = p_cameras;
+	_view_layers = p_layers;
+	if (!_manual_cameras.is_empty()) {
+		WARN_PRINT("Pasture3DPoolManager: cameras were set by hand with set_manual_cameras() and a "
+				   "Pasture3D is also broadcasting them. The terrain wins -- clear the manual list "
+				   "to silence this, or remove the terrain if the manual list is the intended one.");
+	}
+	update_configuration_warnings();
+	_push_cameras_to_bodies();
+}
+
+/**
+ * The camera list for a scene with NO Pasture3D in it, which water spec W4 requires to work.
+ *
+ * Loses to a terrain: if one has ever broadcast, this is stored and ignored, and warns rather than
+ * silently doing nothing. Precedence is structural -- which method was called -- and not
+ * last-writer, so the outcome does not depend on the order two systems happen to initialise in.
+ */
+void Pasture3DPoolManager::set_manual_cameras(const TypedArray<Camera3D> &p_cameras,
+		const PackedInt32Array &p_layers) {
+	_manual_cameras = p_cameras;
+	_manual_layers = p_layers;
+	if (_cameras_from_terrain) {
+		WARN_PRINT("Pasture3DPoolManager: a Pasture3D is broadcasting the camera list, so this one "
+				   "is being kept but not used. The terrain wins, so that terrain and water cannot "
+				   "geomorph to different cameras and open a seam at every shoreline.");
+		update_configuration_warnings();
+		return;
+	}
+	_view_cameras = p_cameras;
+	_view_layers = p_layers;
+	update_configuration_warnings();
+	_push_cameras_to_bodies();
+}
+
+/**
+ * The terrain this manager belongs to, or null.
+ *
+ * An ANCESTOR first. A manager parented under a Pasture3D -- which is how the demo scene authors it
+ * -- is saying which terrain it belongs to, and that is the only unambiguous answer in a scene with
+ * more than one. The group scan is the fallback for a manager sitting beside the terrain, and it
+ * takes the first, which is the same compromise water bodies make when resolving their manager.
+ */
+Pasture3D *Pasture3DPoolManager::_find_terrain() const {
+	for (Node *n = get_parent(); n; n = n->get_parent()) {
+		Pasture3D *terrain = Object::cast_to<Pasture3D>(n);
+		if (terrain) {
+			return terrain;
+		}
+	}
+	if (!is_inside_tree()) {
+		return nullptr;
+	}
+	TypedArray<Node> found = get_tree()->get_nodes_in_group(Pasture3D::TERRAIN_GROUP);
+	for (int i = 0; i < found.size(); i++) {
+		Pasture3D *terrain = Object::cast_to<Pasture3D>(found[i]);
+		if (terrain) {
+			return terrain;
+		}
+	}
+	return nullptr;
+}
+
+/**
+ * Asks the scene for a terrain's camera list, for a manager that entered after the broadcast.
+ */
+void Pasture3DPoolManager::_resolve_cameras() {
+	Pasture3D *terrain = _find_terrain();
+	if (!terrain) {
+		return;
+	}
+	_cameras_from_terrain = true;
+	_view_cameras = terrain->get_cameras();
+	_view_layers.clear();
+	// Mirrors _broadcast_cameras(): 0 or 1 cameras is the single-view path and sends nothing, so a
+	// manager pulling must arrive at the same empty pair rather than a list of one.
+	if (_view_cameras.size() > 1) {
+		for (int i = 0; i < _view_cameras.size(); i++) {
+			const int bit = Pasture3D::TERRAIN_TOP_BIT - i;
+			_view_layers.push_back(bit >= 0 ? (int32_t)(1u << uint32_t(bit)) : 1);
+		}
+	} else {
+		_view_cameras.clear();
+	}
+	_push_cameras_to_bodies();
+}
+
+/**
+ * Hands the pair to every registered body that can take it.
+ *
+ * Duck-typed for the same reason the group is: a body is GDScript (Pasture3DPool) or C++
+ * (Pasture3DOcean), and only one of those can implement an interface.
+ */
+void Pasture3DPoolManager::_push_cameras_to_bodies() {
+	for (int i = 0; i < _bodies.size(); i++) {
+		Node *body = _bodies[i];
+		if (body && body->has_method("set_view_cameras")) {
+			body->call("set_view_cameras", _view_cameras, _view_layers);
 		}
 	}
 }
@@ -629,6 +772,11 @@ void Pasture3DPoolManager::_bind_methods() {
 			D_METHOD("sync_material_params", "base", "target"), &Pasture3DPoolManager::sync_material_params);
 	ClassDB::bind_static_method("Pasture3DPoolManager",
 			D_METHOD("is_plugin_written_param", "name"), &Pasture3DPoolManager::is_plugin_written_param);
+	ClassDB::bind_method(D_METHOD("set_cameras", "cameras", "layers"), &Pasture3DPoolManager::set_cameras);
+	ClassDB::bind_method(D_METHOD("set_manual_cameras", "cameras", "layers"), &Pasture3DPoolManager::set_manual_cameras);
+	ClassDB::bind_method(D_METHOD("get_view_cameras"), &Pasture3DPoolManager::get_view_cameras);
+	ClassDB::bind_method(D_METHOD("get_view_layers"), &Pasture3DPoolManager::get_view_layers);
+	ClassDB::bind_method(D_METHOD("are_cameras_from_terrain"), &Pasture3DPoolManager::are_cameras_from_terrain);
 	ClassDB::bind_method(D_METHOD("register_body", "body"), &Pasture3DPoolManager::register_body);
 	ClassDB::bind_method(D_METHOD("unregister_body", "body"), &Pasture3DPoolManager::unregister_body);
 	ClassDB::bind_method(D_METHOD("get_bodies"), &Pasture3DPoolManager::get_bodies);

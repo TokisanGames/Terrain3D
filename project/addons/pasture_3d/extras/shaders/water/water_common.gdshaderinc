@@ -420,13 +420,84 @@ uniform float scatter_strength : hint_range(0.0, 8.0, 0.01) = 3.5;
 group_uniforms;
 #endif
 
+#ifdef WATER_SHORE_MASK
+// ---------------------------------------------------------------------------
+// Shore mask (PROTOTYPE — shore-edge question, water LOD work).
+//
+// The alternative to meshing a body's outline: draw a sheet that does not know
+// where the shore is, and cut it with a signed distance field baked from the
+// same polygon the mesher would have clipped against. That is what makes a
+// camera-centred clipmap usable for a finite body, because the clipmap's grid
+// cannot be made to land on an arbitrary loop.
+//
+// Two stages, and they do different jobs:
+//
+//   VERTEX  kills whole triangles that are entirely outside, by writing NaN
+//           into the position -- the same trick the terrain uses for holes
+//           (src/shaders/main.glsl). Geometry, so far-outside area costs no
+//           fragments at all. It is a CONSERVATIVE cut: the margin has to be
+//           wide enough that every triangle touching the true shore survives,
+//           or the feather below would be carving a hole that is already there.
+//
+//   FRAGMENT feathers the surviving band to the exact shore. Per-pixel, from
+//           the texture, so its accuracy is set by the SDF's resolution and NOT
+//           by the mesh's -- which is the whole hypothesis: the same rim at
+//           LOD0 spacing and at LOD3 spacing.
+//
+// Stored NORMALISED to [0,1] over +-_shore_range and LINEARLY, so the sampler's
+// bilinear filter interpolates distance itself. R16F at 1.5 m texels is 1.8 MB for a
+// 1.4 km lake against 17 MB of the vertices it replaces; R8 halves that again and
+// costs accuracy. WATER_SHORE_SQRT selects a cleverer encoding that measured worse --
+// see water_shore_distance().
+// ---------------------------------------------------------------------------
+group_uniforms shore;
+// Signed distance to the outline in the red channel, negative INSIDE the water.
+// repeat_disable so a sheet extending past the baked rect clamps to the border
+// texel, which is why the bake pads its bounds past the polygon by _shore_range:
+// the clamped value then reads as "well outside" and the sheet ends.
+uniform sampler2D _shore_sdf : filter_linear, repeat_disable, hint_default_black;
+// xy = the baked rect's min corner in world XZ, zw = its size in metres.
+uniform vec4 _shore_rect = vec4(0.0, 0.0, 1.0, 1.0);
+// Texel counts, for the hard-cut control below. Nothing else reads it.
+uniform vec2 _shore_texels = vec2(1.0, 1.0);
+// Metres encoded at the ends of the range. Distances beyond it are clamped, and
+// that is fine: everything past a few metres from the shore is either water or
+// not, and no term here is sensitive to how far past.
+uniform float _shore_range = 8.0;
+// Width of the alpha ramp, in metres, CENTRED on the shore -- so alpha 0.5 lands
+// on the outline itself and the surface does not sit systematically inside or
+// outside of it. Half of it hangs over the bank, where edge_offset means there
+// is bank under it.
+uniform float _shore_feather : hint_range(0.0, 4.0, 0.01) = 0.5;
+// Metres to grow the water past the baked outline. The geometric edge_offset,
+// moved into the shader: with an SDF the rim no longer has to be baked in, and
+// the same field serves any offset.
+uniform float _shore_offset : hint_range(-8.0, 8.0, 0.05) = 0.0;
+// How far outside a vertex may be before its triangles are killed. Must exceed
+// the cell diagonal plus half the feather, or the cut eats into the band the
+// fragment stage is supposed to be resolving. Written by the host, which is the
+// only thing that knows the spacing.
+uniform float _shore_kill_margin = 4.0;
+group_uniforms;
+#endif
+
 // Clipmap plumbing, written by Pasture3DMesher. Only exists for the ocean.
 #ifdef WATER_CLIPMAP
 group_uniforms private_set_by_terrain;
 uniform float _mesh_size = 32.0;
 uniform float _subdiv = 1.0;
 uniform float _vertex_spacing = 1.0;
-uniform vec3 _target_pos = vec3(0.0, 0.0, 0.0);
+// PER INSTANCE, so each split-screen view geomorphs to its OWN camera.
+//
+// The clipmap's rings are shared geometry drawn once per view on that view's render layer, so a
+// material-wide target would centre every view's morph on whichever camera wrote last -- two players
+// and one of them gets a surface morphing toward the other. Pasture3DMesher writes this through
+// RS.instance_geometry_set_shader_parameter() when its host asks for per-instance targets, which is
+// what the terrain has always done (src/shaders/main.glsl declares it the same way).
+//
+// _water_domain_origin above is already an instance uniform and arrives by the same route, so this
+// is not a new mechanism -- it is the same one, applied to the value that turned out to need it.
+instance uniform vec3 _target_pos = vec3(0.0, 0.0, 0.0);
 group_uniforms;
 #endif
 
@@ -449,6 +520,19 @@ varying float v_view_dist;
 // right when the VIEWER is underneath, which is a property of the camera, not of
 // the triangle.
 varying float v_base_y;
+
+#ifdef WATER_SHORE_MASK
+// The sheet's REST xz, before the waves displace it. The shore is a fixed line in
+// the world, but the question the mask answers is Lagrangian -- water whose rest
+// position is inside the lake is lake water even when a crest has swept it a few
+// centimetres over the bank -- and answering it from the displaced position instead
+// makes the waterline crawl back and forth with every wave.
+//
+// Also what keeps the fragment feather and the vertex kill agreeing. They are
+// different stages testing the same threshold, and if one used the displaced xz the
+// kill margin would have to absorb the difference.
+varying vec2 v_shore_xz;
+#endif
 
 #ifdef WATER_FLOW
 // Per-vertex flow, decoded from ARRAY_COLOR in the vertex stage: xy is the
@@ -499,6 +583,67 @@ vec2 water_scroll(vec2 p_uv_per_second) {
 	float period = max(water_time_period, 1e-3);
 	return round(p_uv_per_second * period) * (water_time / period);
 }
+
+#ifdef WATER_SHORE_MASK
+/**
+ * Signed distance from a world XZ to the shore, in metres. Negative is water.
+ *
+ * The UV is clamped rather than left to the sampler because a sheet is expected
+ * to extend past the baked rect -- that is the point of a clipmap -- and the
+ * border texel is the honest answer out there only because the bake pads its
+ * bounds. Clamping here makes that explicit instead of leaning on the sampler's
+ * repeat mode to be set right.
+ */
+float water_shore_distance(vec2 p_world_xz) {
+	vec2 uv = (p_world_xz - _shore_rect.xy) / _shore_rect.zw;
+#ifdef WATER_SHORE_HARD
+	// The control: snap to texel centres, which is what sampling this field
+	// without interpolation looks like. Nearest is emulated rather than declared
+	// so both paths share one sampler and differ only in how they read it.
+	uv = (floor(uv * _shore_texels) + 0.5) / _shore_texels;
+#endif
+	float t = texture(_shore_sdf, clamp(uv, 0.0, 1.0)).r * 2.0 - 1.0;
+#ifdef WATER_SHORE_SQRT
+	// The control, and a mistake worth keeping the evidence of.
+	//
+	// Storing sign(d) * sqrt(|d| / range) and squaring back looks like free precision: it
+	// spends the byte near the shore, where the ramp reads, instead of spreading it over a
+	// range only the vertex kill cares about. Measured, it is nearly TWICE AS BAD as the
+	// linear encoding -- and the float-format case is just as bad, so this is not about
+	// quantisation at all.
+	//
+	// The sampler interpolates the STORED value, and squaring afterwards is not the same as
+	// interpolating the distance. Between texels at -0.2 m and +1.8 m the true crossing is
+	// 10% into the cell; in sqrt space the interpolant reaches zero at 25%. Linear
+	// interpolation of a distance field is an approximation of distance, which is the entire
+	// reason an SDF texture works, and a nonlinear encoding throws that away.
+	return t * abs(t) * _shore_range - _shore_offset;
+#else
+	// Linear, so the hardware's bilinear filter is interpolating distance itself. The
+	// precision comes from the FORMAT instead: R16F resolves better than a millimetre near
+	// the shore at any usable range, and R8 lands at 0.249 m against a 0.25 m budget, which
+	// is why the byte is the cheap option and not the default.
+	return t * _shore_range - _shore_offset;
+#endif
+}
+
+/**
+ * Surface coverage at a world XZ: 1 well inside the water, 0 past the shore.
+ *
+ * Multiplied into ALPHA rather than driving a discard. Water is already a
+ * transparent, depth_draw_never surface, so there is no early-Z for a discard to
+ * cost -- and a ramp is the only thing that can put the edge somewhere other
+ * than a texel boundary.
+ */
+float water_shore_alpha(vec2 p_world_xz) {
+	float d = water_shore_distance(p_world_xz);
+#ifdef WATER_SHORE_HARD
+	return d > 0.0 ? 0.0 : 1.0;
+#else
+	return 1.0 - smoothstep(-_shore_feather * 0.5, _shore_feather * 0.5, d);
+#endif
+}
+#endif
 
 #ifdef WATER_FLOW
 /**

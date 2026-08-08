@@ -44,6 +44,8 @@ using namespace godot;
  * writer too many, so Pasture3D yields whenever a manager is in the tree -- see
  * has_active_manager(). Phase 2 deletes the losing side.
  */
+class Pasture3D;
+
 class Pasture3DPoolManager : public Node3D {
 	GDCLASS(Pasture3DPoolManager, Node3D);
 	CLASS_NAME();
@@ -75,6 +77,28 @@ private:
 	// from Phase 1 because nothing implemented a body yet and a registry that
 	// cannot be gated is a registry that only compiles.
 	Vector<Node *> _bodies;
+
+	// SPLIT-SCREEN CAMERAS, and which render layer each one reads.
+	//
+	// Two sources and a stated precedence, because water spec W4 requires water to work in a scene
+	// with no Pasture3D in it -- so the terrain cannot be the only way in -- while a scene that HAS
+	// one must not end up with terrain and water geomorphing to different centres, which would show
+	// as a seam at every shoreline.
+	//
+	// The terrain's pair wins whenever a terrain has ever broadcast, and _cameras_from_terrain is
+	// what records that rather than a non-empty list: an empty list is a legitimate terrain state
+	// (solo play), and treating it as "no terrain" would silently hand control back to a stale
+	// hand-set list.
+	TypedArray<Camera3D> _view_cameras;
+	PackedInt32Array _view_layers;
+	TypedArray<Camera3D> _manual_cameras;
+	PackedInt32Array _manual_layers;
+	bool _cameras_from_terrain = false;
+
+	void _push_cameras_to_bodies();
+	void _push_cameras_to_body(Node *p_body);
+	void _resolve_cameras();
+	Pasture3D *_find_terrain() const;
 	// The first manager to enter a tree, and the one Pasture3D adopts its clock
 	// from. A raw pointer is safe only because EXIT_TREE clears it; nothing else
 	// may hold it across a frame.
@@ -230,6 +254,16 @@ public:
 	// duck-typed method, `contains_point(global_pos) -> bool`, so a GDScript
 	// Pasture3DPool and a C++ Pasture3DOcean can both be bodies without a shared
 	// base class.
+	// CAMERA_USER_GROUP's one method, called by Pasture3D on every camera change. Calling it counts
+	// as being the terrain -- see the .cpp -- so a scene with no Pasture3D wants set_manual_cameras().
+	void set_cameras(const TypedArray<Camera3D> &p_cameras, const PackedInt32Array &p_layers);
+	void set_manual_cameras(const TypedArray<Camera3D> &p_cameras, const PackedInt32Array &p_layers);
+	TypedArray<Camera3D> get_view_cameras() const { return _view_cameras; }
+	PackedInt32Array get_view_layers() const { return _view_layers; }
+	// Whether the pair above came from a terrain. Read by the configuration warnings, and by a bench
+	// that needs to tell "the terrain pushed" from "nothing did".
+	bool are_cameras_from_terrain() const { return _cameras_from_terrain; }
+
 	void register_body(Node *p_body);
 	void unregister_body(Node *p_body);
 	TypedArray<Node> get_bodies() const;

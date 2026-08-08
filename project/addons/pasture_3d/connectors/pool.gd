@@ -23,6 +23,29 @@ const PRESET_PATHS := {
 	0: WATER_DIR + "M_water_lake.tres",
 	1: WATER_DIR + "M_water_pond.tres",
 }
+## The masked variants of the lake shader, swapped in for MASKED mode. See _runtime_material.
+## Two, because the clipmap needs WATER_CLIPMAP's geomorph and the static sheet must not have it --
+## the morph is written against ring scales the sheet does not have and would shear it.
+const MASKED_SHADER := WATER_DIR + "water_lake_masked.gdshader"
+const MASKED_CLIPMAP_SHADER := WATER_DIR + "water_lake_clipmap.gdshader"
+
+## How the outline becomes geometry.
+##
+## MESHED is what a pool has always done: a grid clipped exactly to the loop, so the waterline IS
+## the polygon. It does not scale -- a 1.4 km body at lake_calm's automatic 1.27 m spacing wants
+## 1.1 M vertices and the build refuses -- but below that it is the cheaper and simpler of the two,
+## and on a small pond it is also the faster to rebuild.
+##
+## MASKED draws a sheet that does not know where the shore is and cuts it with a signed distance
+## field baked from the same polygon. The drawn vertex count stops being a property of the lake,
+## which is what makes a large body possible at all, and it is the step towards putting one on a
+## camera-centred clipmap. Measured cost of the swap: the waterline lands 0.16 m from the outline
+## against the 2 m edge_offset that buries it in the bank (bench/WaterShoreEdgeProbe.gd).
+enum SurfaceMode {
+	AUTO, ## MESHED when it fits max_vertices, MASKED when it does not.
+	MESHED, ## Always the exactly-clipped grid.
+	MASKED, ## Always the sheet plus a distance field.
+}
 
 # A group of its own, and not for tidiness: an inspector group runs until the next one, and the
 # base class ends inside "Underwater" -- so an ungrouped export here would file the migration
@@ -35,6 +58,112 @@ const PRESET_PATHS := {
 ## one press that fixes it. Hidden on a closed curve, where there is nothing to convert.
 @export_tool_button("Convert to Stream") var _convert_btn = convert_to_stream
 
+# A group of its own for the same reason Migration has one: an inspector group runs until the next,
+# and these would otherwise file themselves under whatever came before.
+@export_group("Surface")
+## Meshed grid, masked sheet, or chosen by size. See SurfaceMode.
+@export var surface_mode: SurfaceMode = SurfaceMode.AUTO:
+	set(v):
+		surface_mode = v
+		_schedule_rebuild()
+		notify_property_list_changed()
+		update_configuration_warnings()
+## Metres per texel of the distance field. THE accuracy dial for the waterline, and steeper than
+## linear: 1 m texels put the shore within 0.16 m, 4 m texels within 1.37 m. Above about 1.5 m the
+## rim stops being hidden by a default edge_offset.
+@export var mask_texel: float = 1.5:
+	set(v):
+		mask_texel = clampf(v, 0.25, 8.0)
+		_schedule_rebuild()
+## Metres of distance the field encodes before clamping.
+##
+## It has to exceed the vertex kill margin, or the field can never report far enough out for a
+## vertex to be killed and the geometric half of the cut goes inert -- still correct, since the
+## fragment stage trims the sheet either way, but paying for fragments it could have skipped.
+##
+## On a static sheet the margin is spacing * 1.5 and one number serves. On a CLIPMAP each ring
+## derives its own from its cell size (cell * 3.5, wide enough to cover the geomorph's
+## displacement), so the outer rings deliberately exceed any sane range and stop culling -- which is
+## the right answer there and not something to raise this to chase.
+@export var mask_range: float = 24.0:
+	set(v):
+		mask_range = maxf(v, 1.0)
+		_schedule_rebuild()
+## Width of the alpha ramp at the waterline, in metres, centred on the outline. Zero is a hard cut
+## and measurably worse -- it quantises the rim to the field's texels.
+@export var mask_feather: float = 0.5:
+	set(v):
+		mask_feather = maxf(v, 0.0)
+		_schedule_rebuild()
+## Metres between sheet vertices in MASKED mode. 0 = follow vertex_spacing.
+##
+## Separate from vertex_spacing because the two now answer different questions. vertex_spacing is
+## the WAVE sampling rate and is correctness (guide §7); this is only how finely the sheet is
+## subdivided, and the waterline no longer depends on it at all -- measured bit-identical from
+## 1.27 m to 10 m. Raise it to trade wave fidelity for vertices on a body that is mostly distant.
+@export var mask_sheet_spacing: float = 0.0:
+	set(v):
+		mask_sheet_spacing = maxf(v, 0.0)
+		_schedule_rebuild()
+## Draw a masked body as ONE STATIC SHEET instead of a camera-centred clipmap.
+##
+## The A/B switch, in the same spirit as force_gdscript_mesh: the two are meant to put the
+## waterline in the same place and differ only in what carries it, so flipping this compares them
+## on one body without rebuilding anything.
+##
+## Off is the useful setting. A static sheet spans the whole body, so at wave spacing it costs MORE
+## vertices than the meshed path did and has to be coarsened to fit -- the surface is right and the
+## waves are blunt. The clipmap spends its vertices where the camera is and its count does not know
+## how large the lake is.
+@export var mask_static_sheet: bool = false:
+	set(v):
+		mask_static_sheet = v
+		_schedule_rebuild()
+## Clipmap LOD rings. 0 = derived from the body, so the rings reach across it from anywhere.
+##
+## Reach is 2 * mesh_size * vertex_spacing * 2^(lods - 1) — the formula water guide §10 gives — so
+## each ring DOUBLES it. The derived value is the smallest that spans the body's diagonal, because
+## a camera at one end of a lake still has to be handed the far end.
+@export_range(0, 10) var mask_clipmap_lods: int = 0:
+	set(v):
+		mask_clipmap_lods = clampi(v, 0, 10)
+		_schedule_rebuild()
+## Vertices across one clipmap ring. Trades the count against how far LOD0's fine spacing reaches.
+##
+## A wider ring reaches further, so the same body needs fewer of them and the ring boundaries -- and
+## with them the geomorph bands -- land in different places. That used to cost rim accuracy: at 64 the
+## 1.4 km fixture scored 2.97 m against 16's 1.35 m, because the vertex kill's margin did not cover
+## the distance the morph displaces a vertex. It does now, and the two layouts agree to within a
+## tenth of a metre (bench/WaterShorePoolProbe.gd criterion H asserts that they do).
+@export_range(8, 64, 2) var mask_clipmap_mesh_size: int = 16:
+	set(v):
+		mask_clipmap_mesh_size = clampi(v, 8, 64)
+		_schedule_rebuild()
+## Hide a camera's clipmap view when that camera is out of reach of this body.
+##
+## The clipmap centres on the camera and spans its whole reach wherever the body is, so a player
+## kilometres from this lake is otherwise handed a full ring set whose every vertex is killed or
+## alpha-zero. That is invisible geometry crowding out visible geometry, and it is what a second lake
+## and a second player each multiply: two masked lakes in a two-player game is four ring sets, of
+## which at most two can be showing anything.
+##
+## The radius is a proof rather than a tuning knob -- the clipmap's reach plus one coarsest snap step,
+## which is the furthest a ring vertex can land from the camera -- so a hidden view provably had
+## nothing to draw. bench/WaterTwoLakesGate.gd criterion H walks a camera across the boundary and
+## requires the frame to be pixel-identical on both sides.
+##
+## THE ESCAPE HATCH, and the reason it is an export: if the radius were ever wrong the symptom would
+## be water that is simply missing, which is the hardest kind of bug to attribute. Turn this off and
+## every view draws, exactly as it did before the culling existed.
+@export var mask_clipmap_cull_views: bool = true:
+	set(v):
+		mask_clipmap_cull_views = v
+		# Applied straight through rather than through a rebuild: the reason to touch this is that
+		# water is missing and it is wanted back now.
+		if _clipmap != null and is_instance_valid(_clipmap):
+			_clipmap.set_cull_views(v)
+@export_group("")
+
 ## The offset loop in LOCAL XZ, as of the last rebuild. Every containment query reads this rather
 ## than re-deriving it; see _build_surface.
 var _poly_cache := PackedVector2Array()
@@ -44,6 +173,37 @@ var _mask := PackedByteArray()
 var _mask_gw := 0
 var _mask_gh := 0
 var _mask_spacing := 0.0
+
+## MASKED mode's private material, and the reason it has to be private: the distance field is a
+## sampler2D, and Godot's instance uniforms take scalars and vectors only. _water_domain_origin
+## could become per-instance and let ten ponds share one material (see water_common.gdshaderinc);
+## a texture cannot, so a masked body owns its own copy or two lakes fight over one field.
+##
+## The same thing Pasture3DOcean keeps for the same reason. Rebuilt whenever the resolved base
+## material changes identity, so a preset swap or a profile change is not silently ignored.
+var _runtime_material: ShaderMaterial = null
+## Base the running duplicate was taken from, to notice when it is no longer the right base.
+var _runtime_source: Material = null
+## Shader the duplicate was built onto. The base can stay the same while the CARRIER changes --
+## flipping mask_static_sheet wants the other variant -- and without this the duplicate is reused
+## with the wrong one, so the A/B switch silently compares a thing with itself.
+var _runtime_shader_path := ""
+## What was last built, so queries and warnings can say which path produced them.
+var _masked := false
+## The baked field's rect in this node's LOCAL XZ, which is the space the outline is in.
+##
+## Stored local and converted on the way to the shader, which samples in WORLD xz. Holding the
+## world rect instead would go stale the moment the body was dragged, and a mask offset by the
+## body's own position is a lake drawn somewhere its polygon is not.
+var _sdf_rect_local := Vector4.ZERO
+var _sdf_texels := 0
+## Sheet spacing the last masked build actually used, which is not mask_sheet_spacing when the
+## vertex ceiling forced it coarser. Read by _shape_warnings so the trade is stated.
+var _sheet_spacing_used := 0.0
+## The clipmap child, in MASKED mode when mask_static_sheet is off. An internal node with no owner,
+## like Surface: it is derived from the outline and rebuilt with it, so serialising it would only
+## let a stale copy load from a scene.
+var _clipmap: Node3D = null
 
 
 # ---- the shape contract ------------------------------------------------------
@@ -94,6 +254,38 @@ func _shape_warnings() -> PackedStringArray:
 	elif _local_polygon(_effective_spacing()).size() < 3:
 		w.append("The source curve collapses to fewer than 3 usable points at this vertex "
 			+ "spacing, so there is no area to fill.")
+
+	# The vertex ceiling now has a way out that is not "raise the ceiling", and the build's own
+	# message cannot say so because it is shared with Pasture3DStream, which has no masked path.
+	if not _last_stats.is_empty() and not _last_stats.get("ok", false) \
+			and str(_last_stats.get("reason", "")).contains("max_vertices") \
+			and surface_mode != SurfaceMode.MASKED:
+		w.append("This body is too large to mesh at its wave spacing. Set surface_mode to Masked "
+			+ "(or lower mask_auto_span) to draw it as a sheet cut by a distance field, which "
+			+ "makes the vertex count independent of the body's size. Raising max_vertices also "
+			+ "works and costs a vertex per lattice point.")
+
+	# A masked body whose material cannot carry the field draws an UNCUT sheet -- a square of water
+	# over the whole padded bounds -- which looks like the mask silently doing nothing, because it is.
+	if _masked and _runtime_material == null and material != null:
+		w.append("Masked mode needs a ShaderMaterial it can copy, and this body's material is a "
+			+ "%s. Assign one of the water presets, or switch surface_mode to Meshed."
+			% material.get_class())
+	# The sheet was coarsened past what the waves need. Not an error -- it is the alternative to
+	# refusing -- but it is a visible change to the surface and the user did not ask for it.
+	if _masked and _sheet_spacing_used > 0.0:
+		var wanted := _sheet_spacing(_effective_spacing())
+		if _sheet_spacing_used > wanted * 1.01:
+			w.append(("The sheet was coarsened to %.2f m to fit max_vertices; the waves want "
+				+ "%.2f m. The waterline is unaffected — it does not depend on the sheet's "
+				+ "resolution — but crests within a few tens of metres of the camera will be cut "
+				+ "flat. Raise max_vertices, or accept it: this is the gap the camera-centred "
+				+ "clipmap closes.") % [_sheet_spacing_used, wanted])
+	if mask_range <= _kill_margin(_sheet_spacing(_effective_spacing())):
+		w.append(("mask_range (%.1f m) does not exceed the sheet's vertex kill margin (%.1f m), so "
+			+ "no sheet vertex is ever culled and the whole sheet is trimmed by the fragment stage "
+			+ "alone. Correct, but it pays for fragments it could have skipped: raise mask_range.")
+			% [mask_range, _kill_margin(_sheet_spacing(_effective_spacing()))])
 	return w
 
 
@@ -220,11 +412,10 @@ func _build_surface(p_spacing: float) -> void:
 	if gw < 2 or gh < 2:
 		_build_failed("loop smaller than one grid cell")
 		return
-	if _budget_exceeded(gw * gh, p_spacing):
-		return
 
-	# The mesher's inside mask, kept for containment queries (see _contains_local). Built here
-	# rather than inside the mesher so both mesher paths produce it and both agree with it.
+	# The mesher's inside mask, kept for containment queries (see _contains_local). Built BEFORE the
+	# mode branch and at the same resolution either way, so a masked body answers is_point_underwater
+	# from exactly what a meshed one would -- the surface changed, the water did not.
 	if ClassDB.class_exists("Pasture3DUtil") \
 			and ClassDB.class_has_method("Pasture3DUtil", "build_inside_mask", true):
 		_mask = Pasture3DUtil.build_inside_mask(poly, mn, p_spacing, gw, gh)
@@ -233,6 +424,19 @@ func _build_surface(p_spacing: float) -> void:
 	_mask_gw = gw
 	_mask_gh = gh
 	_mask_spacing = p_spacing
+
+	_masked = _wants_mask(gw * gh)
+	_last_stats["masked"] = _masked
+	if _masked:
+		_build_masked(poly, mn, mx, p_spacing)
+		return
+
+	# The vertex ceiling is a MESHED-mode limit: it exists because that path emits a vertex per
+	# interior lattice point, which is the thing that does not scale. The masked path above is
+	# gated on its sheet instead, so a body that trips this has a second way out now and the
+	# warning says so.
+	if _budget_exceeded(gw * gh, p_spacing):
+		return
 
 	# The O(area) half. Native by default (spec §12 q1): the GDScript below is a faithful
 	# transcription kept as the A/B oracle, exactly as the brushes keep force_gdscript_raster, and
@@ -261,6 +465,410 @@ func _build_surface(p_spacing: float) -> void:
 	_last_stats["ok"] = true
 	_last_stats["vertices"] = counted.x
 	_last_stats["triangles"] = counted.y
+
+
+## Which path this build takes.
+##
+## AUTO masks a body ONLY when the meshed path will not fit, and that is a compatibility decision
+## rather than a performance one. A size threshold was the first version, and at any threshold worth
+## having it silently re-drew every large lake in an existing project: the rim moves a fraction of a
+## metre, the body starts owning a material, the vertex count changes. Bodies that currently draw
+## NOTHING are the only ones with nothing to lose, and they are exactly the ones over the ceiling --
+## so those switch and the rest are untouched.
+func _wants_mask(p_needed_vertices: int) -> bool:
+	match surface_mode:
+		SurfaceMode.MESHED:
+			return false
+		SurfaceMode.MASKED:
+			return true
+	return p_needed_vertices > max_vertices
+
+
+## Metres between sheet vertices in MASKED mode.
+func _sheet_spacing(p_wave_spacing: float) -> float:
+	return mask_sheet_spacing if mask_sheet_spacing > 0.0 else p_wave_spacing
+
+
+## How far outside a sheet vertex may be before its triangles are killed.
+##
+## The cell diagonal plus the half-feather that hangs past the outline. Anything less and the
+## geometric cut eats into the band the fragment stage is there to resolve, which shows up as
+## notches in the shore rather than as a performance difference.
+func _kill_margin(p_sheet_spacing: float) -> float:
+	return p_sheet_spacing * 1.5 + mask_feather
+
+
+## Fill the loop by cutting an unaware sheet with a distance field.
+##
+## The sheet spans the outline plus a margin, and the margin is not cosmetic: the field is sampled
+## with the UV clamped, so the border texel is what a vertex past the bake reads. Padding by more
+## than mask_range means that border value is "well outside", and the sheet ends there instead of
+## smearing the last texel outward forever.
+func _build_masked(p_poly: PackedVector2Array, p_min: Vector2, p_max: Vector2,
+		p_wave_spacing: float) -> void:
+	if not (ClassDB.class_exists("Pasture3DUtil")
+			and ClassDB.class_has_method("Pasture3DUtil", "build_shore_sdf", true)):
+		_build_failed("the masked surface needs Pasture3DUtil.build_shore_sdf, which this build "
+			+ "of the extension does not have — rebuild it, or set surface_mode to Meshed")
+		return
+
+	# THE SHEET AND THE FIELD ARE PADDED FOR DIFFERENT REASONS, and conflating them was a real bug:
+	#
+	#   the sheet only has to reach far enough past the outline that every triangle touching the
+	#   shore survives the vertex kill, which is the kill margin and a couple of metres;
+	#
+	#   the FIELD has to be padded by mask_range, because the UV is clamped and the border texel is
+	#   what a vertex past the bake reads -- pad it by less and that value is not "well outside" and
+	#   the sheet never ends.
+	#
+	# An earlier draft padded the sheet by the field's range, which made it 60% wider than it needed
+	# to be and, worse, pushed its geometry outside the cull box below.
+	# The field is framed the same way for both carriers, and it is framed around the OUTLINE
+	# rather than around whatever geometry ends up drawing it -- a clipmap has no bounds to frame
+	# it by, and the field has to be the same either way or the A/B switch would not be one.
+	var spacing := _sheet_spacing(p_wave_spacing)
+	var sheet := _pad(p_min, p_max, _kill_margin(spacing) + spacing)
+	var nx := int(ceil(sheet.size.x / spacing)) + 1
+	var nz := int(ceil(sheet.size.y / spacing)) + 1
+
+	# COARSEN RATHER THAN REFUSE. The sheet spans the whole body, so at the wave spacing it costs
+	# MORE vertices than the meshed path did -- which is why a masked sheet on its own is not the
+	# answer to a large lake, and the camera-centred clipmap is. Until that lands, a body over the
+	# ceiling gets a coarser sheet instead of no surface at all: the waterline does not depend on
+	# the sheet's resolution (measured bit-identical from 1.27 m to 10 m), so what is being spent
+	# is wave fidelity, and _shape_warnings says so rather than leaving it to be discovered.
+	#
+	# Doubling, not solving: it keeps the sheet on the wave lattice and matches how the clipmap's
+	# rings will be spaced, so the coarsened sheet is a subset of the eventual LOD0 grid.
+	while nx * nz > max_vertices and spacing < 512.0:
+		spacing *= 2.0
+		sheet = _pad(p_min, p_max, _kill_margin(spacing) + spacing)
+		nx = int(ceil(sheet.size.x / spacing)) + 1
+		nz = int(ceil(sheet.size.y / spacing)) + 1
+	_sheet_spacing_used = spacing
+	if _budget_exceeded(nx * nz, spacing):
+		return
+
+	# Square, because build_shore_sdf takes one texel count, and centred on the sheet so it covers
+	# every corner of it.
+	var field_extent: float = maxf(sheet.size.x, sheet.size.y) + (mask_range + mask_texel * 2.0) * 2.0
+	var field_min: Vector2 = sheet.get_center() - Vector2(field_extent, field_extent) * 0.5
+	var texels := int(ceil(field_extent / mask_texel))
+	var sdf: Image = Pasture3DUtil.build_shore_sdf(p_poly, field_min, mask_texel, texels,
+		mask_range, 2, true)
+	if sdf == null:
+		_build_failed("the distance field could not be baked")
+		return
+	_sdf_rect_local = Vector4(field_min.x, field_min.y, texels * mask_texel, texels * mask_texel)
+	_sdf_texels = texels
+
+	_ensure_surface()
+	var clipmapped := not mask_static_sheet and _clipmap_available()
+	# The Surface carries the sheet, or nothing at all when the clipmap does. Cleared rather than
+	# hidden: a stale sheet left behind draws THROUGH the clipmap, and two transparent copies of the
+	# same water at the same level is a doubled surface, not a redundant one.
+	_surface.mesh = null if clipmapped else _build_sheet_mesh(sheet.position, nx, nz, spacing)
+	_apply_material()
+	_apply_shore_uniforms(ImageTexture.create_from_image(sdf),
+		p_wave_spacing if clipmapped else spacing)
+	if clipmapped:
+		_drop_sheet_cull_box()
+		_ensure_clipmap(p_min, p_max, p_wave_spacing)
+	else:
+		_drop_clipmap()
+		# THE DRAWN SHEET's bounds, not the outline's.
+		#
+		# The vertex kill runs on the GPU, so the CPU submitting this mesh has no idea that most of
+		# it will be discarded. The first version of this box was drawn around the OUTLINE --
+		# reasoning that the rest was killed geometry anyway -- and the sheet is wider than the
+		# outline by construction, so the box never contained what was being drawn and the lake
+		# rendered as nothing at all. Taken from the vertex counts rather than from `sheet`, because
+		# nx and nz round up and the last row sits a fraction of a cell past sheet.end.
+		_apply_cull_box(sheet.position,
+			sheet.position + Vector2(float(nx - 1) * spacing, float(nz - 1) * spacing))
+	_rebuild_volume()
+
+	var counted := _count_mesh(_surface.mesh)
+	_last_stats["ok"] = true
+	_last_stats["native"] = true
+	_last_stats["clipmap"] = clipmapped
+	# The clipmap's instances are not this node's mesh, so _count_mesh cannot see them. Reported
+	# from the clipmap itself, because "how many vertices does this lake cost" is the question the
+	# whole exercise is about and a zero here would answer it wrongly.
+	_last_stats["vertices"] = (_clipmap.get_vertex_count() if clipmapped else counted.x)
+	_last_stats["triangles"] = 0 if clipmapped else counted.y
+	_last_stats["sheet_spacing"] = 0.0 if clipmapped else spacing
+	if clipmapped:
+		_last_stats["clipmap_lods"] = _clipmap.mesh_lods
+		_last_stats["clipmap_reach"] = _clipmap.get_reach()
+	_last_stats["sdf_texels"] = texels
+	_last_stats["sdf_bytes"] = texels * texels * 2
+
+
+## Split-screen views, as the manager last reported them. Called by Pasture3DPoolManager, which
+## gets them from the Pasture3D it belongs to -- see Pasture3D.CAMERA_USER_GROUP.
+##
+## Held rather than applied straight through, because the clipmap does not exist until a masked
+## build runs and a body may hear about the cameras first. _ensure_clipmap re-applies them, which is
+## the pull half: a body that registers after the last camera change is not stuck on one view.
+var _view_cameras: Array = []
+var _view_layers := PackedInt32Array()
+
+
+func set_view_cameras(p_cameras: Array, p_layers: PackedInt32Array) -> void:
+	_view_cameras = p_cameras
+	_view_layers = p_layers
+	if _clipmap != null and is_instance_valid(_clipmap):
+		_clipmap.set_views(_view_cameras, _view_layers)
+
+
+## Is the clipmap node available? It is C++, so a stale extension has the rest of the plugin but
+## not this, and the honest response is to fall back to the sheet rather than draw nothing.
+func _clipmap_available() -> bool:
+	return ClassDB.class_exists("Pasture3DWaterClipmap")
+
+
+## Build or update the camera-centred clipmap that carries a masked surface.
+##
+## The reach has to span the body's DIAGONAL, not its radius: the rings centre on the camera, and a
+## camera standing at one end of a lake is still handed the far end to draw. Each ring doubles the
+## reach, so this is a logarithm and the answer is small — a 1.4 km body needs six.
+func _ensure_clipmap(p_min: Vector2, p_max: Vector2, p_wave_spacing: float) -> void:
+	if _clipmap == null or not is_instance_valid(_clipmap):
+		_clipmap = ClassDB.instantiate("Pasture3DWaterClipmap")
+		_clipmap.name = "Clipmap"
+		add_child(_clipmap)
+
+	var mesh_size := mask_clipmap_mesh_size
+	var lods := mask_clipmap_lods
+	if lods <= 0:
+		# The smallest ring count whose reach covers the diagonal. One ring of reach is
+		# 2 * mesh_size * spacing; every ring after doubles it.
+		var need: float = (p_max - p_min).length() * 0.5 + mask_range
+		var one_ring: float = 2.0 * float(mesh_size) * p_wave_spacing
+		lods = 1
+		while lods < 10 and one_ring * pow(2.0, float(lods - 1)) < need:
+			lods += 1
+	_clipmap.mesh_size = mesh_size
+	_clipmap.mesh_lods = lods
+	# LOD0 gets the WAVE spacing, which is the point of the whole exercise: a body far too large to
+	# mesh at 1.27 m still gets 1.27 m where the camera is, and the rings coarsen outward from there
+	# on their own. Nothing here is coarsened to fit a vertex ceiling, because the count no longer
+	# depends on the body.
+	_clipmap.vertex_spacing = p_wave_spacing
+	_clipmap.material = _runtime_material
+	# Keeps wave phase precise far from the world origin, exactly as the sheet path's instance
+	# uniform does — the clipmap writes it onto its own instances, which is the only route to an
+	# instance uniform on geometry this node does not own.
+	_clipmap.domain_origin = global_position
+	var amp := _wave_amplitude_sum()
+	var level := global_position.y
+	_clipmap.height_range = Vector2(level - amp, level + amp)
+	# Where this body's water can be, so a view whose camera cannot reach it is hidden rather than
+	# drawn entirely killed. Pushed rather than derived: the clipmap has no idea what outline it is
+	# carrying, which is the property that lets it be geometry and nothing else.
+	_clipmap.set_body_bounds(_world_body_bounds())
+	_clipmap.set_cull_views(mask_clipmap_cull_views)
+	# Re-applied on every build, not only when the manager pushes: a clipmap created after the last
+	# camera change would otherwise be single-view until the cameras happened to change again.
+	_clipmap.set_views(_view_cameras, _view_layers)
+
+
+## Take the clipmap down and let the Surface draw again.
+func _drop_clipmap() -> void:
+	if _clipmap != null and is_instance_valid(_clipmap):
+		_clipmap.queue_free()
+	_clipmap = null
+
+
+## Clear a cull box left over from a sheet build, so the (now empty) Surface is not carrying one.
+func _drop_sheet_cull_box() -> void:
+	if _surface != null and is_instance_valid(_surface):
+		_surface.custom_aabb = AABB()
+		_surface.extra_cull_margin = 0.0
+
+
+## A rect covering p_min..p_max grown by p_by on every side.
+func _pad(p_min: Vector2, p_max: Vector2, p_by: float) -> Rect2:
+	var lo := p_min - Vector2(p_by, p_by)
+	return Rect2(lo, (p_max + Vector2(p_by, p_by)) - lo)
+
+
+## A plain sheet, nx by nz vertices from p_origin. Knows nothing about the outline; that is the point.
+##
+## Takes the counts rather than deriving them from a rect, so the caller's cull box and this mesh
+## cannot disagree about where the last row is.
+func _build_sheet_mesh(p_origin: Vector2, nx: int, nz: int, p_spacing: float) -> ArrayMesh:
+	var verts := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var idx := PackedInt32Array()
+	verts.resize(nx * nz)
+	uvs.resize(nx * nz)
+	for iz in nz:
+		for ix in nx:
+			var x := p_origin.x + ix * p_spacing
+			var z := p_origin.y + iz * p_spacing
+			verts[iz * nx + ix] = Vector3(x, 0.0, z)
+			# World XZ, matching the meshed path: the detail and foam layers are scaled in world
+			# units, so a sheet with 0-1 UVs would texture at a different rate than a meshed body
+			# of the same size and the two would not look like the same water.
+			uvs[iz * nx + ix] = Vector2(x, z)
+	for iz in nz - 1:
+		for ix in nx - 1:
+			var a := iz * nx + ix
+			idx.append_array([a, a + nx, a + 1, a + 1, a + nx, a + nx + 1])
+	var normals := PackedVector3Array()
+	normals.resize(verts.size())
+	normals.fill(Vector3.UP)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = idx
+	arrays[Mesh.ARRAY_COLOR] = _neutral_colours(verts.size())
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+## Write the field and its framing onto this body's own material.
+func _apply_shore_uniforms(p_texture: Texture2D, p_sheet_spacing: float) -> void:
+	if _runtime_material == null:
+		return
+	_runtime_material.set_shader_parameter("_shore_sdf", p_texture)
+	_runtime_material.set_shader_parameter("_shore_rect", _world_shore_rect())
+	_runtime_material.set_shader_parameter("_shore_texels",
+		Vector2(_sdf_texels, _sdf_texels))
+	_runtime_material.set_shader_parameter("_shore_range", mask_range)
+	_runtime_material.set_shader_parameter("_shore_feather", mask_feather)
+	# edge_offset is GEOMETRY on the meshed path -- the polygon is grown before it is meshed -- and
+	# it stays that way here, because _build_surface offsets the loop before the field is baked from
+	# it. So this is zero, not edge_offset: adding it again would apply the same rim twice.
+	_runtime_material.set_shader_parameter("_shore_offset", 0.0)
+	# Read only by the STATIC SHEET. Under WATER_CLIPMAP the shader derives the margin per ring
+	# from the instance's own cell size, because one number cannot serve rings whose cells differ
+	# by 32x -- see water_surface.gdshaderinc. Still written, so the two carriers can be swapped
+	# without a rebuild deciding which uniforms exist.
+	_runtime_material.set_shader_parameter("_shore_kill_margin",
+		_kill_margin(p_sheet_spacing))
+	_push_sea_level()
+
+
+## Everywhere this body's water could possibly appear, in WORLD xz.
+##
+## The offset outline's bounds, grown by mask_range. Grown by the FIELD's range rather than by the
+## half-feather that is the true outer limit of a visible fragment, because the slack costs nothing --
+## it only widens the radius at which a view stops being drawn -- and because it makes this the same
+## number in both carriers' terms: past mask_range the field reads its clamped maximum and no shading
+## path can produce a visible pixel whatever the feather is set to.
+func _world_body_bounds() -> Rect2:
+	var o := global_position
+	var r := Rect2(_poly_bounds.position + Vector2(o.x, o.z), _poly_bounds.size)
+	return r.grow(mask_range)
+
+
+## The field's rect in WORLD xz, which is what water_shore_distance() samples with.
+##
+## The outline, and therefore the bake, is in this node's local space; both carriers read world
+## positions. They coincide only for a body at the origin, which is exactly the case every probe
+## fixture happened to be.
+func _world_shore_rect() -> Vector4:
+	var o := global_position
+	return Vector4(_sdf_rect_local.x + o.x, _sdf_rect_local.y + o.z,
+		_sdf_rect_local.z, _sdf_rect_local.w)
+
+
+## The level the clipmap lifts its flat sheet to.
+##
+## Only the clipmap path reads it: WATER_CLIPMAP builds the rings at y = 0 in WORLD space and the
+## shader positions them, where a static sheet is a child of this node and simply travels with it.
+## That asymmetry is why moving a pool in Y has to push this — see _notification.
+func _push_sea_level() -> void:
+	if _runtime_material != null:
+		_runtime_material.set_shader_parameter("sea_level", global_position.y)
+
+
+## Extended for MASKED mode: the shared material the base class resolves cannot carry this body's
+## field, so a private duplicate is put in front of it.
+##
+## super() FIRST and unconditionally, so the resolution logic -- the manager's per-(material,
+## profile) cache, the wave-table upload, the domain origin -- stays in one place and this only
+## decides what finally lands on the surface.
+func _apply_material() -> void:
+	super()
+	if _surface == null or not is_instance_valid(_surface):
+		return
+	if not _masked:
+		# Dropped rather than kept: a body switched back to MESHED that held a stale duplicate
+		# would keep drawing through it, mask and all, and the mode dial would look broken.
+		_runtime_material = null
+		_runtime_source = null
+		_runtime_shader_path = ""
+		_drop_clipmap()
+		return
+	var resolved := _surface.material_override
+	if resolved == null:
+		return
+	if _runtime_material == null or _runtime_source != resolved 			or _runtime_shader_path != _wanted_masked_shader():
+		_runtime_material = _masked_material(resolved)
+		_runtime_source = resolved
+		_runtime_shader_path = "" if _runtime_material == null 			else _runtime_material.shader.resource_path
+	if _runtime_material != null:
+		_surface.material_override = _runtime_material
+		update_configuration_warnings()
+
+
+## This body's own copy of the resolved material, on a shader that declares the shore uniforms.
+##
+## The parameters are carried across EXPLICITLY rather than trusted to survive assigning a new
+## shader to a duplicate. The one that matters is `_waves`: the manager uploads the profile's table
+## into the resolved material, and a duplicate that lost it falls back to the shader's compile-time
+## table -- which is not obviously broken, it is a lake with slightly wrong waves whose CPU height
+## query no longer matches what is drawn.
+func _masked_material(p_base: Material) -> ShaderMaterial:
+	var src := p_base as ShaderMaterial
+	if src == null or src.shader == null:
+		return null
+	var dup: ShaderMaterial = src.duplicate()
+	if _shader_has_shore(src.shader):
+		return dup # the user already supplied a masked shader; leave it alone
+	var masked: Shader = load(_wanted_masked_shader())
+	if masked == null:
+		return null
+	var carried := {}
+	for u in src.shader.get_shader_uniform_list(true):
+		var nm: String = str(u.get("name", ""))
+		if nm == "":
+			continue
+		var v = src.get_shader_parameter(nm)
+		if v != null:
+			carried[nm] = v
+	dup.shader = masked
+	for nm in carried:
+		dup.set_shader_parameter(nm, carried[nm])
+	return dup
+
+
+## Which masked variant this body wants.
+##
+## The clipmap variant adds WATER_CLIPMAP's geomorph, which the static sheet must NOT have: the
+## morph is written against a ring's scale and would shear a sheet that has none.
+func _wanted_masked_shader() -> String:
+	if mask_static_sheet or not _clipmap_available():
+		return MASKED_SHADER
+	return MASKED_CLIPMAP_SHADER
+
+
+## Does this shader declare the shore mask at all? Asked of the SHADER rather than assumed from its
+## path, for the reason Pasture3DOcean stopped guessing its wave count from a filename.
+func _shader_has_shore(p_shader: Shader) -> bool:
+	if p_shader == null:
+		return false
+	for u in p_shader.get_shader_uniform_list(true):
+		if str(u.get("name", "")) == "_shore_sdf":
+			return true
+	return false
 
 
 ## The GDScript mesher: the A/B oracle for Pasture3DUtil.build_pool_mesh.
@@ -368,10 +976,48 @@ func get_polygon() -> PackedVector2Array:
 	return _poly_cache
 
 
+## Extended so a masked body's world-anchored geometry follows the node.
+##
+## The meshed surface and the static sheet are CHILDREN and travel with this node for free. The
+## clipmap does not: its rings are placed in world space around the camera and lifted to a
+## sea_level uniform, so dragging the pool moves nothing until these are pushed. Dragging a pool in
+## Y is how its water level is set (water guide §4), so this is the common case and not an edge one.
+func _notification(what: int) -> void:
+	super(what)
+	if what == NOTIFICATION_TRANSFORM_CHANGED and _masked:
+		_push_sea_level()
+		# The field is anchored to the body, so an XZ move has to carry it along or the mask stays
+		# where the lake used to be.
+		if _runtime_material != null:
+			_runtime_material.set_shader_parameter("_shore_rect", _world_shore_rect())
+		if _clipmap != null and is_instance_valid(_clipmap):
+			_clipmap.domain_origin = global_position
+			var amp := _wave_amplitude_sum()
+			_clipmap.height_range = Vector2(
+				global_position.y - amp, global_position.y + amp)
+			# The cull footprint is anchored to the body for the same reason the field's rect is, and
+			# goes stale the same way: a lake dragged out from under its own bounds would have every
+			# view culled and draw nothing at all.
+			_clipmap.set_body_bounds(_world_body_bounds())
+
+
 func _forget_surface() -> void:
 	super()
 	_poly_cache = PackedVector2Array()
 	_mask = PackedByteArray()
+	# The field goes too. A failed build that kept it would leave the surface cut to an outline
+	# that no longer exists, which is the rendering half of the bug _build_failed exists to prevent.
+	_runtime_material = null
+	_runtime_source = null
+	_runtime_shader_path = ""
+	_masked = false
+	_sdf_rect_local = Vector4.ZERO
+	_sdf_texels = 0
+	_sheet_spacing_used = 0.0
+	# The clipmap goes with the rest. A failed build that kept it would leave rings drawing water
+	# cut to an outline that no longer exists, which is the rendering half of the bug _build_failed
+	# is here to prevent.
+	_drop_clipmap()
 
 
 # ---- migration ---------------------------------------------------------------
@@ -469,6 +1115,10 @@ func _editor_undo() -> EditorUndoRedoManager:
 
 func _validate_property(property: Dictionary) -> void:
 	super(property)
+	# The mask dials are dead in MESHED mode. Shown greyed rather than hidden: a property that
+	# vanishes reads as one that went missing, and these are the knobs the size warning points at.
+	if property.name.begins_with("mask_") and surface_mode == SurfaceMode.MESHED:
+		property.usage = PROPERTY_USAGE_NO_EDITOR | PROPERTY_USAGE_READ_ONLY
 	if property.name == "_convert_btn":
 		# Only on the water this is a migration FOR. A Convert to Stream button on every lake in
 		# the project would be an invitation to break one.

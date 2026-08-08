@@ -53,7 +53,34 @@ public: // Constants
 	// cameras 0..3. Keep gameplay (karts, props) on layers 1-16 so every camera sees it.
 	static const int TERRAIN_TOP_BIT = 19;
 
+	// Anything that wants the camera list joins this and answers set_cameras(cameras, layers).
+	//
+	// A GROUP rather than a registration list on this node: Godot drops members on free and on
+	// leaving the tree, so there is no lifecycle to maintain, no stale pointer to guard and no
+	// retry needed for a subscriber that entered the tree before this node did -- which is the
+	// problem Pasture3DOcean::_try_register_with_manager() exists to work around. Same idiom as
+	// MANAGER_GROUP / POOL_GROUP / OCEAN_GROUP.
+	//
+	// Duck-typed on the method and not on a class, because a subscriber may be GDScript and
+	// GDScript cannot implement a C++ interface -- the reason Pasture3DWaterClipmap had to be its
+	// own node rather than Pasture3DPool implementing Pasture3DClipmapHost.
+	//
+	// `const char *` for the reason MANAGER_GROUP is: a StringName built at static-init time
+	// prevents the DLL from loading at all.
+	static constexpr const char *CAMERA_USER_GROUP = "pasture3d_camera_user";
+
+	// So a subscriber that entered the tree AFTER the last broadcast can pull the current list
+	// instead of waiting for the next camera change. A group broadcast reaches nobody who was not
+	// there to hear it, and the pull is what closes that gap without a retry loop on either side.
+	static constexpr const char *TERRAIN_GROUP = "pasture3d_terrain";
+
 private:
+	// Last (cameras, layers) pair handed to CAMERA_USER_GROUP. set_cameras() routes through
+	// set_camera() for the solo case and both broadcast, so without this a solo change would push
+	// twice; and a re-broadcast of an unchanged list would re-create every subscriber's views.
+	PackedInt64Array _cameras_sent;
+	PackedInt32Array _camera_layers_sent;
+
 	String _version = "1.1.0-dev";
 	String _data_directory;
 	bool _is_inside_world = false;
@@ -127,6 +154,7 @@ private:
 
 	void _setup_terrain_mesher();
 	void _apply_cameras_to_mesher();
+	void _broadcast_cameras();
 	void _update_mesher_aabbs() { _terrain_mesher ? _terrain_mesher->update_aabbs() : void(); }
 	void _destroy_terrain_mesher(const bool p_final = false);
 

@@ -41,6 +41,21 @@ public:
 	// the terrain's own path. The ocean always passes explicit values.
 	virtual real_t get_default_cull_margin() const = 0;
 	virtual Vector2 get_default_height_range() const = 0;
+
+	// Can a view centred here draw anything at all?
+	//
+	// The seventh, and the only one with a default: "always", which is the honest answer for a
+	// terrain and for an ocean. Both are unbounded, so a view that reaches nothing is not a case
+	// either of them has, and neither had to change to gain this.
+	//
+	// A FINITE body is the case it exists for. Its clipmap centres on the camera and spans its whole
+	// reach wherever the body happens to be, so a player kilometres from a lake is otherwise handed
+	// a full ring set whose every vertex is killed or alpha-zero -- invisible geometry, at the cost
+	// of visible geometry. Answering false for that view hides it.
+	//
+	// The answer must be CONSERVATIVE. Hiding a view that could have drawn something is invisible
+	// water, which is far worse than drawing water nobody can see.
+	virtual bool is_clipmap_view_in_range(const Vector2 &p_target_xz) const { return true; }
 };
 
 #endif // PASTURE3D_CLIPMAP_HOST_CLASS_H
