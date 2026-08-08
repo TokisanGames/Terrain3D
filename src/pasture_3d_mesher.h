@@ -38,6 +38,11 @@ public: // Constants
 		uint32_t render_layers = 1u; // VisualInstance layer mask for this view
 		uint64_t camera_id = 0; // ObjectID of camera to follow; 0 = terrain's default clipmap target
 		bool cast_shadows = true; // Only the first view casts, to avoid double-shadowing (guide §4)
+		// The host's per-view range answer. False hides this view AND skips its snap, which is where
+		// the saving is: a hidden view still cost one instance_set_transform per instance per frame.
+		bool in_range = true;
+		// What was last written to the RenderingServer, so a still camera costs no traffic at all.
+		bool visible_sent = true;
 	};
 
 private:
@@ -91,7 +96,8 @@ private:
 	void _generate_offset_data();
 
 	Vector3 _resolve_view_target(const ClipmapView &p_view) const;
-	void _snap_view(ClipmapView &p_view);
+	void _snap_view(ClipmapView &p_view, const Vector3 &p_target_pos);
+	void _apply_view_visibility(ClipmapView &p_view, const bool p_host_visible);
 
 	void _clear_views();
 	void _clear_mesh_types();
@@ -111,6 +117,10 @@ public:
 	// clipmap target (single-view behavior). One entry per camera otherwise.
 	void set_views(const Vector<uint64_t> &p_camera_ids, const Vector<uint32_t> &p_render_layers);
 	int get_view_count() const { return _views.size(); }
+	// Views the host's range test currently admits. Equal to get_view_count() for any host that does
+	// not override it, which is every host but a finite water body.
+	int get_in_range_view_count() const;
+	bool is_view_in_range(const int p_view) const;
 
 	void snap();
 	void reset_target_position();

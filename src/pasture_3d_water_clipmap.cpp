@@ -175,6 +175,62 @@ int Pasture3DWaterClipmap::get_view_count() const {
 	return _mesher ? _mesher->get_view_count() : 0;
 }
 
+int Pasture3DWaterClipmap::get_in_range_view_count() const {
+	return _mesher ? _mesher->get_in_range_view_count() : 0;
+}
+
+bool Pasture3DWaterClipmap::is_view_in_range(const int p_view) const {
+	return _mesher ? _mesher->is_view_in_range(p_view) : false;
+}
+
+void Pasture3DWaterClipmap::set_body_bounds(const Rect2 &p_world_xz) {
+	_body_bounds = p_world_xz;
+	// Not applied here. snap() re-asks every frame, so the next physics tick picks this up -- and
+	// applying it here would mean deciding a view's visibility from a target that has not been
+	// resolved, which is exactly the kind of half-state that leaves a lake hidden.
+}
+
+void Pasture3DWaterClipmap::set_cull_views(const bool p_cull) {
+	if (_cull_views == p_cull) {
+		return;
+	}
+	_cull_views = p_cull;
+	// Switching it OFF has to take effect without waiting for a camera to move, because the reason
+	// somebody switches it off is that water is missing and they want it back now. snap() re-asks and
+	// un-hides on the next tick; forcing a re-ask here makes that immediate.
+	if (_mesher) {
+		_mesher->snap();
+	}
+}
+
+/**
+ * How far outside the body's footprint a view's target may sit and still be admitted.
+ *
+ * PROVABLY conservative, and it has to be: hiding a view that could have drawn something is
+ * invisible water, which is a far worse failure than drawing water nobody can see.
+ *
+ *   the rings span get_reach() from their snapped centre, and
+ *   the snapped centre is within one COARSEST snap step of the target -- _snap_view rounds LOD n to
+ *   2^(n+1) * spacing, so the outermost ring's step is 2^mesh_lods * spacing.
+ *
+ * A target further than the sum from the padded footprint therefore has no vertex that can land
+ * inside it. Nothing was being drawn there, so hiding the view changes no pixel -- which is the
+ * claim bench/WaterTwoLakesGate.gd criterion H sweeps a camera across to check.
+ */
+real_t Pasture3DWaterClipmap::_view_cull_slack() const {
+	const real_t spacing = _vertex_spacing / Math::pow(2.f, (real_t)_tessellation_level);
+	return get_reach() + Math::pow(2.f, (real_t)_mesh_lods) * spacing;
+}
+
+bool Pasture3DWaterClipmap::is_clipmap_view_in_range(const Vector2 &p_target_xz) const {
+	// Never told where the body is, or told not to cull: admit everything. Both are the behaviour
+	// this node had before per-view culling existed.
+	if (!_cull_views || _body_bounds.size.x <= 0.f || _body_bounds.size.y <= 0.f) {
+		return true;
+	}
+	return _body_bounds.grow(_view_cull_slack()).has_point(p_target_xz);
+}
+
 void Pasture3DWaterClipmap::_apply_views() {
 	if (!_mesher) {
 		return;
@@ -324,6 +380,13 @@ void Pasture3DWaterClipmap::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Pasture3DWaterClipmap::get_height_range);
 	ClassDB::bind_method(D_METHOD("set_views", "cameras", "layers"), &Pasture3DWaterClipmap::set_views);
 	ClassDB::bind_method(D_METHOD("get_view_count"), &Pasture3DWaterClipmap::get_view_count);
+	ClassDB::bind_method(D_METHOD("get_in_range_view_count"), &Pasture3DWaterClipmap::get_in_range_view_count);
+	ClassDB::bind_method(D_METHOD("is_view_in_range", "view"), &Pasture3DWaterClipmap::is_view_in_range);
+	ClassDB::bind_method(D_METHOD("set_body_bounds", "world_xz"), &Pasture3DWaterClipmap::set_body_bounds);
+	ClassDB::bind_method(D_METHOD("get_body_bounds"), &Pasture3DWaterClipmap::get_body_bounds);
+	ClassDB::bind_method(D_METHOD("set_cull_views", "cull"), &Pasture3DWaterClipmap::set_cull_views);
+	ClassDB::bind_method(D_METHOD("get_cull_views"), &Pasture3DWaterClipmap::get_cull_views);
+	ClassDB::bind_method(D_METHOD("get_view_cull_radius"), &Pasture3DWaterClipmap::get_view_cull_radius);
 	ClassDB::bind_method(D_METHOD("get_reach"), &Pasture3DWaterClipmap::get_reach);
 	ClassDB::bind_method(D_METHOD("get_vertex_count"), &Pasture3DWaterClipmap::get_vertex_count);
 

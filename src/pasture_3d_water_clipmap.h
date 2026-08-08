@@ -10,6 +10,7 @@
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/variant/rect2.hpp>
 
 #include "constants.h"
 #include "pasture_3d_clipmap_host.h"
@@ -62,6 +63,14 @@ private:
 
 	Ref<Material> _material;
 	Vector3 _domain_origin = V3_ZERO;
+	// The footprint any of this body's water could occupy, in WORLD xz. Pushed by the owner, which is
+	// the only thing that knows the outline. An EMPTY rect means "never told", and then no view is
+	// ever culled -- the safe default, because culling wrongly is invisible water.
+	Rect2 _body_bounds = Rect2();
+	bool _cull_views = true;
+	// Metres beyond the footprint a view's target may sit and still be admitted. See the .cpp: it is
+	// a proof, not a tuning knob.
+	real_t _view_cull_slack() const;
 	// Pushed by the owner, which is the only thing that knows the body's level and its wave
 	// amplitude. V2_MAX means "not set yet", so the first update always applies.
 	Vector2 _height_range = V2_MAX;
@@ -94,6 +103,7 @@ public:
 	virtual bool is_clipmap_visible() const override { return is_visible_in_tree(); }
 	virtual real_t get_default_cull_margin() const override { return _cull_margin; }
 	virtual Vector2 get_default_height_range() const override { return _height_range; }
+	virtual bool is_clipmap_view_in_range(const Vector2 &p_target_xz) const override;
 
 	void set_mesh_lods(const int p_count);
 	int get_mesh_lods() const { return _mesh_lods; }
@@ -120,6 +130,17 @@ public:
 	// one view following get_clipmap_target_position(), which is the solo / editor path.
 	void set_views(const TypedArray<Camera3D> &p_cameras, const PackedInt32Array &p_layers);
 	int get_view_count() const;
+	// Views currently drawing. Below get_view_count() when a player is out of reach of this body.
+	int get_in_range_view_count() const;
+	bool is_view_in_range(const int p_view) const;
+	// The footprint, in WORLD xz, that any of this body's water could occupy -- the outline plus
+	// whatever the field and the feather add. Pushed by the owner on every rebuild and on every move.
+	void set_body_bounds(const Rect2 &p_world_xz);
+	Rect2 get_body_bounds() const { return _body_bounds; }
+	void set_cull_views(const bool p_cull);
+	bool get_cull_views() const { return _cull_views; }
+	// The radius the range test uses, exposed so a bench can stand a camera either side of it.
+	real_t get_view_cull_radius() const { return _view_cull_slack(); }
 	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
 	// The vertical span the cull volumes must cover, in WORLD y: the body's level plus and minus
 	// its wave amplitude. Pushed rather than derived, because the level belongs to the owner's

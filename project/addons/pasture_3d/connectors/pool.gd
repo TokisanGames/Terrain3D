@@ -139,6 +139,29 @@ enum SurfaceMode {
 	set(v):
 		mask_clipmap_mesh_size = clampi(v, 8, 64)
 		_schedule_rebuild()
+## Hide a camera's clipmap view when that camera is out of reach of this body.
+##
+## The clipmap centres on the camera and spans its whole reach wherever the body is, so a player
+## kilometres from this lake is otherwise handed a full ring set whose every vertex is killed or
+## alpha-zero. That is invisible geometry crowding out visible geometry, and it is what a second lake
+## and a second player each multiply: two masked lakes in a two-player game is four ring sets, of
+## which at most two can be showing anything.
+##
+## The radius is a proof rather than a tuning knob -- the clipmap's reach plus one coarsest snap step,
+## which is the furthest a ring vertex can land from the camera -- so a hidden view provably had
+## nothing to draw. bench/WaterTwoLakesGate.gd criterion H walks a camera across the boundary and
+## requires the frame to be pixel-identical on both sides.
+##
+## THE ESCAPE HATCH, and the reason it is an export: if the radius were ever wrong the symptom would
+## be water that is simply missing, which is the hardest kind of bug to attribute. Turn this off and
+## every view draws, exactly as it did before the culling existed.
+@export var mask_clipmap_cull_views: bool = true:
+	set(v):
+		mask_clipmap_cull_views = v
+		# Applied straight through rather than through a rebuild: the reason to touch this is that
+		# water is missing and it is wanted back now.
+		if _clipmap != null and is_instance_valid(_clipmap):
+			_clipmap.set_cull_views(v)
 @export_group("")
 
 ## The offset loop in LOCAL XZ, as of the last rebuild. Every containment query reads this rather
@@ -641,6 +664,11 @@ func _ensure_clipmap(p_min: Vector2, p_max: Vector2, p_wave_spacing: float) -> v
 	var amp := _wave_amplitude_sum()
 	var level := global_position.y
 	_clipmap.height_range = Vector2(level - amp, level + amp)
+	# Where this body's water can be, so a view whose camera cannot reach it is hidden rather than
+	# drawn entirely killed. Pushed rather than derived: the clipmap has no idea what outline it is
+	# carrying, which is the property that lets it be geometry and nothing else.
+	_clipmap.set_body_bounds(_world_body_bounds())
+	_clipmap.set_cull_views(mask_clipmap_cull_views)
 	# Re-applied on every build, not only when the manager pushes: a clipmap created after the last
 	# camera change would otherwise be single-view until the cameras happened to change again.
 	_clipmap.set_views(_view_cameras, _view_layers)
@@ -725,6 +753,19 @@ func _apply_shore_uniforms(p_texture: Texture2D, p_sheet_spacing: float) -> void
 	_runtime_material.set_shader_parameter("_shore_kill_margin",
 		_kill_margin(p_sheet_spacing))
 	_push_sea_level()
+
+
+## Everywhere this body's water could possibly appear, in WORLD xz.
+##
+## The offset outline's bounds, grown by mask_range. Grown by the FIELD's range rather than by the
+## half-feather that is the true outer limit of a visible fragment, because the slack costs nothing --
+## it only widens the radius at which a view stops being drawn -- and because it makes this the same
+## number in both carriers' terms: past mask_range the field reads its clamped maximum and no shading
+## path can produce a visible pixel whatever the feather is set to.
+func _world_body_bounds() -> Rect2:
+	var o := global_position
+	var r := Rect2(_poly_bounds.position + Vector2(o.x, o.z), _poly_bounds.size)
+	return r.grow(mask_range)
 
 
 ## The field's rect in WORLD xz, which is what water_shore_distance() samples with.
@@ -954,6 +995,10 @@ func _notification(what: int) -> void:
 			var amp := _wave_amplitude_sum()
 			_clipmap.height_range = Vector2(
 				global_position.y - amp, global_position.y + amp)
+			# The cull footprint is anchored to the body for the same reason the field's rect is, and
+			# goes stale the same way: a lake dragged out from under its own bounds would have every
+			# view culled and draw nothing at all.
+			_clipmap.set_body_bounds(_world_body_bounds())
 
 
 func _forget_surface() -> void:

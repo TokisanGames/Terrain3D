@@ -32,6 +32,13 @@
 #      "something changed".
 #   F. the cost, stated: vertices per lake per view, and the total. Asserts the total is the sum of
 #      the parts -- no hidden multiplication -- and that neither count tracks its body's size.
+#   G. per-view culling, which is F's answer: a view whose camera cannot reach the body is hidden.
+#      CONTROLS: the escape hatch must restore every view; both players' frames must be PIXEL-
+#      IDENTICAL either way (counting views proves the mechanism fired, only the frames prove it
+#      fired harmlessly); and a view whose camera comes back must come back correctly centred.
+#   H. the boundary, swept. A camera walked from inside the body out to 1.8x the cull radius, with the
+#      frame required identical on both sides at every step. ANTI-NULLS: the culling must actually
+#      fire somewhere in the sweep, and the lake must actually be visible somewhere in it.
 #
 # Run: Godot_v4.7-stable_win64_console.exe --path project bench/WaterTwoLakesGate.tscn
 #      BENCH_OUT=<dir> for the captures.
@@ -49,7 +56,7 @@ const A_POS := Vector3(-120.0, 0.0, 0.0)
 const B_POS := Vector3(120.0, 6.0, 0.0)
 var _fail := 0
 var _completed := 0
-const CRITERIA := 6
+const CRITERIA := 8
 var _out_dir := ""
 var _cover_shader: Shader = null
 ## Whether the readout material carries the body's wave table. Only criterion C's decomposition
@@ -89,6 +96,8 @@ func _ready() -> void:
 	await _criterion_d_split_screen()
 	await _criterion_e_queries_route()
 	await _criterion_f_the_cost()
+	await _criterion_g_per_view_culling()
+	await _criterion_h_the_boundary()
 
 	print("")
 	print("completed %d/%d criteria, %d failures" % [_completed, CRITERIA, _fail])
@@ -111,8 +120,7 @@ func _criterion_a_two_fields() -> void:
 		_fail += 1
 		print("    !! a body did not build: A=%s B=%s" % [
 			sa.get("reason", "ok"), sb.get("reason", "ok")])
-		root.queue_free()
-		await get_tree().process_frame
+		await _teardown(root)
 		_completed += 1
 		return
 
@@ -121,8 +129,7 @@ func _criterion_a_two_fields() -> void:
 	if ma == null or mb == null:
 		_fail += 1
 		print("    !! a body has no runtime material (A=%s B=%s)" % [ma, mb])
-		root.queue_free()
-		await get_tree().process_frame
+		await _teardown(root)
 		_completed += 1
 		return
 
@@ -181,8 +188,7 @@ func _criterion_a_two_fields() -> void:
 	if m.get_cached_material_count() != 1:
 		_fail += 1
 		print("    !! the shared cache is not being shared, so the profile upload is per body")
-	root.queue_free()
-	await get_tree().process_frame
+	await _teardown(root)
 	_completed += 1
 
 
@@ -198,8 +204,7 @@ func _criterion_b_each_draws_its_own() -> void:
 	if a.get_polygon().size() < 3 or b.get_polygon().size() < 3:
 		_fail += 1
 		print("    !! a body has no polygon")
-		root.queue_free()
-		await get_tree().process_frame
+		await _teardown(root)
 		_completed += 1
 		return
 
@@ -281,8 +286,7 @@ func _criterion_b_each_draws_its_own() -> void:
 		print("    !! A stopped covering its own outline when B was removed")
 	else:
 		print("    -> each lake's pixels are its own")
-	vp.queue_free()
-	await get_tree().process_frame
+	await _teardown(vp)
 	_completed += 1
 
 
@@ -305,12 +309,17 @@ func _criterion_c_waterline_in_company() -> void:
 	var b := _pool(root, "LakeB", B_POS)
 	await _rebuild(a)
 	await _rebuild(b)
+	# CULLING OFF ON B, deliberately. This criterion's entire premise is that B's clipmap is drawing
+	# across A's frame; with the per-view culling on, whether it does depends on how the ortho
+	# camera's distance from B compares to B's cull radius -- and at these positions it is inside by
+	# 11 m. Letting an unrelated radius decide whether the criterion tests anything is how a probe
+	# quietly stops measuring. Criteria G and H are where the culling is under test.
+	b.mask_clipmap_cull_views = false
 	var pa := _world_polygon(a)
 	if pa.size() < 3:
 		_fail += 1
 		print("    !! no polygon")
-		root.queue_free()
-		await get_tree().process_frame
+		await _teardown(root)
 		_completed += 1
 		return
 	var bounds := _bounds(pa)
@@ -325,6 +334,16 @@ func _criterion_c_waterline_in_company() -> void:
 	root.get_parent().remove_child(root)
 	vp.add_child(root)
 	await get_tree().process_frame
+
+	# ANTI-NULL for the premise: B has to be DRAWING here, or "the second lake changed nothing" is
+	# just a report that there was no second lake.
+	var clip_b: Node = b.get_node_or_null("Clipmap")
+	var b_live: int = 0 if clip_b == null else clip_b.get_in_range_view_count()
+	print("    lake B's clipmap is drawing %d of %d view(s) over this frame" % [
+		b_live, 0 if clip_b == null else clip_b.get_view_count()])
+	if b_live < 1:
+		_fail += 1
+		print("    !! B's clipmap is not drawing here, so this criterion has no second lake in it")
 
 	var scores := {}
 	var img := await _capture([a, b], vp)
@@ -383,8 +402,7 @@ func _criterion_c_waterline_in_company() -> void:
 		print("    !! the control did not degrade, so this is not measuring the field")
 	else:
 		print("    -> and coarsening A's field does move it, so the metric is live")
-	vp.queue_free()
-	await get_tree().process_frame
+	await _teardown(vp)
 	_completed += 1
 
 
@@ -496,8 +514,7 @@ func _criterion_d_split_screen() -> void:
 		print("    !! camera 1's frame changed when the OTHER lake was freed")
 	else:
 		print("    -> and camera 1's frame is unchanged, so nothing of B's went with A")
-	host.queue_free()
-	await get_tree().process_frame
+	await _teardown(host)
 	_completed += 1
 
 
@@ -563,8 +580,7 @@ func _criterion_e_queries_route() -> void:
 	if cross > 0:
 		_fail += 1
 		print("    !! a body claims water that is not its own, so the routing above was luck")
-	root.queue_free()
-	await get_tree().process_frame
+	await _teardown(root)
 	_completed += 1
 
 
@@ -588,8 +604,7 @@ func _criterion_f_the_cost() -> void:
 	if one <= 0 or two <= 0:
 		_fail += 1
 		print("    !! a body reported no vertices, so neither number below means anything")
-		root.queue_free()
-		await get_tree().process_frame
+		await _teardown(root)
 		_completed += 1
 		return
 	# Rings scale with the LOG of the span, so a 13.5x body is a handful of rings more and not a
@@ -605,8 +620,7 @@ func _criterion_f_the_cost() -> void:
 	if clip_a == null or clip_b == null:
 		_fail += 1
 		print("    !! a masked body has no clipmap")
-		root.queue_free()
-		await get_tree().process_frame
+		await _teardown(root)
 		_completed += 1
 		return
 	# The total is the sum of the parts and nothing else: no shared pool of instances, and no
@@ -622,12 +636,396 @@ func _criterion_f_the_cost() -> void:
 	print("    scene total, two players: %d verts (each clipmap builds one set per camera)" % [
 		(one + two) * 2])
 	print("    -> a second lake and a second player each MULTIPLY; a bigger lake does not.")
-	root.queue_free()
+	await _teardown(root)
+	_completed += 1
+
+
+# ---- G: per-view culling -------------------------------------------------------
+
+## Criterion F states the cost; this is the fix for it. A clipmap centres on the camera and spans its
+## whole reach wherever its body is, so a player standing at lake A is still handed lake B's full ring
+## set -- every vertex of it killed or alpha-zero. The per-view range test hides that view.
+##
+## THE CLAIM IS THAT NOTHING VISIBLE IS LOST, and the only honest way to check it is to render the
+## same frame with the culling on and off and require the two to be identical. Counting views proves
+## the mechanism fired; only the frames prove it fired harmlessly.
+func _criterion_g_per_view_culling() -> void:
+	print("[G] hiding a view whose camera cannot reach the body:")
+	var world := World3D.new()
+	var host := SubViewport.new()
+	host.size = VIEW
+	host.world_3d = world
+	host.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(host)
+	var root := _lit_root()
+	host.add_child(root)
+
+	var terrain := Pasture3D.new()
+	root.add_child(terrain)
+	var manager := Pasture3DPoolManager.new()
+	terrain.add_child(manager)
+	manager.set_physics_process(false)
+
+	# 800 m apart, which is what it takes for each camera to be outside the OTHER body's radius on
+	# this fixture: the bodies are ~104 m across and the radius comes out near 173 m, so anything
+	# closer would admit both views and the criterion would have nothing to hide.
+	var a := _pool(root, "LakeA", Vector3(-400.0, 0.0, 0.0))
+	var b := _pool(root, "LakeB", Vector3(400.0, 0.0, 0.0))
+	var cams: Array[Camera3D] = []
+	for i in 2:
+		var c := Camera3D.new()
+		c.position = Vector3(-400.0 + i * 800.0, 34.0, 90.0)
+		c.rotation_degrees = Vector3(-22.0, 0.0, 0.0)
+		c.cull_mask = 0xFFFF | (1 << (19 - i))
+		root.add_child(c)
+		cams.append(c)
 	await get_tree().process_frame
+	terrain.set_cameras(cams)
+	await get_tree().process_frame
+	# _settle, not rebuild: the range test runs in snap() off NOTIFICATION_PHYSICS_PROCESS, and a
+	# debounced rebuild left pending would fire in the middle of the captures below.
+	await _settle([a, b])
+
+	var clip_a: Node = a.get_node_or_null("Clipmap")
+	var clip_b: Node = b.get_node_or_null("Clipmap")
+	if clip_a == null or clip_b == null:
+		_fail += 1
+		print("    !! a masked body has no clipmap")
+		host.queue_free()
+		await get_tree().process_frame
+		_completed += 1
+		return
+	print("    reach %.0f m, cull radius %.0f m, bodies 800 m apart" % [
+		clip_a.get_reach(), clip_a.get_view_cull_radius()])
+	print("    lake A: view 0 in range=%s, view 1=%s  (%d of %d drawing)" % [
+		clip_a.is_view_in_range(0), clip_a.is_view_in_range(1),
+		clip_a.get_in_range_view_count(), clip_a.get_view_count()])
+	print("    lake B: view 0 in range=%s, view 1=%s  (%d of %d drawing)" % [
+		clip_b.is_view_in_range(0), clip_b.is_view_in_range(1),
+		clip_b.get_in_range_view_count(), clip_b.get_view_count()])
+	if not (clip_a.is_view_in_range(0) and not clip_a.is_view_in_range(1)):
+		_fail += 1
+		print("    !! lake A did not admit its own player and drop the far one")
+	if not (clip_b.is_view_in_range(1) and not clip_b.is_view_in_range(0)):
+		_fail += 1
+		print("    !! lake B did not admit its own player and drop the far one")
+	if clip_a.get_in_range_view_count() + clip_b.get_in_range_view_count() == 4:
+		_fail += 1
+		print("    !! all four view sets are still drawing, so nothing was culled")
+
+	# THE CLAIM. Both players' frames, culling on and then off. Anything the culling removed that was
+	# ever visible shows up here as a non-zero difference.
+	var culled := [await _grab(host, cams[0]), await _grab(host, cams[1])]
+	_save(culled[0], "twolakes_cull_on_0.png")
+	a.mask_clipmap_cull_views = false
+	b.mask_clipmap_cull_views = false
+	await _ticks(2)
+	print("    CONTROL, culling off: %d of %d and %d of %d drawing (want all)" % [
+		clip_a.get_in_range_view_count(), clip_a.get_view_count(),
+		clip_b.get_in_range_view_count(), clip_b.get_view_count()])
+	if clip_a.get_in_range_view_count() != 2 or clip_b.get_in_range_view_count() != 2:
+		_fail += 1
+		print("    !! the escape hatch does not restore every view, so a missing lake cannot be")
+		print("       got back by switching it off")
+	var uncut := [await _grab(host, cams[0]), await _grab(host, cams[1])]
+	_save(uncut[0], "twolakes_cull_off_0.png")
+	for i in 2:
+		var d := _mean_abs_diff(culled[i], uncut[i])
+		print("    camera %d: culled vs uncut mean abs diff %.6f (want 0)" % [i, d])
+		if d > 0.0:
+			_fail += 1
+			print("    !! culling changed what player %d sees -- it removed something visible" % i)
+			# WHERE, not just how much. A bare number here sent me looking for an alpha that was not
+			# quite zero when the real cause was a rebuild firing mid-capture.
+			_save(_difference_image(culled[i], uncut[i]), "twolakes_cull_diff_%d.png" % i)
+	# ANTI-NULL for the comparison itself: two frames that were never going to differ would also
+	# score zero. Camera 0 and camera 1 are looking at different lakes, so they must NOT agree.
+	var sanity := _mean_abs_diff(uncut[0], uncut[1])
+	print("    the two players' frames against each other: %.5f (must be > 0)" % sanity)
+	if sanity <= 0.0005:
+		_fail += 1
+		print("    !! the two frames are the same picture, so 'identical' above proves nothing")
+	else:
+		print("    -> the culling is free: half the ring sets gone, not one pixel moved")
+
+	# CONTROL: bring player 1 to lake A. A's second view has to come back AND come back correctly
+	# centred -- a view that returns visible while still snapped to where its camera used to be is
+	# the bug the last_target_position reset in Pasture3DMesher::snap() exists to prevent, and it
+	# would show here as a frame that does not match the uncut one.
+	a.mask_clipmap_cull_views = true
+	b.mask_clipmap_cull_views = true
+	await _ticks(2)
+	cams[1].position = Vector3(-360.0, 34.0, 90.0)
+	await _ticks(3)
+	print("    CONTROL, player 1 walks to lake A: %d of %d view(s) drawing (want 2)" % [
+		clip_a.get_in_range_view_count(), clip_a.get_view_count()])
+	if clip_a.get_in_range_view_count() != 2:
+		_fail += 1
+		print("    !! the view did not come back when its camera returned")
+	var returned := await _grab(host, cams[1])
+	_save(returned, "twolakes_cull_returned.png")
+	a.mask_clipmap_cull_views = false
+	await _ticks(3)
+	var never_culled := await _grab(host, cams[1])
+	var d_return := _mean_abs_diff(returned, never_culled)
+	print("    and it matches the never-culled frame: %.6f (want 0)" % d_return)
+	if d_return > 0.0:
+		_fail += 1
+		print("    !! the returning view is not centred where it should be -- it came back")
+		print("       visible while still snapped to wherever its camera left from")
+	await _teardown(host)
+	_completed += 1
+
+
+# ---- H: the boundary ----------------------------------------------------------
+
+## Criterion G checks the culling at two positions. This walks a camera out across the radius and
+## requires the frame to be identical on BOTH sides of it at every step, which is the check that
+## catches a radius that is merely close to right.
+##
+## It also measures something the culling did not cause and is worth knowing: a clipmapped body draws
+## NOTHING once the camera is past the clipmap's reach, because the rings only cover `reach` around
+## the camera. That is why hiding an out-of-reach view is free -- there was never anything there --
+## and it is also a real limit on a masked lake seen from far away.
+func _criterion_h_the_boundary() -> void:
+	print("[H] a camera walked across the cull radius:")
+	var vp := SubViewport.new()
+	vp.size = VIEW
+	vp.own_world_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	add_child(vp)
+	var root := _lit_root()
+	vp.add_child(root)
+	# A dry bank under the water, so "the frame changed when the water appeared" is a measurable
+	# thing rather than water against a void.
+	var bank := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(4000.0, 4000.0)
+	bank.mesh = plane
+	var bm := StandardMaterial3D.new()
+	bm.albedo_color = Color(0.42, 0.35, 0.26)
+	bm.roughness = 0.95
+	bank.material_override = bm
+	bank.position = Vector3(0.0, -3.0, 0.0)
+	root.add_child(bank)
+
+	var pool := _pool(root, "Lake", Vector3.ZERO)
+	var cam := Camera3D.new()
+	cam.near = 0.05
+	cam.far = 4000.0
+	root.add_child(cam)
+	await get_tree().process_frame
+	await _settle([pool])
+	var clip: Node = pool.get_node_or_null("Clipmap")
+	if clip == null:
+		_fail += 1
+		print("    !! no clipmap")
+		vp.queue_free()
+		await get_tree().process_frame
+		_completed += 1
+		return
+	clip.set_clipmap_target(cam)
+	var radius: float = clip.get_view_cull_radius()
+	# The distance the camera actually crosses, walking out along +X: the far edge of the body's
+	# footprint plus the radius. Sweeping multiples of the RADIUS from the origin would not straddle
+	# it -- the footprint is 78 m of head start -- and the first version of this did exactly that, so
+	# every step landed on the same side and the "either side of it" claim was not being made.
+	var bounds: Rect2 = clip.get_body_bounds()
+	var boundary: float = bounds.end.x + radius
+	print("    reach %.0f m, cull radius %.0f m, footprint out to %.0f m -> boundary at %.0f m" % [
+		clip.get_reach(), radius, bounds.end.x, boundary])
+
+	var ever_culled := false
+	var ever_drew := false
+	var worst := 0.0
+	var last_drew := -1.0
+	var first_culled := -1.0
+	for k in [0.0, 0.25, 0.5, 0.75, 0.95, 1.05, 1.5]:
+		var dist: float = boundary * k
+		cam.position = Vector3(dist, 40.0, 60.0)
+		cam.look_at(Vector3.ZERO, Vector3.UP)
+		# The dry reference has to be re-taken at every step: the bank and the sky move with the
+		# camera, so one reference taken at the start would count the whole world as water.
+		(clip as Node3D).visible = false
+		await _ticks(1)
+		var dry := await _grab_here(vp)
+		(clip as Node3D).visible = true
+
+		pool.mask_clipmap_cull_views = true
+		await _ticks(3)
+		var culled_now: bool = clip.get_in_range_view_count() == 0
+		var on := await _grab_here(vp)
+		pool.mask_clipmap_cull_views = false
+		await _ticks(3)
+		var off := await _grab_here(vp)
+
+		var d := _mean_abs_diff(on, off)
+		var water := _changed_px(dry, off)
+		worst = maxf(worst, d)
+		ever_culled = ever_culled or culled_now
+		ever_drew = ever_drew or water > 400
+		if water > 0:
+			last_drew = dist
+		if culled_now and first_culled < 0.0:
+			first_culled = dist
+		print("    %5.0f m (%.2fx boundary): culled=%-5s water %6d px  culled-vs-uncut %.6f" % [
+			dist, k, culled_now, water, d])
+		if d > 0.0:
+			_fail += 1
+			print("    !! the frame changed at this distance, so the radius is too tight")
+			_save(_difference_image(on, off), "twolakes_boundary_diff_%.0f.png" % dist)
+		if culled_now and water > 0:
+			_fail += 1
+			print("    !! this view was culled and the uncut frame had %d px of water in it" % water)
+	# Two anti-nulls, and neither is optional. Without the first, a radius so large it never fires
+	# would pass every step above; without the second, a lake that was never visible at any distance
+	# would too.
+	if not ever_culled:
+		_fail += 1
+		print("    !! the culling never fired at any distance, so 'identical' is trivially true")
+	if not ever_drew:
+		_fail += 1
+		print("    !! the lake was never visible at any distance, so there was nothing to lose")
+	if ever_culled and ever_drew and worst == 0.0:
+		print("    -> the radius is conservative: the culling only ever removed geometry that was")
+		print("       already drawing nothing, at every distance either side of it")
+	# The MARGIN, which is the result rather than a diagnostic. The gap between where this lake stops
+	# putting pixels on the screen and where its view is finally hidden is how much room the radius
+	# leaves -- and its size is the reason the culling costs nothing to be wrong about.
+	print("    last drew at %.0f m; view first culled at %.0f m -- %.0f m of margin" % [
+		last_drew, first_culled, first_culled - last_drew])
+	# And this is not a property of the culling: a clipmapped body stops drawing once the camera is
+	# past the clipmap's REACH, because the rings only cover reach around the camera. Worth stating
+	# plainly, because it is a real limit on a masked lake seen from far away and it predates this
+	# change entirely.
+	print("    (reading: past %.0f m of reach the body draws nothing either way -- pre-existing)" % [
+		clip.get_reach()])
+	await _teardown(vp)
 	_completed += 1
 
 
 # ---- plumbing -----------------------------------------------------------------
+
+## A lit root with a sky, for the criteria that render water rather than a coverage readout.
+func _lit_root() -> Node3D:
+	var root := Node3D.new()
+	var env := WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_SKY
+	var sky := Sky.new()
+	sky.sky_material = ProceduralSkyMaterial.new()
+	e.sky = sky
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.environment = e
+	root.add_child(env)
+	var sun := DirectionalLight3D.new()
+	sun.name = "Sun"
+	sun.rotation_degrees = Vector3(-55.0, -70.0, 0.0)
+	root.add_child(sun)
+	var m := Pasture3DPoolManager.new()
+	m.name = "Pasture3DPoolManager"
+	root.add_child(m)
+	m.sun_light = sun
+	m.set_physics_process(false)
+	RenderingServer.global_shader_parameter_set("water_time", 0.0)
+	return root
+
+
+## Tear a fixture down in the right order: the water bodies first, then the world they were in.
+##
+## Freeing the SubViewport outright frees its World3D while live clipmap instances are still in that
+## world's scenario, and the clipmaps then free their instance RIDs against a scenario that has
+## already gone. Eight fixtures doing that in one process is what made this gate crash on criterion
+## H's first clipmap -- and only ever with every earlier criterion in front of it, which is why it
+## passed in A-F+H, in D-H, and in G+H alone, and why the numbers never hinted at it.
+##
+## NOT a product bug: a game does not build and destroy eight worlds full of clipmaps in eight
+## seconds. It is still not something to leave in a gate, because whoever adds criterion I inherits it.
+## The bodies are found by walking rather than passed in, so a criterion that adds a third lake cannot
+## forget to list it.
+func _teardown(p_container: Node) -> void:
+	if is_instance_valid(p_container):
+		for n in _water_bodies_in(p_container):
+			n.queue_free()
+		await get_tree().process_frame
+		await get_tree().process_frame
+	if is_instance_valid(p_container):
+		p_container.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+
+func _water_bodies_in(p_node: Node) -> Array:
+	var out := []
+	if p_node is Pasture3DPool:
+		out.append(p_node)
+	for c in p_node.get_children():
+		out.append_array(_water_bodies_in(c))
+	return out
+
+
+## Build, and make sure nothing is going to build again while frames are being captured.
+##
+## rebuild() does NOT cancel a scheduled rebuild: _schedule_rebuild sets _dirty and starts a 0.1 s
+## timer, and an explicit rebuild leaves both alone. So a probe that writes a mask_* property, calls
+## rebuild() and starts grabbing is racing a timer that will call _apply_material and _ensure_clipmap
+## mid-capture. That has already cost this work two rounds of debugging (the pool probe's criteria B
+## and H); here it showed up as two things that looked like real findings -- a culled-vs-uncut frame
+## difference LARGER than the difference between two players looking at two different lakes, and a
+## crash when the rebuild landed inside the NEXT criterion. Both vanish when the timer is drained,
+## and both criteria pass in isolation, which is what identified it.
+func _settle(p_pools: Array) -> void:
+	await get_tree().create_timer(0.25).timeout # > REFRESH_DELAY, so any pending timer has fired
+	for pool in p_pools:
+		(pool as Pasture3DPool).rebuild()
+	await _ticks(2)
+
+
+## Physics ticks, not frames. The per-view range test and the ring snap both run from the clipmap's
+## NOTIFICATION_PHYSICS_PROCESS, so a change waits on a tick and not on a drawn frame.
+func _ticks(p_count: int) -> void:
+	for i in p_count:
+		RenderingServer.global_shader_parameter_set("water_time", 0.0)
+		await get_tree().physics_frame
+		await get_tree().process_frame
+
+
+## One frame from a viewport whose camera is already current.
+func _grab_here(p_vp: SubViewport) -> Image:
+	for i in 6:
+		RenderingServer.global_shader_parameter_set("water_time", 0.0)
+		await RenderingServer.frame_post_draw
+	return p_vp.get_texture().get_image()
+
+
+## Pixels that differ between two frames of the same view. The threshold is the pool probe's, chosen
+## there to sit below the darkening the pale shallows get and far above the zero an untouched sky and
+## bank produce.
+## Where two frames of the same view disagree, amplified 8x so a hundredth of a unit is visible.
+func _difference_image(p_a: Image, p_b: Image) -> Image:
+	var out := Image.create(VIEW.x, VIEW.y, false, Image.FORMAT_RGB8)
+	for y in VIEW.y:
+		for x in VIEW.x:
+			var ca := p_a.get_pixel(x, y)
+			var cb := p_b.get_pixel(x, y)
+			out.set_pixel(x, y, Color(
+				minf(absf(ca.r - cb.r) * 8.0, 1.0),
+				minf(absf(ca.g - cb.g) * 8.0, 1.0),
+				minf(absf(ca.b - cb.b) * 8.0, 1.0)))
+	return out
+
+
+func _changed_px(p_a: Image, p_b: Image) -> int:
+	var n := 0
+	for y in range(0, VIEW.y, 2):
+		for x in range(0, VIEW.x, 2):
+			var ca := p_a.get_pixel(x, y)
+			var cb := p_b.get_pixel(x, y)
+			if maxf(maxf(absf(ca.r - cb.r), absf(ca.g - cb.g)), absf(ca.b - cb.b)) > 0.005:
+				n += 1
+	return n
+
 
 func _scene() -> Node3D:
 	var root := Node3D.new()
