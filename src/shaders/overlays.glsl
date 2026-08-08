@@ -46,6 +46,34 @@ R"(
 		ALBEDO = fma(ALBEDO, 1.-__vertex_mul, __vertex_add);
 	}
 
+//INSERT: OVERLAY_SLOPE_SETUP
+group_uniforms slope_colorizer;
+uniform float slope_angle_low : hint_range(0.0, 90.0, 0.1) = 15.0;
+uniform float slope_angle_high : hint_range(0.0, 90.0, 0.1) = 45.0;
+uniform vec4 slope_color_mid : source_color = vec4(1.0, .835, 0.0, 1.0);
+uniform vec4 slope_color_high : source_color = vec4(1.0, 0.0, 0.0, 1.0);
+uniform float slope_softness : hint_range(0.1, 30.0, 0.1) = 12.0;
+group_uniforms;
+
+//INSERT: OVERLAY_SLOPE_RENDER
+	// Show Slope Colorizer Overlay
+	{
+		float __slope_deg = degrees(acos(clamp(w_normal.y, -1.0, 1.0)));
+		float __intensity = smoothstep(
+			slope_angle_low - slope_softness * 0.5,
+			slope_angle_low + slope_softness * 0.5,
+			__slope_deg
+		);
+		float __color_ramp = smoothstep(
+			slope_angle_high - slope_softness * 0.5,
+			slope_angle_high + slope_softness * 0.5,
+			__slope_deg
+		);
+		vec3 __slope_col = mix(slope_color_mid.rgb, slope_color_high.rgb, __color_ramp);
+		float __slope_str = mix(slope_color_mid.a, slope_color_high.a, __color_ramp) * __intensity;
+		ALBEDO *= mix(vec3(1.0), __slope_col, __slope_str);
+	}
+
 //INSERT: OVERLAY_CONTOURS_SETUP
 group_uniforms contour_lines;
 uniform vec4 contour_color : source_color = vec4(0., 0., 0., .8);

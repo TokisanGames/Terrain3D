@@ -84,6 +84,7 @@ private:
 	bool _show_instancer_grid = false;
 	bool _show_vertex_grid = false;
 	bool _show_contours = false;
+	bool _show_slope = false;
 	bool _show_navigation = false;
 
 	// Debug Views
@@ -190,6 +191,8 @@ public:
 	bool get_show_vertex_grid() const { return _show_vertex_grid; }
 	void set_show_contours(const bool p_enabled);
 	bool get_show_contours() const { return _show_contours; }
+	void set_show_slope(const bool p_enabled);
+	bool get_show_slope() const { return _show_slope; }
 	void set_show_navigation(const bool p_enabled);
 	bool get_show_navigation() const { return _show_navigation; }
 

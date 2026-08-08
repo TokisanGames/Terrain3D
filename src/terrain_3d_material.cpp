@@ -466,6 +466,9 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_show_contours) {
 		insert_names.push_back("OVERLAY_CONTOURS_SETUP");
 	}
+	if (_show_slope) {
+		insert_names.push_back("OVERLAY_SLOPE_SETUP");
+	}
 	// Apply pending inserts
 	for (const String &name : insert_names) {
 		String insert = _shader_code[name];
@@ -556,15 +559,17 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_show_contours) {
 		insert_names.push_back("OVERLAY_CONTOURS_RENDER");
 	}
+	if (_show_slope) {
+		insert_names.push_back("OVERLAY_SLOPE_RENDER");
+	}
+	if (_show_navigation || (_terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
+		insert_names.push_back("EDITOR_NAVIGATION");
+	}
 	if (_show_instancer_grid) {
 		insert_names.push_back("OVERLAY_INSTANCER_GRID");
 	}
 	if (_show_vertex_grid) {
 		insert_names.push_back("OVERLAY_VERTEX_GRID");
-	}
-	// Editor Functions
-	if (_show_navigation || (_terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::NAVIGATION)) {
-		insert_names.push_back("EDITOR_NAVIGATION");
 	}
 	if (_show_region_grid || (_terrain && _terrain->get_editor() && _terrain->get_editor()->get_tool() == Terrain3DEditor::REGION)) {
 		insert_names.push_back("EDITOR_REGION_GRID");
@@ -1037,6 +1042,12 @@ void Terrain3DMaterial::set_show_contours(const bool p_enabled) {
 	_update_shader();
 }
 
+void Terrain3DMaterial::set_show_slope(const bool p_enabled) {
+	SET_IF_DIFF(_show_slope, p_enabled);
+	LOG(INFO, "Enable show_slope: ", _show_slope);
+	_update_shader();
+}
+
 void Terrain3DMaterial::set_show_navigation(const bool p_enabled) {
 	SET_IF_DIFF(_show_navigation, p_enabled);
 	LOG(INFO, "Enable show_navigation: ", _show_navigation);
@@ -1460,6 +1471,8 @@ void Terrain3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_vertex_grid"), &Terrain3DMaterial::get_show_vertex_grid);
 	ClassDB::bind_method(D_METHOD("set_show_contours", "enabled"), &Terrain3DMaterial::set_show_contours);
 	ClassDB::bind_method(D_METHOD("get_show_contours"), &Terrain3DMaterial::get_show_contours);
+	ClassDB::bind_method(D_METHOD("set_show_slope", "enabled"), &Terrain3DMaterial::set_show_slope);
+	ClassDB::bind_method(D_METHOD("get_show_slope"), &Terrain3DMaterial::get_show_slope);
 	ClassDB::bind_method(D_METHOD("set_show_navigation", "enabled"), &Terrain3DMaterial::set_show_navigation);
 	ClassDB::bind_method(D_METHOD("get_show_navigation"), &Terrain3DMaterial::get_show_navigation);
 
@@ -1529,6 +1542,7 @@ void Terrain3DMaterial::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_instancer_grid", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_instancer_grid", "get_show_instancer_grid");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_vertex_grid", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_vertex_grid", "get_show_vertex_grid");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_contours", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_contours", "get_show_contours");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_slope", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_slope", "get_show_slope");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_navigation", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "set_show_navigation", "get_show_navigation");
 
 	// Below here properties are hidden in Material, aliased in Terrain3D
