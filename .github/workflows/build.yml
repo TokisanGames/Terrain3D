@@ -1,9 +1,9 @@
-# Modeled off of godot-cpp https://github.com/godotengine/godot-cpp/blob/master/.github/workflows/ci.yml
+# Modeled off of https://github.com/godotengine/godot/blob/master/.github/workflows/runner.yml
 
-name: 🛠️ Build All
+name: 🛠️ Build All Platforms
 on: 
   push:
-    branches: [ main, 1.1-godot4.4 ]
+    branches: [ main ]
   pull_request:
     paths: [ '**' ]
   workflow_dispatch:
@@ -13,124 +13,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: ${{ matrix.name }} ${{ matrix.target }}
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        identifier: [linux, windows, windows-arm64, macos, ios, android-arm32, android-arm64, web-nothreads]
-        target: [debug, release]
-        include:
-          - identifier: linux
-            platform: linux
-            name: 🐧 Linux
-            runner: ubuntu-22.04
-            flags: arch=x86_64
-            cores: 4
-            
-          - identifier: windows
-            platform: windows
-            name: 🪟 Windows
-            runner: ubuntu-22.04
-            flags: arch=x86_64
-            cores: 4
+  windows:
+    name: 🪟 Windows
+    uses: ./.github/workflows/windows.yml
 
-          - identifier: windows-arm64
-            platform: windows
-            name: 🪟 Windows Arm64
-            runner: ubuntu-22.04
-            flags: arch=arm64 use_mingw=yes use_llvm=yes
-            cores: 4
+  linux:
+    name: 🐧 Linux
+    uses: ./.github/workflows/linux.yml
 
-          - identifier: macos
-            platform: macos
-            name: 🍎 macOS
-            runner: macos-latest
-            flags: arch=universal
-            cores: 3
+  android:
+    name: 🤖 Android
+    uses: ./.github/workflows/android.yml
 
-          - identifier: ios
-            platform: ios
-            name: 🍏 iOS
-            runner: macos-latest
-            flags: arch=universal
-            cores: 3
+  macos:
+    name: 🍎 macOS
+    uses: ./.github/workflows/macos.yml
 
-          - identifier: android-arm32
-            platform: android
-            name: 🤖 Android Arm32
-            runner: ubuntu-22.04
-            flags: arch=arm32
-            cores: 4
+  ios:
+    name: 🍏 iOS
+    uses: ./.github/workflows/ios.yml
 
-          - identifier: android-arm64
-            platform: android
-            name: 🤖 Android Arm64
-            runner: ubuntu-22.04
-            flags: arch=arm64
-            cores: 4
-
-          - identifier: web-nothreads
-            platform: web
-            name: 🌐 Web No-threads
-            runner: ubuntu-22.04
-            flags: threads=no
-            cores: 4
-
-    steps:
-      - name: Checkout Terrain3D
-        uses: actions/checkout@v7
-        with:
-          submodules: recursive
-        
-      - name: Setup Base Dependencies
-        uses: ./.github/actions/base-deps
-        with:
-          platform: ${{ matrix.platform }}
-
-      - name: Setup Build Cache
-        uses: ./.github/actions/build-cache
-        with:
-          cache-name: ${{ matrix.identifier }}-${{ matrix.target }}
-        continue-on-error: true
-
-      - name: Setup LLVM-MinGW (Windows Arm64)
-        if: ${{ matrix.identifier == 'windows-arm64' }}
-        shell: sh
-        run: |
-          export LLVM_MINGW_VERSION=20251118
-          export LLVM_MINGW_NAME=llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-x86_64
-          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/${LLVM_MINGW_NAME}.tar.xz
-          tar xf ${LLVM_MINGW_NAME}.tar.xz
-          rm -f ${LLVM_MINGW_NAME}.tar.xz
-          echo "$(pwd)/${LLVM_MINGW_NAME}/bin" >> $GITHUB_PATH
-
-      - name: Build Terrain3D
-        env:
-          SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-        shell: sh
-        run: |
-          scons target=template_${{ matrix.target }} platform=${{ matrix.platform }} ${{ matrix.flags }} debug_symbols=no -j${{ matrix.cores }}
-
-      - name: Prepare Files
-        shell: sh
-        run: |
-          ls -l project/addons/terrain_3d/bin/
-          rm -v project/*.*
-          cp -v '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
-
-      - name: Upload Package
-        uses: actions/upload-artifact@v7
-        with:
-          include-hidden-files: true
-          name: t3d-${{ matrix.identifier }}-${{ matrix.target }}
-          path: |
-            ${{ github.workspace }}/project/
+  web:
+    name: 🌐 Web 
+    uses: ./.github/workflows/web.yml
 
   merge:
-    runs-on: ubuntu-latest
-    needs: build
+    runs-on: ubuntu-24.04
+    needs: [ windows, linux, android, macos, ios, web ]
     steps:
       - name: Merge Artifacts
         uses: actions/upload-artifact/merge@v7

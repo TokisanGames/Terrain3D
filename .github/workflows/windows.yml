@@ -3,77 +3,29 @@ on: [ workflow_call, workflow_dispatch ]
 
 jobs:
   build:
-    name: 🪟 Windows ${{ matrix.arch }} ${{ matrix.target }}
-    runs-on: ubuntu-22.04
+    name: 🪟 Windows ${{ matrix.config.arch }} ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        platform: [windows]
         target: [debug, release]
-        arch: [x86_64, arm64]
+        config:
+          - arch: x86_64
+            platform: windows
+            flags: ""
+          - arch: arm64
+            platform: windows
+            flags: use_mingw=yes use_llvm=yes
 
     steps:
-      - name: Checkout Terrain3D
+      - name: Checkout
         uses: actions/checkout@v7
+
+      - uses: ./.github/actions/build-artifact
         with:
-          submodules: recursive
-
-      - name: Setup Base Dependencies
-        uses: ./.github/actions/base-deps
-        with:
-          platform: ${{ matrix.platform }}
-
-      - name: Setup Build Cache
-        uses: ./.github/actions/build-cache
-        with:
-          cache-name: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}
-        continue-on-error: true
-
-      - name: Setup LLVM-MinGW (Arm64)
-        if: ${{ matrix.arch == 'arm64' }}
-        shell: sh
-        run: |
-          export LLVM_MINGW_VERSION=20251118
-          export LLVM_MINGW_NAME=llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-x86_64
-          curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/${LLVM_MINGW_NAME}.tar.xz
-          tar xf ${LLVM_MINGW_NAME}.tar.xz
-          rm -f ${LLVM_MINGW_NAME}.tar.xz
-          echo "$(pwd)/${LLVM_MINGW_NAME}/bin" >> $GITHUB_PATH
-
-      - name: Build Terrain3D
-        env:
-          SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-        shell: sh
-        run: |
-          EXTRA_FLAGS=""
-          if [ "$ARCH" = "arm64" ]; then
-            EXTRA_FLAGS="use_mingw=yes use_llvm=yes"
-          fi
-          scons target=template_${{ matrix.target }} platform=${{ matrix.platform }} arch=${{ matrix.arch }} $EXTRA_FLAGS debug_symbols=no -j4
-
-      - name: Prepare Files
-        shell: sh
-        run: |
-          ls -l project/addons/terrain_3d/bin/
-          rm -v project/*.*
-          cp -v '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
-
-      - name: Upload Package
-        uses: actions/upload-artifact@v7
-        with:
-          include-hidden-files: true
-          name: t3d-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.target }}
-          path: |
-            ${{ github.workspace }}/project/
-
-  merge:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Merge Artifacts
-        uses: actions/upload-artifact/merge@v7
-        with:
-          include-hidden-files: true
-          name: ${{ github.event.repository.name }}
-          pattern: t3d-*
-          delete-merged: true
+          cache-name: ${{ matrix.config.platform }}-${{ matrix.config.arch }}-${{ matrix.target }}
+          platform: ${{ matrix.config.platform }}
+          arch: ${{ matrix.config.arch }}
+          target: ${{ matrix.target }}
+          flags: ${{ matrix.config.flags }}

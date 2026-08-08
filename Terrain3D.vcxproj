@@ -140,6 +140,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include=".github\actions\build-artifact\action.yml" />
     <ClInclude Include="src\constants.h" />
     <ClInclude Include="src\generated_texture.h" />
     <ClInclude Include="src\target_node_3d.h" />
@@ -178,8 +179,8 @@
     <ClCompile Include="src\unit_testing.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include=".github\actions\base-deps\action.yml" />
-    <None Include=".github\actions\build-cache\action.yml" />
+    <None Include=".github\actions\dependencies\action.yml" />
+    <None Include=".github\actions\load-cache\action.yml" />
     <None Include=".github\ISSUE_TEMPLATE\bug_report.yml" />
     <None Include=".github\ISSUE_TEMPLATE\config.yml" />
     <None Include=".github\ISSUE_TEMPLATE\feature_request.yml" />

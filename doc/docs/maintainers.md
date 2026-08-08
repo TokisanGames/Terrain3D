@@ -14,33 +14,33 @@ There are various responsibilities and processes maintainers need to do to updat
 Edit the following files on new releases and versions.
 
 ### New Terrain3D Release Version
-* Set src/terrain_3d.h : _version
-* Set project/addons/terrain_3d/plugin.cfg : version
-* Set doc/conf.py : version
-* Rebuild the docs with doc/build_docs.sh
-* Review minimum version in terrain.gdextension
-* Create a new tag for github
-* Create a new branch for new milestones (1.0) so readthedocs will create a new version. You may need to enable it on their website.
-* Reassign the `stable` tag for readthedocs to update that doc build. `latest` automatically builds off of `main`. Confirm that it correctly builds, as sometimes it doesn't.
+* Set `src/terrain_3d.h` : _version
+* Set `project/addons/terrain_3d/plugin.cfg` : version
+* Set `doc/conf.py` : version
+* Rebuild the docs with `doc/build_docs.sh`
+* Review minimum version in `terrain.gdextension`
+* Create a new version tag for github in the format `v1.0.0-stable`
+* Create a new branch for new milestones (eg `1.0`, `1.1`) so readthedocs will create a new version. You may need to enable it on their website.
+* Reassign the `stable` tag for readthedocs to update that doc build. `latest` automatically builds off of `main`. Confirm that the docs correctly builds, as sometimes it doesn't.
 
 
 ### New Terrain3DRegion Data Format Version
-* Update src/terrain_3d_data.h : CURRENT_DATA_VERSION
-* Update docs/data_format.md
+* Update `src/terrain_3d_data.h` : CURRENT_DATA_VERSION
+* Update `docs/data_format.md`
 
 
 ### After the New Year
-* Update Copyright header in all source files and conf.py
+* Update Copyright header in all source files and `conf.py`
 
 
-## Maintaining multiple versions
+## Maintaining Multiple Versions
 
-Occasionally we might maintain two builds of the same version, such as `1.1-godot4.4` and `1.1` for Godot 4.5+. In this case the difference was the former used the godot-cpp 4.4 API, the latter used the 4.5 API. There was a minor but important difference in our code. I wanted all commits from one branch to be in the other branch, except for the few that changed the godot-cpp API. Here's how that process worked.
+Occasionally we might maintain two builds of the same version, such as `1.1-godot4.4` and `1.1` for Godot 4.5+. Here's an example of how this process worked in the past.
 
-1. At the time, `main` was 1.1-dev and I had made a separate `1.1-godot4.4` branch. I made a commit changing godot-cpp to the 4.5 API.
-2. Then after some commits, I cherry-picked all of the new ones from `main` into `1.1-godot4.4`.
-3. On `main`, I created a tag called `_last-cherry-pick` so that when I periodically updated the 4.4 branch I knew where I left off.
-4. Bulk cherry-picking is easy to do with the following:
+* At the time, `main` was 1.1-dev and I had made a separate `1.1-godot4.4` branch. I had made a commit in main changing godot-cpp to the 4.5 API. Otherwise I wanted them to be the same.
+* After making several commits to `main`, I cherry-picked all of the new ones into `1.1-godot4.4`.
+* On `main`, I created a tag called `_last-cherry-pick` so that when I periodically updated the 4.4 branch I knew where I left off.
+* Bulk cherry-picking is easy to do with the following:
 
 ```
 git checkout 1.1-godot4.4                              # Start in the destination branch
@@ -49,4 +49,16 @@ git diff main                                          # Ensure the only differe
 git push                                               # Upload all bulk cherry-picked commits
 ```
 
+
+## Understanding the Build CI
+
+We generally want to release the same platforms and architectures Godot is releasing, using the same versions of 3rd party software they are using, and try to make our build scripts align with theirs when using specific software (e.g. Windows Arm64 LLVM-mingW).
+
+If there's a difference in version between Godot and Godot-cpp, opt Godot first and whatever works.
+
+Our current structure is:
+* `build.yml` -> calls all platforms for `main` and all PRs, then merges all into a zip file.
+* Each platform sets up build parameters for specific supported architectures and flags, then calls a common builder.
+* `build-artifact/action.yml` - runs the main sequence, loading dependencies, loading the cache, building Terrain3D, saving the cache if it didn't exist, and preping the artifact files.
+* `dependencies/action.yml` - defines all of the versions of 3rd party software used.
 

@@ -1,0 +1,87 @@
+name: Setup Dependencies
+description: Setup dependencies
+inputs:
+  platform:
+    required: true
+    description: Target platform
+  arch:
+    required: true
+    description: Target architecture
+runs:
+  using: composite
+  steps:
+    - name: Setup Python 3.x
+      uses: actions/setup-python@v7
+      with:
+        python-version: 3.x
+
+    - name: Setup SCons 4.10.1
+      shell: bash
+      run: |
+        python -c "import sys; print(sys.version)"
+        python -m pip install scons==4.10.1
+        # Match https://github.com/godotengine/godot/blob/master/.github/actions/godot-deps/action.yml
+
+    - name: Setup Android NDK r28b
+      if: inputs.platform == 'android'
+      uses: nttld/setup-ndk@v1
+      with:
+        ndk-version: r28b
+        # Match https://github.com/godotengine/godot-cpp/blob/master/.github/actions/setup-godot-cpp/action.yml
+        link-to-sdk: true
+
+    - name: Setup Windows Mingw64
+      if: inputs.platform == 'windows' && inputs.arch == 'x86_64'
+      shell: sh
+      run: |
+        sudo apt-get install mingw-w64
+        sudo update-alternatives --set x86_64-w64-mingw32-gcc /usr/bin/x86_64-w64-mingw32-gcc-posix
+        sudo update-alternatives --set x86_64-w64-mingw32-g++ /usr/bin/x86_64-w64-mingw32-g++-posix
+
+    - name: Setup Windows Arm64 LLVM-mingW
+      if: inputs.platform == 'windows' && inputs.arch == 'arm64'
+      shell: sh
+      run: |
+        export LLVM_MINGW_VERSION=20260616
+        # Match https://github.com/godotengine/build-containers/blob/main/Dockerfile.windows
+        export LLVM_MINGW_NAME=llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-x86_64
+        curl -LO https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/${LLVM_MINGW_NAME}.tar.xz
+        tar xf ${LLVM_MINGW_NAME}.tar.xz
+        rm -f ${LLVM_MINGW_NAME}.tar.xz
+        echo "$(pwd)/${LLVM_MINGW_NAME}/bin" >> $GITHUB_PATH
+
+    - name: Setup Emscripten 4.0.11
+      if: inputs.platform == 'web'
+      uses: emscripten-core/setup-emsdk@v16
+      with:
+        version: 4.0.11
+        # Match https://github.com/godotengine/godot/blob/master/.github/workflows/web_builds.yml
+        no-cache: true
+
+    - name: Print Host Versions
+      shell: bash
+      run: |
+        echo "=== Host ==="
+        uname -a
+        (ldconfig -p 2>/dev/null || true) | grep -E 'GLIBC' || true
+        echo "=== Host tools ==="
+        which python 2>/dev/null || true
+        python --version
+        which scons 2>/dev/null || true
+        scons --version
+        which gcc 2>/dev/null || true
+        gcc --version 2>/dev/null || true
+        which g++ 2>/dev/null || true
+        g++ --version 2>/dev/null || true
+        which clang 2>/dev/null || true
+        clang --version 2>/dev/null || true
+        which clang++ 2>/dev/null || true
+        clang++ --version 2>/dev/null || true
+        which x86_64-w64-mingw32-gcc 2>/dev/null || true
+        x86_64-w64-mingw32-gcc --version 2>/dev/null || true
+        which x86_64-w64-mingw32-g++ 2>/dev/null || true
+        x86_64-w64-mingw32-g++ --version 2>/dev/null || true
+        which aarch64-w64-mingw32-clang 2>/dev/null || true
+        aarch64-w64-mingw32-clang --version 2>/dev/null || true
+        which emcc 2>/dev/null || true
+        emcc --version 2>/dev/null || true

@@ -4,7 +4,7 @@ We need your help to make this the best terrain plugin for Godot.
 
 Please see [System Architecture](system_architecture.md) to gain an understanding of how the system works. Then review the [roadmap](https://github.com/users/TokisanGames/projects/3) for priority of issues.
 
-If you wish to take on a major component, it's best to join our [discord server](https://tokisan.com/discord) and discuss your plans in #terrain3d-dev to make sure your efforts are aligned with other plans.
+If you wish to take on a major component, it's best to join our [discord server](https://tokisan.com/discord) and discuss your plans in #terrain-dev to make sure your efforts are aligned with other plans.
 
 **Table of Contents**
 * [Important Directories](#important-directories)
