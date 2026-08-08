@@ -24,9 +24,15 @@ void Pasture3DWaterClipmap::_setup_mesher() {
 	// The material AS GIVEN. See the class docstring: the owner already holds a private copy
 	// because the shore field is a sampler2D, and a second duplicate here would be a material it
 	// could no longer write into.
+	// TRUE: per-instance _target_pos, so each split-screen view geomorphs to its own camera. The
+	// terrain has always passed true here; Pasture3DOcean passed false and was single-view because
+	// of it, which is the bug this fixes rather than a choice either of them made.
 	_mesher->initialize(this, _mesh_size, _mesh_lods, _tessellation_level, _vertex_spacing,
 			_material.is_valid() ? _material->get_rid() : RID(),
-			_render_layers, false, _cast_shadows, _gi_mode);
+			_render_layers, true, _cast_shadows, _gi_mode);
+	// initialize() resets to a single view, so any multi-camera config has to be re-applied -- the
+	// same order Pasture3D::_setup_terrain_mesher() uses.
+	_apply_views();
 	_push_clipmap_uniforms();
 	_height_range_sent = V2_MAX;
 	if (_height_range != V2_MAX) {
@@ -158,6 +164,43 @@ void Pasture3DWaterClipmap::set_clipmap_target(Node3D *p_node) {
 	}
 }
 
+void Pasture3DWaterClipmap::set_views(const TypedArray<Camera3D> &p_cameras,
+		const PackedInt32Array &p_layers) {
+	_view_cameras = p_cameras;
+	_view_layers = p_layers;
+	_apply_views();
+}
+
+int Pasture3DWaterClipmap::get_view_count() const {
+	return _mesher ? _mesher->get_view_count() : 0;
+}
+
+void Pasture3DWaterClipmap::_apply_views() {
+	if (!_mesher) {
+		return;
+	}
+	Vector<uint64_t> ids;
+	Vector<uint32_t> layers;
+	for (int i = 0; i < _view_cameras.size(); i++) {
+		Camera3D *cam = Object::cast_to<Camera3D>(_view_cameras[i]);
+		if (!cam) {
+			continue;
+		}
+		ids.push_back(cam->get_instance_id());
+		// The layer the OWNER sent, not one derived here. Camera i's cull_mask contains exactly one
+		// reserved bit and the terrain already put its own view on it; picking a different bit would
+		// make this water invisible to that camera or visible to all of them.
+		layers.push_back(i < _view_layers.size() ? (uint32_t)_view_layers[i] : _render_layers);
+	}
+	_mesher->set_views(ids, layers);
+	// set_views() re-created the instances, so anything written per-instance is gone with them.
+	_push_clipmap_uniforms();
+	if (_height_range != V2_MAX) {
+		_mesher->update_aabbs(_cull_margin, _height_range);
+		_height_range_sent = _height_range;
+	}
+}
+
 void Pasture3DWaterClipmap::set_height_range(const Vector2 &p_range) {
 	SET_IF_DIFF(_height_range, p_range);
 	if (_mesher && _height_range != _height_range_sent) {
@@ -279,6 +322,8 @@ void Pasture3DWaterClipmap::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_clipmap_target"), &Pasture3DWaterClipmap::get_clipmap_target);
 	ClassDB::bind_method(D_METHOD("set_height_range", "range"), &Pasture3DWaterClipmap::set_height_range);
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Pasture3DWaterClipmap::get_height_range);
+	ClassDB::bind_method(D_METHOD("set_views", "cameras", "layers"), &Pasture3DWaterClipmap::set_views);
+	ClassDB::bind_method(D_METHOD("get_view_count"), &Pasture3DWaterClipmap::get_view_count);
 	ClassDB::bind_method(D_METHOD("get_reach"), &Pasture3DWaterClipmap::get_reach);
 	ClassDB::bind_method(D_METHOD("get_vertex_count"), &Pasture3DWaterClipmap::get_vertex_count);
 

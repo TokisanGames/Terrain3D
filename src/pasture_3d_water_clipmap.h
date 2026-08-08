@@ -7,6 +7,7 @@
 
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/material.hpp>
+#include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 
@@ -68,6 +69,12 @@ private:
 
 	TargetNode3D _clipmap_target;
 
+	// Held so _setup_mesher() can re-apply them: initialize() resets the mesher to a single view, and
+	// every geometry knob on this node calls it.
+	TypedArray<Camera3D> _view_cameras;
+	PackedInt32Array _view_layers;
+	void _apply_views();
+
 	void _setup_mesher();
 	void _destroy_mesher(const bool p_final = false);
 	void _push_clipmap_uniforms();
@@ -109,6 +116,10 @@ public:
 	void set_domain_origin(const Vector3 &p_origin);
 	Vector3 get_domain_origin() const { return _domain_origin; }
 	void set_clipmap_target(Node3D *p_node);
+	// One clipmap view per camera, each on the render layer that camera reads. An EMPTY list means
+	// one view following get_clipmap_target_position(), which is the solo / editor path.
+	void set_views(const TypedArray<Camera3D> &p_cameras, const PackedInt32Array &p_layers);
+	int get_view_count() const;
 	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
 	// The vertical span the cull volumes must cover, in WORLD y: the body's level plus and minus
 	// its wave amplitude. Pushed rather than derived, because the level belongs to the owner's

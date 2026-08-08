@@ -1,5 +1,6 @@
 // Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+#include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/compositor.hpp>
 #include <godot_cpp/classes/directional_light3d.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
@@ -205,6 +206,59 @@ void Pasture3D::_apply_cameras_to_mesher() {
 		layers.push_back(bit >= 0 ? (1u << uint32_t(bit)) : 1u);
 	}
 	_terrain_mesher->set_views(_cameras, layers);
+}
+
+/**
+ * Hands the current camera list, and the render layer each camera reads, to CAMERA_USER_GROUP.
+ *
+ * THE LAYERS TRAVEL WITH THE CAMERAS, and that is the whole point of sending a pair. Camera i's
+ * cull_mask is gameplay layers 1-16 plus its own reserved bit, so a subscriber's view i has to land
+ * on the SAME bit this node put its terrain view on -- any other bit is either invisible to that
+ * camera or visible to all of them. Sending only the cameras would leave every subscriber to
+ * re-derive the mapping from TERRAIN_TOP_BIT, which is a constant duplicated into every one of them.
+ *
+ * An EMPTY pair means single-view, exactly as it does for _apply_cameras_to_mesher(): one clipmap
+ * following whatever the subscriber's own target resolves to. Solo, online and the editor all take
+ * that path unchanged.
+ */
+void Pasture3D::_broadcast_cameras() {
+	if (!is_inside_tree()) {
+		return;
+	}
+	PackedInt64Array cameras;
+	PackedInt32Array layers;
+	// The fallback camera counts as a list of one only when there are no split-screen cameras; with
+	// 0 or 1 the subscribers should take their single-view path, so both stay empty.
+	if (_cameras.size() > 1) {
+		for (int i = 0; i < _cameras.size(); i++) {
+			cameras.push_back((int64_t)_cameras[i]);
+			const int bit = TERRAIN_TOP_BIT - i;
+			layers.push_back(bit >= 0 ? (int32_t)(1u << uint32_t(bit)) : 1);
+		}
+	}
+	if (cameras == _cameras_sent && layers == _camera_layers_sent) {
+		return;
+	}
+	_cameras_sent = cameras;
+	_camera_layers_sent = layers;
+
+	TypedArray<Camera3D> cams;
+	for (int i = 0; i < cameras.size(); i++) {
+		Camera3D *cam = cast_to<Camera3D>(ObjectDB::get_instance(ObjectID((uint64_t)cameras[i])));
+		if (cam) {
+			cams.push_back(cam);
+		}
+	}
+	TypedArray<Node> users = get_tree()->get_nodes_in_group(CAMERA_USER_GROUP);
+	LOG(INFO, "Broadcasting ", cams.size(), " camera(s) to ", users.size(), " camera user(s)");
+	for (int i = 0; i < users.size(); i++) {
+		Node *user = cast_to<Node>(users[i]);
+		// Guarded, because the group is a capability and not a class: a node may join it and be
+		// mid-way through gaining the method, or be a user's own node that joined by mistake.
+		if (user && user != this && user->has_method("set_cameras")) {
+			user->call("set_cameras", cams, layers);
+		}
+	}
 }
 
 void Pasture3D::_destroy_terrain_mesher(const bool p_final) {
@@ -658,6 +712,11 @@ void Pasture3D::set_camera(Camera3D *p_camera) {
 		snap();
 		set_physics_process(true);
 	}
+	// Hooked as well as set_cameras(), which is not redundant: this is a public setter in its own
+	// right and does not route through _apply_cameras_to_mesher(), so a game that does solo play
+	// through it would leave every subscriber on whatever list it last heard. The change detection
+	// in _broadcast_cameras() absorbs the double call when set_cameras() arrives here.
+	_broadcast_cameras();
 }
 
 void Pasture3D::set_cameras(const TypedArray<Camera3D> &p_cameras) {
@@ -669,6 +728,7 @@ void Pasture3D::set_cameras(const TypedArray<Camera3D> &p_cameras) {
 			set_camera(cast_to<Camera3D>(p_cameras[0]));
 		}
 		_apply_cameras_to_mesher();
+		_broadcast_cameras();
 		return;
 	}
 
@@ -689,6 +749,7 @@ void Pasture3D::set_cameras(const TypedArray<Camera3D> &p_cameras) {
 		set_camera(cast_to<Camera3D>(ObjectDB::get_instance(_cameras[0])));
 	}
 	_apply_cameras_to_mesher();
+	_broadcast_cameras();
 	set_physics_process(true);
 }
 
@@ -1395,6 +1456,9 @@ void Pasture3D::_notification(const int p_what) {
 			// Node entered a SceneTree
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_ENTER_TREE");
+			// Re-joined on every enter and not in a constructor: a reparent exits and re-enters
+			// the tree, and a group left behind is a terrain nothing can find.
+			add_to_group(TERRAIN_GROUP);
 			set_as_top_level(true); // Don't inherit transforms from parent. Global only.
 			set_notify_transform(true);
 			set_meta("_edit_lock_", true);
@@ -1528,6 +1592,7 @@ void Pasture3D::_notification(const int p_what) {
 			// Node is about to exit a SceneTree
 			// Sent on scene changes
 			LOG(INFO, "NOTIFICATION_EXIT_TREE");
+			remove_from_group(TERRAIN_GROUP);
 			set_physics_process(false);
 			_destroy_terrain_mesher();
 			_destroy_instancer();

@@ -487,7 +487,17 @@ group_uniforms private_set_by_terrain;
 uniform float _mesh_size = 32.0;
 uniform float _subdiv = 1.0;
 uniform float _vertex_spacing = 1.0;
-uniform vec3 _target_pos = vec3(0.0, 0.0, 0.0);
+// PER INSTANCE, so each split-screen view geomorphs to its OWN camera.
+//
+// The clipmap's rings are shared geometry drawn once per view on that view's render layer, so a
+// material-wide target would centre every view's morph on whichever camera wrote last -- two players
+// and one of them gets a surface morphing toward the other. Pasture3DMesher writes this through
+// RS.instance_geometry_set_shader_parameter() when its host asks for per-instance targets, which is
+// what the terrain has always done (src/shaders/main.glsl declares it the same way).
+//
+// _water_domain_origin above is already an instance uniform and arrives by the same route, so this
+// is not a new mechanism -- it is the same one, applied to the value that turned out to need it.
+instance uniform vec3 _target_pos = vec3(0.0, 0.0, 0.0);
 group_uniforms;
 #endif
 

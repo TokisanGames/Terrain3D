@@ -582,6 +582,23 @@ func _build_masked(p_poly: PackedVector2Array, p_min: Vector2, p_max: Vector2,
 	_last_stats["sdf_bytes"] = texels * texels * 2
 
 
+## Split-screen views, as the manager last reported them. Called by Pasture3DPoolManager, which
+## gets them from the Pasture3D it belongs to -- see Pasture3D.CAMERA_USER_GROUP.
+##
+## Held rather than applied straight through, because the clipmap does not exist until a masked
+## build runs and a body may hear about the cameras first. _ensure_clipmap re-applies them, which is
+## the pull half: a body that registers after the last camera change is not stuck on one view.
+var _view_cameras: Array = []
+var _view_layers := PackedInt32Array()
+
+
+func set_view_cameras(p_cameras: Array, p_layers: PackedInt32Array) -> void:
+	_view_cameras = p_cameras
+	_view_layers = p_layers
+	if _clipmap != null and is_instance_valid(_clipmap):
+		_clipmap.set_views(_view_cameras, _view_layers)
+
+
 ## Is the clipmap node available? It is C++, so a stale extension has the rest of the plugin but
 ## not this, and the honest response is to fall back to the sheet rather than draw nothing.
 func _clipmap_available() -> bool:
@@ -624,6 +641,9 @@ func _ensure_clipmap(p_min: Vector2, p_max: Vector2, p_wave_spacing: float) -> v
 	var amp := _wave_amplitude_sum()
 	var level := global_position.y
 	_clipmap.height_range = Vector2(level - amp, level + amp)
+	# Re-applied on every build, not only when the manager pushes: a clipmap created after the last
+	# camera change would otherwise be single-view until the cameras happened to change again.
+	_clipmap.set_views(_view_cameras, _view_layers)
 
 
 ## Take the clipmap down and let the Surface draw again.

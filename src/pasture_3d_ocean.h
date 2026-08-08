@@ -7,10 +7,12 @@
 
 #include <godot_cpp/classes/geometry_instance3d.hpp>
 #include <godot_cpp/classes/material.hpp>
+#include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 
 #include "constants.h"
+#include "pasture_3d.h"
 #include "pasture_3d_clipmap_host.h"
 #include "pasture_3d_mesher.h"
 #include "target_node_3d.h"
@@ -104,6 +106,12 @@ private:
 
 	TargetNode3D _clipmap_target;
 
+	// Split-screen views. Held so _setup_mesher() can re-apply them after initialize() resets the
+	// mesher to one.
+	TypedArray<Camera3D> _view_cameras;
+	PackedInt32Array _view_layers;
+	void _apply_views();
+
 	// Last height range applied to the cull AABB (water spec §4.5). Polled rather
 	// than pushed because sea level is this node's transform and the amplitude sum
 	// belongs to a profile on another node, and neither emits anything this can
@@ -174,6 +182,7 @@ public:
 	void set_domain_origin(const Vector3 &p_origin);
 	Vector3 get_domain_origin() const { return _domain_origin; }
 	void set_clipmap_target(Node3D *p_node);
+	void set_cameras(const TypedArray<Camera3D> &p_cameras, const PackedInt32Array &p_layers);
 	Node3D *get_clipmap_target() const { return _clipmap_target.ptr(); }
 
 	// The undisplaced sheet's height: this node's Y. Written to the material's
