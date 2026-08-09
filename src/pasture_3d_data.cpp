@@ -2672,6 +2672,11 @@ void Pasture3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("stamp_plow_loop", "layer_id", "poly", "clip", "params", "lut", "src_data"), &Pasture3DData::stamp_plow_loop);
 	ClassDB::bind_method(D_METHOD("stamp_splat_loop", "layer_id", "poly", "clip", "params", "lut"), &Pasture3DData::stamp_splat_loop);
 	ClassDB::bind_method(D_METHOD("gpu_raster_available"), &Pasture3DData::gpu_raster_available);
+	// Pasture3DSim (PASTURE3D_SIM_NODE_SPEC.md §4, §6, §8.1).
+	ClassDB::bind_method(D_METHOD("erode_heightfield", "z", "params", "erodability"), &Pasture3DData::erode_heightfield, DEFVAL(PackedFloat32Array()));
+	ClassDB::bind_method(D_METHOD("resample_grid", "src", "sw", "sh", "dw", "dh"), &Pasture3DData::resample_grid);
+	ClassDB::bind_method(D_METHOD("sim_mask_deltas", "deltas", "poly", "params", "lut"), &Pasture3DData::sim_mask_deltas);
+	ClassDB::bind_method(D_METHOD("apply_sim_block", "layer_id", "min_x", "min_z", "vs", "gw", "gh", "deltas", "blend"), &Pasture3DData::apply_sim_block);
 	ClassDB::bind_method(D_METHOD("gc_layer", "layer_id"), &Pasture3DData::gc_layer);
 	ClassDB::bind_method(D_METHOD("set_active_layer", "layer_id"), &Pasture3DData::set_active_layer);
 	ClassDB::bind_method(D_METHOD("get_active_layer"), &Pasture3DData::get_active_layer);

@@ -6,6 +6,7 @@
 
 #include "pasture_3d_data.h"
 #include "pasture_3d_gpu_raster.h"
+#include "pasture_3d_raster_util.h"
 #include "pasture_3d_relief_ops.h"
 #include "pasture_3d_util.h"
 
@@ -309,6 +310,17 @@ float raster_polyline_field(const PackedVector3Array &pts, double min_x, double 
 
 
 } // namespace
+
+// Re-export the two primitives Pasture3DSim's loop mask needs (pasture_3d_raster_util.h). Thin
+// forwarders rather than moving the definitions, so the brush call sites above are untouched.
+float godot::pasture3d_raster_sdf(const PackedVector2Array &p_poly, double p_min_x, double p_min_z, double p_vs,
+		int p_gw, int p_gh, std::vector<float> &r_field) {
+	return raster_sdf(p_poly, p_min_x, p_min_z, p_vs, p_gw, p_gh, r_field);
+}
+
+float godot::pasture3d_raster_ramp(const PackedFloat32Array &p_lut, float p_x) {
+	return raster_ramp(p_lut, p_x);
+}
 
 void Pasture3DData::_stamp_write(Pasture3DLayer *p_layer, const int p_layer_id, const bool p_composite,
 		Vector2i &r_loc, Pasture3DRegion *&r_region, const Vector3 &p_pos, const real_t p_value, const int p_blend) {

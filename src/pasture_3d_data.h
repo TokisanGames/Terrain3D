@@ -294,6 +294,27 @@ public:
 	// Capability query (spec §5.3): true if a local RenderingDevice + the analytic compute pipeline could
 	// be created. For tooling/tests/diagnostics; read-only, no behaviour change. Bound to GDScript.
 	bool gpu_raster_available();
+
+	// ---- Pasture3DSim (PASTURE3D_SIM_NODE_SPEC.md) ----
+	// The stream-power solver, exposed as a PURE function of a heightfield: no terrain is read or written,
+	// so the phase-1 gates can drive it on synthetic fields. `z` is gw*gh row-major with NaN for no-data;
+	// `params` carries the ErosionParams keys (see pasture_3d_erosion.h). Returns a Dictionary with "z"
+	// (and, when params.want_diagnostics, "flow" / "lake_depth" / "receiver" / "stack" / "boundary").
+	Dictionary erode_heightfield(const PackedFloat32Array &p_z, const Dictionary &p_params, const PackedFloat32Array &p_erodability);
+	// NaN-aware corner-aligned grid resample: box-averages when shrinking a dimension, bilinear when
+	// growing. Both grids span the same world rect, so sample (0,0) and (w-1,h-1) coincide. This is the
+	// §6 preview/build bridge — heights DOWN onto the sim grid, deltas back UP onto the terrain grid.
+	PackedFloat32Array resample_grid(const PackedFloat32Array &p_src, const int p_sw, const int p_sh, const int p_dw, const int p_dh);
+	// Take a sim-resolution delta field to a terrain-resolution write grid through the loop's falloff
+	// mask (§5 "simulate wide, write narrow"). Cells outside the mask come back NaN so apply_sim_block
+	// never touches them — the catchment margin is computed over but never written. Pass the pre-solve
+	// surface as params["baseline"] to hand `deltas` the POST-solve surface and difference it here.
+	PackedFloat32Array sim_mask_deltas(const PackedFloat32Array &p_deltas, const PackedVector2Array &p_poly, const Dictionary &p_params, const PackedFloat32Array &p_lut);
+	// §8.1 — batched delta write, the same raw-tile path the stamp_* rasterisers use. Deltas are gw*gh
+	// row-major with NaN = skip, anchored at vertex round(min_x/vs), round(min_z/vs). Deferred: the
+	// caller composites the box and pushes to the GPU once.
+	void apply_sim_block(const int p_layer_id, const double p_min_x, const double p_min_z, const double p_vs,
+			const int p_gw, const int p_gh, const PackedFloat32Array &p_deltas, const int p_blend);
 	// Per-cell write used by the native rasterisers. When p_composite, defers to the per-pixel composite
 	// API (full-refresh path). Otherwise writes the sample directly into p_layer, caching the resolved
 	// region in r_loc/r_region so a run of cells in the same region skips the per-cell layer+region
