@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="Pasture3DReliefFractal" load_steps=2 format=3 uid="uid://crelief0craggy"]
+
+[ext_resource type="Script" uid="uid://b4reut2qigpsv" path="res://addons/pasture_3d/connectors/relief_fractal.gd" id="1_frac"]
+
+[resource]
+script = ExtResource("1_frac")
+style = 1
+amplitude = 1.0
+feature_size = 38.0
+octaves = 5
+lacunarity = 2.05
+gain = 0.52
+sharpness = 1.35
+seed = 0
+warp_amount = 9.0
+warp_size = 70.0
+warp_octaves = 2
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://b4reut2qigpsv"

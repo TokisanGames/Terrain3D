@@ -6,6 +6,7 @@
 
 #include "pasture_3d_data.h"
 #include "pasture_3d_gpu_raster.h"
+#include "pasture_3d_relief_ops.h"
 #include "pasture_3d_util.h"
 
 #include <godot_cpp/classes/fast_noise_lite.hpp>
@@ -1163,11 +1164,33 @@ void Pasture3DData::stamp_plow_loop(const int p_layer_id, const PackedVector2Arr
 	const bool composite = p_params.get("composite", true);
 	const double src_strength = p_params.get("src_strength", 1.0);
 	const double tile_size = MAX((double)p_params.get("tile_size", 16.0), 0.0001);
-	const int source = (int)p_params.get("source", 0); // 0=NOISE 1=TEXTURE 2=MATERIAL
+	const int source = (int)p_params.get("source", 0); // 0=NOISE 1=TEXTURE 2=MATERIAL 3=RELIEF
 	const int data_w = (int)p_params.get("data_w", 0);
 	const int data_h = (int)p_params.get("data_h", 0);
 	Object *noise_obj = p_params.get("noise", Variant());
 	Ref<FastNoiseLite> noise = Object::cast_to<FastNoiseLite>(noise_obj);
+
+	// Source = RELIEF: compile-once op program plus the loop's oriented frame. FIT evaluates the ops in
+	// loop-local metres so the relief rotates with the loop; TILE keeps world XZ so it stays continuous
+	// across the area. Both derive nu/nv from the same frame, which is what sizes radial ops (craters).
+	ReliefProgram prog;
+	if (source == 3 && !relief_build(p_params, prog)) {
+		return; // nothing to stamp
+	}
+	const int mapping = (int)p_params.get("mapping", 0); // 0=TILE 1=FIT 2=SCATTER
+	const bool fit = mapping == 1;
+	ReliefScatter scatter;
+	const bool scattered = source == 3 && mapping == 2 &&
+			relief_scatter_build(p_params, min_x, min_z, vs, gw, gh, scatter);
+	if (source == 3 && mapping == 2 && !scattered) {
+		return; // scatter placed nothing (impossible count in a tight loop) — stamping would be a no-op
+	}
+	const double fit_cx = p_params.get("fit_cx", 0.0);
+	const double fit_cz = p_params.get("fit_cz", 0.0);
+	const double fit_cos = p_params.get("fit_cos", 1.0);
+	const double fit_sin = p_params.get("fit_sin", 0.0);
+	const double inv_ex = 1.0 / MAX((double)p_params.get("fit_ex", 1.0), 0.001);
+	const double inv_ez = 1.0 / MAX((double)p_params.get("fit_ez", 1.0), 0.001);
 
 	const double ramp_denom = MAX(falloff_width, 0.001);
 	const bool add = (blend == 1); // BLEND_ADD
@@ -1179,6 +1202,15 @@ void Pasture3DData::stamp_plow_loop(const int p_layer_id, const PackedVector2Arr
 	// own layer (not the full terrain) and features stop climbing each other. NaN/empty => fall back.
 	const PackedFloat32Array base_below = p_params.get("base_below", PackedFloat32Array());
 	const bool has_below = base_below.size() == gw * gh;
+
+	// Terrain fields for selectors / SCREE, derived from the SAME below-layer heights so a brush never
+	// gates itself on its own output. Built only when the compiled program asks for them.
+	ReliefFields fields;
+	if (source == 3 && (bool)p_params.get("need_fields", false)) {
+		relief_fields_build(base_below, min_x, min_z, vs, gw, gh,
+				[this](double x, double z) { return (float)get_height(Vector3(x, 0.0, z)); }, fields);
+	}
+	ReliefSample ground;
 
 	// Always buffer (NaN = no write) so the optional smoothing pass can run before any write; batched
 	// commit for the common deferred overlay, per-cell write-back otherwise.
@@ -1210,22 +1242,45 @@ void Pasture3DData::stamp_plow_loop(const int p_layer_id, const PackedVector2Arr
 			if (has_clip && (x < cx0 || x >= cx1)) {
 				continue;
 			}
-			// Source value in [0,1] (mirrors Pasture3DPlow._sample01).
-			double sv;
-			if (source == 0) {
-				sv = noise.is_valid() ? CLAMP(noise->get_noise_2d(x, z) * 0.5 + 0.5, 0.0, 1.0) : height_offset;
-			} else if (p_src_data.is_empty() || data_w <= 0 || data_h <= 0) {
-				sv = height_offset;
+			// Loop-local metres, then the same point normalised to the frame's half-extents.
+			const double dx = x - fit_cx;
+			const double dz = z - fit_cz;
+			const double lx = dx * fit_cos + dz * fit_sin;
+			const double lz = -dx * fit_sin + dz * fit_cos;
+
+			double amp;
+			if (source == 3) {
+				fields.sample(row + ix, ground);
+				const double rv = scattered
+						? relief_scatter_eval(prog, scatter, x, z, ground)
+						: relief_eval(prog, fit ? lx : x, fit ? lz : z, lx * inv_ex, lz * inv_ez,
+								  inv_ex, inv_ez, ground);
+				amp = height_scale * rv * mask * src_strength;
 			} else {
-				const double u = (x / tile_size) - std::floor(x / tile_size);
-				const double t = (z / tile_size) - std::floor(z / tile_size);
-				int px = (int)(u * data_w);
-				int py = (int)(t * data_h);
-				px = CLAMP(px, 0, data_w - 1);
-				py = CLAMP(py, 0, data_h - 1);
-				sv = p_src_data[py * data_w + px];
+				// Source value in [0,1] (mirrors Pasture3DPlow._sample01).
+				double sv;
+				if (source == 0) {
+					sv = noise.is_valid() ? CLAMP(noise->get_noise_2d(x, z) * 0.5 + 0.5, 0.0, 1.0) : height_offset;
+				} else if (p_src_data.is_empty() || data_w <= 0 || data_h <= 0) {
+					sv = height_offset;
+				} else {
+					double u, t;
+					if (fit) {
+						// Map the image once onto the loop's oriented rect instead of tiling it.
+						u = CLAMP(lx * inv_ex * 0.5 + 0.5, 0.0, 1.0);
+						t = CLAMP(lz * inv_ez * 0.5 + 0.5, 0.0, 1.0);
+					} else {
+						u = (x / tile_size) - std::floor(x / tile_size);
+						t = (z / tile_size) - std::floor(z / tile_size);
+					}
+					int px = (int)(u * data_w);
+					int py = (int)(t * data_h);
+					px = CLAMP(px, 0, data_w - 1);
+					py = CLAMP(py, 0, data_h - 1);
+					sv = p_src_data[py * data_w + px];
+				}
+				amp = height_scale * (sv - height_offset) * mask * src_strength;
 			}
-			double amp = height_scale * (sv - height_offset) * mask * src_strength;
 			if (std::fabs(amp) < 0.0001) {
 				continue;
 			}

@@ -1,0 +1,54 @@
+[gd_resource type="Resource" script_class="Pasture3DReliefStack" format=3 uid="uid://crelief0cliff"]
+
+[ext_resource type="Script" uid="uid://bohmiy2gws6iy" path="res://addons/pasture_3d/connectors/relief_stack.gd" id="1_stack"]
+[ext_resource type="Script" uid="uid://peulc4l115ho" path="res://addons/pasture_3d/connectors/relief_strata.gd" id="2_strat"]
+[ext_resource type="Script" uid="uid://d24spa7oiiel7" path="res://addons/pasture_3d/connectors/relief_scree.gd" id="3_scree"]
+[ext_resource type="Script" uid="uid://nw2i8ancr82j" path="res://addons/pasture_3d/connectors/relief_selector.gd" id="4_sel"]
+
+[sub_resource type="Resource" id="Resource_steep"]
+script = ExtResource("4_sel")
+kind = 0
+range_min = 28.0
+range_max = 90.0
+falloff_low = 14.0
+falloff_high = 0.0
+invert = false
+strength = 1.0
+metadata/_custom_type_script = "uid://nw2i8ancr82j"
+
+[sub_resource type="Resource" id="Resource_rock"]
+script = ExtResource("2_strat")
+layers = 18
+hardness = 0.85
+dip = 0.22
+dip_direction_degrees = 70.0
+break_amount = 0.14
+break_size = 38.0
+base_amount = 1.0
+base_size = 60.0
+base_octaves = 4
+seed = 13
+strength = 1.0
+blend = 0
+selector = SubResource("Resource_steep")
+metadata/_custom_type_script = "uid://peulc4l115ho"
+
+[sub_resource type="Resource" id="Resource_talus"]
+script = ExtResource("3_scree")
+amplitude = 0.13
+grain_size = 6.0
+downslope_streak = 6.0
+toe_deposition = 0.45
+seed = 21
+min_slope_degrees = 22.0
+slope_falloff_degrees = 14.0
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://d24spa7oiiel7"
+
+[resource]
+script = ExtResource("1_stack")
+layers = [SubResource("Resource_rock"), SubResource("Resource_talus")]
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://bohmiy2gws6iy"

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Pasture3DReliefTerraces" format=3 uid="uid://dmde6saycilie"]
+
+[ext_resource type="Script" uid="uid://bl6s71hjqixse" path="res://addons/pasture_3d/connectors/relief_terraces.gd" id="1_terr"]
+
+[resource]
+script = ExtResource("1_terr")
+steps = 9
+hardness = 0.82
+step_jitter = 0.09
+jitter_size = 85.0
+base_amount = 1.0
+base_size = 100.0
+base_octaves = 4
+seed = 2
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://bl6s71hjqixse"

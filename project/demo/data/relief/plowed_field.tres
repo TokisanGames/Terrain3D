@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Pasture3DReliefFurrows" load_steps=2 format=3 uid="uid://crelief0furrow"]
+
+[ext_resource type="Script" uid="uid://p10tmyibbkcs" path="res://addons/pasture_3d/connectors/relief_furrows.gd" id="1_furr"]
+
+[resource]
+script = ExtResource("1_furr")
+amplitude = 0.35
+spacing = 16.0
+direction_degrees = 12.0
+profile = 1
+wobble_amount = 2.2
+wobble_size = 75.0
+seed = 0
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://p10tmyibbkcs"

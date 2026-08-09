@@ -14,8 +14,17 @@
 class_name Pasture3DPlow
 extends Pasture3DTerrainBrush
 
-enum Source { NOISE, TEXTURE, MATERIAL }
+enum Source { NOISE, TEXTURE, MATERIAL, RELIEF }
 enum BlendMode { REPLACE, ADD, MAX, MIN }
+## How the source is laid out across the loop. TILE repeats across world space (craggy sections, strata);
+## FIT maps the source once onto the loop's oriented bounding rect (one crater per loop); SCATTER places
+## N jittered instances inside the loop (a crater field, boulders — and the standard fix for the
+## repetition TILE has). SCATTER requires Source = RELIEF.
+## See PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md §6.
+enum Mapping { TILE, FIT, SCATTER }
+## How overlapping scatter instances combine. STRONGEST keeps whichever is furthest from flat, so two
+## overlapping craters merge into the deeper one instead of cancelling or doubling.
+enum ScatterBlend { STRONGEST, ADD, MAX, MIN }
 
 # A height source is normalised to [0,1] then biased by `height_offset` so mid-grey = no change and the
 # relief goes up AND down. Cap the LUT resolution: terrain relief never needs more than this per tile,
@@ -49,6 +58,24 @@ const _LUT_MAX := 256
 		if plow_material != null and not plow_material.changed.is_connected(_schedule_refresh):
 			plow_material.changed.connect(_schedule_refresh)
 		_schedule_refresh()
+## Source.RELIEF — a Pasture3DReliefMaterial: procedural landform relief (craggy fractal, crater, or a
+## stack of both). This is the default for newly placed brushes.
+@export var relief: Pasture3DReliefMaterial:
+	set(v):
+		if relief != null and relief.changed.is_connected(_schedule_refresh):
+			relief.changed.disconnect(_schedule_refresh)
+		relief = v
+		if relief != null and not relief.changed.is_connected(_schedule_refresh):
+			relief.changed.connect(_schedule_refresh)
+		update_configuration_warnings()
+		_schedule_refresh()
+## How the source is laid out across the loop (TILE repeats; FIT maps it once onto the loop's oriented
+## rect). Craters need FIT. Hidden for NOISE, which is world-space by definition.
+@export var mapping: Mapping = Mapping.TILE:
+	set(v):
+		mapping = v
+		update_configuration_warnings()
+		_schedule_refresh()
 ## Metres of relief across the source's range (peak-to-trough at full mask).
 @export var height_scale: float = 8.0:
 	set(v):
@@ -73,6 +100,46 @@ const _LUT_MAX := 256
 @export var blend_mode: BlendMode = BlendMode.ADD:
 	set(v):
 		blend_mode = v
+		_schedule_refresh()
+
+@export_group("Scatter")
+## How many instances to place inside the loop. Placement is deterministic from Scatter Seed.
+@export_range(1, 256) var scatter_count: int = 12:
+	set(v):
+		scatter_count = maxi(v, 1)
+		_schedule_refresh()
+@export var scatter_seed: int = 0:
+	set(v):
+		scatter_seed = v
+		_schedule_refresh()
+## Smallest / largest instance radius, in metres.
+@export_range(0.5, 256.0, 0.5, "or_greater") var scatter_radius_min: float = 8.0:
+	set(v):
+		scatter_radius_min = maxf(v, 0.1)
+		_schedule_refresh()
+@export_range(0.5, 256.0, 0.5, "or_greater") var scatter_radius_max: float = 24.0:
+	set(v):
+		scatter_radius_max = maxf(v, 0.1)
+		_schedule_refresh()
+## 0 = every instance keeps the material's own orientation; 1 = free rotation.
+@export_range(0.0, 1.0, 0.01) var scatter_rotation_jitter: float = 1.0:
+	set(v):
+		scatter_rotation_jitter = clampf(v, 0.0, 1.0)
+		_schedule_refresh()
+## Random variation in each instance's strength, ± this fraction.
+@export_range(0.0, 1.0, 0.01) var scatter_scale_jitter: float = 0.25:
+	set(v):
+		scatter_scale_jitter = clampf(v, 0.0, 1.0)
+		_schedule_refresh()
+## 0 = instances may not overlap at all (placement rejects clashes); 1 = overlap freely. Low values with
+## a high count can exhaust the placement attempt budget — the brush warns when that happens.
+@export_range(0.0, 1.0, 0.01) var scatter_overlap: float = 0.0:
+	set(v):
+		scatter_overlap = clampf(v, 0.0, 1.0)
+		_schedule_refresh()
+@export var scatter_blend: ScatterBlend = ScatterBlend.STRONGEST:
+	set(v):
+		scatter_blend = v
 		_schedule_refresh()
 
 @export_group("Mask")
@@ -109,11 +176,15 @@ func _get_blend_mode() -> int:
 	return int(blend_mode)
 
 
-## Pasture3DPlow has no `invert` of its own — the stamp's sign lives on the material it renders, and
-## only in MATERIAL mode (NOISE and TEXTURE have no inversion to read). Drives the Add Water button's
+## Pasture3DPlow has no `invert` of its own — the stamp's sign lives on the material it renders, and only
+## in MATERIAL / RELIEF mode (NOISE and TEXTURE have no inversion to read). Drives the Add Water button's
 ## raise check; see PASTURE3D_WATER_BODIES_SPEC.md §7.8.
 func _raise_inverted() -> bool:
-	return source == Source.MATERIAL and plow_material != null and plow_material.invert
+	if source == Source.MATERIAL:
+		return plow_material != null and plow_material.invert
+	if source == Source.RELIEF:
+		return relief != null and not relief._raises()
+	return false
 
 
 func _min_points() -> int:
@@ -128,7 +199,7 @@ func _padding() -> float:
 	return maxf(edge_offset, 0.0) + 2.0
 
 
-## Show only the input that belongs to the active Source, and hide tile_size for procedural noise.
+## Show only the input that belongs to the active Source, and hide the knobs that source cannot use.
 func _validate_property(property: Dictionary) -> void:
 	match property.name:
 		"noise":
@@ -140,8 +211,23 @@ func _validate_property(property: Dictionary) -> void:
 		"plow_material":
 			if source != Source.MATERIAL:
 				property.usage &= ~PROPERTY_USAGE_EDITOR
+		"relief":
+			if source != Source.RELIEF:
+				property.usage &= ~PROPERTY_USAGE_EDITOR
+		"mapping":
+			if source == Source.NOISE: # world-space by definition; nothing to lay out
+				property.usage &= ~PROPERTY_USAGE_EDITOR
+		"height_offset":
+			if source == Source.RELIEF: # relief materials output a signed value already
+				property.usage &= ~PROPERTY_USAGE_EDITOR
 		"tile_size":
-			if source == Source.NOISE: # noise tiles via its own frequency
+			# NOISE tiles via its own frequency, relief ops carry their own feature size, and FIT maps
+			# the source exactly once — in none of those cases does a metres-per-repeat mean anything.
+			if source == Source.NOISE or source == Source.RELIEF or mapping != Mapping.TILE:
+				property.usage &= ~PROPERTY_USAGE_EDITOR
+		"scatter_count", "scatter_seed", "scatter_radius_min", "scatter_radius_max", \
+		"scatter_rotation_jitter", "scatter_scale_jitter", "scatter_overlap", "scatter_blend":
+			if mapping != Mapping.SCATTER:
 				property.usage &= ~PROPERTY_USAGE_EDITOR
 
 
@@ -154,6 +240,282 @@ func _make_starter_curve() -> Curve3D:
 	c.add_point(Vector3(r, 0.0, r))
 	c.add_point(Vector3(-r, 0.0, r))
 	return c
+
+
+func _get_configuration_warnings() -> PackedStringArray:
+	var warnings := super()
+	if source == Source.RELIEF:
+		if relief == null:
+			warnings.append("Source is Relief but no Relief Material is assigned — nothing will be stamped.")
+		else:
+			var w := relief._configuration_warning()
+			if not w.is_empty():
+				warnings.append(w)
+			if mapping == Mapping.TILE and _has_crater_op():
+				warnings.append(("This Relief Material contains a Crater, which is sized by the loop. "
+					+ "With Mapping = Tile it repeats once per tile; set Mapping = Fit for a single crater."))
+			var finest := _finest_period()
+			if finest > 0.0 and is_instance_valid(terrain):
+				var limit := terrain.vertex_spacing * PERIOD_SAMPLES_MIN
+				if finest < limit:
+					warnings.append(("This Relief Material has a repeating feature every %.1f m, but the "
+						+ "terrain samples height every %.1f m — under about %.1f m a cycle has too few "
+						+ "vertices to survive meshing and will barely show. Increase the spacing / "
+						+ "wavelength, or lower the terrain's Vertex Spacing.")
+						% [finest, terrain.vertex_spacing, limit])
+	elif mapping == Mapping.SCATTER:
+		warnings.append(("Mapping = Scatter only applies to Source = Relief; this source will tile "
+			+ "instead. Switch the source, or pick Tile / Fit."))
+	if mapping == Mapping.SCATTER:
+		if scatter_radius_min > scatter_radius_max:
+			warnings.append("Scatter Radius Min is larger than Radius Max — no instances will be placed.")
+		elif _scatter_shortfall > 0:
+			warnings.append(("Scatter placed only %d of %d instances before running out of attempts. "
+				+ "Raise Scatter Overlap, shrink the radii, or lower the count.")
+				% [scatter_count - _scatter_shortfall, scatter_count])
+	return warnings
+
+
+## Samples per cycle a periodic feature needs before meshing and LOD stop resolving it. Four is the
+## practical floor: two is Nyquist, which reconstructs a frequency but not a recognisable profile.
+const PERIOD_SAMPLES_MIN := 4.0
+
+
+## True when the compiled program emits at least one CRATER op — used only for the Tile/Fit warning above.
+func _has_crater_op() -> bool:
+	if relief == null:
+		return false
+	var prog: Array = relief.compile()
+	var ops: PackedInt32Array = prog[0]
+	for i in range(0, ops.size(), Pasture3DReliefMaterial.OP_STRIDE):
+		if ops[i] == Pasture3DReliefMaterial.Op.CRATER:
+			return true
+	return false
+
+
+## True when the compiled program reads the ground beneath it — any gated op, or any SCREE. The terrain
+## field grids cost O(cells) to build, so a material that ignores them must not pay for them.
+func _needs_terrain_fields(ops: PackedInt32Array) -> bool:
+	for i in range(ops.size() / Pasture3DReliefMaterial.OP_STRIDE):
+		var o := i * Pasture3DReliefMaterial.OP_STRIDE
+		if ops[o + 2] >= 0 or ops[o] == Pasture3DReliefMaterial.Op.SCREE:
+			return true
+	return false
+
+
+## Per-cell description of the ground BELOW this brush's layer, over the bake grid: height, steepness in
+## degrees, curvature (the Laplacian — positive is a hollow, negative a ridge) and the height gradient.
+## Returns [alt, slope_deg, curv, gx, gz], each gw*gh.
+##
+## The source is `composite_height_below`, NOT the finished terrain: reading the final composite would
+## feed this brush's own relief into its own mask and drift on every re-bake. Where no lower layer covers
+## a cell, that grid holds NaN and we fall back to the live height, which is what the rasterisers already
+## do for base_y. Derivatives use central differences with clamped edges.
+func _terrain_fields(min_x: float, min_z: float, vs: float, gw: int, gh: int) -> Array:
+	var n := gw * gh
+	var alt := PackedFloat32Array()
+	alt.resize(n)
+	var below := _base_below_grid(min_x, min_z, vs, gw, gh)
+	var has_below := below.size() == n
+	for iz in range(gh):
+		var row := iz * gw
+		for ix in range(gw):
+			var h: float = below[row + ix] if has_below else NAN
+			if not is_finite(h):
+				h = terrain.data.get_height(Vector3(min_x + ix * vs, 0.0, min_z + iz * vs))
+			alt[row + ix] = h if is_finite(h) else 0.0
+
+	var slope := PackedFloat32Array()
+	slope.resize(n)
+	var curv := PackedFloat32Array()
+	curv.resize(n)
+	var gxs := PackedFloat32Array()
+	gxs.resize(n)
+	var gzs := PackedFloat32Array()
+	gzs.resize(n)
+	var inv2 := 1.0 / (2.0 * vs)
+	var invsq := 1.0 / (vs * vs)
+	for iz in range(gh):
+		var row := iz * gw
+		var zm := maxi(iz - 1, 0) * gw
+		var zp := mini(iz + 1, gh - 1) * gw
+		for ix in range(gw):
+			var xm := maxi(ix - 1, 0)
+			var xp := mini(ix + 1, gw - 1)
+			var c := alt[row + ix]
+			var gx := (alt[row + xp] - alt[row + xm]) * inv2
+			var gz := (alt[zp + ix] - alt[zm + ix]) * inv2
+			gxs[row + ix] = gx
+			gzs[row + ix] = gz
+			slope[row + ix] = rad_to_deg(atan(sqrt(gx * gx + gz * gz)))
+			curv[row + ix] = (alt[row + xp] + alt[row + xm] + alt[zp + ix] + alt[zm + ix]
+					- 4.0 * c) * invsq
+	return [alt, slope, curv, gxs, gzs]
+
+
+## Shortest repeat distance, in metres, over the ops that have one (DUNES wavelength, FURROWS spacing —
+## both in param slot 1). 0 when the material has no periodic op. Fractal ops are excluded on purpose:
+## their high octaves are *meant* to fall below the vertex spacing and simply stop contributing, whereas a
+## periodic op set too fine produces nothing at all and reads as "the material is broken".
+func _finest_period() -> float:
+	if relief == null:
+		return 0.0
+	var prog: Array = relief.compile()
+	var ops: PackedInt32Array = prog[0]
+	var params: PackedFloat32Array = prog[1]
+	var finest := 0.0
+	for i in range(ops.size() / Pasture3DReliefMaterial.OP_STRIDE):
+		var op := ops[i * Pasture3DReliefMaterial.OP_STRIDE]
+		if op != Pasture3DReliefMaterial.Op.DUNES and op != Pasture3DReliefMaterial.Op.FURROWS:
+			continue
+		var period := params[i * Pasture3DReliefMaterial.PARAM_STRIDE + 1]
+		if period > 0.0 and (finest <= 0.0 or period < finest):
+			finest = period
+	return finest
+
+
+## Oriented frame of the loop: [cx, cz, cos, sin, ex, ez] — centre, the unit X axis of the minimum-area
+## enclosing rectangle, and its half-extents. FIT maps the source onto this rect, so the relief follows
+## the loop's rotation instead of the world axes. Computed once per bake from the already-decimated
+## polygon (the hull of a decimated loop is small, so the O(h²) rotating-callipers sweep is cheap).
+## Degenerate loops fall back to the axis-aligned bounds.
+func _loop_frame(poly: PackedVector2Array) -> Array:
+	var hull := Geometry2D.convex_hull(poly)
+	# convex_hull repeats the first point as the last; drop it so edges aren't double-counted.
+	if hull.size() > 1 and hull[0].is_equal_approx(hull[hull.size() - 1]):
+		hull.remove_at(hull.size() - 1)
+	if hull.size() >= 3:
+		var best_area := INF
+		var best: Array = []
+		for i in range(hull.size()):
+			var e: Vector2 = hull[(i + 1) % hull.size()] - hull[i]
+			var elen := e.length()
+			if elen < 0.000001:
+				continue
+			var ux := e / elen
+			var uy := Vector2(-ux.y, ux.x)
+			var min_u := INF
+			var max_u := -INF
+			var min_v := INF
+			var max_v := -INF
+			for p in hull:
+				var du := p.dot(ux)
+				var dv := p.dot(uy)
+				min_u = minf(min_u, du)
+				max_u = maxf(max_u, du)
+				min_v = minf(min_v, dv)
+				max_v = maxf(max_v, dv)
+			var area := (max_u - min_u) * (max_v - min_v)
+			if area < best_area:
+				best_area = area
+				var centre: Vector2 = ux * ((min_u + max_u) * 0.5) + uy * ((min_v + max_v) * 0.5)
+				best = [centre.x, centre.y, ux.x, ux.y, (max_u - min_u) * 0.5, (max_v - min_v) * 0.5]
+		if not best.is_empty() and best[4] > 0.001 and best[5] > 0.001:
+			return best
+	# Fallback: axis-aligned bounds of the polygon.
+	var mn := poly[0]
+	var mx := poly[0]
+	for p in poly:
+		mn.x = minf(mn.x, p.x)
+		mn.y = minf(mn.y, p.y)
+		mx.x = maxf(mx.x, p.x)
+		mx.y = maxf(mx.y, p.y)
+	return [(mn.x + mx.x) * 0.5, (mn.y + mx.y) * 0.5, 1.0, 0.0,
+			maxf((mx.x - mn.x) * 0.5, 0.001), maxf((mx.y - mn.y) * 0.5, 0.001)]
+
+
+## How many instances the last scatter placement fell short by (0 = all placed). Drives the warning above.
+var _scatter_shortfall := 0
+
+
+## Deterministic dart-throwing placement inside the loop. Runs ONCE per bake in GDScript — C++ only
+## evaluates what this produces — so the placement stays easy to read and debug, and identical on both
+## paths by construction. Returns a stride-6 table: [cx, cz, radius, cos_rot, sin_rot, amp_scale].
+## Attempts are capped so an impossible request (many large non-overlapping instances in a tight loop)
+## terminates with a warning instead of spinning.
+func _place_scatter(poly: PackedVector2Array) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	_scatter_shortfall = scatter_count
+	var r_min := minf(scatter_radius_min, scatter_radius_max)
+	var r_max := maxf(scatter_radius_min, scatter_radius_max)
+	if scatter_radius_min > scatter_radius_max:
+		return out
+	var mn := poly[0]
+	var mx := poly[0]
+	for p in poly:
+		mn.x = minf(mn.x, p.x)
+		mn.y = minf(mn.y, p.y)
+		mx.x = maxf(mx.x, p.x)
+		mx.y = maxf(mx.y, p.y)
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = scatter_seed
+	var placed: Array[Vector3] = [] # (x, z, radius)
+	var attempts := 0
+	var cap := scatter_count * 32
+	while placed.size() < scatter_count and attempts < cap:
+		attempts += 1
+		var px := rng.randf_range(mn.x, mx.x)
+		var pz := rng.randf_range(mn.y, mx.y)
+		var r := rng.randf_range(r_min, r_max)
+		if not Geometry2D.is_point_in_polygon(Vector2(px, pz), poly):
+			continue
+		if scatter_overlap < 1.0:
+			var clash := false
+			for q in placed:
+				if Vector2(px - q.x, pz - q.y).length() < (r + q.z) * (1.0 - scatter_overlap):
+					clash = true
+					break
+			if clash:
+				continue
+		placed.append(Vector3(px, pz, r))
+		var rot := rng.randf() * TAU * scatter_rotation_jitter
+		out.append(px)
+		out.append(pz)
+		out.append(r)
+		out.append(cos(rot))
+		out.append(sin(rot))
+		out.append(1.0 + (rng.randf() * 2.0 - 1.0) * scatter_scale_jitter)
+	_scatter_shortfall = scatter_count - placed.size()
+	return out
+
+
+## Combine every scatter instance covering this point. Mirrors relief_scatter_eval in C++ — the C++ side
+## buckets instances spatially, but visits the same set in the same ascending order, so the two agree.
+func _scatter_eval(x: float, z: float, inst: PackedFloat32Array, alt: float = 0.0,
+		slope_deg: float = 0.0, curv: float = 0.0, gx: float = 0.0, gz: float = 0.0) -> float:
+	var has := false
+	var acc := 0.0
+	for i in range(inst.size() / 6):
+		var b := i * 6
+		var r := maxf(inst[b + 2], 0.001)
+		var dx := x - inst[b]
+		var dz := z - inst[b + 1]
+		var c := inst[b + 3]
+		var s := inst[b + 4]
+		var lx := dx * c + dz * s
+		var lz := -dx * s + dz * c
+		var inv := 1.0 / r
+		var nu := lx * inv
+		var nv := lz * inv
+		var rad := sqrt(nu * nu + nv * nv)
+		if rad >= 1.0:
+			continue
+		# Window the outer 10% to zero so a non-radial material fades out instead of stamping a hard disc.
+		var val := relief.eval(lx, lz, nu, nv, inv, inv, alt, slope_deg, curv, gx, gz) \
+				* inst[b + 5] * smoothstep(1.0, 0.9, rad)
+		if not has:
+			acc = val
+			has = true
+			continue
+		match scatter_blend:
+			ScatterBlend.ADD: acc += val
+			ScatterBlend.MAX: acc = maxf(acc, val)
+			ScatterBlend.MIN: acc = minf(acc, val)
+			_: # STRONGEST — whichever is furthest from flat
+				if absf(val) > absf(acc):
+					acc = val
+	return acc if has else 0.0
 
 
 func _polygon_xz(path: Path3D) -> PackedVector2Array:
@@ -176,22 +538,68 @@ func _paint_spline(path: Path3D) -> void:
 	if gw < 1 or gh < 1:
 		return
 
-	# Resolve the height source ONCE (decompress + cache the LUT for TEXTURE/MATERIAL). Bail if the
-	# active source has nothing to read — nothing to stamp. Shared by the native path and the fallback.
+	# Resolve the height source ONCE (decompress + cache the LUT for TEXTURE/MATERIAL, compile the op
+	# program for RELIEF). Bail if the active source has nothing to read — nothing to stamp. Shared by the
+	# native path and the fallback.
 	var lut := _load_height_lut()
 	var lut_w: int = lut[1]
 	var lut_h: int = lut[2]
 	var data: PackedFloat32Array = lut[0]
+	var ops := PackedInt32Array()
+	var op_params := PackedFloat32Array()
+	var op_luts := PackedFloat32Array()
+	var op_selectors := PackedFloat32Array()
 	if source == Source.NOISE:
 		if noise == null:
+			return
+	elif source == Source.RELIEF:
+		if relief == null:
+			return
+		var prog: Array = relief.compile()
+		ops = prog[0]
+		op_params = prog[1]
+		op_luts = prog[2]
+		op_selectors = prog[3]
+		if ops.is_empty():
 			return
 	elif data.is_empty():
 		return
 
-	# A plow material can carry its own relief multiplier on top of Height Scale.
+	# A plow / relief material can carry its own multiplier on top of Height Scale.
 	var src_strength := 1.0
 	if source == Source.MATERIAL and plow_material != null:
 		src_strength = plow_material.strength
+	elif source == Source.RELIEF:
+		src_strength = relief.strength
+
+	# Oriented loop frame — FIT maps the source onto it, and every mapping mode uses it for the
+	# normalised coordinates that radial ops (craters) read.
+	var frame := _loop_frame(poly)
+	var fcx: float = frame[0]
+	var fcz: float = frame[1]
+	var fcos: float = frame[2]
+	var fsin: float = frame[3]
+	var inv_ex := 1.0 / maxf(frame[4], 0.001)
+	var inv_ez := 1.0 / maxf(frame[5], 0.001)
+	var fit := mapping == Mapping.FIT
+
+	# Terrain-aware selectors and SCREE read the ground below this brush's layer. Built once per bake,
+	# and only when the compiled program actually reads them.
+	var fields: Array = []
+	var use_fields := source == Source.RELIEF and _needs_terrain_fields(ops)
+	if use_fields:
+		fields = _terrain_fields(min_x, min_z, vs, gw, gh)
+
+	# SCATTER places its instances once per bake, here, so both paths evaluate the identical layout.
+	# It only applies to RELIEF; other sources fall back to tiling (and the brush warns).
+	var instances := PackedFloat32Array()
+	var scattered := source == Source.RELIEF and mapping == Mapping.SCATTER
+	if scattered:
+		instances = _place_scatter(poly)
+		if instances.is_empty():
+			update_configuration_warnings()
+			return
+		update_configuration_warnings()
 
 	# Native rasteriser (Round 2): same SDF + source-sample + relief math in C++.
 	if _native_raster("stamp_plow_loop"):
@@ -204,8 +612,17 @@ func _paint_spline(path: Path3D) -> void:
 			"src_strength": src_strength, "tile_size": tile_size, "source": int(source),
 			"data_w": lut_w, "data_h": lut_h, "noise": noise,
 			"smooth_passes": smooth_passes,
+			"ops": ops, "op_params": op_params, "op_luts": op_luts,
+			"op_selectors": op_selectors, "mapping": int(mapping),
+			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
+			"fit_ex": frame[4], "fit_ez": frame[5],
+			"instances": instances, "scatter_blend": int(scatter_blend),
+			"need_fields": use_fields,
 		}
-		if relative_to_terrain:
+		# C++ derives the slope/curvature/gradient grids itself (the same formula on the same input, so
+		# the two paths agree) — but it can only do that if it is handed the below-layer heights, which
+		# otherwise only travel when the brush is stamping relative to the terrain.
+		if relative_to_terrain or use_fields:
 			params["base_below"] = _base_below_grid(min_x, min_z, vs, gw, gh)
 		terrain.data.stamp_plow_loop(_layer_id, poly, _clip_aabb, params, _ramp_lut(falloff_curve), data)
 		return
@@ -232,8 +649,36 @@ func _paint_spline(path: Path3D) -> void:
 			if mask <= 0.0:
 				continue
 			var x := min_x + ix * vs
-			var v := _sample01(x, z, data, lut_w, lut_h)
-			var amp := height_scale * (v - height_offset) * mask * src_strength
+			# Loop-local metres, then the same point normalised to the frame's half-extents.
+			var dx := x - fcx
+			var dz := z - fcz
+			var lx := dx * fcos + dz * fsin
+			var lz := -dx * fsin + dz * fcos
+			var amp: float
+			if source == Source.RELIEF:
+				var f_alt := 0.0
+				var f_slope := 0.0
+				var f_curv := 0.0
+				var f_gx := 0.0
+				var f_gz := 0.0
+				if use_fields:
+					var fi := row + ix
+					f_alt = fields[0][fi]
+					f_slope = fields[1][fi]
+					f_curv = fields[2][fi]
+					f_gx = fields[3][fi]
+					f_gz = fields[4][fi]
+				var rv: float
+				if scattered:
+					rv = _scatter_eval(x, z, instances, f_alt, f_slope, f_curv, f_gx, f_gz)
+				else:
+					rv = relief.eval(lx if fit else x, lz if fit else z,
+							lx * inv_ex, lz * inv_ez, inv_ex, inv_ez,
+							f_alt, f_slope, f_curv, f_gx, f_gz)
+				amp = height_scale * rv * mask * src_strength
+			else:
+				var v := _sample01(x, z, lx * inv_ex, lz * inv_ez, fit, data, lut_w, lut_h)
+				amp = height_scale * (v - height_offset) * mask * src_strength
 			if absf(amp) < 0.0001:
 				continue
 			var pos := Vector3(x, 0.0, z)
@@ -257,14 +702,22 @@ func _paint_spline(path: Path3D) -> void:
 
 
 ## Sample the active source at world XZ, normalised to [0,1]. NOISE maps [-1,1]→[0,1]; TEXTURE/MATERIAL
-## read the cached LUT tiled by `tile_size`.
-func _sample01(x: float, z: float, data: PackedFloat32Array, w: int, h: int) -> float:
+## read the cached LUT, either tiled by `tile_size` or — under FIT — mapped once across the loop's
+## oriented rect, using the normalised loop coordinates `nu,nv`.
+func _sample01(x: float, z: float, nu: float, nv: float, fit: bool, data: PackedFloat32Array,
+		w: int, h: int) -> float:
 	if source == Source.NOISE:
 		return clampf(noise.get_noise_2d(x, z) * 0.5 + 0.5, 0.0, 1.0)
 	if data.is_empty() or w <= 0 or h <= 0:
 		return height_offset # neutral → no change
-	var u := fposmod(x / tile_size, 1.0)
-	var t := fposmod(z / tile_size, 1.0)
+	var u: float
+	var t: float
+	if fit:
+		u = clampf(nu * 0.5 + 0.5, 0.0, 1.0)
+		t = clampf(nv * 0.5 + 0.5, 0.0, 1.0)
+	else:
+		u = fposmod(x / tile_size, 1.0)
+		t = fposmod(z / tile_size, 1.0)
 	var px := clampi(int(u * w), 0, w - 1)
 	var py := clampi(int(t * h), 0, h - 1)
 	return data[py * w + px]

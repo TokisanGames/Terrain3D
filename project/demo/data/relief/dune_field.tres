@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="Pasture3DReliefDunes" load_steps=2 format=3 uid="uid://crelief0dunes"]
+
+[ext_resource type="Script" uid="uid://caa48xt61qh0l" path="res://addons/pasture_3d/connectors/relief_dunes.gd" id="1_dune"]
+
+[resource]
+script = ExtResource("1_dune")
+amplitude = 1.0
+wavelength = 46.0
+direction_degrees = 25.0
+asymmetry = 0.72
+crest_sharpness = 1.5
+wander_amount = 14.0
+wander_size = 140.0
+seed = 3
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://caa48xt61qh0l"
