@@ -251,6 +251,34 @@ func _get_configuration_warnings() -> PackedStringArray:
 			var w := relief._configuration_warning()
 			if not w.is_empty():
 				warnings.append(w)
+			# Sim selectors (PASTURE3D_SIM_NODE_SPEC.md §9). Silent garbage here would be very hard to
+			# diagnose, so an unassigned or unbuilt result is said out loud rather than gating to 0
+			# quietly — "the material stamped nothing" and "the mask is missing" look identical on the
+			# terrain and have completely different fixes.
+			if relief.wants_sim_result():
+				var results: Array = relief.sim_results()
+				var distinct: Array = []
+				for r in results:
+					if r != null and not distinct.has(r):
+						distinct.append(r)
+				if distinct.is_empty():
+					warnings.append(("A relief selector reads the erosion sim (Flow / Erosion / "
+						+ "Deposition / Wetness) but no Sim Result is assigned to it, so it gates to "
+						+ "zero everywhere. Point the selector at the Sim Result of the Pasture3DSim "
+						+ "that eroded this ground."))
+				else:
+					var first: Pasture3DSimResult = distinct[0]
+					if not first.is_valid():
+						warnings.append(("The Sim Result a relief selector reads is empty — the Sim has "
+							+ "not been run, or its simulation was cleared. Press Simulate on it."))
+					elif not _sim_result_covers_loop(first):
+						warnings.append(("The Sim Result a relief selector reads does not cover this "
+							+ "brush's whole area. Outside it the gate reads zero, so the relief will "
+							+ "stop at the edge of what was simulated."))
+					if distinct.size() > 1:
+						warnings.append(("This material's selectors read %d different Sim Results; only "
+							+ "the first is used, so the others gate on the wrong sim's channels. Give "
+							+ "the layers one Sim Result, or split them across brushes.") % distinct.size())
 			if mapping == Mapping.TILE and _has_crater_op():
 				warnings.append(("This Relief Material contains a Crater, which is sized by the loop. "
 					+ "With Mapping = Tile it repeats once per tile; set Mapping = Fit for a single crater."))
@@ -301,6 +329,73 @@ func _needs_terrain_fields(ops: PackedInt32Array) -> bool:
 		if ops[o + 2] >= 0 or ops[o] == Pasture3DReliefMaterial.Op.SCREE:
 			return true
 	return false
+
+
+## True when every one of this brush's loops sits inside the result's extent. Drives the "the relief
+## will stop at the edge of what was simulated" warning; XZ only, like every other footprint test here.
+func _sim_result_covers_loop(r: Pasture3DSimResult) -> bool:
+	if r == null or not r.is_valid() or not is_inside_tree():
+		return true # nothing to say; the other warnings cover these cases
+	var b := r.world_bounds()
+	for s in _get_splines():
+		var a := _spline_footprint_aabb(s)
+		if a.size == Vector3.ZERO:
+			continue
+		if (a.position.x < b[0] or a.position.z < b[2]
+				or a.position.x + a.size.x > b[1] or a.position.z + a.size.z > b[3]):
+			return false
+	return true
+
+
+## The one Pasture3DSimResult this bake reads, or null. Resolved from the compiled material tree's
+## selectors, because §9 puts the reference on the SELECTOR, not on the brush.
+##
+## A bake takes ONE result. Several layers gated on several different sims is a coherent thing to want
+## and a disproportionate thing to support — it would mean a set of sampled grids per bake indexed by
+## selector, for a case nobody has yet asked for. So the first wins and the brush warns by name, which
+## is a great deal better than silently gating one layer on another sim's channels.
+func _sim_result_for() -> Pasture3DSimResult:
+	if source != Source.RELIEF or relief == null:
+		return null
+	var found: Array = relief.sim_results()
+	for r in found:
+		if r != null:
+			return r
+	return null
+
+
+## The sim channels resampled onto the bake grid, in the units a selector band is written in.
+## Returns [flow_m2, erosion_m, deposition_m, wetness_m], each gw*gh. MUST agree with
+## relief_fields_add_sim in C++ — the parity gate compares the two paths' finished height.
+##
+## Outside the result's extent every channel is its defined 0 (§9): nothing is invented, and nothing is
+## smeared outwards from the edge. Note flow's 0 is 0 m² here rather than the resource's 1 m² floor;
+## no band an artist would write distinguishes the two, and 0 is the honest "no data" value.
+func _sim_fields(r: Pasture3DSimResult, min_x: float, min_z: float, vs: float, gw: int, gh: int) -> Array:
+	var n := gw * gh
+	var flow := PackedFloat32Array()
+	var ero := PackedFloat32Array()
+	var dep := PackedFloat32Array()
+	var wet := PackedFloat32Array()
+	flow.resize(n)
+	ero.resize(n)
+	dep.resize(n)
+	wet.resize(n)
+	if r == null or not r.is_valid():
+		return [flow, ero, dep, wet]
+	for iz in range(gh):
+		var row := iz * gw
+		var z := min_z + iz * vs
+		for ix in range(gw):
+			var p := Vector3(min_x + ix * vs, 0.0, z)
+			if not r.covers(p):
+				continue
+			# The two unit conversions: exp() the log-scaled flow, and flip erosion to a positive depth.
+			flow[row + ix] = exp(r.sample(Pasture3DSimResult.Channel.FLOW, p))
+			ero[row + ix] = maxf(-r.sample(Pasture3DSimResult.Channel.EROSION, p), 0.0)
+			dep[row + ix] = maxf(r.sample(Pasture3DSimResult.Channel.DEPOSITION, p), 0.0)
+			wet[row + ix] = maxf(r.sample(Pasture3DSimResult.Channel.WETNESS, p), 0.0)
+	return [flow, ero, dep, wet]
 
 
 ## Per-cell description of the ground BELOW this brush's layer, over the bake grid: height, steepness in
@@ -483,7 +578,8 @@ func _place_scatter(poly: PackedVector2Array) -> PackedFloat32Array:
 ## Combine every scatter instance covering this point. Mirrors relief_scatter_eval in C++ — the C++ side
 ## buckets instances spatially, but visits the same set in the same ascending order, so the two agree.
 func _scatter_eval(x: float, z: float, inst: PackedFloat32Array, alt: float = 0.0,
-		slope_deg: float = 0.0, curv: float = 0.0, gx: float = 0.0, gz: float = 0.0) -> float:
+		slope_deg: float = 0.0, curv: float = 0.0, gx: float = 0.0, gz: float = 0.0,
+		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0) -> float:
 	var has := false
 	var acc := 0.0
 	for i in range(inst.size() / 6):
@@ -502,8 +598,8 @@ func _scatter_eval(x: float, z: float, inst: PackedFloat32Array, alt: float = 0.
 		if rad >= 1.0:
 			continue
 		# Window the outer 10% to zero so a non-radial material fades out instead of stamping a hard disc.
-		var val := relief.eval(lx, lz, nu, nv, inv, inv, alt, slope_deg, curv, gx, gz) \
-				* inst[b + 5] * smoothstep(1.0, 0.9, rad)
+		var val := relief.eval(lx, lz, nu, nv, inv, inv, alt, slope_deg, curv, gx, gz,
+				flow, ero, dep, wet) * inst[b + 5] * smoothstep(1.0, 0.9, rad)
 		if not has:
 			acc = val
 			has = true
@@ -589,6 +685,18 @@ func _paint_spline(path: Path3D) -> void:
 	var use_fields := source == Source.RELIEF and _needs_terrain_fields(ops)
 	if use_fields:
 		fields = _terrain_fields(min_x, min_z, vs, gw, gh)
+	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Kinds read (spec §9). Resampled from the
+	# Pasture3DSimResult's own extent, which is at SIM resolution over the SIMULATED area and shares
+	# nothing with this bake grid. Only when a selector actually asks for them.
+	var sim_res := _sim_result_for() if use_fields else null
+	var sim_fields: Array = []
+	var sim_dict := {}
+	if sim_res != null and sim_res.is_valid():
+		sim_fields = _sim_fields(sim_res, min_x, min_z, vs, gw, gh)
+		sim_dict = {"min_x": sim_res.min_x, "min_z": sim_res.min_z, "cell_size": sim_res.cell_size,
+				"width": sim_res.width, "height": sim_res.height,
+				"flow": sim_res.flow, "erosion": sim_res.erosion,
+				"deposition": sim_res.deposition, "wetness": sim_res.wetness}
 
 	# SCATTER places its instances once per bake, here, so both paths evaluate the identical layout.
 	# It only applies to RELIEF; other sources fall back to tiling (and the brush warns).
@@ -617,7 +725,7 @@ func _paint_spline(path: Path3D) -> void:
 			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
 			"fit_ex": frame[4], "fit_ez": frame[5],
 			"instances": instances, "scatter_blend": int(scatter_blend),
-			"need_fields": use_fields,
+			"need_fields": use_fields, "sim_result": sim_dict,
 		}
 		# C++ derives the slope/curvature/gradient grids itself (the same formula on the same input, so
 		# the two paths agree) — but it can only do that if it is handed the below-layer heights, which
@@ -661,6 +769,10 @@ func _paint_spline(path: Path3D) -> void:
 				var f_curv := 0.0
 				var f_gx := 0.0
 				var f_gz := 0.0
+				var f_flow := 0.0
+				var f_ero := 0.0
+				var f_dep := 0.0
+				var f_wet := 0.0
 				if use_fields:
 					var fi := row + ix
 					f_alt = fields[0][fi]
@@ -668,13 +780,19 @@ func _paint_spline(path: Path3D) -> void:
 					f_curv = fields[2][fi]
 					f_gx = fields[3][fi]
 					f_gz = fields[4][fi]
+					if not sim_fields.is_empty():
+						f_flow = sim_fields[0][fi]
+						f_ero = sim_fields[1][fi]
+						f_dep = sim_fields[2][fi]
+						f_wet = sim_fields[3][fi]
 				var rv: float
 				if scattered:
-					rv = _scatter_eval(x, z, instances, f_alt, f_slope, f_curv, f_gx, f_gz)
+					rv = _scatter_eval(x, z, instances, f_alt, f_slope, f_curv, f_gx, f_gz,
+							f_flow, f_ero, f_dep, f_wet)
 				else:
 					rv = relief.eval(lx if fit else x, lz if fit else z,
 							lx * inv_ex, lz * inv_ez, inv_ex, inv_ez,
-							f_alt, f_slope, f_curv, f_gx, f_gz)
+							f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet)
 				amp = height_scale * rv * mask * src_strength
 			else:
 				var v := _sample01(x, z, lx * inv_ex, lz * inv_ez, fit, data, lut_w, lut_h)

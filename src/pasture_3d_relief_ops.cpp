@@ -16,6 +16,27 @@ using namespace godot;
 namespace {
 
 // Mirrors GDScript smoothstep(from, to, x).
+// Bilinear read of a row-major grid at fractional sample coords, clamped to the edges. Used only by
+// relief_fields_add_sim, whose caller has already range-checked the coords. A non-finite corner yields
+// 0 rather than propagating NaN into a selector band, where it would compare false against everything
+// and read as "gated out" with no way to tell that from a correct gate.
+inline double relief_bilinear(const float *p_src, int p_w, int p_h, double p_fu, double p_fv) {
+	const int x0 = CLAMP((int)std::floor(p_fu), 0, p_w - 1);
+	const int y0 = CLAMP((int)std::floor(p_fv), 0, p_h - 1);
+	const int x1 = MIN(x0 + 1, p_w - 1);
+	const int y1 = MIN(y0 + 1, p_h - 1);
+	const double tx = CLAMP(p_fu - (double)x0, 0.0, 1.0);
+	const double ty = CLAMP(p_fv - (double)y0, 0.0, 1.0);
+	const float v00 = p_src[y0 * p_w + x0], v10 = p_src[y0 * p_w + x1];
+	const float v01 = p_src[y1 * p_w + x0], v11 = p_src[y1 * p_w + x1];
+	if (!std::isfinite(v00) || !std::isfinite(v10) || !std::isfinite(v01) || !std::isfinite(v11)) {
+		return 0.0;
+	}
+	const double a = (double)v00 * (1.0 - tx) + (double)v10 * tx;
+	const double b = (double)v01 * (1.0 - tx) + (double)v11 * tx;
+	return a * (1.0 - ty) + b * ty;
+}
+
 inline double relief_smoothstep(double p_from, double p_to, double p_x) {
 	if (Math::is_equal_approx(p_from, p_to)) {
 		return p_x < p_from ? 0.0 : 1.0;
@@ -126,6 +147,14 @@ inline double relief_selector_value(const PackedFloat32Array &p_sel, int p_sid,
 		x = p_ground.altitude;
 	} else if (kind == RELIEF_SELECT_CURVATURE) {
 		x = p_ground.curvature;
+	} else if (kind == RELIEF_SELECT_FLOW) {
+		x = p_ground.sim_flow; // already m², un-logged in relief_fields_add_sim
+	} else if (kind == RELIEF_SELECT_EROSION) {
+		x = p_ground.sim_erosion; // already positive metres
+	} else if (kind == RELIEF_SELECT_DEPOSITION) {
+		x = p_ground.sim_deposition;
+	} else if (kind == RELIEF_SELECT_WETNESS) {
+		x = p_ground.sim_wetness;
 	}
 	const double lo = (double)p_sel[b + 1];
 	const double hi = (double)p_sel[b + 2];
@@ -263,6 +292,17 @@ void godot::ReliefFields::sample(int p_index, ReliefSample &r_out) const {
 	r_out.curvature = (double)curvature[p_index];
 	r_out.grad_x = (double)grad_x[p_index];
 	r_out.grad_z = (double)grad_z[p_index];
+	if (has_sim) {
+		r_out.sim_flow = (double)sim_flow[p_index];
+		r_out.sim_erosion = (double)sim_erosion[p_index];
+		r_out.sim_deposition = (double)sim_deposition[p_index];
+		r_out.sim_wetness = (double)sim_wetness[p_index];
+	} else {
+		r_out.sim_flow = 0.0;
+		r_out.sim_erosion = 0.0;
+		r_out.sim_deposition = 0.0;
+		r_out.sim_wetness = 0.0;
+	}
 }
 
 void godot::relief_fields_build(const PackedFloat32Array &p_below, double p_min_x, double p_min_z,
@@ -314,6 +354,62 @@ void godot::relief_fields_build(const PackedFloat32Array &p_below, double p_min_
 		}
 	}
 	r_out.ready = true;
+}
+
+void godot::relief_fields_add_sim(const Dictionary &p_sim, double p_min_x, double p_min_z, double p_vs,
+		int p_gw, int p_gh, ReliefFields &r_fields) {
+	const int sw = (int)p_sim.get("width", 0);
+	const int sh = (int)p_sim.get("height", 0);
+	const double cell = (double)p_sim.get("cell_size", 0.0);
+	const double smin_x = (double)p_sim.get("min_x", 0.0);
+	const double smin_z = (double)p_sim.get("min_z", 0.0);
+	const PackedFloat32Array flow = p_sim.get("flow", PackedFloat32Array());
+	const PackedFloat32Array ero = p_sim.get("erosion", PackedFloat32Array());
+	const PackedFloat32Array dep = p_sim.get("deposition", PackedFloat32Array());
+	const PackedFloat32Array wet = p_sim.get("wetness", PackedFloat32Array());
+	const int64_t sn = (int64_t)sw * (int64_t)sh;
+	const int64_t n = (int64_t)p_gw * (int64_t)p_gh;
+	if (sw < 2 || sh < 2 || cell <= 0.0 || n < 1 || flow.size() < sn || ero.size() < sn ||
+			dep.size() < sn || wet.size() < sn) {
+		return; // has_sim stays false; every sim Kind then reads its defined zero
+	}
+	// The defined-zero fill (spec §9). Done first and unconditionally, so a bake grid that only PARTLY
+	// overlaps the result still has honest values everywhere — the "outside" cells are not left
+	// uninitialised and are not the nearest edge sample smeared outwards.
+	r_fields.sim_flow.assign((size_t)n, 0.0f);
+	r_fields.sim_erosion.assign((size_t)n, 0.0f);
+	r_fields.sim_deposition.assign((size_t)n, 0.0f);
+	r_fields.sim_wetness.assign((size_t)n, 0.0f);
+	r_fields.has_sim = true;
+
+	const float *fp = flow.ptr();
+	const float *ep = ero.ptr();
+	const float *dp = dep.ptr();
+	const float *wp = wet.ptr();
+	for (int iz = 0; iz < p_gh; iz++) {
+		const double fv = ((p_min_z + (double)iz * p_vs) - smin_z) / cell;
+		if (fv < 0.0 || fv > (double)(sh - 1)) {
+			continue;
+		}
+		const int row = iz * p_gw;
+		for (int ix = 0; ix < p_gw; ix++) {
+			const double fu = ((p_min_x + (double)ix * p_vs) - smin_x) / cell;
+			if (fu < 0.0 || fu > (double)(sw - 1)) {
+				continue;
+			}
+			const double f = relief_bilinear(fp, sw, sh, fu, fv);
+			const double e = relief_bilinear(ep, sw, sh, fu, fv);
+			const double d = relief_bilinear(dp, sw, sh, fu, fv);
+			const double w = relief_bilinear(wp, sw, sh, fu, fv);
+			// The two unit conversions the ReliefSample docs promise. exp() once per cell here rather
+			// than once per gated op in the evaluator, and the sign flip so an erosion band reads in the
+			// direction an artist thinks in.
+			r_fields.sim_flow[(size_t)(row + ix)] = (float)std::exp(f);
+			r_fields.sim_erosion[(size_t)(row + ix)] = (float)(e < 0.0 ? -e : 0.0);
+			r_fields.sim_deposition[(size_t)(row + ix)] = (float)(d > 0.0 ? d : 0.0);
+			r_fields.sim_wetness[(size_t)(row + ix)] = (float)(w > 0.0 ? w : 0.0);
+		}
+	}
 }
 
 bool godot::relief_scatter_build(const Dictionary &p_params, double p_min_x, double p_min_z, double p_vs,

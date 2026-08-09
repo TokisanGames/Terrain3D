@@ -53,20 +53,41 @@ constexpr int RELIEF_CURVE_LUT_N = 256; // samples per baked Curve, one contiguo
 constexpr int RELIEF_SELECTOR_STRIDE = 8; // [kind, min, max, falloff_lo, falloff_hi, invert, strength, _]
 
 // Selector kinds — sync with Pasture3DReliefSelector.Kind.
+//
+// 0-2 read the ground's own shape. 3-6 read a Pasture3DSimResult, i.e. what the erosion sim did here
+// (PASTURE3D_SIM_NODE_SPEC.md §9). Each is in the units an artist would type into the band, which for
+// two of them is NOT the unit the resource stores — see ReliefSample below.
 enum ReliefSelectorKind {
 	RELIEF_SELECT_SLOPE = 0, // degrees
 	RELIEF_SELECT_ALTITUDE = 1, // world metres
 	RELIEF_SELECT_CURVATURE = 2, // Laplacian; positive = hollow
+	RELIEF_SELECT_FLOW = 3, // upstream drainage area, m²
+	RELIEF_SELECT_EROSION = 4, // metres of material removed, POSITIVE
+	RELIEF_SELECT_DEPOSITION = 5, // metres of material gained
+	RELIEF_SELECT_WETNESS = 6, // standing water depth, metres
 };
 
 // What the ground BELOW this brush's layer is doing at one cell. Selectors and SCREE read it; every
 // other op ignores it. Zeroed when the program does not need it, so it costs nothing to pass.
+//
+// The four sim fields are converted ON THE WAY IN, in relief_fields_add_sim, so the evaluator is a plain
+// comparison and the conversion happens once per cell rather than once per gated op. Two of them do not
+// match how Pasture3DSimResult stores the channel, and both differences are deliberate:
+//
+//   sim_flow     the resource stores log(area); this is the AREA, in m², so a band reads
+//                "more than 10 000 m² drains through here" instead of "more than 9.2 log-units"
+//   sim_erosion  the resource stores a negative delta; this is the POSITIVE depth removed, so a band
+//                reads "5 to 50 m stripped" instead of "-50 to -5"
 struct ReliefSample {
 	double altitude = 0.0;
 	double slope_deg = 0.0;
 	double curvature = 0.0;
 	double grad_x = 0.0;
 	double grad_z = 0.0;
+	double sim_flow = 0.0; // m² of upstream catchment (un-logged)
+	double sim_erosion = 0.0; // metres removed, positive
+	double sim_deposition = 0.0; // metres gained
+	double sim_wetness = 0.0; // metres of standing water
 };
 
 // Built ONCE per bake, never per cell. `noise_a`/`noise_b` are parallel to the op index; entries are null
@@ -86,8 +107,12 @@ struct ReliefProgram {
 // Pasture3DPlow._terrain_fields — same formula, same input, so the two paths agree.
 struct ReliefFields {
 	std::vector<float> altitude, slope_deg, curvature, grad_x, grad_z;
+	// The sim channels, resampled onto this grid from a Pasture3DSimResult's own extent. Empty unless a
+	// selector of a sim Kind is in the program — four more grids is not a cost to pay for a slope gate.
+	std::vector<float> sim_flow, sim_erosion, sim_deposition, sim_wetness;
 	int gw = 0, gh = 0;
 	bool ready = false;
+	bool has_sim = false;
 	void sample(int p_index, ReliefSample &r_out) const;
 };
 
@@ -126,6 +151,17 @@ bool relief_build(const Dictionary &p_params, ReliefProgram &r_prog);
 // hold NaN where no lower layer covers; `p_fallback` supplies the live height for those cells.
 void relief_fields_build(const PackedFloat32Array &p_below, double p_min_x, double p_min_z, double p_vs,
 		int p_gw, int p_gh, const std::function<float(double, double)> &p_fallback, ReliefFields &r_out);
+
+// Resample a Pasture3DSimResult onto an already-built ReliefFields grid (spec §9). `p_sim` is the
+// resource flattened to {min_x, min_z, cell_size, width, height, flow, erosion, deposition, wetness} —
+// C++ cannot see the GDScript class, and the extent travels with the data because the result is at SIM
+// resolution over the SIMULATED area and does not share the bake grid.
+//
+// Outside the result's extent every channel reads its DEFINED zero, never garbage: 0 m removed, 0 m
+// gained, 0 m of water, and 1 m² of catchment (a cell drains itself, which is what exp(0) means inside
+// the grid too). No-op, leaving has_sim false, when the dictionary is missing or malformed.
+void relief_fields_add_sim(const Dictionary &p_sim, double p_min_x, double p_min_z, double p_vs,
+		int p_gw, int p_gh, ReliefFields &r_fields);
 
 // Read "instances"/"scatter_blend" and bucket them over the footprint. False when there are none.
 bool relief_scatter_build(const Dictionary &p_params, double p_min_x, double p_min_z, double p_vs,

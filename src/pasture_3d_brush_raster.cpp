@@ -1221,6 +1221,14 @@ void Pasture3DData::stamp_plow_loop(const int p_layer_id, const PackedVector2Arr
 	if (source == 3 && (bool)p_params.get("need_fields", false)) {
 		relief_fields_build(base_below, min_x, min_z, vs, gw, gh,
 				[this](double x, double z) { return (float)get_height(Vector3(x, 0.0, z)); }, fields);
+		// The sim channels for the FLOW / EROSION / DEPOSITION / WETNESS Kinds, resampled from the
+		// Pasture3DSimResult's own extent onto this bake grid (spec §9). Absent unless the program has a
+		// selector of one of those Kinds, and absent is not an error — every such Kind then reads its
+		// defined zero, which is what the brush's configuration warning is about.
+		const Dictionary sim = p_params.get("sim_result", Dictionary());
+		if (!sim.is_empty()) {
+			relief_fields_add_sim(sim, min_x, min_z, vs, gw, gh, fields);
+		}
 	}
 	ReliefSample ground;
 

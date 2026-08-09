@@ -1,10 +1,10 @@
 # Pasture3D Sim Node Spec (`Pasture3DSim`)
 
-**Status:** **PHASES 1–2 IMPLEMENTED** (phase 1 2026-08-08, phase 2 2026-08-09). Phases 3–4 remain
+**Status:** **PHASES 1–3 IMPLEMENTED** (phase 1 2026-08-08, phases 2–3 2026-08-09). Phase 4 remains
 design. Drafted 2026-08-08; **solver replaced the same day** after a survey of Houdini, World Machine,
 Gaea and the large-scale-terrain literature (§16). Target: Godot 4.7, Pasture3D `main`.
 
-Phases 1–2 ship as:
+Phases 1–3 ship as:
 
 | File | What | Phase |
 |---|---|---|
@@ -17,6 +17,11 @@ Phases 1–2 ship as:
 | [bench/SimPhase2Gate.tscn](project/bench/SimPhase2Gate.gd) | Gates P–X, all passing with their controls | 2 |
 | [bench/SimFieldProbe.tscn](project/bench/SimFieldProbe.gd) | Hillshade diagnostic — what the solver actually produces, synthetic and on the demo terrain | 1 |
 | [bench/SimResultProbe.tscn](project/bench/SimResultProbe.gd) | The same for the masks: one image per channel, plus an RGB composite showing the three occupy different ground | 2 |
+| [pasture_3d_relief_ops.h](src/pasture_3d_relief_ops.h) / [.cpp](src/pasture_3d_relief_ops.cpp) | The four sim selector Kinds, the `ReliefSample` fields they read, and `relief_fields_add_sim` | 3 |
+| [connectors/relief_selector.gd](project/addons/pasture_3d/connectors/relief_selector.gd) | `Kind.FLOW/EROSION/DEPOSITION/WETNESS` and the `sim_result` reference | 3 |
+| [connectors/plow.gd](project/addons/pasture_3d/connectors/plow.gd) | Resolving the result off the material tree, resampling it onto the bake grid, and the four warnings | 3 |
+| [demo/data/relief/channel_boulders.tres](project/demo/data/relief/channel_boulders.tres) | The demo preset: gravel that only appears where more than 2 000 m² drains through | 3 |
+| [bench/SimPhase3Gate.tscn](project/bench/SimPhase3Gate.gd) | Gate L (L1–L7), all passing with their controls | 3 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
 records the gate results and the criteria that were vacuous until their controls caught them.
@@ -412,7 +417,7 @@ raw-tile application and the deferred-composite path. Blend `ADD` — Sim writes
 
 ---
 
-## 9. Selector integration (phase 3 — the priority payoff)
+## 9. Selector integration (phase 3 — the priority payoff) — DONE
 
 `Pasture3DReliefSelector.Kind` gains:
 
@@ -433,6 +438,38 @@ fields, one bilinear sample.
 
 > Outside the result's extent, or with no resource assigned, these Kinds must return a **defined 0** and
 > the plow must raise a configuration warning. Silent garbage here would be very hard to diagnose.
+
+> **Built.** Four Kinds, four `ReliefSample` fields, one bilinear sample — as designed, and with no
+> change to the op program, the wire format or the material contract. What the design did not say:
+>
+> **The reference is on the SELECTOR, as specified, but a bake takes ONE result.** The brush resolves it
+> by walking the compiled material tree (`Pasture3DReliefMaterial.sim_results()`, which the stack
+> overrides). Several layers gated on several *different* sims is coherent to want and disproportionate
+> to support — it would mean a set of sampled grids per bake indexed by selector id, for a case nobody
+> has asked for — so the first wins and the brush warns, naming the count.
+>
+> **Both unit conversions happen on the way IN, once per cell, not per gated op.** `ReliefSample` carries
+> the *area* in m² (the resource stores its log) and erosion as a *positive depth* (the resource stores a
+> negative delta), so the evaluator stays a plain comparison and an artist's band reads "more than 2 000
+> m² drains through" and "5 to 50 m stripped". The cost is that the conversion now exists in two places
+> that must agree — `Pasture3DPlow._sim_fields` and `relief_fields_add_sim` — which is what gate L6 is
+> for.
+>
+> **`_needs_terrain_fields` already covers the sim Kinds**, since a sim selector is still a selector; the
+> sim grids are added to the same `ReliefFields` the slope and curvature grids live in, and are built
+> only when a sim Kind is actually present. Four extra float grids over the bake area is not a cost to
+> pay for a slope gate.
+>
+> **Four configuration warnings**, because §9's "silent garbage here would be very hard to diagnose" is
+> the whole risk of this phase: a sim Kind in use with no result assigned; a result that is empty (the
+> Sim was never run, or was cleared); a result that does not cover the brush's whole loop; and several
+> different results in one material. "The material stamped nothing" and "the mask is missing" look
+> identical on the terrain and have completely different fixes.
+>
+> **The demo preset** (§14's phase-3 line) is `demo/data/relief/channel_boulders.tres`: a fine craggy
+> fractal gated `FLOW` at 2 000 m² with a 1 500 m² fade-in, so gravel appears in the channels the sim
+> cut and nowhere else. It ships with `sim_result` null — a preset cannot reference a project's own
+> masks — so assigning that one property is the whole workflow.
 
 > **What phase 2 leaves phase 3, and the three things it must not get wrong.**
 > 1. **`FLOW` is log-scaled** (§8.2). The GDScript side has `drainage_area_at()`, which is `exp()` of a
@@ -546,6 +583,11 @@ escape hatch is intact: `Pasture3DGPURaster` can still be generalised into a sha
 - Warnings: area changed since last bake · no regions under the loop · a sim selector Kind is in use with
   no `SimResult` assigned · erodability map assigned but the area has no regions to map it onto.
 
+> **Built — where each warning lives.** The Sim's own are on `Pasture3DSim`; the sim-selector ones are on
+> `Pasture3DPlow`, because it is the brush that resolves the reference and knows whether the result
+> covers its loop (§9's Built note lists all four). Phase 2 added two more to the Sim: masks with no file
+> of their own, and masks that were not written by this Sim's last bake.
+
 > **Built — how progress and cancellation actually work.** The solve is a state machine
 > (`_begin` / `_solve_chunk` / `_finish`), not one function with an `await` in it, driven two ways:
 > `simulate_now()` runs straight through and is **not** a coroutine, so scripts and the gates get a
@@ -647,7 +689,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 |---|---|
 | **1 — DONE** | Flow routing + depression fill + drainage area + implicit incision + hillslope diffusion; erodability map; preview/build resolutions; catchment margin + mask; `apply_sim_block`; Preview / Simulate / Clear UX |
 | **2 — DONE** | `Pasture3DSimResult` with all four channels, written on every Preview and Simulate; the multi-loop merge; source-parameter recording (§15.4); the shared-layer overlap warning (§15.7) |
-| **3** | Selector Kinds `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; a demo preset pairing an eroded area with a flow-gated relief material |
+| **3 — DONE** | Selector Kinds `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; the unit conversions that make their bands artist-readable; four configuration warnings; `channel_boulders.tres`, a demo preset pairing an eroded area with a flow-gated relief material |
 | **4** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
 
 ### Gates
@@ -668,7 +710,7 @@ must distinguish "measured nothing" from "measured correctly".
 | I | **Deterministic.** Two runs, same params → bitwise identical. | Introduce a set iteration order dependent on hash ordering → differs. |
 | J | **Preview agrees with build on large-scale structure.** Low-frequency delta matches within tolerance. | Compare high-frequency content → they differ, as expected; the gate must test the claim actually made. |
 | K | **Erosion is monotone where diffusion is off.** With `D = 0`, no cell rises. | Enable diffusion → some cells rise, confirming the gate is sensitive to the thing it measures. |
-| L | *(phase 3)* **Sim selectors gate.** A `FLOW`-gated relief material appears in channels, not on ridges. | Selector `strength = 0` → covers everything. |
+| L | *(phase 3)* **Sim selectors gate.** Seven criteria, because one claim about a gate is not seven. **L1** a `FLOW`-gated material appears in channels, not on ridges. **L2** each Kind reads its OWN channel. **L3** a `FLOW` band is in m², not log units. **L4** an `EROSION` band is a positive depth. **L5** outside the extent the gate is a defined 0. **L6** the two raster paths agree. **L7** a sim-gated bake does not drift. | L1 selector `strength = 0` → covers everything. L2 the band predicted from each channel's own distribution — relief off those cells is a failure. L3 a band of plausible LOG values, which must not light the channels. L4 the resource's own negative sign, which must select nothing. L5 the same brush inside the extent. L6 the relief is not flat. L7 L1 already proved the bake is not a no-op. |
 | M | *(phase 4)* **Clear removes exactly the generated set.** A hand-placed Pond and Trough survive. | Identify generated nodes by name → the authored ones are destroyed. |
 | N | *(phase 4)* **Confluences split.** A synthetic Y-shaped catchment yields three segments, not two overlapping paths. | — |
 | O | *(phase 4)* **Extraction is monotonic.** Raising `river_area_threshold` never increases the river count. | — |
@@ -774,6 +816,49 @@ worth keeping, because two of the three are exactly the failure modes §8.2 pred
 3. **A header that lies about the extent** (`min_x` shifted 8 m with the data left in place). **U failed
    at 21.68 m** and P failed on the extent. This is the complement of break 2, and the pair is why both
    gates are needed: P checks the grid the header *claims*, U checks that the data agrees with it.
+
+### Gate results (phase 3, all passing)
+
+`bench/SimPhase3Gate.tscn`, headless, ~30 s, on a 300 m eroded area over the demo terrain.
+`bench/PlowReliefCheck.tscn` was re-run too and still passes: phase 3 touches the relief evaluator on
+both paths.
+
+| # | Measured | Control |
+|---|---|---|
+| L1 | Mean \|relief\| 2.69 m in the channel bin, **0.0000 m** on the ridges | `strength = 0` → ridges back to 2.68 m |
+| L2 | Each Kind's own band selects its own 30 predicted cells (2.4–2.7 m) and stamps **0.0000 m** on the other 1 651 | Cross-wiring one Kind to another channel → 1.10 m on the predicted cells and 0.053 m off them |
+| L3 | An `m²` band of 184…1e9 gives 2.69 m in the channels | The same numbers read as log units (8…13) → **0.0000 m** in the channels while still stamping 0.41 m elsewhere, so the band is live and simply selecting the wrong population |
+| L4 | A band of 2…1e9 m removed gives 2.36 m | The resource's own sign, −1e9…−2 → 0.0000 m |
+| L5 | A brush clear of the extent stamps **0.000000 m** | The same brush and band inside it → 2.59 m |
+| L6 | Worst \|native − GDScript\| **0.00000000 m** over 1 681 probes, with 3 m sim cells against a 1 m bake grid | Max \|relief\| 6.98 m, so the comparison is not of two flat fields |
+| L7 | Re-bake drift **0.00000000 m** after a 7.59 m first bake | — |
+
+**Two of these criteria were vacuous in their first form, and both were caught by disbelieving a clean
+result rather than by a control.** The pattern from phase 1 repeated exactly.
+
+1. **L2's first form** baked each Kind with a band admitting everything, then one admitting nothing, and
+   required the two to differ. All four Kinds returned *byte-identical* numbers — which is the tell:
+   "admit everything" is the ungated material whatever it reads. It passes for a Kind wired to the wrong
+   channel, and it passes for a Kind wired to a channel that is **constantly zero** — and at the site the
+   gate first used, `DEPOSITION` and `WETNESS` were exactly that, so half the criterion was measuring a
+   field of zeros and reporting success. The fix was to read each channel out of the resource in the
+   gate, take the band from *that channel's own distribution*, and require the relief to land on the
+   predicted cells and nowhere else. The site moved to one where all four channels are alive, which took
+   raising `hillslope_diffusion` to 2.0 — at the shipped 0.15 the deposition channel over a small steep
+   loop is identically zero, exactly as §8.2 says it is.
+2. **L6's first form** ran against the build-resolution result, where the sim grid and the bake grid are
+   both 1 m and corner-aligned. Every lookup landed exactly on a sample, both bilinear implementations
+   reduced to picking one cell, and the parity came back at exactly 0.00000000 without either
+   interpolator having been asked a question. It now runs against a **preview-resolution** result (3 m
+   cells against a 1 m bake grid), where the grids do not align. The number is still exactly zero — the
+   two implementations really are arithmetically identical — but it is now a measurement.
+
+**Two deliberate breaks confirmed the gate bites**, and the first is worth keeping because of how it
+failed. Dropping the `exp()` from the native path only — one line — flipped L3 into its mirror image:
+the m² band selected **nothing** while the log band lit up the channels, which is precisely the
+inversion the criterion was built around. It took L1, L2's FLOW row, L6 and L7 with it. Cross-wiring
+`DEPOSITION` to the wetness channel failed L2's deposition row alone, leaving the other three passing —
+the per-Kind discrimination the first form never had.
 
 `bench/SimResultProbe.tscn` is phase 2's picture, the counterpart to `SimFieldProbe` for the height: one
 greyscale image per channel over a real demo bake, an RGB composite of erosion/deposition/wetness, and

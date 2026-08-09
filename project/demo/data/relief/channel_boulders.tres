@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="Pasture3DReliefFractal" load_steps=4 format=3 uid="uid://crelief0chanb"]
+
+[ext_resource type="Script" uid="uid://b4reut2qigpsv" path="res://addons/pasture_3d/connectors/relief_fractal.gd" id="1_frac"]
+[ext_resource type="Script" uid="uid://nw2i8ancr82j" path="res://addons/pasture_3d/connectors/relief_selector.gd" id="2_sel"]
+
+[sub_resource type="Resource" id="Resource_flowgate"]
+script = ExtResource("2_sel")
+kind = 3
+range_min = 2000.0
+range_max = 1e+09
+falloff_low = 1500.0
+falloff_high = 0.0
+invert = false
+strength = 1.0
+metadata/_custom_type_script = "uid://nw2i8ancr82j"
+
+[resource]
+script = ExtResource("1_frac")
+style = 0
+amplitude = 0.5
+feature_size = 9.0
+octaves = 4
+lacunarity = 2.2
+gain = 0.5
+sharpness = 1.4
+seed = 0
+warp_amount = 0.0
+warp_size = 96.0
+warp_octaves = 2
+selector = SubResource("Resource_flowgate")
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://b4reut2qigpsv"
