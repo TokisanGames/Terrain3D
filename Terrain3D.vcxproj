@@ -204,6 +204,7 @@
     <None Include="doc\docs\instancer.md" />
     <None Include="doc\docs\keyboard_shortcuts.md" />
     <None Include="doc\docs\maintainers.md" />
+    <None Include="doc\docs\performance.md" />
     <None Include="doc\docs\platforms.md" />
     <None Include="doc\docs\nightly_builds.md" />
     <None Include="doc\docs\press.md" />
@@ -214,7 +215,7 @@
     <None Include="doc\docs\texture_painting.md" />
     <None Include="doc\docs\user_interface.md" />
     <None Include="doc\index.rst" />
-    <None Include="doc\docs\tips_environment.md">
+    <None Include="doc\docs\environment.md">
       <SubType>
       </SubType>
     </None>
@@ -253,7 +254,7 @@
     <Text Include="doc\docs\getting_help.md" />
     <Text Include="doc\docs\tutorial_videos.md" />
     <Text Include="doc\docs\troubleshooting.md" />
-    <Text Include="doc\docs\tips_technical.md" />
+    <Text Include="doc\docs\tips.md" />
     <Text Include="doc\docs\texture_prep.md" />
     <Text Include="doc\docs\building_from_source.md" />
     <Text Include="doc\requirements.txt" />

@@ -127,6 +127,14 @@
 				Returns the blend value from a control map pixel.
 			</description>
 		</method>
+		<method name="get_compress_mode" qualifiers="static">
+			<return type="int" enum="CompressMode" />
+			<param index="0" name="image_format" type="int" enum="Image.Format" />
+			<description>
+				Converts a Godot [code skip-lint]Image.Format[/code] enum value to a [enum Terrain3D.CompressMode] enum value (equivalent to Godot [code skip-lint]Image.CompressMode[/code]).
+				e.g. Input [code skip-lint]Image::FORMAT_DXT5[/code] and receive Godot [code skip-lint]Terrain3D.CompressMode.COMPRESS_S3TC[/code].
+			</description>
+		</method>
 		<method name="get_filled_image" qualifiers="static">
 			<return type="Image" />
 			<param index="0" name="size" type="Vector2i" />

@@ -182,6 +182,13 @@
 		<member name="collision_target" type="Node3D" setter="set_collision_target" getter="get_collision_target">
 			In dynamic mode, the terrain collision will center itself at the position of this node. If null, it will fall back to the [member clipmap_target] position and failing that will use the camera position. The camera is always used in the editor. See [method set_camera].
 		</member>
+		<member name="color_compress_mode" type="int" setter="set_color_compress_mode" getter="get_color_compress_mode" enum="CompressMode" default="5" experimental="This feature is experimental.">
+			The selected [enum CompressMode] will be used to compress the color maps upon save, for use at runtime. Changing this will mark all of your regions as modified.
+			Maps can be saved on disk, stored in RAM, and stored in VRAM. Using this option will save both compressed and uncompressed maps on disk, optionally store one or both in RAM, and only one will be used in VRAM.
+			In the editor, the compressed map is freed from RAM and the uncompressed map is used for editing. Upon saving, the color map is compressed and both compressed and uncompressed are stored in the region file.
+			At runtime, the compressed color map is used in RAM and VRAM, and the uncompressed color map will be freed from RAM unless kept.
+			Note that compressed images cannot use set_pixel() or get_pixel(). If you wish to edit or read the pixel value of color or wetness at runtime, you must keep the uncompressed map in RAM. See [member keep_uncompressed_color].
+		</member>
 		<member name="cull_margin" type="float" setter="set_cull_margin" getter="get_cull_margin" default="0.0">
 			This margin is added to the vertical component of the terrain mesh bounding boxes (AABB). The terrain already sets its AABB from [method Terrain3DData.get_height_range], which is calculated while sculpting. This setting only needs to be used if the shader has expanded the terrain beyond the AABB and the terrain meshes are being culled at certain viewing angles. This might happen from using [member Terrain3DMaterial.world_background] with NOISE and a height value larger than the terrain heights. This setting is similar to [code skip-lint]GeometryInstance3D.extra_cull_margin[/code], but it only affects the Y axis.
 		</member>
@@ -215,6 +222,10 @@
 			Normal - Generates MultiMeshInstance3Ds and renders all instances as normal.
 			Disabled - prevents the instancer from creating any MultiMeshInstance3Ds.
 			Alias for [member Terrain3DInstancer.mode].
+		</member>
+		<member name="keep_uncompressed_color" type="bool" setter="set_keep_uncompressed_color" getter="get_keep_uncompressed_color" default="true">
+			This prevents the uncompressed color map from being freed from RAM at runtime. This is only applicable when [member color_compress_mode] is enabled. Compressed color maps cannot be read or written to with set_pixel() or get_pixel(), so you must enable this option if you wish to read or write color or wetness pixels on the uncompressed map.
+			Maps cannot be compressed at runtime, so if you are running with a compressed map and wish to make changes you'll have to have had this option enabled at game start, write to the uncompressed map, run [method Terrain3DRegion.clear_compressed_color_map], and run [method Terrain3DData.update_maps] to change from using the compressed map to the uncompressed map in VRAM.
 		</member>
 		<member name="label_distance" type="float" setter="set_label_distance" getter="get_label_distance" default="0.0">
 			If label_distance is non-zero (try 1024-4096) it will generate and display region coordinates in the viewport so you can identify the exact region files you are editing. This setting is the visible distance of the labels. With the mouse in the viewport you can press the hotkey to toggle visibility (default `2`).
@@ -435,6 +446,29 @@
 		</constant>
 		<constant name="SIZE_2048" value="2048" enum="RegionSize">
 			The region size is 2048 x 2048 meters, vertices, and pixels on Image maps.
+		</constant>
+		<constant name="COMPRESS_NONE" value="5" enum="CompressMode">
+			Corresponds to Godot's [code skip-lint]Image.CompressMode.COMPRESS_MAX[/code]
+		</constant>
+		<constant name="COMPRESS_S3TC" value="0" enum="CompressMode">
+			An older desktop compression algorithm. Aka BC3/DXT5 or DXT1 (no alpha).
+			Corresponds to Godot's [code skip-lint]Image.CompressMode.COMPRESS_MAX[/code]
+		</constant>
+		<constant name="COMPRESS_BPTC" value="3" enum="CompressMode">
+			A high quality desktop compression algorithm. Aka BC6. 
+			Corresponds to Godot's [code skip-lint]Image.CompressMode.COMPRESS_BPTC[/code]
+		</constant>
+		<constant name="COMPRESS_ETC" value="1" enum="CompressMode">
+			An older mobile compression algorithm.
+			Corresponds to Godot's [code skip-lint]Image.CompressMode.COMPRESS_ETC[/code]
+		</constant>
+		<constant name="COMPRESS_ETC2" value="2" enum="CompressMode">
+			A modern mobile compression algorithm.
+			Corresponds to Godot's [code skip-lint]Image.CompressMode.COMPRESS_ETC2[/code]
+		</constant>
+		<constant name="COMPRESS_ASTC" value="4" enum="CompressMode">
+			The latest high quality mobile compression algorithm.
+			Corresponds to Godot's [code skip-lint]Image.CompressMode.COMPRESS_ASTC[/code].
 		</constant>
 	</constants>
 </class>

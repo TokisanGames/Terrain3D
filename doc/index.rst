@@ -16,53 +16,44 @@ Terrain3D Documentation
 Start with :doc:`Introduction <docs/introduction>` and the other pages in the Getting Started section in the left sidebar to learn how to use this system.
 
 
-Credit
--------------
-Developed for the Godot community by:
+News & Updates
+-----------------
 
-+------------------------------------+-------------------------------------+
-| **Cory Petkovsek, Tokisan Games**  | |t-x| |t-gh| |t-web| |t-ds| |t-yt|  |
-+------------------------------------+-------------------------------------+
-| **Roope Palmroos, Outobugi Games** | |o-x| |o-gh| |o-web| |o-yt|         |
-+------------------------------------+-------------------------------------+
+Announcements are made on these media channels: |t-ds| |t-x| |t-web| |t-yt| |t-gh|
+
+.. |t-ds| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/discord.png?raw=true
+   :target: https://tokisan.com/discord
+   :width: 24
 
 .. |t-x| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/twitter.png?raw=true
    :target: https://twitter.com/TokisanGames
-   :width: 24
-
-.. |t-gh| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/github.png?raw=true
-   :target: https://github.com/TokisanGames
    :width: 24
 
 .. |t-web| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/www.png?raw=true
    :target: https://tokisan.com/
    :width: 24
 
-.. |t-ds| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/discord.png?raw=true
-   :target: https://tokisan.com/discord
-   :width: 24
-
 .. |t-yt| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/youtube.png?raw=true
    :target: https://www.youtube.com/@TokisanGames
    :width: 24
 
-.. |o-x| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/twitter.png?raw=true
-   :target: https://twitter.com/outobugi
+.. |t-gh| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/github.png?raw=true
+   :target: https://github.com/TokisanGames
    :width: 24
 
-.. |o-gh| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/github.png?raw=true
-   :target: https://github.com/outobugi
-   :width: 24
+See the `Development Roadmap <https://github.com/users/TokisanGames/projects/3>`_ for the priority of pending issues.
 
-.. |o-web| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/www.png?raw=true
-   :target: https://outobugi.com/
-   :width: 24
 
-.. |o-yt| image:: https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/youtube.png?raw=true
-   :target: https://www.youtube.com/@outobugi
-   :width: 24
+Get Support
+-------------
 
-And the contribution team in :doc:`docs/authors` and displayed on `github contributors <https://github.com/TokisanGames/Terrain3D/graphs/contributors>`_.
+See :doc:`docs/getting_help` and join our `Discord server <https://tokisan.com/discord>`_.
+
+
+Credit
+-------------
+
+See the team in :doc:`docs/authors` and displayed on `github contributors <https://github.com/TokisanGames/Terrain3D/graphs/contributors>`_.
 
 .. toctree::
    :maxdepth: 1
@@ -95,8 +86,9 @@ And the contribution team in :doc:`docs/authors` and displayed on `github contri
    docs/heightmaps
    docs/import_export
    docs/instancer
-   docs/tips_technical
-   docs/tips_environment
+   docs/tips
+   docs/environment
+   docs/performance
 
 .. toctree::
    :maxdepth: 1
