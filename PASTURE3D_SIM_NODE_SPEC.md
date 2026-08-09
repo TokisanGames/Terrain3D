@@ -1,22 +1,25 @@
 # Pasture3D Sim Node Spec (`Pasture3DSim`)
 
-**Status:** **PHASE 1 IMPLEMENTED** (2026-08-08). Phases 2–4 remain design. Drafted 2026-08-08; **solver
-replaced the same day** after a survey of Houdini, World Machine, Gaea and the large-scale-terrain
-literature (§16). Target: Godot 4.7, Pasture3D `main`.
+**Status:** **PHASES 1–2 IMPLEMENTED** (phase 1 2026-08-08, phase 2 2026-08-09). Phases 3–4 remain
+design. Drafted 2026-08-08; **solver replaced the same day** after a survey of Houdini, World Machine,
+Gaea and the large-scale-terrain literature (§16). Target: Godot 4.7, Pasture3D `main`.
 
-Phase 1 ships as:
+Phases 1–2 ship as:
 
-| File | What |
-|---|---|
-| [pasture_3d_erosion.h](src/pasture_3d_erosion.h) / [.cpp](src/pasture_3d_erosion.cpp) | The §4 solver, as a pure function of a heightfield — no terrain dependency at all |
-| [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `erode_heightfield` / `resample_grid` / `sim_mask_deltas` / `apply_sim_block` on `Pasture3DData` |
-| [pasture_3d_raster_util.h](src/pasture_3d_raster_util.h) | The SDF + ramp primitives Sim's loop mask shares with the spline brushes |
-| [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | `Pasture3DSim` — area, resolution, mask, layer and UX plumbing |
-| [bench/SimPhase1Gate.tscn](project/bench/SimPhase1Gate.gd) | Gates A–K, all passing with their controls |
-| [bench/SimFieldProbe.tscn](project/bench/SimFieldProbe.gd) | Hillshade diagnostic — what the solver actually produces, synthetic and on the demo terrain |
+| File | What | Phase |
+|---|---|---|
+| [pasture_3d_erosion.h](src/pasture_3d_erosion.h) / [.cpp](src/pasture_3d_erosion.cpp) | The §4 solver, as a pure function of a heightfield — no terrain dependency at all | 1 |
+| [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `erode_heightfield` / `resample_grid` / `sim_mask_deltas` / `apply_sim_block` / `sim_result_build` on `Pasture3DData` | 1, 2 |
+| [pasture_3d_raster_util.h](src/pasture_3d_raster_util.h) | The SDF + ramp primitives Sim's loop mask shares with the spline brushes | 1 |
+| [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | `Pasture3DSim` — area, resolution, mask, layer and UX plumbing | 1 |
+| [connectors/sim_result.gd](project/addons/pasture_3d/connectors/sim_result.gd) | `Pasture3DSimResult` — the four §8.2 channels, their extent, and how to sample them | 2 |
+| [bench/SimPhase1Gate.tscn](project/bench/SimPhase1Gate.gd) | Gates A–K, all passing with their controls | 1 |
+| [bench/SimPhase2Gate.tscn](project/bench/SimPhase2Gate.gd) | Gates P–X, all passing with their controls | 2 |
+| [bench/SimFieldProbe.tscn](project/bench/SimFieldProbe.gd) | Hillshade diagnostic — what the solver actually produces, synthetic and on the demo terrain | 1 |
+| [bench/SimResultProbe.tscn](project/bench/SimResultProbe.gd) | The same for the masks: one image per channel, plus an RGB composite showing the three occupy different ground | 2 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
-records the gate results and the two criteria that were vacuous until their controls caught them.
+records the gate results and the criteria that were vacuous until their controls caught them.
 
 **Goal:** erode large areas of terrain into something that reads as a real landscape — dendritic valley
 networks, coherent watersheds, ridgelines — bake the result into a non-destructive layer, and expose the
@@ -81,7 +84,7 @@ toes; full sediment transport is the Yuan et al. 2019 extension, deferred to §1
 | Resolution | **Separate preview and build resolutions.** | World Machine's loop. §6. |
 | Erodability | **Spatially varying, phase 1.** | Houdini masks nearly every parameter; Gaea calls it Rock Softness. Highest-value directability input. §7. |
 | CPU reference implementation | **N/A — the solver is CPU by default.** | The first draft's GPU/CPU parity question dissolves. §11. Built: C++, ~3 s for a 500 m loop at 1 m over 30 iterations. |
-| Mask storage | **One `Pasture3DSimResult` `.res` per Sim node.** | Optional, diffable, deletable. §8.2. |
+| Mask storage | **One `Pasture3DSimResult` `.res` per Sim node.** | Optional, diffable, deletable. §8.2. Built: a `sim_result` property, auto-created on the first bake and rewritten on every one; the node raises a configuration warning while it has no file of its own, because an unsaved Resource is serialised *into the scene* and these are megabytes of float. |
 | Generated brush layers | **Dedicated `Generated Rivers` / `Generated Lakes`.** | Clearing cannot disturb authored work. §10. |
 | Generated Trough behaviour | **Shallow — hosts water, does not re-carve.** | The sim already cut the channel. §10.3. |
 | Clear Brushes | **Removes every generated brush, edited or not, one undo.** | Predictable; Ctrl+Z restores. §10.4. |
@@ -321,6 +324,92 @@ raw-tile application and the deferred-composite path. Blend `ADD` — Sim writes
 > small until the sediment-transport extension (§15) lands. Ship all four channels anyway — retrofitting
 > one later means re-running every simulation in the project.
 
+> **Built exactly as specified**, plus the six decisions the design left open. Each is a real fork, so
+> each is recorded here rather than left to be re-derived from the code.
+>
+> **1 — The extent is the SIMULATED area, including the catchment margin, and the values there are
+> unmasked.** The loop's falloff is *not* multiplied in. Three reasons, and they are the same reason:
+> the channels feeding the loop rim are exactly where a phase-3 selector needs real numbers; the margin's
+> flow and incision are physically true statements about real water; and multiplying the ramp in would
+> bake the falloff's *shape* into data phase 3 reads as geology. The cost is that `erosion` in the margin
+> describes ground the sim never wrote to — a consumer that wants "only where the terrain actually
+> changed" must gate on its own brush area, which it already has. Said again in the resource's own
+> docstring, because it is the one thing about this resource that surprises.
+>
+> **2 — `flow` is `log(max(A, 1 m²))`, natural log, and reading it back means `exp()`.** Floored at 1 m²
+> so the stored value is never negative and a cell no result covers (stored 0) reads back as the smallest
+> catchment there is rather than as a negative area. `Pasture3DSimResult.drainage_area_at()` is the
+> sanctioned reader and gate V pins the convention at both ends — the control there is the sum taken
+> *without* the `exp()`, which is precisely the mistake an undocumented convention invites.
+>
+> **3 — `erosion` and `deposition` are the two signs of ONE field: the NET `z_final − z_initial`.** Not
+> deposition accumulated per iteration (a cell can gain at iteration 3 and lose it by 20). Net is one
+> subtraction; accumulated needs an extra grid and a per-iteration pass. What it commits us to is worth
+> stating: the two channels can never both be non-zero at the same cell, and their sum reconstructs the
+> delta bit-for-bit. That is gate Q, and it is what catches a mis-indexed or duplicated channel.
+>
+> **4 — Several loops merge into one grid by "write beats margin".** §2 says one `SimResult` per Sim
+> node, so a Sim with several loops has to merge, and where two loops' *simulated* areas overlap the
+> answer is genuinely ambiguous: both solved that ground independently and to different answers (§5's
+> seam warning). The rule: a cell inside a loop's write area beats a cell another loop merely simulated
+> as catchment margin; ties go to the earlier loop; and the four channels always come from the *same*
+> loop at a given cell, which is why the merge blits the net delta and splits the signs afterwards rather
+> than blitting the two halves. **One loop is a special case with no resampling at all** — the result is
+> that loop's own sim grid verbatim, so the shipped common case is bit-exact rather than "the same to
+> within a bilinear tap that should have been the identity". Several loops get the union box at the mean
+> sim cell size, coarsened with a warning if that would exceed `RESULT_MAX_CELLS` (two distant loops can
+> easily ask for a grid far larger than anything that was solved).
+>
+> **5 — A Preview overwrites a build's masks, exactly as it overwrites a build's height.** The invariant
+> is that the result always describes what is currently in the layer; a mask that survived the height it
+> came from would be the worst of both. `source_preview` and `source_resolution` are how a reader tells
+> which it got, and §6's warning applies to the masks too: a preview is a good guide to *where* and a
+> poor one to *how much*. **Clear Simulation empties the masks and, if they have a file, saves the empty
+> result over it** — a mask on disk describing erosion the terrain no longer has is the silent staleness
+> this phase exists to prevent. Note the asymmetry: the height clear is undoable and this is not, so
+> Ctrl+Z brings the erosion back with the masks still empty, and the node's "not written by this Sim's
+> last bake" warning is what reports that.
+>
+> **6 — §15's open question 4 is taken, not deferred.** The resource records the solver settings behind
+> it (`source_iterations`, `source_erosion_rate`, `source_area_exponent`, `source_diffusion`,
+> `source_catchment_margin`), the node that wrote it, its loop-footprint hash and the time. The node uses
+> the hash today to warn that assigned masks came from a different bake; phase 3 gets the rest for free.
+>
+> **Where the masks come from in the pipeline.** The node solves in chunks so a long build stays
+> cancellable, and `want_diagnostics` is deliberately never set on a chunk — it copies five full-grid
+> arrays out of the solver, which a chunked build would pay for on every chunk and throw away. Instead
+> the masks come from **one extra routing-only pass (`iterations: 0`) over the final surface**. That is
+> not only cheaper, it is more correct: the solver builds `flow` and `lake_depth` at the *top* of an
+> iteration, so diagnostics taken off the last chunk would describe the network of the surface *before*
+> that iteration's incision and diffusion — a mask one iteration out of step with the height shipped
+> beside it. The extra pass costs one fill+route, about a thirtieth of a default solve.
+>
+> **Nothing in the solve ever reads the result back** (§13, gate H). Sim's input is always the surface
+> below its own layer; the masks are a pure output.
+>
+> **What the demo terrain actually produces**, at the shipped defaults over a 500 m loop with a 128 m
+> margin ([bench/SimResultProbe.tscn](project/bench/SimResultProbe.gd)):
+>
+> | Channel | Range | Reading |
+> |---|---|---|
+> | `flow` | 0 … 12.75 | `exp()` → 1 … 343 889 m² of catchment |
+> | `erosion` | −55.05 … 0 m | 485 950 of 581 406 cells |
+> | `deposition` | 0 … +3.66 m | 92 405 cells — real, metre-scale, about a fifteenth of the incision |
+> | `wetness` | 0 … 145.9 m | 164 910 cells |
+>
+> Two things in that table are worth not misreading. The 55 m of drop is over the **unmasked simulated
+> area**, which includes steeper margin ground and no falloff — the 26.4 m figure the phase-1 notes quote
+> is the masked write grid over the loop, and the two are not the same measurement. And the **wetness is
+> overwhelmingly the demo terrain's own authored basins, not lakes the sim made**: the same routing pass
+> over the surface *before* a single iteration finds 150.4 m of standing water over 185 458 cells, so
+> erosion slightly *drained* the map (it cuts outlets), which is what it should do. The probe prints that
+> before/after pair for exactly this reason.
+>
+> The RGB composite the probe writes is the picture that settles it: erosion fills the escarpment gully
+> networks, wetness is the one large closed basin, and deposition sits inside that basin's hollows —
+> where the §4.3 submerged guard stops incision entirely and only diffusion acts. Three channels, three
+> different places, each where the physics says it should be.
+
 ---
 
 ## 9. Selector integration (phase 3 — the priority payoff)
@@ -344,6 +433,18 @@ fields, one bilinear sample.
 
 > Outside the result's extent, or with no resource assigned, these Kinds must return a **defined 0** and
 > the plow must raise a configuration warning. Silent garbage here would be very hard to diagnose.
+
+> **What phase 2 leaves phase 3, and the three things it must not get wrong.**
+> 1. **`FLOW` is log-scaled** (§8.2). The GDScript side has `drainage_area_at()`, which is `exp()` of a
+>    bilinear sample; the C++ selector will need the same. A selector band expressed in m² of catchment
+>    is the artist-meaningful control — "boulders where more than 10 000 m² drains through" — and that
+>    means the *band* is un-logged, not the field.
+> 2. **The extent runs out to the edge of the catchment margin, and the values there are unmasked**, so
+>    `EROSION` is non-zero over ground the sim never wrote to. A relief material keyed on it will paint
+>    stripped bedrock outside the loop unless it is also gated by its own brush area.
+> 3. `Pasture3DSimResult.sample()` and `covers()` already do the defined-0-outside behaviour this note
+>    demands; `is_valid()` distinguishes an empty result from a missing one, which is what the
+>    configuration warning should read.
 
 ---
 
@@ -468,8 +569,13 @@ escape hatch is intact: `Pasture3DGPURaster` can still be generalised into a sha
 > its spline when someone else bakes the layer; Sim cannot be, because repainting it means re-solving.
 > Baking one Sim therefore clears any overlapping Sim's contribution from the shared `Erosion` layer and
 > does not put it back. Note the clear drops whole layer *tiles*, so "overlapping" means within about
-> 64 m, not merely intersecting. Give each Sim its own layer, or press Simulate on both. Not warned about
-> yet — the check needs the tile-snapped box, and it belongs with the phase-2 bookkeeping.
+> 64 m, not merely intersecting. Give each Sim its own layer, or press Simulate on both.
+>
+> **Built in phase 2 — this is now warned about** (§15's open question 7, which the section assigned to
+> phase 2's bookkeeping). `_get_configuration_warnings()` names the other Sim. The check compares
+> *tile-snapped* footprints, not the loops, because that is the box the clear actually drops. It is a
+> configuration warning with no gate behind it: the behaviour it reports is the layer clear's, which
+> gate G already covers, and what is new here is only the wording.
 
 ---
 
@@ -499,6 +605,11 @@ make Sim erode its own erosion and creep every run, the same bug class `base_bel
 > **Built exactly as above**, all six hooks, and gate H measures 0.000000 m of drift across a re-run
 > while its control — the same pipeline seeded from the finished composite, with the previous bake still
 > in the layer — drifts 18.9 m.
+>
+> **Built in phase 2 — the masks do not change any of this.** `sim_result` is an output only: it is
+> written after the height commit and never read by a solve, so re-running still reproduces the surface
+> exactly and gate H still measures 0.000000 m of drift. The one place the masks touch node state is the
+> configuration warnings (§8.2 decision 6).
 >
 > Unlike the stamp brushes, **Sim has no destructive fallback.** A brush without the layers Tool API can
 > still `set_height` and be useful-but-not-idempotent; Sim cannot, because without a layer stack there is
@@ -535,7 +646,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | Phase | Contents |
 |---|---|
 | **1 — DONE** | Flow routing + depression fill + drainage area + implicit incision + hillslope diffusion; erodability map; preview/build resolutions; catchment margin + mask; `apply_sim_block`; Preview / Simulate / Clear UX |
-| **2** | `Pasture3DSimResult` with all four channels |
+| **2 — DONE** | `Pasture3DSimResult` with all four channels, written on every Preview and Simulate; the multi-loop merge; source-parameter recording (§15.4); the shared-layer overlap warning (§15.7) |
 | **3** | Selector Kinds `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; a demo preset pairing an eroded area with a flow-gated relief material |
 | **4** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
 
@@ -561,6 +672,20 @@ must distinguish "measured nothing" from "measured correctly".
 | M | *(phase 4)* **Clear removes exactly the generated set.** A hand-placed Pond and Trough survive. | Identify generated nodes by name → the authored ones are destroyed. |
 | N | *(phase 4)* **Confluences split.** A synthetic Y-shaped catchment yields three segments, not two overlapping paths. | — |
 | O | *(phase 4)* **Extraction is monotonic.** Raising `river_area_threshold` never increases the river count. | — |
+| P | *(phase 2)* **The masks are at SIM resolution over the SIMULATED area.** `cell_size` is `vertex_spacing × divisor`, the extent covers the loop plus its catchment margin, all four channels are `width × height`, the source parameters describe the solve that ran, and a Clear empties them. | The same node with margin 0 at build resolution, where the sim grid and the write grid coincide — it must match the write grid, or the fixture above was not separating the two. |
+| Q | *(phase 2)* **`erosion` and `deposition` are the two signs of one field.** No cell carries both, and their sum reconstructs the net delta exactly. | `deposition := \|erosion\|` — a duplicated channel. Both halves of the criterion must fail. |
+| R | *(phase 2)* **With `hillslope_diffusion = 0`, deposition is IDENTICALLY zero.** Not small — 0.0 on every cell. | Diffusion on → cells deposit, so an exact zero is not vacuous. |
+| S | *(phase 2)* **The deposited volume matches a closed form.** A Gaussian bump on a flat plain with `K = 0` diffuses to a known Gaussian, so the deposited ring's volume is computable; and with the bump far from the boundary, Σdeposition must equal Σerosion. | The same bump with `D = 0` (deposits nothing), **and** the criterion re-run against a doubled field, which must fail — otherwise the tolerance is decoration. |
+| T | *(phase 2)* **Deposition lands in concavities.** All of the deposited volume sits where the initial Laplacian is positive; the convex crown gains exactly nothing; the deposition centroid is the bump's own cell. | The same tests against the Laplacian rolled half a domain. It must fail the share test and correlate at zero. |
+| U | *(phase 2)* **The masks register with the terrain through their own extent.** Looked up via `min_x` / `min_z` / `cell_size` where the falloff is 1, `erosion + deposition` equals the height the layer actually gained. | The same lookup displaced by one catchment margin → disagreement. |
+| V | *(phase 2)* **`flow` is log-scaled and un-logs to drainage area.** Σ`exp(flow)` at the outlets is the domain area — gate C's conservation carried through the log round trip. | The same sum without the `exp()` → wildly short. |
+| W | *(phase 2)* **`wetness` carries the depression fill, and only it.** On a zero-iteration solve over a bowl, wetness is the analytic spill depth while erosion and deposition are exactly 0. | A basin-free plane → all zero, so the gate reports "measured nothing". |
+| X | *(phase 2)* **Several loops merge by the documented precedence rule.** Two overlapping parts of known constant value: a cell inside a loop's write area takes that loop's value, a margin-only overlap goes to the earlier loop, and all four channels come from the same loop at a given cell. | One part alone, which must claim the shared cell — otherwise the gate cannot tell the two parts apart and the precedence result means nothing. |
+
+> **The lettering runs A–K, L, M–O, P–X and is not in phase order.** L–O were reserved for phases 3–4
+> when the table was first written, and phase 2's criteria were added afterwards; renumbering would have
+> broken every reference to a gate letter in the code and in these notes. Read the *(phase n)* tags, not
+> the alphabet.
 
 > **Perf gates need the user's go-ahead before running.** When approved, the number that matters is
 > whether a full-resolution build over a large loop stays inside a few seconds, and whether depression
@@ -617,6 +742,44 @@ log drainage area and the incision field, synthetic and on the demo terrain. Eve
 K was set by looking at those images first and picking numbers that agree with them — two of the three
 vacuous criteria above were only recognisable as vacuous because the picture disagreed with the number.
 
+### Gate results (phase 2, all passing)
+
+`bench/SimPhase2Gate.tscn`, headless, ~4 s. Phase 1's gates were re-run unchanged afterwards and still
+pass with identical numbers.
+
+| # | Measured | Control |
+|---|---|---|
+| P | Preview at 1/2 over a 40 m margin: 103² @ 2.00 m spanning X 198…402, against a write grid of 125 @ 1.00 m spanning 238…362. Channels alive: 32.5 m incision, 0.20 m deposition, 29 704 m² largest catchment. Clear leaves them empty | Margin 0 at build resolution → 125² @ 1.00 m spanning 238…362, i.e. exactly the write grid |
+| Q | 0 of 16 384 cells carry both signs; reconstruction error **0.000000000 m**; 15 477 eroded and 399 deposited, so both halves exist | `deposition := \|erosion\|` → 15 477 cells carry both, reconstruction error 20.63 m |
+| R | **0 cells deposited, max +0.000000 m**, against 22.0 m of incision | Diffusion on → 513 cells deposited |
+| S | Deposited 37 272 m³ against a closed form of 37 367 — **−0.25%**. Conservation: 37 391 m³ eroded vs 37 272 deposited, −0.32%. The sampled bump matches its own analytic volume to 0.00% | `D = 0` → exactly 0 m³ deposited; the doubled field → +99.5% off, well outside the 3% tolerance |
+| T | **0.0000%** of the deposited volume on non-concave ground; the crown deposits exactly 0; centroid at cell (48.01, 40.12) for a bump placed at (48, 40) | Laplacian rolled half a domain → 7.5% of the volume on non-concave ground (fails the 0.1% criterion by 75×) and correlation +0.000 against the real +0.329 |
+| U | 25 probes over a 30.5 m height change; worst \|mask − terrain\| **0.0000 m** | The lookup displaced by one 40 m margin → worst 20.88 m |
+| V | Σ`exp(flow)` at the outlets = 262 144.0 m² against a domain of 262 144.0 (rel err 2e-7) | The same sum read linearly → 2 016.5 m², 99.2% short |
+| W | Wetness 24.800 m at the bowl centre against an analytic spill level of 25.000; erosion and deposition both exactly 0 on the same zero-iteration solve | No basin → max wetness 0.000000 m |
+| X | Write areas take their own loop's value (−1, −2); the margin-only overlap goes to the earlier loop (−1); wetness follows the same cell-by-cell choice | The later part alone claims the shared cell (−2), so the parts are distinguishable |
+
+**Three deliberate breaks were introduced into shipping code to check the gates bite.** This is the part
+worth keeping, because two of the three are exactly the failure modes §8.2 predicted.
+
+1. **Swapping the sign split in `sim_result_build`.** Q, R, T, X and U all failed — and **S passed.**
+   That is not a defect in S: on a pure-diffusion fixture the eroded and deposited volumes are equal by
+   conservation, so a sign flip is invisible to *any* magnitude criterion. It is the whole reason T
+   exists, and it is the concrete evidence that "the deposited volume is right" is not a test of the
+   deposition channel on its own.
+2. **Building the result on the masked write grid instead of the sim grid** — the mistake that produces a
+   mask which is non-zero, roughly in the right places, and wrong only in extent and resolution. **P
+   failed and U passed**, because the data and the header agreed with each other; they were just both the
+   wrong grid. Neither gate catches this alone.
+3. **A header that lies about the extent** (`min_x` shifted 8 m with the data left in place). **U failed
+   at 21.68 m** and P failed on the extent. This is the complement of break 2, and the pair is why both
+   gates are needed: P checks the grid the header *claims*, U checks that the data agrees with it.
+
+`bench/SimResultProbe.tscn` is phase 2's picture, the counterpart to `SimFieldProbe` for the height: one
+greyscale image per channel over a real demo bake, an RGB composite of erosion/deposition/wetness, and
+the before/after standing-water pair that shows how much of the `wetness` channel is the demo terrain's
+own authored basins rather than anything the sim made. The channel table in §8.2 comes from its output.
+
 ---
 
 ## 15. Open questions
@@ -628,8 +791,11 @@ vacuous criteria above were only recognisable as vacuous because the picture dis
    by altitude, for orographic bias) is a one-line change with a large effect on which valleys dominate.
 3. **Base level.** The margin edge is currently the outlet. Should sea level or a `Pasture3DPool` surface
    act as base level instead, so rivers grade to the water they actually reach?
-4. **`SimResult` recording its source parameters,** so the UI can warn that a mask is stale relative to
-   the node's current settings.
+4. ~~**`SimResult` recording its source parameters,** so the UI can warn that a mask is stale relative to
+   the node's current settings.~~ **Done in phase 2** — the resource carries the solver settings, the
+   writing node's name, the loop-footprint hash and the write time (§8.2, decision 6). The node warns
+   today when an assigned result's hash does not match its last bake; the numeric settings are recorded
+   for phase 3, which is the consumer that actually needs to say "this mask predates your current rate".
 5. **Does phase 4 want `Pasture3DStream` as well as `Trough`** for long thin rivers? Easier to judge once
    phase 1 output exists.
 6. **A channel-initiation threshold.** *(Raised by phase 1.)* Stream power is applied to every cell,
@@ -638,8 +804,17 @@ vacuous criteria above were only recognisable as vacuous because the picture dis
    suppress this with a threshold drainage area below which only diffusion acts. Diffusion already
    competes with it (§4.4) but wins only at low rates. A cheap addition, and the single biggest
    improvement to how the output looks at aggressive settings.
-7. **Warn when two Sim nodes share a layer and overlap.** §12 records the behaviour; the check needs the
-   tile-snapped clear box, so it belongs with phase 2's bookkeeping rather than bolted on here.
+7. ~~**Warn when two Sim nodes share a layer and overlap.** §12 records the behaviour; the check needs the
+   tile-snapped clear box, so it belongs with phase 2's bookkeeping rather than bolted on here.~~
+   **Done in phase 2** — `Pasture3DSim._overlapping_sim_on_layer()`, compared on tile-snapped footprints
+   and named in the configuration warning. See the §12 note.
+8. **Should `deposition` accumulate rather than net?** *(Raised by phase 2.)* §8.2 decision 3 takes the
+   net positive part of `z_final − z_initial`, which makes the two channels one field and gives gate Q
+   something exact to measure. A cell that gains material at iteration 3 and loses it by 20 therefore
+   reports nothing. That is the right answer for "where is there silt now" and the wrong one for "where
+   has material passed through", and only the second is affected by the §15.1 sediment-transport
+   extension — which would also invalidate gate R's exact-zero control, since a transporting solver
+   deposits with no diffusion at all. Re-derive R, do not re-tune it.
 
 ---
 

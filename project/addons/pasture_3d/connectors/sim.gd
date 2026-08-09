@@ -8,6 +8,11 @@
 # reserved "Erosion" layer. Relief materials generate fine surface texture; Sim does the thing they
 # structurally cannot — large-scale drainage structure — so the two compose.
 #
+# It has a SECOND output: a Pasture3DSimResult holding flow, erosion, deposition and wetness over the
+# simulated area at sim resolution (§8.2), rewritten on every Preview and Simulate so it always matches
+# the erosion in the layer. Nothing in the solve ever reads it back — Sim's input is always the surface
+# below its own layer, which is what keeps a re-run idempotent (§13).
+#
 # The solver is Braun & Willett 2013's implicit, O(n), unconditionally stable stream-power scheme over a
 # priority-flood-filled D8 routing, plus hillslope diffusion. It lives in C++ (pasture_3d_erosion.cpp);
 # this file is the area, resolution, mask and layer plumbing around it. NOT the Mei pipe model — spec §1
@@ -31,6 +36,11 @@ const CHUNK_ITERATIONS: int = 5
 const ERODABILITY_LUT_MAX: int = 256
 ## Smallest sim grid worth solving. Below this the boundary IS the domain and nothing routes.
 const MIN_SIM_CELLS: int = 8
+## Ceiling on the merged Pasture3DSimResult grid when a Sim has SEVERAL loops (§8.2). One loop always
+## gets its own grid verbatim — that memory was already allocated to solve it. Several loops far apart
+## span a union box far larger than what was solved, and four float channels over it would be the
+## largest thing this node ever allocates, so the merge coarsens to fit and says so.
+const RESULT_MAX_CELLS: int = 4194304
 
 @export_group("Simulation")
 ## How many solve iterations. The drainage network REORGANISES between iterations, and that progressive
@@ -94,6 +104,19 @@ const MIN_SIM_CELLS: int = 8
 @export_range(1, 16) var build_resolution: int = 1:
 	set(v):
 		build_resolution = maxi(v, 1)
+
+@export_group("Masks")
+## Where this Sim writes its drainage masks (§8.2): flow, erosion, deposition and wetness, over the
+## SIMULATED area (the loop plus its catchment margin) at SIM resolution. Rewritten on every Preview and
+## every Simulate, so it always describes the erosion currently in the layer.
+##
+## Leave it empty and one is created on the first bake. SAVE IT TO A .res: an unsaved resource is stored
+## inside the scene file, and these are megabytes of float data. Phase 3's selector Kinds read this
+## resource, so it is also the thing you point them at.
+@export var sim_result: Pasture3DSimResult:
+	set(v):
+		sim_result = v
+		update_configuration_warnings()
 
 @export_group("Bake")
 ## Solve at Preview Resolution and write the result. Same layer as the build, so it is visible in the
@@ -202,7 +225,51 @@ func _get_configuration_warnings() -> PackedStringArray:
 		warnings.append(("Hillslope Diffusion is large enough that the explicit diffusion pass hit its "
 			+ "sub-step ceiling, so less smoothing was applied than asked for. Lower it, or simulate at "
 			+ "a coarser resolution."))
+	if sim_result != null:
+		# An unsaved Resource is serialised INTO the scene file. For four float channels over a sim grid
+		# that is megabytes of base64 in a .tscn, and it stops the masks being diffable or deletable
+		# separately, which is the whole point of §2's "one .res per Sim node".
+		if sim_result.resource_path == "" or sim_result.resource_path.contains("::"):
+			warnings.append(("The Sim Result masks have no file of their own, so they will be saved "
+				+ "inside this scene — megabytes of float data. Save the resource to a .res next to your "
+				+ "terrain data."))
+		elif sim_result.source_area_hash != "" and _baked_hash != "" and sim_result.source_area_hash != _baked_hash:
+			warnings.append(("The Sim Result masks were not written by this Sim's last bake, so they "
+				+ "describe a different area. Press Simulate to rewrite them."))
+	# §15 open question 7: two Sims sharing a layer wipe each other, because baking one clears the shared
+	# layer's tiles under its box and a Sim cannot be repainted from its spline (§12). The check needs the
+	# TILE-snapped box, not the loops — the clear drops whole tiles, so two loops 40 m apart still collide.
+	var mate := _overlapping_sim_on_layer()
+	if mate != "":
+		warnings.append(("The Sim '%s' shares this Sim's layer and its area is close enough that baking "
+			+ "either one clears the other's erosion (whole layer tiles are dropped, so 'close' means "
+			+ "within about a tile, not merely overlapping). Give each Sim its own layer.") % mate)
 	return warnings
+
+
+## Name of another Pasture3DSim on the same layer whose tile-snapped footprint touches ours, or "".
+func _overlapping_sim_on_layer() -> String:
+	if not is_inside_tree() or not is_configured():
+		return ""
+	var layer := _resolve_layer_for(_layer_owner)
+	if layer == null:
+		return ""
+	var step := _layer_tile_world(_layer_id)
+	var mine := AABB()
+	var have := false
+	for a: AABB in _own_footprints():
+		mine = a if not have else mine.merge(a)
+		have = true
+	if not have:
+		return ""
+	mine = _snap_aabb_to_tiles(mine, step)
+	for s in _tools_on_owner(_layer_owner):
+		if s == self or not (s is Pasture3DSim):
+			continue
+		for b: AABB in s._own_footprints():
+			if _snap_aabb_to_tiles(b, step).intersects(mine):
+				return s.name
+	return ""
 
 
 # ---- The buttons (spec §12) -----------------------------------------------------------------------
@@ -229,6 +296,12 @@ func clear_simulation() -> void:
 	_commit([], layer_id, true, "Clear")
 	_baked_hash = ""
 	_baked_preview = false
+	# The masks describe the erosion that was in the layer, and there is none now. Emptying them (and
+	# the .res, if they have one) is the point: a mask file left describing erosion the terrain no
+	# longer has is exactly the silent staleness §8.2 exists to avoid. NOTE the height clear is undoable
+	# and this is not — Ctrl+Z brings the erosion back and leaves the masks empty, which the "not written
+	# by this Sim's last bake" warning then reports.
+	_empty_result()
 	update_configuration_warnings()
 
 
@@ -299,7 +372,7 @@ func _simulate_interactive(p_scale: int, p_is_preview: bool) -> void:
 ## Validate, resolve the layer, and prepare one solve state per loop. `ok` false means nothing to do
 ## and `report.reason` says why.
 func _begin(p_scale: int, p_record_undo: bool, p_is_preview: bool) -> Dictionary:
-	var report := {"ok": false, "reason": "", "areas": 0, "cells": 0, "msec": 0, "substeps": 0}
+	var report := {"ok": false, "reason": "", "areas": 0, "cells": 0, "msec": 0, "substeps": 0, "masks": ""}
 	var fail := {"ok": false, "report": report}
 	if _running:
 		report["reason"] = "a solve is already running"
@@ -335,13 +408,15 @@ func _begin(p_scale: int, p_record_undo: bool, p_is_preview: bool) -> Dictionary
 	_running = true
 	_cancel = false
 	return {"ok": true, "report": report, "states": states, "layer_id": layer_id,
-			"is_preview": p_is_preview, "record_undo": p_record_undo, "t0": Time.get_ticks_msec()}
+			"is_preview": p_is_preview, "record_undo": p_record_undo, "scale": maxi(p_scale, 1),
+			"t0": Time.get_ticks_msec()}
 
 
 ## Mask, upsample and write every solved loop, then record the bake. Returns the report.
 func _finish(p_ctx: Dictionary) -> Dictionary:
 	var report: Dictionary = p_ctx["report"]
 	var solved: Array = []
+	var written: Array = []
 	var cells := 0
 	for st in p_ctx["states"]:
 		var one := _finish_solve(st)
@@ -349,6 +424,7 @@ func _finish(p_ctx: Dictionary) -> Dictionary:
 			continue
 		cells += int(st["sw"]) * int(st["sh"])
 		solved.append(one)
+		written.append(st)
 	_running = false
 	if solved.is_empty():
 		report["reason"] = "the masked delta was empty for every loop"
@@ -360,14 +436,19 @@ func _finish(p_ctx: Dictionary) -> Dictionary:
 			"Preview" if is_preview else "Simulate")
 	_baked_hash = _area_hash()
 	_baked_preview = is_preview
+	# The masks go last, so they can record the hash of the bake that just landed. A Preview overwrites a
+	# build's masks exactly as it overwrites a build's height — the result always describes what is in the
+	# layer — and source_preview is how a reader tells which it got.
+	report["masks"] = _write_result(written, is_preview, int(p_ctx["scale"]))
 	update_configuration_warnings()
 	report["ok"] = true
 	report["areas"] = solved.size()
 	report["cells"] = cells
 	report["msec"] = Time.get_ticks_msec() - int(p_ctx["t0"])
 	report["substeps"] = _last_substeps
-	print("Pasture3DSim '%s': %s %d area(s), %d sim cells, %d ms." % [
-			name, "previewed" if is_preview else "simulated", solved.size(), cells, report["msec"]])
+	print("Pasture3DSim '%s': %s %d area(s), %d sim cells, %d ms.%s" % [
+			name, "previewed" if is_preview else "simulated", solved.size(), cells, report["msec"],
+			"\n  " + str(report["masks"]) if report["masks"] != "" else ""])
 	return report
 
 
@@ -451,6 +532,9 @@ func _solve_chunk(p_state: Dictionary) -> bool:
 	var chunk := mini(CHUNK_ITERATIONS, iterations - done)
 	var params: Dictionary = p_state["params"]
 	params["iterations"] = chunk
+	# NOTE want_diagnostics is deliberately never set here. It copies five full-grid arrays out of the
+	# solver, and a chunked build would pay that on every chunk for four fields it throws away. The
+	# masks come from one routing-only pass over the FINAL surface instead — see _finish_solve.
 	var res: Dictionary = terrain.data.erode_heightfield(p_state["z"], params, p_state["erod"])
 	if not bool(res.get("ok", false)):
 		push_warning(("Pasture3DSim '%s': the solver rejected the %dx%d grid — most likely no terrain "
@@ -469,6 +553,7 @@ func _solve_chunk(p_state: Dictionary) -> bool:
 func _finish_solve(p_state: Dictionary) -> Dictionary:
 	if bool(p_state["failed"]):
 		return {}
+	_diagnose(p_state)
 	var wb: Array = p_state["wb"]
 	var sb: Array = p_state["sb"]
 	var gw: int = p_state["gw"]
@@ -491,6 +576,155 @@ func _finish_solve(p_state: Dictionary) -> Dictionary:
 		"min_x": wb[0], "min_z": wb[2], "gw": gw, "gh": gh,
 		"write": write,
 	}
+
+
+## Route and fill the FINAL surface once more, for its drainage area and standing water (§8.2).
+##
+## Deliberately a separate zero-iteration pass rather than diagnostics off the last solve chunk. The
+## solver's flow and lake_depth are built at the TOP of an iteration, so taking them from the last chunk
+## would describe the network of the surface before that iteration's incision and diffusion — a mask
+## that is one iteration out of step with the height it is shipped beside. `iterations: 0` is exactly the
+## routing-only mode the solver already has: it fills, routes and accumulates, and returns z untouched.
+## Costs one fill+route (a thirtieth of a default solve) and leaves the chunked path free of diagnostics.
+func _diagnose(p_state: Dictionary) -> bool:
+	var params: Dictionary = p_state["params"].duplicate()
+	params["iterations"] = 0
+	params["want_diagnostics"] = true
+	var res: Dictionary = terrain.data.erode_heightfield(p_state["z"], params, p_state["erod"])
+	if not bool(res.get("ok", false)):
+		push_warning("Pasture3DSim '%s': the diagnostics pass failed; this area contributes no masks." % name)
+		return false
+	p_state["flow"] = res["flow"]
+	p_state["lake"] = res["lake_depth"]
+	return true
+
+
+## The grid the masks are merged onto (§8.2).
+##
+## ONE loop — the overwhelmingly common case — gets its own sim grid verbatim, so the result is the field
+## the solver produced with no resampling at all. SEVERAL loops get the union of their simulated boxes at
+## the mean sim cell size, and each loop is resampled onto it; where two loops overlap, a cell inside a
+## loop's write area beats one that another loop merely simulated as margin (the C++ side's precedence
+## rule). Coarsened if the union would be larger than RESULT_MAX_CELLS, which two distant loops can
+## easily ask for.
+func _result_target(p_states: Array) -> Dictionary:
+	if p_states.size() == 1:
+		var st: Dictionary = p_states[0]
+		var sb1: Array = st["sb"]
+		return {"min_x": sb1[0], "min_z": sb1[2], "cell_size": st["sim_cell"],
+				"width": st["sw"], "height": st["sh"]}
+	var min_x := INF
+	var max_x := -INF
+	var min_z := INF
+	var max_z := -INF
+	var cell := 0.0
+	for st: Dictionary in p_states:
+		var sb: Array = st["sb"]
+		min_x = minf(min_x, sb[0])
+		max_x = maxf(max_x, sb[1])
+		min_z = minf(min_z, sb[2])
+		max_z = maxf(max_z, sb[3])
+		cell += float(st["sim_cell"])
+	cell = maxf(cell / float(p_states.size()), 0.001)
+	var w := int(round((max_x - min_x) / cell)) + 1
+	var h := int(round((max_z - min_z) / cell)) + 1
+	if w * h > RESULT_MAX_CELLS:
+		var s := sqrt(float(w) * float(h) / float(RESULT_MAX_CELLS))
+		cell *= s
+		w = int(round((max_x - min_x) / cell)) + 1
+		h = int(round((max_z - min_z) / cell)) + 1
+		push_warning(("Pasture3DSim '%s': the %d loops span too large a box to hold their masks at sim "
+			+ "resolution, so the Sim Result is %.2f m per cell (%.1fx coarser than the solve). Use one "
+			+ "Sim node per area if the masks need to be sharp.") % [name, p_states.size(), cell, s])
+	return {"min_x": min_x, "min_z": min_z, "cell_size": cell, "width": w, "height": h}
+
+
+## Build the four §8.2 channels from every solved loop and store them in `sim_result`, creating the
+## resource if there is none and saving it when it has a file of its own. Returns a one-line description
+## for the bake report, or "" when nothing was written.
+##
+## What goes in is the UNMASKED sim-resolution field: the loop's falloff and the write mask are not
+## applied. The masks describe the SIMULATION, not the write — the catchment margin's flow and incision
+## are real numbers about real water, and they are what a selector near the loop rim needs. Multiplying
+## the falloff into them would bake the ramp's shape into data phase 3 reads as geology.
+func _write_result(p_states: Array, p_is_preview: bool, p_scale: int) -> String:
+	var parts: Array = []
+	for st: Dictionary in p_states:
+		if not st.has("flow"):
+			continue
+		var sb: Array = st["sb"]
+		var wb: Array = st["wb"]
+		parts.append({
+			"sw": st["sw"], "sh": st["sh"], "cell": st["sim_cell"],
+			"min_x": sb[0], "min_z": sb[2],
+			"z0": st["z0"], "z1": st["z"], "flow": st["flow"], "lake": st["lake"],
+			"write_min_x": wb[0], "write_max_x": wb[1], "write_min_z": wb[2], "write_max_z": wb[3],
+		})
+	if parts.is_empty():
+		return ""
+	var target := _result_target(p_states)
+	var built: Dictionary = terrain.data.sim_result_build(parts, target)
+	if not bool(built.get("ok", false)):
+		push_warning("Pasture3DSim '%s': the masks could not be built for this bake." % name)
+		return ""
+
+	var r := sim_result
+	if r == null:
+		r = Pasture3DSimResult.new()
+		sim_result = r
+	r.min_x = target["min_x"]
+	r.min_z = target["min_z"]
+	r.cell_size = target["cell_size"]
+	r.width = target["width"]
+	r.height = target["height"]
+	r.flow = built["flow"]
+	r.erosion = built["erosion"]
+	r.deposition = built["deposition"]
+	r.wetness = built["wetness"]
+	r.source_node = name
+	r.source_preview = p_is_preview
+	r.source_resolution = p_scale
+	r.source_iterations = iterations
+	r.source_erosion_rate = erosion_rate
+	r.source_area_exponent = area_exponent
+	r.source_diffusion = hillslope_diffusion
+	r.source_catchment_margin = catchment_margin
+	r.source_area_hash = _area_hash()
+	r.source_time = Time.get_datetime_string_from_system(true, true)
+	r.source_loops = int(built.get("parts", parts.size()))
+	r.emit_changed()
+	_save_result(r)
+	return r.describe()
+
+
+## Empty the masks in place, so a mask can never outlive the erosion it describes (Clear Simulation).
+func _empty_result() -> void:
+	if sim_result == null:
+		return
+	sim_result.width = 0
+	sim_result.height = 0
+	sim_result.flow = PackedFloat32Array()
+	sim_result.erosion = PackedFloat32Array()
+	sim_result.deposition = PackedFloat32Array()
+	sim_result.wetness = PackedFloat32Array()
+	sim_result.source_area_hash = ""
+	sim_result.source_loops = 0
+	sim_result.source_time = Time.get_datetime_string_from_system(true, true)
+	sim_result.emit_changed()
+	_save_result(sim_result)
+
+
+## Write the masks back to their own .res, if they have one. A resource with no path (or a path inside a
+## scene, "…::N") is left alone — the scene serialiser owns it, and the node warns about that separately.
+func _save_result(p_result: Pasture3DSimResult) -> void:
+	var path: String = p_result.resource_path
+	if path == "" or path.contains("::"):
+		return
+	var err := ResourceSaver.save(p_result, path)
+	if err != OK:
+		push_warning("Pasture3DSim '%s': could not save the masks to %s (error %d)." % [name, path, err])
+	else:
+		print("Pasture3DSim '%s': masks written to %s." % [name, path])
 
 
 ## Write the solved deltas into the layer, as one undoable action.

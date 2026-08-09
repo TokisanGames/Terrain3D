@@ -315,6 +315,12 @@ public:
 	// caller composites the box and pushes to the GPU once.
 	void apply_sim_block(const int p_layer_id, const double p_min_x, const double p_min_z, const double p_vs,
 			const int p_gw, const int p_gh, const PackedFloat32Array &p_deltas, const int p_blend);
+	// §8.2 — the four Pasture3DSimResult channels. Each entry of `parts` is one solved loop
+	// {sw, sh, min_x, min_z, cell, z0, z1, flow, lake, write_min_x/z, write_max_x/z}; `target` is the
+	// grid they are merged onto {min_x, min_z, cell_size, width, height}. Returns
+	// {ok, flow, erosion, deposition, wetness, parts}. `flow` is log-scaled (exp() it to get m²), and
+	// erosion/deposition are the negative and positive halves of one net delta field, never both.
+	Dictionary sim_result_build(const Array &p_parts, const Dictionary &p_target);
 	// Per-cell write used by the native rasterisers. When p_composite, defers to the per-pixel composite
 	// API (full-refresh path). Otherwise writes the sample directly into p_layer, caching the resolved
 	// region in r_loc/r_region so a run of cells in the same region skips the per-cell layer+region

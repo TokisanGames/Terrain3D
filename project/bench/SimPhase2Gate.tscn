@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/SimPhase2Gate.gd" id="1_sim2"]
+
+[node name="SimPhase2Gate" type="Node"]
+script = ExtResource("1_sim2")

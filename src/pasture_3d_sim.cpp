@@ -1,10 +1,11 @@
-// Pasture3DSim's native side (PASTURE3D_SIM_NODE_SPEC.md). Four entry points, in the order the node
+// Pasture3DSim's native side (PASTURE3D_SIM_NODE_SPEC.md). Five entry points, in the order the node
 // uses them:
 //
 //   resample_grid      the §6 preview/build bridge — below-layer heights DOWN onto the sim grid
 //   erode_heightfield  the §4 solver, as a pure function of a heightfield (pasture_3d_erosion.cpp)
 //   sim_mask_deltas    §5 "simulate wide, write narrow" — deltas back UP, through the loop's falloff
 //   apply_sim_block    §8.1 — the batched raw-tile delta write, shared with the stamp_* rasterisers
+//   sim_result_build   §8.2 — the four Pasture3DSimResult channels, merged across a node's loops
 //
 // The solver itself is deliberately elsewhere and terrain-free: everything that touches a layer is
 // here, everything that is landscape-evolution physics is in pasture_3d_erosion.cpp, and the gates
@@ -34,6 +35,42 @@ inline void resample_span(int i, int dst_n, int src_n, double &r_lo, double &r_h
 	const double half = 0.5 * ratio;
 	r_lo = std::max(centre - half, 0.0);
 	r_hi = std::min(centre + half, (double)(src_n - 1));
+}
+
+// §8.2: `flow` is stored LOG-SCALED, because drainage area spans decades and a linear channel would be
+// all trunk and no tributary once quantised. The convention, which phase 3 has to invert:
+//
+//     stored  = log(max(A, SIM_FLOW_FLOOR))      A in m²
+//     read     = exp(stored)                     back to m²
+//
+// Natural log, and floored at 1 m² so the stored value is never negative and a cell that no result
+// covers (stored 0) reads back as the smallest catchment there is rather than as a negative area.
+constexpr double SIM_FLOW_FLOOR = 1.0;
+
+// Slack, in destination cells, on "is this target cell inside that part's grid". A target grid derived
+// from the parts' own bounds lands its edge samples exactly on the part edges, and a double-rounding of
+// 1e-9 must not turn the last row into a hole.
+constexpr double SIM_BLIT_EPS = 1.0e-3;
+
+// Bilinear read of a row-major grid at fractional sample coords, clamped to the edges. Returns false
+// (leaving r_out alone) if any of the four corners is non-finite: a no-data corner has no honest value
+// and the caller writes its channel's defined zero instead of a smeared one.
+inline bool grid_bilinear(const float *p_src, int p_w, int p_h, double p_fu, double p_fv, double &r_out) {
+	const int x0 = (int)std::floor(std::min(std::max(p_fu, 0.0), (double)(p_w - 1)));
+	const int y0 = (int)std::floor(std::min(std::max(p_fv, 0.0), (double)(p_h - 1)));
+	const int x1 = std::min(x0 + 1, p_w - 1);
+	const int y1 = std::min(y0 + 1, p_h - 1);
+	const double tx = std::min(std::max(p_fu - (double)x0, 0.0), 1.0);
+	const double ty = std::min(std::max(p_fv - (double)y0, 0.0), 1.0);
+	const float v00 = p_src[y0 * p_w + x0], v10 = p_src[y0 * p_w + x1];
+	const float v01 = p_src[y1 * p_w + x0], v11 = p_src[y1 * p_w + x1];
+	if (!std::isfinite(v00) || !std::isfinite(v10) || !std::isfinite(v01) || !std::isfinite(v11)) {
+		return false;
+	}
+	const double a = (double)v00 * (1.0 - tx) + (double)v10 * tx;
+	const double b = (double)v01 * (1.0 - tx) + (double)v11 * tx;
+	r_out = a * (1.0 - ty) + b * ty;
+	return true;
 }
 
 } // namespace
@@ -243,4 +280,145 @@ void Pasture3DData::apply_sim_block(const int p_layer_id, const double p_min_x, 
 	}
 	_apply_stamp_block(layer, (int)std::lround(p_min_x / p_vs), (int)std::lround(p_min_z / p_vs),
 			p_gw, p_gh, p_deltas.ptr(), p_blend);
+}
+
+Dictionary Pasture3DData::sim_result_build(const Array &p_parts, const Dictionary &p_target) {
+	Dictionary out;
+	out["ok"] = false;
+	const int tw = (int)p_target.get("width", 0);
+	const int th = (int)p_target.get("height", 0);
+	const double tcell = (double)p_target.get("cell_size", 0.0);
+	const double tmin_x = (double)p_target.get("min_x", 0.0);
+	const double tmin_z = (double)p_target.get("min_z", 0.0);
+	if (tw < 2 || th < 2 || tcell <= 0.0 || p_parts.is_empty()) {
+		return out; // no "flow" key at all, so a caller that ignores `ok` fails loudly
+	}
+	const int64_t n = (int64_t)tw * (int64_t)th;
+
+	// The three fields that are actually blitted. `erosion` and `deposition` are NOT among them: they
+	// are the two signs of ONE delta field (§8.2), split at the very end on the target grid. Splitting
+	// per part and interpolating the halves separately would let a bilinear tap straddling a sign change
+	// produce a cell with erosion AND deposition both non-zero, which is the invariant gate Q measures.
+	std::vector<float> delta((size_t)n, 0.0f);
+	std::vector<float> flow((size_t)n, 0.0f); // log-scaled; 0 == SIM_FLOW_FLOOR == "no catchment here"
+	std::vector<float> wet((size_t)n, 0.0f);
+	// Merge precedence (§8.2). A cell inside a loop's WRITE area beats a cell that some other loop merely
+	// simulated as catchment margin; ties go to the earlier loop. 0 = nothing has claimed this cell yet.
+	std::vector<uint8_t> prio((size_t)n, 0);
+
+	int parts_used = 0;
+	for (int k = 0; k < p_parts.size(); k++) {
+		const Dictionary part = p_parts[k];
+		const int sw = (int)part.get("sw", 0);
+		const int sh = (int)part.get("sh", 0);
+		const double pcell = (double)part.get("cell", 0.0);
+		const double pmin_x = (double)part.get("min_x", 0.0);
+		const double pmin_z = (double)part.get("min_z", 0.0);
+		const PackedFloat32Array z0 = part.get("z0", PackedFloat32Array());
+		const PackedFloat32Array z1 = part.get("z1", PackedFloat32Array());
+		const PackedFloat32Array pflow = part.get("flow", PackedFloat32Array());
+		const PackedFloat32Array plake = part.get("lake", PackedFloat32Array());
+		const int64_t sn = (int64_t)sw * (int64_t)sh;
+		if (sw < 2 || sh < 2 || pcell <= 0.0 || z0.size() < sn || z1.size() < sn ||
+				pflow.size() < sn || plake.size() < sn) {
+			continue;
+		}
+		// The loop's own write footprint, in world XZ, for the precedence rule above.
+		const double wx0 = (double)part.get("write_min_x", pmin_x);
+		const double wz0 = (double)part.get("write_min_z", pmin_z);
+		const double wx1 = (double)part.get("write_max_x", pmin_x + pcell * (sw - 1));
+		const double wz1 = (double)part.get("write_max_z", pmin_z + pcell * (sh - 1));
+
+		// Derived once per part, on the part's own grid: the net delta (§8.2 — the NET positive/negative
+		// parts of z_final - z_initial, not an accumulation over iterations) and the log flow.
+		std::vector<float> pd((size_t)sn), pf((size_t)sn);
+		{
+			const float *a = z0.ptr();
+			const float *b = z1.ptr();
+			const float *f = pflow.ptr();
+			for (int64_t i = 0; i < sn; i++) {
+				pd[(size_t)i] = (std::isfinite(a[i]) && std::isfinite(b[i])) ? (b[i] - a[i]) : (float)NAN;
+				const double av = std::isfinite(f[i]) ? (double)f[i] : SIM_FLOW_FLOOR;
+				pf[(size_t)i] = (float)std::log(std::max(av, SIM_FLOW_FLOOR));
+			}
+		}
+		const float *pl = plake.ptr();
+		parts_used++;
+
+		// Fast path: the single-loop case, where the target grid IS this part's grid. Worth its own
+		// branch — it is the overwhelmingly common case, and it makes the shipped result bit-exact
+		// rather than "the same to within a bilinear tap that should have been the identity".
+		const bool exact = p_parts.size() == 1 && sw == tw && sh == th &&
+				std::abs(pmin_x - tmin_x) < 1.0e-6 && std::abs(pmin_z - tmin_z) < 1.0e-6 &&
+				std::abs(pcell - tcell) < 1.0e-9;
+		if (exact) {
+			for (int64_t i = 0; i < n; i++) {
+				delta[(size_t)i] = std::isfinite(pd[(size_t)i]) ? pd[(size_t)i] : 0.0f;
+				flow[(size_t)i] = pf[(size_t)i];
+				wet[(size_t)i] = std::isfinite(pl[i]) ? pl[i] : 0.0f;
+				prio[(size_t)i] = 2;
+			}
+			continue;
+		}
+
+		for (int iz = 0; iz < th; iz++) {
+			const double wz = tmin_z + (double)iz * tcell;
+			const double fv = (wz - pmin_z) / pcell;
+			if (fv < -SIM_BLIT_EPS || fv > (double)(sh - 1) + SIM_BLIT_EPS) {
+				continue;
+			}
+			const bool in_wz = (wz >= wz0 - SIM_BLIT_EPS && wz <= wz1 + SIM_BLIT_EPS);
+			const int row = iz * tw;
+			for (int ix = 0; ix < tw; ix++) {
+				const double wx = tmin_x + (double)ix * tcell;
+				const double fu = (wx - pmin_x) / pcell;
+				if (fu < -SIM_BLIT_EPS || fu > (double)(sw - 1) + SIM_BLIT_EPS) {
+					continue;
+				}
+				const uint8_t p = (in_wz && wx >= wx0 - SIM_BLIT_EPS && wx <= wx1 + SIM_BLIT_EPS) ? 2 : 1;
+				if (p <= prio[(size_t)(row + ix)]) {
+					continue; // an earlier loop already claimed this cell at the same or better standing
+				}
+				double dv = 0.0, fvv = 0.0, lv = 0.0;
+				if (!grid_bilinear(pd.data(), sw, sh, fu, fv, dv)) {
+					dv = 0.0; // a no-data corner: no honest delta, so this cell moved by nothing
+				}
+				grid_bilinear(pf.data(), sw, sh, fu, fv, fvv);
+				grid_bilinear(pl, sw, sh, fu, fv, lv);
+				delta[(size_t)(row + ix)] = (float)dv;
+				flow[(size_t)(row + ix)] = (float)fvv;
+				wet[(size_t)(row + ix)] = (float)lv;
+				prio[(size_t)(row + ix)] = p;
+			}
+		}
+	}
+	if (parts_used == 0) {
+		return out;
+	}
+
+	// §8.2 + gate Q: erosion and deposition are the negative and positive halves of the SAME field, so
+	// no cell can carry both and their sum reconstructs the delta bit-for-bit.
+	PackedFloat32Array o_flow, o_ero, o_dep, o_wet;
+	o_flow.resize((int)n);
+	o_ero.resize((int)n);
+	o_dep.resize((int)n);
+	o_wet.resize((int)n);
+	float *fo = o_flow.ptrw();
+	float *eo = o_ero.ptrw();
+	float *dpo = o_dep.ptrw();
+	float *wo = o_wet.ptrw();
+	for (int64_t i = 0; i < n; i++) {
+		const float d = delta[(size_t)i];
+		fo[i] = flow[(size_t)i];
+		eo[i] = d < 0.0f ? d : 0.0f;
+		dpo[i] = d > 0.0f ? d : 0.0f;
+		wo[i] = wet[(size_t)i] > 0.0f ? wet[(size_t)i] : 0.0f;
+	}
+	out["flow"] = o_flow;
+	out["erosion"] = o_ero;
+	out["deposition"] = o_dep;
+	out["wetness"] = o_wet;
+	out["parts"] = parts_used;
+	out["ok"] = true;
+	return out;
 }
