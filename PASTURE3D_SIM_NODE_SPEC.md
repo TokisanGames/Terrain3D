@@ -1,10 +1,10 @@
 # Pasture3D Sim Node Spec (`Pasture3DSim`)
 
-**Status:** **PHASES 1–3 IMPLEMENTED** (phase 1 2026-08-08, phases 2–3 2026-08-09). Phase 4 remains
-design. Drafted 2026-08-08; **solver replaced the same day** after a survey of Houdini, World Machine,
-Gaea and the large-scale-terrain literature (§16). Target: Godot 4.7, Pasture3D `main`.
+**Status:** **COMPLETE — ALL FOUR PHASES IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09).
+Drafted 2026-08-08; **solver replaced the same day** after a survey of Houdini, World Machine, Gaea and
+the large-scale-terrain literature (§16). Target: Godot 4.7, Pasture3D `main`.
 
-Phases 1–3 ship as:
+Phases 1–4 ship as:
 
 | File | What | Phase |
 |---|---|---|
@@ -22,6 +22,9 @@ Phases 1–3 ship as:
 | [connectors/plow.gd](project/addons/pasture_3d/connectors/plow.gd) | Resolving the result off the material tree, resampling it onto the bake grid, and the four warnings | 3 |
 | [demo/data/relief/channel_boulders.tres](project/demo/data/relief/channel_boulders.tres) | The demo preset: gravel that only appears where more than 2 000 m² drains through | 3 |
 | [bench/SimPhase3Gate.tscn](project/bench/SimPhase3Gate.gd) | Gate L (L1–L7), all passing with their controls | 3 |
+| [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `sim_extract_water` — the drainage tree to river links, the depression fill to shorelines | 4 |
+| [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | Thresholds, surface reconstruction, Preview / Add / Clear Brushes, and the generated Trough and Pond builders | 4 |
+| [bench/SimPhase4Gate.tscn](project/bench/SimPhase4Gate.gd) | Gates M, N, O, Y, Z, all passing with their controls | 4 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
 records the gate results and the criteria that were vacuous until their controls caught them.
@@ -530,6 +533,46 @@ disturb authored work, and the whole generated set gets one visibility toggle.
   (matching `place_brush_at`'s `add_do_reference` pattern).
 - **Clear Brushes** removes every generated brush, edited or not, one undo, reporting the count first.
 
+> **Built as designed**, with five things the design left open.
+>
+> **1 — Extraction does not re-solve, and does not store the elevation.** Add Brushes has to work after a
+> reload, without the multi-second cost of the solver and without a fifth mask channel (§8.2 is explicit
+> that adding one later means re-running every simulation in the project). So the surface the sim
+> finished with is **reconstructed**: `composite_height_below(sim layer) + (erosion + deposition)`. That
+> is exact by construction, because those two channels *are* the net delta against exactly that ground.
+> It is also independent of anything ABOVE Sim's layer, so a flow-gated relief material stamped on top
+> does not move the rivers. What it is sensitive to is a change to a layer BELOW Sim's, which moves the
+> reconstruction without moving the masks — but that invalidates the erosion just as much, and pressing
+> Simulate fixes both. Gate Z measures the reconstruction against the sim's own stored `flow`.
+>
+> **2 — One routing pass serves both extractions**, and it is the *solver's* own zero-iteration mode
+> rather than a second private priority-flood. That is what makes the extracted network the network the
+> sim actually produced, and it is why the lake fill costs nothing extra.
+>
+> **3 — Rivers are a stream-link decomposition.** A channel cell's receiver is always a channel cell
+> (drainage area only grows downstream), so the channel set is a forest; cutting it at every cell with
+> zero channel donors (a head) or two or more (a confluence) gives exactly §10.1's "one polyline per
+> segment between junctions". A junction belongs to every link that touches it, so the polylines *meet*
+> rather than leaving a one-cell gap at every confluence.
+>
+> **4 — Lake components are FOUR-connected, and the shoreline is chained cell edges rather than marching
+> squares.** Eight-connected regions can touch at a corner, and a contour traced round one of those is
+> not a simple loop — it pinches to a point, and a Pond's polygon fill behaves unpredictably there.
+> Four-connectivity costs a couple of extra lakes where a channel narrows to a diagonal and buys a
+> boundary that is always a clean ring. The ring itself is built by emitting the cell edges that have dry
+> ground on the far side, consistently wound, and chaining them head to tail; the longest ring is the
+> shore and any others are islands, which a Pond has no way to express. This runs on cell boundaries
+> rather than at the sub-cell waterline the design asked for — the difference is half a cell, and the
+> Pond's own falloff is wider than that.
+>
+> **5 — The marker is metadata, and the water is synchronous.** §10.4's "stored-but-hidden
+> `_generated_by_sim` flag" is a `set_meta`, which needs no new exported property on Trough or Pond —
+> those are ordinary brushes that know nothing about the sim and should stay that way. Generated brushes
+> are found by walking the Sim's whole subtree for that marker, so a rename does not orphan one and
+> neither does dragging it out of the `Generated` folder. And both kinds get `add_pool_now()` called on
+> them explicitly: a Pond would otherwise seed its own water on the next idle frame, which is one frame
+> in which Add Brushes has produced a dry lake.
+
 ---
 
 ## 11. Where it runs
@@ -690,7 +733,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **1 — DONE** | Flow routing + depression fill + drainage area + implicit incision + hillslope diffusion; erodability map; preview/build resolutions; catchment margin + mask; `apply_sim_block`; Preview / Simulate / Clear UX |
 | **2 — DONE** | `Pasture3DSimResult` with all four channels, written on every Preview and Simulate; the multi-loop merge; source-parameter recording (§15.4); the shared-layer overlap warning (§15.7) |
 | **3 — DONE** | Selector Kinds `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; the unit conversions that make their bands artist-readable; four configuration warnings; `channel_boulders.tres`, a demo preset pairing an eroded area with a flow-gated relief material |
-| **4** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
+| **4 — DONE** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
 
 ### Gates
 
@@ -711,9 +754,11 @@ must distinguish "measured nothing" from "measured correctly".
 | J | **Preview agrees with build on large-scale structure.** Low-frequency delta matches within tolerance. | Compare high-frequency content → they differ, as expected; the gate must test the claim actually made. |
 | K | **Erosion is monotone where diffusion is off.** With `D = 0`, no cell rises. | Enable diffusion → some cells rise, confirming the gate is sensitive to the thing it measures. |
 | L | *(phase 3)* **Sim selectors gate.** Seven criteria, because one claim about a gate is not seven. **L1** a `FLOW`-gated material appears in channels, not on ridges. **L2** each Kind reads its OWN channel. **L3** a `FLOW` band is in m², not log units. **L4** an `EROSION` band is a positive depth. **L5** outside the extent the gate is a defined 0. **L6** the two raster paths agree. **L7** a sim-gated bake does not drift. | L1 selector `strength = 0` → covers everything. L2 the band predicted from each channel's own distribution — relief off those cells is a failure. L3 a band of plausible LOG values, which must not light the channels. L4 the resource's own negative sign, which must select nothing. L5 the same brush inside the extent. L6 the relief is not flat. L7 L1 already proved the bake is not a no-op. |
-| M | *(phase 4)* **Clear removes exactly the generated set.** A hand-placed Pond and Trough survive. | Identify generated nodes by name → the authored ones are destroyed. |
-| N | *(phase 4)* **Confluences split.** A synthetic Y-shaped catchment yields three segments, not two overlapping paths. | — |
-| O | *(phase 4)* **Extraction is monotonic.** Raising `river_area_threshold` never increases the river count. | — |
+| M | *(phase 4)* **Clear removes exactly the generated set.** A hand-placed Pond and Trough survive, and every generated river arrives with water on it. | Identify generated nodes by name → the authored ones are destroyed. Plus: the authored Trough must be dry, or "generated rivers have water" is not measuring the pool path. |
+| N | *(phase 4)* **Confluences split.** A synthetic Y-shaped catchment yields three segments, and they PARTITION the channel — summed cell counts exceed the channel cell count only by the junction. | The total a source-to-outlet walk would have produced, computed from the measured trunk length. The count alone is not enough: source-to-outlet also yields three here. |
+| O | *(phase 4)* **Extraction is monotonic.** Raising `river_area_threshold` never increases the channel cell count or the link count. | The counts must actually move across the sweep, or monotonicity is trivially true. |
+| Y | *(phase 4)* **Lakes come off the depression fill at the right size and depth.** A paraboloid bowl in a FLAT plain floods to `πR²(1 − threshold/depth)` and its 90th-percentile depth is `0.9 × depth`; the shoreline encloses the bowl. | No bowl → no lakes. And `min_lake_area` raised above the bowl → it is filtered out. |
+| Z | *(phase 4)* **The eroded surface is reconstructed exactly** from the masks, so extraction never re-solves and stores no fifth channel. Routing the reconstruction reproduces the sim's own `flow`. | Route the un-eroded ground instead — the mistake a reconstruction that forgot the delta would make. |
 | P | *(phase 2)* **The masks are at SIM resolution over the SIMULATED area.** `cell_size` is `vertex_spacing × divisor`, the extent covers the loop plus its catchment margin, all four channels are `width × height`, the source parameters describe the solve that ran, and a Clear empties them. | The same node with margin 0 at build resolution, where the sim grid and the write grid coincide — it must match the write grid, or the fixture above was not separating the two. |
 | Q | *(phase 2)* **`erosion` and `deposition` are the two signs of one field.** No cell carries both, and their sum reconstructs the net delta exactly. | `deposition := \|erosion\|` — a duplicated channel. Both halves of the criterion must fail. |
 | R | *(phase 2)* **With `hillslope_diffusion = 0`, deposition is IDENTICALLY zero.** Not small — 0.0 on every cell. | Diffusion on → cells deposit, so an exact zero is not vacuous. |
@@ -860,6 +905,38 @@ inversion the criterion was built around. It took L1, L2's FLOW row, L6 and L7 w
 `DEPOSITION` to the wetness channel failed L2's deposition row alone, leaving the other three passing —
 the per-Kind discrimination the first form never had.
 
+### Gate results (phase 4, all passing)
+
+`bench/SimPhase4Gate.tscn`, headless, ~15 s. N, O and Y drive `sim_extract_water` directly on synthetic
+fields whose answer is known by construction; M and Z drive a real Sim on the demo terrain.
+
+| # | Measured | Control |
+|---|---|---|
+| N | 149 channel cells → **3 links** (two tributaries of 44 cells, a trunk of 64); 152 cells across the links, **+3** of overlap — the junction, which all three touch | Source-to-outlet would total 213 cells, +64 of overlap |
+| O | 1 000 → 32 000 m²: channel cells 991 → 54, links 70 → 2, never rising at any step | The count moved 70 → 2 across the sweep |
+| Y | One lake: area 10 896 m² against an analytic 11 108 (**−1.9%**), depth 25.51 m against an analytic p90 of 25.20 (the bowl's *max* is 28.00), 60-point shoreline centred on the bowl to 0.0 m | No bowl → 0 lakes, 0 flooded cells. `min_lake_area` above the bowl → 0 lakes |
+| Z | Worst \|log(rebuilt area) − stored flow\| = **4.8e-7** over 116 622 cells | Routing the un-eroded ground → worst 10.8, 102 644 cells past tolerance |
+| M | 4 rivers + 1 lake generated, **all 5 arriving with water**; Clear removed exactly 5 and both authored brushes survived | A name-based collector matches **7** — it would take the authored pair too. And the authored Trough is dry, so the water criterion is not vacuous |
+
+**Two deliberate breaks confirmed the gates bite, and the first shows why N needed two criteria.**
+Removing the junction stop from the river walk — so segments run source-to-outlet — still produced
+**exactly three links**, because the heads still start segments. The count was unchanged and only the
+partition test saw it: 278 cells across the links against 149 channel cells, +129 of overlap. A gate that
+had only counted segments, as the original criterion did, would have passed a scheme that carves every
+shared trunk once per tributary. Making `collect_generated()` match on name instead of the marker failed
+M as designed: `authored Pond alive false, Trough alive false`.
+
+**Two fixture faults were found the same way as in phase 3 — by disbelieving a result.** Gate Z first
+compared drainage areas directly and reported 87 758 of 116 281 cells "differing", all by at most
+0.018 m²: the stored channel is a float32 *logarithm*, so `exp()`ing it back carries ~1e-7 of relative
+error, which on a 100 000 m² trunk looks alarming and means nothing. Routing is topological, so the
+comparison belongs in log space, where the real signal is 10.8 and the noise is 5e-7. And gate M's first
+site produced **no lakes at all**, so the entire Pond half of §10 was passing untested; the fixture moved
+to a site with a basin in it and now requires both kinds. A third fault was in the fixture's own
+adversary: an authored brush named `River` dropped beside a generated `River` is silently renamed by
+Godot, which quietly removed the naming conflict the control depends on — the authored pair is now
+parented one level up, where it can keep the exact name.
+
 `bench/SimResultProbe.tscn` is phase 2's picture, the counterpart to `SimFieldProbe` for the height: one
 greyscale image per channel over a real demo bake, an RGB composite of erosion/deposition/wetness, and
 the before/after standing-water pair that shows how much of the `wetness` channel is the demo terrain's
@@ -881,8 +958,12 @@ own authored basins rather than anything the sim made. The channel table in §8.
    writing node's name, the loop-footprint hash and the write time (§8.2, decision 6). The node warns
    today when an assigned result's hash does not match its last bake; the numeric settings are recorded
    for phase 3, which is the consumer that actually needs to say "this mask predates your current rate".
-5. **Does phase 4 want `Pasture3DStream` as well as `Trough`** for long thin rivers? Easier to judge once
-   phase 1 output exists.
+5. ~~**Does phase 4 want `Pasture3DStream` as well as `Trough`** for long thin rivers? Easier to judge
+   once phase 1 output exists.~~ **Answered by building it: no, and it already gets one.** A generated
+   Trough is handed to `add_pool_now()`, and that path decides what kind of water to build from the
+   CURVE, not from the brush class — an open curve becomes a river ribbon. So a generated river carries
+   the Trough for the editable spline and the shallow bed, and the ribbon comes free. Gate M asserts
+   every generated river arrives with water on it.
 6. **A channel-initiation threshold.** *(Raised by phase 1.)* Stream power is applied to every cell,
    hillslopes included, so at high `erosion_rate` the result develops fine parallel gullies at roughly
    one-cell spacing — visible in the probe's `demo_r05_d015` hillshade. Real landscape-evolution models

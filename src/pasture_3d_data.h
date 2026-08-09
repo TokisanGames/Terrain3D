@@ -321,6 +321,13 @@ public:
 	// {ok, flow, erosion, deposition, wetness, parts}. `flow` is log-scaled (exp() it to get m²), and
 	// erosion/deposition are the negative and positive halves of one net delta field, never both.
 	Dictionary sim_result_build(const Array &p_parts, const Dictionary &p_target);
+	// §10 — rivers and lakes off ONE routing pass over an already-eroded surface. `params` carries the
+	// grid ({gw, gh, cell_size, min_x, min_z}) and the thresholds ({river_area_threshold,
+	// min_river_length, curve_tolerance, lake_depth_threshold, min_lake_area, lake_depth_percentile}).
+	// Returns {ok, rivers, lakes, channel_cells, lake_cells}, where each river is
+	// {points, areas, length, cells} — one polyline per link between confluences, already
+	// Douglas-Peucker simplified — and each lake is {contour, level, depth, area, cells}.
+	Dictionary sim_extract_water(const PackedFloat32Array &p_z, const Dictionary &p_params);
 	// Per-cell write used by the native rasterisers. When p_composite, defers to the per-pixel composite
 	// API (full-refresh path). Otherwise writes the sample directly into p_layer, caching the resolved
 	// region in r_loc/r_region so a run of cells in the same region skips the per-cell layer+region

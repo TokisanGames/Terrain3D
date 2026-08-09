@@ -6,6 +6,7 @@
 //   sim_mask_deltas    §5 "simulate wide, write narrow" — deltas back UP, through the loop's falloff
 //   apply_sim_block    §8.1 — the batched raw-tile delta write, shared with the stamp_* rasterisers
 //   sim_result_build   §8.2 — the four Pasture3DSimResult channels, merged across a node's loops
+//   sim_extract_water  §10 — rivers off the drainage tree and lakes off the depression fill
 //
 // The solver itself is deliberately elsewhere and terrain-free: everything that touches a layer is
 // here, everything that is landscape-evolution physics is in pasture_3d_erosion.cpp, and the gates
@@ -19,6 +20,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 using namespace godot;
@@ -71,6 +74,70 @@ inline bool grid_bilinear(const float *p_src, int p_w, int p_h, double p_fu, dou
 	const double b = (double)v01 * (1.0 - tx) + (double)v11 * tx;
 	r_out = a * (1.0 - ty) + b * ty;
 	return true;
+}
+
+// Douglas-Peucker on an XZ polyline, returning the indices KEPT, in order. Indices rather than points
+// because every river polyline carries a parallel drainage-area array that has to be decimated with it.
+// Iterative: a 500 m channel at 1 m cells recurses 500 deep in the degenerate case, and the editor's
+// stack is not the place to find that out.
+void dp_simplify(const std::vector<Vector2> &p_pts, double p_tol, std::vector<int> &r_keep) {
+	const int n = (int)p_pts.size();
+	r_keep.clear();
+	if (n <= 2) {
+		for (int i = 0; i < n; i++) {
+			r_keep.push_back(i);
+		}
+		return;
+	}
+	std::vector<uint8_t> keep((size_t)n, 0);
+	keep[0] = 1;
+	keep[(size_t)n - 1] = 1;
+	std::vector<std::pair<int, int>> work;
+	work.push_back({ 0, n - 1 });
+	const double tol2 = p_tol * p_tol;
+	while (!work.empty()) {
+		const std::pair<int, int> seg = work.back();
+		work.pop_back();
+		const int a = seg.first;
+		const int b = seg.second;
+		if (b <= a + 1) {
+			continue;
+		}
+		const Vector2 pa = p_pts[(size_t)a];
+		const Vector2 pb = p_pts[(size_t)b];
+		const Vector2 ab = pb - pa;
+		const double len2 = (double)ab.x * ab.x + (double)ab.y * ab.y;
+		double worst = -1.0;
+		int worst_i = -1;
+		for (int i = a + 1; i < b; i++) {
+			const Vector2 p = p_pts[(size_t)i];
+			double d2;
+			if (len2 <= 1.0e-12) {
+				const double dx = (double)p.x - pa.x, dz = (double)p.y - pa.y;
+				d2 = dx * dx + dz * dz;
+			} else {
+				double t = (((double)p.x - pa.x) * ab.x + ((double)p.y - pa.y) * ab.y) / len2;
+				t = std::min(std::max(t, 0.0), 1.0);
+				const double cx = (double)pa.x + ab.x * t, cz = (double)pa.y + ab.y * t;
+				const double dx = (double)p.x - cx, dz = (double)p.y - cz;
+				d2 = dx * dx + dz * dz;
+			}
+			if (d2 > worst) {
+				worst = d2;
+				worst_i = i;
+			}
+		}
+		if (worst_i >= 0 && worst > tol2) {
+			keep[(size_t)worst_i] = 1;
+			work.push_back({ a, worst_i });
+			work.push_back({ worst_i, b });
+		}
+	}
+	for (int i = 0; i < n; i++) {
+		if (keep[(size_t)i]) {
+			r_keep.push_back(i);
+		}
+	}
 }
 
 } // namespace
@@ -419,6 +486,288 @@ Dictionary Pasture3DData::sim_result_build(const Array &p_parts, const Dictionar
 	out["deposition"] = o_dep;
 	out["wetness"] = o_wet;
 	out["parts"] = parts_used;
+	out["ok"] = true;
+	return out;
+}
+
+Dictionary Pasture3DData::sim_extract_water(const PackedFloat32Array &p_z, const Dictionary &p_params) {
+	Dictionary out;
+	out["ok"] = false;
+	const int gw = (int)p_params.get("gw", 0);
+	const int gh = (int)p_params.get("gh", 0);
+	const int64_t n = (int64_t)gw * (int64_t)gh;
+	if (gw < 3 || gh < 3 || p_z.size() < n) {
+		return out;
+	}
+	const double cell = MAX((double)p_params.get("cell_size", 1.0), 1.0e-6);
+	const double min_x = (double)p_params.get("min_x", 0.0);
+	const double min_z = (double)p_params.get("min_z", 0.0);
+	const double river_area = (double)p_params.get("river_area_threshold", 5000.0);
+	const double min_len = (double)p_params.get("min_river_length", 40.0);
+	const double tol = MAX((double)p_params.get("curve_tolerance", 2.0), 0.0);
+	const double lake_min_depth = (double)p_params.get("lake_depth_threshold", 0.5);
+	const double lake_min_area = (double)p_params.get("min_lake_area", 200.0);
+	const double depth_pct = CLAMP((double)p_params.get("lake_depth_percentile", 0.9), 0.0, 1.0);
+	const double cell_area = cell * cell;
+
+	// ---- One routing pass, shared by both extractions ----------------------------------------------
+	// §10's whole premise: the router already produced a pit-free forest with drainage areas, so this is
+	// a traversal and not a reconstruction. Running the SAME solver in its zero-iteration routing mode
+	// (rather than a second, private implementation of priority-flood) is what makes the extracted
+	// network the network the sim actually produced, and it is why the lake fill costs nothing extra.
+	std::vector<float> z((size_t)n);
+	for (int64_t i = 0; i < n; i++) {
+		z[(size_t)i] = p_z[(int)i];
+	}
+	ErosionParams ep;
+	ep.gw = gw;
+	ep.gh = gh;
+	ep.cell_size = cell;
+	ep.iterations = 0;
+	ep.want_diagnostics = true;
+	const ErosionResult r = erosion_solve(z, ep, PackedFloat32Array());
+	if (!r.ok) {
+		return out;
+	}
+
+	// ---- 10.1 Rivers ---------------------------------------------------------------------------------
+	// Stream-link decomposition. A channel cell's receiver is always a channel cell too (drainage area
+	// only grows downstream), so the channel set is a forest and its links are exactly the segments §10.1
+	// asks for: cut at every cell with zero channel donors (a head) or two or more (a confluence).
+	// Walking one polyline per source-to-outlet instead would overlap every shared trunk and carve it
+	// once per tributary.
+	std::vector<uint8_t> is_channel((size_t)n, 0);
+	int channel_cells = 0;
+	for (int64_t i = 0; i < n; i++) {
+		if (!r.boundary[(size_t)i] && (double)r.flow[(size_t)i] >= river_area) {
+			is_channel[(size_t)i] = 1;
+			channel_cells++;
+		}
+	}
+	std::vector<int> chan_donors((size_t)n, 0);
+	for (int64_t i = 0; i < n; i++) {
+		if (!is_channel[(size_t)i]) {
+			continue;
+		}
+		const int rc = r.receiver[(size_t)i];
+		if (rc != (int)i && is_channel[(size_t)rc]) {
+			chan_donors[(size_t)rc]++;
+		}
+	}
+	Array rivers;
+	std::vector<Vector2> poly;
+	std::vector<int> cells;
+	std::vector<int> keep;
+	for (int64_t s = 0; s < n; s++) {
+		if (!is_channel[(size_t)s] || chan_donors[(size_t)s] == 1) {
+			continue; // interior to some other link, not the start of one
+		}
+		poly.clear();
+		cells.clear();
+		int cur = (int)s;
+		cells.push_back(cur);
+		double length = 0.0;
+		while (true) {
+			const int rc = r.receiver[(size_t)cur];
+			if (rc == cur) {
+				break; // an outlet: the river leaves the map here
+			}
+			const int dx = (rc % gw) - (cur % gw);
+			const int dz = (rc / gw) - (cur / gw);
+			length += (dx != 0 && dz != 0) ? cell * 1.4142135623730951 : cell;
+			cells.push_back(rc);
+			// Stop AT the next junction (it belongs to both links, so the polylines meet rather than
+			// leaving a one-cell gap at every confluence), and at the domain edge.
+			if (r.boundary[(size_t)rc] || !is_channel[(size_t)rc] || chan_donors[(size_t)rc] != 1) {
+				break;
+			}
+			cur = rc;
+		}
+		if (cells.size() < 2 || length < min_len) {
+			continue;
+		}
+		poly.reserve(cells.size());
+		for (size_t k = 0; k < cells.size(); k++) {
+			const int i = cells[k];
+			poly.push_back(Vector2((float)(min_x + (double)(i % gw) * cell),
+					(float)(min_z + (double)(i / gw) * cell)));
+		}
+		dp_simplify(poly, tol, keep);
+		PackedVector3Array pts;
+		PackedFloat32Array areas;
+		pts.resize((int)keep.size());
+		areas.resize((int)keep.size());
+		for (size_t k = 0; k < keep.size(); k++) {
+			const int i = cells[(size_t)keep[k]];
+			const float y = std::isfinite(p_z[i]) ? p_z[i] : 0.0f;
+			pts[(int)k] = Vector3(poly[(size_t)keep[k]].x, y, poly[(size_t)keep[k]].y);
+			areas[(int)k] = r.flow[(size_t)i];
+		}
+		Dictionary seg;
+		seg["points"] = pts;
+		seg["areas"] = areas;
+		seg["length"] = length;
+		seg["cells"] = (int)cells.size();
+		rivers.push_back(seg);
+	}
+
+	// ---- 10.2 Lakes ----------------------------------------------------------------------------------
+	// FOUR-connected components, not eight. Eight-connected regions can touch at a corner, and a contour
+	// traced round one of those is not a simple loop — it pinches to a point and the Pond's polygon fill
+	// behaves unpredictably there. Four-connectivity costs a couple of extra lakes where a channel
+	// narrows to a diagonal and buys a boundary that is always a clean ring.
+	std::vector<uint8_t> wet((size_t)n, 0);
+	int lake_cells = 0;
+	for (int64_t i = 0; i < n; i++) {
+		if ((double)r.lake_depth[(size_t)i] > lake_min_depth && std::isfinite(p_z[(int)i])) {
+			wet[(size_t)i] = 1;
+			lake_cells++;
+		}
+	}
+	Array lakes;
+	std::vector<int> comp;
+	std::vector<int> frontier;
+	std::vector<double> depths;
+	std::vector<uint8_t> seen((size_t)n, 0);
+	constexpr int C4_DX[4] = { 0, 1, 0, -1 };
+	constexpr int C4_DZ[4] = { -1, 0, 1, 0 };
+	for (int64_t s = 0; s < n; s++) {
+		if (!wet[(size_t)s] || seen[(size_t)s]) {
+			continue;
+		}
+		comp.clear();
+		frontier.clear();
+		frontier.push_back((int)s);
+		seen[(size_t)s] = 1;
+		while (!frontier.empty()) {
+			const int c = frontier.back();
+			frontier.pop_back();
+			comp.push_back(c);
+			const int cx = c % gw;
+			const int cz = c / gw;
+			for (int k = 0; k < 4; k++) {
+				const int nx = cx + C4_DX[k];
+				const int nz = cz + C4_DZ[k];
+				if (nx < 0 || nz < 0 || nx >= gw || nz >= gh) {
+					continue;
+				}
+				const int ni = nz * gw + nx;
+				if (wet[(size_t)ni] && !seen[(size_t)ni]) {
+					seen[(size_t)ni] = 1;
+					frontier.push_back(ni);
+				}
+			}
+		}
+		const double area = (double)comp.size() * cell_area;
+		if (area < lake_min_area) {
+			continue;
+		}
+		// Depth from a high percentile, not the max (§10.2): one deep sinkhole inside a shallow lake
+		// must not make the whole pond that deep.
+		depths.clear();
+		depths.reserve(comp.size());
+		double level_sum = 0.0;
+		for (size_t k = 0; k < comp.size(); k++) {
+			const int i = comp[k];
+			depths.push_back((double)r.lake_depth[(size_t)i]);
+			level_sum += (double)p_z[i] + (double)r.lake_depth[(size_t)i];
+		}
+		std::sort(depths.begin(), depths.end());
+		const double depth = depths[(size_t)std::min((size_t)(depth_pct * (double)depths.size()), depths.size() - 1)];
+		const double level = level_sum / (double)comp.size();
+
+		// The waterline, as the chain of cell edges with dry ground on the far side. Every such edge is
+		// emitted with a consistent winding, so chaining them head-to-tail closes into rings; the longest
+		// ring is the shore and any others are islands, which a Pond has no way to express.
+		std::unordered_map<int64_t, int64_t> edge_from;
+		const int cw = gw + 1;
+		for (size_t k = 0; k < comp.size(); k++) {
+			const int i = comp[k];
+			const int cx = i % gw;
+			const int cz = i / gw;
+			const int64_t c00 = (int64_t)cz * cw + cx;
+			const int64_t c10 = c00 + 1;
+			const int64_t c01 = c00 + cw;
+			const int64_t c11 = c01 + 1;
+			const bool north = cz > 0 && wet[(size_t)(i - gw)];
+			const bool south = cz < gh - 1 && wet[(size_t)(i + gw)];
+			const bool west = cx > 0 && wet[(size_t)(i - 1)];
+			const bool east = cx < gw - 1 && wet[(size_t)(i + 1)];
+			if (!north) {
+				edge_from[c00] = c10;
+			}
+			if (!east) {
+				edge_from[c10] = c11;
+			}
+			if (!south) {
+				edge_from[c11] = c01;
+			}
+			if (!west) {
+				edge_from[c01] = c00;
+			}
+		}
+		std::vector<Vector2> best;
+		std::vector<Vector2> ring;
+		std::unordered_map<int64_t, int64_t> pending = edge_from;
+		while (!pending.empty()) {
+			ring.clear();
+			const int64_t start = pending.begin()->first;
+			int64_t at = start;
+			while (true) {
+				auto it = pending.find(at);
+				if (it == pending.end()) {
+					break;
+				}
+				const int64_t next = it->second;
+				pending.erase(it);
+				const int64_t xc = at % cw;
+				const int64_t zc = at / cw;
+				// Corner (xc,zc) sits half a cell before sample (xc,zc), so the ring runs along the cell
+				// boundary rather than through the centres of the wet cells.
+				ring.push_back(Vector2((float)(min_x + ((double)xc - 0.5) * cell),
+						(float)(min_z + ((double)zc - 0.5) * cell)));
+				at = next;
+				if (at == start) {
+					break;
+				}
+			}
+			if (ring.size() > best.size()) {
+				best = ring;
+			}
+		}
+		if (best.size() < 4) {
+			continue; // no usable shoreline; a 3-corner ring is not a polygon anything can fill
+		}
+		dp_simplify(best, tol, keep);
+		// A closed ring's first and last points are adjacent, so DP's forced endpoints can leave a
+		// near-duplicate; drop it rather than hand a Curve3D two coincident points.
+		PackedVector3Array contour;
+		for (size_t k = 0; k < keep.size(); k++) {
+			const Vector2 p = best[(size_t)keep[k]];
+			if (contour.size() > 0) {
+				const Vector3 prev = contour[contour.size() - 1];
+				if (std::abs(prev.x - p.x) < 1.0e-4 && std::abs(prev.z - p.y) < 1.0e-4) {
+					continue;
+				}
+			}
+			contour.push_back(Vector3(p.x, (float)level, p.y));
+		}
+		if (contour.size() < 3) {
+			continue;
+		}
+		Dictionary lake;
+		lake["contour"] = contour;
+		lake["level"] = level;
+		lake["depth"] = depth;
+		lake["area"] = area;
+		lake["cells"] = (int)comp.size();
+		lakes.push_back(lake);
+	}
+
+	out["rivers"] = rivers;
+	out["lakes"] = lakes;
+	out["channel_cells"] = channel_cells;
+	out["lake_cells"] = lake_cells;
 	out["ok"] = true;
 	return out;
 }

@@ -118,6 +118,34 @@ const RESULT_MAX_CELLS: int = 4194304
 		sim_result = v
 		update_configuration_warnings()
 
+@export_group("Water Features")
+## Upstream catchment a cell must drain before it counts as a river, in SQUARE METRES (§10.1). An area
+## rather than an arbitrary flow number: "everything with more than half a hectare above it" is a
+## statement about the landscape, and it means the same thing at any sim resolution.
+##
+## Lower it for a denser network of small streams; raise it to keep only the trunk valleys.
+@export_range(100.0, 1000000.0, 100.0, "or_greater") var river_area_threshold: float = 5000.0
+## Segments shorter than this are dropped, in metres. A drainage network has a great many one-cell stubs
+## where two channels meet, and every one of them would otherwise become a Trough.
+@export_range(0.0, 500.0, 1.0, "or_greater") var min_river_length: float = 40.0
+## How far a simplified spline may stray from the traced channel, in metres. The raw path is one point
+## per cell, which is far more than a Curve3D needs and unusable to edit by hand.
+@export_range(0.1, 32.0, 0.1, "or_greater") var curve_tolerance: float = 2.0
+## Standing water shallower than this is not a lake, in metres. The depression fill leaves a film over
+## any cell that is even slightly below its outlet, and without a floor every one becomes a Pond.
+@export_range(0.0, 20.0, 0.05, "or_greater") var lake_depth_threshold: float = 0.5
+## Smallest basin worth a Pond, in square metres.
+@export_range(0.0, 100000.0, 10.0, "or_greater") var min_lake_area: float = 400.0
+## Width of the biggest generated river, in metres. Every segment is scaled from this by the square root
+## of its catchment (§10.1), so tributaries come out narrower than the trunk they join.
+@export_range(1.0, 200.0, 0.5, "or_greater") var river_width_max: float = 14.0
+## Width of the smallest, in metres — the floor of that scaling, so a headwater stream is still a stream.
+@export_range(0.5, 100.0, 0.5, "or_greater") var river_width_min: float = 3.0
+## How deep a generated Trough cuts, in metres. Near zero on purpose (§10.3): the sim ALREADY carved the
+## channel, so the Trough is here to host the water surface and give you an editable spline. Raise it
+## only if you want the river cut deeper than the erosion left it.
+@export_range(0.0, 20.0, 0.05, "or_greater") var river_carve_depth: float = 0.25
+
 @export_group("Bake")
 ## Solve at Preview Resolution and write the result. Same layer as the build, so it is visible in the
 ## viewport and directly comparable — just coarser.
@@ -128,6 +156,12 @@ const RESULT_MAX_CELLS: int = 4194304
 @export_tool_button("Clear Simulation") var _clear_sim_btn = clear_simulation
 ## Abandon a solve in progress. The layer is left exactly as it was — nothing is written.
 @export_tool_button("Cancel") var _cancel_btn = cancel_simulation
+## Count the rivers and lakes the current thresholds would produce, without creating anything (§10.4).
+@export_tool_button("Preview Water Features") var _preview_water_btn = preview_water_features
+## Replace this Sim's generated Ponds and Troughs with a fresh set from the current thresholds.
+@export_tool_button("Add Brushes") var _add_brushes_btn = add_brushes
+## Remove every brush this Sim generated, edited or not.
+@export_tool_button("Clear Brushes") var _clear_brushes_btn = clear_brushes
 
 ## Footprint hash recorded at the last successful bake, so the node can tell the user their loop has
 ## moved since. Empty = there is no simulation in the layer (never run, cleared, or wiped by the base
@@ -239,6 +273,11 @@ func _get_configuration_warnings() -> PackedStringArray:
 	# §15 open question 7: two Sims sharing a layer wipe each other, because baking one clears the shared
 	# layer's tiles under its box and a Sim cannot be repainted from its spline (§12). The check needs the
 	# TILE-snapped box, not the loops — the clear drops whole tiles, so two loops 40 m apart still collide.
+	if _water_preview != "":
+		warnings.append("Water features: %s." % _water_preview)
+	if river_width_min > river_width_max:
+		warnings.append("River Width Min is greater than River Width Max, so every generated river "
+			+ "comes out at the maximum width.")
 	var mate := _overlapping_sim_on_layer()
 	if mate != "":
 		warnings.append(("The Sim '%s' shares this Sim's layer and its area is close enough that baking "
@@ -725,6 +764,348 @@ func _save_result(p_result: Pasture3DSimResult) -> void:
 		push_warning("Pasture3DSim '%s': could not save the masks to %s (error %d)." % [name, path, err])
 	else:
 		print("Pasture3DSim '%s': masks written to %s." % [name, path])
+
+
+# ---- Water features (spec §10) --------------------------------------------------------------------
+#
+# The workflow: iterate on the sim, like the result, one click makes editable Ponds and Troughs, need to
+# re-sim, clear them, repeat. Authored ponds and rivers are never touched.
+#
+# Extraction runs off the MASKS, not off a live solve, so Add Brushes works whenever — after a reload,
+# without re-simulating, and without the multi-second cost of the solver. The eroded surface is
+# reconstructed exactly (see _eroded_surface), routed once in C++, and the drainage tree that comes out
+# is the same forest the sim built.
+
+## Marker meta every generated node carries. §10.4 asks for a stored-but-hidden flag; metadata IS that,
+## and it needs no new exported property on Trough or Pond — which matters, because those two are
+## ordinary brushes that know nothing about the sim and should stay that way.
+const GENERATED_META := "_generated_by_sim"
+
+## Read-only summary from the last Preview Water Features, shown as a configuration warning.
+@export_storage var _water_preview: String = ""
+
+
+## Preview: report what the current thresholds would produce, and create nothing (§10.4).
+func preview_water_features() -> Dictionary:
+	var w := extract_water()
+	if not bool(w.get("ok", false)):
+		_water_preview = ""
+		push_warning("Pasture3DSim '%s': %s." % [name, w.get("reason", "extraction failed")])
+		update_configuration_warnings()
+		return w
+	var rivers: Array = w["rivers"]
+	var lakes: Array = w["lakes"]
+	_water_preview = "%d lake(s), %d river segment(s) at the current thresholds" % [lakes.size(), rivers.size()]
+	print("Pasture3DSim '%s': %s (%d channel cells, %d flooded cells)." % [
+			name, _water_preview, int(w.get("channel_cells", 0)), int(w.get("lake_cells", 0))])
+	update_configuration_warnings()
+	return w
+
+
+## Trace the drainage tree and the depression fill into polylines and shorelines. Pure analysis — this
+## creates no nodes and touches no layer. Returns the C++ payload plus `ok` / `reason`.
+func extract_water() -> Dictionary:
+	var fail := {"ok": false, "reason": "", "rivers": [], "lakes": []}
+	if not is_configured():
+		fail["reason"] = "no Pasture3D terrain assigned"
+		return fail
+	var surf := _eroded_surface()
+	if not bool(surf["ok"]):
+		fail["reason"] = surf["reason"]
+		return fail
+	var res: Dictionary = terrain.data.sim_extract_water(surf["z"], {
+		"gw": surf["gw"], "gh": surf["gh"], "cell_size": surf["cell"],
+		"min_x": surf["min_x"], "min_z": surf["min_z"],
+		"river_area_threshold": river_area_threshold,
+		"min_river_length": min_river_length,
+		"curve_tolerance": curve_tolerance,
+		"lake_depth_threshold": lake_depth_threshold,
+		"min_lake_area": min_lake_area,
+		"lake_depth_percentile": 0.9,
+	})
+	if not bool(res.get("ok", false)):
+		fail["reason"] = "the extractor rejected the %dx%d grid" % [int(surf["gw"]), int(surf["gh"])]
+		return fail
+	res["reason"] = ""
+	return res
+
+
+## The surface the sim left, at sim resolution over the simulated area.
+##
+## Reconstructed rather than stored: the masks already hold the NET delta (§8.2), and the sim's input was
+## the surface below its own layer, so `below + (erosion + deposition)` is exactly the elevation the
+## solver finished with — bit for bit, with no fifth channel and no re-solve. It is also independent of
+## anything ABOVE Sim's layer, so a flow-gated relief material stamped on top does not move the rivers.
+##
+## What it IS sensitive to is a change to a layer BELOW Sim's, which moves `below` without moving the
+## masks. That invalidates the erosion just as much as it invalidates this, and pressing Simulate fixes
+## both; the area-hash warning is the closest thing to a guard, and it does not catch that case.
+func _eroded_surface() -> Dictionary:
+	var fail := {"ok": false, "reason": ""}
+	var r := sim_result
+	if r == null or not r.is_valid():
+		fail["reason"] = "there are no masks — press Simulate first"
+		return fail
+	var layer_id := _ensure_layer_for(_layer_owner, true)
+	if layer_id <= 0:
+		fail["reason"] = "the layers Tool API is unavailable"
+		return fail
+	var vs: float = terrain.vertex_spacing
+	var max_x: float = r.min_x + r.cell_size * float(r.width - 1)
+	var max_z: float = r.min_z + r.cell_size * float(r.height - 1)
+	var tw := int(round((max_x - r.min_x) / vs)) + 1
+	var th := int(round((max_z - r.min_z) / vs)) + 1
+	if tw < 2 or th < 2:
+		fail["reason"] = "the masks describe a degenerate area"
+		return fail
+	var below: PackedFloat32Array = terrain.data.composite_height_below(layer_id, r.min_x, r.min_z, vs, tw, th)
+	if below.size() != tw * th:
+		fail["reason"] = "no terrain regions under the simulated area"
+		return fail
+	var z: PackedFloat32Array = terrain.data.resample_grid(below, tw, th, r.width, r.height)
+	if z.size() != r.width * r.height:
+		fail["reason"] = "the below-layer surface did not resample onto the mask grid"
+		return fail
+	for i in range(z.size()):
+		z[i] = z[i] + r.erosion[i] + r.deposition[i]
+	return {"ok": true, "reason": "", "z": z, "gw": r.width, "gh": r.height,
+			"cell": r.cell_size, "min_x": r.min_x, "min_z": r.min_z}
+
+
+## Add Brushes: replace this Sim's generated set with a fresh one, as ONE undoable action (§10.4).
+func add_brushes() -> Dictionary:
+	return add_brushes_now(true)
+
+
+## The scripted entry point, so gates and tools get a report Dictionary back:
+## {ok, reason, rivers, lakes, removed}.
+func add_brushes_now(p_record_undo: bool = false) -> Dictionary:
+	var report := {"ok": false, "reason": "", "rivers": 0, "lakes": 0, "removed": 0}
+	var w := extract_water()
+	if not bool(w.get("ok", false)):
+		report["reason"] = w.get("reason", "extraction failed")
+		push_warning("Pasture3DSim '%s': %s." % [name, report["reason"]])
+		return report
+	var rivers: Array = w["rivers"]
+	var lakes: Array = w["lakes"]
+	if rivers.is_empty() and lakes.is_empty():
+		report["reason"] = "the current thresholds produced no rivers and no lakes"
+		push_warning("Pasture3DSim '%s': %s." % [name, report["reason"]])
+		return report
+
+	var old := collect_generated()
+	# Built, not yet parented: everything that can fail should fail before the tree is touched, so a
+	# half-built set never lands in the scene.
+	var fresh: Array = []
+	var widest := 0.0
+	for seg: Dictionary in rivers:
+		var areas: PackedFloat32Array = seg["areas"]
+		for a in areas:
+			widest = maxf(widest, sqrt(maxf(a, 0.0)))
+	for seg: Dictionary in rivers:
+		var t := _make_trough(seg, widest)
+		if t != null:
+			fresh.append(t)
+	for lake: Dictionary in lakes:
+		var p := _make_pond(lake)
+		if p != null:
+			fresh.append(p)
+	if fresh.is_empty():
+		report["reason"] = "every extracted feature was rejected when building its brush"
+		push_warning("Pasture3DSim '%s': %s." % [name, report["reason"]])
+		return report
+
+	var ur: EditorUndoRedoManager = _editor_undo() if p_record_undo else null
+	if ur != null:
+		ur.create_action("Pasture3D Sim Add Brushes", UndoRedo.MERGE_DISABLE, self)
+		for n in fresh:
+			ur.add_do_reference(n)
+		for n in old:
+			ur.add_undo_reference(n)
+		ur.add_do_method(self, "_apply_generated", old, fresh)
+		ur.add_undo_method(self, "_apply_generated", fresh, old)
+		ur.commit_action(true)
+	else:
+		_apply_generated(old, fresh)
+	report["ok"] = true
+	report["rivers"] = rivers.size()
+	report["lakes"] = lakes.size()
+	report["removed"] = old.size()
+	_water_preview = "%d lake(s), %d river segment(s) generated" % [lakes.size(), rivers.size()]
+	update_configuration_warnings()
+	print("Pasture3DSim '%s': generated %d river segment(s) and %d lake(s), replacing %d." % [
+			name, rivers.size(), lakes.size(), old.size()])
+	return report
+
+
+## Clear Brushes: remove every brush this Sim generated, edited or not, in one undo step (§10.4).
+func clear_brushes() -> int:
+	return clear_brushes_now(true)
+
+
+func clear_brushes_now(p_record_undo: bool = false) -> int:
+	var old := collect_generated()
+	if old.is_empty():
+		print("Pasture3DSim '%s': there are no generated brushes to clear." % name)
+		return 0
+	print("Pasture3DSim '%s': clearing %d generated brush(es)." % [name, old.size()])
+	var ur: EditorUndoRedoManager = _editor_undo() if p_record_undo else null
+	if ur != null:
+		ur.create_action("Pasture3D Sim Clear Brushes", UndoRedo.MERGE_DISABLE, self)
+		for n in old:
+			ur.add_undo_reference(n)
+		ur.add_do_method(self, "_apply_generated", old, [])
+		ur.add_undo_method(self, "_apply_generated", [], old)
+		ur.commit_action(true)
+	else:
+		_apply_generated(old, [])
+	_water_preview = ""
+	update_configuration_warnings()
+	return old.size()
+
+
+## Detach `p_remove` and attach `p_add`. The single do/undo body, so redo and undo are literally the
+## same code with the two lists swapped and cannot drift apart.
+func _apply_generated(p_remove: Array, p_add: Array) -> void:
+	for n in p_remove:
+		if is_instance_valid(n):
+			_detach_generated(n)
+	for n in p_add:
+		if is_instance_valid(n):
+			_attach_generated(n)
+
+
+## Every brush this Sim generated, found by the marker rather than by name or by parent (§10.4): a
+## rename must not orphan a brush, and neither must dragging it out of the Generated folder to somewhere
+## more convenient. Depth-first over this Sim's whole subtree.
+func collect_generated() -> Array:
+	var out: Array = []
+	var stack: Array = get_children()
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		stack.append_array(n.get_children())
+		if n is Pasture3DTerrainBrush and n.has_meta(GENERATED_META):
+			out.append(n)
+	return out
+
+
+## The folder generated brushes live in. Found by marker, created on demand; a user who renames it keeps
+## it, and a user who deletes it gets a new one.
+func _generated_root() -> Node3D:
+	for c in get_children():
+		if c is Node3D and c.has_meta(GENERATED_META) and not (c is Pasture3DTerrainBrush):
+			return c
+	var root := Node3D.new()
+	root.name = "Generated"
+	root.set_meta(GENERATED_META, true)
+	add_child(root, true)
+	_own_scene(root)
+	return root
+
+
+func _attach_generated(p_node: Node3D) -> void:
+	if p_node.get_parent() == null:
+		_generated_root().add_child(p_node, true)
+		_own_scene(p_node)
+	p_node.set("_suspend_auto", true)
+	if p_node.get("terrain") != terrain:
+		p_node.set("terrain", terrain)
+	# Its own layer, so clearing the generated set can never disturb authored work and the whole set
+	# gets one visibility toggle (§10.3).
+	p_node._assign_layer_by_name("Generated Lakes" if p_node is Pasture3DPond else "Generated Rivers")
+	p_node.set("_suspend_auto", false)
+	p_node.refresh()
+	if p_node is Pasture3DTrough:
+		p_node.make_descend() # residual non-monotonic Y from sampling a noisy surface (§10.1)
+	# §10.3 — water comes from the existing pool path, for BOTH kinds and synchronously. A Pond would
+	# seed its own on the next idle frame (auto_add_water), which is one frame in which Add Brushes has
+	# produced a dry lake; _make_pond turns that off and we press the same button here instead. One path,
+	# no deferred surprise, and the result of pressing the button is complete when it returns.
+	p_node.add_pool_now()
+
+
+func _detach_generated(p_node: Node3D) -> void:
+	if p_node.has_method("detach_placement"):
+		p_node.call("detach_placement")
+	elif p_node.has_method("_detach_from_current"):
+		p_node.call("_detach_from_current")
+	var p := p_node.get_parent()
+	if p != null:
+		p.remove_child(p_node)
+
+
+## Own a generated node by the edited scene, so it saves with the scene. No-op outside the editor, which
+## is what lets the bench gates build the same nodes without a scene root.
+func _own_scene(p_node: Node) -> void:
+	if not Engine.is_editor_hint() or not is_inside_tree():
+		return
+	var root := get_tree().edited_scene_root
+	if root != null:
+		p_node.owner = root
+
+
+## One Trough per river link (§10.1). `p_widest` is the largest sqrt(area) across the whole network, so
+## every segment's width_curve is on one shared scale and a tributary really does come out narrower than
+## the trunk it joins.
+func _make_trough(p_seg: Dictionary, p_widest: float) -> Pasture3DTrough:
+	var pts: PackedVector3Array = p_seg["points"]
+	var areas: PackedFloat32Array = p_seg["areas"]
+	if pts.size() < 2:
+		return null
+	var t := Pasture3DTrough.new()
+	t.name = "River"
+	t.set_meta(GENERATED_META, true)
+	t.snap_to_surface = false # the Y comes from the eroded surface, not from a re-snap
+	t.depth = river_carve_depth
+	t.bed_half_width = maxf(river_width_max, 0.1) * 0.5
+	t.width_curve = _width_curve(areas, p_widest)
+	var path := Path3D.new()
+	path.name = "Bed1"
+	var c := Curve3D.new()
+	for p in pts:
+		c.add_point(p)
+	path.curve = c
+	t.add_child(path)
+	return t
+
+
+## Width along the segment, as a 0..1 multiplier on bed_half_width. Rivers widen with the square root of
+## their catchment (§10.1), floored at river_width_min so a headwater is still visible.
+func _width_curve(p_areas: PackedFloat32Array, p_widest: float) -> Curve:
+	var c := Curve.new()
+	c.min_value = 0.0
+	c.max_value = 1.0
+	var floor_ratio := clampf(river_width_min / maxf(river_width_max, 0.001), 0.01, 1.0)
+	var n := p_areas.size()
+	var widest := maxf(p_widest, 0.001)
+	for i in range(n):
+		var t := float(i) / float(maxi(n - 1, 1))
+		var frac := sqrt(maxf(p_areas[i], 0.0)) / widest
+		c.add_point(Vector2(t, clampf(frac, floor_ratio, 1.0)))
+	return c
+
+
+## One Pond per lake (§10.2). A Pond is an inverted Mound, so `height` is how far it carves DOWN.
+func _make_pond(p_lake: Dictionary) -> Pasture3DPond:
+	var contour: PackedVector3Array = p_lake["contour"]
+	if contour.size() < 3:
+		return null
+	var p := Pasture3DPond.new()
+	p.name = "Lake"
+	p.set_meta(GENERATED_META, true)
+	p.auto_add_loop = false # we supply the shoreline; do not let it seed a square starter loop over ours
+	p.auto_add_water = false # _attach_generated fills it synchronously instead — see there
+	p.snap_to_surface = false
+	p.height = maxf(float(p_lake["depth"]), 0.05)
+	var path := Path3D.new()
+	path.name = "Loop1"
+	var c := Curve3D.new()
+	for v in contour:
+		c.add_point(v)
+	c.closed = true
+	path.curve = c
+	p.add_child(path)
+	return p
 
 
 ## Write the solved deltas into the layer, as one undoable action.
