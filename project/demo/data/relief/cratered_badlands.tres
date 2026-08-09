@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="Pasture3DReliefStack" format=3 uid="uid://cakxn36lxqgem"]
+
+[ext_resource type="Script" uid="uid://bohmiy2gws6iy" path="res://addons/pasture_3d/connectors/relief_stack.gd" id="1_stack"]
+[ext_resource type="Script" uid="uid://dcif4tn1qyeou" path="res://addons/pasture_3d/connectors/relief_crater.gd" id="2_crat"]
+[ext_resource type="Script" uid="uid://b4reut2qigpsv" path="res://addons/pasture_3d/connectors/relief_fractal.gd" id="3_frac"]
+
+[sub_resource type="Resource" id="Resource_crater"]
+script = ExtResource("2_crat")
+floor_depth = 0.7
+rim_height = 0.18
+rim_width = 0.3
+ejecta_falloff = 2.0
+floor_flatness = 0.45
+terrace_steps = 3
+roughness = 0.0
+roughness_size = 12.0
+seed = 0
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://dcif4tn1qyeou"
+
+[sub_resource type="Resource" id="Resource_rough"]
+script = ExtResource("3_frac")
+style = 1
+amplitude = 0.22
+feature_size = 14.0
+octaves = 4
+lacunarity = 2.0
+gain = 0.5
+sharpness = 1.2
+seed = 41
+warp_amount = 0.0
+warp_size = 96.0
+warp_octaves = 2
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://b4reut2qigpsv"
+
+[resource]
+script = ExtResource("1_stack")
+layers = [SubResource("Resource_crater"), SubResource("Resource_rough")]
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://bohmiy2gws6iy"

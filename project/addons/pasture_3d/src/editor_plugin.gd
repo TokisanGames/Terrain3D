@@ -507,7 +507,18 @@ func _instantiate_placement_brush() -> Node3D:
 			(node as Object).free()
 		return null
 	(node as Node).name = placement_brush_label
+	_apply_placement_defaults(node as Node3D)
 	return node as Node3D
+
+
+## Modern defaults for NEWLY placed brushes only. These are set explicitly rather than by moving the
+## script's declared default, so the value serialises into the scene — a pre-existing scene omits the
+## property precisely BECAUSE it matched the old default, so moving that default would silently convert
+## exactly the nodes we must not touch. Do not "simplify" this into the brush's _init() for the same
+## reason. See PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md §11.
+func _apply_placement_defaults(node: Node3D) -> void:
+	if node is Pasture3DPlow:
+		(node as Pasture3DPlow).source = Pasture3DPlow.Source.RELIEF
 
 
 ## Place a new landscape brush at `world_pos`, as ONE undoable action: do = add the node under the

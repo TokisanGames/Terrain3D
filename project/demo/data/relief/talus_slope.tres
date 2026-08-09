@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Pasture3DReliefScree" format=3 uid="uid://crelief0talus"]
+
+[ext_resource type="Script" uid="uid://d24spa7oiiel7" path="res://addons/pasture_3d/connectors/relief_scree.gd" id="1_scree"]
+
+[resource]
+script = ExtResource("1_scree")
+amplitude = 0.14
+grain_size = 6.5
+downslope_streak = 5.0
+toe_deposition = 0.4
+seed = 0
+min_slope_degrees = 24.0
+slope_falloff_degrees = 12.0
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://d24spa7oiiel7"

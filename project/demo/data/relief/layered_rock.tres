@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="Pasture3DReliefStrata" format=3 uid="uid://dmde6safb05g"]
+
+[ext_resource type="Script" uid="uid://peulc4l115ho" path="res://addons/pasture_3d/connectors/relief_strata.gd" id="1_strat"]
+
+[resource]
+script = ExtResource("1_strat")
+layers = 16
+hardness = 0.78
+dip = 0.3
+dip_direction_degrees = 55.0
+break_amount = 0.13
+break_size = 40.0
+base_amount = 1.0
+base_size = 70.0
+base_octaves = 4
+seed = 5
+strength = 1.0
+blend = 0
+metadata/_custom_type_script = "uid://peulc4l115ho"
