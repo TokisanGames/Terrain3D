@@ -82,7 +82,7 @@
       <Filter>5. Headers</Filter>
     </ClInclude>
     <ClInclude Include=".github\actions\build-artifact\action.yml">
-      <Filter>5. Headers</Filter>
+      <Filter>1. Project Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -250,9 +250,6 @@
     <None Include="doc\docs\heightmaps.md">
       <Filter>2. Docs</Filter>
     </None>
-    <None Include="doc\docs\tips_environment.md">
-      <Filter>2. Docs</Filter>
-    </None>
     <None Include="src\shaders\overlays.glsl">
       <Filter>4. Shaders</Filter>
     </None>
@@ -304,6 +301,12 @@
     <None Include=".github\actions\load-cache\action.yml">
       <Filter>1. Project Files</Filter>
     </None>
+    <None Include="doc\docs\environment.md">
+      <Filter>2. Docs</Filter>
+    </None>
+    <None Include="doc\docs\performance.md">
+      <Filter>2. Docs</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
@@ -328,9 +331,6 @@
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\texture_prep.md">
-      <Filter>2. Docs</Filter>
-    </Text>
-    <Text Include="doc\docs\tips_technical.md">
       <Filter>2. Docs</Filter>
     </Text>
     <Text Include="doc\docs\troubleshooting.md">
@@ -359,6 +359,9 @@
     </Text>
     <Text Include="doc\requirements.txt">
       <Filter>1. Project Files</Filter>
+    </Text>
+    <Text Include="doc\docs\tips.md">
+      <Filter>2. Docs</Filter>
     </Text>
   </ItemGroup>
   <ItemGroup>

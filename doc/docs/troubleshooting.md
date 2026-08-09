@@ -3,7 +3,7 @@ Troubleshooting
 
 Terrain3D is working for thousands of users. If you're having trouble you've likely missed a step or an important piece of documentation. Ensure you are using the [console version of Godot](#using-the-console), and have reviewed the [installation instructions](installation.md) before continuing.
 
-You can also watch the [tutorial videos](tutorial_videos.md) which show proper installation and setup, and read [Technical Tips](tips_technical.md) which may have other helpful information.
+You can also watch the [tutorial videos](tutorial_videos.md) which show proper installation and setup, and read [Tips](tips.md) which may have other helpful information.
 
 **Table of Contents**
 * [Installation](#installation)

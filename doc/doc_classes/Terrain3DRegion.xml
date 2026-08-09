@@ -20,6 +20,25 @@
 				Unreferences the maps and resets all member variables to default values.
 			</description>
 		</method>
+		<method name="clear_color_map">
+			<return type="void" />
+			<description>
+				Clears the uncompressed color map. Does not mark the region modified.
+			</description>
+		</method>
+		<method name="clear_compressed_color_map">
+			<return type="void" />
+			<description>
+				Clears the compressed color map. Does not mark the region modified.
+			</description>
+		</method>
+		<method name="compress_color_map" experimental="This function is experimental.">
+			<return type="void" />
+			<param index="0" name="mode" type="int" enum="CompressMode" />
+			<description>
+				Compresses the color map with the specified compression mode. Only compresses in editor.
+			</description>
+		</method>
 		<method name="dump" qualifiers="const">
 			<return type="void" />
 			<param index="0" name="verbose" type="bool" default="false" />
@@ -35,6 +54,12 @@
 				- deep - Also make complete duplicates of the maps and multimeshes.
 			</description>
 		</method>
+		<method name="get_active_color_map" qualifiers="const">
+			<return type="Image" />
+			<description>
+				Returns the compressed color map if valid, otherwise returns the uncompressed map.
+			</description>
+		</method>
 		<method name="get_data" qualifiers="const">
 			<return type="Dictionary" />
 			<description>
@@ -45,13 +70,19 @@
 			<return type="Image" />
 			<param index="0" name="map_type" type="int" enum="Terrain3DRegion.MapType" />
 			<description>
-				Returns the specified image map.
+				Returns the specified image map. Returns the compressed color map if requested and valid.
 			</description>
 		</method>
 		<method name="get_maps" qualifiers="const">
 			<return type="Image[]" />
 			<description>
-				Returns an Array[Image] with height, control, and color maps.
+				Returns an Array[Image] with height, control, and color maps. Returns the compressed color map if valid.
+			</description>
+		</method>
+		<method name="is_color_compressed" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns true if the compressed color map is valid.
 			</description>
 		</method>
 		<method name="sanitize_map" qualifiers="const">
@@ -66,16 +97,19 @@
 			<return type="void" />
 			<description>
 				Sanitizes all map types. See [method sanitize_map].
+				- free_uncompressed_color_maps - if true, the uncompressed color map will be freed instead of sanitized.
 			</description>
 		</method>
 		<method name="save">
 			<return type="int" enum="Error" />
 			<param index="0" name="path" type="String" default="&quot;&quot;" />
 			<param index="1" name="save_16_bit" type="bool" default="false" />
+			<param index="2" name="color_compress_mode" type="int" enum="CompressMode" default="5" />
 			<description>
 				Saves this region to the current file name.
 				- path - specifies a directory and file name to use from now on.
-				- 16-bit - save this region with 16-bit height map instead of 32-bit. This process is lossy. Does not change the bit depth in memory.
+				- 16-bit - saves this region with 16-bit height map instead of 32-bit. This process is lossy. Does not change the bit depth in memory.
+				- color_compress_mode - compresses the color map on save. Only works in the editor.
 			</description>
 		</method>
 		<method name="set_data">
@@ -124,10 +158,16 @@
 	</methods>
 	<members>
 		<member name="color_map" type="Image" setter="set_color_map" getter="get_color_map">
-			This map is used to paint color that blends in to the terrain textures.
+			This map is used for wetness and to paint color that blends in to the terrain textures.
+			In game, this will be cleared if [member compressed_color_map] is set.
 			Image format: FORMAT_RGBA8, 32-bits per pixel as four 8-bit components.
 			[b]RGB[/b] is used for color, which is multiplied by albedo in the shader. Multiply is a blend mode that only darkens.
 			[b]A[/b] is used for a roughness modifier. A value of 0.5 means no change to the existing texture roughness. Higher than this value increases roughness, lower decreases it.
+		</member>
+		<member name="compressed_color_map" type="Image" setter="set_compressed_color_map" getter="get_compressed_color_map" experimental="This function is experimental.">
+			This is a compressed version of the color map.
+			In editor, it will be cleared and will be regenerated upon save if the region is modified or [member Terrain3D.color_compress_mode] is set differently than what is stored on disk.
+			In game, this map is preferred by functions over [member color_map]. The compressed color map cannot be modified, so if you want to edit it at runtime, disable color compression.
 		</member>
 		<member name="control_map" type="Image" setter="set_control_map" getter="get_control_map">
 			This map tells the shader which textures to use where, how to blend, where to place holes, etc.
@@ -170,7 +210,7 @@
 			The current region size for this region, calculated from the dimensions of the first loaded map. It should match [member Terrain3D.region_size].
 		</member>
 		<member name="version" type="float" setter="set_version" getter="get_version" default="0.8">
-			The data file version. This is independent of the Terrain3D version, though they often align.
+			The data format version. This is independent of the Terrain3D version, though they often align.
 		</member>
 		<member name="vertex_spacing" type="float" setter="set_vertex_spacing" getter="get_vertex_spacing" default="1.0">
 			Stored instancer transforms are laterally scaled by this value. This value is manage by the instancer on loading or when [member Terrain3D.vertex_spacing] is set, and shouldn't be manually adjusted.
@@ -184,7 +224,7 @@
 			Control map - defines where textures and holes are placed.
 		</constant>
 		<constant name="TYPE_COLOR" value="2" enum="MapType">
-			Color map - paints color on the terrain
+			Color map - paints color and wetness on the terrain.
 		</constant>
 		<constant name="TYPE_MAX" value="3" enum="MapType">
 			The number of elements in this enum. Often used to specify all map types for functions that request one.

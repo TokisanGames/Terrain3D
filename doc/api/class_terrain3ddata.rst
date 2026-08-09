@@ -152,7 +152,7 @@ Methods
    +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`save_directory<class_Terrain3DData_method_save_directory>`\ (\ directory\: ``String``\ )                                                                                                                               |
    +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | |void|                                                                     | :ref:`save_region<class_Terrain3DData_method_save_region>`\ (\ region_location\: ``Vector2i``, directory\: ``String``, save_16_bit\: ``bool`` = false\ )                                                                     |
+   | |void|                                                                     | :ref:`save_region<class_Terrain3DData_method_save_region>`\ (\ region_location\: ``Vector2i``, directory\: ``String`` = "", save_16_bit\: ``bool`` = false, color_compress_mode\: CompressMode = 5\ )                        |
    +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`set_color<class_Terrain3DData_method_set_color>`\ (\ global_position\: ``Vector3``, color\: ``Color``\ )                                                                                                               |
    +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -547,9 +547,11 @@ Mode specifies exporting up to 16k x 16k slices or one file per region.
 
 ``Color`` **get_color**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_color>`
 
-Returns the associated pixel on the color map at the requested position.
+Returns the associated pixel on the active color map at the requested position.
 
 Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regions.
+
+See :ref:`Terrain3DRegion.get_active_color_map()<class_Terrain3DRegion_method_get_active_color_map>`.
 
 .. rst-class:: classref-item-separator
 
@@ -561,7 +563,9 @@ Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regi
 
 ``RID`` **get_color_maps_rid**\ (\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_color_maps_rid>`
 
-Returns the resource ID of the generated height map Texture Array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See `Tips <https://terrain3d.readthedocs.io/en/stable/docs/tips.html#using-the-generated-height-map-in-other-shaders>`__ for an example.
+Returns the resource ID of the generated color map Texture Array sent to the shader. Uses the active color map. See :ref:`Terrain3DRegion.get_active_color_map()<class_Terrain3DRegion_method_get_active_color_map>`.
+
+You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See `Tips <https://terrain3d.readthedocs.io/en/stable/docs/tips.html#using-the-generated-height-map-in-other-shaders>`__ for an example.
 
 .. rst-class:: classref-item-separator
 
@@ -796,6 +800,8 @@ Returns ``Vector3(NAN, NAN, NAN)`` if the requested position is a hole or outsid
 Returns the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates.
 
 Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regions.
+
+Uses :ref:`Terrain3DRegion.get_active_color_map()<class_Terrain3DRegion_method_get_active_color_map>` for the color map.
 
 .. rst-class:: classref-item-separator
 
@@ -1155,13 +1161,15 @@ This saves all active regions into the specified directory.
 
 .. rst-class:: classref-method
 
-|void| **save_region**\ (\ region_location\: ``Vector2i``, directory\: ``String``, save_16_bit\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DData_method_save_region>`
+|void| **save_region**\ (\ region_location\: ``Vector2i``, directory\: ``String`` = "", save_16_bit\: ``bool`` = false, color_compress_mode\: CompressMode = 5\ ) :ref:`🔗<class_Terrain3DData_method_save_region>`
 
 Saves the specified active region to the directory. See :ref:`Terrain3DRegion.save()<class_Terrain3DRegion_method_save>`.
 
 - region_location - the region to save.
 
 - 16_bit - converts the edited 32-bit heightmap to 16-bit. This is a lossy operation.
+
+- color_compression_mode - compresses the color map with the selected mode.
 
 .. rst-class:: classref-item-separator
 
@@ -1320,6 +1328,8 @@ Sets the height value on the heightmap at the specified position. See :ref:`set_
 Sets the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use :ref:`Terrain3DRegion.get_map()<class_Terrain3DRegion_method_get_map>`, then edit the images directly.
 
 After setting pixels you need to call :ref:`update_maps()<class_Terrain3DData_method_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
+
+Note: If writing color or wetness, compressed color maps cannot be modified at runtime. See :ref:`Terrain3D.color_compress_mode<class_Terrain3D_property_color_compress_mode>`.
 
 .. rst-class:: classref-item-separator
 

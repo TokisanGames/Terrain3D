@@ -31,15 +31,26 @@ Please see the [featured games using Terrain3D](https://terrain3d.readthedocs.io
 4. For support, read [Getting Help](https://terrain3d.readthedocs.io/en/stable/docs/getting_help.html) and join our [Discord server](https://tokisan.com/discord).
 
 
+## News & Updates
+
+Announcements are made on these media channels:
+
+||||||
+|--|--|--|--|--|
+| [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/discord.png?raw=true" width="24"/>](https://tokisan.com/discord) | [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/twitter.png?raw=true" width="24"/>](https://twitter.com/TokisanGames) | [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/youtube.png?raw=true" width="24"/>](https://www.youtube.com/@TokisanGames) | [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/www.png?raw=true" width="24"/>](https://tokisan.com/) | [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/github.png?raw=true" width="24"/>](https://github.com/TokisanGames) |
+
+..testing..
+
+||||||
+|--|--|--|--|--|
+| [Discord](https://tokisan.com/discord) | [X](https://x.com/TokisanGames) | [YouTube](https://www.youtube.com/@TokisanGames) | [Website](https://tokisan.com/) | [Github](https://github.com/TokisanGames) |
+
+See the [Development Roadmap](https://github.com/users/TokisanGames/projects/3) for the priority of pending issues.
+
+
 ## Credit
-Developed for the Godot community by:
 
-|||
-|--|--|
-| **Cory Petkovsek, Tokisan Games** | [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/twitter.png?raw=true" width="24"/>](https://twitter.com/TokisanGames) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/github.png?raw=true" width="24"/>](https://github.com/TokisanGames) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/www.png?raw=true" width="24"/>](https://tokisan.com/) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/discord.png?raw=true" width="24"/>](https://tokisan.com/discord) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/youtube.png?raw=true" width="24"/>](https://www.youtube.com/@TokisanGames)|
-| **Roope Palmroos, Outobugi Games** | [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/twitter.png?raw=true" width="24"/>](https://twitter.com/outobugi) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/github.png?raw=true" width="24"/>](https://github.com/outobugi) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/www.png?raw=true" width="24"/>](https://outobugi.com/) [<img src="https://github.com/dmhendricks/signature-social-icons/blob/master/icons/round-flat-filled/35px/youtube.png?raw=true" width="24"/>](https://www.youtube.com/@outobugi)|
-
-And the contribution team in [AUTHORS.md](https://terrain3d.readthedocs.io/en/stable/docs/authors.html) and on the right of the github page.
+See the team in [AUTHORS.md](https://terrain3d.readthedocs.io/en/stable/docs/authors.html) and on the right of the github page.
 
 
 ## Contributing

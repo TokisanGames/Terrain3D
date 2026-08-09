@@ -76,6 +76,8 @@ Methods
    +--------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``int``      | :ref:`get_blend<class_Terrain3DUtil_method_get_blend>`\ (\ pixel\: ``int``\ ) |static|                                                                                                                                                                                                           |
    +--------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | CompressMode | :ref:`get_compress_mode<class_Terrain3DUtil_method_get_compress_mode>`\ (\ image_format\: Image.Format\ ) |static|                                                                                                                                                                               |
+   +--------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Image``    | :ref:`get_filled_image<class_Terrain3DUtil_method_get_filled_image>`\ (\ size\: ``Vector2i``, color\: ``Color``, create_mipmaps\: ``bool``, format\: Image.Format\ ) |static|                                                                                                                    |
    +--------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Vector2``  | :ref:`get_min_max<class_Terrain3DUtil_method_get_min_max>`\ (\ image\: ``Image``\ ) |static|                                                                                                                                                                                                     |
@@ -287,6 +289,20 @@ Returns the base texture ID from a control map pixel.
 ``int`` **get_blend**\ (\ pixel\: ``int``\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_blend>`
 
 Returns the blend value from a control map pixel.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DUtil_method_get_compress_mode:
+
+.. rst-class:: classref-method
+
+CompressMode **get_compress_mode**\ (\ image_format\: Image.Format\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_compress_mode>`
+
+Converts a Godot ``Image.Format`` enum value to a :ref:`CompressMode<enum_Terrain3D_CompressMode>` enum value (equivalent to Godot ``Image.CompressMode]).
+
+e.g. Input [code skip-lint]Image::FORMAT_DXT5`` and receive Godot ``Terrain3D.CompressMode.COMPRESS_S3TC``.
 
 .. rst-class:: classref-item-separator
 

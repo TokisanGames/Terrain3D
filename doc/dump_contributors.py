@@ -1,7 +1,9 @@
 # This scripts dumps all contributors names, handles, and urls for a repository.
 # To use modify the settings below.
 
-pat_file = "/c/Users/Cory/github_terrain3d_pat.txt"  # Github Personal Access Token to expand rate limiting
+# Github Personal Access Token to expand rate limiting
+# https://github.com/settings/personal-access-tokens
+pat_file = "/c/Users/Cory/.github_personal_access_token"
 repo_url = "https://api.github.com/repos/TokisanGames/Terrain3D/contributors"
 
 import requests
