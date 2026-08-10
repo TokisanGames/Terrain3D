@@ -6,6 +6,7 @@
 
 #include "pasture_3d_data.h"
 #include "pasture_3d_gpu_raster.h"
+#include "pasture_3d_raster_util.h"
 #include "pasture_3d_relief_ops.h"
 #include "pasture_3d_util.h"
 
@@ -309,6 +310,17 @@ float raster_polyline_field(const PackedVector3Array &pts, double min_x, double 
 
 
 } // namespace
+
+// Re-export the two primitives Pasture3DSim's loop mask needs (pasture_3d_raster_util.h). Thin
+// forwarders rather than moving the definitions, so the brush call sites above are untouched.
+float godot::pasture3d_raster_sdf(const PackedVector2Array &p_poly, double p_min_x, double p_min_z, double p_vs,
+		int p_gw, int p_gh, std::vector<float> &r_field) {
+	return raster_sdf(p_poly, p_min_x, p_min_z, p_vs, p_gw, p_gh, r_field);
+}
+
+float godot::pasture3d_raster_ramp(const PackedFloat32Array &p_lut, float p_x) {
+	return raster_ramp(p_lut, p_x);
+}
 
 void Pasture3DData::_stamp_write(Pasture3DLayer *p_layer, const int p_layer_id, const bool p_composite,
 		Vector2i &r_loc, Pasture3DRegion *&r_region, const Vector3 &p_pos, const real_t p_value, const int p_blend) {
@@ -1209,6 +1221,14 @@ void Pasture3DData::stamp_plow_loop(const int p_layer_id, const PackedVector2Arr
 	if (source == 3 && (bool)p_params.get("need_fields", false)) {
 		relief_fields_build(base_below, min_x, min_z, vs, gw, gh,
 				[this](double x, double z) { return (float)get_height(Vector3(x, 0.0, z)); }, fields);
+		// The sim channels for the FLOW / EROSION / DEPOSITION / WETNESS Kinds, resampled from the
+		// Pasture3DSimResult's own extent onto this bake grid (spec §9). Absent unless the program has a
+		// selector of one of those Kinds, and absent is not an error — every such Kind then reads its
+		// defined zero, which is what the brush's configuration warning is about.
+		const Dictionary sim = p_params.get("sim_result", Dictionary());
+		if (!sim.is_empty()) {
+			relief_fields_add_sim(sim, min_x, min_z, vs, gw, gh, fields);
+		}
 	}
 	ReliefSample ground;
 

@@ -491,6 +491,11 @@ func _gate_i_presets() -> void:
 		# The ground varies across the sweep too — slope from flat to vertical, curvature from ridge to
 		# hollow — because a terrain-gated preset evaluated on permanently flat ground reads as constant
 		# and would be failed here for doing exactly what it was configured to do.
+		#
+		# The four SIM inputs vary for exactly the same reason (PASTURE3D_SIM_NODE_SPEC.md §9). A preset
+		# gated on FLOW and swept at a constant zero catchment is gated out at every sample, reads as
+		# constant, and gets failed for working. The catchment range is deliberately wide — decades, as
+		# drainage area is — so a band anywhere from a gully to a trunk valley is crossed.
 		var lo := INF
 		var hi := -INF
 		for i in range(24):
@@ -501,7 +506,11 @@ func _gate_i_presets() -> void:
 					t * 200.0,        # altitude 0 -> 200 m
 					t * 80.0,         # slope 0 -> 80 deg
 					t * 2.0 - 1.0,    # curvature ridge -> hollow
-					t - 0.5, 0.5 - t) # gradient
+					t - 0.5, 0.5 - t, # gradient
+					pow(10.0, t * 5.0), # flow 1 -> 100 000 m2 of catchment
+					t * 40.0,         # erosion 0 -> 40 m removed
+					t * 4.0,          # deposition 0 -> 4 m gained
+					t * 6.0)          # wetness 0 -> 6 m of standing water
 			lo = minf(lo, val)
 			hi = maxf(hi, val)
 		var span := hi - lo

@@ -119,6 +119,25 @@ func _program() -> Array:
 	return [_ops, _params, _luts, _selectors, _noise]
 
 
+## Every Pasture3DSimResult this material's selectors read, in compile order and possibly with repeats.
+## Empty for the ordinary terrain-shape Kinds, which is the common case and costs nothing.
+##
+## The brush needs these because a Sim Result is a whole grid with its own extent and cannot travel in
+## the flat stride-8 selector block (see Pasture3DReliefSelector.to_params). Composites — the stack —
+## override this to include their children's.
+func sim_results() -> Array:
+	if selector != null and selector.is_sim_kind() and selector.sim_result != null:
+		return [selector.sim_result]
+	return []
+
+
+## True when any selector in this material reads a Sim Result, whether or not one is assigned. Drives
+## the brush's "a sim Kind is in use with no Sim Result" warning, which must fire precisely when the
+## reference is MISSING — so this cannot be `not sim_results().is_empty()`.
+func wants_sim_result() -> bool:
+	return selector != null and selector.is_sim_kind()
+
+
 ## Append a selector to the table and return its index (the value an op stores in its selector slot).
 func _emit_selector(s: Pasture3DReliefSelector) -> int:
 	var id := _selectors.size() / SELECTOR_STRIDE
@@ -232,9 +251,15 @@ static func _configure_noise(freq: float, octaves: int, lacunarity: float, gain:
 ## steepness, concavity (positive = hollow) and the height gradient. Selectors and SCREE read them; every
 ## other op ignores them, and the brush only bothers computing them when the program needs them.
 ## Returns the signed accumulator, nominally [-1,1] but deliberately not hard-clamped (spec §4.4).
+## `flow / ero / dep / wet` describe what the erosion sim did at this cell, for the four sim Kinds, and
+## arrive ALREADY CONVERTED to the units a selector band is written in: flow in m² of catchment (the
+## resource stores its log), erosion as a positive depth (the resource stores a negative delta). The
+## brush does that conversion once per cell — see Pasture3DPlow._sim_fields and relief_fields_add_sim,
+## which must agree. Defaulted so every existing caller and every non-sim material is unaffected.
 func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float,
 		alt: float = 0.0, slope_deg: float = 0.0, curv: float = 0.0,
-		gx: float = 0.0, gz: float = 0.0) -> float:
+		gx: float = 0.0, gz: float = 0.0,
+		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0) -> float:
 	# Compile on demand. Callers in the bake path always compile first, but an uncompiled material used
 	# to evaluate to a silent 0 — which reads exactly like "correctly gated out" and cost a gate its
 	# meaning once already. One bool test per cell is not worth that trap.
@@ -255,7 +280,7 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		var sid := _ops[o + 2]
 		var sel := 1.0
 		if sid >= 0:
-			sel = _selector_value(sid, alt, slope_deg, curv)
+			sel = _selector_value(sid, alt, slope_deg, curv, flow, ero, dep, wet)
 
 		# --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
 		if op == Op.WARP:
@@ -336,7 +361,8 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 ## Evaluate one selector against this cell's terrain, returning the multiplier to apply to a gated op.
 ## Strength lerps between "ungated" (1.0) and the band value, so a selector fades a material out rather
 ## than deleting it unless you ask for the full gate.
-func _selector_value(sid: int, alt: float, slope_deg: float, curv: float) -> float:
+func _selector_value(sid: int, alt: float, slope_deg: float, curv: float,
+		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0) -> float:
 	var b := sid * SELECTOR_STRIDE
 	if b < 0 or b + SELECTOR_STRIDE > _selectors.size():
 		return 1.0
@@ -346,6 +372,14 @@ func _selector_value(sid: int, alt: float, slope_deg: float, curv: float) -> flo
 		x = alt
 	elif kind == 2: # CURVATURE
 		x = curv
+	elif kind == 3: # FLOW — m² of catchment, already un-logged by the brush
+		x = flow
+	elif kind == 4: # EROSION — metres removed, already positive
+		x = ero
+	elif kind == 5: # DEPOSITION
+		x = dep
+	elif kind == 6: # WETNESS
+		x = wet
 	var lo := _selectors[b + 1]
 	var hi := _selectors[b + 2]
 	var f_lo := maxf(_selectors[b + 3], 0.0)

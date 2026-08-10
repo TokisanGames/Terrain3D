@@ -35,6 +35,25 @@ func _connect_layers() -> void:
 			m.changed.connect(_touch)
 
 
+## Our own selector's result, plus every child's. Duplicates are left in — the brush dedupes, and it is
+## the brush that has to decide what to do when two layers point at DIFFERENT sims.
+func sim_results() -> Array:
+	var out := super()
+	for m in layers:
+		if m != null:
+			out.append_array(m.sim_results())
+	return out
+
+
+func wants_sim_result() -> bool:
+	if super():
+		return true
+	for m in layers:
+		if m != null and m.wants_sim_result():
+			return true
+	return false
+
+
 func _build() -> void:
 	for m in layers:
 		if m == null:

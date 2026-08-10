@@ -36,6 +36,8 @@ const PLACEABLE_BRUSHES: Array[Dictionary] = [
 	{ "label":"Trough", "script":"res://addons/pasture_3d/connectors/trough.gd", "icon":"res://addons/pasture_3d/icons/brush_trough.svg", "offset":-10.0 },
 	{ "label":"Plow",   "script":"res://addons/pasture_3d/connectors/plow.gd",   "icon":"res://addons/pasture_3d/icons/brush_plow.svg",   "offset":0.0 },
 	{ "label":"Splat",  "script":"res://addons/pasture_3d/connectors/splat.gd",  "icon":"res://addons/pasture_3d/icons/brush_splat.svg",  "offset":0.0 },
+	# Sim only ever erodes the ground it is dropped on, so like Pond it wants no placement lift.
+	{ "label":"Sim",    "script":"res://addons/pasture_3d/connectors/sim.gd",    "icon":"res://addons/pasture_3d/icons/brush_sim.svg",    "offset":0.0 },
 ]
 
 var add_tool_group: ButtonGroup = ButtonGroup.new()
