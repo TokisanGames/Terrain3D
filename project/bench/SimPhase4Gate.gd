@@ -48,7 +48,7 @@ const BOWL_DEPTH := 28.0
 ## found the basin — the demo terrain's own authored one, which the sim drains slightly rather than
 ## creates.)
 const SITE_NODE := Vector3(512.0, 0.0, 200.0)
-const SIM_HALF := 120.0
+const SIM_HALF := 190.0
 const SIM_MARGIN := 48.0
 
 var _fail := 0
@@ -372,6 +372,9 @@ func _gate_m_clear() -> void:
 	if int(rep["rivers"]) < 1 or int(rep["lakes"]) < 1:
 		_fail += 1
 		print("    !! this site produced only one kind of feature; the other half of §10 is ungated here")
+	_m_placement(sim, generated)
+	_m_inside_write_area(sim, generated)
+	_m_internal_children(sim)
 	# §10.3: water comes from the existing pool path, so a generated river must arrive already wet.
 	# Asked via pool_for_spline rather than by looking for a child, because add_pool_now parents the
 	# pool beside the brush, not under it — which is exactly how an earlier version of this check came
@@ -438,6 +441,228 @@ func _gate_m_clear() -> void:
 		_fail += 1
 		print("    !! an authored brush was destroyed; identification is going by name somewhere")
 	sim.clear_simulation()
+
+
+# M, placement: a generated brush must sit ON the feature it was extracted from.
+#
+# The extractor answers in WORLD coordinates and a Curve3D's points are LOCAL to their Path3D, so a Sim
+# anywhere but the origin displaces every brush it generates by its own transform. This gate's site is
+# (512, 0, 200) and the first version of it passed with all five brushes 550 m away: counts, markers,
+# water and even the layer assignment are all invariant to position, so nothing here was looking.
+#
+# Two criteria, because they fail differently: the NODE must be at the feature's centre (all three axes,
+# unaffected by the descend pass), and the node's spline must retrace the extracted polyline in XZ. Y is
+# left out of the second one on purpose — _attach_generated runs make_descend on a Trough, which is
+# entitled to move a point's height and not its position.
+#
+# CONTROL for both: the same measurement against the RAW local points, which is exactly what an unplaced
+# brush produces. It must be hundreds of metres out, or the site is at the origin and neither criterion
+# is testing anything.
+func _m_placement(p_sim, p_generated: Array) -> void:
+	var w: Dictionary = p_sim.extract_water()
+	var feats: Array = []
+	for seg: Dictionary in (w.get("rivers", []) as Array):
+		feats.append({"pts": seg["points"], "pond": false})
+	for lake: Dictionary in (w.get("lakes", []) as Array):
+		feats.append({"pts": lake["contour"], "pond": true})
+	if feats.is_empty():
+		_fail += 1
+		print("    !! re-extraction produced nothing, so placement is unmeasured")
+		return
+
+	var worst_origin := 0.0
+	var control_origin := 0.0
+	for f in feats:
+		var c: Vector3 = _centroid_of(f["pts"])
+		var best := INF
+		for b in p_generated:
+			if (b is Pasture3DPond) != bool(f["pond"]):
+				continue
+			best = minf(best, b.global_position.distance_to(c))
+		if best == INF:
+			_fail += 1
+			print("    !! no generated brush of the right kind for a feature at %s" % c)
+			return
+		worst_origin = maxf(worst_origin, best)
+		# What the unplaced code produced: the brush inherits the Generated folder's transform, i.e. it
+		# sits at the Sim.
+		control_origin = maxf(control_origin, p_sim.global_position.distance_to(c))
+
+	var worst_pt := 0.0
+	var control_pt := 0.0
+	var compared := 0
+	for b in p_generated:
+		for s in b._get_splines():
+			var c3: Curve3D = s.curve
+			if c3 == null:
+				continue
+			for i in range(c3.point_count):
+				var lp: Vector3 = c3.get_point_position(i)
+				compared += 1
+				worst_pt = maxf(worst_pt, _xz_to_nearest(s.to_global(lp), feats, b is Pasture3DPond))
+				control_pt = maxf(control_pt, _xz_to_nearest(lp, feats, b is Pasture3DPond))
+	if compared == 0:
+		_fail += 1
+		print("    !! no spline points were compared; placement is unmeasured")
+		return
+
+	print("    placement: node origin off by at most %.4f m; %d spline point(s) retrace the channel to %.4f m in XZ" % [
+			worst_origin, compared, worst_pt])
+	print("    CONTROL the same points read as if unplaced: origin %.1f m, spline %.1f m out" % [
+			control_origin, control_pt])
+	if worst_origin > 0.01:
+		_fail += 1
+		print("    !! a generated brush is not at its feature's centre")
+	if worst_pt > 0.05:
+		_fail += 1
+		print("    !! a generated spline does not lie on the channel it came from")
+	if control_origin < 100.0 or control_pt < 100.0:
+		_fail += 1
+		print("    !! the unplaced control is not displaced, so this site cannot detect a placement bug")
+
+
+# M, write area: a generated brush must lie inside the loop, not out in the catchment margin.
+#
+# §5 simulates wide and writes narrow, and §8.2 keeps the masks over the whole SIMULATED extent — so the
+# extractor sees drainage the terrain does not have, out in the margin where nothing was written. Left
+# unclipped it generated rivers and a lake outside the area the user drew, over ground the sim never
+# touched. Every criterion in M was blind to this too: a brush in the margin is still generated, still
+# marked, still wet, and still placed exactly on the (unwritten) channel it came from.
+#
+# CONTROL: the raw extraction with the clip disabled. It must put points outside the loop, or this site
+# has no margin drainage and the criterion is measuring an empty claim.
+func _m_inside_write_area(p_sim, p_generated: Array) -> void:
+	var polys: Array = p_sim._write_polygons()
+	if polys.is_empty():
+		_fail += 1
+		print("    !! the Sim has no write polygon, so containment is unmeasured")
+		return
+	var outside := 0
+	var checked := 0
+	for b in p_generated:
+		for s in b._get_splines():
+			var c3: Curve3D = s.curve
+			if c3 == null:
+				continue
+			for i in range(c3.point_count):
+				checked += 1
+				if not _inside_polys(polys, s.to_global(c3.get_point_position(i))):
+					outside += 1
+
+	# CONTROL — what the extractor offers before the clip.
+	var raw: Dictionary = p_sim.extract_water()
+	var raw_outside := 0
+	var raw_total := 0
+	for key in ["rivers", "lakes"]:
+		for f: Dictionary in (raw.get(key, []) as Array):
+			var pts: PackedVector3Array = f["points"] if key == "rivers" else f["contour"]
+			for p in pts:
+				raw_total += 1
+				if not _inside_polys(polys, p):
+					raw_outside += 1
+	var pre_r: int = int(raw.get("rivers_before_clip", 0))
+	var pre_l: int = int(raw.get("lakes_before_clip", 0))
+	print("    write area: %d of %d generated spline point(s) outside the loop; the clip kept %d of %d river(s) and %d of %d lake(s)" % [
+			outside, checked, (raw.get("rivers", []) as Array).size(), pre_r,
+			(raw.get("lakes", []) as Array).size(), pre_l])
+	print("    CONTROL before the clip: %d of %d extracted feature(s) reached outside; %d point(s) survive the clip outside" % [
+			pre_r + pre_l - (raw.get("rivers", []) as Array).size() - (raw.get("lakes", []) as Array).size(),
+			pre_r + pre_l, raw_outside])
+	if checked == 0:
+		_fail += 1
+		print("    !! no spline points were checked; containment is unmeasured")
+	if outside > 0:
+		_fail += 1
+		print("    !! a generated brush reaches outside the area the Sim writes")
+	if raw_outside > 0:
+		_fail += 1
+		print("    !! the clipped extraction still contains points outside the loop")
+	if pre_r + pre_l <= (raw.get("rivers", []) as Array).size() + (raw.get("lakes", []) as Array).size():
+		_fail += 1
+		print("    !! the clip removed nothing here, so this site cannot detect margin drainage")
+
+
+# M, internal children: everything the Sim parents to ITSELF must be exempt from the structural-edit
+# refresh.
+#
+# Pasture3DTerrainBrush treats any new child as a structural edit and schedules a full refresh, and a
+# refresh of a Sim CLEARS its footprint (§12) — so the Generated folder appearing would delete the very
+# erosion its brushes were extracted from. What this gate can check is the marker, with the Sim's own
+# Area1 spline as the control: a spline must NOT be exempt, or the exemption is blanket and the base
+# class has stopped noticing real edits.
+#
+# The consequence itself is editor-only — _can_auto_refresh() is false outside the editor, so headless
+# neither the bug nor the fix can be observed, and a criterion phrased over _full_dirty would read the
+# same for a marked and an unmarked child. This is the mechanism, not the symptom, and it says so.
+func _m_internal_children(p_sim) -> void:
+	var meta: StringName = Pasture3DTerrainBrush.INTERNAL_CHILD_META
+	# Press Preview Water Features so the overlay is one of the children under test. It is also the only
+	# assertion anywhere that the button draws something: its first version created nothing at all and
+	# reported only to the Output dock, which is indistinguishable from a button that does not work.
+	var pv: Dictionary = p_sim.preview_water_features()
+	var overlay: MeshInstance3D = p_sim.get_node_or_null("WaterPreview")
+	var want: int = (pv.get("rivers", []) as Array).size() + (pv.get("lakes", []) as Array).size()
+	var drawn: int = overlay.mesh.get_surface_count() if overlay != null and overlay.mesh != null else 0
+	print("    Preview Water Features drew %d line strip(s) for %d extracted feature(s)" % [drawn, want])
+	if want == 0:
+		_fail += 1
+		print("    !! nothing was extracted, so the overlay is unmeasured")
+	elif drawn != want:
+		_fail += 1
+		print("    !! the overlay does not describe the features the preview reported")
+
+	var unmarked: Array = []
+	var splines := 0
+	for c in p_sim.get_children():
+		if c == p_sim._name_label:
+			continue # exempted by identity in the base class, not by the marker
+		if c is Path3D:
+			splines += 1
+			if c.has_meta(meta):
+				_fail += 1
+				print("    !! spline '%s' is exempt from the refresh; the exemption is blanket" % c.name)
+			continue
+		if not c.has_meta(meta):
+			unmarked.append(String(c.name))
+	print("    direct children of the Sim: %d spline(s) unmarked (correct), %d other unmarked" % [
+			splines, unmarked.size()])
+	if splines == 0:
+		_fail += 1
+		print("    !! no spline to act as the control, so the exemption test is vacuous")
+	if not unmarked.is_empty():
+		_fail += 1
+		print("    !! these will re-bake the layer when they appear: %s" % ", ".join(unmarked))
+
+
+## Containment answered with Godot's own predicate rather than the Sim's helper: a gate that asks the
+## code under test whether it is right cannot fail when that helper is the thing that is wrong.
+func _inside_polys(p_polys: Array, p_p: Vector3) -> bool:
+	var v := Vector2(p_p.x, p_p.z)
+	for poly: PackedVector2Array in p_polys:
+		if Geometry2D.is_point_in_polygon(v, poly):
+			return true
+	return false
+
+
+func _centroid_of(p_pts: PackedVector3Array) -> Vector3:
+	if p_pts.is_empty():
+		return Vector3.ZERO
+	var sum := Vector3.ZERO
+	for p in p_pts:
+		sum += p
+	return sum / float(p_pts.size())
+
+
+## Closest XZ distance from `p_p` to any extracted point of the matching feature kind.
+func _xz_to_nearest(p_p: Vector3, p_feats: Array, p_pond: bool) -> float:
+	var best := INF
+	var here := Vector2(p_p.x, p_p.z)
+	for f in p_feats:
+		if bool(f["pond"]) != p_pond:
+			continue
+		for q: Vector3 in (f["pts"] as PackedVector3Array):
+			best = minf(best, here.distance_to(Vector2(q.x, q.z)))
+	return 0.0 if best == INF else best
 
 
 # --- synthetic fields -------------------------------------------------------------------------------

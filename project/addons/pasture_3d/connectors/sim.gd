@@ -687,6 +687,8 @@ func _result_target(p_states: Array) -> Dictionary:
 ## are real numbers about real water, and they are what a selector near the loop rim needs. Multiplying
 ## the falloff into them would bake the ramp's shape into data phase 3 reads as geology.
 func _write_result(p_states: Array, p_is_preview: bool, p_scale: int) -> String:
+	# A new solve moves the channels, so any overlay on screen now describes the previous one.
+	_clear_water_overlay()
 	var parts: Array = []
 	for st: Dictionary in p_states:
 		if not st.has("flow"):
@@ -738,6 +740,7 @@ func _write_result(p_states: Array, p_is_preview: bool, p_scale: int) -> String:
 
 ## Empty the masks in place, so a mask can never outlive the erosion it describes (Clear Simulation).
 func _empty_result() -> void:
+	_clear_water_overlay()
 	if sim_result == null:
 		return
 	sim_result.width = 0
@@ -781,12 +784,34 @@ func _save_result(p_result: Pasture3DSimResult) -> void:
 ## ordinary brushes that know nothing about the sim and should stay that way.
 const GENERATED_META := "_generated_by_sim"
 
+## Where a freshly built brush belongs, in WORLD space, stamped by _make_trough / _make_pond and consumed
+## by the first _attach_generated. The extractor works in world coordinates but a Curve3D's points are
+## LOCAL to its Path3D, so a generated brush parented under a Sim that is not at the origin lands offset
+## by the Sim's transform unless something places it. This is that something.
+##
+## One-shot on purpose: it is removed the moment it is used, so the undo/redo re-attach path — which runs
+## the same _attach_generated over the same node instance — leaves a brush the user has since dragged
+## exactly where they dragged it.
+const PLACE_META := "_generated_place_at"
+
 ## Read-only summary from the last Preview Water Features, shown as a configuration warning.
 @export_storage var _water_preview: String = ""
 
+## The overlay Preview Water Features draws. Held rather than looked up so it can never be confused with
+## a user's own child, and rebuilt from scratch on every press.
+var _water_overlay: MeshInstance3D = null
 
-## Preview: report what the current thresholds would produce, and create nothing (§10.4).
+
+## Preview: show what the current thresholds would produce, and create nothing (§10.4).
+##
+## "Create nothing" means create no BRUSHES. It drew nothing at all in its first version, which made the
+## button indistinguishable from a broken one: the only feedback was a line in the Output dock and a
+## configuration-warning string, neither of which is where you are looking while tuning a threshold. The
+## overlay below is what makes this a preview rather than a report — thresholds are the one part of this
+## workflow you tune by eye, and the whole reason for the button is to do that without generating and
+## deleting brushes each time.
 func preview_water_features() -> Dictionary:
+	_clear_water_overlay()
 	var w := extract_water()
 	if not bool(w.get("ok", false)):
 		_water_preview = ""
@@ -795,11 +820,76 @@ func preview_water_features() -> Dictionary:
 		return w
 	var rivers: Array = w["rivers"]
 	var lakes: Array = w["lakes"]
+	_draw_water_overlay(rivers, lakes)
 	_water_preview = "%d lake(s), %d river segment(s) at the current thresholds" % [lakes.size(), rivers.size()]
 	print("Pasture3DSim '%s': %s (%d channel cells, %d flooded cells)." % [
 			name, _water_preview, int(w.get("channel_cells", 0)), int(w.get("lake_cells", 0))])
 	update_configuration_warnings()
 	return w
+
+
+## Marker on the overlay node, so a script reload that drops `_water_overlay` cannot leave an orphan
+## line network in the scene that nothing owns and no button can remove.
+const OVERLAY_META := "_sim_water_overlay"
+## Rivers read as flowing water, lakes as standing water. Both are lifted clear of the ground: the line
+## describing a channel the sim just carved would otherwise z-fight with the channel itself.
+const OVERLAY_RIVER := Color(0.25, 0.72, 1.0)
+const OVERLAY_LAKE := Color(0.35, 1.0, 0.70)
+const OVERLAY_LIFT := 0.4
+
+
+## Remove the preview overlay, by marker rather than by the held reference alone.
+func _clear_water_overlay() -> void:
+	_water_overlay = null
+	for c in get_children():
+		if c.has_meta(OVERLAY_META):
+			remove_child(c)
+			c.queue_free()
+
+
+## One unshaded line strip per river link and per shoreline, in this node's local space (the overlay is
+## our child, so it inherits our transform — the same conversion the generated brushes need, done here
+## against `global_transform` instead of at attach time).
+##
+## Deliberately not owned by the edited scene: it must never save, never appear in the Scene dock, and
+## never survive a reload as something the user has to find and delete.
+func _draw_water_overlay(p_rivers: Array, p_lakes: Array) -> void:
+	if p_rivers.is_empty() and p_lakes.is_empty():
+		return
+	var mesh := ImmediateMesh.new()
+	var inv := global_transform.affine_inverse()
+	for seg: Dictionary in p_rivers:
+		_overlay_line(mesh, seg["points"], inv, OVERLAY_RIVER, false)
+	for lake: Dictionary in p_lakes:
+		_overlay_line(mesh, lake["contour"], inv, OVERLAY_LAKE, true)
+	if mesh.get_surface_count() == 0:
+		return
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mat.no_depth_test = true # the whole network at once, including the parts behind a ridge
+	mat.disable_fog = true
+	_water_overlay = MeshInstance3D.new()
+	_water_overlay.name = "WaterPreview"
+	_water_overlay.set_meta(OVERLAY_META, true)
+	_water_overlay.set_meta(INTERNAL_CHILD_META, true) # a preview must never re-bake the layer
+	_water_overlay.mesh = mesh
+	_water_overlay.material_override = mat
+	add_child(_water_overlay)
+
+
+func _overlay_line(p_mesh: ImmediateMesh, p_pts: PackedVector3Array, p_inv: Transform3D,
+		p_color: Color, p_closed: bool) -> void:
+	if p_pts.size() < 2:
+		return
+	var lift := Vector3(0.0, OVERLAY_LIFT, 0.0)
+	p_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+	p_mesh.surface_set_color(p_color)
+	for p in p_pts:
+		p_mesh.surface_add_vertex(p_inv * (p + lift))
+	if p_closed:
+		p_mesh.surface_add_vertex(p_inv * (p_pts[0] + lift))
+	p_mesh.surface_end()
 
 
 ## Trace the drainage tree and the depression fill into polylines and shorelines. Pure analysis — this
@@ -827,7 +917,131 @@ func extract_water() -> Dictionary:
 		fail["reason"] = "the extractor rejected the %dx%d grid" % [int(surf["gw"]), int(surf["gh"])]
 		return fail
 	res["reason"] = ""
-	return res
+	return _clip_to_write_area(res)
+
+
+## Cut the extracted network down to the area this Sim actually WRITES.
+##
+## §5 is simulate wide, write narrow: the solve runs over the loop plus its catchment margin so the
+## channels near the rim are fed by real upstream area, and §8.2 stores the masks over that whole
+## simulated extent. Extraction reads the masks, so without this it happily returns rivers and lakes out
+## in the margin — drainage that is real in the solve and *absent from the terrain*, because the margin
+## was never written. A Trough there carves virgin ground outside the area the user drew, which is how
+## this was found.
+##
+## Rivers are TRIMMED at the boundary rather than dropped, so a trunk leaving the area still reaches the
+## edge, and each surviving run is re-tested against `min_river_length` — a clipped stub is still a stub.
+## Lakes must be entirely inside: a Pond is one closed loop with no way to express a clipped shore, and
+## half a lake carved past the boundary is the exact thing this function exists to prevent.
+func _clip_to_write_area(p_w: Dictionary) -> Dictionary:
+	var polys := _write_polygons()
+	if polys.is_empty():
+		return p_w
+	var rivers: Array = []
+	for seg: Dictionary in (p_w.get("rivers", []) as Array):
+		rivers.append_array(_clip_polyline(seg["points"], seg["areas"], polys))
+	var lakes: Array = []
+	for lake: Dictionary in (p_w.get("lakes", []) as Array):
+		if _contour_inside(lake["contour"], polys):
+			lakes.append(lake)
+	p_w["rivers_before_clip"] = (p_w.get("rivers", []) as Array).size()
+	p_w["lakes_before_clip"] = (p_w.get("lakes", []) as Array).size()
+	p_w["rivers"] = rivers
+	p_w["lakes"] = lakes
+	return p_w
+
+
+## This Sim's loops as world-XZ polygons — the same ones the bake masks with, grown by `edge_offset` so
+## the clip follows the written edge and not the spline when those differ.
+func _write_polygons() -> Array:
+	var out: Array = []
+	for s in _get_splines():
+		var poly := _polygon_xz(s)
+		if poly.size() < 3:
+			continue
+		if is_zero_approx(edge_offset):
+			out.append(poly)
+		else:
+			out.append_array(Geometry2D.offset_polygon(poly, edge_offset))
+	return out
+
+
+func _inside_write_area(p_polys: Array, p_p: Vector3) -> bool:
+	var v := Vector2(p_p.x, p_p.z)
+	for poly: PackedVector2Array in p_polys:
+		if Geometry2D.is_point_in_polygon(v, poly):
+			return true
+	return false
+
+
+func _contour_inside(p_contour: PackedVector3Array, p_polys: Array) -> bool:
+	for p in p_contour:
+		if not _inside_write_area(p_polys, p):
+			return false
+	return true
+
+
+## Split one extracted link into the runs of it that lie inside the write area, each still carrying its
+## own upstream-area samples so the width curve survives the cut.
+func _clip_polyline(p_pts: PackedVector3Array, p_areas: PackedFloat32Array, p_polys: Array) -> Array:
+	var out: Array = []
+	var cur := PackedVector3Array()
+	var cur_a := PackedFloat32Array()
+	var prev_in := false
+	var prev_a := 0.0
+	for i in range(p_pts.size()):
+		var p: Vector3 = p_pts[i]
+		var a: float = p_areas[i] if i < p_areas.size() else 0.0
+		var here := _inside_write_area(p_polys, p)
+		if i > 0 and here != prev_in:
+			# The crossing itself, so a river reaches the edge instead of stopping at the last vertex the
+			# simplification happened to leave inside.
+			var t := _boundary_t(p_polys, p_pts[i - 1], p)
+			cur.append(p_pts[i - 1].lerp(p, t))
+			cur_a.append(lerpf(prev_a, a, t))
+		if here:
+			cur.append(p)
+			cur_a.append(a)
+		elif prev_in:
+			_flush_run(out, cur, cur_a)
+			cur = PackedVector3Array()
+			cur_a = PackedFloat32Array()
+		prev_in = here
+		prev_a = a
+	_flush_run(out, cur, cur_a)
+	return out
+
+
+func _flush_run(p_out: Array, p_pts: PackedVector3Array, p_areas: PackedFloat32Array) -> void:
+	if p_pts.size() < 2:
+		return
+	var length := 0.0
+	for i in range(1, p_pts.size()):
+		length += Vector2(p_pts[i].x, p_pts[i].z).distance_to(Vector2(p_pts[i - 1].x, p_pts[i - 1].z))
+	if length < min_river_length:
+		return
+	p_out.append({"points": p_pts, "areas": p_areas, "length": length})
+
+
+## Where along a→b the write boundary is crossed, as a 0..1 parameter. Falls back to the inside end when
+## no edge intersection is found, which keeps a numerical miss conservative rather than letting a river
+## run past the boundary.
+func _boundary_t(p_polys: Array, p_a: Vector3, p_b: Vector3) -> float:
+	var a2 := Vector2(p_a.x, p_a.z)
+	var b2 := Vector2(p_b.x, p_b.z)
+	var span := a2.distance_to(b2)
+	if span <= 0.0:
+		return 0.0
+	var best := INF
+	for poly: PackedVector2Array in p_polys:
+		var n := poly.size()
+		for i in range(n):
+			var hit = Geometry2D.segment_intersects_segment(a2, b2, poly[i], poly[(i + 1) % n])
+			if hit != null:
+				best = minf(best, a2.distance_to(hit) / span)
+	if best == INF:
+		return 0.0 if _inside_write_area(p_polys, p_a) else 1.0
+	return clampf(best, 0.0, 1.0)
 
 
 ## The surface the sim left, at sim resolution over the simulated area.
@@ -881,6 +1095,7 @@ func add_brushes() -> Dictionary:
 ## {ok, reason, rivers, lakes, removed}.
 func add_brushes_now(p_record_undo: bool = false) -> Dictionary:
 	var report := {"ok": false, "reason": "", "rivers": 0, "lakes": 0, "removed": 0}
+	_clear_water_overlay() # the real brushes are about to say the same thing
 	var w := extract_water()
 	if not bool(w.get("ok", false)):
 		report["reason"] = w.get("reason", "extraction failed")
@@ -944,6 +1159,7 @@ func clear_brushes() -> int:
 
 
 func clear_brushes_now(p_record_undo: bool = false) -> int:
+	_clear_water_overlay()
 	var old := collect_generated()
 	if old.is_empty():
 		print("Pasture3DSim '%s': there are no generated brushes to clear." % name)
@@ -994,10 +1210,15 @@ func collect_generated() -> Array:
 func _generated_root() -> Node3D:
 	for c in get_children():
 		if c is Node3D and c.has_meta(GENERATED_META) and not (c is Pasture3DTerrainBrush):
+			c.set_meta(INTERNAL_CHILD_META, true) # a folder saved before the marker existed
 			return c
 	var root := Node3D.new()
 	root.name = "Generated"
 	root.set_meta(GENERATED_META, true)
+	# Not a spline and not part of our footprint — see INTERNAL_CHILD_META. Without it, creating this
+	# folder counts as a structural edit of the Sim, the base class schedules a refresh, and the refresh
+	# clears the very erosion the brushes were extracted from (§12).
+	root.set_meta(INTERNAL_CHILD_META, true)
 	add_child(root, true)
 	_own_scene(root)
 	return root
@@ -1007,6 +1228,17 @@ func _attach_generated(p_node: Node3D) -> void:
 	if p_node.get_parent() == null:
 		_generated_root().add_child(p_node, true)
 		_own_scene(p_node)
+	# Placement, BEFORE the terrain is assigned and anything bakes: a brush moved after its first bake
+	# would paint once in the wrong place. Consumed here (see PLACE_META), so this runs for a fresh brush
+	# and never for one coming back through undo.
+	if p_node.has_meta(PLACE_META):
+		var origin: Vector3 = p_node.get_meta(PLACE_META)
+		p_node.remove_meta(PLACE_META)
+		var parent := p_node.get_parent() as Node3D
+		var world := Transform3D(Basis(), origin)
+		# Against the parent's transform rather than the global_transform setter, so it is correct for a
+		# Sim that is rotated or scaled and does not depend on the node being inside the tree.
+		p_node.transform = (parent.global_transform.affine_inverse() * world) if parent != null else world
 	p_node.set("_suspend_auto", true)
 	if p_node.get("terrain") != terrain:
 		p_node.set("terrain", terrain)
@@ -1059,14 +1291,29 @@ func _make_trough(p_seg: Dictionary, p_widest: float) -> Pasture3DTrough:
 	t.depth = river_carve_depth
 	t.bed_half_width = maxf(river_width_max, 0.1) * 0.5
 	t.width_curve = _width_curve(areas, p_widest)
+	# World points, stored relative to where the node will sit — see PLACE_META.
+	var origin := _centroid(pts)
+	t.set_meta(PLACE_META, origin)
 	var path := Path3D.new()
 	path.name = "Bed1"
 	var c := Curve3D.new()
 	for p in pts:
-		c.add_point(p)
+		c.add_point(p - origin)
 	path.curve = c
 	t.add_child(path)
 	return t
+
+
+## Centre of a run of world points, used as the origin a generated brush is placed at. Not the first
+## point: the node's gizmo should land ON the feature, so grabbing a generated river to nudge it works
+## the same way grabbing an authored one does.
+func _centroid(p_pts: PackedVector3Array) -> Vector3:
+	if p_pts.is_empty():
+		return Vector3.ZERO
+	var sum := Vector3.ZERO
+	for p in p_pts:
+		sum += p
+	return sum / float(p_pts.size())
 
 
 ## Width along the segment, as a 0..1 multiplier on bed_half_width. Rivers widen with the square root of
@@ -1097,11 +1344,13 @@ func _make_pond(p_lake: Dictionary) -> Pasture3DPond:
 	p.auto_add_water = false # _attach_generated fills it synchronously instead — see there
 	p.snap_to_surface = false
 	p.height = maxf(float(p_lake["depth"]), 0.05)
+	var origin := _centroid(contour)
+	p.set_meta(PLACE_META, origin)
 	var path := Path3D.new()
 	path.name = "Loop1"
 	var c := Curve3D.new()
 	for v in contour:
-		c.add_point(v)
+		c.add_point(v - origin)
 	c.closed = true
 	path.curve = c
 	p.add_child(path)

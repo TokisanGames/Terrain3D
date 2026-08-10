@@ -46,6 +46,13 @@ const BRUSH_OWNER_PREFIX: String = "pasture3d_brush:"
 ## Group every brush node joins so siblings can find each other for layer-granular refresh.
 const BRUSH_GROUP: StringName = &"pasture3d_brush"
 
+## Mark a child a brush adds to ITSELF for presentation or bookkeeping — never a spline, never part of
+## the footprint. Adding or removing one must not schedule a re-bake: `_on_child_changed` treats any new
+## child as a structural edit, which for Pasture3DSim means the refresh cycle clears its footprint and
+## the erosion silently leaves the layer. The nameplate is exempted by identity below; anything else
+## (Sim's Generated folder, its water-feature overlay) says so with this.
+const INTERNAL_CHILD_META: StringName = &"_brush_internal_child"
+
 # Debounce for auto-refresh while dragging spline handles (seconds).
 const REFRESH_DELAY: float = 0.1
 
@@ -329,8 +336,8 @@ func _clear_tree_settling() -> void:
 
 
 func _on_child_changed(node: Node) -> void:
-	if node == _name_label:
-		return # our internal nameplate is not a spline and must not trigger a refresh
+	if node == _name_label or node.has_meta(INTERNAL_CHILD_META):
+		return # presentation/bookkeeping children are not splines and must not trigger a refresh
 	if _tree_settling:
 		# Child splines entering/leaving the tree because the whole scene (re)attached — not a real
 		# structural edit. The baked terrain data is already correct; skip the redundant full bake.

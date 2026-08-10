@@ -24,7 +24,8 @@ Phases 1–4 ship as:
 | [bench/SimPhase3Gate.tscn](project/bench/SimPhase3Gate.gd) | Gate L (L1–L7), all passing with their controls | 3 |
 | [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `sim_extract_water` — the drainage tree to river links, the depression fill to shorelines | 4 |
 | [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | Thresholds, surface reconstruction, Preview / Add / Clear Brushes, and the generated Trough and Pond builders | 4 |
-| [bench/SimPhase4Gate.tscn](project/bench/SimPhase4Gate.gd) | Gates M, N, O, Y, Z, all passing with their controls | 4 |
+| [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd) | `INTERNAL_CHILD_META` — a brush's own presentation/bookkeeping children do not count as a structural edit | 4 |
+| [bench/SimPhase4Gate.tscn](project/bench/SimPhase4Gate.gd) | Gates M (M1–M4), N, O, Y, Z, all passing with their controls | 4 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
 records the gate results and the criteria that were vacuous until their controls caught them.
@@ -533,7 +534,8 @@ disturb authored work, and the whole generated set gets one visibility toggle.
   (matching `place_brush_at`'s `add_do_reference` pattern).
 - **Clear Brushes** removes every generated brush, edited or not, one undo, reporting the count first.
 
-> **Built as designed**, with five things the design left open.
+> **Built as designed**, with eight things the design left open — the last three added after using the
+> node in the editor, where the four defects in §14's phase-4 notes turned up.
 >
 > **1 — Extraction does not re-solve, and does not store the elevation.** Add Brushes has to work after a
 > reload, without the multi-second cost of the solver and without a fifth mask channel (§8.2 is explicit
@@ -572,6 +574,35 @@ disturb authored work, and the whole generated set gets one visibility toggle.
 > neither does dragging it out of the `Generated` folder. And both kinds get `add_pool_now()` called on
 > them explicitly: a Pond would otherwise seed its own water on the next idle frame, which is one frame
 > in which Add Brushes has produced a dry lake.
+>
+> **6 — A generated brush is PLACED, at the centre of its own feature.** The extractor answers in world
+> coordinates and a `Curve3D`'s points are local to their `Path3D`, so a brush parented under a Sim that
+> is not at the origin lands offset by the Sim's transform unless something places it. The points are
+> stored relative to the feature's centroid and the node is moved there, which also puts the gizmo *on*
+> the river — grabbing a generated one to nudge it works the way grabbing an authored one does. The
+> placement is one-shot (a `PLACE_META` consumed by the first attach) so that undo, which re-attaches the
+> same node instance, leaves a brush the user has since dragged exactly where they dragged it.
+>
+> **7 — Nothing the Sim parents to itself may look like a structural edit.** `Pasture3DTerrainBrush`
+> schedules a refresh on any new child, and a refresh of a Sim clears its own footprint (§12) — so simply
+> creating the `Generated` folder deleted the erosion the brushes were extracted from. Both the folder
+> and the preview overlay carry `INTERNAL_CHILD_META`, which the base class exempts alongside its own
+> nameplate. And Preview Water Features now *draws*: an unowned, unshaded line overlay of the extracted
+> network, cleared by the next solve, Add Brushes or Clear Brushes. Thresholds are the one part of this
+> workflow tuned by eye, and a preview whose only output was a line in the Output dock was
+> indistinguishable from a button that did nothing.
+>
+> **8 — Extraction is clipped to the WRITE area, not the simulated one.** The masks span the loop plus its
+> catchment margin (§5, §8.2), so the drainage tree runs out into ground the sim solved but never wrote.
+> Features are cut to the loop polygons before any brush is built, which means Preview and Add Brushes
+> agree and neither offers a river that is not in the terrain. Rivers are trimmed *at* the boundary — the
+> crossing point is interpolated, so a trunk leaving the area still reaches the edge instead of stopping
+> at whichever vertex the simplification happened to leave inside — and each surviving run is re-tested
+> against `min_river_length`, because a clipped stub is still a stub. Lakes must be **entirely** inside:
+> a Pond is one closed loop with no way to express a clipped shore, and half a lake carved past the
+> boundary is exactly what this prevents. A basin that straddles the edge is therefore dropped rather
+> than half-built, which is the conservative choice and the one that keeps generated work inside the area
+> the user drew.
 
 ---
 
@@ -754,7 +785,7 @@ must distinguish "measured nothing" from "measured correctly".
 | J | **Preview agrees with build on large-scale structure.** Low-frequency delta matches within tolerance. | Compare high-frequency content → they differ, as expected; the gate must test the claim actually made. |
 | K | **Erosion is monotone where diffusion is off.** With `D = 0`, no cell rises. | Enable diffusion → some cells rise, confirming the gate is sensitive to the thing it measures. |
 | L | *(phase 3)* **Sim selectors gate.** Seven criteria, because one claim about a gate is not seven. **L1** a `FLOW`-gated material appears in channels, not on ridges. **L2** each Kind reads its OWN channel. **L3** a `FLOW` band is in m², not log units. **L4** an `EROSION` band is a positive depth. **L5** outside the extent the gate is a defined 0. **L6** the two raster paths agree. **L7** a sim-gated bake does not drift. | L1 selector `strength = 0` → covers everything. L2 the band predicted from each channel's own distribution — relief off those cells is a failure. L3 a band of plausible LOG values, which must not light the channels. L4 the resource's own negative sign, which must select nothing. L5 the same brush inside the extent. L6 the relief is not flat. L7 L1 already proved the bake is not a no-op. |
-| M | *(phase 4)* **Clear removes exactly the generated set.** A hand-placed Pond and Trough survive, and every generated river arrives with water on it. | Identify generated nodes by name → the authored ones are destroyed. Plus: the authored Trough must be dry, or "generated rivers have water" is not measuring the pool path. |
+| M | *(phase 4)* **The node-level bookkeeping gate.** **M1** Clear removes exactly the generated set; a hand-placed Pond and Trough survive. **M2** every generated river arrives with water on it. **M3** a generated brush is placed ON the feature it came from — node at the feature's centre, spline retracing the channel in XZ. **M4** everything the Sim parents to itself is exempt from the structural-edit refresh, and Preview Water Features draws one line strip per extracted feature. **M5** no generated brush reaches outside the loop the Sim writes. | M1 identify generated nodes by name → the authored ones are destroyed. M2 the authored Trough must be dry, or "generated rivers have water" is not measuring the pool path. M3 the same points read as if unplaced, which must be hundreds of metres out — otherwise the site is at the origin and placement is untestable there. M4 the Sim's own spline, which must NOT be exempt, or the exemption is blanket. M5 the extraction before the clip, which must reach outside — otherwise the site has no margin drainage and the claim is empty. Containment is answered with `Geometry2D`, not with the Sim's own predicate. |
 | N | *(phase 4)* **Confluences split.** A synthetic Y-shaped catchment yields three segments, and they PARTITION the channel — summed cell counts exceed the channel cell count only by the junction. | The total a source-to-outlet walk would have produced, computed from the measured trunk length. The count alone is not enough: source-to-outlet also yields three here. |
 | O | *(phase 4)* **Extraction is monotonic.** Raising `river_area_threshold` never increases the channel cell count or the link count. | The counts must actually move across the sweep, or monotonicity is trivially true. |
 | Y | *(phase 4)* **Lakes come off the depression fill at the right size and depth.** A paraboloid bowl in a FLAT plain floods to `πR²(1 − threshold/depth)` and its 90th-percentile depth is `0.9 × depth`; the shoreline encloses the bowl. | No bowl → no lakes. And `min_lake_area` raised above the bowl → it is filtered out. |
@@ -907,7 +938,7 @@ the per-Kind discrimination the first form never had.
 
 ### Gate results (phase 4, all passing)
 
-`bench/SimPhase4Gate.tscn`, headless, ~15 s. N, O and Y drive `sim_extract_water` directly on synthetic
+`bench/SimPhase4Gate.tscn`, headless, ~25 s. N, O and Y drive `sim_extract_water` directly on synthetic
 fields whose answer is known by construction; M and Z drive a real Sim on the demo terrain.
 
 | # | Measured | Control |
@@ -915,8 +946,8 @@ fields whose answer is known by construction; M and Z drive a real Sim on the de
 | N | 149 channel cells → **3 links** (two tributaries of 44 cells, a trunk of 64); 152 cells across the links, **+3** of overlap — the junction, which all three touch | Source-to-outlet would total 213 cells, +64 of overlap |
 | O | 1 000 → 32 000 m²: channel cells 991 → 54, links 70 → 2, never rising at any step | The count moved 70 → 2 across the sweep |
 | Y | One lake: area 10 896 m² against an analytic 11 108 (**−1.9%**), depth 25.51 m against an analytic p90 of 25.20 (the bowl's *max* is 28.00), 60-point shoreline centred on the bowl to 0.0 m | No bowl → 0 lakes, 0 flooded cells. `min_lake_area` above the bowl → 0 lakes |
-| Z | Worst \|log(rebuilt area) − stored flow\| = **4.8e-7** over 116 622 cells | Routing the un-eroded ground → worst 10.8, 102 644 cells past tolerance |
-| M | 4 rivers + 1 lake generated, **all 5 arriving with water**; Clear removed exactly 5 and both authored brushes survived | A name-based collector matches **7** — it would take the authored pair too. And the authored Trough is dry, so the water criterion is not vacuous |
+| Z | Worst \|log(rebuilt area) − stored flow\| = **4.8e-7** over 231 842 cells | Routing the un-eroded ground → worst 11.0, 208 276 cells past tolerance |
+| M | 9 rivers + 1 lake generated, **all 10 arriving with water**; Clear removed exactly 10 and both authored brushes survived; every node origin within **0.0000 m** of its feature's centre and all 62 spline points on the channel to **0.0000 m** in XZ; **0 of 62** points outside the loop, the clip having kept 9 of 11 rivers and 1 of 2 lakes; Preview drew 10 line strips for 10 features and the Sim's only unmarked direct child is its spline | A name-based collector matches **12** — it would take the authored pair too. The authored Trough is dry, so the water criterion is not vacuous. The same points read as if unplaced are 221.1 m (origin) and 469.2 m (spline) out. Before the clip, 3 of 13 features reached outside the loop |
 
 **Two deliberate breaks confirmed the gates bite, and the first shows why N needed two criteria.**
 Removing the junction stop from the river walk — so segments run source-to-outlet — still produced
@@ -936,6 +967,41 @@ to a site with a basin in it and now requires both kinds. A third fault was in t
 adversary: an authored brush named `River` dropped beside a generated `River` is silently renamed by
 Godot, which quietly removed the naming conflict the control depends on — the authored pair is now
 parented one level up, where it can keep the exact name.
+
+**Four defects shipped past this gate and were found by using the node in the editor.** All four are
+worth recording, because each says something about what the suite could not see.
+
+1. **Every generated brush was displaced by the Sim's own transform.** The extractor answers in world
+   coordinates; a `Curve3D`'s points are local to their `Path3D`. Nothing placed the node, so a Sim at
+   (512, 0, 200) — which is this very gate's site — produced brushes 550 m from their rivers. M passed
+   anyway, because counts, markers, water and layer assignment are all invariant to position: **not one
+   criterion in the entire suite mentioned where anything was.** M3 is that criterion, and re-breaking
+   the placement fails M3 and *only* M3, which is the evidence it was previously unguarded. The fix is
+   `PLACE_META`, stamped at build and consumed by the first attach, so undo re-attaching a brush the user
+   has since dragged leaves it where they dragged it.
+2. **Creating the `Generated` folder wiped the erosion.** `Pasture3DTerrainBrush` treats any new child as
+   a structural edit and schedules a refresh, and a refresh of a Sim clears its own footprint (§12) — so
+   Add Brushes deleted the erosion the brushes had just been extracted from. This one is invisible to
+   *any* headless gate: `_can_auto_refresh()` requires `Engine.is_editor_hint()`, so neither the bug nor
+   the fix has an observable consequence outside the editor, and a criterion phrased over the refresh
+   flag would read identically either way. M4 therefore gates the mechanism — the `INTERNAL_CHILD_META`
+   exemption, with the Sim's own spline as the control that must not be exempt — and says plainly that
+   it is not gating the symptom.
+3. **Preview Water Features created nothing to look at.** It reported to the Output dock and to a
+   configuration warning, neither of which is where you are while tuning a threshold, which makes it
+   indistinguishable from a broken button. It now draws the extracted network as an unowned line overlay;
+   M4 asserts one line strip per extracted feature.
+4. **Rivers and lakes were generated out in the catchment margin.** §5 simulates wide and writes narrow,
+   §8.2 stores the masks over the whole simulated extent, and extraction reads the masks — so it returned
+   drainage that is real in the solve and *absent from the terrain*, because the margin is never written.
+   On the demo scene that put Troughs a hundred metres outside the loop, carving ground the sim had not
+   touched. Every existing criterion was blind to it for the same reason M3 was: a brush in the margin is
+   still generated, still marked, still wet, and — after fix 1 — still placed exactly on the channel it
+   came from. Extraction now clips to the loop polygons (grown by `edge_offset`), trimming rivers at the
+   boundary and re-testing each surviving run against `min_river_length`. M5 is the criterion, with the
+   pre-clip extraction as the control that must reach outside; the gate's own site had to grow from a
+   240 m loop to a 380 m one first, because at 240 m the site's only lake was itself in the margin and
+   clipping it away left the whole Pond half of §10 untested again.
 
 `bench/SimResultProbe.tscn` is phase 2's picture, the counterpart to `SimFieldProbe` for the height: one
 greyscale image per channel over a real demo bake, an RGB composite of erosion/deposition/wetness, and
