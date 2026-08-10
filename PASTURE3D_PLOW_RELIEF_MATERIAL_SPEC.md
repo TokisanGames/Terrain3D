@@ -392,6 +392,14 @@ An op with `selector_id >= 0` multiplies its contribution by that selector's val
 - **The stack remaps selector ids** when splicing a child's program, exactly as it does LUT slots. Gate M
   puts two different selectors in one stack specifically to catch that offset being wrong.
 
+> **Designed, not built — the mask preview.** A selector is tuned blind today: you set a band, bake, look
+> at the result, and adjust. `PASTURE3D_SIM_NODE_SPEC.md` §18 specs a red terrain overlay of the
+> selector's weight, live, as a `DEBUG_` shader insert. It is specced there because the Sim's §17 masks
+> raised it, but **it belongs to the selector**, so a Plow or Mound gets it on the same footing — and the
+> unresolved question is this file's: a `Pasture3DReliefStack` has one selector per layer, so "preview
+> the mask" means either the composite of every layer's gate or one named layer's, and those are
+> different APIs. See §18.6.
+
 ---
 
 ## 8. Plow changes

@@ -1,14 +1,16 @@
 # Pasture3D Sim Node Spec (`Pasture3DSim`)
 
 **Status:** **PHASES 1–5 IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09, phase 5 2026-08-10).
-**Phases 6–7 DESIGNED, NOT BUILT** (2026-08-10) — the manager and pass chain (§18) and moving the solve
-off the main thread (§19). Drafted 2026-08-08; **solver replaced the same day** after a survey of
-Houdini, World Machine, Gaea and the large-scale-terrain literature (§16). Target: Godot 4.7, Pasture3D
-`main`.
+**Phases 5.5–7 DESIGNED, NOT BUILT** (2026-08-10) — the mask preview (§18), the manager and pass chain
+(§19), and moving the solve off the main thread (§20). Drafted 2026-08-08; **solver replaced the same
+day** after a survey of Houdini, World Machine, Gaea and the large-scale-terrain literature (§16).
+Target: Godot 4.7, Pasture3D `main`.
 
-> **§17–§19 are appended after §16 on purpose.** Renumbering would break every `§15.n` and `§12`
+> **§17–§20 are appended after §16 on purpose.** Renumbering §1–§16 would break every `§15.n` and `§12`
 > reference in the code comments and in these notes, which is the same reason the gate letters are not in
-> phase order (see §14). Read the section titles, not the ordering.
+> phase order (see §14). Within §17–§20 the numbering does track phase order, because nothing outside
+> this document references them yet — §18 was inserted and the two below it renumbered when the mask
+> preview was specced.
 
 Phases 1–4 ship as:
 
@@ -776,8 +778,9 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **3 — DONE** | Selector Kinds `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; the unit conversions that make their bands artist-readable; four configuration warnings; `channel_boulders.tres`, a demo preset pairing an eroded area with a flow-gated relief material |
 | **4 — DONE** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
 | **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's Kinds, units and falloff semantics; no solver change |
-| **6 — DESIGNED (§18)** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Retires §5's seam limitation; per-pass mask re-evaluation; one `SimResult`; one water extraction |
-| **7 — DESIGNED (§19)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §19.6) |
+| **5.5 — DESIGNED (§18)** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
+| **6 — DESIGNED (§19)** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Retires §5's seam limitation; per-pass mask re-evaluation; one `SimResult`; one water extraction |
+| **7 — DESIGNED (§20)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §20.6) |
 
 ### Gates
 
@@ -818,7 +821,10 @@ must distinguish "measured nothing" from "measured correctly".
 > broken every reference to a gate letter in the code and in these notes. Read the *(phase n)* tags, not
 > the alphabet.
 >
-> **A–Z is now fully consumed**, so phases 5–7 letter their criteria **AA onward** (§17.8, §18.8, §19.7).
+> **A–Z is now fully consumed**, so later phases letter their criteria **AA onward**: phase 5 AA–AG
+> (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), and phase **5.5 AS–AV** (§18.7). Phase 5.5 was
+> specced after 6 and 7 and takes the letters that were free rather than displacing theirs — the same
+> rule that left A–Z out of phase order, applied again. Read the *(phase n)* tags, not the alphabet.
 > Same reason: a single-letter scheme that has run out is not worth a renumbering that invalidates every
 > existing reference.
 
@@ -1074,7 +1080,7 @@ own authored basins rather than anything the sim made. The channel table in §8.
 10. **Masking hillslope diffusion.** *(Raised by phase 5, §17.3.)* The rate mask is free because the
     erodability field already exists; `D` has no per-cell field, so masking it means a second array through
     `erosion_solve`. Wanted for "smooth the plateau, leave the escarpment sharp", which today can only be
-    approximated by splitting into two passes (§18).
+    approximated by splitting into two passes (§19).
 
 ---
 
@@ -1157,7 +1163,7 @@ including exactly the sim grid. `_erodability_lut()` is currently its only produ
 
 **A selector-driven mask is a second producer of that same field, and needs no solver change at all.**
 That is the whole reason masking is a small phase rather than a large one, and it is why it goes *before*
-the manager (§18) rather than after.
+the manager (§19) rather than after.
 
 ### 17.2 What a mask is
 
@@ -1204,7 +1210,7 @@ run (§13).
 ([terrain_brush.gd:2351](project/addons/pasture_3d/connectors/terrain_brush.gd:2351)) is GDScript and
 O(cells) over the bake grid; a sim grid plus a 128 m margin is larger than any brush footprint, and
 `ERODABILITY_LUT_MAX = 256` exists precisely because that path is too slow to run at full size. Phase 6
-then re-evaluates the mask **once per pass** (§18.5), so a GDScript field builder would be run N times.
+then re-evaluates the mask **once per pass** (§19.5), so a GDScript field builder would be run N times.
 Build it natively from the start:
 
 ```
@@ -1237,7 +1243,7 @@ them is a bug:
   node. Gate AG.
 - **Pass 2 masked by pass 1's flow field** — the strongest idiom in the whole feature, and it is *not*
   self-reference because pass 1's fields are a deterministic function of the same below-layer read.
-  Phase 6 delivers it (§18.5); phase 5 cannot, and its warning should say which one is missing rather
+  Phase 6 delivers it (§19.5); phase 5 cannot, and its warning should say which one is missing rather
   than implying the combination is illegal.
 
 ### 17.7 Node surface
@@ -1312,7 +1318,133 @@ catches it:**
 
 ---
 
-## 18. The manager and the pass chain (phase 6)
+## 18. Mask preview (phase 5.5)
+
+A red overlay on the terrain showing where a mask will take effect, live, so a band is tuned **by eye
+against the ground** instead of by baking and inspecting the result. Phase 5 shipped the masks; nothing
+shipped that lets you see one before committing several seconds of solve to it.
+
+**This is not a Sim feature.** `Pasture3DReliefSelector` is the same resource that gates Plow and Mound
+relief materials (`PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md` §7), so the preview belongs to the *selector*,
+and it lives on the material plus a shared brush-side helper. A Sim-only version would have to be written
+twice.
+
+### 18.1 Where it hooks, and why not the three easier options
+
+The terrain is a clipmap of raw `RenderingServer` instances
+([pasture_3d_mesher.cpp:128](src/pasture_3d_mesher.cpp:128)) — there are no `MeshInstance3D` nodes, so
+`GeometryInstance3D.material_overlay`, the obvious answer, does not exist here.
+
+| Option | Rejected because |
+|---|---|
+| A `Decal` node | Projects along one axis, so it smears on steep ground — which is exactly where a `SLOPE` mask matters most. It would be least trustworthy precisely where it is most needed |
+| An overlay `MeshInstance3D` hugging the surface | A second surface to generate, keep in sync with every bake, and fight for depth. The water-feature overlay gets away with this because it draws *lines*, not a field |
+| Painting into a control/color layer | Destructive-adjacent, persists in the data, and would have to be undone. A preview must leave nothing behind |
+
+**Use the shader-insert system**, which is already there for exactly this class of thing:
+`//INSERT: NAME` blocks in `src/shaders/`, injected by name, with a `_SETUP` variant declaring the
+uniforms. Two reasons it is the right hook and not merely an available one:
+
+- `_apply_inserts` **skips every `DEBUG_*` and `EDITOR_*` insert** unless a toggle explicitly pushes its
+  name ([pasture_3d_material.cpp:131](src/pasture_3d_material.cpp:131)). Naming the pair
+  `DEBUG_MASK_PREVIEW` / `DEBUG_MASK_PREVIEW_SETUP` therefore makes it **editor-only for free** — the
+  shipped shader never contains it, so the cost in a game build is exactly zero.
+- `v_vertex` is in scope at the injection point (`DEBUG_HEIGHTMAP` already reads `v_vertex.y`), so the
+  world XZ needed to look the mask up is already there.
+
+Cost when on: one texture sample and a `mix` into `ALBEDO`, in a variant nobody ships.
+
+### 18.2 The data path, and the one rule that makes it worth having
+
+1. The brush builds the weight field with `sim_mask_field` — the **same call the bake makes**.
+2. Packs it to an `Image` (single channel, `FORMAT_RF`) → `ImageTexture`.
+3. Hands the material the texture and the field's world rect.
+4. The insert samples it at `v_vertex.xz`, mapped through that rect, and mixes red into `ALBEDO` by the
+   weight.
+
+> **The preview must call the function the bake calls.** A second implementation — a GDScript
+> approximation, a coarser field, a different source surface — would mean tuning a band against a mask
+> that will never run, which is worse than having no preview at all. This is the same rule the gates
+> follow in reverse: there, the gate must *not* ask the code under test; here, the preview must ask
+> nothing else.
+>
+> `sim_mask_field` is already general enough — it takes a height grid and a selector block, and nothing
+> in it is sim-specific. Only the **name** is wrong for the wider scope. Rename it to
+> `selector_mask_field` as part of this phase rather than growing a second entry point beside it.
+
+### 18.3 What it draws
+
+**Weight, not a binary.** `falloff_low` and `falloff_high` are the parameters this feature most exists to
+serve, and a hard red/not-red would hide precisely them: the soft shoulder of a band is invisible in a
+two-colour view. Alpha is proportional to weight.
+
+- `mask_preview_color`, default a red at moderate alpha, so the underlying material still reads through.
+- An optional brighter line at weight 0.5, so the nominal band edge is locatable rather than merely
+  implied by a gradient.
+- **Outside the field's rect, draw nothing.** A clamped sampler paints the horizon with the edge value
+  and reads as "this mask covers the world"; the insert must test the rect and leave `ALBEDO` alone.
+
+**At build resolution, not preview resolution.** §17.5 records that slope and curvature are measured over
+the grid spacing, so a `÷4` field gates differently from the one a build will use. A preview at preview
+resolution would show a *different mask* — the exact failure this feature exists to prevent. The field is
+cheap (derivation plus N selector evaluations, no solver iterations), so it is affordable to be honest.
+
+### 18.4 One preview at a time
+
+`Pasture3DMaterial` belongs to the terrain, so there is exactly one set of preview uniforms. Two brushes
+cannot both own it.
+
+Make that explicit rather than letting them fight: the material records the **owner** of the current
+preview, and enabling a preview anywhere disables the previous one and tells the previous owner so its
+toggle goes back to Off. Two masks painted red at once would be unreadable anyway, so the constraint and
+the desirable UX agree.
+
+### 18.5 Clearing it
+
+The same discipline the water-feature overlay follows, and for the same reason: **a stale preview is
+worse than none, because it looks authoritative.** Clear on any of —
+
+- the owning node baking, refreshing, or clearing;
+- the mask stack, band, or any selector property changing (rebuild, do not leave the old field up);
+- the node being deselected, leaving the tree, or losing its terrain;
+- the terrain's own layers changing underneath it (the field is built from `composite_height_below`).
+
+### 18.6 Node surface
+
+The toggle lives on the **node**, never on the selector: a `Pasture3DReliefSelector` is a `Resource` with
+no terrain, no footprint and no way to draw itself.
+
+| Node | Control |
+|---|---|
+| `Pasture3DSim` | `mask_preview: {Off, Erosion Mask, Write Mask}` — an enum, not two bools, because the two are mutually exclusive by §18.4 anyway |
+| `Pasture3DPlow` / `Pasture3DMound` | `relief_mask_preview: bool` over the relief material's own selector |
+
+> **The open question is `Pasture3DReliefStack`.** A stack has N layers, each with its own selector, so
+> "preview the mask" is ambiguous: the composite of every layer's gate, or one named layer's? The
+> composite is what the bake applies and is the honest default; a single layer is what an artist tuning
+> that layer wants. Previewing one layer turns the API from a bool into a path into the material tree,
+> which is why this is called out rather than assumed. **Decide before building**, and if in doubt ship
+> the composite only — it is the one that cannot be misread.
+
+### 18.7 Gates (phase 5.5)
+
+Lettering continues at **AS** (§14).
+
+Most of this phase is a visual editor feature and is **headless-blind**, the same accommodation gates M4
+and AO make. But the claim that actually matters — *what you see is what will bake* — is fully gateable
+without a viewport, and that is where the criteria go. The gate must say in its output that the red
+pixels themselves are ungated, rather than letting four green lines imply a rendering test happened.
+
+| # | Criterion | Control that must fail |
+|---|---|---|
+| AS | **The preview is the bake's own mask.** The texture handed to the material is bitwise `selector_mask_field`'s output over the same grid the bake uses — same extent, same resolution, same source surface. | The same field built at `preview_resolution`, which must DIFFER on a slope band — otherwise the fixture is flat and "same resolution" is an untested claim. |
+| AT | **The rect registers.** The world rect handed to the material maps the texture onto the footprint the mask covers, checked by sampling the preview's own mapping at known world points. | The rect displaced by one catchment margin, which must land different cells — the mistake §17.8's AF already caught once in the field lookup. |
+| AU | **One owner.** Enabling a preview on a second brush disables the first, and the first node reports Off. | Enable on one brush only, which must stay on — otherwise "exclusive" is indistinguishable from "always off". |
+| AV | **It leaves nothing behind.** After disabling, the material carries no preview insert and no preview texture, and the terrain data is unchanged — no layer, no control map, nothing written. | A snapshot taken WITH the preview on, which must differ from the off state, or AV is comparing two identical no-ops. |
+
+---
+
+## 19. The manager and the pass chain (phase 6)
 
 ```gdscript
 @tool class_name Pasture3DSimManager extends Pasture3DTerrainBrush
@@ -1321,7 +1453,7 @@ catches it:**
 Child `Pasture3DSim` nodes become **ordered passes** over one shared grid. Scene-dock order is stack
 order, top to bottom.
 
-### 18.1 Why, and it is not layer sharing
+### 19.1 Why, and it is not layer sharing
 
 Layer sharing is the *symptom*. Today `_commit` clears the layer over the tile-snapped box before writing
 ([sim.gd:1376](project/addons/pasture_3d/connectors/sim.gd:1376)), and a layer-mate Sim cannot be
@@ -1334,9 +1466,9 @@ large map from many small loops: neighbouring loops compute drainage independent
 shared edge. One grid means water routes continuously across what used to be a boundary. That is a
 documented limitation being deleted, and gate AJ is the one that proves it.
 
-### 18.2 The model
+### 19.2 The model
 
-1. **One read.** `composite_height_below(manager_layer, …)` over the cluster grid (§18.4) → `z0`.
+1. **One read.** `composite_height_below(manager_layer, …)` over the cluster grid (§19.4) → `z0`.
 2. **Chain in memory.** `z0 → pass₁ → pass₂ → … → z_N`. `erode_heightfield` is already a pure `z → z`
    function ([pasture_3d_sim.cpp:201](src/pasture_3d_sim.cpp:201)), so chaining costs nothing to build and
    nothing round-trips through a layer.
@@ -1352,7 +1484,7 @@ erodes pass 1's output — and non-overlapping children are the degenerate case,
 layer, a deterministic chain, one write into that layer. Nothing in the chain reads the finished
 composite. Gate AM re-runs H against it.
 
-### 18.3 What belongs to a pass and what belongs to the manager
+### 19.3 What belongs to a pass and what belongs to the manager
 
 | Per pass (the child) | Manager-wide |
 |---|---|
@@ -1367,7 +1499,7 @@ cannot vary per pass. Everything else is an argument to one `erode_heightfield` 
 one call, so all of it varies freely — including `iterations`, which a single-grid "one solve, per-cell
 parameters" design could not have offered.
 
-### 18.4 The grid, and the cost risk this introduces
+### 19.4 The grid, and the cost risk this introduces
 
 **This is the part most likely to go wrong.** A naive union of five loops spread across a scene solves a
 bounding box that is mostly ground nobody asked about — potentially far more expensive than the five
@@ -1384,7 +1516,7 @@ independent Sims it replaces. `RESULT_MAX_CELLS` already exists because a multi-
 - **Cost is unmeasured.** §11 profiling still has not been done and needs the user's go-ahead. No
   performance claim in this section has a number behind it.
 
-### 18.5 Per-pass mask re-evaluation — the reason to chain
+### 19.5 Per-pass mask re-evaluation — the reason to chain
 
 Each pass's masks (§17) are evaluated against **that pass's input surface**, not once up front. Pass 1
 cuts valleys; pass 2's `CURVATURE` mask then sees the hollows pass 1 just made and can fill them. That is
@@ -1403,7 +1535,7 @@ everywhere and the manager warns, exactly as §9 does outside a result's extent.
 every iteration — and it belongs in C++ if it is ever wanted. Per pass is a deliberate granularity choice,
 not an omission.
 
-### 18.6 Outputs
+### 19.6 Outputs
 
 - **One `Pasture3DSimResult` per cluster**, built from the final surface. This falls out unchanged:
   `_diagnose()` already routes the *final* z in a separate zero-iteration pass precisely so the masks are
@@ -1413,7 +1545,7 @@ not an omission.
   Trough instead of two, and a lake spanning it becomes one Pond instead of two halves. Gate AK.
 - **One undo action** for the whole build, instead of one per child.
 
-### 18.7 Managed children
+### 19.7 Managed children
 
 A child under a manager stops being a node that bakes and becomes a pass description. Its **Simulate**,
 **Preview** and **Add Brushes** buttons delegate upward; its layer binding and `sim_result` are ignored in
@@ -1428,12 +1560,12 @@ fully supported and unchanged** — the manager is opt-in, and phases 1–5 do n
 Composes with a `target_brush` reference (a Sim whose loop tracks a landscape brush's, offset outward):
 N children each tracking a landform, one solve, continuous drainage running between them.
 
-### 18.8 Gates (phase 6)
+### 19.8 Gates (phase 6)
 
 | # | Criterion | Control that must fail |
 |---|---|---|
 | AH | **The chain feeds forward.** Pass 2's input surface is bitwise pass 1's output, and the committed delta is `z_N − z0`. | Reverse the pass order → the result must differ. If it does not, the passes are being summed independently and the chain is decorative. |
-| AI | **One writer.** After a build exactly one layer holds a delta; no child has written to a layer of its own. | Two of today's standalone Sims on one shared layer, which must show the mutual wipe §18.1 describes — otherwise the fixture never had the collision the manager claims to fix. |
+| AI | **One writer.** After a build exactly one layer holds a delta; no child has written to a layer of its own. | Two of today's standalone Sims on one shared layer, which must show the mutual wipe §19.1 describes — otherwise the fixture never had the collision the manager claims to fix. |
 | AJ | **The seam is gone.** Two adjacent loops whose catchments cross their shared edge: under one manager, drainage area is continuous across the boundary. | The same two as independent Sims, which must show the discontinuity. If they agree, the fixture has no cross-boundary drainage and the claim is empty. |
 | AK | **Features cross the former boundary intact.** A river spanning both loops extracts as one Trough; a lake spanning both as one Pond. | The same site as independent Sims → two Troughs, two half-Ponds. |
 | AL | **Masks re-evaluate per pass.** A `CURVATURE` mask on pass 2 gates on the hollows pass 1 cut, not on the original ground. | Evaluate the mask once against `z0` → it gates elsewhere, measurably. |
@@ -1445,9 +1577,9 @@ fixture directly and report it, rather than inferring it from the criteria passi
 
 ---
 
-## 19. Off the main thread (phase 7)
+## 20. Off the main thread (phase 7)
 
-### 19.1 What actually freezes today, and what does not
+### 20.1 What actually freezes today, and what does not
 
 **The solve is already chunked.** `_simulate_interactive` yields a frame every `CHUNK_ITERATIONS = 5`
 ([sim.gd:404](project/addons/pasture_3d/connectors/sim.gd:404)), so the editor is not frozen for the
@@ -1465,7 +1597,7 @@ duration of a build. What is unchunked and on the main thread is everything arou
 So phase 7 is not "move the sim to a thread". It is **move the pure half off and keep the terrain-touching
 half on**, and then shorten what remains.
 
-### 19.2 The split, and the seam it uses
+### 20.2 The split, and the seam it uses
 
 `_begin` / `_solve_chunk` / `_finish` was built as a state machine specifically so there could be two
 drivers over identical work — straight-through for gates, frame-yielding for the button (§ the bake
@@ -1487,14 +1619,14 @@ Worth doing while here: `erosion_solve` is already free of `Pasture3DData`. Expo
 free function rather than a bound method would mean the thread never touches a Godot `Object` at all,
 which removes the question rather than answering it.
 
-### 19.3 Keep the chunking on the worker
+### 20.3 Keep the chunking on the worker
 
 Chunk on the worker exactly as the main thread chunks today, so **Cancel still lands at a chunk boundary**
 and §4.5's guarantee — *N chunks of k iterations is the same solve as one call of N·k* — carries over
 untouched. The alternative, an atomic cancel flag checked inside the C++ iteration loop, is a new C++
 contract bought for nothing.
 
-### 19.4 Lifetime — the part that will bite
+### 20.4 Lifetime — the part that will bite
 
 Every one of these is reachable in an editor, and none of them exists on the current synchronous path:
 
@@ -1504,23 +1636,23 @@ Every one of these is reachable in an editor, and none of them exists on the cur
 - **`@tool` script hot-reload with a live worker is a crash.** The `_running` flag already blocks a second
   press; it must also survive being asked to reload.
 - **Progress printing.** `print` from a worker goes through `call_deferred`, not directly.
-- **Several solves at once.** The manager (§18) makes this normal. Passes are sequential by definition and
+- **Several solves at once.** The manager (§19) makes this normal. Passes are sequential by definition and
   cannot be parallelised, but independent **clusters** can — which is the only actual speedup threading
   buys, and only with a manager.
 
 Use `WorkerThreadPool` rather than a raw `Thread`: it is the engine's own pool, it has group tasks for the
 cluster case, and it does not leak a thread per node.
 
-### 19.5 Node surface
+### 20.5 Node surface
 
 None. Phase 7 changes no property and no button — Simulate, Preview and Cancel behave as they do now, and
 Cancel gains nothing except a shorter wait. A phase that shows up in the inspector has misunderstood the
 assignment.
 
-### 19.6 What this does not do — and why it should be profiled first
+### 20.6 What this does not do — and why it should be profiled first
 
 - **It does not make the solve faster.** The chain is sequential; per-cluster parallelism is the only
-  speedup, and it needs §18.
+  speedup, and it needs §19.
 - **It does not remove the commit.** `clear_layer_in_area`, `composite_area` and `update_maps` stay on the
   main thread and are the part felt at the *end* of a build.
 - **Nobody has measured which of the two dominates.** §11's incidental wall-clock numbers cover the solve
@@ -1531,7 +1663,7 @@ assignment.
 > **Recommendation: profile before building phase 7.** This is the one phase in this document whose value
 > is a measurement nobody has taken. Benchmarks need the user's go-ahead (§11, §14).
 
-### 19.7 Gates (phase 7)
+### 20.7 Gates (phase 7)
 
 | # | Criterion | Control that must fail |
 |---|---|---|
