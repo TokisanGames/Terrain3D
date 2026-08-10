@@ -1,8 +1,14 @@
 # Pasture3D Sim Node Spec (`Pasture3DSim`)
 
-**Status:** **COMPLETE — ALL FOUR PHASES IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09).
-Drafted 2026-08-08; **solver replaced the same day** after a survey of Houdini, World Machine, Gaea and
-the large-scale-terrain literature (§16). Target: Godot 4.7, Pasture3D `main`.
+**Status:** **PHASES 1–4 IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09).
+**Phases 5–7 DESIGNED, NOT BUILT** (2026-08-10) — masking (§17), the manager and pass chain (§18), and
+moving the solve off the main thread (§19). Drafted 2026-08-08; **solver replaced the same day** after a
+survey of Houdini, World Machine, Gaea and the large-scale-terrain literature (§16). Target: Godot 4.7,
+Pasture3D `main`.
+
+> **§17–§19 are appended after §16 on purpose.** Renumbering would break every `§15.n` and `§12`
+> reference in the code comments and in these notes, which is the same reason the gate letters are not in
+> phase order (see §14). Read the section titles, not the ordering.
 
 Phases 1–4 ship as:
 
@@ -765,6 +771,9 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **2 — DONE** | `Pasture3DSimResult` with all four channels, written on every Preview and Simulate; the multi-loop merge; source-parameter recording (§15.4); the shared-layer overlap warning (§15.7) |
 | **3 — DONE** | Selector Kinds `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; the unit conversions that make their bands artist-readable; four configuration warnings; `channel_boulders.tres`, a demo preset pairing an eroded area with a flow-gated relief material |
 | **4 — DONE** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
+| **5 — DESIGNED (§17)** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's Kinds, units and falloff semantics; no solver change |
+| **6 — DESIGNED (§18)** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Retires §5's seam limitation; per-pass mask re-evaluation; one `SimResult`; one water extraction |
+| **7 — DESIGNED (§19)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §19.6) |
 
 ### Gates
 
@@ -804,6 +813,10 @@ must distinguish "measured nothing" from "measured correctly".
 > when the table was first written, and phase 2's criteria were added afterwards; renumbering would have
 > broken every reference to a gate letter in the code and in these notes. Read the *(phase n)* tags, not
 > the alphabet.
+>
+> **A–Z is now fully consumed**, so phases 5–7 letter their criteria **AA onward** (§17.8, §18.8, §19.7).
+> Same reason: a single-letter scheme that has run out is not worth a renumbering that invalidates every
+> existing reference.
 
 > **Perf gates need the user's go-ahead before running.** When approved, the number that matters is
 > whether a full-resolution build over a large loop stays inside a few seconds, and whether depression
@@ -1047,6 +1060,17 @@ own authored basins rather than anything the sim made. The channel table in §8.
    has material passed through", and only the second is affected by the §15.1 sediment-transport
    extension — which would also invalidate gate R's exact-zero control, since a transporting solver
    deposits with no diffusion at all. Re-derive R, do not re-tune it.
+9. **A relief material as a mask source.** *(Raised by phase 5, §17.)* A `Pasture3DReliefSelector` gates on
+   what the ground is *doing*; it cannot say "erode harder in these patches" from a noise field, which is
+   table stakes in Houdini's erosion workflow. A `Pasture3DReliefMaterial` evaluated as a scalar would give
+   exactly that, and the op programs already exist. The blocker is normalisation: a relief program emits
+   metres, a mask needs 0→1, and **a normalised field is meaningless unless its divisor is stored beside
+   it** — printing the constant is not an interface. Decide the normalisation before building this, not
+   after.
+10. **Masking hillslope diffusion.** *(Raised by phase 5, §17.3.)* The rate mask is free because the
+    erodability field already exists; `D` has no per-cell field, so masking it means a second array through
+    `erosion_solve`. Wanted for "smooth the plateau, leave the escarpment sharp", which today can only be
+    approximated by splitting into two passes (§18).
 
 ---
 
@@ -1096,3 +1120,361 @@ discipline), `PASTURE3D_LAYERS_GUIDE.md`, `PASTURE3D_WATER_BODIES_SPEC.md`,
   [PDF](http://www-evasion.imag.fr/Publications/2007/MDH07/FastErosion_PG07.pdf). The rejected
   alternative, retained here because it remains the right choice if fine fluid detail ever becomes the
   priority.
+
+---
+
+## 17. Masking (phase 5)
+
+Houdini's erode node says that *"most parameters in this node can vary spatially if a supplementary mask
+layer is provided"*, and §7 already took Erodability from it. Phase 5 finishes the thought: the same
+per-cell control, driven by **what the ground is doing** rather than by a hand-painted texture.
+
+### 17.1 The insertion point already exists
+
+The solver samples the erodability field by **normalised (u,v) with bilinear interpolation**
+([pasture_3d_erosion.cpp:153](src/pasture_3d_erosion.cpp:153)), so it accepts a field at any resolution —
+including exactly the sim grid. `_erodability_lut()` is currently its only producer, from a `Texture2D`.
+
+**A selector-driven mask is a second producer of that same field, and needs no solver change at all.**
+That is the whole reason masking is a small phase rather than a large one, and it is why it goes *before*
+the manager (§18) rather than after.
+
+### 17.2 What a mask is
+
+An **array** of `Pasture3DReliefSelector`, combined by **multiply**, and multiplied again into whatever
+`erodability_map` contributes. Reusing the phase-3 resource verbatim means the Kinds, the units, the
+`falloff_low` / `falloff_high` band edges, `invert` and `strength` all mean here exactly what they mean on
+a Plow or a Mound, and `to_params()`
+([relief_selector.gd:116](project/addons/pasture_3d/connectors/relief_selector.gd:116)) is already the
+wire format the evaluator reads.
+
+**Why an array and not one slot.** A relief material gets its compositional power from stacking ops; a Sim
+pass has a single mask input. Real masks are conjunctions — *"steep AND above the treeline"*, *"concave
+AND not already wet"* — and one selector cannot say that. Multiply is the right combiner because each
+selector already returns a 0→1 weight with a soft band, so the product is another soft 0→1 weight and no
+new semantics are introduced. A `strength = 0` selector contributes 1.0 and drops out, which keeps
+"disable this one" free.
+
+### 17.3 Two masks, not one
+
+The three things a mask could multiply are genuinely different, and collapsing them would be the design
+error here:
+
+| Property | Multiplies | Cost | Phase |
+|---|---|---|---|
+| `erosion_mask` | The per-cell erodability field → the incision rate `K` | Free (§17.1) | **5** |
+| `write_mask` | The committed delta, alongside the loop falloff in `sim_mask_deltas` | One more per-cell multiply in an existing pass | **5** |
+| *(diffusion)* | `D`, the hillslope term | Needs a second per-cell array through `erosion_solve` | §15.10, **not phase 5** |
+
+`erosion_mask` changes **what the sim solves**: masked-out ground still routes water and still receives
+sediment, it just resists incision. `write_mask` changes **what the sim commits**: the solve is untouched,
+so drainage stays continuous across the whole area, and only the delta inside the band lands in the layer.
+
+That second one is how you say *"erode the whole hill, but keep only the gullies on the north face"*
+without the network re-routing around the part you excluded. They are not interchangeable and gate AD
+exists to prove the implementation knows it.
+
+### 17.4 What a mask reads, and at what resolution
+
+**The surface below the Sim's own layer**, the same rule the relief selectors already follow and for the
+same reason: reading the finished composite feeds a bake's own output into its own mask and drifts every
+run (§13).
+
+**Fields are built at sim resolution, in C++.** `_terrain_fields`
+([terrain_brush.gd:2351](project/addons/pasture_3d/connectors/terrain_brush.gd:2351)) is GDScript and
+O(cells) over the bake grid; a sim grid plus a 128 m margin is larger than any brush footprint, and
+`ERODABILITY_LUT_MAX = 256` exists precisely because that path is too slow to run at full size. Phase 6
+then re-evaluates the mask **once per pass** (§18.5), so a GDScript field builder would be run N times.
+Build it natively from the start:
+
+```
+sim_mask_field(z, cell_size, min_x, min_z, gw, gh, selectors, sim_fields) -> PackedFloat32Array
+```
+
+reusing the slope / curvature / altitude derivations the relief evaluator already has and the
+`relief_fields_add_sim` conversions for the four sim Kinds. The alternative — capping the mask at 256²
+like the erodability LUT — is the fallback if the native work slips, and it must then say in the tooltip
+that a `SLOPE` mask so capped measures steepness over multi-metre baselines and under-reports fine slope.
+
+### 17.5 Preview and build diverge a second way
+
+§6 already documents that Preview is a good guide to *where* the valleys go and a poor one to *how deep*.
+Masking adds an independent source of the same divergence, and its direction is predictable: slope and
+curvature are computed by central differences over the grid spacing, so on a 4× coarser preview grid they
+are measured over 4× longer baselines. **A "steep only" mask therefore passes less ground on Preview than
+on the build**, and a curvature mask smooths out. Say so in the tooltip; do not add a per-resolution
+correction factor, which would be the same fudge §6 already declined.
+
+### 17.6 The sim Kinds on a standalone Sim
+
+`FLOW` / `EROSION` / `DEPOSITION` / `WETNESS` read a `Pasture3DSimResult`. Three cases, and only one of
+them is a bug:
+
+- **Pointing a Sim's mask at another Sim's result** — legitimate, allowed, and useful: *"erode here only
+  where the upstream sim put water"*.
+- **Pointing a Sim's mask at its own result** — this is reading your own output, the exact drift class
+  `composite_height_below` exists to prevent. Refuse it, with a configuration warning that names the
+  node. Gate AG.
+- **Pass 2 masked by pass 1's flow field** — the strongest idiom in the whole feature, and it is *not*
+  self-reference because pass 1's fields are a deterministic function of the same below-layer read.
+  Phase 6 delivers it (§18.5); phase 5 cannot, and its warning should say which one is missing rather
+  than implying the combination is illegal.
+
+### 17.7 Node surface
+
+| Property | Group | Meaning |
+|---|---|---|
+| `erosion_mask: Array[Pasture3DReliefSelector]` | Masks | Multiplied into the erodability field |
+| `write_mask: Array[Pasture3DReliefSelector]` | Masks | Multiplied into the committed delta |
+| *(existing)* `erodability_map`, `erodability_range` | Erodability | Unchanged; the texture and the mask stack multiply |
+
+Empty arrays reproduce today's behaviour exactly, which makes "unset the masks" a free control for every
+gate below and keeps every existing scene byte-identical.
+
+### 17.8 Gates (phase 5)
+
+Lettering continues at **AA** (§14).
+
+| # | Criterion | Control that must fail |
+|---|---|---|
+| AA | **The rate mask gates incision.** A `SLOPE`-masked bake differs from the unmasked bake *only* where the band passes; inside the band the delta is scaled by the mask weight. | `strength = 0` → bitwise identical to unmasked. And the unmasked-vs-masked pair must differ at all, or the fixture has no ground inside the band and the criterion is empty. |
+| AB | **Each Kind reads its own field.** Mirrors L2: a band predicted from each Kind's own distribution over the fixture. | Relief drawn from any *other* Kind's cells is a failure, exactly as in L2. |
+| AC | **Selectors combine by product.** Two selectors together gate the intersection, scaled as the product of their weights. | Either selector alone, which must NOT reproduce the pair — otherwise the combiner is `min`, `last-wins`, or ignoring one. |
+| AD | **The write mask does not change the solve.** With the same selector on `write_mask`, the `flow` field is bitwise identical to the unmasked run while the committed delta is not. | The same selector moved to `erosion_mask`, where `flow` MUST change. This is the criterion that proves §17.3's two properties are actually two. |
+| AE | **Masking is idempotent.** Gate H re-run with both masks populated: re-running reproduces the surface to 0.000000 m. | H's own control — seed from the finished composite and it drifts. |
+| AF | **Mask fields register with the terrain.** A `SLOPE` band over a synthetic ramp of known angle gates exactly the cells whose true slope is in the band, at sim resolution. | The same band displaced by one catchment margin → disagreement, the mistake an off-by-one grid origin would make. |
+| AG | **Self-reference is refused.** A Sim whose mask points at its own `sim_result` warns and applies no mask. | The same mask pointed at a *different* Sim's result, which must apply — otherwise the refusal is blanket and the useful case was banned too. |
+
+---
+
+## 18. The manager and the pass chain (phase 6)
+
+```gdscript
+@tool class_name Pasture3DSimManager extends Pasture3DTerrainBrush
+```
+
+Child `Pasture3DSim` nodes become **ordered passes** over one shared grid. Scene-dock order is stack
+order, top to bottom.
+
+### 18.1 Why, and it is not layer sharing
+
+Layer sharing is the *symptom*. Today `_commit` clears the layer over the tile-snapped box before writing
+([sim.gd:1376](project/addons/pasture_3d/connectors/sim.gd:1376)), and a layer-mate Sim cannot be
+repainted afterwards because `_paint_spline()` is a no-op (§12) — so two Sims on one layer wipe each
+other, which is what `_overlapping_sim_on_layer()` warns about. A manager with **one writer** removes the
+problem rather than coordinating it.
+
+The reason actually worth building it is **§5's seam limitation**, which today says outright not to tile a
+large map from many small loops: neighbouring loops compute drainage independently and disagree at their
+shared edge. One grid means water routes continuously across what used to be a boundary. That is a
+documented limitation being deleted, and gate AJ is the one that proves it.
+
+### 18.2 The model
+
+1. **One read.** `composite_height_below(manager_layer, …)` over the cluster grid (§18.4) → `z0`.
+2. **Chain in memory.** `z0 → pass₁ → pass₂ → … → z_N`. `erode_heightfield` is already a pure `z → z`
+   function ([pasture_3d_sim.cpp:201](src/pasture_3d_sim.cpp:201)), so chaining costs nothing to build and
+   nothing round-trips through a layer.
+3. **Each pass is masked to its own loop**, through the existing §5 polygon + falloff mask.
+4. **One write.** The total delta `z_N − z0`, committed to the manager's single layer.
+
+Step 3 is what makes "passes" and "regions" the same mechanism: a pass whose loop spans everything is a
+global pass, two passes with disjoint loops are the side-by-side case, and partial overlap is the blend
+the falloff already handles. **Passes is the primary reading** — the ordering is meaningful and pass 2
+erodes pass 1's output — and non-overlapping children are the degenerate case, not a second feature.
+
+**Idempotency (§13) is preserved and is arguably cleaner than today's**: one read below the manager's own
+layer, a deterministic chain, one write into that layer. Nothing in the chain reads the finished
+composite. Gate AM re-runs H against it.
+
+### 18.3 What belongs to a pass and what belongs to the manager
+
+| Per pass (the child) | Manager-wide |
+|---|---|
+| The loop(s) and their falloff | `catchment_margin` |
+| `iterations` | `preview_resolution` / `build_resolution` |
+| `erosion_rate`, `area_exponent`, `hillslope_diffusion` | The layer binding |
+| `erodability_map`, `erodability_range` | `sim_result` |
+| `erosion_mask`, `write_mask` (§17) | The water-feature thresholds (§10) |
+
+The split is not arbitrary: **margin and resolution define the grid**, and the grid is shared, so they
+cannot vary per pass. Everything else is an argument to one `erode_heightfield` call, and each pass *is*
+one call, so all of it varies freely — including `iterations`, which a single-grid "one solve, per-cell
+parameters" design could not have offered.
+
+### 18.4 The grid, and the cost risk this introduces
+
+**This is the part most likely to go wrong.** A naive union of five loops spread across a scene solves a
+bounding box that is mostly ground nobody asked about — potentially far more expensive than the five
+independent Sims it replaces. `RESULT_MAX_CELLS` already exists because a multi-loop union box gets huge
+(§8.2).
+
+- **Cluster, do not union blindly.** Group children whose margin-grown boxes overlap (connected
+  components), and solve one grid per cluster. Two landforms 2 km apart stay two solves; two that share a
+  catchment become one. A pass whose loop reaches into several clusters runs once per cluster.
+- **A cell budget refuses, it does not silently coarsen.** §8.2 coarsens the *masks* when they get too
+  big, which is a lossy output. Coarsening the *solve* changes the result, and §6 has already measured
+  that a coarser grid erodes deeper — so a manager that quietly dropped resolution would hand back a
+  different landscape with no indication. Refuse, name the cluster, and say what to split.
+- **Cost is unmeasured.** §11 profiling still has not been done and needs the user's go-ahead. No
+  performance claim in this section has a number behind it.
+
+### 18.5 Per-pass mask re-evaluation — the reason to chain
+
+Each pass's masks (§17) are evaluated against **that pass's input surface**, not once up front. Pass 1
+cuts valleys; pass 2's `CURVATURE` mask then sees the hollows pass 1 just made and can fill them. That is
+the Houdini idiom and it is the entire argument for ordering the children.
+
+**This is not the drift bug, and it will look like it.** Nothing reads the finished composite; every
+pass's input is a deterministic function of one below-layer read, so a re-run reproduces the whole chain
+exactly. Gate AM measures it; gate AL proves the re-evaluation is really happening, with "evaluate once up
+front" as the control.
+
+**The sim Kinds read the previous pass's live fields**, from the zero-iteration routing pass `_diagnose()`
+already performs, not from a `.res` on disk. Pass 1 has no predecessor: its sim Kinds read a defined 0
+everywhere and the manager warns, exactly as §9 does outside a result's extent. Nothing is invented.
+
+**Not per iteration.** Re-evaluating inside the solve would be the fully coupled version — slope changes
+every iteration — and it belongs in C++ if it is ever wanted. Per pass is a deliberate granularity choice,
+not an omission.
+
+### 18.6 Outputs
+
+- **One `Pasture3DSimResult` per cluster**, built from the final surface. This falls out unchanged:
+  `_diagnose()` already routes the *final* z in a separate zero-iteration pass precisely so the masks are
+  not one iteration out of step (§8.2). One result over the whole area also retires a real phase-3
+  limitation — today a Plow spanning two Sims can only reference one of their results.
+- **One water extraction over the union.** A river crossing what used to be a boundary comes out as one
+  Trough instead of two, and a lake spanning it becomes one Pond instead of two halves. Gate AK.
+- **One undo action** for the whole build, instead of one per child.
+
+### 18.7 Managed children
+
+A child under a manager stops being a node that bakes and becomes a pass description. Its **Simulate**,
+**Preview** and **Add Brushes** buttons delegate upward; its layer binding and `sim_result` are ignored in
+favour of the manager's; its configuration warnings say *"this Sim is a pass of `<manager>`"* so the
+ignored properties do not read as broken.
+
+This is a mode split inside one class, and it is the ugliest part of the design. It is still preferable to
+a second class: a standalone Sim that is later dragged under a manager must keep working, and duplicating
+every export onto a `Pasture3DSimPass` guarantees the two drift apart. **Standalone `Pasture3DSim` remains
+fully supported and unchanged** — the manager is opt-in, and phases 1–5 do not depend on it.
+
+Composes with a `target_brush` reference (a Sim whose loop tracks a landscape brush's, offset outward):
+N children each tracking a landform, one solve, continuous drainage running between them.
+
+### 18.8 Gates (phase 6)
+
+| # | Criterion | Control that must fail |
+|---|---|---|
+| AH | **The chain feeds forward.** Pass 2's input surface is bitwise pass 1's output, and the committed delta is `z_N − z0`. | Reverse the pass order → the result must differ. If it does not, the passes are being summed independently and the chain is decorative. |
+| AI | **One writer.** After a build exactly one layer holds a delta; no child has written to a layer of its own. | Two of today's standalone Sims on one shared layer, which must show the mutual wipe §18.1 describes — otherwise the fixture never had the collision the manager claims to fix. |
+| AJ | **The seam is gone.** Two adjacent loops whose catchments cross their shared edge: under one manager, drainage area is continuous across the boundary. | The same two as independent Sims, which must show the discontinuity. If they agree, the fixture has no cross-boundary drainage and the claim is empty. |
+| AK | **Features cross the former boundary intact.** A river spanning both loops extracts as one Trough; a lake spanning both as one Pond. | The same site as independent Sims → two Troughs, two half-Ponds. |
+| AL | **Masks re-evaluate per pass.** A `CURVATURE` mask on pass 2 gates on the hollows pass 1 cut, not on the original ground. | Evaluate the mask once against `z0` → it gates elsewhere, measurably. |
+| AM | **The chain is idempotent.** Gate H against the manager: re-running reproduces the surface to 0.000000 m. | H's own control. |
+| AN | **Clustering, and the budget refuses.** Two loops further apart than their margins solve as two grids; moved within a margin they become one. A cluster over the cell budget is refused by name, not coarsened. | Assert the grid *count* changes across the move — a manager that always unions and one that always splits both pass a single-configuration test. And the over-budget case must produce a refusal, not a smaller grid. |
+
+Note AI, AJ and AK all depend on a fixture with real cross-boundary drainage. Assert that property of the
+fixture directly and report it, rather than inferring it from the criteria passing.
+
+---
+
+## 19. Off the main thread (phase 7)
+
+### 19.1 What actually freezes today, and what does not
+
+**The solve is already chunked.** `_simulate_interactive` yields a frame every `CHUNK_ITERATIONS = 5`
+([sim.gd:404](project/addons/pasture_3d/connectors/sim.gd:404)), so the editor is not frozen for the
+duration of a build. What is unchunked and on the main thread is everything around it:
+
+| Stage | Work | Chunked today |
+|---|---|---|
+| `_prepare_solve` | `composite_height_below` + `resample_grid` over the sim box; `erodability_map.get_image()` | no |
+| the solve | `erode_heightfield` × `iterations` | **yes**, every 5 |
+| `_diagnose` | a full fill + route pass over the final surface | no |
+| `_finish_solve` | `sim_mask_deltas` | no |
+| `_commit` | `clear_layer_in_area`, `apply_sim_block`, `composite_area`, `update_maps` | no |
+| `_write_result` | `sim_result_build`, `ResourceSaver.save` (disk I/O) | no |
+
+So phase 7 is not "move the sim to a thread". It is **move the pure half off and keep the terrain-touching
+half on**, and then shorten what remains.
+
+### 19.2 The split, and the seam it uses
+
+`_begin` / `_solve_chunk` / `_finish` was built as a state machine specifically so there could be two
+drivers over identical work — straight-through for gates, frame-yielding for the button (§ the bake
+comment in `sim.gd`). **A third, threaded driver fits the same seam with no restructuring.** That is the
+design paying off, and it is why this phase is small.
+
+| Stage | Thread | Why |
+|---|---|---|
+| `_begin` | main | Reads terrain regions and a `Texture2D` image |
+| the solve loop | **worker** | `erode_heightfield` copies its input into a `std::vector`, calls `erosion_solve`, and copies out — no region access, no servers ([pasture_3d_sim.cpp:201](src/pasture_3d_sim.cpp:201)). **Pure by construction, therefore thread-safe by construction.** |
+| `_diagnose` | **worker** | The same call |
+| the §17 mask field | **worker** | Pure over `z` |
+| `sim_mask_deltas` | **worker** | Confirm purity before moving it; it takes `z`, a polygon and params |
+| `_commit` | main | Layer writes, `composite_area`, and `update_maps` touches the RenderingServer |
+| `_write_result` | main | `ResourceSaver.save` in-editor is not worth threading for a once-per-bake write |
+| the undo action | main | `EditorUndoRedoManager` is main-thread only |
+
+Worth doing while here: `erosion_solve` is already free of `Pasture3DData`. Exposing the worker entry as a
+free function rather than a bound method would mean the thread never touches a Godot `Object` at all,
+which removes the question rather than answering it.
+
+### 19.3 Keep the chunking on the worker
+
+Chunk on the worker exactly as the main thread chunks today, so **Cancel still lands at a chunk boundary**
+and §4.5's guarantee — *N chunks of k iterations is the same solve as one call of N·k* — carries over
+untouched. The alternative, an atomic cancel flag checked inside the C++ iteration loop, is a new C++
+contract bought for nothing.
+
+### 19.4 Lifetime — the part that will bite
+
+Every one of these is reachable in an editor, and none of them exists on the current synchronous path:
+
+- **The node leaves the tree mid-solve.** Already checked in `_simulate_interactive`; threaded, it also
+  needs a join in `NOTIFICATION_PREDELETE` so the worker cannot outlive the node whose arrays it holds.
+- **The scene is closed, or the editor reloads, mid-solve.** Same join, from the tree-exit path.
+- **`@tool` script hot-reload with a live worker is a crash.** The `_running` flag already blocks a second
+  press; it must also survive being asked to reload.
+- **Progress printing.** `print` from a worker goes through `call_deferred`, not directly.
+- **Several solves at once.** The manager (§18) makes this normal. Passes are sequential by definition and
+  cannot be parallelised, but independent **clusters** can — which is the only actual speedup threading
+  buys, and only with a manager.
+
+Use `WorkerThreadPool` rather than a raw `Thread`: it is the engine's own pool, it has group tasks for the
+cluster case, and it does not leak a thread per node.
+
+### 19.5 Node surface
+
+None. Phase 7 changes no property and no button — Simulate, Preview and Cancel behave as they do now, and
+Cancel gains nothing except a shorter wait. A phase that shows up in the inspector has misunderstood the
+assignment.
+
+### 19.6 What this does not do — and why it should be profiled first
+
+- **It does not make the solve faster.** The chain is sequential; per-cluster parallelism is the only
+  speedup, and it needs §18.
+- **It does not remove the commit.** `clear_layer_in_area`, `composite_area` and `update_maps` stay on the
+  main thread and are the part felt at the *end* of a build.
+- **Nobody has measured which of the two dominates.** §11's incidental wall-clock numbers cover the solve
+  only, and the one question §11 actually poses — whether depression filling dominates — is still
+  unanswered. **If the commit dominates a full-resolution build, phase 7 buys much less than it looks
+  like**, and the right work would be `fill_every` (§11) or a cheaper composite instead.
+
+> **Recommendation: profile before building phase 7.** This is the one phase in this document whose value
+> is a measurement nobody has taken. Benchmarks need the user's go-ahead (§11, §14).
+
+### 19.7 Gates (phase 7)
+
+| # | Criterion | Control that must fail |
+|---|---|---|
+| AO | **The editor stays responsive.** Frame time during a threaded build stays under a stated budget for the whole solve. | The same build on the synchronous path must exceed it — otherwise the fixture is too small to freeze anything and the criterion is measuring nothing. |
+| AP | **The threaded result is bitwise identical to the synchronous one.** Gate I extended across drivers, not just across runs. | I's own control — a hash-ordered iteration, which must differ. |
+| AQ | **Cancel joins.** Cancelling mid-solve joins the worker, writes nothing to the layer, and leaves the node able to run again. | Assert the solve had *not* finished when Cancel landed, or "cancel worked" is indistinguishable from "the solve completed first". |
+| AR | **Teardown is safe.** Freeing the node and closing the scene mid-solve leave no orphan worker and no crash. | A run where the solve completes normally, to show the teardown path is what is being exercised. |
+
+AO and AR are **editor-path criteria and headless-blind**, the same accommodation gate M4 makes: a
+headless gate can assert the join and the absence of an orphan task, but the frame-time claim needs an
+editor. Say so in the gate output rather than letting a green line imply more than was measured.
