@@ -3,63 +3,39 @@ on: [ workflow_call, workflow_dispatch ]
 
 jobs:
   build:
-    name: 🌐 Web ${{ matrix.arch }} ${{ matrix.target }}
-    runs-on: ubuntu-22.04
+    name: 🌐 Web ${{ matrix.arch }} ${{ matrix.threads }} ${{ matrix.target }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        platform: [web]
-        target: [debug, release]
-        #threads: [yes, no]
+        include:
+          - threads: nothreads
+            platform: web
+            arch: wasm32
+            target: release
+            flags: threads=no
+          - threads: threads
+            platform: web
+            arch: wasm32
+            target: release
+            flags: threads=yes
+          # Wasm64 not currently supported by godot-cpp
+          # - threads: threads
+          #   platform: web
+          #   arch: wasm64
+          #   target: release
+          #   flags: threads=yes
 
     steps:
       - name: Checkout Terrain3D
         uses: actions/checkout@v7
-        with:
-          submodules: recursive
 
-      - name: Setup Base Dependencies
-        uses: ./.github/actions/base-deps
+      - uses: ./.github/actions/build-artifact
         with:
+          cache-name: ${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.threads }}-${{ matrix.target }}
           platform: ${{ matrix.platform }}
-
-      - name: Setup Build Cache
-        uses: ./.github/actions/build-cache
-        with:
-          cache-name: ${{ matrix.platform }}-nothreads-${{ matrix.target }}
-        continue-on-error: true
-
-      - name: Build Terrain3D
-        env:
-          SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
-        shell: sh
-        run: |
-          scons target=template_${{ matrix.target }} platform=${{ matrix.platform }} threads=no debug_symbols=no -j4
-
-
-      - name: Prepare Files
-        shell: sh
-        run: |
-          ls -l project/addons/terrain_3d/bin/
-          rm -v project/*.*
-          cp -v '${{ github.workspace }}/README.md' '${{ github.workspace }}/LICENSE.txt' ${{ github.workspace }}/project/addons/terrain_3d/
-
-      - name: Upload Package
-        uses: actions/upload-artifact@v7
-        with:
-          include-hidden-files: true
-          name: t3d-${{ matrix.platform }}-nothreads-${{ matrix.target }}
-          path: |
-            ${{ github.workspace }}/project/
-  
-  merge:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Merge Artifacts
-        uses: actions/upload-artifact/merge@v7
-        with:
-          include-hidden-files: true
-          name: ${{ github.event.repository.name }}
-          pattern: t3d-*
-          delete-merged: true
+          arch: ${{ matrix.arch }}
+          threads: ${{ matrix.threads }}
+          target: ${{ matrix.target }}
+          flags: ${{ matrix.flags }}

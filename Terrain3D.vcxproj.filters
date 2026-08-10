@@ -81,6 +81,9 @@
     <ClInclude Include="src\unit_testing.h">
       <Filter>5. Headers</Filter>
     </ClInclude>
+    <ClInclude Include=".github\actions\build-artifact\action.yml">
+      <Filter>5. Headers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\terrain_3d_mesher.cpp">
@@ -130,10 +133,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include=".github\actions\build-cache\action.yml">
-      <Filter>1. Project Files</Filter>
-    </None>
-    <None Include=".github\actions\base-deps\action.yml">
+    <None Include=".github\actions\dependencies\action.yml">
       <Filter>1. Project Files</Filter>
     </None>
     <None Include=".github\workflows\android.yml">
@@ -300,6 +300,9 @@
     </None>
     <None Include="src\shaders\max_regions.glsl">
       <Filter>4. Shaders</Filter>
+    </None>
+    <None Include=".github\actions\load-cache\action.yml">
+      <Filter>1. Project Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
