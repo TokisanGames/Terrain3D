@@ -923,8 +923,18 @@ func _show_mask_preview(p_selectors: PackedFloat32Array, p_box: AABB, p_sim: Dic
 		_clear_mask_preview()
 		return ""
 
-	var below: PackedFloat32Array = terrain.data.composite_height_below(_ensure_layer_for(_layer_owner, false),
-			b[0], b[2], cell, gw, gh)
+	# RESOLVE, never create. A preview that quietly adds a layer to the stack is not "leaves nothing
+	# behind" — a brush that has never baked would grow one just by being looked at.
+	#
+	# When there is no layer yet, "below" is the WHOLE stack, not nothing: this brush will be appended at
+	# the top on its first bake, so everything currently in the stack is what it will sit on. Passing -1
+	# would make composite_height_below return all-NaN and the preview would come back blank on exactly
+	# the brushes a first-time user is most likely to be looking at.
+	var layer_id: int = terrain.data.find_layer_by_owner(_layer_owner)
+	if layer_id < 0:
+		var stack = terrain.data.get_layer_stack()
+		layer_id = stack.get_layer_count() if stack != null else -1
+	var below: PackedFloat32Array = terrain.data.composite_height_below(layer_id, b[0], b[2], cell, gw, gh)
 	if below.size() != gw * gh:
 		_clear_mask_preview()
 		return ""
@@ -934,6 +944,15 @@ func _show_mask_preview(p_selectors: PackedFloat32Array, p_box: AABB, p_sim: Dic
 	if field.size() != gw * gh:
 		_clear_mask_preview()
 		return ""
+
+	# Clip to where this brush actually acts. The selector weight is defined over the whole grid, but the
+	# brush only applies it inside its own loop — so showing the raw weight paints the footprint RECTANGLE
+	# and overstates the affected area, corners included. That is what the first editor test of this
+	# feature reported, and it is a defect in the preview rather than in the mask.
+	var area := _preview_area_mask(b[0], b[2], cell, gw, gh)
+	if area.size() == gw * gh:
+		for i in range(gw * gh):
+			field[i] *= area[i]
 
 	var img := Image.create_empty(gw, gh, false, Image.FORMAT_RF)
 	for iz in range(gh):
@@ -993,6 +1012,37 @@ func _update_relief_mask_preview(p_relief) -> void:
 	var note := _show_mask_preview(sel, box, sim)
 	if note != "":
 		print("Pasture3D brush '%s': %s." % [name, note])
+
+
+## Where this brush actually acts, as a 0..1 field over the preview grid — multiplied into the previewed
+## weight so red never appears where nothing will happen.
+##
+## The default is the loop POLYGON, a hard edge: inside 1, outside 0. Deliberately not a reimplementation
+## of each subclass's falloff ramp — Mound alone has two flank modes and a curve, and a second copy of
+## that arithmetic would drift from the real one and quietly start lying, which is the failure this whole
+## feature exists to avoid. A subclass whose exact area mask is already reachable overrides this and gets
+## the soft edge for free; `Pasture3DSim` does.
+##
+## So on a stamp brush the red shows WHERE the mask applies, not how strongly the brush feathers there.
+func _preview_area_mask(p_min_x: float, p_min_z: float, p_cell: float, p_gw: int, p_gh: int) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	out.resize(p_gw * p_gh)
+	var any := false
+	for s in _get_splines():
+		if not _spline_paintable(s):
+			continue
+		var poly := PackedVector2Array()
+		for p in _baked_world_points(s):
+			poly.append(Vector2(p.x, p.z))
+		if poly.size() < 3:
+			continue
+		var sdf: Array = _signed_distance_field(poly, p_min_x, p_min_z, p_cell, p_gw, p_gh)
+		var f: PackedFloat32Array = sdf[0]
+		for i in range(p_gw * p_gh):
+			if f[i] > 0.0:
+				out[i] = 1.0
+		any = true
+	return out if any else PackedFloat32Array()
 
 
 ## Rebuild (or drop) this node's mask preview after anything that could have moved the ground under it

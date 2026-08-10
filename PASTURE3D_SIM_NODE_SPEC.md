@@ -786,6 +786,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DESIGNED (§19)** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Retires §5's seam limitation; per-pass mask re-evaluation; one `SimResult`; one water extraction |
 | **7 — DESIGNED (§20)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §20.6) |
+| **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every Kind returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
 ### Gates
 
@@ -827,7 +828,7 @@ must distinguish "measured nothing" from "measured correctly".
 > the alphabet.
 >
 > **A–Z is now fully consumed**, so later phases letter their criteria **AA onward**: phase 5 AA–AG
-> (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), and phase **5.5 AS–AV** (§18.7). Phase 5.5 was
+> (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), and phase **5.5 AS–AW** (§18.7). Phase 5.5 was
 > specced after 6 and 7 and takes the letters that were free rather than displacing theirs — the same
 > rule that left A–Z out of phase order, applied again. Read the *(phase n)* tags, not the alphabet.
 > Same reason: a single-letter scheme that has run out is not worth a renumbering that invalidates every
@@ -1082,7 +1083,25 @@ own authored basins rather than anything the sim made. The channel table in §8.
    metres, a mask needs 0→1, and **a normalised field is meaningless unless its divisor is stored beside
    it** — printing the constant is not an interface. Decide the normalisation before building this, not
    after.
-10. **Masking hillslope diffusion.** *(Raised by phase 5, §17.3.)* The rate mask is free because the
+10. **A landform brush's selector cannot see the landform.** *(Raised by the first editor test of §18 —
+    intended as phase 8, after §20.)* A relief selector reads the surface **below** this brush's own layer,
+    which is what keeps it from feeding its own relief into its own mask and drifting (§13,
+    `relief_selector.gd`). For a Plow over existing terrain that is exactly right. For a **Mound**, the
+    ground below its layer is whatever it was placed on — often flat — so slope ≡ 0, curvature ≡ 0 and
+    altitude ≡ one constant, every Kind returns the same uniform weight, and *"craggy on the flanks,
+    smooth on top"* — the most natural thing to want on a hill — is not expressible at all.
+
+    The mask preview is what made this visible: a uniform red wash over a Mound is the overlay correctly
+    reporting that the selector has nothing to grip. Before §18 it just looked like the relief was
+    behaving oddly.
+
+    **The fix is well-defined and would not drift**: let a landform brush's selectors read its OWN
+    generated profile — the mound surface before relief is applied. That is a deterministic function of
+    the loop and the shape parameters, *independent of the relief*, so a selector keyed on it cannot feed
+    itself. It needs a decision about which surface each brush exposes (Mound's profile, Ridge's crest
+    section, Plow's stamp) and a new field source alongside `base_below`, so it is a phase and not a
+    patch. Spec it after phase 7.
+11. **Masking hillslope diffusion.** *(Raised by phase 5, §17.3.)* The rate mask is free because the
     erodability field already exists; `D` has no per-cell field, so masking it means a second array through
     `erosion_solve`. Wanted for "smooth the plateau, leave the escarpment sharp", which today can only be
     approximated by splitting into two passes (§19).
@@ -1419,6 +1438,22 @@ the grid spacing, so a `÷4` field gates differently from the one a build will u
 resolution would show a *different mask* — the exact failure this feature exists to prevent. The field is
 cheap (derivation plus N selector evaluations, no solver iterations), so it is affordable to be honest.
 
+**Clipped to where the brush ACTS, not to the grid it is computed on.** The selector weight is defined
+over the whole grid, but a brush only applies it inside its own loop, so the raw weight paints the
+footprint *rectangle* and overstates the affected area — corners included.
+
+> **Found in the editor on the first build**, where a Mound's red square dwarfed the Mound. Gate AW
+> exists because of it, and none of AS–AV would have caught it: they all checked the preview was the
+> *selector's* field and none checked it was the *brush's*.
+
+The clip is the brush's own area mask, and where that mask is reachable it is the real one rather than a
+copy: `Pasture3DSim` gets `sim_mask_deltas` fed a delta of all ones, which returns the loop mask itself
+with edge offset, falloff width and falloff curve applied. The base-class default for the stamp brushes
+is the loop **polygon**, a hard edge — deliberately not a reimplementation of each subclass's falloff
+ramp, because Mound alone has two flank modes and a curve and a second copy of that arithmetic would
+drift from the real one and start lying. So on a stamp brush the overlay shows *where* the mask applies,
+not how strongly the brush feathers there.
+
 ### 18.4 One preview at a time
 
 `Pasture3DMaterial` belongs to the terrain, so there is exactly one set of preview uniforms. Two brushes
@@ -1439,6 +1474,13 @@ worse than none, because it looks authoritative.** Clear on any of —
 - the node being deselected, leaving the tree, or losing its terrain;
 - the terrain's own layers changing underneath it (the field is built from `composite_height_below`).
 
+**And it must not create anything to show itself.** Resolve the brush's layer, never `_ensure_layer_for`:
+a brush that has never baked would otherwise grow a layer just by being looked at. When there is no layer
+yet, "below" is the **whole stack** — the brush will be appended at the top on its first bake, so
+everything currently in the stack is what it will sit on. Passing `-1` makes `composite_height_below`
+return all-NaN and the preview comes back blank on exactly the brushes a first-time user is most likely
+to point it at.
+
 ### 18.6 Node surface
 
 The toggle lives on the **node**, never on the selector: a `Pasture3DReliefSelector` is a `Resource` with
@@ -1458,7 +1500,7 @@ no terrain, no footprint and no way to draw itself.
 
 ### 18.7 Gates (phase 5.5)
 
-Lettering continues at **AS** (§14).
+Lettering continues at **AS** (§14). AW was added after the first editor test, not designed up front.
 
 Most of this phase is a visual editor feature and is **headless-blind**, the same accommodation gates M4
 and AO make. But the claim that actually matters — *what you see is what will bake* — is fully gateable
@@ -1471,6 +1513,7 @@ pixels themselves are ungated, rather than letting four green lines imply a rend
 | AT | **The rect registers.** The world rect handed to the material maps the texture onto the footprint the mask covers, checked by sampling the preview's own mapping at known world points. | The rect displaced by one catchment margin, which must land different cells — the mistake §17.8's AF already caught once in the field lookup. |
 | AU | **One owner.** Enabling a preview on a second brush disables the first, and the first node reports Off. | Enable on one brush only, which must stay on — otherwise "exclusive" is indistinguishable from "always off". |
 | AV | **It leaves nothing behind.** After disabling, the material carries no preview insert and no preview texture, and the terrain data is unchanged — no layer, no control map, nothing written. | A snapshot taken WITH the preview on, which must differ from the off state, or AV is comparing two identical no-ops. |
+| AW | **It shows where the BRUSH acts, not the whole grid.** The lit fraction matches the loop's share of the grid, and previewing creates no layer. | The unclipped field, which must light cells the clipped one does not — if the loop already filled its bounding box there is nothing to clip and the criterion is empty. |
 
 ### Gate results (phase 5.5, all passing)
 
@@ -1482,10 +1525,11 @@ bake.*
 
 | # | Measured | Control |
 |---|---|---|
-| AS | Preview grid 205×205 at 1.00 m, weights spanning 0.000–1.000. **max \|preview − bake\| = 0.000000000** over 42 025 cells — float32 exact through the `FORMAT_RF` round trip, not merely close | The same band at ¼ resolution gates differently (mean weight 0.7145 vs 0.7035), so "at build resolution" is a tested claim and not an assumption about a flat fixture |
+| AS | Preview grid 205×205 at 1.00 m, weights spanning 0.000–1.000. **max \|preview − bake\| = 0.000000000** over 42 025 cells — float32 exact through the `FORMAT_RF` round trip, not merely close. The reference is the selector field **times the loop's area mask**, both assembled from the bake's own functions | The same band at ¼ resolution gates differently (mean weight 0.7145 vs 0.7035), compared unclipped against unclipped so the difference is resolution and not the clip |
 | AT | **0.000000 texels** of centre error at four corners and an interior point — the half-cell widening lands world samples exactly on texel centres | The origin displaced by one catchment margin moves the lookup 40.0 texels |
 | AU | A enables and owns it; B enables, A loses it and B holds it; A turning *itself* off leaves B's preview alone | One brush enabled alone must stay the owner — otherwise "exclusive" is indistinguishable from "never turns on" |
 | AV | With it on: owner set, source carries the insert. Off: owner 0, insert gone. Terrain height moved **0.000000000 m** across the whole cycle | The on-state readings, which must differ from the off-state — otherwise AV compares two identical no-ops |
+| AW | 14 042 of 42 025 cells lit (**33.4%**) against a loop covering ~36% of the grid; layer count 2 before and 2 after | The unclipped field lights all 42 025 — so there was something for the clip to do |
 
 **Break tests — each fails only its own criterion:**
 
@@ -1495,6 +1539,8 @@ bake.*
 | Preview built at ¼ resolution instead of the bake's | AS only (both legs: size mismatch, and AT's registration follows from the changed grid) |
 | `clear_mask_preview` ignores the owner | AU only, on the "A took down B's preview" leg |
 | The insert left compiled in after disabling | AV only |
+| The area clip removed | AS and AW — the preview stops being what the bake applies, and starts painting the bounding box |
+| The preview creating its layer with `_ensure_layer_for` | AW only |
 
 > Phases 1–5, `PlowReliefCheck` and `PondBrushCheck` were re-run against the phase-5.5 build: **all
 > passing, 0 failures.**

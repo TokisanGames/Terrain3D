@@ -1536,6 +1536,38 @@ func _erodability_lut() -> Array:
 	return [data, w, h]
 
 
+## §18: Sim's area mask is EXACT, because the bake's own masker is reachable. `sim_mask_deltas` fed a
+## delta of all-ones returns the loop mask itself — edge offset, falloff width and falloff curve included,
+## NaN outside — so the overlay feathers exactly where the erosion will. The base class's polygon clip is
+## the fallback for brushes whose falloff is only reachable from inside the C++ rasteriser.
+func _preview_area_mask(p_min_x: float, p_min_z: float, p_cell: float, p_gw: int, p_gh: int) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	out.resize(p_gw * p_gh)
+	var ones := PackedFloat32Array()
+	ones.resize(p_gw * p_gh)
+	ones.fill(1.0)
+	var any := false
+	for s in _get_splines():
+		if not _spline_paintable(s):
+			continue
+		var poly := _polygon_xz(s)
+		if poly.size() < 3:
+			continue
+		var m: PackedFloat32Array = terrain.data.sim_mask_deltas(ones, poly, {
+				"sw": p_gw, "sh": p_gh, "gw": p_gw, "gh": p_gh,
+				"sim_min_x": p_min_x, "sim_min_z": p_min_z, "sim_cell": p_cell,
+				"min_x": p_min_x, "min_z": p_min_z, "vs": p_cell,
+				"edge_offset": edge_offset, "falloff_width": maxf(falloff_width, 0.001),
+			}, _ramp_lut(falloff_curve))
+		if m.size() != p_gw * p_gh:
+			continue
+		for i in range(p_gw * p_gh):
+			if is_finite(m[i]):
+				out[i] = maxf(out[i], clampf(m[i], 0.0, 1.0)) # several loops: the strongest wins
+		any = true
+	return out if any else PackedFloat32Array()
+
+
 ## §18: build or drop this Sim's mask overlay. Over the SIMULATED area — the loops grown by the catchment
 ## margin — because that is the grid the mask is evaluated on at bake time, margin included. Showing only
 ## the write area would hide the part of the mask that decides how the channels arrive at the rim.

@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Phase 5.5 gates AS-AV for the mask preview (PASTURE3D_SIM_NODE_SPEC.md §18.7).
+# Phase 5.5 gates AS-AW for the mask preview (PASTURE3D_SIM_NODE_SPEC.md §18.7).
 #
 # WHAT THIS GATE DOES NOT TEST: the red pixels. The overlay is a `DEBUG_MASK_PREVIEW` shader insert, and
 # a headless run has no viewport to photograph — so nothing here proves the terrain is tinted, that the
@@ -38,7 +38,7 @@ var _mat
 
 
 func _ready() -> void:
-	print("\n=== Pasture3DSim phase 5.5 (spec §18.7 gates AS-AV) ===\n")
+	print("\n=== Pasture3DSim phase 5.5 (spec §18.7 gates AS-AW) ===\n")
 	print("NOTE: the rendered overlay is UNGATED here — headless has no viewport. These criteria test")
 	print("      that the previewed field IS the bake's field, not that it appears on screen.\n")
 	_root = Node3D.new()
@@ -63,6 +63,7 @@ func _ready() -> void:
 	_gate_at_rect()
 	_gate_au_one_owner()
 	_gate_av_leaves_nothing()
+	_gate_aw_clipped_to_brush()
 
 	_done()
 
@@ -99,11 +100,19 @@ func _gate_as_same_field() -> void:
 		print("    !! could not read the preview texture back")
 		return
 
-	# What a bake would use, recomputed here from the same inputs.
+	# What a bake would APPLY, recomputed here from the same inputs: the selector field times the loop's
+	# own area mask. Both halves come from the bake's functions (`selector_mask_field`, `sim_mask_deltas`),
+	# assembled here rather than read back off the brush — the claim is that the preview equals what the
+	# bake applies, so the gate has to build that from the bake's side.
 	var g := _preview_grid(sim)
-	var want: PackedFloat32Array = _data.selector_mask_field(
+	var raw: PackedFloat32Array = _data.selector_mask_field(
 			_below(sim, g), {"gw": g[2], "gh": g[3], "cell_size": g[4], "min_x": g[0], "min_z": g[1]},
 			_block(sim.erosion_mask), {})
+	var want := raw.duplicate()
+	var area := _area_mask(sim, g)
+	if area.size() == want.size():
+		for i in range(want.size()):
+			want[i] *= area[i]
 	if want.size() != shown.size():
 		_fail += 1
 		print("    !! sizes differ: preview %d, bake %d" % [shown.size(), want.size()])
@@ -122,7 +131,9 @@ func _gate_as_same_field() -> void:
 		_fail += 1
 		print("    !! the preview is not the field the bake will use")
 
-	# CONTROL: a coarser grid must gate differently.
+	# CONTROL: a coarser grid must gate differently. Compared UNCLIPPED against UNCLIPPED — the loop mask
+	# is not part of this claim, and comparing a coarse unclipped field against a fine clipped one would
+	# differ for a reason that has nothing to do with resolution.
 	var cw: int = maxi(int(g[2] / 4), 8)
 	var ch: int = maxi(int(g[3] / 4), 8)
 	var ccell: float = g[4] * float(g[2] - 1) / float(cw - 1)
@@ -130,7 +141,7 @@ func _gate_as_same_field() -> void:
 			_data.resample_grid(_below(sim, g), g[2], g[3], cw, ch),
 			{"gw": cw, "gh": ch, "cell_size": ccell, "min_x": g[0], "min_z": g[1]},
 			_block(sim.erosion_mask), {})
-	var mean_fine := _mean(want)
+	var mean_fine := _mean(raw)
 	var mean_coarse := _mean(coarse)
 	print("    CONTROL same band at 1/4 resolution: mean weight %.4f vs %.4f (want different)" % [
 			mean_coarse, mean_fine])
@@ -274,6 +285,69 @@ func _gate_av_leaves_nothing() -> void:
 		print("    !! the preview wrote to the terrain; it is a bake wearing another name")
 
 
+# --- AW: the preview shows where the BRUSH acts, not the whole grid --------------------------------
+# The selector weight is defined over the entire grid, but the brush only applies it inside its own loop.
+# Showing the raw weight paints the footprint rectangle and overstates the affected area — reported from
+# the editor on the first build of this feature, where a Mound's red square dwarfed the mound.
+#
+# Also checks the second half of "leaves nothing behind": previewing must not CREATE the brush's layer.
+#
+# CONTROL: the unclipped field, which must cover cells the clipped one does not. If the loop already
+# filled its own bounding box there would be nothing to clip and the criterion would be empty.
+func _gate_aw_clipped_to_brush() -> void:
+	print("[AW] the preview is clipped to where the brush acts:")
+	var sim = _make_sim("AW", SITE_B)
+	if sim == null:
+		return
+	# A band that passes everywhere, so anything NOT red is the clip and not the selector.
+	sim.erosion_mask = [_sel(K_ALTITUDE, -1.0e6, 1.0e6, 0.0, 0.0)] as Array[Pasture3DReliefSelector]
+
+	var layers_before := _layer_count()
+	sim.mask_preview = 1
+	var layers_after := _layer_count()
+	print("    layers in the stack: %d before the preview, %d after (want equal)" % [
+			layers_before, layers_after])
+	if layers_after != layers_before:
+		_fail += 1
+		print("    !! previewing created a layer; that is not 'leaves nothing behind'")
+
+	var shown := _preview_field(sim)
+	if shown.is_empty():
+		_fail += 1
+		print("    !! no preview to inspect")
+		return
+	var lit := 0
+	for v in shown:
+		if v > 0.01:
+			lit += 1
+	var frac := float(lit) / float(shown.size())
+	# The loop is a 120 m square inside a grid grown by a 40 m margin on every side, so the loop covers
+	# (120/200)^2 = 36% of it. Anything near 100% means the clip is not happening.
+	print("    %d of %d cells lit (%.1f%%); the loop covers about 36%% of the grid" % [
+			lit, shown.size(), 100.0 * frac])
+	if frac > 0.60:
+		_fail += 1
+		print("    !! the preview covers far more than the loop; it is painting the bounding box")
+	if frac < 0.15:
+		_fail += 1
+		print("    !! almost nothing is lit; the clip has eaten the mask as well as the margin")
+
+	# CONTROL: the unclipped field must light cells the clipped one does not.
+	var g := _preview_grid(sim)
+	var raw: PackedFloat32Array = _data.selector_mask_field(
+			_below(sim, g), {"gw": g[2], "gh": g[3], "cell_size": g[4], "min_x": g[0], "min_z": g[1]},
+			_block(sim.erosion_mask), {})
+	var raw_lit := 0
+	for v in raw:
+		if v > 0.01:
+			raw_lit += 1
+	print("    CONTROL unclipped: %d cells lit (want many more than %d)" % [raw_lit, lit])
+	if raw_lit <= lit:
+		_fail += 1
+		print("    !! the unclipped field lights no extra cells, so there was nothing for the clip to do")
+	sim.mask_preview = 0
+
+
 # --- helpers --------------------------------------------------------------------------------------
 
 func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float) -> Pasture3DReliefSelector:
@@ -326,8 +400,13 @@ func _preview_grid(p_sim) -> Array:
 	return [min_x, min_z, int(round((max_x - min_x) / vs)) + 1, int(round((max_z - min_z) / vs)) + 1, vs]
 
 
+## The surface the mask is built from. A brush with no layer yet will be appended at the TOP of the
+## stack, so everything currently in it is below — stated here independently rather than read back off
+## the brush, so AS is not asking the code under test which surface it chose.
 func _below(p_sim, p_g: Array) -> PackedFloat32Array:
 	var layer_id: int = _data.find_layer_by_owner(p_sim._layer_owner)
+	if layer_id < 0:
+		layer_id = _layer_count()
 	return _data.composite_height_below(layer_id, p_g[0], p_g[1], p_g[4], p_g[2], p_g[3])
 
 
@@ -356,6 +435,72 @@ func _preview_field(p_sim) -> PackedFloat32Array:
 ## the same way. Reading the source is the only way to see a removal.
 func _shader_code() -> String:
 	return _mat.get_generated_shader_code()
+
+
+## The loop's own area mask over the preview grid, from the BAKE's masker fed a delta of all ones —
+## edge offset, falloff width and curve included. Assembled here from the Sim's public properties, not
+## taken from the preview path.
+func _area_mask(p_sim, p_g: Array) -> PackedFloat32Array:
+	var n: int = p_g[2] * p_g[3]
+	var ones := PackedFloat32Array()
+	ones.resize(n)
+	ones.fill(1.0)
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for s in p_sim.get_children():
+		if not (s is Path3D) or s.curve == null:
+			continue
+		var poly := PackedVector2Array()
+		var xf: Transform3D = s.global_transform
+		for pt in s.curve.get_baked_points():
+			poly.append(Vector2((xf * pt).x, (xf * pt).z))
+		poly = _decimate(poly, maxf(_terrain.vertex_spacing, 0.25))
+		if poly.size() < 3:
+			continue
+		var m: PackedFloat32Array = _data.sim_mask_deltas(ones, poly, {
+				"sw": p_g[2], "sh": p_g[3], "gw": p_g[2], "gh": p_g[3],
+				"sim_min_x": p_g[0], "sim_min_z": p_g[1], "sim_cell": p_g[4],
+				"min_x": p_g[0], "min_z": p_g[1], "vs": p_g[4],
+				"edge_offset": p_sim.edge_offset, "falloff_width": maxf(p_sim.falloff_width, 0.001),
+			}, _ramp_lut(p_sim.falloff_curve))
+		if m.size() != n:
+			continue
+		for i in range(n):
+			if is_finite(m[i]):
+				out[i] = maxf(out[i], clampf(m[i], 0.0, 1.0))
+	return out
+
+
+## Mirrors Pasture3DTerrainBrush._decimate — the polygon a Sim hands the masker is decimated to terrain
+## resolution, so a gate that skips that step compares two different polygons.
+func _decimate(p_pts: PackedVector2Array, p_step: float) -> PackedVector2Array:
+	var n := p_pts.size()
+	if n < 3:
+		return p_pts
+	var out := PackedVector2Array()
+	out.append(p_pts[0])
+	var acc := 0.0
+	for i in range(1, n):
+		acc += p_pts[i].distance_to(p_pts[i - 1])
+		if acc >= p_step:
+			out.append(p_pts[i])
+			acc = 0.0
+	return out
+
+
+## Default smoothstep ramp LUT, matching Pasture3DTerrainBrush._ramp_lut with a null curve.
+func _ramp_lut(p_curve: Curve) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	out.resize(256)
+	for i in range(256):
+		var x := float(i) / 255.0
+		out[i] = p_curve.sample_baked(x) if p_curve != null else smoothstep(0.0, 1.0, x)
+	return out
+
+
+func _layer_count() -> int:
+	var stack = _data.get_layer_stack()
+	return stack.get_layer_count() if stack != null else 0
 
 
 func _spread(p_a: PackedFloat32Array) -> Array:
