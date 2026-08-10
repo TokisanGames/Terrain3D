@@ -17,6 +17,7 @@
 #include "pasture_3d_layer.h"
 #include "pasture_3d_layer_stack.h"
 #include "pasture_3d_raster_util.h"
+#include "pasture_3d_relief_ops.h" // §17: the mask field reuses the relief selectors' evaluator and fields
 
 #include <algorithm>
 #include <cmath>
@@ -245,6 +246,95 @@ Dictionary Pasture3DData::erode_heightfield(const PackedFloat32Array &p_z, const
 	return out;
 }
 
+// §17: the per-cell mask field, from a stack of Pasture3DReliefSelectors evaluated over the SIM grid.
+//
+// Same evaluator the relief materials use (`relief_selector_value`) over the same fields
+// (`relief_fields_build`), so a SLOPE band means under a Sim exactly what it means under a Plow. It lives
+// here rather than in GDScript because phase 6 re-evaluates it once per pass and `_terrain_fields` is
+// O(cells) interpreted — the same reason the erodability LUT is capped at 256².
+//
+// Selectors combine by PRODUCT. Each already returns `lerp(1, band, strength)`, so 1.0 means "passes
+// fully" and a `strength = 0` selector drops out of the product for free; multiplying soft 0..1 weights
+// yields another soft 0..1 weight and introduces no new semantics. `min` would have made the falloffs
+// meaningless (the narrowest band would win outright) and last-wins would have made order significant for
+// no reason.
+//
+// When the erodability params are present the TEXTURE is composed in as well, so the caller gets one
+// field to hand straight to the solver:
+//
+//     field = (erodability_min + (max - min) * texture) * Π selectors
+//
+// and the node then passes an identity range, because the affine map has already been applied here. The
+// texture is sampled by normalised uv with the same arithmetic `lut_sample` uses inside the solver, so
+// composing here and letting the solver map are the same numbers in a different place.
+//
+// With no selectors AND no texture the array comes back EMPTY, and the caller must then pass nothing at
+// all rather than a field of ones — that is what keeps an unmasked Sim bitwise identical to phase 4, and
+// what makes "clear the masks" a usable control for every gate in §17.8.
+PackedFloat32Array Pasture3DData::sim_mask_field(const PackedFloat32Array &p_z, const Dictionary &p_params,
+		const PackedFloat32Array &p_selectors, const Dictionary &p_sim_result) {
+	PackedFloat32Array out;
+	const int gw = (int)p_params.get("gw", 0);
+	const int gh = (int)p_params.get("gh", 0);
+	const double cell = (double)p_params.get("cell_size", 1.0);
+	const double min_x = (double)p_params.get("min_x", 0.0);
+	const double min_z = (double)p_params.get("min_z", 0.0);
+	if (gw < 1 || gh < 1 || cell <= 0.0 || p_z.size() < gw * gh) {
+		return out;
+	}
+	const int n_sel = p_selectors.size() / RELIEF_SELECTOR_STRIDE;
+
+	const PackedFloat32Array erod_lut = p_params.get("erodability_lut", PackedFloat32Array());
+	const int ew = (int)p_params.get("erodability_w", 0);
+	const int eh = (int)p_params.get("erodability_h", 0);
+	const bool has_map = ew > 1 && eh > 1 && erod_lut.size() >= ew * eh;
+	const double e_lo = (double)p_params.get("erodability_min", 1.0);
+	const double e_hi = (double)p_params.get("erodability_max", 1.0);
+	if (n_sel < 1 && !has_map) {
+		return out;
+	}
+
+	// Derivatives are taken over `cell`, the SIM cell size — not the terrain's vertex spacing. That is
+	// what makes a SLOPE band read differently at preview resolution (§17.5), and it is correct: the mask
+	// gates a solve that is itself running on this grid.
+	ReliefFields fields;
+	relief_fields_build(p_z, min_x, min_z, cell, gw, gh,
+			[](double, double) { return (float)NAN; }, fields);
+	if (!fields.ready) {
+		return out;
+	}
+	// Only worth resampling four more grids when a sim Kind is actually in the stack; `relief_fields_add_sim`
+	// is a no-op on an empty or malformed dictionary and leaves `has_sim` false, so the sim Kinds then read
+	// their defined zeros rather than garbage.
+	if (n_sel > 0 && !p_sim_result.is_empty()) {
+		relief_fields_add_sim(p_sim_result, min_x, min_z, cell, gw, gh, fields);
+	}
+
+	out.resize(gw * gh);
+	float *o = out.ptrw();
+	ReliefSample ground;
+	for (int iz = 0; iz < gh; iz++) {
+		const double v = gh > 1 ? (double)iz / (double)(gh - 1) : 0.0;
+		const int row = iz * gw;
+		for (int ix = 0; ix < gw; ix++) {
+			fields.sample(row + ix, ground);
+			double w = 1.0;
+			for (int s = 0; s < n_sel; s++) {
+				w *= relief_selector_weight(p_selectors, s, ground);
+			}
+			double base = 1.0;
+			if (has_map) {
+				const double u = gw > 1 ? (double)ix / (double)(gw - 1) : 0.0;
+				double t = 0.0; // a non-finite texel is a broken texture; e_lo is the defined answer
+				grid_bilinear(erod_lut.ptr(), ew, eh, u * (double)(ew - 1), v * (double)(eh - 1), t);
+				base = e_lo + (e_hi - e_lo) * t;
+			}
+			o[row + ix] = (float)(base * w);
+		}
+	}
+	return out;
+}
+
 PackedFloat32Array Pasture3DData::sim_mask_deltas(const PackedFloat32Array &p_deltas, const PackedVector2Array &p_poly,
 		const Dictionary &p_params, const PackedFloat32Array &p_lut) {
 	PackedFloat32Array out;
@@ -271,6 +361,13 @@ PackedFloat32Array Pasture3DData::sim_mask_deltas(const PackedFloat32Array &p_de
 	if (sim_cell <= 0.0 || vs <= 0.0) {
 		return out;
 	}
+	// §17.3's WRITE mask: a sim-resolution 0..1 field multiplied into the loop falloff, so the solve is
+	// untouched and only the committed delta is gated. Sampled at the same (fu,fv) as the delta below, so
+	// the two are read off the same grid with the same interpolation and cannot drift apart. Absent (or
+	// the wrong size) leaves this path bitwise identical to phase 4 — gate AD leans on that.
+	const PackedFloat32Array write_mask = p_params.get("write_mask", PackedFloat32Array());
+	const bool has_write_mask = write_mask.size() == sw * sh;
+	const float *wm = has_write_mask ? write_mask.ptr() : nullptr;
 
 	// The loop's area mask, on the WRITE grid. Identical construction to Pasture3DPlow's, so a Sim and a
 	// Plow sharing a loop feather over the same band.
@@ -320,7 +417,17 @@ PackedFloat32Array Pasture3DData::sim_mask_deltas(const PackedFloat32Array &p_de
 			}
 			const double a = (double)d00 * (1.0 - tx) + (double)d10 * tx;
 			const double b = (double)d01 * (1.0 - tx) + (double)d11 * tx;
-			const double delta = (a * (1.0 - ty) + b * ty) * mask;
+			double gate = mask;
+			if (wm) {
+				double w = 1.0;
+				if (grid_bilinear(wm, sw, sh, fu, fv, w)) {
+					gate *= CLAMP(w, 0.0, 1.0);
+				}
+				if (gate <= 0.0) {
+					continue; // fully masked out: leave the cell uncovered rather than writing a zero
+				}
+			}
+			const double delta = (a * (1.0 - ty) + b * ty) * gate;
 			if (delta == 0.0) {
 				continue; // an exact zero is not a write; leaving the cell uncovered keeps the layer sparse
 			}

@@ -2687,6 +2687,7 @@ void Pasture3DData::_bind_methods() {
 	// Pasture3DSim (PASTURE3D_SIM_NODE_SPEC.md §4, §6, §8.1).
 	ClassDB::bind_method(D_METHOD("erode_heightfield", "z", "params", "erodability"), &Pasture3DData::erode_heightfield, DEFVAL(PackedFloat32Array()));
 	ClassDB::bind_method(D_METHOD("resample_grid", "src", "sw", "sh", "dw", "dh"), &Pasture3DData::resample_grid);
+	ClassDB::bind_method(D_METHOD("sim_mask_field", "z", "params", "selectors", "sim_result"), &Pasture3DData::sim_mask_field, DEFVAL(Dictionary()));
 	ClassDB::bind_method(D_METHOD("sim_mask_deltas", "deltas", "poly", "params", "lut"), &Pasture3DData::sim_mask_deltas);
 	ClassDB::bind_method(D_METHOD("apply_sim_block", "layer_id", "min_x", "min_z", "vs", "gw", "gh", "deltas", "blend"), &Pasture3DData::apply_sim_block);
 	ClassDB::bind_method(D_METHOD("sim_result_build", "parts", "target"), &Pasture3DData::sim_result_build);

@@ -305,6 +305,11 @@ void godot::ReliefFields::sample(int p_index, ReliefSample &r_out) const {
 	}
 }
 
+double godot::relief_selector_weight(const PackedFloat32Array &p_selectors, int p_sid,
+		const ReliefSample &p_ground) {
+	return relief_selector_value(p_selectors, p_sid, p_ground);
+}
+
 void godot::relief_fields_build(const PackedFloat32Array &p_below, double p_min_x, double p_min_z,
 		double p_vs, int p_gw, int p_gh, const std::function<float(double, double)> &p_fallback,
 		ReliefFields &r_out) {

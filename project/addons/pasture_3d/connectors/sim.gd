@@ -93,6 +93,33 @@ const RESULT_MAX_CELLS: int = 4194304
 ## Expand (+) / contract (−) the written area off the spline, in metres.
 @export var edge_offset: float = 0.0
 
+@export_group("Masking")
+## Where this Sim is allowed to erode, gated on what the ground is already doing (§17). The same
+## Pasture3DReliefSelector the Plow and Mound relief materials use, so a `SLOPE 30-90` band means here
+## exactly what it means there: steepness in degrees, altitude in metres, curvature, or one of the four
+## sim channels out of another Sim's masks.
+##
+## Selectors MULTIPLY. Two of them gate the intersection — "steep AND above the treeline" — and one with
+## Strength 0 drops out of the product, so it is a free way to disable one without deleting it. The result
+## multiplies the Erodability Map as well, if there is one, rather than replacing it.
+##
+## This gates the SOLVE: masked-out ground still routes water and still receives sediment, it just resists
+## incision. Empty = erode everywhere, exactly as before this existed.
+@export var erosion_mask: Array[Pasture3DReliefSelector] = []:
+	set(v):
+		erosion_mask = v
+		update_configuration_warnings()
+## Where this Sim is allowed to WRITE what it solved (§17.3). Read the same way as Erosion Mask, and the
+## difference matters: this one does not touch the solve at all, so the drainage network is computed over
+## the whole area and stays continuous — only the delta that reaches the layer is gated.
+##
+## That is how you keep the gullies on one face of a hill without the water re-routing around the part you
+## excluded. Multiplies the loop's own edge falloff. Empty = write everything inside the loop.
+@export var write_mask: Array[Pasture3DReliefSelector] = []:
+	set(v):
+		write_mask = v
+		update_configuration_warnings()
+
 @export_group("Resolution")
 ## Cell size divisor for the Preview button, relative to the terrain's vertex spacing (§6). 4 is ~16x
 ## cheaper than a build and is for tuning erodability, rate and iteration count — the preview is
@@ -251,6 +278,8 @@ func _get_configuration_warnings() -> PackedStringArray:
 		warnings.append("Erodability Range must be positive at both ends; a 0 multiplier stops erosion entirely.")
 	if erodability_map != null and is_instance_valid(terrain) and _get_splines().is_empty():
 		warnings.append("An Erodability Map is assigned but this Sim has no area to map it onto — add a loop.")
+	warnings.append_array(_mask_warnings(erosion_mask, "Erosion Mask"))
+	warnings.append_array(_mask_warnings(write_mask, "Write Mask"))
 	var layer := _resolve_layer_for(_layer_owner)
 	if layer != null and layer.has_method("get_blend_mode") and layer.get_blend_mode() != BLEND_ADD:
 		warnings.append(("The '%s' layer's blend mode is not Add, so this Sim's delta will overwrite "
@@ -544,19 +573,45 @@ func _prepare_solve(p_path: Path3D, p_layer_id: int, p_scale: int) -> Dictionary
 		return {}
 
 	var erod := _erodability_lut()
+	var e_field: PackedFloat32Array = erod[0]
+	var e_w := int(erod[1])
+	var e_h := int(erod[2])
+	var e_lo := erodability_range.x
+	var e_hi := erodability_range.y
+	# §17: with a mask stack present, the WHOLE per-cell field — the texture mapped through the range,
+	# times the selector product — is composed in C++ at sim resolution and handed to the solver already
+	# mapped, so the range travelling with it becomes the identity. With an empty stack the texture path
+	# below is untouched, which is what keeps an unmasked Sim bitwise identical to phase 4 and what makes
+	# "clear the masks" a usable control for every §17.8 criterion.
+	var sel := _selector_block(erosion_mask)
+	if not sel.is_empty():
+		var field: PackedFloat32Array = terrain.data.sim_mask_field(z0, {
+				"gw": sw, "gh": sh, "cell_size": sim_cell, "min_x": sb[0], "min_z": sb[2],
+				"erodability_lut": e_field, "erodability_w": e_w, "erodability_h": e_h,
+				"erodability_min": e_lo, "erodability_max": e_hi,
+			}, sel, _mask_sim_dict(erosion_mask))
+		if field.size() == sw * sh:
+			e_field = field
+			e_w = sw
+			e_h = sh
+			e_lo = 0.0
+			e_hi = 1.0
+		else:
+			push_warning(("Pasture3DSim '%s': the erosion mask field could not be built for this area, so "
+				+ "it eroded UNMASKED. Nothing was silently gated.") % name)
 	return {
 		"path": p_path, "poly": poly, "layer_id": p_layer_id, "vs": vs,
 		"wb": wb, "sb": sb, "gw": gw, "gh": gh, "sw": sw, "sh": sh, "sim_cell": sim_cell,
-		"z0": z0, "z": z0, "erod": erod[0], "done": 0, "failed": false,
+		"z0": z0, "z": z0, "erod": e_field, "done": 0, "failed": false,
 		"params": {
 			"gw": sw, "gh": sh, "cell_size": sim_cell,
 			"time_step": 1.0,
 			"erosion_rate": erosion_rate,
 			"area_exponent": area_exponent,
 			"diffusion": hillslope_diffusion,
-			"erodability_min": erodability_range.x,
-			"erodability_max": erodability_range.y,
-			"erodability_w": int(erod[1]), "erodability_h": int(erod[2]),
+			"erodability_min": e_lo,
+			"erodability_max": e_hi,
+			"erodability_w": e_w, "erodability_h": e_h,
 		},
 	}
 
@@ -604,6 +659,20 @@ func _finish_solve(p_state: Dictionary) -> Dictionary:
 		"edge_offset": edge_offset, "falloff_width": maxf(falloff_width, 0.001),
 		"baseline": p_state["z0"],
 	}
+	# §17.3: the write mask reads the SAME below-layer surface the erosion mask does, not the eroded
+	# result. Gating on the ground you started from is what an artist means by "only the north face", and
+	# it is what keeps the gate idempotent — a mask read off the solve would move with its own output.
+	var wsel := _selector_block(write_mask)
+	if not wsel.is_empty():
+		var wfield: PackedFloat32Array = terrain.data.sim_mask_field(p_state["z0"], {
+				"gw": p_state["sw"], "gh": p_state["sh"], "cell_size": p_state["sim_cell"],
+				"min_x": sb[0], "min_z": sb[2],
+			}, wsel, _mask_sim_dict(write_mask))
+		if wfield.size() == int(p_state["sw"]) * int(p_state["sh"]):
+			mask_params["write_mask"] = wfield
+		else:
+			push_warning(("Pasture3DSim '%s': the write mask field could not be built for this area, so "
+				+ "the whole solved delta was written.") % name)
 	var write: PackedFloat32Array = terrain.data.sim_mask_deltas(
 			p_state["z"], p_state["poly"], mask_params, _ramp_lut(falloff_curve))
 	if write.size() != gw * gh:
@@ -1452,6 +1521,74 @@ func _erodability_lut() -> Array:
 		for x in range(w):
 			data[row + x] = img.get_pixel(x, y).get_luminance()
 	return [data, w, h]
+
+
+## §17: a mask stack flattened to the stride-8 selector blocks the C++ evaluator reads. Nulls and
+## self-referencing selectors are dropped here rather than filtered downstream, so exactly one place
+## decides what a stack contributes and the warning below describes the same set.
+func _selector_block(p_list: Array) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	for s: Pasture3DReliefSelector in p_list:
+		if s == null or _self_references(s):
+			continue
+		out.append_array(PackedFloat32Array(s.to_params()))
+	return out
+
+
+## A sim-Kind selector pointed at THIS Sim's own masks is reading this node's own output — the drift class
+## `composite_height_below` exists to prevent (§13). The masks describe the erosion already in the layer,
+## so the gate would key on the previous run and the two would chase each other. Pointed at ANOTHER Sim's
+## result it is legitimate and useful, so this refuses the one case and not the Kind.
+##
+## Phase 6's pass chain makes the interesting version work properly: masking pass 2 on pass 1's live flow
+## field is not self-reference, because pass 1's fields are a deterministic function of the same
+## below-layer read. The warning says which one is missing rather than implying the idea is illegal.
+func _self_references(p_sel: Pasture3DReliefSelector) -> bool:
+	return p_sel.is_sim_kind() and p_sel.sim_result != null and p_sel.sim_result == sim_result
+
+
+## The Pasture3DSimResult a stack's sim Kinds read, flattened for C++, or {}. ONE result per stack: two
+## selectors pointed at different Sims would need two sets of four resampled grids, so the first wins and
+## `_mask_warnings` says so rather than letting the second look like it is doing something.
+func _mask_sim_dict(p_list: Array) -> Dictionary:
+	for s: Pasture3DReliefSelector in p_list:
+		if s != null and s.is_sim_kind() and s.sim_result != null and not _self_references(s):
+			return _sim_result_dict(s.sim_result)
+	return {}
+
+
+## Everything that can be wrong with one mask stack. `p_label` names it, because "a selector" is useless
+## advice when the node has two stacks.
+func _mask_warnings(p_list: Array, p_label: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var selves := 0
+	var dangling := 0
+	var results: Array = []
+	for s: Pasture3DReliefSelector in p_list:
+		if s == null:
+			continue
+		if _self_references(s):
+			selves += 1
+			continue
+		if s.is_sim_kind():
+			if s.sim_result == null:
+				dangling += 1
+			elif not results.has(s.sim_result):
+				results.append(s.sim_result)
+	if selves > 0:
+		out.append(("%s: %d selector(s) read THIS Sim's own Sim Result, which is this node's own output — "
+			+ "the mask would gate on the previous run and drift every re-run. They are ignored. Point "
+			+ "them at another Sim's result, or wait for the pass chain, where a later pass can key on an "
+			+ "earlier one's flow.") % [p_label, selves])
+	if dangling > 0:
+		out.append(("%s: %d selector(s) use a sim Kind with no Sim Result assigned, so they read a defined "
+			+ "0 everywhere and gate nothing. Assign the result of the Sim that eroded this ground.")
+			% [p_label, dangling])
+	if results.size() > 1:
+		out.append(("%s: selectors point at %d different Sim Results; only '%s' is read. Split them across "
+			+ "the two mask stacks, or use one result.") % [p_label, results.size(), results[0].resource_path
+			if results[0].resource_path != "" else "the first"])
+	return out
 
 
 ## Hash of every loop's world footprint (§12). Compared against the one recorded at bake time so the

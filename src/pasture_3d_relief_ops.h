@@ -163,6 +163,12 @@ void relief_fields_build(const PackedFloat32Array &p_below, double p_min_x, doub
 void relief_fields_add_sim(const Dictionary &p_sim, double p_min_x, double p_min_z, double p_vs,
 		int p_gw, int p_gh, ReliefFields &r_fields);
 
+// One selector's 0..1 weight at one cell, for callers outside the relief evaluator — Sim's §17 mask field
+// is the only one today. A thin wrapper over the internal evaluator rather than a second copy of it: the
+// gate that matters is that a SLOPE band gates a Sim exactly as it gates a Plow, and two implementations
+// of that arithmetic would eventually disagree.
+double relief_selector_weight(const PackedFloat32Array &p_selectors, int p_sid, const ReliefSample &p_ground);
+
 // Read "instances"/"scatter_blend" and bucket them over the footprint. False when there are none.
 bool relief_scatter_build(const Dictionary &p_params, double p_min_x, double p_min_z, double p_vs,
 		int p_gw, int p_gh, ReliefScatter &r_out);

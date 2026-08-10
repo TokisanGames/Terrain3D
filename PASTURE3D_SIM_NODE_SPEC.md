@@ -1,10 +1,10 @@
 # Pasture3D Sim Node Spec (`Pasture3DSim`)
 
-**Status:** **PHASES 1–4 IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09).
-**Phases 5–7 DESIGNED, NOT BUILT** (2026-08-10) — masking (§17), the manager and pass chain (§18), and
-moving the solve off the main thread (§19). Drafted 2026-08-08; **solver replaced the same day** after a
-survey of Houdini, World Machine, Gaea and the large-scale-terrain literature (§16). Target: Godot 4.7,
-Pasture3D `main`.
+**Status:** **PHASES 1–5 IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09, phase 5 2026-08-10).
+**Phases 6–7 DESIGNED, NOT BUILT** (2026-08-10) — the manager and pass chain (§18) and moving the solve
+off the main thread (§19). Drafted 2026-08-08; **solver replaced the same day** after a survey of
+Houdini, World Machine, Gaea and the large-scale-terrain literature (§16). Target: Godot 4.7, Pasture3D
+`main`.
 
 > **§17–§19 are appended after §16 on purpose.** Renumbering would break every `§15.n` and `§12`
 > reference in the code comments and in these notes, which is the same reason the gate letters are not in
@@ -32,6 +32,10 @@ Phases 1–4 ship as:
 | [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | Thresholds, surface reconstruction, Preview / Add / Clear Brushes, and the generated Trough and Pond builders | 4 |
 | [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd) | `INTERNAL_CHILD_META` — a brush's own presentation/bookkeeping children do not count as a structural edit | 4 |
 | [bench/SimPhase4Gate.tscn](project/bench/SimPhase4Gate.gd) | Gates M (M1–M4), N, O, Y, Z, all passing with their controls | 4 |
+| [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `sim_mask_field` — the §17 selector-driven mask field, and the write mask inside `sim_mask_deltas` | 5 |
+| [pasture_3d_relief_ops.h](src/pasture_3d_relief_ops.h) / [.cpp](src/pasture_3d_relief_ops.cpp) | `relief_selector_weight` — the selector evaluator exposed to callers outside the relief path | 5 |
+| [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | `erosion_mask` / `write_mask`, the field composition, and the self-reference refusal | 5 |
+| [bench/SimPhase5Gate.tscn](project/bench/SimPhase5Gate.gd) | Gates AA–AG, all passing with their controls | 5 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
 records the gate results and the criteria that were vacuous until their controls caught them.
@@ -771,7 +775,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **2 — DONE** | `Pasture3DSimResult` with all four channels, written on every Preview and Simulate; the multi-loop merge; source-parameter recording (§15.4); the shared-layer overlap warning (§15.7) |
 | **3 — DONE** | Selector Kinds `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; the unit conversions that make their bands artist-readable; four configuration warnings; `channel_boulders.tres`, a demo preset pairing an eroded area with a flow-gated relief material |
 | **4 — DONE** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
-| **5 — DESIGNED (§17)** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's Kinds, units and falloff semantics; no solver change |
+| **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's Kinds, units and falloff semantics; no solver change |
 | **6 — DESIGNED (§18)** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Retires §5's seam limitation; per-pass mask re-evaluation; one `SimResult`; one water extraction |
 | **7 — DESIGNED (§19)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §19.6) |
 
@@ -1123,11 +1127,27 @@ discipline), `PASTURE3D_LAYERS_GUIDE.md`, `PASTURE3D_WATER_BODIES_SPEC.md`,
 
 ---
 
-## 17. Masking (phase 5)
+## 17. Masking (phase 5) — DONE
 
 Houdini's erode node says that *"most parameters in this node can vary spatially if a supplementary mask
 layer is provided"*, and §7 already took Erodability from it. Phase 5 finishes the thought: the same
 per-cell control, driven by **what the ground is doing** rather than by a hand-painted texture.
+
+> **Built as designed, and the "no solver change" claim held literally** — `pasture_3d_erosion.cpp` is
+> untouched. Three departures, all small:
+>
+> 1. **The exports live in a `Masking` group, not `Masks`.** §17.7 said `Masks`, but that group already
+>    exists and holds `sim_result` — the *output* masks. Two groups called Masks, one for what goes in and
+>    one for what comes out, is a worse inspector than one extra group name.
+> 2. **`relief_selector_value` was file-local**, inside an anonymous namespace in
+>    `pasture_3d_relief_ops.cpp`. It is now reachable through a one-line `relief_selector_weight` wrapper
+>    rather than moved: the point of reusing the evaluator is that a SLOPE band gates a Sim exactly as it
+>    gates a Plow, and two copies of that arithmetic would eventually disagree.
+> 3. **Mask changes do not trigger the "area changed" warning.** `_area_hash()` covers the loops and the
+>    catchment margin, and neither `erosion_rate` nor `iterations` nor `hillslope_diffusion` is in it
+>    either — solver settings have never been. Masks are consistent with that, not exempt from it. Editing
+>    a mask and not re-simulating leaves stale erosion in the layer with no warning, exactly as editing
+>    the rate always has.
 
 ### 17.1 The insertion point already exists
 
@@ -1244,6 +1264,51 @@ Lettering continues at **AA** (§14).
 | AE | **Masking is idempotent.** Gate H re-run with both masks populated: re-running reproduces the surface to 0.000000 m. | H's own control — seed from the finished composite and it drifts. |
 | AF | **Mask fields register with the terrain.** A `SLOPE` band over a synthetic ramp of known angle gates exactly the cells whose true slope is in the band, at sim resolution. | The same band displaced by one catchment margin → disagreement, the mistake an off-by-one grid origin would make. |
 | AG | **Self-reference is refused.** A Sim whose mask points at its own `sim_result` warns and applies no mask. | The same mask pointed at a *different* Sim's result, which must apply — otherwise the refusal is blanket and the useful case was banned too. |
+
+### Gate results (phase 5, all passing)
+
+`bench/SimPhase5Gate.tscn`, headless, ~12 s. AA–AC and AF drive `sim_mask_field` and `erode_heightfield`
+directly on synthetic grids; AD, AE and AG drive a real `Pasture3DSim` on the demo terrain, because all
+three are claims about the node rather than about the arithmetic.
+
+**The gate computes slope, altitude and curvature itself**, from its own fixture, with its own central
+differences. It never asks `sim_mask_field` what the ground is doing and then checks the mask against that
+answer.
+
+| # | Measured | Control |
+|---|---|---|
+| AA | Band splits the fixture 49/51. Mean \|delta\| **outside** the band falls from 20.63 m unmasked to **0.38 m** masked; **inside** it holds at 29.34 → 29.47 m | `strength = 0` reproduces the unmasked solve to **0.000000000 m** — bitwise. Masked vs unmasked differ by 60.86 m, so the criterion is not comparing two identical runs |
+| AB | All seven Kinds: **100.0%** of the passing cells are in that Kind's own top decile | Best impostor scores 0.0–11.6% against the owner's 100%. `FLOW`'s best impostor scores 0.0% |
+| AC | max \|AB − A·B\| = **8.0e-8** over 16 384 cells, 5 919 of them at partial weight | \|AB − A\| 0.82, \|AB − B\| 1.00, **\|AB − min(A,B)\| 0.24** — the last is what rules out `min` |
+| AD | `write_mask`: flow field **0.000000000** different, heights moved **7.14 m** | The same selector on `erosion_mask` moves the flow field by 10.06 — so the two masks are demonstrably not the same thing |
+| AE | Both stacks populated, bands split the site at its own median altitude. Bake moves 10.22 m; re-run drift **0.000000000 m** | Clearing the mask moves the surface 21.92 m |
+| AF | Passing X span 160.0–236.0 m against a strip at 160.0–240.0 m (one cell of quantisation) | Origin displaced by one margin → the span moves to 120.0–196.0 m |
+| AG | Warning present; surface **0.000000000 m** from the unmasked bake | The same band on another Sim's result moves the surface 26.60 m |
+
+**Break tests — each new mechanism disabled in turn, to prove its criterion is the only thing that
+catches it:**
+
+| Broken | Fails |
+|---|---|
+| `_self_references` returns false | AG only, **both** legs |
+| The node never composes the erosion mask | AD's control, AE's control, AG's control — the three that guard the node wiring, and nothing else |
+| Selectors combined by `min` | AC only, both legs |
+| `relief_fields_add_sim` never called | AB's four sim Kinds and AF — and none of the ground Kinds |
+| `write_mask` ignored in `sim_mask_deltas` | AD only |
+
+> **Two criteria were vacuous and the break tests found them, not the pass.** AG's "the surface is
+> unchanged" leg passed with the refusal *disabled*: the band was `EROSION >= 0.05 m` against the Sim's
+> own real masks, which passes essentially every eroded cell, so the composed field came out 1.0
+> everywhere and the bake was identical whether or not the mask applied. AG's control had already failed
+> for the same reason on the first run — the criterion and its control shared one bad fixture. Both now
+> use a synthetic half-domain erosion channel, which gates half the area regardless of the ground.
+>
+> AE had a milder version: `SLOPE 10–90` and an altitude band a million metres wide both passed almost
+> everything, so "idempotent with masks" was barely distinguishable from gate H and the control moved
+> 0.22 m of a 21.8 m bake. Bands are now derived from the site's own median height, and the control moves
+> 21.92 m.
+>
+> Phases 1–4 and `PlowReliefCheck` were re-run against the phase-5 build: **all passing, 0 failures.**
 
 ---
 
