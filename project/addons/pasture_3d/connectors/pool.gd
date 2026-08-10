@@ -526,28 +526,51 @@ func _build_masked(p_poly: PackedVector2Array, p_min: Vector2, p_max: Vector2,
 	# The field is framed the same way for both carriers, and it is framed around the OUTLINE
 	# rather than around whatever geometry ends up drawing it -- a clipmap has no bounds to frame
 	# it by, and the field has to be the same either way or the A/B switch would not be one.
+	# WHICH CARRIER draws this body, decided FIRST — everything below depends on it.
+	#
+	# This used to be resolved further down, after the coarsening loop had already run and set
+	# _sheet_spacing_used. On a clipmapped body that was a sheet nobody builds: `_surface.mesh` is set
+	# to null below, the shore uniforms take the fine wave spacing, and the clipmap gets its own
+	# vertex_spacing — so the coarsened number described geometry that does not exist, and
+	# _shape_warnings reported it anyway. The warning even ended "this is the gap the camera-centred
+	# clipmap closes", on a body where the clipmap had closed it.
+	var clipmapped := not mask_static_sheet and _clipmap_available()
+
 	var spacing := _sheet_spacing(p_wave_spacing)
 	var sheet := _pad(p_min, p_max, _kill_margin(spacing) + spacing)
 	var nx := int(ceil(sheet.size.x / spacing)) + 1
 	var nz := int(ceil(sheet.size.y / spacing)) + 1
 
-	# COARSEN RATHER THAN REFUSE. The sheet spans the whole body, so at the wave spacing it costs
-	# MORE vertices than the meshed path did -- which is why a masked sheet on its own is not the
-	# answer to a large lake, and the camera-centred clipmap is. Until that lands, a body over the
-	# ceiling gets a coarser sheet instead of no surface at all: the waterline does not depend on
-	# the sheet's resolution (measured bit-identical from 1.27 m to 10 m), so what is being spent
-	# is wave fidelity, and _shape_warnings says so rather than leaving it to be discovered.
-	#
-	# Doubling, not solving: it keeps the sheet on the wave lattice and matches how the clipmap's
-	# rings will be spaced, so the coarsened sheet is a subset of the eventual LOD0 grid.
-	while nx * nz > max_vertices and spacing < 512.0:
-		spacing *= 2.0
-		sheet = _pad(p_min, p_max, _kill_margin(spacing) + spacing)
-		nx = int(ceil(sheet.size.x / spacing)) + 1
-		nz = int(ceil(sheet.size.y / spacing)) + 1
-	_sheet_spacing_used = spacing
-	if _budget_exceeded(nx * nz, spacing):
-		return
+	if clipmapped:
+		# The clipmap's cost is a property of its rings, not of the body, so there is no sheet to fit
+		# inside max_vertices and nothing to coarsen. Leaving the loop to run here would also reframe
+		# the SDF around a coarser pad, breaking the invariant stated above that the field is the same
+		# for both carriers — which is what makes the static-sheet/clipmap switch an A/B at all.
+		_sheet_spacing_used = 0.0
+	else:
+		# COARSEN RATHER THAN REFUSE. The sheet spans the whole body, so at the wave spacing it costs
+		# MORE vertices than the meshed path did -- which is why a masked sheet on its own is not the
+		# answer to a large lake, and the camera-centred clipmap is. With no clipmap available, a body
+		# over the ceiling gets a coarser sheet instead of no surface at all: the waterline does not
+		# depend on the sheet's resolution (measured bit-identical from 1.27 m to 10 m), so what is
+		# being spent is wave fidelity, and _shape_warnings says so rather than leaving it to be
+		# discovered.
+		#
+		# Doubling, not solving: it keeps the sheet on the wave lattice and matches how the clipmap's
+		# rings are spaced, so the coarsened sheet is a subset of the LOD0 grid.
+		while nx * nz > max_vertices and spacing < 512.0:
+			spacing *= 2.0
+			sheet = _pad(p_min, p_max, _kill_margin(spacing) + spacing)
+			nx = int(ceil(sheet.size.x / spacing)) + 1
+			nz = int(ceil(sheet.size.y / spacing)) + 1
+		_sheet_spacing_used = spacing
+		# Only the sheet path can bust the budget. This used to run while clipmapped too, failing the
+		# whole build over vertices the clipmap was never going to emit. LATENT rather than a bug anyone
+		# hit: the coarsening above has to reach 512 m first, which at the default 400 000 ceiling needs
+		# a body about 323 km across. Reachable only with a hand-lowered max_vertices — moved here
+		# because it is wrong where it was, not because it was firing.
+		if _budget_exceeded(nx * nz, spacing):
+			return
 
 	# Square, because build_shore_sdf takes one texel count, and centred on the sheet so it covers
 	# every corner of it.
@@ -563,7 +586,6 @@ func _build_masked(p_poly: PackedVector2Array, p_min: Vector2, p_max: Vector2,
 	_sdf_texels = texels
 
 	_ensure_surface()
-	var clipmapped := not mask_static_sheet and _clipmap_available()
 	# The Surface carries the sheet, or nothing at all when the clipmap does. Cleared rather than
 	# hidden: a stale sheet left behind draws THROUGH the clipmap, and two transparent copies of the
 	# same water at the same level is a doubled surface, not a redundant one.

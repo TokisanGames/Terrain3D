@@ -141,6 +141,22 @@ func _has_fillable_loop() -> bool:
 	return false
 
 
+func _get_configuration_warnings() -> PackedStringArray:
+	var warnings := super()
+	# A basin that reaches past the built world carves only the covered part, silently: the rasteriser
+	# drops cells with no region under them and says nothing. A pond is where this bites first, because
+	# a lake is the brush people scale up — at the 256 m default a 2 km loop spans 121 regions — and a
+	# half-carved basin filled with water reads as a broken brush rather than a missing region.
+	var cov := _region_coverage()
+	var missing: int = cov[0]
+	if missing > 0:
+		warnings.append(("This pond reaches into %d region(s) of the %d it spans that do not exist yet. "
+			+ "The basin will not be carved there — the rasteriser only writes where there is terrain — "
+			+ "so the water will sit on unbuilt ground. Add the regions with the Region tool, or move "
+			+ "or shrink the loop.") % [missing, cov[1]])
+	return warnings
+
+
 func _validate_property(property: Dictionary) -> void:
 	super(property)
 	if property.name in ["_water_seeded", "_loop_seeded"]:

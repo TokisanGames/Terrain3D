@@ -59,6 +59,33 @@ enum FlankMode { FIXED_WIDTH, SLOPE_ANGLE }
 ## Metres of jitter, masked by the interior profile so the rim stays clean.
 @export var noise_strength: float = 0.0
 
+@export_group("Relief")
+## Optional Pasture3DReliefMaterial — the same landform materials the Plow stamps (craggy fractal, strata,
+## terraces, dunes, scree, craters), applied to this mound's own surface. Sits ALONGSIDE the noise field
+## above rather than replacing it: both are added, so an existing `noise` keeps doing exactly what it did.
+##
+## Mapping is always TILE — the ops are evaluated in world XZ, so relief stays continuous where two mounds
+## meet. Radial ops (Crater) read the loop-normalised coordinates and so are still sized and oriented to
+## this loop, exactly as they are under the Plow. See PASTURE3D_MOUND_RELIEF_SPEC.md.
+@export var relief: Pasture3DReliefMaterial:
+	set(v):
+		# Live re-bake: the material emits `changed` on every property setter.
+		if relief != null and relief.changed.is_connected(_schedule_refresh):
+			relief.changed.disconnect(_schedule_refresh)
+		relief = v
+		if relief != null and not relief.changed.is_connected(_schedule_refresh):
+			relief.changed.connect(_schedule_refresh)
+		_schedule_refresh()
+		update_configuration_warnings()
+## Metres of relief at the material's full output, masked by the interior profile so the rim stays clean.
+## Deliberately separate from `height`: relief describes the surface texture of the landform, and tying its
+## amplitude to the peak would rescale every detail whenever the mound was made taller.
+@export var relief_strength: float = 0.0:
+	set(v):
+		relief_strength = v
+		_schedule_refresh()
+		update_configuration_warnings()
+
 @export_group("Smoothing")
 ## Passes of NaN-aware separable Gaussian blur applied after rasterisation, to soften the dome/plateau
 ## surface and any chamfer-DT faceting. 0 = off (no cost), 1-2 = subtle, 3+ = heavy rounding.
@@ -74,6 +101,18 @@ func _validate_property(property: Dictionary) -> void:
 		property.usage &= ~PROPERTY_USAGE_EDITOR
 	elif property.name == "falloff_width" and flank_mode == FlankMode.SLOPE_ANGLE:
 		property.usage &= ~PROPERTY_USAGE_EDITOR
+
+
+func _get_configuration_warnings() -> PackedStringArray:
+	var warnings := super()
+	# The material's own complaint plus the shared sim-selector and periodic-resolution diagnostics.
+	warnings.append_array(_relief_warnings(relief))
+	# A material with no amplitude is the one failure mode that looks exactly like a broken material:
+	# the slot is filled, the inspector looks configured, and the ground is flat.
+	if relief != null and is_zero_approx(relief_strength):
+		warnings.append(("A Relief Material is assigned but Relief Strength is 0 m, so it stamps nothing. "
+			+ "Set Relief Strength to the depth of detail you want, in metres."))
+	return warnings
 
 
 ## Safety ceiling for the uncapped slope-angle cone: the region's world size (verts × spacing). A steep
@@ -138,6 +177,45 @@ func _paint_spline(path: Path3D) -> void:
 	if gw < 1 or gh < 1:
 		return
 
+	# Relief material: compile the op program ONCE per bake (never per cell). An unassigned material or a
+	# zero strength leaves the arrays empty, which is what both paths test to skip the relief work entirely.
+	var ops := PackedInt32Array()
+	var op_params := PackedFloat32Array()
+	var op_luts := PackedFloat32Array()
+	var op_selectors := PackedFloat32Array()
+	var mat_strength := 1.0
+	if relief != null and not is_zero_approx(relief_strength):
+		var prog: Array = relief.compile()
+		ops = prog[0]
+		op_params = prog[1]
+		op_luts = prog[2]
+		op_selectors = prog[3]
+		mat_strength = relief.strength
+	var has_relief := not ops.is_empty()
+
+	# Oriented loop frame. Mapping is always TILE here — the ops read world XZ — but the normalised
+	# coordinates radial ops use come from this frame, so a Crater is still sized and turned by the loop.
+	var frame: Array = _loop_frame(poly) if has_relief else [0.0, 0.0, 1.0, 0.0, 1.0, 1.0]
+	var fcx: float = frame[0]
+	var fcz: float = frame[1]
+	var fcos: float = frame[2]
+	var fsin: float = frame[3]
+	var inv_ex := 1.0 / maxf(frame[4], 0.001)
+	var inv_ez := 1.0 / maxf(frame[5], 0.001)
+
+	# Terrain-aware selectors and SCREE read the ground below this brush's layer. Built once per bake, and
+	# only when the compiled program actually reads them — the field grids are O(cells).
+	var use_fields := has_relief and _needs_terrain_fields(ops)
+	var fields: Array = _terrain_fields(min_x, min_z, vs, gw, gh) if use_fields else []
+	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Kinds read, resampled from the
+	# Pasture3DSimResult's own extent (which shares no grid with this bake). Only when a selector asks.
+	var sim_res: Pasture3DSimResult = _relief_sim_result(relief) if use_fields else null
+	var sim_fields: Array = []
+	var sim_dict := {}
+	if sim_res != null and sim_res.is_valid():
+		sim_fields = _sim_fields(sim_res, min_x, min_z, vs, gw, gh)
+		sim_dict = _sim_result_dict(sim_res)
+
 	# Native rasteriser (Round 2): same SDF + per-cell math in C++ (~15-40x faster than this GDScript loop
 	# on large edits). The GDScript reference below runs on builds without it (and is the A/B oracle).
 	if _native_raster("stamp_mound_loop"):
@@ -151,8 +229,16 @@ func _paint_spline(path: Path3D) -> void:
 			"blend": _blend, "composite": not _defer_composite,
 			"noise": noise, "noise_strength": noise_strength,
 				"smooth_passes": smooth_passes,
+			"ops": ops, "op_params": op_params, "op_luts": op_luts, "op_selectors": op_selectors,
+			"relief_strength": relief_strength, "relief_mat_strength": mat_strength,
+			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
+			"fit_ex": frame[4], "fit_ez": frame[5],
+			"need_fields": use_fields, "sim_result": sim_dict,
 		}
-		if relative_to_terrain:
+		# C++ derives the slope/curvature/gradient grids itself (same formula, same input, so the two paths
+		# agree) — but only if it is handed the below-layer heights, which otherwise travel only when the
+		# brush is stamping relative to the terrain.
+		if relative_to_terrain or use_fields:
 			params["base_below"] = _base_below_grid(min_x, min_z, vs, gw, gh)
 		terrain.data.stamp_mound_loop(_layer_id, poly, _clip_aabb, params, _ramp_lut(falloff_curve))
 		return
@@ -195,20 +281,50 @@ func _paint_spline(path: Path3D) -> void:
 			var pos := Vector3(x, 0.0, z)
 			var base_y := _base_height_below(pos) if relative_to_terrain else global_position.y
 			var amp: float
+			var profile: float
 			if cone:
 				# Free-rising cone: tan × distance, capped by the region safety height. profile is the
-				# 0→1 interior mask used only to keep noise off the rim.
-				var profile := clampf(signed_d / dome_denom, 0.0, 1.0)
+				# 0→1 interior mask used only to keep noise / relief off the rim.
+				profile = clampf(signed_d / dome_denom, 0.0, 1.0)
 				amp = sign * minf(slope_tan * signed_d, safety_max)
-				if noise:
-					amp += noise_strength * noise.get_noise_2d(x, z) * profile
 			else:
-				var profile := _ramp(falloff_curve, signed_d / (ramp_denom if capped else dome_denom))
+				profile = _ramp(falloff_curve, signed_d / (ramp_denom if capped else dome_denom))
 				if profile <= 0.0:
 					continue
 				amp = sign * height * profile
-				if noise:
-					amp += noise_strength * noise.get_noise_2d(x, z) * profile
+			if noise:
+				amp += noise_strength * noise.get_noise_2d(x, z) * profile
+			if has_relief:
+				# Loop-local metres → the normalised coordinates radial ops read. TILE evaluates the ops
+				# in world XZ, so only nu,nv come from the frame.
+				var dx := x - fcx
+				var dz := z - fcz
+				var lx := dx * fcos + dz * fsin
+				var lz := -dx * fsin + dz * fcos
+				var f_alt := 0.0
+				var f_slope := 0.0
+				var f_curv := 0.0
+				var f_gx := 0.0
+				var f_gz := 0.0
+				var f_flow := 0.0
+				var f_ero := 0.0
+				var f_dep := 0.0
+				var f_wet := 0.0
+				if use_fields:
+					var fi := row + ix
+					f_alt = fields[0][fi]
+					f_slope = fields[1][fi]
+					f_curv = fields[2][fi]
+					f_gx = fields[3][fi]
+					f_gz = fields[4][fi]
+					if not sim_fields.is_empty():
+						f_flow = sim_fields[0][fi]
+						f_ero = sim_fields[1][fi]
+						f_dep = sim_fields[2][fi]
+						f_wet = sim_fields[3][fi]
+				var rv := relief.eval(x, z, lx * inv_ex, lz * inv_ez, inv_ex, inv_ez,
+						f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet)
+				amp += relief_strength * rv * profile * mat_strength
 			vals[row + ix] = amp if add else base_y + amp
 
 	vals = _blur_grid(vals, gw, gh, smooth_passes)

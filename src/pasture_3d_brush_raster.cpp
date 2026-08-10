@@ -613,6 +613,21 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	Object *noise_obj = p_params.get("noise", Variant());
 	Ref<FastNoiseLite> noise = Object::cast_to<FastNoiseLite>(noise_obj);
 
+	// Relief material (PASTURE3D_MOUND_RELIEF_SPEC.md). Sits ALONGSIDE the noise field above — both are
+	// added — so a mound carrying only `noise` takes byte-for-byte the path it always did. Mapping is
+	// always TILE here: the ops read world XZ, and only the normalised nu,nv that radial ops use come from
+	// the loop's oriented frame. An empty program or a zero strength skips the whole thing.
+	const double relief_strength = p_params.get("relief_strength", 0.0);
+	const double relief_mat_strength = p_params.get("relief_mat_strength", 1.0);
+	ReliefProgram prog;
+	const bool has_relief = relief_strength != 0.0 && relief_build(p_params, prog);
+	const double fit_cx = p_params.get("fit_cx", 0.0);
+	const double fit_cz = p_params.get("fit_cz", 0.0);
+	const double fit_cos = p_params.get("fit_cos", 1.0);
+	const double fit_sin = p_params.get("fit_sin", 0.0);
+	const double inv_ex = 1.0 / MAX((double)p_params.get("fit_ex", 1.0), 0.001);
+	const double inv_ez = 1.0 / MAX((double)p_params.get("fit_ez", 1.0), 0.001);
+
 	const double sign = invert ? -1.0 : 1.0;
 	// Denominator that normalises signed_d -> 0..1 ramp. dome_denom is the natural interior run (also the
 	// noise mask for the cone); ramp_denom is falloff_width, or |height|/slope_tan in CAPPED slope mode.
@@ -629,6 +644,20 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	// own layer (not the full terrain) and features stop climbing each other. NaN/empty => fall back.
 	const PackedFloat32Array base_below = p_params.get("base_below", PackedFloat32Array());
 	const bool has_below = base_below.size() == gw * gh;
+
+	// Terrain fields for relief selectors / SCREE, derived from the SAME below-layer heights the brush
+	// already stamps against, so a mound never gates itself on its own output and the bake does not creep
+	// on every refresh. Built only when the compiled program asks for them.
+	ReliefFields fields;
+	if (has_relief && (bool)p_params.get("need_fields", false)) {
+		relief_fields_build(base_below, min_x, min_z, vs, gw, gh,
+				[this](double x, double z) { return (float)get_height(Vector3(x, 0.0, z)); }, fields);
+		const Dictionary sim = p_params.get("sim_result", Dictionary());
+		if (!sim.is_empty()) {
+			relief_fields_add_sim(sim, min_x, min_z, vs, gw, gh, fields);
+		}
+	}
+	ReliefSample ground;
 
 	// Always buffer per-cell values into a box (NaN = no write) so the optional smoothing pass can run
 	// before any write. Batched raw-tile apply path (Phase 1b) then commits the buffer one tile at a time
@@ -682,6 +711,17 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 			}
 			if (noise.is_valid()) {
 				amp += noise_strength * noise->get_noise_2d(x, z) * profile;
+			}
+			if (has_relief) {
+				// Loop-local metres, then the same point normalised to the frame's half-extents. TILE
+				// evaluates the ops in world XZ, so only nu,nv are taken from the frame.
+				const double dx = x - fit_cx;
+				const double dz = z - fit_cz;
+				const double lx = dx * fit_cos + dz * fit_sin;
+				const double lz = -dx * fit_sin + dz * fit_cos;
+				fields.sample(row + ix, ground);
+				const double rv = relief_eval(prog, x, z, lx * inv_ex, lz * inv_ez, inv_ex, inv_ez, ground);
+				amp += relief_strength * rv * profile * relief_mat_strength;
 			}
 			vals[row + ix] = (float)(add ? amp : (base_y + amp));
 		}

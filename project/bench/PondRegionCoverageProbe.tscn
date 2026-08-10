@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/PondRegionCoverageProbe.gd" id="1_pondcov"]
+
+[node name="PondRegionCoverageProbe" type="Node"]
+script = ExtResource("1_pondcov")

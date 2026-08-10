@@ -248,49 +248,12 @@ func _get_configuration_warnings() -> PackedStringArray:
 		if relief == null:
 			warnings.append("Source is Relief but no Relief Material is assigned — nothing will be stamped.")
 		else:
-			var w := relief._configuration_warning()
-			if not w.is_empty():
-				warnings.append(w)
-			# Sim selectors (PASTURE3D_SIM_NODE_SPEC.md §9). Silent garbage here would be very hard to
-			# diagnose, so an unassigned or unbuilt result is said out loud rather than gating to 0
-			# quietly — "the material stamped nothing" and "the mask is missing" look identical on the
-			# terrain and have completely different fixes.
-			if relief.wants_sim_result():
-				var results: Array = relief.sim_results()
-				var distinct: Array = []
-				for r in results:
-					if r != null and not distinct.has(r):
-						distinct.append(r)
-				if distinct.is_empty():
-					warnings.append(("A relief selector reads the erosion sim (Flow / Erosion / "
-						+ "Deposition / Wetness) but no Sim Result is assigned to it, so it gates to "
-						+ "zero everywhere. Point the selector at the Sim Result of the Pasture3DSim "
-						+ "that eroded this ground."))
-				else:
-					var first: Pasture3DSimResult = distinct[0]
-					if not first.is_valid():
-						warnings.append(("The Sim Result a relief selector reads is empty — the Sim has "
-							+ "not been run, or its simulation was cleared. Press Simulate on it."))
-					elif not _sim_result_covers_loop(first):
-						warnings.append(("The Sim Result a relief selector reads does not cover this "
-							+ "brush's whole area. Outside it the gate reads zero, so the relief will "
-							+ "stop at the edge of what was simulated."))
-					if distinct.size() > 1:
-						warnings.append(("This material's selectors read %d different Sim Results; only "
-							+ "the first is used, so the others gate on the wrong sim's channels. Give "
-							+ "the layers one Sim Result, or split them across brushes.") % distinct.size())
-			if mapping == Mapping.TILE and _has_crater_op():
+			# The material's own complaint, the sim-selector diagnostics (PASTURE3D_SIM_NODE_SPEC.md §9)
+			# and the periodic-resolution guard — all shared with the other relief hosts.
+			warnings.append_array(_relief_warnings(relief))
+			if mapping == Mapping.TILE and _relief_has_crater_op(relief):
 				warnings.append(("This Relief Material contains a Crater, which is sized by the loop. "
 					+ "With Mapping = Tile it repeats once per tile; set Mapping = Fit for a single crater."))
-			var finest := _finest_period()
-			if finest > 0.0 and is_instance_valid(terrain):
-				var limit := terrain.vertex_spacing * PERIOD_SAMPLES_MIN
-				if finest < limit:
-					warnings.append(("This Relief Material has a repeating feature every %.1f m, but the "
-						+ "terrain samples height every %.1f m — under about %.1f m a cycle has too few "
-						+ "vertices to survive meshing and will barely show. Increase the spacing / "
-						+ "wavelength, or lower the terrain's Vertex Spacing.")
-						% [finest, terrain.vertex_spacing, limit])
 	elif mapping == Mapping.SCATTER:
 		warnings.append(("Mapping = Scatter only applies to Source = Relief; this source will tile "
 			+ "instead. Switch the source, or pick Tile / Fit."))
@@ -304,219 +267,18 @@ func _get_configuration_warnings() -> PackedStringArray:
 	return warnings
 
 
-## Samples per cycle a periodic feature needs before meshing and LOD stop resolving it. Four is the
-## practical floor: two is Nyquist, which reconstructs a frequency but not a recognisable profile.
-const PERIOD_SAMPLES_MIN := 4.0
-
-
-## True when the compiled program emits at least one CRATER op — used only for the Tile/Fit warning above.
-func _has_crater_op() -> bool:
-	if relief == null:
-		return false
-	var prog: Array = relief.compile()
-	var ops: PackedInt32Array = prog[0]
-	for i in range(0, ops.size(), Pasture3DReliefMaterial.OP_STRIDE):
-		if ops[i] == Pasture3DReliefMaterial.Op.CRATER:
-			return true
-	return false
-
-
-## True when the compiled program reads the ground beneath it — any gated op, or any SCREE. The terrain
-## field grids cost O(cells) to build, so a material that ignores them must not pay for them.
-func _needs_terrain_fields(ops: PackedInt32Array) -> bool:
-	for i in range(ops.size() / Pasture3DReliefMaterial.OP_STRIDE):
-		var o := i * Pasture3DReliefMaterial.OP_STRIDE
-		if ops[o + 2] >= 0 or ops[o] == Pasture3DReliefMaterial.Op.SCREE:
-			return true
-	return false
-
-
-## True when every one of this brush's loops sits inside the result's extent. Drives the "the relief
-## will stop at the edge of what was simulated" warning; XZ only, like every other footprint test here.
-func _sim_result_covers_loop(r: Pasture3DSimResult) -> bool:
-	if r == null or not r.is_valid() or not is_inside_tree():
-		return true # nothing to say; the other warnings cover these cases
-	var b := r.world_bounds()
-	for s in _get_splines():
-		var a := _spline_footprint_aabb(s)
-		if a.size == Vector3.ZERO:
-			continue
-		if (a.position.x < b[0] or a.position.z < b[2]
-				or a.position.x + a.size.x > b[1] or a.position.z + a.size.z > b[3]):
-			return false
-	return true
-
-
 ## The one Pasture3DSimResult this bake reads, or null. Resolved from the compiled material tree's
-## selectors, because §9 puts the reference on the SELECTOR, not on the brush.
+## selectors, because §9 puts the reference on the SELECTOR, not on the brush. The resolution itself lives
+## on the base (shared with Pasture3DMound); this only adds the source gate.
 ##
 ## A bake takes ONE result. Several layers gated on several different sims is a coherent thing to want
 ## and a disproportionate thing to support — it would mean a set of sampled grids per bake indexed by
 ## selector, for a case nobody has yet asked for. So the first wins and the brush warns by name, which
 ## is a great deal better than silently gating one layer on another sim's channels.
 func _sim_result_for() -> Pasture3DSimResult:
-	if source != Source.RELIEF or relief == null:
+	if source != Source.RELIEF:
 		return null
-	var found: Array = relief.sim_results()
-	for r in found:
-		if r != null:
-			return r
-	return null
-
-
-## The sim channels resampled onto the bake grid, in the units a selector band is written in.
-## Returns [flow_m2, erosion_m, deposition_m, wetness_m], each gw*gh. MUST agree with
-## relief_fields_add_sim in C++ — the parity gate compares the two paths' finished height.
-##
-## Outside the result's extent every channel is its defined 0 (§9): nothing is invented, and nothing is
-## smeared outwards from the edge. Note flow's 0 is 0 m² here rather than the resource's 1 m² floor;
-## no band an artist would write distinguishes the two, and 0 is the honest "no data" value.
-func _sim_fields(r: Pasture3DSimResult, min_x: float, min_z: float, vs: float, gw: int, gh: int) -> Array:
-	var n := gw * gh
-	var flow := PackedFloat32Array()
-	var ero := PackedFloat32Array()
-	var dep := PackedFloat32Array()
-	var wet := PackedFloat32Array()
-	flow.resize(n)
-	ero.resize(n)
-	dep.resize(n)
-	wet.resize(n)
-	if r == null or not r.is_valid():
-		return [flow, ero, dep, wet]
-	for iz in range(gh):
-		var row := iz * gw
-		var z := min_z + iz * vs
-		for ix in range(gw):
-			var p := Vector3(min_x + ix * vs, 0.0, z)
-			if not r.covers(p):
-				continue
-			# The two unit conversions: exp() the log-scaled flow, and flip erosion to a positive depth.
-			flow[row + ix] = exp(r.sample(Pasture3DSimResult.Channel.FLOW, p))
-			ero[row + ix] = maxf(-r.sample(Pasture3DSimResult.Channel.EROSION, p), 0.0)
-			dep[row + ix] = maxf(r.sample(Pasture3DSimResult.Channel.DEPOSITION, p), 0.0)
-			wet[row + ix] = maxf(r.sample(Pasture3DSimResult.Channel.WETNESS, p), 0.0)
-	return [flow, ero, dep, wet]
-
-
-## Per-cell description of the ground BELOW this brush's layer, over the bake grid: height, steepness in
-## degrees, curvature (the Laplacian — positive is a hollow, negative a ridge) and the height gradient.
-## Returns [alt, slope_deg, curv, gx, gz], each gw*gh.
-##
-## The source is `composite_height_below`, NOT the finished terrain: reading the final composite would
-## feed this brush's own relief into its own mask and drift on every re-bake. Where no lower layer covers
-## a cell, that grid holds NaN and we fall back to the live height, which is what the rasterisers already
-## do for base_y. Derivatives use central differences with clamped edges.
-func _terrain_fields(min_x: float, min_z: float, vs: float, gw: int, gh: int) -> Array:
-	var n := gw * gh
-	var alt := PackedFloat32Array()
-	alt.resize(n)
-	var below := _base_below_grid(min_x, min_z, vs, gw, gh)
-	var has_below := below.size() == n
-	for iz in range(gh):
-		var row := iz * gw
-		for ix in range(gw):
-			var h: float = below[row + ix] if has_below else NAN
-			if not is_finite(h):
-				h = terrain.data.get_height(Vector3(min_x + ix * vs, 0.0, min_z + iz * vs))
-			alt[row + ix] = h if is_finite(h) else 0.0
-
-	var slope := PackedFloat32Array()
-	slope.resize(n)
-	var curv := PackedFloat32Array()
-	curv.resize(n)
-	var gxs := PackedFloat32Array()
-	gxs.resize(n)
-	var gzs := PackedFloat32Array()
-	gzs.resize(n)
-	var inv2 := 1.0 / (2.0 * vs)
-	var invsq := 1.0 / (vs * vs)
-	for iz in range(gh):
-		var row := iz * gw
-		var zm := maxi(iz - 1, 0) * gw
-		var zp := mini(iz + 1, gh - 1) * gw
-		for ix in range(gw):
-			var xm := maxi(ix - 1, 0)
-			var xp := mini(ix + 1, gw - 1)
-			var c := alt[row + ix]
-			var gx := (alt[row + xp] - alt[row + xm]) * inv2
-			var gz := (alt[zp + ix] - alt[zm + ix]) * inv2
-			gxs[row + ix] = gx
-			gzs[row + ix] = gz
-			slope[row + ix] = rad_to_deg(atan(sqrt(gx * gx + gz * gz)))
-			curv[row + ix] = (alt[row + xp] + alt[row + xm] + alt[zp + ix] + alt[zm + ix]
-					- 4.0 * c) * invsq
-	return [alt, slope, curv, gxs, gzs]
-
-
-## Shortest repeat distance, in metres, over the ops that have one (DUNES wavelength, FURROWS spacing —
-## both in param slot 1). 0 when the material has no periodic op. Fractal ops are excluded on purpose:
-## their high octaves are *meant* to fall below the vertex spacing and simply stop contributing, whereas a
-## periodic op set too fine produces nothing at all and reads as "the material is broken".
-func _finest_period() -> float:
-	if relief == null:
-		return 0.0
-	var prog: Array = relief.compile()
-	var ops: PackedInt32Array = prog[0]
-	var params: PackedFloat32Array = prog[1]
-	var finest := 0.0
-	for i in range(ops.size() / Pasture3DReliefMaterial.OP_STRIDE):
-		var op := ops[i * Pasture3DReliefMaterial.OP_STRIDE]
-		if op != Pasture3DReliefMaterial.Op.DUNES and op != Pasture3DReliefMaterial.Op.FURROWS:
-			continue
-		var period := params[i * Pasture3DReliefMaterial.PARAM_STRIDE + 1]
-		if period > 0.0 and (finest <= 0.0 or period < finest):
-			finest = period
-	return finest
-
-
-## Oriented frame of the loop: [cx, cz, cos, sin, ex, ez] — centre, the unit X axis of the minimum-area
-## enclosing rectangle, and its half-extents. FIT maps the source onto this rect, so the relief follows
-## the loop's rotation instead of the world axes. Computed once per bake from the already-decimated
-## polygon (the hull of a decimated loop is small, so the O(h²) rotating-callipers sweep is cheap).
-## Degenerate loops fall back to the axis-aligned bounds.
-func _loop_frame(poly: PackedVector2Array) -> Array:
-	var hull := Geometry2D.convex_hull(poly)
-	# convex_hull repeats the first point as the last; drop it so edges aren't double-counted.
-	if hull.size() > 1 and hull[0].is_equal_approx(hull[hull.size() - 1]):
-		hull.remove_at(hull.size() - 1)
-	if hull.size() >= 3:
-		var best_area := INF
-		var best: Array = []
-		for i in range(hull.size()):
-			var e: Vector2 = hull[(i + 1) % hull.size()] - hull[i]
-			var elen := e.length()
-			if elen < 0.000001:
-				continue
-			var ux := e / elen
-			var uy := Vector2(-ux.y, ux.x)
-			var min_u := INF
-			var max_u := -INF
-			var min_v := INF
-			var max_v := -INF
-			for p in hull:
-				var du := p.dot(ux)
-				var dv := p.dot(uy)
-				min_u = minf(min_u, du)
-				max_u = maxf(max_u, du)
-				min_v = minf(min_v, dv)
-				max_v = maxf(max_v, dv)
-			var area := (max_u - min_u) * (max_v - min_v)
-			if area < best_area:
-				best_area = area
-				var centre: Vector2 = ux * ((min_u + max_u) * 0.5) + uy * ((min_v + max_v) * 0.5)
-				best = [centre.x, centre.y, ux.x, ux.y, (max_u - min_u) * 0.5, (max_v - min_v) * 0.5]
-		if not best.is_empty() and best[4] > 0.001 and best[5] > 0.001:
-			return best
-	# Fallback: axis-aligned bounds of the polygon.
-	var mn := poly[0]
-	var mx := poly[0]
-	for p in poly:
-		mn.x = minf(mn.x, p.x)
-		mn.y = minf(mn.y, p.y)
-		mx.x = maxf(mx.x, p.x)
-		mx.y = maxf(mx.y, p.y)
-	return [(mn.x + mx.x) * 0.5, (mn.y + mx.y) * 0.5, 1.0, 0.0,
-			maxf((mx.x - mn.x) * 0.5, 0.001), maxf((mx.y - mn.y) * 0.5, 0.001)]
+	return _relief_sim_result(relief)
 
 
 ## How many instances the last scatter placement fell short by (0 = all placed). Drives the warning above.
@@ -693,10 +455,7 @@ func _paint_spline(path: Path3D) -> void:
 	var sim_dict := {}
 	if sim_res != null and sim_res.is_valid():
 		sim_fields = _sim_fields(sim_res, min_x, min_z, vs, gw, gh)
-		sim_dict = {"min_x": sim_res.min_x, "min_z": sim_res.min_z, "cell_size": sim_res.cell_size,
-				"width": sim_res.width, "height": sim_res.height,
-				"flow": sim_res.flow, "erosion": sim_res.erosion,
-				"deposition": sim_res.deposition, "wetness": sim_res.wetness}
+		sim_dict = _sim_result_dict(sim_res)
 
 	# SCATTER places its instances once per bake, here, so both paths evaluate the identical layout.
 	# It only applies to RELIEF; other sources fall back to tiling (and the brush warns).

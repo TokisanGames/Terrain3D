@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/MoundReliefCheck.gd" id="1_mrelief"]
+
+[node name="MoundReliefCheck" type="Node"]
+script = ExtResource("1_mrelief")

@@ -1,6 +1,17 @@
 # Pasture3D Brush Performance — Round 3 Spec: Faster Compositing
 
-Status: design agreed 2026-06-20, branch `perf/compositing-round3`. After Round 2 the rasterisation
+Status: **A IS BUILT** (`_composite_height_region` accumulates per layer into a rect buffer via
+`_accumulate_height`, resolving each tile once — [pasture_3d_data.cpp:1329](src/pasture_3d_data.cpp:1329)).
+**B and C remain unbuilt**; `_reads_base_height` does not exist anywhere in the tree. The original status
+line below said the whole round was unstarted, which was stale by at least one landing and misled a later
+piece of work into planning to build A a second time — corrected 2026-08-09.
+
+Both remaining parts are now **less urgent** than the ratio in §0 suggests: the full-refresh bake used to
+call `composite_region` on a 1×1 rect per cell, and no longer does
+(`PASTURE3D_POND_LARGE_LAKE_SPEC.md` §3), so the composite they optimise is a great deal cheaper than
+when this was written. The "clear 64 + composite 86 + paint 54" split was measured on a ~205 ms bake.
+
+Original status: design agreed 2026-06-20, branch `perf/compositing-round3`. After Round 2 the rasterisation
 (`paint`) is no longer the bottleneck; **compositing the box area (clear + composite_area) now dominates**
 a bake (big-mound bake ~205 ms = clear 64 + composite 86 + paint 54). Round 3 attacks compositing via
 three changes: **A raw/cached-tile composite** (core), **C per-region layer culling** (cheap add-on),
