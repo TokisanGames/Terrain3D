@@ -71,6 +71,16 @@ const _LUT_MAX := 256
 		_schedule_refresh()
 ## How the source is laid out across the loop (TILE repeats; FIT maps it once onto the loop's oriented
 ## rect). Craters need FIT. Hidden for NOISE, which is world-space by definition.
+## Tint the terrain red where this brush's Relief material's own Selector passes, live, so a band can be
+## tuned by eye instead of by baking and inspecting (§18). Editor-only, and it writes nothing.
+##
+## Only the material's OWN Selector — the one that gates every op it emits. A Relief Stack's per-layer
+## selectors gate only their own layer, and no single overlay describes those honestly.
+@export var mask_preview: bool = false:
+	set(v):
+		mask_preview = v
+		_update_mask_preview()
+
 @export var mapping: Mapping = Mapping.TILE:
 	set(v):
 		mapping = v
@@ -646,3 +656,7 @@ func _load_height_lut() -> Array:
 			var v := img.get_pixel(xx, yy).get_luminance()
 			data[rowy + xx] = (1.0 - v) if invert else v
 	return [data, w, h]
+
+
+func _update_mask_preview() -> void:
+	_update_relief_mask_preview(relief if mask_preview else null)

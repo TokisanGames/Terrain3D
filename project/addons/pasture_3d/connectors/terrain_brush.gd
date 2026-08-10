@@ -207,12 +207,14 @@ func _notification(what: int) -> void:
 			_clear_tree_settling.call_deferred()
 	elif what == NOTIFICATION_EXIT_TREE:
 		remove_from_group(BRUSH_GROUP)
+		_clear_mask_preview() # §18.5: a preview owned by a node that has left the scene is orphaned
 	elif what == NOTIFICATION_PREDELETE:
 		# Freed while still attached (e.g. queue_free in the editor): lift our contribution off the layer
 		# so we don't strand a baked footprint. The is_inside_tree() guard inside _detach_from_current
 		# makes a node already removed from the tree (editor delete keeps it in undo history; placement
 		# undo removes it explicitly) a safe no-op, and reparent — which frees nothing — never reaches here.
 		if Engine.is_editor_hint() and is_inside_tree() and is_configured():
+			_clear_mask_preview()
 			_detach_from_current()
 	elif what == NOTIFICATION_PARENTED:
 		# Re-parented under a different terrain after creation → follow it. Deferred so the reparent has
@@ -642,6 +644,9 @@ func _refresh_owner(owner: String, record_undo: bool, extra_clears: Array) -> vo
 	# After the GPU push, so a listener that reads get_height() sees this bake and not the
 	# previous one.
 	_emit_baked(sibs)
+	# §18.5: the preview is built from the surface below this layer, which this bake may have moved.
+	for s in sibs:
+		s._update_mask_preview()
 
 
 ## Dirty-rect refresh (Stage 1 partial redraw): one or more of THIS node's splines moved. Rework only the
@@ -862,6 +867,153 @@ func _own_footprints() -> Array:
 		if b.size != Vector3.ZERO:
 			out.append(b)
 	return out
+
+
+## ---- Mask preview (PASTURE3D_SIM_NODE_SPEC.md §18) ----
+##
+## A red overlay on the terrain showing the weight a Pasture3DReliefSelector stack would apply, live, so a
+## band is tuned by eye against the ground instead of by baking and inspecting. Shared here rather than on
+## Pasture3DSim because the same selector resource gates the Plow's and Mound's relief materials.
+##
+## The rule the whole feature rests on: the preview calls `selector_mask_field`, the SAME function the bake
+## calls. A GDScript approximation, a coarser field or a different source surface would mean tuning against
+## a mask that will never run, which is worse than no preview at all.
+
+## Per-axis cap on the preview texture. Beyond this the field is coarsened and `_show_mask_preview` says
+## so — §18.3 asks for build resolution and means it, so the coarsening is reported rather than silent.
+const MASK_PREVIEW_MAX: int = 1024
+## Half-cell widening so world→uv lands on texel CENTRES. The grid is corner-aligned (§6), so without it
+## the outermost row samples half a texel outside itself.
+const MASK_PREVIEW_COLOR := Color(0.95, 0.15, 0.1, 0.65)
+
+## The texture and world rect currently handed to the material, kept so the preview can be inspected
+## (gate AS reads them) and so a rebuild can tell whether anything changed. Plain vars, NOT metadata and
+## NOT exported: metadata is serialised with the scene, and an ImageTexture of a sim grid in a .tscn is
+## megabytes of base64 for something that is rebuilt on demand anyway.
+var _mask_preview_texture: ImageTexture = null
+var _mask_preview_rect: Vector4 = Vector4()
+
+
+## Build the weight field for `p_selectors` over `p_box` (a world AABB) and hand it to the terrain
+## material. Returns a one-line report, or "" when there was nothing to show.
+##
+## `p_sim` is the flattened Pasture3DSimResult the sim Kinds read, or {}.
+func _show_mask_preview(p_selectors: PackedFloat32Array, p_box: AABB, p_sim: Dictionary) -> String:
+	if not is_configured() or p_selectors.is_empty() or p_box.size == Vector3.ZERO:
+		_clear_mask_preview()
+		return ""
+	var mat = terrain.material
+	if mat == null or not mat.has_method("set_mask_preview"):
+		return "" # a build without the §18 material API; the toggle simply does nothing
+	var vs: float = terrain.vertex_spacing
+	var b := _snapped_bounds(p_box, vs)
+	var cell := vs
+	var gw := int(round((b[1] - b[0]) / cell)) + 1
+	var gh := int(round((b[3] - b[2]) / cell)) + 1
+	var note := ""
+	if maxi(gw, gh) > MASK_PREVIEW_MAX:
+		# Coarsen, and say so. A preview at a resolution the build will not use gates differently (§17.5),
+		# so the one thing that must not happen is coarsening in silence.
+		var s := float(maxi(gw, gh)) / float(MASK_PREVIEW_MAX)
+		cell = vs * s
+		gw = int(round((b[1] - b[0]) / cell)) + 1
+		gh = int(round((b[3] - b[2]) / cell)) + 1
+		note = " (COARSENED to %.2f m per cell, %.1fx the build's — slope and curvature bands will read differently)" % [cell, s]
+	if gw < 2 or gh < 2:
+		_clear_mask_preview()
+		return ""
+
+	var below: PackedFloat32Array = terrain.data.composite_height_below(_ensure_layer_for(_layer_owner, false),
+			b[0], b[2], cell, gw, gh)
+	if below.size() != gw * gh:
+		_clear_mask_preview()
+		return ""
+	var field: PackedFloat32Array = terrain.data.selector_mask_field(below, {
+			"gw": gw, "gh": gh, "cell_size": cell, "min_x": b[0], "min_z": b[2],
+		}, p_selectors, p_sim)
+	if field.size() != gw * gh:
+		_clear_mask_preview()
+		return ""
+
+	var img := Image.create_empty(gw, gh, false, Image.FORMAT_RF)
+	for iz in range(gh):
+		var row := iz * gw
+		for ix in range(gw):
+			var w: float = field[row + ix]
+			img.set_pixel(ix, iz, Color(w if is_finite(w) else 0.0, 0.0, 0.0))
+	# Half-cell widened so world→uv lands on texel CENTRES: the grid is corner-aligned, so sample (0,0)
+	# sits at world (b[0], b[2]) and must map to uv 0.5/gw, not 0.
+	var rect := Vector4(b[0] - cell * 0.5, b[2] - cell * 0.5, float(gw) * cell, float(gh) * cell)
+	_mask_preview_texture = ImageTexture.create_from_image(img)
+	_mask_preview_rect = rect
+	mat.set_mask_preview(get_instance_id(), _mask_preview_texture, rect, MASK_PREVIEW_COLOR)
+	return "mask preview: %dx%d cells at %.2f m over X %.0f..%.0f Z %.0f..%.0f%s" % [
+			gw, gh, cell, b[0], b[1], b[2], b[3], note]
+
+
+## Take the preview down, if this node still owns it. A no-op when another brush has claimed it since —
+## a node cleaning up after itself must never blank somebody else's view.
+func _clear_mask_preview() -> void:
+	_mask_preview_texture = null
+	_mask_preview_rect = Vector4()
+	if not is_instance_valid(terrain):
+		return
+	var mat = terrain.material
+	if mat != null and mat.has_method("clear_mask_preview"):
+		mat.clear_mask_preview(get_instance_id())
+
+
+## §18.6: preview a relief material's OWN selector over this brush's footprint. Pass null to drop it.
+##
+## `Pasture3DReliefMaterial.selector` gates every op the material emits, including a
+## `Pasture3DReliefStack`'s, so this is exact and unambiguous for any material. What it does NOT cover is
+## a stack's per-LAYER selectors, which gate only their own layer's ops — there is no single field that
+## describes those, and inventing a composite would draw a mask the bake never applies.
+func _update_relief_mask_preview(p_relief) -> void:
+	var sel := PackedFloat32Array()
+	var sim: Dictionary = {}
+	if p_relief != null and p_relief.selector != null:
+		sel.append_array(PackedFloat32Array(p_relief.selector.to_params()))
+		if p_relief.selector.is_sim_kind() and p_relief.selector.sim_result != null:
+			sim = _sim_result_dict(p_relief.selector.sim_result)
+	if sel.is_empty():
+		_clear_mask_preview()
+		return
+	var box := AABB()
+	var have := false
+	for s in _get_splines():
+		if not _spline_paintable(s):
+			continue
+		var a := _spline_footprint_aabb(s)
+		box = a if not have else box.merge(a)
+		have = true
+	if not have:
+		_clear_mask_preview()
+		return
+	var note := _show_mask_preview(sel, box, sim)
+	if note != "":
+		print("Pasture3D brush '%s': %s." % [name, note])
+
+
+## Rebuild (or drop) this node's mask preview after anything that could have moved the ground under it
+## — the field comes from `composite_height_below`, so a bake invalidates it. Default no-op; a brush with
+## a preview toggle overrides it and re-runs its own build.
+##
+## Rebuilding rather than clearing on purpose: §18.5 requires the preview never be stale, and a preview
+## that vanishes every time you press Simulate reads as broken. Both are satisfied by recomputing it.
+func _update_mask_preview() -> void:
+	pass
+
+
+## True when the terrain material is currently showing THIS node's preview. The material cannot call a
+## node back, so a brush that has been out-bid finds out by asking.
+func _owns_mask_preview() -> bool:
+	if not is_instance_valid(terrain):
+		return false
+	var mat = terrain.material
+	if mat == null or not mat.has_method("get_mask_preview_owner"):
+		return false
+	return int(mat.get_mask_preview_owner()) == get_instance_id()
 
 
 ## ---- Layer resolution / identity ----

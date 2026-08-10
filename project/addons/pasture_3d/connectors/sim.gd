@@ -109,6 +109,7 @@ const RESULT_MAX_CELLS: int = 4194304
 	set(v):
 		erosion_mask = v
 		update_configuration_warnings()
+		_update_mask_preview()
 ## Where this Sim is allowed to WRITE what it solved (§17.3). Read the same way as Erosion Mask, and the
 ## difference matters: this one does not touch the solve at all, so the drainage network is computed over
 ## the whole area and stays continuous — only the delta that reaches the layer is gated.
@@ -119,6 +120,18 @@ const RESULT_MAX_CELLS: int = 4194304
 	set(v):
 		write_mask = v
 		update_configuration_warnings()
+		_update_mask_preview()
+## Tint the terrain red where the chosen mask passes, live, so a band can be tuned by eye instead of by
+## simulating and inspecting (§18). The overlay is editor-only and writes nothing — turning it off leaves
+## no trace.
+##
+## An enum rather than two checkboxes because there is ONE set of preview uniforms on the terrain
+## material: only one mask, on one brush, can be shown at a time. Turning this on anywhere takes the
+## overlay away from whatever had it.
+@export_enum("Off", "Erosion Mask", "Write Mask") var mask_preview: int = 0:
+	set(v):
+		mask_preview = v
+		_update_mask_preview()
 
 @export_group("Resolution")
 ## Cell size divisor for the Preview button, relative to the terrain's vertex spacing (§6). 4 is ~16x
@@ -585,7 +598,7 @@ func _prepare_solve(p_path: Path3D, p_layer_id: int, p_scale: int) -> Dictionary
 	# "clear the masks" a usable control for every §17.8 criterion.
 	var sel := _selector_block(erosion_mask)
 	if not sel.is_empty():
-		var field: PackedFloat32Array = terrain.data.sim_mask_field(z0, {
+		var field: PackedFloat32Array = terrain.data.selector_mask_field(z0, {
 				"gw": sw, "gh": sh, "cell_size": sim_cell, "min_x": sb[0], "min_z": sb[2],
 				"erodability_lut": e_field, "erodability_w": e_w, "erodability_h": e_h,
 				"erodability_min": e_lo, "erodability_max": e_hi,
@@ -664,7 +677,7 @@ func _finish_solve(p_state: Dictionary) -> Dictionary:
 	# it is what keeps the gate idempotent — a mask read off the solve would move with its own output.
 	var wsel := _selector_block(write_mask)
 	if not wsel.is_empty():
-		var wfield: PackedFloat32Array = terrain.data.sim_mask_field(p_state["z0"], {
+		var wfield: PackedFloat32Array = terrain.data.selector_mask_field(p_state["z0"], {
 				"gw": p_state["sw"], "gh": p_state["sh"], "cell_size": p_state["sim_cell"],
 				"min_x": sb[0], "min_z": sb[2],
 			}, wsel, _mask_sim_dict(write_mask))
@@ -1521,6 +1534,31 @@ func _erodability_lut() -> Array:
 		for x in range(w):
 			data[row + x] = img.get_pixel(x, y).get_luminance()
 	return [data, w, h]
+
+
+## §18: build or drop this Sim's mask overlay. Over the SIMULATED area — the loops grown by the catchment
+## margin — because that is the grid the mask is evaluated on at bake time, margin included. Showing only
+## the write area would hide the part of the mask that decides how the channels arrive at the rim.
+func _update_mask_preview() -> void:
+	var stack: Array = erosion_mask if mask_preview == 1 else (write_mask if mask_preview == 2 else [])
+	var sel := _selector_block(stack)
+	if sel.is_empty():
+		_clear_mask_preview()
+		return
+	var box := AABB()
+	var have := false
+	for s in _get_splines():
+		if not _spline_paintable(s):
+			continue
+		var a := _spline_footprint_aabb(s).grow(maxf(catchment_margin, 0.0))
+		box = a if not have else box.merge(a)
+		have = true
+	if not have:
+		_clear_mask_preview()
+		return
+	var note := _show_mask_preview(sel, box, _mask_sim_dict(stack))
+	if note != "":
+		print("Pasture3DSim '%s': %s." % [name, note])
 
 
 ## §17: a mask stack flattened to the stride-8 selector blocks the C++ evaluator reads. Nulls and

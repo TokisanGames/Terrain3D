@@ -413,6 +413,9 @@ String Pasture3DMaterial::_inject_editor_code(const String &p_shader) const {
 	if (_debug_view_heightmap) {
 		insert_names.push_back("DEBUG_HEIGHTMAP_SETUP");
 	}
+	if (_mask_preview_enabled) {
+		insert_names.push_back("DEBUG_MASK_PREVIEW_SETUP");
+	}
 	if (_show_contours) {
 		insert_names.push_back("OVERLAY_CONTOURS_SETUP");
 	}
@@ -482,6 +485,11 @@ String Pasture3DMaterial::_inject_editor_code(const String &p_shader) const {
 	}
 	if (_debug_view_roughmap) {
 		insert_names.push_back("DEBUG_ROUGHMAP");
+	}
+	// Last of the debug views on purpose: the mask preview is a tint OVER whatever view is active, so a
+	// brush can be tuned against the heightmap or the autoshader view rather than only the lit material.
+	if (_mask_preview_enabled) {
+		insert_names.push_back("DEBUG_MASK_PREVIEW");
 	}
 	// PBR views
 	if (_pbr_view_tex_albedo) {
@@ -606,6 +614,14 @@ void Pasture3DMaterial::_update_shader() {
 
 	// Set specific shader parameters
 	RS->material_set_param(_material, "_background_mode", _world_background);
+	// §18: pushed here rather than through _shader_params because the preview is transient editor state
+	// owned by a brush, not a saved material property — it must never end up in a .tres.
+	if (_mask_preview_enabled) {
+		RS->material_set_param(_material, "_mask_preview_tex",
+				_mask_preview_tex.is_valid() ? Variant(_mask_preview_tex->get_rid()) : Variant());
+		RS->material_set_param(_material, "_mask_preview_rect", _mask_preview_rect);
+		RS->material_set_param(_material, "_mask_preview_color", _mask_preview_color);
+	}
 
 	// If no noise texture, generate one
 	if (_active_params.has("noise_texture") && RS->material_get_param(_material, "noise_texture").get_type() == Variant::NIL) {
@@ -1109,6 +1125,41 @@ void Pasture3DMaterial::set_show_displacement_buffer(const bool p_enabled) {
 	_update_shader();
 }
 
+void Pasture3DMaterial::set_mask_preview(const uint64_t p_owner, const Ref<Texture2D> &p_tex,
+		const Vector4 &p_rect, const Color &p_color) {
+	if (p_tex.is_null() || p_owner == 0) {
+		clear_mask_preview(p_owner); // nothing to show is the same as asking for it to go away
+		return;
+	}
+	// Claiming from another brush is allowed and is the intended way to switch: two masks tinted red at
+	// once would be unreadable, so the constraint and the UX agree. The previous owner finds out by
+	// polling get_mask_preview_owner() — it cannot be called back from here without the material knowing
+	// about nodes, which it deliberately does not.
+	const bool was_off = !_mask_preview_enabled;
+	_mask_preview_enabled = true;
+	_mask_preview_owner = p_owner;
+	_mask_preview_tex = p_tex;
+	_mask_preview_rect = p_rect;
+	_mask_preview_color = p_color;
+	if (was_off) {
+		_update_shader(); // the insert has to be compiled in before its uniforms exist
+	} else {
+		RS->material_set_param(_material, "_mask_preview_tex", _mask_preview_tex->get_rid());
+		RS->material_set_param(_material, "_mask_preview_rect", _mask_preview_rect);
+		RS->material_set_param(_material, "_mask_preview_color", _mask_preview_color);
+	}
+}
+
+void Pasture3DMaterial::clear_mask_preview(const uint64_t p_owner) {
+	if (!_mask_preview_enabled || (p_owner != 0 && p_owner != _mask_preview_owner)) {
+		return;
+	}
+	_mask_preview_enabled = false;
+	_mask_preview_owner = 0;
+	_mask_preview_tex = Ref<Texture2D>();
+	_update_shader(); // drops the insert, so the shipped shader carries no trace of the preview
+}
+
 void Pasture3DMaterial::set_show_texture_ao(const bool p_enabled) {
 	SET_IF_DIFF(_pbr_view_tex_ao, p_enabled);
 	LOG(INFO, "Enable show_texture_ao: ", p_enabled);
@@ -1396,6 +1447,7 @@ void Pasture3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("update", "flags"), &Pasture3DMaterial::update, DEFVAL(Pasture3DMaterial::UNIFORMS_ONLY));
 	ClassDB::bind_method(D_METHOD("get_material_rid"), &Pasture3DMaterial::get_material_rid);
 	ClassDB::bind_method(D_METHOD("get_shader_rid"), &Pasture3DMaterial::get_shader_rid);
+	ClassDB::bind_method(D_METHOD("get_generated_shader_code"), &Pasture3DMaterial::get_generated_shader_code);
 	ClassDB::bind_method(D_METHOD("get_buffer_material_rid"), &Pasture3DMaterial::get_buffer_material_rid);
 	ClassDB::bind_method(D_METHOD("get_buffer_shader_rid"), &Pasture3DMaterial::get_buffer_shader_rid);
 
@@ -1492,6 +1544,12 @@ void Pasture3DMaterial::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_show_texture_rough"), &Pasture3DMaterial::get_show_texture_rough);
 	ClassDB::bind_method(D_METHOD("set_show_displacement_buffer", "enabled"), &Pasture3DMaterial::set_show_displacement_buffer);
 	ClassDB::bind_method(D_METHOD("get_show_displacement_buffer"), &Pasture3DMaterial::get_show_displacement_buffer);
+
+	// §18 mask preview. Methods only, never properties: this is transient editor state a brush owns for
+	// as long as its toggle is on, and a property would be saved into the material's .tres.
+	ClassDB::bind_method(D_METHOD("set_mask_preview", "owner", "texture", "rect", "color"), &Pasture3DMaterial::set_mask_preview);
+	ClassDB::bind_method(D_METHOD("clear_mask_preview", "owner"), &Pasture3DMaterial::clear_mask_preview);
+	ClassDB::bind_method(D_METHOD("get_mask_preview_owner"), &Pasture3DMaterial::get_mask_preview_owner);
 
 	ClassDB::bind_method(D_METHOD("save", "path"), &Pasture3DMaterial::save, DEFVAL(""));
 

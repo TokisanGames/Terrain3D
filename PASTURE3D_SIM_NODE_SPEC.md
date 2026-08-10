@@ -1,8 +1,9 @@
 # Pasture3D Sim Node Spec (`Pasture3DSim`)
 
 **Status:** **PHASES 1–5 IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09, phase 5 2026-08-10).
-**Phases 5.5–7 DESIGNED, NOT BUILT** (2026-08-10) — the mask preview (§18), the manager and pass chain
-(§19), and moving the solve off the main thread (§20). Drafted 2026-08-08; **solver replaced the same
+**PHASE 5.5 IMPLEMENTED** (2026-08-10) — the mask preview (§18).
+**Phases 6–7 DESIGNED, NOT BUILT** — the manager and pass chain (§19) and moving the solve off the main
+thread (§20). Drafted 2026-08-08; **solver replaced the same
 day** after a survey of Houdini, World Machine, Gaea and the large-scale-terrain literature (§16).
 Target: Godot 4.7, Pasture3D `main`.
 
@@ -38,6 +39,10 @@ Phases 1–4 ship as:
 | [pasture_3d_relief_ops.h](src/pasture_3d_relief_ops.h) / [.cpp](src/pasture_3d_relief_ops.cpp) | `relief_selector_weight` — the selector evaluator exposed to callers outside the relief path | 5 |
 | [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | `erosion_mask` / `write_mask`, the field composition, and the self-reference refusal | 5 |
 | [bench/SimPhase5Gate.tscn](project/bench/SimPhase5Gate.gd) | Gates AA–AG, all passing with their controls | 5 |
+| [shaders/debug_views.glsl](src/shaders/debug_views.glsl) | `DEBUG_MASK_PREVIEW` — the §18 overlay, editor-only because `_apply_inserts` skips `DEBUG_*` | 5.5 |
+| [pasture_3d_material.cpp](src/pasture_3d_material.cpp) | `set_mask_preview` / `clear_mask_preview` with single-owner arbitration, and `get_generated_shader_code` | 5.5 |
+| [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd) | `_show_mask_preview` / `_update_relief_mask_preview` — shared by Sim, Plow and Mound | 5.5 |
+| [bench/SimPhase55Gate.tscn](project/bench/SimPhase55Gate.gd) | Gates AS–AV, all passing with their controls | 5.5 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
 records the gate results and the criteria that were vacuous until their controls caught them.
@@ -778,7 +783,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **3 — DONE** | Selector Kinds `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; the unit conversions that make their bands artist-readable; four configuration warnings; `channel_boulders.tres`, a demo preset pairing an eroded area with a flow-gated relief material |
 | **4 — DONE** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
 | **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's Kinds, units and falloff semantics; no solver change |
-| **5.5 — DESIGNED (§18)** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
+| **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DESIGNED (§19)** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Retires §5's seam limitation; per-pass mask re-evaluation; one `SimResult`; one water extraction |
 | **7 — DESIGNED (§20)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §20.6) |
 
@@ -1318,11 +1323,36 @@ catches it:**
 
 ---
 
-## 18. Mask preview (phase 5.5)
+## 18. Mask preview (phase 5.5) — DONE
 
 A red overlay on the terrain showing where a mask will take effect, live, so a band is tuned **by eye
 against the ground** instead of by baking and inspecting the result. Phase 5 shipped the masks; nothing
 shipped that lets you see one before committing several seconds of solve to it.
+
+> **Built as designed. Four departures, and one open question answered by reading the code:**
+>
+> 1. **§18.6's stack question resolved: preview the material's own `selector`.**
+>    `Pasture3DReliefMaterial.selector` gates *every op the material emits*, a `Pasture3DReliefStack`
+>    included, so the overlay is exact and unambiguous for any material. What it does not cover is a
+>    stack's per-**layer** selectors, which gate only their own layer's ops — there is no single field
+>    that describes those, and a "composite" would have drawn a mask the bake never applies. Plow and
+>    Mound therefore ship a plain `mask_preview` bool, not a path into the material tree.
+> 2. **No `Engine.is_editor_hint()` guard.** The first version had one and it made the whole feature
+>    invisible to a headless gate — the phase-4 lesson repeating itself. It is also *inconsistent*: every
+>    other debug view on this material (`set_show_heightmap` and the rest) works at runtime. The preview
+>    now behaves like its neighbours, and the `DEBUG_` insert naming is what keeps it out of a shipped
+>    shader.
+> 3. **`get_generated_shader_code()` added to `Pasture3DMaterial`.** Needed to gate AV, and useful on its
+>    own — see the note below on why the obvious alternative does not work.
+> 4. **`sim_mask_field` renamed `selector_mask_field`**, as §18.2 asked. Nothing in it was ever
+>    sim-specific.
+>
+> **A trap worth recording: `RenderingServer.get_shader_parameter_list()` cannot see a removal.** It
+> looked like the natural way to ask whether a `DEBUG_` insert is compiled in, and it answers the *add*
+> direction correctly — but it caches per shader RID and never purges uniforms that disappear. Verified
+> against the shipped `set_show_heightmap(false)`, which leaves `heightmap_black_height` in the list
+> exactly the same way. Gate AV would have passed on a preview that never uninstalled itself. Read the
+> generated source instead.
 
 **This is not a Sim feature.** `Pasture3DReliefSelector` is the same resource that gates Plow and Mound
 relief materials (`PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md` §7), so the preview belongs to the *selector*,
@@ -1441,6 +1471,33 @@ pixels themselves are ungated, rather than letting four green lines imply a rend
 | AT | **The rect registers.** The world rect handed to the material maps the texture onto the footprint the mask covers, checked by sampling the preview's own mapping at known world points. | The rect displaced by one catchment margin, which must land different cells — the mistake §17.8's AF already caught once in the field lookup. |
 | AU | **One owner.** Enabling a preview on a second brush disables the first, and the first node reports Off. | Enable on one brush only, which must stay on — otherwise "exclusive" is indistinguishable from "always off". |
 | AV | **It leaves nothing behind.** After disabling, the material carries no preview insert and no preview texture, and the terrain data is unchanged — no layer, no control map, nothing written. | A snapshot taken WITH the preview on, which must differ from the off state, or AV is comparing two identical no-ops. |
+
+### Gate results (phase 5.5, all passing)
+
+`bench/SimPhase55Gate.tscn`, headless, ~6 s. **The rendered overlay is ungated** — headless has no
+viewport, so nothing here proves the terrain is tinted, that the tint tracks the weight, or that the 0.5
+band line is drawn. The gate says so in its own output rather than letting four green lines imply a
+rendering test happened. What it does test is the claim the feature rests on: *what you see is what will
+bake.*
+
+| # | Measured | Control |
+|---|---|---|
+| AS | Preview grid 205×205 at 1.00 m, weights spanning 0.000–1.000. **max \|preview − bake\| = 0.000000000** over 42 025 cells — float32 exact through the `FORMAT_RF` round trip, not merely close | The same band at ¼ resolution gates differently (mean weight 0.7145 vs 0.7035), so "at build resolution" is a tested claim and not an assumption about a flat fixture |
+| AT | **0.000000 texels** of centre error at four corners and an interior point — the half-cell widening lands world samples exactly on texel centres | The origin displaced by one catchment margin moves the lookup 40.0 texels |
+| AU | A enables and owns it; B enables, A loses it and B holds it; A turning *itself* off leaves B's preview alone | One brush enabled alone must stay the owner — otherwise "exclusive" is indistinguishable from "never turns on" |
+| AV | With it on: owner set, source carries the insert. Off: owner 0, insert gone. Terrain height moved **0.000000000 m** across the whole cycle | The on-state readings, which must differ from the off-state — otherwise AV compares two identical no-ops |
+
+**Break tests — each fails only its own criterion:**
+
+| Broken | Fails |
+|---|---|
+| Half-cell rect correction dropped | AT only |
+| Preview built at ¼ resolution instead of the bake's | AS only (both legs: size mismatch, and AT's registration follows from the changed grid) |
+| `clear_mask_preview` ignores the owner | AU only, on the "A took down B's preview" leg |
+| The insert left compiled in after disabling | AV only |
+
+> Phases 1–5, `PlowReliefCheck` and `PondBrushCheck` were re-run against the phase-5.5 build: **all
+> passing, 0 failures.**
 
 ---
 

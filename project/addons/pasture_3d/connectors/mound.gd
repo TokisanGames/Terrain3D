@@ -80,6 +80,16 @@ enum FlankMode { FIXED_WIDTH, SLOPE_ANGLE }
 ## Metres of relief at the material's full output, masked by the interior profile so the rim stays clean.
 ## Deliberately separate from `height`: relief describes the surface texture of the landform, and tying its
 ## amplitude to the peak would rescale every detail whenever the mound was made taller.
+## Tint the terrain red where this brush's Relief material's own Selector passes, live, so a band can be
+## tuned by eye instead of by baking and inspecting (§18). Editor-only, and it writes nothing.
+##
+## Only the material's OWN Selector — the one that gates every op it emits. A Relief Stack's per-layer
+## selectors gate only their own layer, and no single overlay describes those honestly.
+@export var mask_preview: bool = false:
+	set(v):
+		mask_preview = v
+		_update_mask_preview()
+
 @export var relief_strength: float = 0.0:
 	set(v):
 		relief_strength = v
@@ -341,3 +351,7 @@ func _paint_spline(path: Path3D) -> void:
 				_paint_height(pos, 0.0, v)
 			else:
 				_paint_height(pos, v, 0.0)
+
+
+func _update_mask_preview() -> void:
+	_update_relief_mask_preview(relief if mask_preview else null)

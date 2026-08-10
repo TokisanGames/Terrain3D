@@ -107,6 +107,15 @@ private:
 	bool _debug_view_roughmap = false;
 	bool _debug_view_displacement_buffer = false;
 
+	// §18 mask preview. There is one material per terrain and therefore one set of these uniforms, so
+	// exactly one brush can own the preview at a time; `_mask_preview_owner` is the owning node's
+	// instance id, and a clear from anyone else is ignored rather than silently stealing it.
+	bool _mask_preview_enabled = false;
+	uint64_t _mask_preview_owner = 0;
+	Ref<Texture2D> _mask_preview_tex;
+	Vector4 _mask_preview_rect = Vector4(0.0, 0.0, 1.0, 1.0);
+	Color _mask_preview_color = Color(0.95, 0.15, 0.1, 0.65);
+
 	// PBR Views
 	bool _pbr_view_tex_albedo = false;
 	bool _pbr_view_tex_height = false;
@@ -138,6 +147,10 @@ public:
 	void update(const uint32_t p_flags = UNIFORMS_ONLY);
 	RID get_material_rid() const { return _material; }
 	RID get_shader_rid() const { return _shader.is_valid() ? _shader->get_rid() : RID(); }
+	// The generated source, after inserts. For diagnosing shader assembly, and the only way to observe
+	// that a DEBUG_ insert has been REMOVED: the RenderingServer caches a shader's parameter list per RID
+	// and does not purge uniforms that disappear, so an uninstalled debug view still lists its uniforms.
+	String get_generated_shader_code() const { return _shader.is_valid() ? _shader->get_code() : String(); }
 
 	RID get_buffer_material_rid() const { return _buffer_material; }
 	RID get_buffer_shader_rid() const { return _buffer_shader.is_valid() ? _buffer_shader->get_rid() : RID(); }
@@ -224,6 +237,14 @@ public:
 	bool get_show_roughmap() const { return _debug_view_roughmap; }
 	void set_show_displacement_buffer(const bool p_enabled);
 	bool get_show_displacement_buffer() const { return _debug_view_displacement_buffer; }
+
+	// §18 mask preview. `p_owner` is the previewing node's get_instance_id(); `p_rect` is
+	// (min_x, min_z, span_x, span_z) in world metres, half-cell widened by the caller.
+	void set_mask_preview(const uint64_t p_owner, const Ref<Texture2D> &p_tex, const Vector4 &p_rect, const Color &p_color);
+	// No-op unless `p_owner` currently owns the preview, so a node clearing up after itself cannot take
+	// down a preview another brush has since claimed.
+	void clear_mask_preview(const uint64_t p_owner);
+	uint64_t get_mask_preview_owner() const { return _mask_preview_enabled ? _mask_preview_owner : 0; }
 
 	// PBR Views
 	void set_show_texture_albedo(const bool p_enabled);

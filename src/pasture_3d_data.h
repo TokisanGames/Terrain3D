@@ -317,7 +317,7 @@ public:
 	// surface as params["baseline"] to hand `deltas` the POST-solve surface and difference it here.
 	// §17: the per-cell erosion/write mask over a sim grid, from a stack of relief selectors (and,
 	// optionally, the erodability texture composed in). Empty when there is nothing to mask with.
-	PackedFloat32Array sim_mask_field(const PackedFloat32Array &p_z, const Dictionary &p_params, const PackedFloat32Array &p_selectors, const Dictionary &p_sim_result);
+	PackedFloat32Array selector_mask_field(const PackedFloat32Array &p_z, const Dictionary &p_params, const PackedFloat32Array &p_selectors, const Dictionary &p_sim_result);
 	PackedFloat32Array sim_mask_deltas(const PackedFloat32Array &p_deltas, const PackedVector2Array &p_poly, const Dictionary &p_params, const PackedFloat32Array &p_lut);
 	// §8.1 — batched delta write, the same raw-tile path the stamp_* rasterisers use. Deltas are gw*gh
 	// row-major with NaN = skip, anchored at vertex round(min_x/vs), round(min_z/vs). Deferred: the

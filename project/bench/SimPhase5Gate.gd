@@ -3,7 +3,7 @@
 # Phase 5 gates AA-AG for Pasture3DSim masking (PASTURE3D_SIM_NODE_SPEC.md §17.8).
 #
 # Two families, the same split phases 1-2 use:
-#   AA-AC, AF  drive `sim_mask_field` and `erode_heightfield` DIRECTLY on synthetic grids. The mask
+#   AA-AC, AF  drive `selector_mask_field` and `erode_heightfield` DIRECTLY on synthetic grids. The mask
 #              field is a pure function of a heightfield and a selector block, so these measure it with
 #              no bake in the way.
 #   AD, AE, AG drive a real Pasture3DSim on the demo terrain, because "the write mask does not change
@@ -11,7 +11,7 @@
 #              the NODE, not about the arithmetic.
 #
 # THE GATE COMPUTES SLOPE, ALTITUDE AND CURVATURE ITSELF, from its own fixture, with its own central
-# differences. It never asks `sim_mask_field` what the ground is doing and then checks the mask against
+# differences. It never asks `selector_mask_field` what the ground is doing and then checks the mask against
 # that answer — a gate that takes its reference from the code under test agrees with the bug.
 #
 # NOTHING IS SAVED. Bakes write into the terrain's in-memory layer; demo/data on disk is only touched by
@@ -61,9 +61,9 @@ func _ready() -> void:
 	_root.add_child(_terrain)
 	_terrain.data_directory = DEMO_DATA
 	_data = _terrain.data
-	if _data == null or not _data.has_method("sim_mask_field"):
+	if _data == null or not _data.has_method("selector_mask_field"):
 		_fail += 1
-		print("!! this build has no sim_mask_field — phase 5 is unbuilt, not failing")
+		print("!! this build has no selector_mask_field — phase 5 is unbuilt, not failing")
 		_done()
 		return
 
@@ -107,7 +107,7 @@ func _gate_aa_rate_mask() -> void:
 	var field := _field(z, [_sel(K_SLOPE, 8.0, 90.0, 0.0, 0.0)])
 	if field.size() != SG * SG:
 		_fail += 1
-		print("    !! sim_mask_field returned %d values, wanted %d" % [field.size(), SG * SG])
+		print("    !! selector_mask_field returned %d values, wanted %d" % [field.size(), SG * SG])
 		return
 	print("    mask field: mean %.3f on the steep half, %.3f on the gentle half" % [
 			_mean_at(field, steep), _mean_outside(field, steep)])
@@ -646,7 +646,7 @@ func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float,
 	return s
 
 
-## `sim_mask_field` over the synthetic grid. `p_dx`/`p_dz` displace the grid origin, which is how AF's
+## `selector_mask_field` over the synthetic grid. `p_dx`/`p_dz` displace the grid origin, which is how AF's
 ## control asks for a misregistered lookup.
 func _field(p_z: PackedFloat32Array, p_sels: Array, p_result: Pasture3DSimResult = null,
 		p_dx := 0.0, p_dz := 0.0) -> PackedFloat32Array:
@@ -659,7 +659,7 @@ func _field(p_z: PackedFloat32Array, p_sels: Array, p_result: Pasture3DSimResult
 				"width": p_result.width, "height": p_result.height, "flow": p_result.flow,
 				"erosion": p_result.erosion, "deposition": p_result.deposition,
 				"wetness": p_result.wetness}
-	return _data.sim_mask_field(p_z, {
+	return _data.selector_mask_field(p_z, {
 			"gw": SG, "gh": SG, "cell_size": SCELL, "min_x": p_dx, "min_z": p_dz,
 		}, block, sim)
 

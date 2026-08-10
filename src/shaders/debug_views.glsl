@@ -226,4 +226,37 @@ group_uniforms;
 	}
 	#endif
 
+//INSERT: DEBUG_MASK_PREVIEW_SETUP
+group_uniforms mask_preview;
+// The selector weight over the previewing brush's own grid (PASTURE3D_SIM_NODE_SPEC.md §18). DATA, not
+// colour: no source_color hint, or the sRGB curve would bend the weights on the way in. An unbound
+// sampler reads 0, which draws nothing — the safe default for a debug view.
+uniform sampler2D _mask_preview_tex : filter_linear, repeat_disable;
+// (min_x, min_z, span_x, span_z) in WORLD metres, already widened by half a cell on the CPU so that
+// world-to-uv lands on texel CENTRES. The grid is corner-aligned (§6), so without that half cell the
+// outermost row would sample half a texel outside itself.
+uniform vec4 _mask_preview_rect = vec4(0.0, 0.0, 1.0, 1.0);
+uniform vec4 _mask_preview_color : source_color = vec4(0.95, 0.15, 0.1, 0.65);
+// Brightness of the line drawn at weight 0.5 — the nominal band edge. 0 turns it off.
+uniform float _mask_preview_edge : hint_range(0.0, 1.0) = 0.6;
+group_uniforms;
+
+//INSERT: DEBUG_MASK_PREVIEW
+	// Show the selector mask a brush is about to apply (§18)
+	{
+		vec2 __mp_uv = (v_vertex.xz - _mask_preview_rect.xy) / max(_mask_preview_rect.zw, vec2(1e-6));
+		// Outside the previewing brush's own grid, draw NOTHING. A clamped sampler would paint the
+		// horizon with the edge value and read as "this mask covers the world".
+		if (__mp_uv.x >= 0.0 && __mp_uv.x <= 1.0 && __mp_uv.y >= 0.0 && __mp_uv.y <= 1.0) {
+			float __mp_w = clamp(texture(_mask_preview_tex, __mp_uv).r, 0.0, 1.0);
+			// Alpha follows the WEIGHT, so the falloff shoulders are visible. A binary in/out view would
+			// hide falloff_low and falloff_high, which are the parameters this whole view exists to tune.
+			ALBEDO = mix(ALBEDO, _mask_preview_color.rgb, __mp_w * _mask_preview_color.a);
+			float __mp_band = (1.0 - smoothstep(0.0, 0.06, abs(__mp_w - 0.5))) * _mask_preview_edge;
+			ALBEDO = mix(ALBEDO, vec3(1.0), __mp_band);
+			ROUGHNESS = 1.0;
+			SPECULAR = 0.;
+		}
+	}
+
 )"

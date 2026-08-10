@@ -246,7 +246,12 @@ Dictionary Pasture3DData::erode_heightfield(const PackedFloat32Array &p_z, const
 	return out;
 }
 
-// §17: the per-cell mask field, from a stack of Pasture3DReliefSelectors evaluated over the SIM grid.
+// §17: the per-cell mask field, from a stack of Pasture3DReliefSelectors evaluated over a height grid.
+//
+// Named `sim_` until §18 — nothing in it is sim-specific. It takes a height grid and a selector block, so
+// the Plow's and Mound's relief selectors read it on exactly the same terms, and the §18 mask preview
+// calls it rather than approximating it. The grid below is "the sim grid" only because Sim is the first
+// caller; for a stamp brush it is the bake grid.
 //
 // Same evaluator the relief materials use (`relief_selector_value`) over the same fields
 // (`relief_fields_build`), so a SLOPE band means under a Sim exactly what it means under a Plow. It lives
@@ -271,7 +276,7 @@ Dictionary Pasture3DData::erode_heightfield(const PackedFloat32Array &p_z, const
 // With no selectors AND no texture the array comes back EMPTY, and the caller must then pass nothing at
 // all rather than a field of ones — that is what keeps an unmasked Sim bitwise identical to phase 4, and
 // what makes "clear the masks" a usable control for every gate in §17.8.
-PackedFloat32Array Pasture3DData::sim_mask_field(const PackedFloat32Array &p_z, const Dictionary &p_params,
+PackedFloat32Array Pasture3DData::selector_mask_field(const PackedFloat32Array &p_z, const Dictionary &p_params,
 		const PackedFloat32Array &p_selectors, const Dictionary &p_sim_result) {
 	PackedFloat32Array out;
 	const int gw = (int)p_params.get("gw", 0);
