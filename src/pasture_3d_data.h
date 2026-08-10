@@ -211,6 +211,12 @@ public:
 	// and additionally un-alias the Base (when the first non-Base layer appears) and recomposite the
 	// affected regions so the viewport stays live (PASTURE3D_LAYERS_GUIDE.md §5.2, §6). They return the
 	// new index where relevant, or -1 on failure.
+	//
+	// All of these — plus create_owned_layer(_typed) when it actually creates — emit `layers_changed`.
+	// It exists because the Layers dock had no way to hear about a layer it did not create itself: a
+	// tool node calling create_owned_layer (a brush's "Add New Layer", a road connector, the Sim) left
+	// the dock showing a stale row list until the user re-selected the terrain. Structural changes only,
+	// never per-sample writes, so a bake does not drag the UI along with it.
 	int layer_add(const String &p_name, const int p_blend_mode);
 	int layer_duplicate(const int p_idx);
 	void layer_remove(const int p_idx);

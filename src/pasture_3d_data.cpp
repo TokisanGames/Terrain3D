@@ -160,6 +160,9 @@ int Pasture3DData::layer_add(const String &p_name, const int p_blend_mode) {
 		// First non-Base layer: the Base must own its buffer so live re-compositing is correct.
 		_unalias_base_layer();
 	}
+	if (idx >= 0) {
+		emit_signal("layers_changed");
+	}
 	return idx;
 }
 
@@ -179,6 +182,9 @@ int Pasture3DData::layer_duplicate(const int p_idx) {
 	int idx = _layer_stack->add_layer_ref(copy);
 	_unalias_base_layer();
 	recomposite_layer(idx);
+	if (idx >= 0) {
+		emit_signal("layers_changed");
+	}
 	return idx;
 }
 
@@ -194,6 +200,7 @@ void Pasture3DData::layer_remove(const int p_idx) {
 		composite_region(loc, Rect2i(), false);
 	}
 	update_maps(TYPE_MAX, false, false); // The removed layer may be control/color, not just height.
+	emit_signal("layers_changed");
 }
 
 void Pasture3DData::layer_move(const int p_from, const int p_to) {
@@ -207,6 +214,7 @@ void Pasture3DData::layer_move(const int p_from, const int p_to) {
 		composite_region(loc, Rect2i(), false);
 	}
 	update_maps(TYPE_MAX, false, false);
+	emit_signal("layers_changed");
 }
 
 void Pasture3DData::recomposite_layer(const int p_idx) {
@@ -1674,6 +1682,10 @@ int Pasture3DData::create_owned_layer_typed(const String &p_owner_id, const Stri
 		// First non-Base layer: the Base must own its buffer so live re-compositing stays idempotent.
 		_unalias_base_layer();
 	}
+	// Only reached when a layer was genuinely created — the idempotent "owner already has one" path
+	// returned above. A tool bakes constantly, so firing this on every _ensure_layer_for would rebuild
+	// the Layers dock's rows continuously (and eat a rename in progress).
+	emit_signal("layers_changed");
 	return idx;
 }
 
@@ -2752,4 +2764,5 @@ void Pasture3DData::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("control_maps_changed"));
 	ADD_SIGNAL(MethodInfo("color_maps_changed"));
 	ADD_SIGNAL(MethodInfo("maps_edited", PropertyInfo(Variant::AABB, "edited_area")));
+	ADD_SIGNAL(MethodInfo("layers_changed"));
 }

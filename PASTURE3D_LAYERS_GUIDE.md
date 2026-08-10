@@ -336,8 +336,50 @@ data.update_maps(TYPE_HEIGHT, /*all_regions=*/false)  # only edited regions go t
 ## 6. Editor UX & sculpt routing
 
 - **Layers panel** (new dock or a section of the Pasture3D tool panel): list with
-  drag-reorder, add/remove/duplicate, and per-row visibility, lock, opacity slider, blend
+  drag-reorder, add/remove/duplicate/clear, and per-row visibility, lock, opacity slider, blend
   dropdown. Active layer is highlighted.
+- **Clear** wipes the active layer's tiles but keeps the layer (name, blend, `owner_id`,
+  reserved flag — so a tool's binding survives), then asks the tools still bound to it to
+  re-bake. That combination is the point on a **tool layer**: the layer accumulates the
+  footprint of every tool that ever baked into it, so a brush that was deleted, moved to
+  another layer or reassigned leaves a contribution nothing will ever clear (what the row's
+  "orphan" badge flags). Clear rebuilds the layer from the tools that actually exist.
+  Disabled on the Base, which while single-layer *aliases* the region height maps (§5.1).
+- **Undo/redo across the toolbar.** Every toolbar action is undoable, on the terrain's scene-local
+  history, but by one of two mechanisms depending on what the action actually mutates:
+  - *Add / Duplicate / Remove* only rearrange **which layer objects the stack holds**, leaving the
+    objects untouched. So they snapshot the layer array (plus the active index) either side of the
+    operation and make both directions a restore of one of those snapshots. The snapshot shares the
+    layer objects by reference, so it stays cheap however much is painted into them — and a removed
+    layer stays alive purely because the snapshot array still references it, which makes undoing a
+    Remove exact rather than a reconstruction. `get_layers()` returns the live array, so the
+    snapshot must `duplicate()` it or it tracks the very mutation it is meant to reverse.
+  - *Clear* mutates a layer's tiles **in place**, which a shared-object snapshot cannot capture, so
+    it deep-copies the tiles instead. The restore copies on the way in too: the one snapshot is
+    replayed on every undo, so a layer left aliasing it would have the next bake quietly rewrite the
+    undo entry. It earns the extra cost because a tool layer can rebuild itself from its brushes but
+    hand-painted tiles have no other source.
+  - *Reorder* (buttons and drag) is its own inverse — `move(from→to)` undone by `move(to→from)` —
+    so it needs neither.
+  - *Row controls* (rename, visibility, lock, opacity, blend) edit one property of one layer, so the
+    old→new pair is the entire state and there is nothing to snapshot. The handler applies the change
+    live and the action is committed with `commit_action(false)`: re-running the "do" at commit time
+    would repeat the recomposite and, for the opacity slider, rebuild the row mid-drag. The slider
+    uses `MERGE_ENDS`, which keeps the *first* action's undo (the pre-drag value) and the *last*
+    action's do, collapsing a drag into one entry; its action name carries the layer name so a drag
+    on a different layer can't merge into the previous layer's entry.
+- **Layer name field.** The name is a read-only `LineEdit` until you ask to rename it: single click
+  selects the row, **double-click or F2** starts the rename, Enter or clicking away commits, Escape
+  abandons it — matching how nodes are renamed in the Scene dock. It reads as a label (`flat`) until
+  edited. This also fixes a longstanding bug where the field could not be clicked into at all:
+  selecting a row used to call the full `refresh()`, which freed the very `LineEdit` under the
+  cursor, so a caret could never land in it. Selecting now only repaints the highlight
+  (`_sync_active_state`), leaving the rows alive.
+- **`Pasture3DData::layers_changed`** keeps the dock live. It fires on `layer_add` /
+  `_duplicate` / `_remove` / `_move` and on `create_owned_layer(_typed)` **when it actually
+  creates** (never on the idempotent by-owner hit, which every tool bake goes through). Without
+  it the dock only rebuilt on re-selection, so a layer made by a tool node — a brush's "Add New
+  Layer", a road connector, the Sim — did not appear until the user clicked away and back.
 - **Active-layer routing**: `Pasture3DEditor::_operate_map` currently writes via
   `data.set_pixel`. Change it to write into `stack.get_active_layer()` (allocating tiles),
   then recomposite the stroke's dirty rect. If the active layer is **locked** or
