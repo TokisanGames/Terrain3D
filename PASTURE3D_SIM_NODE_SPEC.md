@@ -2056,10 +2056,19 @@ whenever a later pass wants sim Kinds (`_live_fields`, §19.5) and builds the fo
 storage is on, and writes the result to the pass rather than only handing it forward.
 
 **The cost is real and must be visible.** One extra fill+route per pass — about a thirtieth of a solve —
-plus four float grids per pass. A 2048² cluster is **64 MB per pass**. So: a `store_masks` toggle on each
-pass, default **on** (tuning is the entire point), and **Plan Clusters reports the total mask memory the
-current stack would allocate** alongside the cell counts it already prints. A number nobody sees until
-the editor swaps is not a budget.
+plus four float grids per pass. A 2048² cluster is **64 MB per pass**.
+
+**DECIDED — on by default, in memory; written to disk only on demand.**
+
+- `store_masks` on each pass, default **on**: tuning is the entire point of this phase, and an opt-in
+  default would recreate the discoverability trap the `Save Masks` work just closed.
+- After a build the masks live on the pass and are immediately inspectable. **Nothing is written to disk
+  that was not asked for** — a `Save Masks` button per pass, sharing the §21.3 implementation the manager
+  already has, gives that pass's result a `.res` when you want one. Auto-saving N files per Preview into
+  the terrain data directory was the alternative and it is a lot of churn for a resource you are still
+  iterating on.
+- **Plan Clusters reports the total mask memory the current stack would allocate** alongside the cell
+  counts it already prints. A number nobody sees until the editor swaps is not a budget.
 
 The manager keeps its own whole-chain result unchanged (§19.6). Per-pass masks are additional, not a
 replacement: a relief material keyed on the finished landscape still wants the finished flow field.
@@ -2134,7 +2143,7 @@ same and is a two-line fix.
 |---|---|---|---|
 | `SLOPE` | 25 – 90 | 10 / 10 | unchanged |
 | `ALTITUDE` | *terrain-derived* | 10% of span | See §21.10 — a constant is wrong here |
-| `CURVATURE` | 0.25 – 100 | 0.1 / 0 | Hollows, in the metres §21.6 gives it |
+| `CURVATURE` | 0.25 – 100 | 0.1 / 0 | Hollows deeper than 0.25 m over the 8 m `measure_radius` its preset also sets |
 | `FLOW` | 5000 – 1e9 | 2500 / 0 | The river extractor's own default threshold: "a channel" |
 | `EROSION` | 2 – 1000 | 1 / 0 | Where the sim actually cut, against a 0–55 m range |
 | `DEPOSITION` | 0.25 – 100 | 0.1 / 0 | Against a 0–3.66 m range — deposition is small and a metre band misses it |
@@ -2180,21 +2189,39 @@ curvature over 1 m: fine noise, not landform. §17.5 already documents the same 
 `CURVATURE` mask reads differently on preview and build. An artist asking for "hollows" means hollows at
 some scale, and there is nowhere to say which.
 
-**The fix, in the free slot.** `to_params()` already returns a stride-8 block whose **eighth float is
-unused** ([relief_selector.gd:130](project/addons/pasture_3d/connectors/relief_selector.gd:130)), so a
-per-selector `curvature_radius` costs no stride change and no wire-format break:
+**The fix, in the free slot. DECIDED — metres of deviation, breaking, no compatibility flag.**
+`to_params()` already returns a stride-8 block whose **eighth float is unused**
+([relief_selector.gd:130](project/addons/pasture_3d/connectors/relief_selector.gd:130)), so the new
+parameter costs no stride change and no wire-format break.
 
-- `curvature_radius: float = 8.0` metres, sampled as a ± radius stencil rather than ± one cell.
-- **Change the unit to METRES of deviation** — Laplacian × r², which is how far this cell sits below the
-  mean of its neighbours at that radius. Dimensionless-and-undocumented becomes the same unit `EROSION`,
-  `DEPOSITION` and `WETNESS` already use, and "hollows deeper than 0.25 m over 8 m" is a sentence an
-  artist can write.
-- Fix `relief_scree`'s clamp to match, and fix the docstring.
+**The definition**, which is simpler than "Laplacian × r²" and means the same thing:
 
-**This breaks existing curvature bands**, including `channel_boulders.tres` and anything authored against
-the old numbers. That is the cost of the unit being wrong; a compatibility flag preserving a documented
-falsehood is not worth it. The migration note belongs in §21.10 and the demo preset must be re-tuned in
-the same commit.
+```
+curvature = mean( height of the sample ring at radius r ) − height at the centre       [metres]
+```
+
+Positive is a hollow, negative a ridge, and the number is *how far this cell sits below its surroundings,
+in metres, measured over r*. Resolution-independent, the same unit `EROSION` / `DEPOSITION` / `WETNESS`
+already use, and "hollows deeper than 0.25 m over 8 m" is a sentence an artist can write. At r = one cell
+it reduces to `(Σ4 neighbours − 4·z) / 4`, i.e. the old Laplacian × vs²/4 — so the two are the same
+measurement in different units, not a different measurement.
+
+`relief_scree`'s 0…1 clamp is retuned to match, and the docstring corrected.
+
+**DECIDED — the radius applies to `SLOPE` as well** (`measure_radius`, not `curvature_radius`), so a band
+can say "steep over 20 m" rather than "steep between two adjacent vertices", which is what you want on
+noisy ground. One parameter, two Kinds, one stencil.
+
+> **`measure_radius` defaults to 0, meaning "one cell" — and that is load-bearing.** A default of 8 m
+> would silently change the meaning of every `SLOPE` band already authored, which is a second breaking
+> change nobody asked for. At 0 the slope computation is bit-for-bit what it is today. `CURVATURE`'s
+> preset sets it to 8 m, and curvature is already breaking on the unit change, so it pays that cost once
+> rather than dragging slope along with it.
+
+**This breaks existing curvature bands**, including `channel_boulders.tres`. That is the cost of the unit
+being wrong; the alternative — a `legacy_curvature_units` flag defaulting to the old behaviour — leaves
+every consumer with two conventions and makes the wrong one the default. The demo preset is re-tuned in
+the same commit and §21.10 carries the migration note.
 
 ### 21.7 The rename, and its real scope
 
@@ -2208,8 +2235,9 @@ the same commit.
   and the C++ half of the same features is already `pasture_3d_*.cpp`. **Renaming one file leaves the
   folder half-converted, which is worse than either end state.**
 
-So: do it as **one folder-wide migration or not at all**, and separately from phase 6.5's behaviour work
-so a bisect can tell a rename from a regression. What it touches:
+**DECIDED — one folder-wide migration, in its own commit, separate from phase 6.5's behaviour work** so a
+bisect can tell a rename from a regression. Every connector takes the `pasture3d_` prefix, matching the
+C++ half. What it touches:
 
 1. Every `.gd` keeps its **`.uid` file** so scenes resolve by uid across the rename.
 2. `toolbar.gd`'s `PLACEABLE_BRUSHES` references `connectors/sim.gd` **by path** and must be updated.
@@ -2243,7 +2271,7 @@ Lettering continues at **AZ** (§14).
 | BC | **Build-through truncates and nothing else.** Simulating to pass N gives bitwise the same surface as a full chain whose passes after N are deleted. | The full untruncated chain, which must differ — otherwise the later passes were doing nothing and truncation is untestable here. |
 | BD | **A bare Sim under a manager is still a pass of one.** A phase-6 scene reproduces its phase-6 surface to 0.000000 m after the container exists. | The same scene with that Sim moved inside a container, which must be identical too — a container of one is not a different feature. |
 | BE | **Kind presets apply to untouched bands and never to edited ones.** Changing Kind on a default selector re-defaults the band; changing it on one with an edited `range_min` leaves every field alone. | Edit a field to the *incoming* Kind's preset value and change Kind — it must still be treated as edited, or "untouched" is being decided by comparing against the wrong Kind. |
-| BF | **Curvature is metres of deviation over its radius.** An analytic dome of known radius reads the deviation the geometry says, at two different `curvature_radius` values. | The same ground at radius 1 vs radius 16, which must differ by the ratio the formula predicts — a radius that changes nothing is a parameter in name only. |
+| BF | **Curvature is metres of deviation over its radius, and `measure_radius` reaches SLOPE too.** An analytic dome of known geometry reads the deviation the maths says at two different radii, and a slope band over a noisy ramp of known mean grade widens as the radius grows. | The same ground at radius 0 (one cell) vs 16 m, which must differ by the ratio the formula predicts — a radius that changes nothing is a parameter in name only. And `measure_radius = 0` must reproduce today's SLOPE field BITWISE, or the default silently broke every band already authored. |
 | BG | **Every Kind's preset selects a useful fraction of real ground.** Each Kind's shipped band, over one bake at shipped solver defaults, selects between 2% and 60% of the simulated area — not 0% and not everything. | The 25–90 band this phase replaces, which must fail for `CURVATURE`, `WETNESS` and `DEPOSITION` (0.0%) and for `SLOPE` (93.7%). This is the audit in §21.5 turned into a standing check, so the presets cannot rot silently. |
 | BH | **An inverted band is refused, not silently empty.** `range_min > range_max` raises a configuration warning on the brush that owns the selector. | The same selector with the range the right way round, which must NOT warn — and must gate something, or the warning is the only thing being tested. |
 
@@ -2258,11 +2286,12 @@ inferring it from the criteria passing.
    selector to reach a terrain, which a `Resource` cannot), have the *brush* offer a "fit to terrain"
    action, or leave `ALTITUDE` alone and document that it is the one Kind you always set by hand. The
    third is the honest default until someone wants the second.
-2. **Curvature's unit change breaks authored bands** (§21.6). Confirm nothing outside
-   `channel_boulders.tres` is affected before committing, and re-tune that preset in the same commit.
-3. **Per-pass mask memory at 1× over a large cluster** is the one number here that could make the default
-   wrong. §11 profiling is still not done and §19.4 still says so; this needs the user's go-ahead before
-   anything is measured.
+2. **Curvature's unit change breaks authored bands** (§21.6) — decided and accepted. Still to do at
+   implementation time: sweep the project for `Pasture3DReliefSelector` resources with `kind = 2` and
+   re-tune each, not only `channel_boulders.tres`, and say in the commit which ones moved.
+3. **Per-pass mask memory at 1× over a large cluster** is the one number that could make the on-by-default
+   decision wrong. §11 profiling is still not done and §19.4 still says so; measuring it needs the user's
+   go-ahead.
 4. **Does a container need its own falloff or edge offset?** Currently every member carries its own and the
    container carries none. If passes routinely want one feathered edge around a *group* of loops, that is
    a real gap — but it is a union-of-polygons problem, not a container property, and it should wait until
