@@ -84,7 +84,7 @@ const SITE_WIPE := Vector3(150.0, 0.0, 520.0)
 const LOOP_HALF := 60.0
 const CHAIN_MARGIN := 32.0
 
-## Mirrors Pasture3DReliefSelector.Kind.
+## Mirrors Pasture3DReliefSelector.FilterType.
 const K_CURVATURE := 2
 ## AL's hollow band, in §21.6's units: metres this cell sits below its four neighbours. 0.075 m at the
 ## fixture's 1 m sim cell is the 0.3 1/m Laplacian this gate was written against.
@@ -965,7 +965,7 @@ func _add_rect(p_sim: Pasture3DSim, p_x0: float, p_x1: float, p_z0: float, p_z1:
 
 func _sel(p_kind: int, p_lo: float, p_hi: float) -> Pasture3DReliefSelector:
 	var s := Pasture3DReliefSelector.new()
-	s.kind = p_kind # first — a Kind change re-defaults an untouched band (§21.5)
+	s.filter_type = p_kind # first — a filter type change re-defaults an untouched band (§21.5)
 	s.range_min = p_lo
 	s.range_max = p_hi
 	s.falloff_low = 0.0

@@ -164,7 +164,7 @@ const RESULT_MAX_CELLS: int = 4194304
 ## every Simulate, so it always describes the erosion currently in the layer.
 ##
 ## Leave it empty and one is created on the first bake. SAVE IT TO A .res: an unsaved resource is stored
-## inside the scene file, and these are megabytes of float data. Phase 3's selector Kinds read this
+## inside the scene file, and these are megabytes of float data. Phase 3's selector Filter Types read this
 ## resource, so it is also the thing you point them at.
 @export var sim_result: Pasture3DSimResult:
 	set(v):
@@ -460,7 +460,7 @@ func _managed_mask_warnings(p_list: Array, p_label: String) -> PackedStringArray
 			continue
 		if s.is_inverted_band():
 			inverted += 1 # fatal under a manager exactly as it is standalone (§21.5)
-		if not s.is_sim_kind():
+		if not s.is_sim_filter_type():
 			continue
 		sim_kinds += 1
 		if s.sim_result != null:
@@ -470,12 +470,12 @@ func _managed_mask_warnings(p_list: Array, p_label: String) -> PackedStringArray
 			+ "nothing anywhere. This pass will not move any ground. Swap the two values.")
 			% [p_label, inverted])
 	if sim_kinds > 0 and manager().pass_index_of(self) == 0:
-		out.append(("%s: %d selector(s) use a sim Kind, but this is the FIRST pass, so there is no previous "
+		out.append(("%s: %d selector(s) use a sim Filter Type, but this is the FIRST pass, so there is no previous "
 			+ "pass to read. They see a defined 0 everywhere and gate nothing. Move this pass down the "
 			+ "stack, or gate it on slope, altitude or curvature instead.") % [p_label, sim_kinds])
 	if pinned > 0:
 		out.append(("%s: %d selector(s) point at a Sim Result resource, which is IGNORED under a manager — "
-			+ "sim Kinds read the previous pass's live flow, erosion, deposition and wetness instead "
+			+ "sim Filter Types read the previous pass's live flow, erosion, deposition and wetness instead "
 			+ "(§19.5). Clear the reference to stop it looking like it is being used.") % [p_label, pinned])
 	return out
 
@@ -1125,27 +1125,27 @@ func _selector_block(p_list: Array) -> PackedFloat32Array:
 ## A sim-Kind selector pointed at THIS Sim's own masks is reading this node's own output — the drift class
 ## `composite_height_below` exists to prevent (§13). The masks describe the erosion already in the layer,
 ## so the gate would key on the previous run and the two would chase each other. Pointed at ANOTHER Sim's
-## result it is legitimate and useful, so this refuses the one case and not the Kind.
+## result it is legitimate and useful, so this refuses the one case and not the Filter Type.
 ##
 ## Phase 6's pass chain makes the interesting version work properly: masking pass 2 on pass 1's live flow
 ## field is not self-reference, because pass 1's fields are a deterministic function of the same
 ## below-layer read. The warning says which one is missing rather than implying the idea is illegal.
 func _self_references(p_sel: Pasture3DReliefSelector) -> bool:
 	if is_managed():
-		# §19.5: under a manager there is no self-reference to refuse. Sim Kinds read the PREVIOUS pass's
+		# §19.5: under a manager there is no self-reference to refuse. Sim Filter Types read the PREVIOUS
 		# live fields, which are a deterministic function of the manager's one below-layer read, and this
 		# node's own `sim_result` is ignored entirely — so dropping the selector here would silently delete
 		# the strongest idiom the pass chain exists to deliver.
 		return false
-	return p_sel.is_sim_kind() and p_sel.sim_result != null and p_sel.sim_result == sim_result
+	return p_sel.is_sim_filter_type() and p_sel.sim_result != null and p_sel.sim_result == sim_result
 
 
-## The Pasture3DSimResult a stack's sim Kinds read, flattened for C++, or {}. ONE result per stack: two
+## The Pasture3DSimResult a stack's sim Filter Types read, flattened for C++, or {}. ONE result per stack: two
 ## selectors pointed at different Sims would need two sets of four resampled grids, so the first wins and
 ## `_mask_warnings` says so rather than letting the second look like it is doing something.
 func _mask_sim_dict(p_list: Array) -> Dictionary:
 	for s: Pasture3DReliefSelector in p_list:
-		if s != null and s.is_sim_kind() and s.sim_result != null and not _self_references(s):
+		if s != null and s.is_sim_filter_type() and s.sim_result != null and not _self_references(s):
 			return _sim_result_dict(s.sim_result)
 	return {}
 
@@ -1169,7 +1169,7 @@ func _mask_warnings(p_list: Array, p_label: String) -> PackedStringArray:
 		if _self_references(s):
 			selves += 1
 			continue
-		if s.is_sim_kind():
+		if s.is_sim_filter_type():
 			if s.sim_result == null:
 				dangling += 1
 			elif not results.has(s.sim_result):
@@ -1184,7 +1184,7 @@ func _mask_warnings(p_list: Array, p_label: String) -> PackedStringArray:
 			+ "them at another Sim's result, or make this Sim a pass of a Pasture3DSimManager, where a "
 			+ "later pass keys on an earlier one's live flow instead (§19.5).") % [p_label, selves])
 	if dangling > 0:
-		out.append(("%s: %d selector(s) use a sim Kind with no Sim Result assigned, so they read a defined "
+		out.append(("%s: %d selector(s) use a sim Filter Type with no Sim Result assigned, so they read a defined "
 			+ "0 everywhere and gate nothing. Assign the result of the Sim that eroded this ground.")
 			% [p_label, dangling])
 	if results.size() > 1:

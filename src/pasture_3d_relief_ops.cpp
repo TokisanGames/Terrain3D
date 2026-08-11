@@ -141,24 +141,24 @@ inline double relief_selector_value(const PackedFloat32Array &p_sel, int p_sid,
 	if (b < 0 || b + RELIEF_SELECTOR_STRIDE > p_sel.size()) {
 		return 1.0;
 	}
-	const int kind = (int)p_sel[b];
-	// SLOPE and CURVATURE are the two Kinds a `measure_radius` applies to (§21.6): the same measurement,
-	// taken over a wider stencil. The radius lives on the fields, not on the sample, because it is a whole
+	const int filter_type = (int)p_sel[b];
+	// SLOPE and CURVATURE are the two filter types a `measure_radius` applies to (§21.6): the same
+	// measurement over a wider stencil. The radius lives on the fields, not the sample, because it is a whole
 	// extra grid; the sample only carries where it came from.
 	const bool measured = (double)p_sel[b + RELIEF_SELECTOR_RADIUS] > 0.0 && p_ground.fields != nullptr &&
 			p_ground.index >= 0;
 	double x = measured ? p_ground.fields->slope_for(p_sid, p_ground.index) : p_ground.slope_deg;
-	if (kind == RELIEF_SELECT_ALTITUDE) {
+	if (filter_type == RELIEF_SELECT_ALTITUDE) {
 		x = p_ground.altitude;
-	} else if (kind == RELIEF_SELECT_CURVATURE) {
+	} else if (filter_type == RELIEF_SELECT_CURVATURE) {
 		x = measured ? p_ground.fields->curvature_for(p_sid, p_ground.index) : p_ground.curvature;
-	} else if (kind == RELIEF_SELECT_FLOW) {
+	} else if (filter_type == RELIEF_SELECT_FLOW) {
 		x = p_ground.sim_flow; // already m², un-logged in relief_fields_add_sim
-	} else if (kind == RELIEF_SELECT_EROSION) {
+	} else if (filter_type == RELIEF_SELECT_EROSION) {
 		x = p_ground.sim_erosion; // already positive metres
-	} else if (kind == RELIEF_SELECT_DEPOSITION) {
+	} else if (filter_type == RELIEF_SELECT_DEPOSITION) {
 		x = p_ground.sim_deposition;
-	} else if (kind == RELIEF_SELECT_WETNESS) {
+	} else if (filter_type == RELIEF_SELECT_WETNESS) {
 		x = p_ground.sim_wetness;
 	}
 	const double lo = (double)p_sel[b + 1];

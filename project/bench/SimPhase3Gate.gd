@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Phase 3 gate L for Pasture3DSim (PASTURE3D_SIM_NODE_SPEC.md §14): the relief selector Kinds FLOW,
+# Phase 3 gate L for Pasture3DSim (PASTURE3D_SIM_NODE_SPEC.md §14): the relief selector filter types FLOW,
 # EROSION, DEPOSITION and WETNESS.
 #
 # The whole phase is one claim — "a relief material can be gated on what the erosion sim did" — so it is
@@ -10,7 +10,7 @@
 # second ships. Same discipline as bench/PlowReliefCheck.tscn's gate K, whose structure L1 borrows.
 #
 #   L1  a FLOW gate confines relief to the channels          control: strength 0 brings the ridges back
-#   L2  all four Kinds are actually wired to the evaluator   control: the admit-nothing band per Kind
+#   L2  all four filter types are wired to the evaluator          control: the admit-nothing band, per type
 #   L3  FLOW's band is in m2, NOT in log units               control: a band of plausible log values
 #   L4  EROSION reads as a POSITIVE depth                    control: the resource's own negative sign
 #   L5  outside the result's extent the gate is a defined 0  control: the same brush inside it
@@ -73,7 +73,7 @@ var _base: Array[float] = []
 ## The bin cuts, in m2, taken from the probes' own catchment distribution in _erode().
 var _channel_m2 := 0.0
 var _ridge_m2 := 0.0
-## Per-probe values of all four channels, indexed [Kind - FLOW][probe], in band units.
+## Per-probe values of all four channels, indexed [filter type - FLOW][probe], in band units.
 var _ch: Array[PackedFloat32Array] = []
 
 
@@ -90,9 +90,9 @@ func _ready() -> void:
 		print("!! this build has no sim_result_build — phases 2-3 are unbuilt, not failing")
 		_done()
 		return
-	if Pasture3DReliefSelector.Kind.size() < 7:
+	if Pasture3DReliefSelector.FilterType.size() < 7:
 		_fail += 1
-		print("!! Pasture3DReliefSelector has no sim Kinds — phase 3 is unbuilt, not failing")
+		print("!! Pasture3DReliefSelector has no sim filter types — phase 3 is unbuilt, not failing")
 		_done()
 		return
 
@@ -158,7 +158,7 @@ func _erode() -> bool:
 			_probes.append(Vector3(snappedf(SITE_SIM.x + i * PROBE_STEP, vs), 0.0,
 					snappedf(SITE_SIM.z + j * PROBE_STEP, vs)))
 	# Every channel at every probe, in the units a band is written in — the same conversion the brush
-	# does. L2 needs these to predict which probes a given Kind and band SHOULD select.
+	# does. L2 needs these to predict which probes a given filter type and band SHOULD select.
 	for k in range(4):
 		_ch.append(PackedFloat32Array())
 	for p in _probes:
@@ -169,7 +169,7 @@ func _erode() -> bool:
 		_ch[3].append(maxf(_result.sample(Pasture3DSimResult.Channel.WETNESS, p), 0.0))
 	for k in range(4):
 		print("    %-11s median %.4f | p75 %.4f | p95 %.4f | max %.4f" % [
-				_kind_name(k + Pasture3DReliefSelector.Kind.FLOW),
+				_kind_name(k + Pasture3DReliefSelector.FilterType.FLOW),
 				_pct(_ch[k], 0.50), _pct(_ch[k], 0.75), _pct(_ch[k], 0.95), _pct(_ch[k], 1.0)])
 	var sorted := _areas.duplicate()
 	sorted.sort()
@@ -213,7 +213,7 @@ func _gate_l1_flow_gates_relief() -> void:
 	var plow = _make_plow("FlowGate")
 	if plow == null:
 		return
-	var sel := _sim_selector(Pasture3DReliefSelector.Kind.FLOW, _channel_m2, 1.0e9)
+	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.FLOW, _channel_m2, 1.0e9)
 	sel.falloff_low = 0.0
 	var mat := _fractal(sel)
 	plow.relief = mat
@@ -237,15 +237,15 @@ func _gate_l1_flow_gates_relief() -> void:
 	_clear(plow)
 
 
-# --- L2: each Kind reads ITS OWN channel ----------------------------------------------------------
-# One Kind working does not mean four are wired: the value has to be sampled, converted, carried into
+# --- L2: each filter type reads ITS OWN channel ----------------------------------------------------------
+# One filter type working does not mean four are wired: the value has to be sampled, converted, carried into
 # ReliefSample and picked out again by kind id, in two implementations. A typo in any one of those
-# branches leaves that Kind reading whatever the previous branch left behind.
+# branches leaves that filter type reading whatever the previous branch left behind.
 #
 # The obvious form of this test does not work, and it is worth writing down why, because it PASSED. Bake
-# each Kind with a band admitting everything and again with one admitting nothing, and require the two to
-# differ: all four Kinds then return byte-identical numbers, because "admit everything" is the ungated
-# material whatever it reads. A Kind wired to the wrong channel passes. A Kind wired to a channel that is
+# each filter type with a band admitting everything and again with one admitting nothing, and require the
+# two to differ: all four then return byte-identical numbers, because "admit everything" is the ungated
+# material whatever it reads. A filter type wired to the wrong channel passes. One wired to a channel that is
 # CONSTANTLY ZERO passes too — and at the first site this gate used, DEPOSITION and WETNESS were exactly
 # that, so two of the four criteria were measuring a field of zeros and reporting success.
 #
@@ -255,12 +255,12 @@ func _gate_l1_flow_gates_relief() -> void:
 # halves would fail. The fixture also has to prove the channel is not flat before it can conclude
 # anything, which is what the earlier form never did.
 func _gate_l2_all_kinds_wired() -> void:
-	print("\n[L2] each Kind reads its own channel (band taken from that channel's distribution):")
+	print("\n[L2] each filter type reads its own channel (band taken from that channel's distribution):")
 	var plow = _make_plow("AllKinds")
 	if plow == null:
 		return
 	for k in range(4):
-		var kind: int = k + Pasture3DReliefSelector.Kind.FLOW
+		var kind: int = k + Pasture3DReliefSelector.FilterType.FLOW
 		var vals: PackedFloat32Array = _ch[k]
 		# The band floor: whatever value puts roughly the top 30 probes inside it. Taken from the channel
 		# rather than chosen, so the criterion adapts to a channel that is sparse (deposition, wetness)
@@ -296,10 +296,10 @@ func _gate_l2_all_kinds_wired() -> void:
 			print("      !! nothing was stamped where this channel says it should be")
 		# Correct code puts EXACTLY 0.0000 here — the falloffs are zero, so a probe outside the band gets
 		# a selector value of 0 and no relief at all. The tolerance is only for a probe sitting on the
-		# band edge, and it is deliberately far below the 0.05 that a single cross-wired Kind produced.
+		# band edge, and it is deliberately far below the 0.05 that a single cross-wired filter type produced.
 		if miss > 0.02:
 			_fail += 1
-			print("      !! relief landed where this channel says it should not; the Kind is reading")
+			print("      !! relief landed where this channel says it should not; the filter type is reading")
 			print("         something other than its own channel")
 	_clear(plow)
 
@@ -321,7 +321,7 @@ func _gate_l3_flow_band_is_area() -> void:
 		return
 	var biggest := _max_area()
 	print("    the masks' largest catchment here is %.0f m2, i.e. log %.2f" % [biggest, log(biggest)])
-	var sel := _sim_selector(Pasture3DReliefSelector.Kind.FLOW, _channel_m2, 1.0e9)
+	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.FLOW, _channel_m2, 1.0e9)
 	plow.relief = _fractal(sel)
 	var as_area := _bake_and_bin(plow)
 	print("    band %.0f..1e9 (m2):     channel %.4f m | ridge %.4f m" % [
@@ -371,7 +371,7 @@ func _gate_l4_erosion_is_positive() -> void:
 		_fail += 1
 		print("    !! the sim barely eroded; L4 has no band to test")
 		return
-	var sel := _sim_selector(Pasture3DReliefSelector.Kind.EROSION, 2.0, 1.0e9)
+	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.EROSION, 2.0, 1.0e9)
 	plow.relief = _fractal(sel)
 	var positive := _bake_mean(plow)
 	print("    band 2..1e9 (m removed): mean |relief| %.4f m" % positive)
@@ -391,7 +391,7 @@ func _gate_l4_erosion_is_positive() -> void:
 
 
 # --- L5: outside the result's extent, the gate is a defined 0 -------------------------------------
-# §9 is explicit that these Kinds must return a defined 0 outside the extent and never garbage — a
+# §9 is explicit that these filter types must return a defined 0 outside the extent and never garbage — a
 # selector reading noise off the end of a mask would be close to undiagnosable. A plow well clear of
 # anything the sim simulated must therefore stamp nothing at all with an admit-everything-positive band.
 # CONTROL: the identical brush and material inside the extent, which must stamp. Without it this passes
@@ -408,7 +408,7 @@ func _gate_l5_outside_extent() -> void:
 	if outside == null:
 		return
 	# A band that admits every value the channel can actually hold, but NOT the defined 0.
-	var sel := _sim_selector(Pasture3DReliefSelector.Kind.FLOW, 1.5, 1.0e9)
+	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.FLOW, 1.5, 1.0e9)
 	outside.relief = _fractal(sel)
 	var probes: Array[Vector3] = []
 	for i in range(-4, 5):
@@ -427,7 +427,7 @@ func _gate_l5_outside_extent() -> void:
 	var inside = _make_plow("Inside")
 	if inside == null:
 		return
-	inside.relief = _fractal(_sim_selector(Pasture3DReliefSelector.Kind.FLOW, 1.5, 1.0e9))
+	inside.relief = _fractal(_sim_selector(Pasture3DReliefSelector.FilterType.FLOW, 1.5, 1.0e9))
 	var in_mean := _bake_mean(inside)
 	print("    CONTROL the same brush inside the extent: mean |relief| %.4f m (want > 0.2)" % in_mean)
 	if in_mean < 0.2:
@@ -460,7 +460,7 @@ func _gate_l6_parity() -> void:
 	var plow = _make_plow("Parity")
 	if plow == null:
 		return
-	var sel := _sim_selector(Pasture3DReliefSelector.Kind.FLOW, _channel_m2, 1.0e9)
+	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.FLOW, _channel_m2, 1.0e9)
 	sel.sim_result = _coarse
 	plow.relief = _fractal(sel)
 	plow.force_gdscript_raster = false
@@ -495,7 +495,7 @@ func _gate_l7_no_drift() -> void:
 	var plow = _make_plow("Drift")
 	if plow == null:
 		return
-	plow.relief = _fractal(_sim_selector(Pasture3DReliefSelector.Kind.FLOW, _channel_m2, 1.0e9))
+	plow.relief = _fractal(_sim_selector(Pasture3DReliefSelector.FilterType.FLOW, _channel_m2, 1.0e9))
 	plow._refresh_owner(plow._layer_owner, false, [])
 	var first := _snapshot(_probes)
 	var moved := 0.0
@@ -521,7 +521,7 @@ func _gate_l7_no_drift() -> void:
 
 func _sim_selector(p_kind: int, p_min: float, p_max: float) -> Pasture3DReliefSelector:
 	var s := Pasture3DReliefSelector.new()
-	s.kind = p_kind
+	s.filter_type = p_kind
 	s.range_min = p_min
 	s.range_max = p_max
 	s.falloff_low = 0.0
@@ -633,9 +633,9 @@ func _min_of(p_a: PackedFloat32Array) -> float:
 
 func _kind_name(p_kind: int) -> String:
 	match p_kind:
-		Pasture3DReliefSelector.Kind.FLOW: return "FLOW"
-		Pasture3DReliefSelector.Kind.EROSION: return "EROSION"
-		Pasture3DReliefSelector.Kind.DEPOSITION: return "DEPOSITION"
+		Pasture3DReliefSelector.FilterType.FLOW: return "FLOW"
+		Pasture3DReliefSelector.FilterType.EROSION: return "EROSION"
+		Pasture3DReliefSelector.FilterType.DEPOSITION: return "DEPOSITION"
 		_: return "WETNESS"
 
 

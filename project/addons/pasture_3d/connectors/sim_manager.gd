@@ -683,7 +683,7 @@ func _start_pass(p_st: Dictionary, p_member: Dictionary) -> bool:
 	# front against z0, so a CURVATURE mask on pass 2 sees the hollows pass 1 just cut. `p_st["fields"]` is
 	# the previous pass's live flow / erosion / deposition / wetness, from the routing pass _finish_pass
 	# ran over its output — not a .res on disk, and not this node's own output, so it is not the §13 drift
-	# class. Pass 1 has no predecessor and its sim Kinds read a defined 0 everywhere (the child warns).
+	# class. Pass 1 has no predecessor and its sim Filter Types read a defined 0 everywhere (the child warns).
 	var sel := sim._selector_block(sim.erosion_mask)
 	if not sel.is_empty():
 		var field: PackedFloat32Array = terrain.data.selector_mask_field(z_in, {
@@ -776,7 +776,7 @@ func _finish_pass(p_st: Dictionary, p_member: Dictionary) -> void:
 		p_st["fields"] = _live_fields(p_st)
 
 
-## Does any pass after the current one use a sim Kind in either mask stack? If not, the inter-pass routing
+## Does any pass after the current one use a sim Filter Type in either mask stack? If not, the routing
 ## pass is a fill+route bought for nothing.
 func _later_pass_wants_fields(p_st: Dictionary) -> bool:
 	var members: Array = p_st["passes"]
@@ -784,7 +784,7 @@ func _later_pass_wants_fields(p_st: Dictionary) -> bool:
 		var sim: Pasture3DSim = members[i]["pass"]
 		for stack in [sim.erosion_mask, sim.write_mask]:
 			for s: Pasture3DReliefSelector in stack:
-				if s != null and s.is_sim_kind():
+				if s != null and s.is_sim_filter_type():
 					return true
 	return false
 

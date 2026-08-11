@@ -23,7 +23,7 @@ extends Node
 
 const DEMO_DATA := "res://demo/data"
 
-## Selector Kinds, mirroring Pasture3DReliefSelector.Kind.
+## Selector filter types, mirroring Pasture3DReliefSelector.FilterType.
 const K_SLOPE := 0
 const K_ALTITUDE := 1
 const K_CURVATURE := 2
@@ -98,39 +98,39 @@ func _done() -> void:
 	get_tree().quit(0 if _fail == 0 else 1)
 
 
-# --- BE: presets follow an untouched Kind change, and never an edited one --------------------------
+# --- BE: presets follow an untouched filter type change, and never an edited one --------------------------
 #
 # CONTROLS, both of which must fail if "untouched" is decided by the wrong comparison:
-#   1. range_min set to the INCOMING Kind's preset value. It is still an edit, because the comparison is
-#      against the OUTGOING Kind — an implementation that checks the incoming one would re-default here.
+#   1. range_min set to the INCOMING filter type's preset value. It is still an edit, because the
+#      comparison is against the OUTGOING one — an implementation checking the incoming would re-default.
 #   2. A TWO-HOP chain, SLOPE -> FLOW -> EROSION. The second hop only re-defaults if "untouched" means
-#      "still the outgoing Kind's preset"; an implementation that compares against the constructor's
+#      "still the outgoing filter type's preset"; an implementation that compares against the constructor's
 #      shipped defaults instead would freeze the band at FLOW's numbers.
 # Plus a save/load round-trip, because the preset hook fires on every `kind` assignment INCLUDING the one
 # ResourceLoader makes while deserialising, and an authored band that does not survive that is worse than
 # no presets at all.
 func _gate_be_presets() -> void:
-	print("[BE] Kind presets apply to untouched bands and never to edited ones:")
+	print("[BE] filter type presets apply to untouched bands and never to edited ones:")
 
-	# Every Kind, from a fresh selector, re-defaults to its own preset.
+	# Every filter type, from a fresh selector, re-defaults to its own preset.
 	var wrong := 0
 	for kind in range(7):
 		var s := Pasture3DReliefSelector.new()
-		s.kind = kind
+		s.filter_type = kind
 		var want: Array = Pasture3DReliefSelector.PRESETS[kind]
 		var got := _band(s)
 		if not _bands_equal(got, want):
 			wrong += 1
 			print("    !! %s got %s, preset is %s" % [KIND_NAMES[kind], got, want])
-	print("    fresh selector -> each of the 7 Kinds lands on that Kind's preset: %d wrong" % wrong)
+	print("    fresh selector -> each of the 7 filter types lands on its own preset: %d wrong" % wrong)
 	if wrong > 0:
 		_fail += 1
 
-	# ALTITUDE is the Kind that keeps today's band (§21.10 decision 1). Stated as its own check because
+	# ALTITUDE is the filter type that keeps today's band (§21.10 decision 1). Stated as its own check because
 	# "it has no preset" and "its preset is the shipped band" are different implementations with the same
-	# first hop, and only the second lets a LATER Kind change re-default.
+	# first hop, and only the second lets a LATER filter type change re-default.
 	var alt := Pasture3DReliefSelector.new()
-	alt.kind = K_ALTITUDE
+	alt.filter_type = K_ALTITUDE
 	print("    ALTITUDE keeps the shipped band: %s (want [25, 90, 10, 10, 0])" % [_band(alt)])
 	if not _bands_equal(_band(alt), [25.0, 90.0, 10.0, 10.0, 0.0]):
 		_fail += 1
@@ -139,28 +139,28 @@ func _gate_be_presets() -> void:
 	# An EDITED band survives.
 	var edited := Pasture3DReliefSelector.new()
 	edited.range_min = 40.0
-	edited.kind = K_FLOW
+	edited.filter_type = K_FLOW
 	print("    edited (range_min 40 on SLOPE) then -> FLOW: %s (want [40, 90, 10, 10, 0])" % [_band(edited)])
 	if not _bands_equal(_band(edited), [40.0, 90.0, 10.0, 10.0, 0.0]):
 		_fail += 1
-		print("    !! an edited band was overwritten by the incoming Kind's preset")
+		print("    !! an edited band was overwritten by the incoming filter type's preset")
 
-	# CONTROL 1: edited TO the incoming Kind's own preset value.
+	# CONTROL 1: edited TO the incoming filter type's own preset value.
 	var trap := Pasture3DReliefSelector.new()
 	trap.range_min = Pasture3DReliefSelector.PRESETS[K_FLOW][0] # 5000, which is FLOW's own range_min
-	trap.kind = K_FLOW
+	trap.filter_type = K_FLOW
 	var trap_band := _band(trap)
 	print("    CONTROL range_min set to FLOW's own 5000 while still SLOPE, then -> FLOW: %s" % [trap_band])
 	print("             (want [5000, 90, 10, 10, 0] — edited; a re-default would read [5000, 1e+09, 2500, 0, 0])")
 	if not _bands_equal(trap_band, [5000.0, 90.0, 10.0, 10.0, 0.0]):
 		_fail += 1
-		print("    !! 'untouched' is being decided against the INCOMING Kind, not the outgoing one")
+		print("    !! 'untouched' is being decided against the INCOMING filter type, not the outgoing one")
 
-	# CONTROL 2: two hops. The second only moves if the comparison tracks the outgoing Kind.
+	# CONTROL 2: two hops. The second only moves if the comparison tracks the outgoing filter type.
 	var chain := Pasture3DReliefSelector.new()
-	chain.kind = K_FLOW
+	chain.filter_type = K_FLOW
 	var mid := _band(chain)
-	chain.kind = K_EROSION
+	chain.filter_type = K_EROSION
 	var end_band := _band(chain)
 	print("    CONTROL two hops SLOPE -> FLOW %s -> EROSION %s" % [mid, end_band])
 	if not _bands_equal(mid, Pasture3DReliefSelector.PRESETS[K_FLOW]):
@@ -173,7 +173,7 @@ func _gate_be_presets() -> void:
 	# A hand-tuned band survives being written to disk and read back — the preset hook fires on the `kind`
 	# assignment ResourceLoader makes too.
 	var authored := Pasture3DReliefSelector.new()
-	authored.kind = K_CURVATURE
+	authored.filter_type = K_CURVATURE
 	authored.range_min = 0.6
 	authored.range_max = 3.0
 	authored.falloff_low = 0.05
@@ -190,10 +190,66 @@ func _gate_be_presets() -> void:
 	else:
 		print("    save/load round-trip of a hand-tuned CURVATURE band: %s (want %s)" % [
 				_band(back), _band(authored)])
-		if back.kind != K_CURVATURE or not _bands_equal(_band(back), _band(authored)):
+		if back.filter_type != K_CURVATURE or not _bands_equal(_band(back), _band(authored)):
 			_fail += 1
 			print("    !! the preset hook ate an authored band while ResourceLoader was setting `kind`")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+	# The property was called `kind` until it was renamed to `filter_type`. Godot DISCARDS a stored
+	# property it cannot find, so without a migration every selector authored before the rename would come
+	# back as Slope — the default, and so the one wrong answer that looks like nothing happened. This
+	# writes the pre-rename format BY HAND (a `kind = 3` line, exactly what the shipped .tres files hold)
+	# rather than trusting a fixture the new code produced.
+	var legacy_path := "user://phase65_selector_legacy.tres"
+	var f := FileAccess.open(legacy_path, FileAccess.WRITE)
+	if f == null:
+		_fail += 1
+		print("    !! could not write the pre-rename fixture; the migration is untested")
+	else:
+		f.store_string("[gd_resource type=\"Resource\" script_class=\"Pasture3DReliefSelector\" "
+			+ "load_steps=2 format=3]
+
+"
+			+ "[ext_resource type=\"Script\" path=\"res://addons/pasture_3d/connectors/relief_selector.gd\" "
+			+ "id=\"1_sel\"]
+
+"
+			+ "[resource]
+script = ExtResource(\"1_sel\")
+kind = 3
+range_min = 2000.0
+"
+			+ "range_max = 1e+09
+falloff_low = 1500.0
+falloff_high = 0.0
+invert = false
+"
+			+ "strength = 1.0
+")
+		f.close()
+		var legacy: Pasture3DReliefSelector = ResourceLoader.load(legacy_path, "",
+				ResourceLoader.CACHE_MODE_IGNORE)
+		if legacy == null:
+			_fail += 1
+			print("    !! the pre-rename fixture did not load at all")
+		else:
+			print(("    a pre-rename resource (`kind = 3`, a hand-tuned FLOW band) loads as filter_type %d "
+					+ "with band %s") % [legacy.filter_type, _band(legacy)])
+			if legacy.filter_type != K_FLOW:
+				_fail += 1
+				print("    !! the rename silently reverted an authored selector to Slope")
+			if not _bands_equal(_band(legacy), [2000.0, 1.0e9, 1500.0, 0.0, 0.0]):
+				_fail += 1
+				print("    !! the band did not survive the migration")
+			# CONTROL: a property that never existed must still be refused, or `_set` is swallowing
+			# everything and the migration above would pass no matter what it did.
+			var fresh := Pasture3DReliefSelector.new()
+			var refused: bool = not fresh._set(&"no_such_property", 7)
+			print("    CONTROL an unknown property is still refused: %s (want true)" % refused)
+			if not refused:
+				_fail += 1
+				print("    !! _set accepts anything, so the migration result means nothing")
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(legacy_path))
 
 
 # --- BF: curvature is metres of deviation, and measure_radius reaches SLOPE too --------------------
@@ -320,19 +376,19 @@ func _gate_bf_curvature_and_radius() -> void:
 		print("    !! the sandwich is insensitive; the bitwise result above proves nothing")
 
 
-# --- BG: every Kind's preset selects a useful fraction of real ground ------------------------------
+# --- BG: every filter type's preset selects a useful fraction of real ground ------------------------------
 #
-# §21.5's audit turned into a standing check. One solve at the SHIPPED solver defaults, then each Kind's
-# shipped band over that solve's own ground.
+# §21.5's audit turned into a standing check. One solve at the SHIPPED solver defaults, then each filter
+# type's shipped band over that solve's own ground.
 #
-# CONTROL: the 25-90 band this phase replaces, over the same ground, which must fail for the Kinds §21.5
-# measured at 0.0% and for SLOPE at the other end.
+# CONTROL: the 25-90 band this phase replaces, over the same ground, which must fail for the filter types
+# §21.5 measured at 0.0% and for SLOPE at the other end.
 #
 # THE FIXTURE IS REPORTED FIRST, because a preset selecting 0% of an empty field says nothing about the
 # preset. Deposition in particular is identically zero on steep ground with a large catchment (§21.5), so
 # a fixture that fails to produce any is a broken fixture and is failed as one, not silently passed.
 func _gate_bg_preset_coverage() -> void:
-	print("\n[BG] every Kind's preset selects between %.0f%% and %.0f%% of real ground:" % [
+	print("\n[BG] every filter type's preset selects between %.0f%% and %.0f%% of real ground:" % [
 			100.0 * BG_MIN_FRACTION, 100.0 * BG_MAX_FRACTION])
 	var z0 := _bg_fixture()
 	# NOTE the solver's dict key is "diffusion"; the NODE property is `hillslope_diffusion`. Passing the
@@ -376,7 +432,7 @@ func _gate_bg_preset_coverage() -> void:
 		res.deposition[i] = maxf(d, 0.0)
 		res.wetness[i] = maxf(lake[i], 0.0)
 
-	# The fixture, in the units a band is written in — the gate's own reference for every Kind.
+	# The fixture, in the units a band is written in — the gate's own reference for every filter type.
 	var refs := {
 		K_SLOPE: _slope_field(z1, SIM_W, SIM_CELL),
 		K_ALTITUDE: z1,
@@ -409,7 +465,7 @@ func _gate_bg_preset_coverage() -> void:
 		var preset := _sel(kind, p[0], p[1], p[2], p[3], p[4])
 		preset.sim_result = res
 		var frac := _fraction(_field(z1, SIM_W, SIM_CELL, [preset], res), 0.5)
-		# CONTROL: the band this phase replaces, on the same Kind and the same ground.
+		# CONTROL: the band this phase replaces, on the same filter type and the same ground.
 		var old := _sel(kind, 25.0, 90.0, 10.0, 10.0, 0.0)
 		old.sim_result = res
 		var old_frac := _fraction(_field(z1, SIM_W, SIM_CELL, [old], res), 0.5)
@@ -426,7 +482,7 @@ func _gate_bg_preset_coverage() -> void:
 	if bad > 0:
 		_fail += 1
 		print("    !! %d preset(s) are outside the usable band; §21.5's audit has rotted" % bad)
-	print(("    CONTROL the 25-90 band fails on %d of the 7 Kinds (want at least 3 — §21.5 measured "
+	print(("    CONTROL the 25-90 band fails on %d of the 7 filter types (want at least 3 — §21.5 measured "
 			+ "CURVATURE, WETNESS and DEPOSITION at 0.0%% and SLOPE at 93.7%%)") % control_failures)
 	if control_failures < 3:
 		_fail += 1
@@ -444,7 +500,7 @@ func _gate_bh_inverted_band() -> void:
 	var mat := Pasture3DReliefFractal.new()
 	mat.feature_size = 20.0
 	var sel := Pasture3DReliefSelector.new()
-	sel.kind = K_SLOPE
+	sel.filter_type = K_SLOPE
 	sel.range_min = 60.0
 	sel.range_max = 20.0 # inverted
 	sel.falloff_low = 0.0
@@ -533,12 +589,12 @@ func _noisy_ramp(p_w: int, p_cell: float, p_grade: float, p_amp: float) -> Packe
 ## BG's ground before the solve: a plateau, an escarpment and a plain, with two basins in the plain.
 ##
 ## THE SHAPE IS THE FIXTURE'S WHOLE JOB, and it took several tries. A single tilted hillside makes every
-## Kind ask about the same ground: everything is steep, so everything erodes, and the deposition and
+## filter type ask about the same ground: everything is steep, so everything erodes, and the deposition and
 ## wetness channels come back identically zero (§21.5 saw the same thing on the demo site). Three zones
-## give the seven Kinds somewhere different to look — flat ground that deposits and floods, steep ground
-## that incises, and a channel network with real catchments in between.
+## give the seven filter types somewhere different to look — flat ground that deposits and floods, steep
+## ground that incises, and a channel network with real catchments in between.
 ##
-## The altitude span is a FIXTURE CHOICE and is reported as one: ALTITUDE is the Kind with no derivable
+## The altitude span is a FIXTURE CHOICE and is reported as one: ALTITUDE is the filter type with no derivable
 ## preset (§21.10 decision 1), so BG asks whether the shipped 25-90 m band is usable on a map of this
 ## size, not whether it is universal.
 func _bg_fixture() -> PackedFloat32Array:
@@ -694,7 +750,8 @@ func _curvature_field(p_z: PackedFloat32Array, p_w: int, p_radius: float,
 func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float,
 		p_radius: float) -> Pasture3DReliefSelector:
 	var s := Pasture3DReliefSelector.new()
-	s.kind = p_kind # first: a Kind change re-defaults an untouched band (§21.5), so everything else follows
+	# First: a filter type change re-defaults an untouched band (§21.5), so everything else follows it.
+	s.filter_type = p_kind
 	s.range_min = p_lo
 	s.range_max = p_hi
 	s.falloff_low = p_f_lo

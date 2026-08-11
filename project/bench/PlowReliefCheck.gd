@@ -608,7 +608,7 @@ func _gate_k_slope_selector() -> void:
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 20.0
 	var sel := Pasture3DReliefSelector.new()
-	sel.kind = Pasture3DReliefSelector.Kind.SLOPE
+	sel.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
 	sel.range_min = STEEP_DEG
 	sel.range_max = 90.0
 	sel.falloff_low = 8.0
@@ -744,7 +744,7 @@ func _gate_m_phase3_parity() -> void:
 	rock.style = Pasture3DReliefFractal.Style.CRAGGY
 	rock.feature_size = 22.0
 	var high := Pasture3DReliefSelector.new()
-	high.kind = Pasture3DReliefSelector.Kind.ALTITUDE
+	high.filter_type = Pasture3DReliefSelector.FilterType.ALTITUDE
 	high.range_min = -10000.0
 	high.range_max = 10000.0
 	rock.selector = high
@@ -762,7 +762,7 @@ func _gate_m_phase3_parity() -> void:
 	wide.feature_size = 30.0
 	wide.blend = Pasture3DReliefMaterial.Blend.ADD
 	var over12 := Pasture3DReliefSelector.new()
-	over12.kind = Pasture3DReliefSelector.Kind.SLOPE
+	over12.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
 	over12.range_min = 18.0
 	over12.range_max = 90.0
 	over12.falloff_low = 6.0
@@ -826,7 +826,7 @@ func _gate_n_profile_ops_are_gated() -> void:
 	mat.hardness = 0.75
 	mat.dip = 0.25
 	var sel := Pasture3DReliefSelector.new()
-	sel.kind = Pasture3DReliefSelector.Kind.SLOPE
+	sel.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
 	sel.range_min = 25.0
 	sel.range_max = 90.0
 	sel.falloff_low = 10.0

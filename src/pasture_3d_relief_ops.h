@@ -53,17 +53,18 @@ constexpr int RELIEF_CURVE_LUT_N = 256; // samples per baked Curve, one contiguo
 // Hollow depth, in metres over one cell, at which SCREE's toe deposition reaches full strength. Sync with
 // Pasture3DReliefMaterial.SCREE_TOE_FULL_M — see the note on relief_scree.
 constexpr double RELIEF_SCREE_TOE_FULL_M = 0.25;
-// [kind, min, max, falloff_lo, falloff_hi, invert, strength, measure_radius]. The eighth float was the
-// reserved slot until §21.6 spent it on the measurement radius; the stride is unchanged.
+// [filter_type, min, max, falloff_lo, falloff_hi, invert, strength, measure_radius]. The eighth float was
+// the reserved slot until §21.6 spent it on the measurement radius; the stride is unchanged.
 constexpr int RELIEF_SELECTOR_STRIDE = 8;
 constexpr int RELIEF_SELECTOR_RADIUS = 7; // slot of `measure_radius`, in METRES; 0 = one cell
 
-// Selector kinds — sync with Pasture3DReliefSelector.Kind.
+// Selector filter types — sync with Pasture3DReliefSelector.FilterType. (The GDScript property was
+// called `kind` until it was renamed for legibility; the ids and the wire slot are unchanged.)
 //
 // 0-2 read the ground's own shape. 3-6 read a Pasture3DSimResult, i.e. what the erosion sim did here
 // (PASTURE3D_SIM_NODE_SPEC.md §9). Each is in the units an artist would type into the band, which for
 // two of them is NOT the unit the resource stores — see ReliefSample below.
-enum ReliefSelectorKind {
+enum ReliefSelectorFilterType {
 	RELIEF_SELECT_SLOPE = 0, // degrees
 	RELIEF_SELECT_ALTITUDE = 1, // world metres
 	RELIEF_SELECT_CURVATURE = 2, // METRES of deviation over measure_radius; positive = hollow (§21.6)

@@ -28,8 +28,8 @@ Phases 1–4 ship as:
 | [bench/SimPhase2Gate.tscn](project/bench/SimPhase2Gate.gd) | Gates P–X, all passing with their controls | 2 |
 | [bench/SimFieldProbe.tscn](project/bench/SimFieldProbe.gd) | Hillshade diagnostic — what the solver actually produces, synthetic and on the demo terrain | 1 |
 | [bench/SimResultProbe.tscn](project/bench/SimResultProbe.gd) | The same for the masks: one image per channel, plus an RGB composite showing the three occupy different ground | 2 |
-| [pasture_3d_relief_ops.h](src/pasture_3d_relief_ops.h) / [.cpp](src/pasture_3d_relief_ops.cpp) | The four sim selector Kinds, the `ReliefSample` fields they read, and `relief_fields_add_sim` | 3 |
-| [connectors/relief_selector.gd](project/addons/pasture_3d/connectors/relief_selector.gd) | `Kind.FLOW/EROSION/DEPOSITION/WETNESS` and the `sim_result` reference | 3 |
+| [pasture_3d_relief_ops.h](src/pasture_3d_relief_ops.h) / [.cpp](src/pasture_3d_relief_ops.cpp) | The four sim selector filter types, the `ReliefSample` fields they read, and `relief_fields_add_sim` | 3 |
+| [connectors/relief_selector.gd](project/addons/pasture_3d/connectors/relief_selector.gd) | `FilterType.FLOW/EROSION/DEPOSITION/WETNESS` and the `sim_result` reference | 3 |
 | [connectors/plow.gd](project/addons/pasture_3d/connectors/plow.gd) | Resolving the result off the material tree, resampling it onto the bake grid, and the four warnings | 3 |
 | [demo/data/relief/channel_boulders.tres](project/demo/data/relief/channel_boulders.tres) | The demo preset: gravel that only appears where more than 2 000 m² drains through | 3 |
 | [bench/SimPhase3Gate.tscn](project/bench/SimPhase3Gate.gd) | Gate L (L1–L7), all passing with their controls | 3 |
@@ -105,7 +105,7 @@ toes; full sediment transport is the Yuan et al. 2019 extension, deferred to §1
 | Question | Decision | Consequence |
 |---|---|---|
 | Is Sim a relief *source*? | **No — a transform.** | Erosion reads the existing heightfield and modifies it; relief materials are point generators. Sim writes a delta into its own layer, like a brush. |
-| How does it integrate? | **Through selectors.** | Sim's masks are more per-cell fields of the shape `ReliefSample` already carries. Four new Kinds. §9. |
+| How does it integrate? | **Through selectors.** | Sim's masks are more per-cell fields of the shape `ReliefSample` already carries. Four new filter types. §9. |
 | Water source | **Sim seeds its own.** No coupling to authored `Pasture3DPool` / `Stream`. | Authored water is untouched. Sim can instead *generate* bodies (§10). |
 | Uplift | **None — `U = 0`.** | Cordonnier and Schott author *in the uplift domain*, growing mountains from scratch. Pasture3D already has brushes for the big shapes; Sim erodes what is there. This is a real departure from the papers and simplifies the model. |
 | Live or explicit? | **Explicit bake only.** | §12. |
@@ -449,16 +449,16 @@ raw-tile application and the deferred-composite path. Blend `ADD` — Sim writes
 
 ## 9. Selector integration (phase 3 — the priority payoff) — DONE
 
-`Pasture3DReliefSelector.Kind` gains:
+`Pasture3DReliefSelector.FilterType` gains:
 
-| Kind | Reads | Enables |
+| Filter Type | Reads | Enables |
 |---|---|---|
 | `FLOW` | `SimResult.flow` | Boulders and roughness only in channels; scales with catchment size. |
 | `EROSION` | `SimResult.erosion` | Expose bedrock strata where material was stripped. |
 | `DEPOSITION` | `SimResult.deposition` | Silt relief on valley floors. |
 | `WETNESS` | `SimResult.wetness` | Basin bottoms and lakebeds treated differently from dry ground. |
 
-The selector gains a `sim_result: Pasture3DSimResult` reference, used only for these Kinds. The plow
+The selector gains a `sim_result: Pasture3DSimResult` reference, used only for these filter types. The plow
 samples it in world space — the resource carries its own extent and cell size, so it resamples
 independently of the terrain grid — and adds the value to `ReliefSample`, which already exists and
 already reaches both evaluators.
@@ -466,10 +466,10 @@ already reaches both evaluators.
 **No change to the op program, the wire format, or the material contract:** four enum values, four struct
 fields, one bilinear sample.
 
-> Outside the result's extent, or with no resource assigned, these Kinds must return a **defined 0** and
+> Outside the result's extent, or with no resource assigned, these filter types must return a **defined 0** and
 > the plow must raise a configuration warning. Silent garbage here would be very hard to diagnose.
 
-> **Built.** Four Kinds, four `ReliefSample` fields, one bilinear sample — as designed, and with no
+> **Built.** Four filter types, four `ReliefSample` fields, one bilinear sample — as designed, and with no
 > change to the op program, the wire format or the material contract. What the design did not say:
 >
 > **The reference is on the SELECTOR, as specified, but a bake takes ONE result.** The brush resolves it
@@ -485,13 +485,13 @@ fields, one bilinear sample.
 > that must agree — `Pasture3DPlow._sim_fields` and `relief_fields_add_sim` — which is what gate L6 is
 > for.
 >
-> **`_needs_terrain_fields` already covers the sim Kinds**, since a sim selector is still a selector; the
+> **`_needs_terrain_fields` already covers the sim filter types**, since a sim selector is still a selector; the
 > sim grids are added to the same `ReliefFields` the slope and curvature grids live in, and are built
-> only when a sim Kind is actually present. Four extra float grids over the bake area is not a cost to
+> only when a sim filter type is actually present. Four extra float grids over the bake area is not a cost to
 > pay for a slope gate.
 >
 > **Four configuration warnings**, because §9's "silent garbage here would be very hard to diagnose" is
-> the whole risk of this phase: a sim Kind in use with no result assigned; a result that is empty (the
+> the whole risk of this phase: a sim filter type in use with no result assigned; a result that is empty (the
 > Sim was never run, or was cleared); a result that does not cover the brush's whole loop; and several
 > different results in one material. "The material stamped nothing" and "the mask is missing" look
 > identical on the terrain and have completely different fixes.
@@ -680,7 +680,7 @@ escape hatch is intact: `Pasture3DGPURaster` can still be generalised into a sha
   whenever the loop's footprint hash differs from the one recorded at bake time.
 - Long runs report progress and are cancellable; the repo has form on editor freezes
   ([PASTURE3D_TAB_SWITCH_FREEZE_SPEC.md](PASTURE3D_TAB_SWITCH_FREEZE_SPEC.md)).
-- Warnings: area changed since last bake · no regions under the loop · a sim selector Kind is in use with
+- Warnings: area changed since last bake · no regions under the loop · a sim selector filter type is in use with
   no `SimResult` assigned · erodability map assigned but the area has no regions to map it onto.
 
 > **Built — where each warning lives.** The Sim's own are on `Pasture3DSim`; the sim-selector ones are on
@@ -789,14 +789,14 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 |---|---|
 | **1 — DONE** | Flow routing + depression fill + drainage area + implicit incision + hillslope diffusion; erodability map; preview/build resolutions; catchment margin + mask; `apply_sim_block`; Preview / Simulate / Clear UX |
 | **2 — DONE** | `Pasture3DSimResult` with all four channels, written on every Preview and Simulate; the multi-loop merge; source-parameter recording (§15.4); the shared-layer overlap warning (§15.7) |
-| **3 — DONE** | Selector Kinds `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; the unit conversions that make their bands artist-readable; four configuration warnings; `channel_boulders.tres`, a demo preset pairing an eroded area with a flow-gated relief material |
+| **3 — DONE** | Selector filter types `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS`; the unit conversions that make their bands artist-readable; four configuration warnings; `channel_boulders.tres`, a demo preset pairing an eroded area with a flow-gated relief material |
 | **4 — DONE** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
-| **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's Kinds, units and falloff semantics; no solver change |
+| **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's filter types, units and falloff semantics; no solver change |
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DONE** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Clustered by margin-grown loop boxes, with a cell budget that REFUSES rather than coarsening; per-pass mask re-evaluation; one `SimResult`; one water extraction. Retires §5's seam limitation **for the solve** — adjacent loops must still overlap, or the per-pass falloff leaves a ridge at the join (§19) |
-| **6.5 — HALF DONE (§21)** | Two independent halves. **The selector half is DONE** (§21.5, §21.6, gates BE–BH): per-Kind presets that follow a Kind change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half is still DESIGNED** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass`, per-pass Sim Results and build-through. The two share no code — the selector work touched neither the manager nor the chain — which is why they land separately |
+| **6.5 — HALF DONE (§21)** | Two independent halves. **The selector half is DONE** (§21.5, §21.6, gates BE–BH): per-filter-type presets that follow a filter type change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half is still DESIGNED** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass`, per-pass Sim Results and build-through. The two share no code — the selector work touched neither the manager nor the chain — which is why they land separately |
 | **7 — DESIGNED (§20)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §20.6) |
-| **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every Kind returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
+| **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every filter type returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
 ### Gates
 
@@ -816,7 +816,7 @@ must distinguish "measured nothing" from "measured correctly".
 | I | **Deterministic.** Two runs, same params → bitwise identical. | Introduce a set iteration order dependent on hash ordering → differs. |
 | J | **Preview agrees with build on large-scale structure.** Low-frequency delta matches within tolerance. | Compare high-frequency content → they differ, as expected; the gate must test the claim actually made. |
 | K | **Erosion is monotone where diffusion is off.** With `D = 0`, no cell rises. | Enable diffusion → some cells rise, confirming the gate is sensitive to the thing it measures. |
-| L | *(phase 3)* **Sim selectors gate.** Seven criteria, because one claim about a gate is not seven. **L1** a `FLOW`-gated material appears in channels, not on ridges. **L2** each Kind reads its OWN channel. **L3** a `FLOW` band is in m², not log units. **L4** an `EROSION` band is a positive depth. **L5** outside the extent the gate is a defined 0. **L6** the two raster paths agree. **L7** a sim-gated bake does not drift. | L1 selector `strength = 0` → covers everything. L2 the band predicted from each channel's own distribution — relief off those cells is a failure. L3 a band of plausible LOG values, which must not light the channels. L4 the resource's own negative sign, which must select nothing. L5 the same brush inside the extent. L6 the relief is not flat. L7 L1 already proved the bake is not a no-op. |
+| L | *(phase 3)* **Sim selectors gate.** Seven criteria, because one claim about a gate is not seven. **L1** a `FLOW`-gated material appears in channels, not on ridges. **L2** each filter type reads its OWN channel. **L3** a `FLOW` band is in m², not log units. **L4** an `EROSION` band is a positive depth. **L5** outside the extent the gate is a defined 0. **L6** the two raster paths agree. **L7** a sim-gated bake does not drift. | L1 selector `strength = 0` → covers everything. L2 the band predicted from each channel's own distribution — relief off those cells is a failure. L3 a band of plausible LOG values, which must not light the channels. L4 the resource's own negative sign, which must select nothing. L5 the same brush inside the extent. L6 the relief is not flat. L7 L1 already proved the bake is not a no-op. |
 | M | *(phase 4)* **The node-level bookkeeping gate.** **M1** Clear removes exactly the generated set; a hand-placed Pond and Trough survive. **M2** every generated river arrives with water on it. **M3** a generated brush is placed ON the feature it came from — node at the feature's centre, spline retracing the channel in XZ. **M4** everything the Sim parents to itself is exempt from the structural-edit refresh, and Preview Water Features draws one line strip per extracted feature. **M5** no generated brush reaches outside the loop the Sim writes. | M1 identify generated nodes by name → the authored ones are destroyed. M2 the authored Trough must be dry, or "generated rivers have water" is not measuring the pool path. M3 the same points read as if unplaced, which must be hundreds of metres out — otherwise the site is at the origin and placement is untestable there. M4 the Sim's own spline, which must NOT be exempt, or the exemption is blanket. M5 the extraction before the clip, which must reach outside — otherwise the site has no margin drainage and the claim is empty. Containment is answered with `Geometry2D`, not with the Sim's own predicate. |
 | N | *(phase 4)* **Confluences split.** A synthetic Y-shaped catchment yields three segments, and they PARTITION the channel — summed cell counts exceed the channel cell count only by the junction. | The total a source-to-outlet walk would have produced, computed from the measured trunk length. The count alone is not enough: source-to-outlet also yields three here. |
 | O | *(phase 4)* **Extraction is monotonic.** Raising `river_area_threshold` never increases the channel cell count or the link count. | The counts must actually move across the sweep, or monotonicity is trivially true. |
@@ -942,7 +942,7 @@ both paths.
 | # | Measured | Control |
 |---|---|---|
 | L1 | Mean \|relief\| 2.69 m in the channel bin, **0.0000 m** on the ridges | `strength = 0` → ridges back to 2.68 m |
-| L2 | Each Kind's own band selects its own 30 predicted cells (2.4–2.7 m) and stamps **0.0000 m** on the other 1 651 | Cross-wiring one Kind to another channel → 1.10 m on the predicted cells and 0.053 m off them |
+| L2 | Each filter type's own band selects its own 30 predicted cells (2.4–2.7 m) and stamps **0.0000 m** on the other 1 651 | Cross-wiring one filter type to another channel → 1.10 m on the predicted cells and 0.053 m off them |
 | L3 | An `m²` band of 184…1e9 gives 2.69 m in the channels | The same numbers read as log units (8…13) → **0.0000 m** in the channels while still stamping 0.41 m elsewhere, so the band is live and simply selecting the wrong population |
 | L4 | A band of 2…1e9 m removed gives 2.36 m | The resource's own sign, −1e9…−2 → 0.0000 m |
 | L5 | A brush clear of the extent stamps **0.000000 m** | The same brush and band inside it → 2.59 m |
@@ -952,10 +952,10 @@ both paths.
 **Two of these criteria were vacuous in their first form, and both were caught by disbelieving a clean
 result rather than by a control.** The pattern from phase 1 repeated exactly.
 
-1. **L2's first form** baked each Kind with a band admitting everything, then one admitting nothing, and
-   required the two to differ. All four Kinds returned *byte-identical* numbers — which is the tell:
-   "admit everything" is the ungated material whatever it reads. It passes for a Kind wired to the wrong
-   channel, and it passes for a Kind wired to a channel that is **constantly zero** — and at the site the
+1. **L2's first form** baked each filter type with a band admitting everything, then one admitting nothing, and
+   required the two to differ. All four filter types returned *byte-identical* numbers — which is the tell:
+   "admit everything" is the ungated material whatever it reads. It passes for a filter type wired to the wrong
+   channel, and it passes for a filter type wired to a channel that is **constantly zero** — and at the site the
    gate first used, `DEPOSITION` and `WETNESS` were exactly that, so half the criterion was measuring a
    field of zeros and reporting success. The fix was to read each channel out of the resource in the
    gate, take the band from *that channel's own distribution*, and require the relief to land on the
@@ -974,7 +974,7 @@ failed. Dropping the `exp()` from the native path only — one line — flipped 
 the m² band selected **nothing** while the log band lit up the channels, which is precisely the
 inversion the criterion was built around. It took L1, L2's FLOW row, L6 and L7 with it. Cross-wiring
 `DEPOSITION` to the wetness channel failed L2's deposition row alone, leaving the other three passing —
-the per-Kind discrimination the first form never had.
+the per-filter-type discrimination the first form never had.
 
 ### Gate results (phase 4, all passing)
 
@@ -1099,7 +1099,7 @@ own authored basins rather than anything the sim made. The channel table in §8.
     which is what keeps it from feeding its own relief into its own mask and drifting (§13,
     `relief_selector.gd`). For a Plow over existing terrain that is exactly right. For a **Mound**, the
     ground below its layer is whatever it was placed on — often flat — so slope ≡ 0, curvature ≡ 0 and
-    altitude ≡ one constant, every Kind returns the same uniform weight, and *"craggy on the flanks,
+    altitude ≡ one constant, every filter type returns the same uniform weight, and *"craggy on the flanks,
     smooth on top"* — the most natural thing to want on a hill — is not expressible at all.
 
     The mask preview is what made this visible: a uniform red wash over a Mound is the overlay correctly
@@ -1203,7 +1203,7 @@ the manager (§19) rather than after.
 ### 17.2 What a mask is
 
 An **array** of `Pasture3DReliefSelector`, combined by **multiply**, and multiplied again into whatever
-`erodability_map` contributes. Reusing the phase-3 resource verbatim means the Kinds, the units, the
+`erodability_map` contributes. Reusing the phase-3 resource verbatim means the filter types, the units, the
 `falloff_low` / `falloff_high` band edges, `invert` and `strength` all mean here exactly what they mean on
 a Plow or a Mound, and `to_params()`
 ([relief_selector.gd:116](project/addons/pasture_3d/connectors/relief_selector.gd:116)) is already the
@@ -1253,7 +1253,7 @@ sim_mask_field(z, cell_size, min_x, min_z, gw, gh, selectors, sim_fields) -> Pac
 ```
 
 reusing the slope / curvature / altitude derivations the relief evaluator already has and the
-`relief_fields_add_sim` conversions for the four sim Kinds. The alternative — capping the mask at 256²
+`relief_fields_add_sim` conversions for the four sim filter types. The alternative — capping the mask at 256²
 like the erodability LUT — is the fallback if the native work slips, and it must then say in the tooltip
 that a `SLOPE` mask so capped measures steepness over multi-metre baselines and under-reports fine slope.
 
@@ -1266,7 +1266,7 @@ are measured over 4× longer baselines. **A "steep only" mask therefore passes l
 on the build**, and a curvature mask smooths out. Say so in the tooltip; do not add a per-resolution
 correction factor, which would be the same fudge §6 already declined.
 
-### 17.6 The sim Kinds on a standalone Sim
+### 17.6 The sim filter types on a standalone Sim
 
 `FLOW` / `EROSION` / `DEPOSITION` / `WETNESS` read a `Pasture3DSimResult`. Three cases, and only one of
 them is a bug:
@@ -1282,7 +1282,7 @@ them is a bug:
   than implying the combination is illegal.
 
   > **Built, and the refusal now knows about the manager.** Under a `Pasture3DSimManager`,
-  > `_self_references` returns false: there is nothing to refuse, because a pass's sim Kinds read the
+  > `_self_references` returns false: there is nothing to refuse, because a pass's sim filter types read the
   > previous pass's live fields rather than any resource, and this node's own `sim_result` is ignored
   > entirely (§19.9 departure 4). The phase-5 warning above now points at the manager instead of at a
   > future phase. Gate AL measures the idiom working; gate AG still measures the refusal for a standalone
@@ -1306,7 +1306,7 @@ Lettering continues at **AA** (§14).
 | # | Criterion | Control that must fail |
 |---|---|---|
 | AA | **The rate mask gates incision.** A `SLOPE`-masked bake differs from the unmasked bake *only* where the band passes; inside the band the delta is scaled by the mask weight. | `strength = 0` → bitwise identical to unmasked. And the unmasked-vs-masked pair must differ at all, or the fixture has no ground inside the band and the criterion is empty. |
-| AB | **Each Kind reads its own field.** Mirrors L2: a band predicted from each Kind's own distribution over the fixture. | Relief drawn from any *other* Kind's cells is a failure, exactly as in L2. |
+| AB | **Each filter type reads its own field.** Mirrors L2: a band predicted from each filter type's own distribution over the fixture. | Relief drawn from any *other* filter type's cells is a failure, exactly as in L2. |
 | AC | **Selectors combine by product.** Two selectors together gate the intersection, scaled as the product of their weights. | Either selector alone, which must NOT reproduce the pair — otherwise the combiner is `min`, `last-wins`, or ignoring one. |
 | AD | **The write mask does not change the solve.** With the same selector on `write_mask`, the `flow` field is bitwise identical to the unmasked run while the committed delta is not. | The same selector moved to `erosion_mask`, where `flow` MUST change. This is the criterion that proves §17.3's two properties are actually two. |
 | AE | **Masking is idempotent.** Gate H re-run with both masks populated: re-running reproduces the surface to 0.000000 m. | H's own control — seed from the finished composite and it drifts. |
@@ -1326,7 +1326,7 @@ answer.
 | # | Measured | Control |
 |---|---|---|
 | AA | Band splits the fixture 49/51. Mean \|delta\| **outside** the band falls from 20.63 m unmasked to **0.38 m** masked; **inside** it holds at 29.34 → 29.47 m | `strength = 0` reproduces the unmasked solve to **0.000000000 m** — bitwise. Masked vs unmasked differ by 60.86 m, so the criterion is not comparing two identical runs |
-| AB | All seven Kinds: **100.0%** of the passing cells are in that Kind's own top decile | Best impostor scores 0.0–11.6% against the owner's 100%. `FLOW`'s best impostor scores 0.0% |
+| AB | All seven filter types: **100.0%** of the passing cells are in that filter type's own top decile | Best impostor scores 0.0–11.6% against the owner's 100%. `FLOW`'s best impostor scores 0.0% |
 | AC | max \|AB − A·B\| = **8.0e-8** over 16 384 cells, 5 919 of them at partial weight | \|AB − A\| 0.82, \|AB − B\| 1.00, **\|AB − min(A,B)\| 0.24** — the last is what rules out `min` |
 | AD | `write_mask`: flow field **0.000000000** different, heights moved **7.14 m** | The same selector on `erosion_mask` moves the flow field by 10.06 — so the two masks are demonstrably not the same thing |
 | AE | Both stacks populated, bands split the site at its own median altitude. Bake moves 10.22 m; re-run drift **0.000000000 m** | Clearing the mask moves the surface 21.92 m |
@@ -1341,7 +1341,7 @@ catches it:**
 | `_self_references` returns false | AG only, **both** legs |
 | The node never composes the erosion mask | AD's control, AE's control, AG's control — the three that guard the node wiring, and nothing else |
 | Selectors combined by `min` | AC only, both legs |
-| `relief_fields_add_sim` never called | AB's four sim Kinds and AF — and none of the ground Kinds |
+| `relief_fields_add_sim` never called | AB's four sim filter types and AF — and none of the ground filter types |
 | `write_mask` ignored in `sim_mask_deltas` | AD only |
 
 > **Two criteria were vacuous and the break tests found them, not the pass.** AG's "the surface is
@@ -1711,8 +1711,8 @@ pass's input is a deterministic function of one below-layer read, so a re-run re
 exactly. Gate AM measures it; gate AL proves the re-evaluation is really happening, with "evaluate once up
 front" as the control.
 
-**The sim Kinds read the previous pass's live fields**, from the zero-iteration routing pass `_diagnose()`
-already performs, not from a `.res` on disk. Pass 1 has no predecessor: its sim Kinds read a defined 0
+**The sim filter types read the previous pass's live fields**, from the zero-iteration routing pass `_diagnose()`
+already performs, not from a `.res` on disk. Pass 1 has no predecessor: its sim filter types read a defined 0
 everywhere and the manager warns, exactly as §9 does outside a result's extent. Nothing is invented.
 
 **Not per iteration.** Re-evaluating inside the solve would be the fully coupled version — slope changes
@@ -1833,7 +1833,7 @@ tightening the fixture until it cleared would have been tuning the gate to its a
 | 1 | **`Pasture3DSimBase`, a new shared base class**, and the manager extends it rather than `Pasture3DTerrainBrush` | Everything downstream of "there is a `SimResult` and an eroded surface" — §10's extraction, the generated brushes, the layer commit, the `.res` bookkeeping — is identical for both front ends. The exports stay on the subclasses and the base reads them through four hooks, because Godot lists a base script's exports FIRST and moving `sim_result` and the water thresholds up would push `Pasture3DSim`'s Simulation group below its own outputs — a visible change to a node §19.7 promises stays unchanged |
 | 2 | **One `Pasture3DSimResult` for the manager, not one per cluster** (§19.6) | The node has one `sim_result` slot, and one resource is what makes the phase-3 limitation §19.6 retires actually retired — a selector points at one thing. Several clusters merge through the same union-box path a multi-loop Sim already uses, coarsened past `RESULT_MAX_CELLS` with a warning. One cluster, the case the design is really about, is bit-exact with no resampling. **The solve is never coarsened; only this output** |
 | 3 | **Two new C++ functions**, `sim_chain_blend` and `sim_chain_write` | §19.2's "chaining costs nothing to build" is true of the solve and not of the plumbing around it: the per-pass fold and the final upsample are each O(cells) and would have been GDScript loops over millions of them. Both reuse what exists — the loop gate is `sim_mask_deltas` fed a field of ones, so a pass gates its contribution through the bake's own masker; the upsample uses the same `grid_bilinear` tap |
-| 4 | **Sim Kinds under a manager ignore an explicitly assigned `sim_result`** | §19.5 says they read the previous pass's live fields; it did not say what happens to a selector that also names a resource. Live fields always win, and the child warns that the pointer is ignored. The cost is that a managed pass cannot use §17.6's legitimate "point at another Sim's result" case |
+| 4 | **Sim filter types under a manager ignore an explicitly assigned `sim_result`** | §19.5 says they read the previous pass's live fields; it did not say what happens to a selector that also names a resource. Live fields always win, and the child warns that the pointer is ignored. The cost is that a managed pass cannot use §17.6's legitimate "point at another Sim's result" case |
 | 5 | **A refused cluster refuses the WHOLE build** | §19.4 says refuse and name the cluster; it did not say whether the others still build. Nothing is written at all — a partial build would commit a landscape missing part of its chain and report success |
 | 6 | **A multi-loop pass composes overlapping loops as `1 − (1−g₁)(1−g₂)`** | Two overlapping loops on one standalone Sim ADD their deltas (two `apply_sim_block` calls with ADD blend). In the chain each loop folds in sequentially, so the combined weight saturates at 1 instead of doubling the cut. Different from standalone, and better |
 | 7 | **`_ensure_layer_for` returns −1 for a managed child** | §19.7 says the layer binding is "ignored"; this makes it structural. A pass cannot reserve a layer by any path, including the auto-refresh a spline drag triggers — and the break test showed the difference is real, not decorative |
@@ -1844,7 +1844,7 @@ tightening the fixture until it cleared would have been tuning the gate to its a
 
 > **Superseded in part by phase 6.5 (§21).** Everything above is what the chain DOES and still holds; what
 > it does not do is let you tune one. Four days of use produced a container that groups several Sims into
-> one pass, per-pass Sim Results, build-through, and the selector fixes that make a sim Kind usable at
+> one pass, per-pass Sim Results, build-through, and the selector fixes that make a sim filter type usable at
 > all. Read §21 before building anything on top of this section.
 
 **§19.8's predicted control for AK was wrong in a way worth recording.** It expected two independent Sims
@@ -2063,7 +2063,7 @@ narrowing the rule that currently hides `sim_result` on every managed Sim from "
 container". One rule, both shapes, nothing to remember.
 
 **Where they come from is already built.** The manager runs a zero-iteration routing pass between passes
-whenever a later pass wants sim Kinds (`_live_fields`, §19.5) and builds the four channels through
+whenever a later pass wants sim filter types (`_live_fields`, §19.5) and builds the four channels through
 `sim_result_build`, the same code the manager's own result uses. Phase 6.5 makes that unconditional when
 storage is on, and writes the result to the pass rather than only handing it forward.
 
@@ -2115,18 +2115,18 @@ A result that survived the height it came from would be the worst of both.
 Everything downstream — the clustering, the one write, the undo action — is untouched: this truncates the
 pass list and changes nothing else, which is why it is cheap.
 
-### 21.5 Selector presets per Kind — BUILT
+### 21.5 Selector presets per Filter Type — BUILT
 
 `Pasture3DReliefSelector` defaults to `range_min 25, range_max 90, falloff 10/10` — a `SLOPE` band in
-degrees, applied to every Kind. On `EROSION` (metres, 0–55 measured) it passes nothing. On `FLOW` (m²,
-1–343 889 measured) it passes a sliver of headwater. The Kind is a units change and the band should
-follow it.
+degrees, applied to every filter type. On `EROSION` (metres, 0–55 measured) it passes nothing. On `FLOW`
+(m², 1–343 889 measured) it passes a sliver of headwater. The filter type is a units change and the band
+should follow it.
 
-**The audit.** Every Kind was measured against its own field over one bake at the SHIPPED defaults
+**The audit.** Every filter type was measured against its own field over one bake at the SHIPPED defaults
 (`erosion_rate` 0.08, `hillslope_diffusion` 0.15, 30 iterations, a 200 m loop with the default 128 m
 margin), on a 461 × 461 m grid at 1 m. "Selects" is what the out-of-the-box 25–90 band actually passes:
 
-| Kind | Field range | Median | p90 | Default band selects | Verdict |
+| Filter Type | Field range | Median | p90 | Default band selects | Verdict |
 |---|---|---|---|---|---|
 | `SLOPE` | 0.07 – 75.9 ° | 44.05 | 59.49 | **93.7%** | Units right, band nearly a no-op on steep ground |
 | `ALTITUDE` | 1.05 – 365.6 m | 117.87 | 269.73 | 37.7% | Units right, band meaningless without the terrain (§21.10) |
@@ -2149,36 +2149,36 @@ at 9.36 m, diffusion 2.0 gives 5 293, and **rate 0.20 gives exactly zero** at an
 records that `erosion_rate` is not scale-free; the consequence nobody wrote down is that on steep ground
 with a large catchment, incision outruns diffusion everywhere and the deposition channel is identically
 zero. A `DEPOSITION` selector then has nothing to gate on and looks broken. **Say so in the tooltip** — it
-is the single most likely "this Kind does not work" report after this phase ships.
+is the single most likely "this filter type does not work" report after this phase ships.
 
 **Not found, worth recording as clean:** the unit conversions match on both paths — `relief_fields_add_sim`
 (C++) and `_sim_fields` (GDScript) both `exp()` the log flow, flip erosion to a positive depth, and clamp
-deposition and wetness at zero, so gate L6's parity claim holds for the sim Kinds. `SLOPE` and `ALTITUDE`
+deposition and wetness at zero, so gate L6's parity claim holds for the sim filter types. `SLOPE` and `ALTITUDE`
 are honest in their stated units.
 
-**One gap that is not a Kind:** there is **no validation anywhere that `range_min <= range_max`**. Invert
+**One gap that is not a filter type:** there is **no validation anywhere that `range_min <= range_max`**. Invert
 them and the evaluator's `min(rise, fall)` yields 0 everywhere — the selector silently gates nothing, with
-no warning, on any Kind. The Sim already warns about `river_width_min > river_width_max`; this deserves the
+no warning, on any filter type. The Sim already warns about `river_width_min > river_width_max`; this deserves the
 same and is a two-line fix.
 
 **Presets, from the audit above and the numbers §8.2 already measured** rather than invented:
 
-| Kind | Range | Falloff | Reading |
+| Filter Type | Range | Falloff | Reading |
 |---|---|---|---|
 | `SLOPE` | 25 – 90 | 10 / 10 | unchanged |
-| `ALTITUDE` | **unchanged** | unchanged | DECIDED — the one Kind you always set by hand (§21.10) |
+| `ALTITUDE` | **unchanged** | unchanged | DECIDED — the one filter type you always set by hand (§21.10) |
 | `CURVATURE` | 0.25 – 100 | 0.1 / 0 | Hollows deeper than 0.25 m over the 8 m `measure_radius` its preset also sets |
 | `FLOW` | 5000 – 1e9 | 2500 / 0 | The river extractor's own default threshold: "a channel" |
 | `EROSION` | 2 – 1000 | 1 / 0 | Where the sim actually cut, against a 0–55 m range |
 | `DEPOSITION` | 0.25 – 100 | 0.1 / 0 | Against a 0–3.66 m range — deposition is small and a metre band misses it |
 | `WETNESS` | 0.5 – 1000 | 0.25 / 0 | Matches `lake_depth_threshold`: "standing water, not a film" |
 
-**The rule that makes this safe: a preset only applies when the current band is still the OUTGOING Kind's
-preset.** Change Kind on an untouched selector and the band follows; change Kind on one you have tuned and
+**The rule that makes this safe: a preset only applies when the current band is still the OUTGOING filter type's
+preset.** Change filter type on an untouched selector and the band follows; change filter type on one you have tuned and
 your numbers survive. Silently overwriting an edited band would be worse than useless defaults, because
 useless defaults are at least visible. Gate BE asserts both halves.
 
-Also retune the `@export_range` hints per Kind through `_validate_property` — a 0–90 slider on a `FLOW`
+Also retune the `@export_range` hints per filter type through `_validate_property` — a 0–90 slider on a `FLOW`
 falloff measured in square metres is actively misleading, even though the value is `or_greater` and
 accepts more.
 
@@ -2234,7 +2234,7 @@ measurement in different units, not a different measurement.
 
 **DECIDED — the radius applies to `SLOPE` as well** (`measure_radius`, not `curvature_radius`), so a band
 can say "steep over 20 m" rather than "steep between two adjacent vertices", which is what you want on
-noisy ground. One parameter, two Kinds, one stencil.
+noisy ground. One parameter, two filter types, one stencil.
 
 > **`measure_radius` defaults to 0, meaning "one cell" — and that is load-bearing.** A default of 8 m
 > would silently change the meaning of every `SLOPE` band already authored, which is a second breaking
@@ -2261,16 +2261,16 @@ symmetric ring, so the expected deviation is arithmetic and not a number read ba
 
 | # | Measured | Control |
 |---|---|---|
-| BE | Each of the 7 Kinds, from a fresh selector, lands on its own preset (**0 wrong**). An edited band survives: `range_min 40` on SLOPE → FLOW leaves **[40, 90, 10, 10, 0]**. A hand-tuned CURVATURE band survives a `ResourceSaver` → `ResourceLoader` round trip unchanged | `range_min` set to FLOW's **own** 5000 while still SLOPE, then → FLOW: still **[5000, 90, 10, 10, 0]**, so "untouched" is not being decided against the incoming Kind. And a **two-hop** chain SLOPE → FLOW → EROSION, where the second hop only moves if the comparison tracks the *outgoing* Kind rather than the shipped defaults |
+| BE | Each of the 7 filter types, from a fresh selector, lands on its own preset (**0 wrong**). An edited band survives: `range_min 40` on SLOPE → FLOW leaves **[40, 90, 10, 10, 0]**. A hand-tuned CURVATURE band survives a `ResourceSaver` → `ResourceLoader` round trip unchanged | `range_min` set to FLOW's **own** 5000 while still SLOPE, then → FLOW: still **[5000, 90, 10, 10, 0]**, so "untouched" is not being decided against the incoming filter type. And a **two-hop** chain SLOPE → FLOW → EROSION, where the second hop only moves if the comparison tracks the *outgoing* filter type rather than the shipped defaults |
 | BF | One-cell curvature on the dome reads **0.004000 m** where the maths says 0.004000. Deviation at r = 4 m **0.0670** (maths 0.0640) and at r = 16 m **1.0251** (maths 1.0240), a ratio of **15.30** against a predicted 16. A noisy 20% ramp reads a median **11.01°** at r = 16 m against a true grade of 11.31°, and a ±2° band on that grade passes **80.2%** of the grid. `measure_radius = 0` is sandwiched to the exact float32 on **6/6** probes | The same dome at 2 m spacing reads **0.016001 m** — 4× the 1 m answer, as metres must; the **old 1/m units are 0.016001 at both spacings**, which is the resolution-dependence §21.6 exists to kill, measured rather than argued. Radius 0 is **256×** smaller than r = 16 m, exactly `k·r²`. One cell reads the ramp **11.61° off** its real grade and passes only 9.0% of the band. The float32 sandwich **opens on 6/6** cells at r = 16 m |
-| BG | Over one solve at the shipped defaults (rate 0.08, diffusion 0.15, 30 iterations, 320² at 2.5 m): SLOPE **32.5%**, ALTITUDE **27.0%**, CURVATURE **39.2%**, FLOW **2.96%**, EROSION **57.3%**, DEPOSITION **3.02%**, WETNESS **7.50%** — every preset inside 2–60%. Each Kind's field range, median and p90 are printed first, and a constant field fails the gate outright | The 25–90 band this phase replaces, on the same ground: **0.00%** for CURVATURE, **0.00%** for DEPOSITION, **0.01%** for WETNESS — the three §21.5 measured at 0.0% on the demo site, reproduced on a fixture built independently of it |
+| BG | Over one solve at the shipped defaults (rate 0.08, diffusion 0.15, 30 iterations, 320² at 2.5 m): SLOPE **32.5%**, ALTITUDE **27.0%**, CURVATURE **39.2%**, FLOW **2.96%**, EROSION **57.3%**, DEPOSITION **3.02%**, WETNESS **7.50%** — every preset inside 2–60%. Each filter type's field range, median and p90 are printed first, and a constant field fails the gate outright | The 25–90 band this phase replaces, on the same ground: **0.00%** for CURVATURE, **0.00%** for DEPOSITION, **0.01%** for WETNESS — the three §21.5 measured at 0.0% on the demo site, reproduced on a fixture built independently of it |
 | BH | A Plow whose material carries a 60..20 band **warns**; so does a Sim with the same band in its Erosion Mask | The same selector as 20..60 is **silent**, and gates something real: over a ramp it passes **27.0%** of the cells, while inverted it passes **0.0%** — so the warning is about a band that genuinely selects nothing, not about a band the gate never exercised |
 
 **Break tests — each mechanism broken in turn:**
 
 | Broken | Fails |
 |---|---|
-| "Untouched" decided against the **incoming** Kind | BE only, on its first control |
+| "Untouched" decided against the **incoming** filter type | BE only, on its first control |
 | The CURVATURE and WETNESS presets **rot back** to 25–90 | BG only, on those two rows |
 | The inverted-band warning removed from the **brush** host | BH only, its Plow leg |
 | The inverted-band warning removed from the **Sim** host | BH only, its Sim leg |
@@ -2284,10 +2284,10 @@ symmetric ring, so the expected deviation is arithmetic and not a number read ba
 > claim that `measure_radius = 0` did not silently change bands authored before this phase.
 
 > **BG's fixture took five attempts and the failures are the useful part.** A single tilted hillside makes
-> every Kind ask about the same ground: everything is steep, so everything erodes, and DEPOSITION and
+> every filter type ask about the same ground: everything is steep, so everything erodes, and DEPOSITION and
 > WETNESS come back **identically zero** — the same emptiness §21.5 measured on the demo site and blamed on
 > the solver rather than the selector. The fixture that works is a **plateau, an escarpment and a plain**,
-> which gives the seven Kinds three different places to look. It is asserted, not assumed: the gate prints
+> which gives the seven filter types three different places to look. It is asserted, not assumed: the gate prints
 > every field's range, median and p90 before it judges a single preset, and **fails outright if any field
 > is constant** rather than quietly reporting 0%.
 >
@@ -2319,13 +2319,14 @@ rather than regressions:
 
 | # | Departure | Why |
 |---|---|---|
-| 1 | **`ALTITUDE` has a preset entry after all** — the shipped 25/90/10/10/0 band | §21.5 says "unchanged", and this *is* unchanged: the entry is today's default, so switching TO altitude moves nothing, which is what the decision asked for. Omitting the row entirely looked equivalent and is not: with no entry, ALTITUDE becomes a **trap door**. SLOPE → ALTITUDE → CURVATURE on a virgin selector would leave a 25–90 band on a Kind where it selects 0.0%, because the outgoing Kind had no preset to compare against and every later change is treated as edited. The tooltip still says ALTITUDE is the one Kind you set by hand |
+| 1 | **`ALTITUDE` has a preset entry after all** — the shipped 25/90/10/10/0 band | §21.5 says "unchanged", and this *is* unchanged: the entry is today's default, so switching TO altitude moves nothing, which is what the decision asked for. Omitting the row entirely looked equivalent and is not: with no entry, ALTITUDE becomes a **trap door**. SLOPE → ALTITUDE → CURVATURE on a virgin selector would leave a 25–90 band on a filter type where it selects 0.0%, because the outgoing filter type had no preset to compare against and every later change is treated as edited. The tooltip still says ALTITUDE is the one filter type you set by hand |
 | 2 | **The measurement stencils are stated here, because §21.6 gives the definition and not the discretisation.** Curvature at r > 0 is the mean of the ring of cells within half a cell of radius r, minus the centre. Slope at r > 0 is the same central difference the one-cell field takes, over ±round(r/vs) cells instead of ±1 | The ring at r = one cell is the 4 axial *and* 4 diagonal neighbours, so it is close to but deliberately **not identical** to `measure_radius = 0`, which stays the 4-axial form bit for bit. §21.6's "at r = one cell it reduces to (Σ4 − 4z)/4" describes the radius-0 path, which is the one that had to be preserved |
 | 3 | **A wide slope radius outruns noise, it does not average it** | Worth writing down because the obvious mental model is wrong. A central difference over ±r samples two points; the noise between them is a fixed height difference while the baseline grows with r, so the error in the gradient falls as **1/r** rather than as 1/√n. It is still the right stencil — BF measures a median of 11.01° against a true 11.31° at 16 m, where one cell reads 22.92° — but a single cell at a wide radius can still sit a degree off, and a criterion written per-cell would have been measuring the fixture's noise |
 | 4 | **`ReliefSample` carries a pointer to its `ReliefFields` and its cell index** | A radius is per SELECTOR, not per cell, and a program can hold several — so the evaluator needs the whole grid for the selector it is evaluating, not two more scalars. The alternative was a fixed cap on distinct radii with a silent fallback past it. The GDScript oracle mirrors it by taking the grids plus the index (`measured`, `fi`) rather than by allocating a per-cell array in the hot loop |
 | 5 | **`relief_scree`'s toe ramp is `clamp(curvature / 0.25, 0, 1)`**, not `clamp(curvature, 0, 1)` retuned by eye | 0.25 m is the ramp the old clamp *was* at 1 m vertex spacing: the two definitions differ by exactly `vs²/4` there, so `clamp(4c, 0, 1) == clamp(c/0.25, 0, 1)` identically. Every scree material authored at 1 m — `weathered_cliff.tres` and `talus_slope.tres` among them — is unchanged, and at every other spacing the new one is the one that stays put |
-| 6 | **`measure_radius` is hidden on the five Kinds it does nothing for**, and `to_params()` writes 0 for them | Same habit as the manager hiding what it overrides. The stored value survives, so switching back to Slope or Curvature restores what you had; zeroing it on the wire keeps the block honest about what the evaluator will actually use |
-| 7 | **Presets apply on ANY `kind` assignment, including from code and from `ResourceLoader`** | Restricting them to the editor would have made gate BE untestable headless, which is where every other criterion in this spec lives. The load case is safe because Godot writes *every* script property into a `.tres` and assigns them in declaration order — `kind` first, then the band — so a preset fired during deserialisation is overwritten by the authored values a line later. BE pins that with a save/load round trip rather than leaving it as an argument. The consequence for callers is one line long and worth knowing: **set `kind` first, then the band**, which every gate helper in `bench/` now does explicitly |
+| 6 | **`measure_radius` is hidden on the five filter types it does nothing for**, and `to_params()` writes 0 for them | Same habit as the manager hiding what it overrides. The stored value survives, so switching back to Slope or Curvature restores what you had; zeroing it on the wire keeps the block honest about what the evaluator will actually use |
+| 7 | **Presets apply on ANY `filter_type` assignment, including from code and from `ResourceLoader`** | Restricting them to the editor would have made gate BE untestable headless, which is where every other criterion in this spec lives. The load case is safe because Godot writes *every* script property into a `.tres` and assigns them in declaration order — `filter_type` first, then the band — so a preset fired during deserialisation is overwritten by the authored values a line later. BE pins that with a save/load round trip rather than leaving it as an argument. The consequence for callers is one line long and worth knowing: **set `filter_type` first, then the band**, which every gate helper in `bench/` now does explicitly |
+| 8 | **`kind` → `filter_type`, and `Kind` → `FilterType`**, with a `_set`/`_get` migration shim | Not in the design at all — asked for after the fact, because "Kind" is jargon and the inspector label "Filter Type" says what the property does. The rename is only safe because of the shim: **Godot silently discards a stored property it cannot find**, so every `.tres` and `.tscn` written before the rename would have loaded as `SLOPE` — the default, and therefore the one wrong value that looks like nothing went wrong. `_set` catches the old name during deserialisation and `_get` answers for it so existing user scripts keep reading. Gate BE hand-writes a pre-rename `.tres` and fails if the filter type comes back as Slope, with a control proving `_set` still refuses names it does not know. The wire format, the ids and the C++ evaluator are untouched — only the GDScript-facing name and the C++ enum's *type* name moved |
 
 ### 21.7 The rename, and its real scope
 
@@ -2354,12 +2355,12 @@ C++ half. What it touches:
 *"The material preview does not work"* has no fix in this spec on purpose, because the likeliest
 explanation is that it never had a chance to work:
 
-- A selector with a sim Kind and a **null `sim_result`** reads a defined 0 everywhere and previews blank
+- A selector with a sim filter type and a **null `sim_result`** reads a defined 0 everywhere and previews blank
   ([terrain_brush.gd:1176](project/addons/pasture_3d/connectors/terrain_brush.gd:1176)) — and until the
   `Save Masks` commit there was no reachable populated result to point it at.
-- A sim-Kind band left at the `SLOPE` defaults of 25–90 passes almost nothing (§21.5).
+- A sim-filter type band left at the `SLOPE` defaults of 25–90 passes almost nothing (§21.5).
 
-Both are addressed by other parts of this spec. **Re-test with a populated result and a Kind-appropriate
+Both are addressed by other parts of this spec. **Re-test with a populated result and a filter type-appropriate
 band before speccing a fix**, and if it still fails, that is its own investigation with its own gate — not
 a line item folded into this one.
 
@@ -2376,9 +2377,9 @@ scene, since a manager fixture has nothing to do with a selector band.
 | BB | **Per-pass masks describe that pass's own output.** The result stored on pass N routes the surface after N, not after N−1 or after the whole chain. | The same comparison against pass N−1's stored masks, which must differ measurably — and the flow field must be non-trivial over the cluster, or the two are both empty. |
 | BC | **Build-through truncates and nothing else.** Simulating to pass N gives bitwise the same surface as a full chain whose passes after N are deleted. | The full untruncated chain, which must differ — otherwise the later passes were doing nothing and truncation is untestable here. |
 | BD | **A bare Sim under a manager is still a pass of one.** A phase-6 scene reproduces its phase-6 surface to 0.000000 m after the container exists. | The same scene with that Sim moved inside a container, which must be identical too — a container of one is not a different feature. |
-| BE ✅ | **Kind presets apply to untouched bands and never to edited ones.** Changing Kind on a default selector re-defaults the band; changing it on one with an edited `range_min` leaves every field alone. | Edit a field to the *incoming* Kind's preset value and change Kind — it must still be treated as edited, or "untouched" is being decided by comparing against the wrong Kind. |
+| BE ✅ | **filter type presets apply to untouched bands and never to edited ones.** Changing filter type on a default selector re-defaults the band; changing it on one with an edited `range_min` leaves every field alone. | Edit a field to the *incoming* filter type's preset value and change filter type — it must still be treated as edited, or "untouched" is being decided by comparing against the wrong filter type. |
 | BF ✅ | **Curvature is metres of deviation over its radius, and `measure_radius` reaches SLOPE too.** An analytic dome of known geometry reads the deviation the maths says at two different radii, and a slope band over a noisy ramp of known mean grade widens as the radius grows. | The same ground at radius 0 (one cell) vs 16 m, which must differ by the ratio the formula predicts — a radius that changes nothing is a parameter in name only. And `measure_radius = 0` must reproduce today's SLOPE field BITWISE, or the default silently broke every band already authored. |
-| BG ✅ | **Every Kind's preset selects a useful fraction of real ground.** Each Kind's shipped band, over one bake at shipped solver defaults, selects between 2% and 60% of the simulated area — not 0% and not everything. | The 25–90 band this phase replaces, which must fail for `CURVATURE`, `WETNESS` and `DEPOSITION` (0.0%) and for `SLOPE` (93.7%). This is the audit in §21.5 turned into a standing check, so the presets cannot rot silently. |
+| BG ✅ | **Every filter type's preset selects a useful fraction of real ground.** Each filter type's shipped band, over one bake at shipped solver defaults, selects between 2% and 60% of the simulated area — not 0% and not everything. | The 25–90 band this phase replaces, which must fail for `CURVATURE`, `WETNESS` and `DEPOSITION` (0.0%) and for `SLOPE` (93.7%). This is the audit in §21.5 turned into a standing check, so the presets cannot rot silently. |
 | BH ✅ | **An inverted band is refused, not silently empty.** `range_min > range_max` raises a configuration warning on the brush that owns the selector. | The same selector with the range the right way round, which must NOT warn — and must gate something, or the warning is the only thing being tested. |
 
 **BB and BC both need a chain whose passes visibly disagree**, the same fixture requirement §19.8 records
@@ -2390,13 +2391,13 @@ inferring it from the criteria passing.
 1. **`ALTITUDE` gets no preset — DECIDED.** A `Resource` cannot reach a terrain to derive a band, and any
    constant is wrong somewhere: the demo measures 1.05–365.6 m and a 50 m map or a 4 km one would want
    something else entirely. `ALTITUDE` keeps today's band and its tooltip says plainly that it is the one
-   Kind you always set by hand. A brush-side "fit to terrain" action is the escape hatch if that ever
+   filter type you always set by hand. A brush-side "fit to terrain" action is the escape hatch if that ever
    stops being acceptable; it is real UI work and nobody has needed it yet.
 2. **Curvature's unit change breaks authored bands** (§21.6) — decided, accepted, and **the sweep found
    none to break.** Every `Pasture3DReliefSelector` in the repo was enumerated: `channel_boulders.tres`
-   (`kind = 3`, FLOW — *not* curvature, which is what this note assumed), `weathered_cliff.tres`
-   (`kind = 0`), the two in `big_regions.tscn` (both SLOPE, no explicit `kind`) and the three in
-   `sculpting_2.tscn` (`kind = 3`, `5`, `3`). **No authored resource uses `kind = 2` anywhere**, so nothing
+   (FLOW — *not* curvature, which is what this note assumed), `weathered_cliff.tres` (SLOPE), the two in
+   `big_regions.tscn` (both SLOPE, stored as nothing at all) and the three in `sculpting_2.tscn` (FLOW,
+   DEPOSITION, FLOW). **No authored resource selects `CURVATURE` anywhere**, so nothing
    was re-tuned and nothing needed to be. What the unit change does reach is `relief_scree`'s toe ramp,
    which every scree material rides — and that was retuned to be numerically identical at 1 m vertex
    spacing (departure 5), so `weathered_cliff.tres` and `talus_slope.tres` are unchanged there too. The

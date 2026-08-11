@@ -1000,7 +1000,7 @@ func _bind_mask_preview_signals(p_list: Array, p_connect: bool) -> void:
 ## Build the weight field for `p_selectors` over `p_box` (a world AABB) and hand it to the terrain
 ## material. Returns a one-line report, or "" when there was nothing to show.
 ##
-## `p_sim` is the flattened Pasture3DSimResult the sim Kinds read, or {}.
+## `p_sim` is the flattened Pasture3DSimResult the sim Filter Types read, or {}.
 func _show_mask_preview(p_selectors: PackedFloat32Array, p_box: AABB, p_sim: Dictionary) -> String:
 	if not is_configured() or p_selectors.is_empty() or p_box.size == Vector3.ZERO:
 		_clear_mask_preview()
@@ -1173,7 +1173,7 @@ func _update_relief_mask_preview(p_relief) -> void:
 	var chosen: Pasture3DReliefSelector = _preview_selector(p_relief)
 	if chosen != null:
 		sel.append_array(PackedFloat32Array(chosen.to_params()))
-		if chosen.is_sim_kind() and chosen.sim_result != null:
+		if chosen.is_sim_filter_type() and chosen.sim_result != null:
 			sim = _sim_result_dict(chosen.sim_result)
 	if sel.is_empty():
 		_clear_mask_preview()

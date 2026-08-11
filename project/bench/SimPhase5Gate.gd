@@ -27,7 +27,7 @@ const SG := 128
 const SCELL := 4.0
 const BASE_Z := 200.0
 
-## Selector Kinds, mirroring Pasture3DReliefSelector.Kind so the gate names them without importing the
+## Selector filter types, mirroring Pasture3DReliefSelector.FilterType so the gate names them without importing
 ## resource's enum into every call site.
 const K_SLOPE := 0
 const K_ALTITUDE := 1
@@ -153,14 +153,14 @@ func _gate_aa_rate_mask() -> void:
 		print("    !! the mask changed nothing; AA is measuring two identical runs")
 
 
-# --- AB: each Kind reads its own field -------------------------------------------------------------
-# For each of the seven Kinds, band the TOP DECILE of that Kind's own field (computed here, from the
+# --- AB: each filter type reads its own field -------------------------------------------------------------
+# For each of the seven filter types, band the TOP DECILE of its own field (computed here, from the
 # fixture) and check the mask passes those cells and not others.
 #
-# CONTROL: the same numeric band handed to every OTHER Kind. If a Kind is cross-wired the impostor
+# CONTROL: the same numeric band handed to every OTHER filter type. If one is cross-wired the impostor
 # scores as well as the owner, and the gate says which pair collided.
 func _gate_ab_own_field() -> void:
-	print("[AB] each Kind reads its own field (top-decile band per Kind):")
+	print("[AB] each filter type reads its own field (top-decile band per filter type):")
 	var z := _noisy_slope()
 	var res := _make_sim_result_for_grid()
 	var refs := {
@@ -191,7 +191,7 @@ func _gate_ab_own_field() -> void:
 			print("    !! %s does not read its own field" % KIND_NAMES[kind])
 
 		# CONTROL: the best-scoring impostor. Some overlap is inevitable (altitude and slope correlate on
-		# a hillside), so the bar is that no other Kind scores as well as the owner does.
+		# a hillside), so the bar is that no other filter type scores as well as the owner does.
 		var worst := 0.0
 		var worst_name := "-"
 		for other in refs.keys():
@@ -205,7 +205,7 @@ func _gate_ab_own_field() -> void:
 				worst_name, 100.0 * worst, 100.0 * agree])
 		if worst >= agree - 0.02:
 			_fail += 1
-			print("    !! %s and %s are indistinguishable here; the band does not separate the Kinds" % [
+			print("    !! %s and %s are indistinguishable here; the band does not separate the filter types" % [
 					KIND_NAMES[kind], worst_name])
 
 
@@ -265,14 +265,14 @@ func _gate_ac_product() -> void:
 
 
 # --- AF: mask fields register with the terrain -----------------------------------------------------
-# The three ground Kinds are index-based and cannot be misregistered. The SIM Kinds are looked up in
+# The three ground filter types are index-based and cannot be misregistered. The SIM ones are looked up in
 # WORLD coordinates through the result's own extent, so this is where an origin can be wrong: build a
 # result whose flow is high in a known world-X strip, and check the mask passes at that X.
 #
 # CONTROL: the same field built with the grid origin displaced by one catchment margin, which must move
 # the passing strip. That is the mistake an off-by-one grid origin makes.
 func _gate_af_registration() -> void:
-	print("[AF] sim-Kind mask fields register with the terrain (world-X strip):")
+	print("[AF] sim-filter-type mask fields register with the terrain (world-X strip):")
 	var z := _noisy_slope()
 	var res := _make_sim_result_for_grid()
 	# The strip: cells 40..60 of the result, in world metres.
@@ -418,7 +418,7 @@ func _gate_ae_idempotent() -> void:
 
 
 # --- AG: self-reference is refused -----------------------------------------------------------------
-# A sim-Kind selector pointed at this Sim's OWN result is reading this node's own output. It must be
+# A sim-filter-type selector pointed at this Sim's OWN result is reading this node's own output. It must be
 # ignored, and the node must say so — so the bake matches the unmasked bake exactly.
 #
 # CONTROL: the identical selector pointed at ANOTHER result, which must gate. Without it the refusal
@@ -466,7 +466,7 @@ func _gate_ag_self_reference() -> void:
 		_fail += 1
 		print("    !! the self-referencing mask was applied anyway")
 
-	# CONTROL: the same Kind and band against a FOREIGN result must gate.
+	# CONTROL: the same filter type and band against a FOREIGN result must gate.
 	var foreign: Pasture3DSimResult = _foreign_result(sim.sim_result)
 	sim.erosion_mask = [_sel(K_EROSION, 5.0, 1.0e6, 0.0, 0.0, false, 1.0, foreign)] as Array[Pasture3DReliefSelector]
 	if bool(sim.simulate_now(1, false).get("ok", false)):
@@ -540,8 +540,8 @@ func _make_sim_result_for_grid() -> Pasture3DSimResult:
 	return r
 
 
-## What AB compares a sim Kind against: the channel in the UNITS a band is written in (§9), derived here
-## from the same generator above rather than read back through the resource.
+## What AB compares a sim filter type against: the channel in the UNITS a band is written in (§9), derived
+## here from the same generator above rather than read back through the resource.
 func _channel_ref(p_kind: int) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
 	out.resize(SG * SG)
@@ -636,7 +636,7 @@ func _curvature_field(p_z: PackedFloat32Array) -> PackedFloat32Array:
 func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float,
 		p_invert := false, p_strength := 1.0, p_result: Pasture3DSimResult = null) -> Pasture3DReliefSelector:
 	var s := Pasture3DReliefSelector.new()
-	s.kind = p_kind # first — a Kind change re-defaults an untouched band (§21.5)
+	s.filter_type = p_kind # first — a filter type change re-defaults an untouched band (§21.5)
 	s.measure_radius = 0.0 # this gate computes its own ONE-CELL fields; CURVATURE's preset sets 8 m
 	s.range_min = p_lo
 	s.range_max = p_hi

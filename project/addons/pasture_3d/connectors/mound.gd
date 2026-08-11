@@ -216,7 +216,7 @@ func _paint_spline(path: Path3D) -> void:
 	# §21.6: the wider grids any selector's `measure_radius` asks for, indexed by selector id. Empty when
 	# every selector left it at 0, which is the default.
 	var measured: Array = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh) if use_fields else []
-	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Kinds read, resampled from the
+	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Filter Types read, resampled from the
 	# Pasture3DSimResult's own extent (which shares no grid with this bake). Only when a selector asks.
 	var sim_res: Pasture3DSimResult = _relief_sim_result(relief) if use_fields else null
 	var sim_fields: Array = []

@@ -521,7 +521,7 @@ func _gate_ay_stack_sources() -> void:
 
 func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float) -> Pasture3DReliefSelector:
 	var s := Pasture3DReliefSelector.new()
-	s.kind = p_kind
+	s.filter_type = p_kind
 	s.range_min = p_lo
 	s.range_max = p_hi
 	s.falloff_low = p_f_lo

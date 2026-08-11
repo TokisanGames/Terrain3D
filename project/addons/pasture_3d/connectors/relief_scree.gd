@@ -56,7 +56,7 @@ func _build() -> void:
 	# The op carries its own slope gate rather than relying on the base's `selector` property, so the
 	# material works out of the box. Assigning a selector on top still works — it gates the op further.
 	var gate := Pasture3DReliefSelector.new()
-	gate.kind = Pasture3DReliefSelector.Kind.SLOPE
+	gate.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
 	gate.range_min = min_slope_degrees
 	gate.range_max = 90.0
 	gate.falloff_low = slope_falloff_degrees

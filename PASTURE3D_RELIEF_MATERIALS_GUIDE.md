@@ -136,14 +136,28 @@ Only the settings that change what a relief material does. Everything else is in
 
 A `Pasture3DReliefSelector` gates a material by what the ground is **already** doing.
 
-| Setting | Units by Kind | What it does |
+| Setting | Units by Filter Type | What it does |
 |---|---|---|
-| **Kind** | — | `Slope` (degrees, 0–90) · `Altitude` (world metres) · `Curvature` (concavity; **+** = hollow, **−** = ridge, `0` = straight slope) |
-| **Range Min / Max** | deg / m / curvature | The band that **passes**. |
+| **Filter Type** | — | `Slope` (degrees, 0–90) · `Altitude` (world metres) · `Curvature` (**metres** this cell sits below its surroundings: **+** = hollow, **−** = ridge, `0` = straight slope) · plus four that read a Pasture3DSim's output — `Flow`, `Erosion`, `Deposition`, `Wetness` |
+| **Range Min / Max** | deg / m / m² | The band that **passes**. |
 | **Falloff Low** | same units | How far *below* Range Min the gate fades in. `0` = hard cut, which shows as a visible contour line. |
 | **Falloff High** | same units | How far *above* Range Max the gate fades out. |
 | **Invert** | — | Pass everything *outside* the band. |
 | **Strength** | `0 … 1` | How hard the gate bites. `1` = material only inside the band. `0` = **no gating at all**. |
+| **Measure Radius** | metres | Over what distance `Slope` and `Curvature` are measured. `0` = one cell, which is fine for texture-scale detail. Raise it to ask about **landform**: "steep over 20 m" rather than "steep between two adjacent vertices", which is what you want on noisy or eroded ground. Ignored by the other Filter Types. |
+
+> [!tip] Changing the Filter Type re-defaults the band — unless you have edited it
+> The units change completely between Filter Types (degrees, metres, square metres of catchment), so a
+> band that means "steep" means nothing at all on `Flow`. Switching Filter Type therefore moves Range
+> Min/Max and the falloffs to sensible defaults for the new one. **The moment you type your own number
+> into any of them, that stops happening** and your band survives every later switch. `Altitude` is the
+> one Filter Type with no useful default — it depends entirely on how tall your terrain is — so it keeps
+> whatever is there and expects you to set it by hand.
+
+> [!warning] Range Min above Range Max passes **nothing**, anywhere
+> Not "almost nothing" — the gate is zero on every cell, on every Filter Type, and the material simply
+> never appears. The brush raises a configuration warning saying so; if a material has silently stopped
+> showing up, check the band is the right way round first.
 
 ### What a Selector reads — and why it matters
 

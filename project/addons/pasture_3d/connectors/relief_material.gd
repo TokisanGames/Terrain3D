@@ -25,7 +25,7 @@ const PARAM_STRIDE := 12 # per-op float block
 const FLAG_NEGATE := 1   # bit0 — negate the op's value before blending
 const FLAG_CLAMP := 2    # bit1 — clamp the accumulator to [-1,1] after blending
 const NO_SELECTOR := -1  # op is ungated
-const SELECTOR_STRIDE := 8 # [kind, min, max, falloff_lo, falloff_hi, invert, strength, measure_radius]
+const SELECTOR_STRIDE := 8 # [filter_type, min, max, falloff_lo, falloff_hi, invert, strength, radius]
 const SELECTOR_RADIUS := 7 # slot of measure_radius, in METRES; 0 = one cell (spec §21.6)
 const CURVE_LUT_N := 256 # samples per baked Curve, one contiguous block per CURVE op
 ## Depth of hollow, in metres over one cell, at which SCREE's toe deposition reaches full strength.
@@ -124,13 +124,13 @@ func _program() -> Array:
 
 
 ## Every Pasture3DSimResult this material's selectors read, in compile order and possibly with repeats.
-## Empty for the ordinary terrain-shape Kinds, which is the common case and costs nothing.
+## Empty for the ordinary terrain-shape Filter Types, which is the common case and costs nothing.
 ##
 ## The brush needs these because a Sim Result is a whole grid with its own extent and cannot travel in
 ## the flat stride-8 selector block (see Pasture3DReliefSelector.to_params). Composites — the stack —
 ## override this to include their children's.
 func sim_results() -> Array:
-	if selector != null and selector.is_sim_kind() and selector.sim_result != null:
+	if selector != null and selector.is_sim_filter_type() and selector.sim_result != null:
 		return [selector.sim_result]
 	return []
 
@@ -144,10 +144,10 @@ func selectors() -> Array:
 
 
 ## True when any selector in this material reads a Sim Result, whether or not one is assigned. Drives
-## the brush's "a sim Kind is in use with no Sim Result" warning, which must fire precisely when the
-## reference is MISSING — so this cannot be `not sim_results().is_empty()`.
+## the brush's "a sim Filter Type is in use with no Sim Result" warning, which must fire precisely when
+## the reference is MISSING — so this cannot be `not sim_results().is_empty()`.
 func wants_sim_result() -> bool:
-	return selector != null and selector.is_sim_kind()
+	return selector != null and selector.is_sim_filter_type()
 
 
 ## Append a selector to the table and return its index (the value an op stores in its selector slot).
@@ -264,7 +264,7 @@ static func _configure_noise(freq: float, octaves: int, lacunarity: float, gain:
 ## and the height gradient. Selectors and SCREE read them; every other op ignores them, and the brush only
 ## bothers computing them when the program needs them.
 ## Returns the signed accumulator, nominally [-1,1] but deliberately not hard-clamped (spec §4.4).
-## `flow / ero / dep / wet` describe what the erosion sim did at this cell, for the four sim Kinds, and
+## `flow / ero / dep / wet` describe what the erosion sim did at this cell, for the four sim Filter Types,
 ## arrive ALREADY CONVERTED to the units a selector band is written in: flow in m² of catchment (the
 ## resource stores its log), erosion as a positive depth (the resource stores a negative delta). The
 ## brush does that conversion once per cell — see Pasture3DPlow._sim_fields and relief_fields_add_sim,
@@ -387,24 +387,24 @@ func _selector_value(sid: int, alt: float, slope_deg: float, curv: float,
 	var b := sid * SELECTOR_STRIDE
 	if b < 0 or b + SELECTOR_STRIDE > _selectors.size():
 		return 1.0
-	# SLOPE and CURVATURE are the two Kinds a measure_radius applies to (§21.6) — the same measurement over
-	# a wider stencil. Everything else reads the one value it always did.
+	# SLOPE and CURVATURE are the two filter types a measure_radius applies to (§21.6) — the same
+	# measurement over a wider stencil. Everything else reads the one value it always did.
 	var wide: Array = []
 	if _selectors[b + SELECTOR_RADIUS] > 0.0 and fi >= 0 and sid < measured.size():
 		wide = measured[sid]
 	var x := float(wide[0][fi]) if not wide.is_empty() else slope_deg
-	var kind := int(_selectors[b])
-	if kind == 1: # ALTITUDE
+	var ft := int(_selectors[b])
+	if ft == 1: # ALTITUDE
 		x = alt
-	elif kind == 2: # CURVATURE
+	elif ft == 2: # CURVATURE
 		x = float(wide[1][fi]) if not wide.is_empty() else curv
-	elif kind == 3: # FLOW — m² of catchment, already un-logged by the brush
+	elif ft == 3: # FLOW — m² of catchment, already un-logged by the brush
 		x = flow
-	elif kind == 4: # EROSION — metres removed, already positive
+	elif ft == 4: # EROSION — metres removed, already positive
 		x = ero
-	elif kind == 5: # DEPOSITION
+	elif ft == 5: # DEPOSITION
 		x = dep
-	elif kind == 6: # WETNESS
+	elif ft == 6: # WETNESS
 		x = wet
 	var lo := _selectors[b + 1]
 	var hi := _selectors[b + 2]

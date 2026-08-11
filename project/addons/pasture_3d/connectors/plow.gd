@@ -458,7 +458,7 @@ func _paint_spline(path: Path3D) -> void:
 	if use_fields:
 		fields = _terrain_fields(min_x, min_z, vs, gw, gh)
 		measured = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh)
-	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Kinds read (spec §9). Resampled from the
+	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Filter Types read (spec §9). Resampled from the
 	# Pasture3DSimResult's own extent, which is at SIM resolution over the SIMULATED area and shares
 	# nothing with this bake grid. Only when a selector actually asks for them.
 	var sim_res := _sim_result_for() if use_fields else null

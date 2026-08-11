@@ -366,7 +366,7 @@ func _gate_e_slope_selector() -> void:
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 20.0
 	var sel := Pasture3DReliefSelector.new()
-	sel.kind = Pasture3DReliefSelector.Kind.SLOPE
+	sel.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
 	sel.range_min = STEEP_DEG
 	sel.range_max = 90.0
 	sel.falloff_low = 8.0
