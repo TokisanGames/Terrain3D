@@ -170,6 +170,9 @@ const RESULT_MAX_CELLS: int = 4194304
 	set(v):
 		sim_result = v
 		update_configuration_warnings()
+## Give the masks a .res of their own next to your terrain data, so a Plow's or Mound's relief selector
+## can point at a FILE. Until they have one they live inside this scene, where nothing else can reach them.
+@export_tool_button("Save Masks") var _save_masks_btn = save_masks
 
 @export_group("Water Features")
 ## Upstream catchment a cell must drain before it counts as a river, in SQUARE METRES (§10.1). An area

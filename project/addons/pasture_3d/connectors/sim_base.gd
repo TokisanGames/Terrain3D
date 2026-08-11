@@ -176,6 +176,40 @@ func _empty_result() -> void:
 	_save_result(r)
 
 
+## Give the Sim Result a file of its own and write it, so a relief selector can point at a FILE rather
+## than at a resource buried in a scene (§8.2). Returns the path written, or "".
+##
+## The Inspector could already do this — the resource slot's dropdown has Save As — but nothing said so,
+## the slot is EMPTY until the first bake so there is nothing to right-click, and the warning that fires
+## afterwards described the destination without naming the gesture. This is the discoverable route.
+##
+## It never picks a path in silence. With no file yet it derives one from the terrain's own data directory,
+## takes the path over so every later Preview and Simulate rewrites it automatically, and prints where it
+## went. With a file already, it just rewrites that.
+func save_masks() -> String:
+	var r := _sim_result_res()
+	if r == null or not r.is_valid():
+		push_warning(("%s: there are no masks to save yet — press Simulate (or Preview) first, then this "
+			+ "button.") % _sim_label())
+		return ""
+	var path: String = r.resource_path
+	if path == "" or path.contains("::"):
+		var dir := "res://"
+		if is_configured() and String(terrain.data_directory) != "":
+			dir = String(terrain.data_directory)
+		path = "%s/%s_masks.res" % [dir.trim_suffix("/"), String(name).to_snake_case()]
+		# So the node stops treating them as scene-embedded and _save_result keeps them current from here.
+		r.take_over_path(path)
+	var err := ResourceSaver.save(r, path)
+	if err != OK:
+		push_warning("%s: could not save the masks to %s (error %d)." % [_sim_label(), path, err])
+		return ""
+	print(("%s: masks saved to %s. Point a relief selector's Sim Result at that file — on a Plow or Mound, "
+		+ "not on a pass.") % [_sim_label(), path])
+	update_configuration_warnings()
+	return path
+
+
 ## Write the masks back to their own .res, if they have one. A resource with no path (or a path inside a
 ## scene, "…::N") is left alone — the scene serialiser owns it, and the node warns about that separately.
 func _save_result(p_result: Pasture3DSimResult) -> void:
@@ -200,7 +234,8 @@ func _result_warnings(p_baked_hash: String) -> PackedStringArray:
 	# separately, which is the whole point of §2's "one .res per Sim node".
 	if r.resource_path == "" or r.resource_path.contains("::"):
 		out.append(("The Sim Result masks have no file of their own, so they will be saved inside this "
-			+ "scene — megabytes of float data. Save the resource to a .res next to your terrain data."))
+			+ "scene — megabytes of float data, and nothing a relief selector in another scene can point "
+			+ "at. Press Save Masks (under Sim Result), or use the resource slot's dropdown → Save As."))
 	elif r.source_area_hash != "" and p_baked_hash != "" and r.source_area_hash != p_baked_hash:
 		out.append(("The Sim Result masks were not written by this node's last bake, so they describe a "
 			+ "different area. Press Simulate to rewrite them."))
