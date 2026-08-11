@@ -50,7 +50,13 @@ constexpr int RELIEF_PARAM_STRIDE = 12;
 constexpr int RELIEF_FLAG_NEGATE = 1; // bit0
 constexpr int RELIEF_FLAG_CLAMP = 2; // bit1
 constexpr int RELIEF_CURVE_LUT_N = 256; // samples per baked Curve, one contiguous block per CURVE op
-constexpr int RELIEF_SELECTOR_STRIDE = 8; // [kind, min, max, falloff_lo, falloff_hi, invert, strength, _]
+// Hollow depth, in metres over one cell, at which SCREE's toe deposition reaches full strength. Sync with
+// Pasture3DReliefMaterial.SCREE_TOE_FULL_M — see the note on relief_scree.
+constexpr double RELIEF_SCREE_TOE_FULL_M = 0.25;
+// [kind, min, max, falloff_lo, falloff_hi, invert, strength, measure_radius]. The eighth float was the
+// reserved slot until §21.6 spent it on the measurement radius; the stride is unchanged.
+constexpr int RELIEF_SELECTOR_STRIDE = 8;
+constexpr int RELIEF_SELECTOR_RADIUS = 7; // slot of `measure_radius`, in METRES; 0 = one cell
 
 // Selector kinds — sync with Pasture3DReliefSelector.Kind.
 //
@@ -60,7 +66,7 @@ constexpr int RELIEF_SELECTOR_STRIDE = 8; // [kind, min, max, falloff_lo, fallof
 enum ReliefSelectorKind {
 	RELIEF_SELECT_SLOPE = 0, // degrees
 	RELIEF_SELECT_ALTITUDE = 1, // world metres
-	RELIEF_SELECT_CURVATURE = 2, // Laplacian; positive = hollow
+	RELIEF_SELECT_CURVATURE = 2, // METRES of deviation over measure_radius; positive = hollow (§21.6)
 	RELIEF_SELECT_FLOW = 3, // upstream drainage area, m²
 	RELIEF_SELECT_EROSION = 4, // metres of material removed, POSITIVE
 	RELIEF_SELECT_DEPOSITION = 5, // metres of material gained
@@ -78,16 +84,27 @@ enum ReliefSelectorKind {
 //                "more than 10 000 m² drains through here" instead of "more than 9.2 log-units"
 //   sim_erosion  the resource stores a negative delta; this is the POSITIVE depth removed, so a band
 //                reads "5 to 50 m stripped" instead of "-50 to -5"
+//
+// `curvature` is METRES of deviation, not the raw Laplacian: mean(the sample ring at one cell) minus the
+// centre height (§21.6). SCREE reads this one-cell value; a SLOPE or CURVATURE selector with a non-zero
+// `measure_radius` reads a wider one instead, which is what `fields`/`index` are for.
 struct ReliefSample {
 	double altitude = 0.0;
 	double slope_deg = 0.0;
-	double curvature = 0.0;
+	double curvature = 0.0; // metres of deviation over ONE CELL
 	double grad_x = 0.0;
 	double grad_z = 0.0;
 	double sim_flow = 0.0; // m² of upstream catchment (un-logged)
 	double sim_erosion = 0.0; // metres removed, positive
 	double sim_deposition = 0.0; // metres gained
 	double sim_wetness = 0.0; // metres of standing water
+	// Where this sample came from, so a selector with a `measure_radius` can reach the wider grids its own
+	// id owns (§21.6). Both are set by ReliefFields::sample and are only read while that ReliefFields is
+	// alive — every caller fills the sample from a fields object on the same stack frame as the cell loop.
+	// Null/-1 means "no wider fields available", and the selector then falls back to the one-cell value,
+	// which is what an unmeasured caller wants anyway.
+	const struct ReliefFields *fields = nullptr;
+	int index = -1;
 };
 
 // Built ONCE per bake, never per cell. `noise_a`/`noise_b` are parallel to the op index; entries are null
@@ -110,10 +127,21 @@ struct ReliefFields {
 	// The sim channels, resampled onto this grid from a Pasture3DSimResult's own extent. Empty unless a
 	// selector of a sim Kind is in the program — four more grids is not a cost to pay for a slope gate.
 	std::vector<float> sim_flow, sim_erosion, sim_deposition, sim_wetness;
+	// §21.6: slope and curvature measured over a WIDER stencil, one slot per distinct non-zero
+	// `measure_radius` in the selector block. `sel_slot[sid]` is the slot selector `sid` reads, or -1 for
+	// the one-cell fields above — which is what every selector gets until someone asks for a radius, so a
+	// program without one allocates nothing here.
+	std::vector<std::vector<float>> measured_slope, measured_curvature;
+	std::vector<int> sel_slot;
+	double vs = 1.0; // the grid's own spacing, kept so a radius in metres can be turned into cells
 	int gw = 0, gh = 0;
 	bool ready = false;
 	bool has_sim = false;
 	void sample(int p_index, ReliefSample &r_out) const;
+	// Slope in degrees / curvature in metres at `p_index`, over the radius selector `p_sid` asked for.
+	// Both fall back to the one-cell field, so an unmeasured selector costs one bounds test.
+	double slope_for(int p_sid, int p_index) const;
+	double curvature_for(int p_sid, int p_index) const;
 };
 
 // How overlapping SCATTER instances combine. Sync with Pasture3DPlow.ScatterBlend.
@@ -162,6 +190,15 @@ void relief_fields_build(const PackedFloat32Array &p_below, double p_min_x, doub
 // the grid too). No-op, leaving has_sim false, when the dictionary is missing or malformed.
 void relief_fields_add_sim(const Dictionary &p_sim, double p_min_x, double p_min_z, double p_vs,
 		int p_gw, int p_gh, ReliefFields &r_fields);
+
+// §21.6: build the wider slope/curvature grids the selector block's `measure_radius` values ask for, on an
+// already-built ReliefFields. A no-op when every selector leaves the radius at 0, which is the default and
+// the whole of today's behaviour — so a SLOPE band authored before this phase pays nothing and, more to the
+// point, reads exactly the grid it always read.
+//
+// MUST be called with the same selector block the evaluation will use: the slots are indexed by selector
+// id. Radii are deduplicated, so N selectors sharing one radius build one pair of grids.
+void relief_fields_add_measured(const PackedFloat32Array &p_selectors, ReliefFields &r_fields);
 
 // One selector's 0..1 weight at one cell, for callers outside the relief evaluator — Sim's §17 mask field
 // is the only one today. A thin wrapper over the internal evaluator rather than a second copy of it: the

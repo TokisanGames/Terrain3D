@@ -323,6 +323,11 @@ PackedFloat32Array Pasture3DData::selector_mask_field(const PackedFloat32Array &
 	if (n_sel > 0 && !p_sim_result.is_empty()) {
 		relief_fields_add_sim(p_sim_result, min_x, min_z, cell, gw, gh, fields);
 	}
+	// §21.6: the wider slope / curvature grids, for any selector that set a `measure_radius`. Over THIS
+	// grid's cell size, which for a mask is the sim cell and not the terrain's vertex spacing — the same
+	// choice §17.5 already records for the one-cell fields, and the reason a radius in metres is worth
+	// having at all: it is the one part of a band that now means the same thing at both resolutions.
+	relief_fields_add_measured(p_selectors, fields);
 
 	out.resize(gw * gh);
 	float *o = out.ptrw();

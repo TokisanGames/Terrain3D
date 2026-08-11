@@ -86,6 +86,9 @@ const CHAIN_MARGIN := 32.0
 
 ## Mirrors Pasture3DReliefSelector.Kind.
 const K_CURVATURE := 2
+## AL's hollow band, in §21.6's units: metres this cell sits below its four neighbours. 0.075 m at the
+## fixture's 1 m sim cell is the 0.3 1/m Laplacian this gate was written against.
+const CURV_BAND := 0.075
 
 var _fail := 0
 var _root: Node3D
@@ -439,9 +442,13 @@ func _gate_al_masks_per_pass() -> void:
 	p1.iterations = 40
 	p2.erosion_rate = 0.05
 	p2.iterations = 5
-	# Concave ground only. The Laplacian is positive in a hollow, and pass 1's gullies are hollows that
-	# were not there before — which is the whole idiom §19.5 exists for.
-	var band := _sel(K_CURVATURE, 0.3, 100.0)
+	# Concave ground only: curvature is positive in a hollow, and pass 1's gullies are hollows that were
+	# not there before — which is the whole idiom §19.5 exists for.
+	#
+	# The band is 0.075 rather than the 0.3 this gate shipped with because §21.6 changed the unit from the
+	# 1/m Laplacian to METRES of deviation over one cell, and at this fixture's 1 m sim cell the two differ
+	# by exactly 4. Same ground, same cells: only the number the artist would type has moved.
+	var band := _sel(K_CURVATURE, CURV_BAND, 100.0)
 	p2.erosion_mask = [band] as Array[Pasture3DReliefSelector]
 	mgr.capture_chain = true
 	if not bool(mgr.simulate_now(1, false).get("ok", false)):
@@ -461,8 +468,8 @@ func _gate_al_masks_per_pass() -> void:
 	var z1: PackedFloat32Array = chain[1]["z_in"]
 	var actual: PackedFloat32Array = chain[1]["mask"]
 
-	var want_z1 := _cells_above(_curvature(z1, w, h, cell), 0.3)
-	var want_z0 := _cells_above(_curvature(z0, w, h, cell), 0.3)
+	var want_z1 := _cells_above(_curvature(z1, w, h, cell), CURV_BAND)
+	var want_z0 := _cells_above(_curvature(z0, w, h, cell), CURV_BAND)
 	var got := _cells_above(actual, 0.5)
 	print("    the gate's own curvature band: %d cells over z0, %d over pass 1's output" % [
 			want_z0.size(), want_z1.size()])
@@ -523,7 +530,7 @@ func _gate_am_idempotent() -> void:
 	p2.hillslope_diffusion = 0.4
 	p2.iterations = 15
 	# A mask on pass 2, so the re-evaluation §19.5 adds is inside what is being called idempotent.
-	p2.erosion_mask = [_sel(K_CURVATURE, 0.01, 100.0)] as Array[Pasture3DReliefSelector]
+	p2.erosion_mask = [_sel(K_CURVATURE, 0.0025, 100.0)] as Array[Pasture3DReliefSelector] # §21.6 units
 	var probes := _probe_ring(SITE_IDEMPOTENT)
 	var base := _snapshot(probes)
 	if not bool(mgr.simulate_now(1, false).get("ok", false)):
@@ -958,13 +965,14 @@ func _add_rect(p_sim: Pasture3DSim, p_x0: float, p_x1: float, p_z0: float, p_z1:
 
 func _sel(p_kind: int, p_lo: float, p_hi: float) -> Pasture3DReliefSelector:
 	var s := Pasture3DReliefSelector.new()
-	s.kind = p_kind
+	s.kind = p_kind # first — a Kind change re-defaults an untouched band (§21.5)
 	s.range_min = p_lo
 	s.range_max = p_hi
 	s.falloff_low = 0.0
 	s.falloff_high = 0.0
 	s.invert = false
 	s.strength = 1.0
+	s.measure_radius = 0.0 # this gate computes its own ONE-CELL curvature; CURVATURE's preset sets 8 m
 	return s
 
 
@@ -1039,7 +1047,8 @@ func _wrong_source_chain(p_mgr: Pasture3DSimManager, p_probes: Array[Vector3]) -
 func _curvature(p_z: PackedFloat32Array, p_w: int, p_h: int, p_cell: float) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
 	out.resize(p_w * p_h)
-	var invsq := 1.0 / (p_cell * p_cell)
+	# §21.6 units: METRES of deviation over one cell — the ring mean minus the centre — not the 1/m
+	# Laplacian this gate was written against. The band constants below moved with it.
 	for iz in range(p_h):
 		var row := iz * p_w
 		var zm := maxi(iz - 1, 0) * p_w
@@ -1048,7 +1057,7 @@ func _curvature(p_z: PackedFloat32Array, p_w: int, p_h: int, p_cell: float) -> P
 			var xm := maxi(ix - 1, 0)
 			var xp := mini(ix + 1, p_w - 1)
 			out[row + ix] = (p_z[row + xp] + p_z[row + xm] + p_z[zp + ix] + p_z[zm + ix]
-					- 4.0 * p_z[row + ix]) * invsq
+					- 4.0 * p_z[row + ix]) * 0.25
 	return out
 
 

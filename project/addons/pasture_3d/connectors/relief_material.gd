@@ -25,8 +25,12 @@ const PARAM_STRIDE := 12 # per-op float block
 const FLAG_NEGATE := 1   # bit0 — negate the op's value before blending
 const FLAG_CLAMP := 2    # bit1 — clamp the accumulator to [-1,1] after blending
 const NO_SELECTOR := -1  # op is ungated
-const SELECTOR_STRIDE := 8 # [kind, min, max, falloff_lo, falloff_hi, invert, strength, reserved]
+const SELECTOR_STRIDE := 8 # [kind, min, max, falloff_lo, falloff_hi, invert, strength, measure_radius]
+const SELECTOR_RADIUS := 7 # slot of measure_radius, in METRES; 0 = one cell (spec §21.6)
 const CURVE_LUT_N := 256 # samples per baked Curve, one contiguous block per CURVE op
+## Depth of hollow, in metres over one cell, at which SCREE's toe deposition reaches full strength.
+## Sync with RELIEF_SCREE_TOE_FULL_M in src/pasture_3d_relief_ops.h — see _scree.
+const SCREE_TOE_FULL_M := 0.25
 
 ## Multiplier on top of the brush's Height Scale, so a saved material carries its own intensity.
 @export_range(0.0, 4.0, 0.01, "or_greater") var strength: float = 1.0:
@@ -129,6 +133,14 @@ func sim_results() -> Array:
 	if selector != null and selector.is_sim_kind() and selector.sim_result != null:
 		return [selector.sim_result]
 	return []
+
+
+## Every Pasture3DReliefSelector this material gates on, in compile order. Only the assignable one lives
+## here; composites override to add their children's, and an op that carries its own gate (Scree's slope
+## band) does not appear — that one is generated from the op's own properties and cannot be misconfigured
+## the way an assigned selector can. Drives the host's band-shape warnings (§21.5).
+func selectors() -> Array:
+	return [selector] if selector != null else []
 
 
 ## True when any selector in this material reads a Sim Result, whether or not one is assigned. Drives
@@ -248,18 +260,26 @@ static func _configure_noise(freq: float, octaves: int, lacunarity: float, gain:
 ## the same point normalised to the loop's half-extents (±1 at the fitted rect edge); `inv_ex,inv_ez`
 ## convert a metre offset into that normalised space so WARP can displace both consistently.
 ## `alt / slope_deg / curv / gx,gz` describe the ground BELOW this brush's layer at this cell: height,
-## steepness, concavity (positive = hollow) and the height gradient. Selectors and SCREE read them; every
-## other op ignores them, and the brush only bothers computing them when the program needs them.
+## steepness, concavity — METRES this cell sits below its one-cell ring, positive for a hollow (§21.6) —
+## and the height gradient. Selectors and SCREE read them; every other op ignores them, and the brush only
+## bothers computing them when the program needs them.
 ## Returns the signed accumulator, nominally [-1,1] but deliberately not hard-clamped (spec §4.4).
 ## `flow / ero / dep / wet` describe what the erosion sim did at this cell, for the four sim Kinds, and
 ## arrive ALREADY CONVERTED to the units a selector band is written in: flow in m² of catchment (the
 ## resource stores its log), erosion as a positive depth (the resource stores a negative delta). The
 ## brush does that conversion once per cell — see Pasture3DPlow._sim_fields and relief_fields_add_sim,
 ## which must agree. Defaulted so every existing caller and every non-sim material is unaffected.
+## `measured` / `fi` carry the wider slope and curvature grids a selector's `measure_radius` asks for
+## (§21.6): `measured[sid]` is `[slope_grid, curv_grid]` for the radius selector `sid` set, or `[]` when it
+## left the radius at 0 and reads the one-cell `slope_deg` / `curv` above. They are GRIDS plus a cell index
+## rather than two more floats because the radius is per SELECTOR, not per cell, and a program can hold
+## several — the same shape ReliefFields uses in C++. Defaulted, so every caller that has no radius in play
+## passes nothing and behaves exactly as before.
 func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float,
 		alt: float = 0.0, slope_deg: float = 0.0, curv: float = 0.0,
 		gx: float = 0.0, gz: float = 0.0,
-		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0) -> float:
+		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0,
+		measured: Array = [], fi: int = -1) -> float:
 	# Compile on demand. Callers in the bake path always compile first, but an uncompiled material used
 	# to evaluate to a silent 0 — which reads exactly like "correctly gated out" and cost a gate its
 	# meaning once already. One bool test per cell is not worth that trap.
@@ -280,7 +300,7 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		var sid := _ops[o + 2]
 		var sel := 1.0
 		if sid >= 0:
-			sel = _selector_value(sid, alt, slope_deg, curv, flow, ero, dep, wet)
+			sel = _selector_value(sid, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi)
 
 		# --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
 		if op == Op.WARP:
@@ -362,16 +382,22 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 ## Strength lerps between "ungated" (1.0) and the band value, so a selector fades a material out rather
 ## than deleting it unless you ask for the full gate.
 func _selector_value(sid: int, alt: float, slope_deg: float, curv: float,
-		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0) -> float:
+		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0,
+		measured: Array = [], fi: int = -1) -> float:
 	var b := sid * SELECTOR_STRIDE
 	if b < 0 or b + SELECTOR_STRIDE > _selectors.size():
 		return 1.0
-	var x := slope_deg
+	# SLOPE and CURVATURE are the two Kinds a measure_radius applies to (§21.6) — the same measurement over
+	# a wider stencil. Everything else reads the one value it always did.
+	var wide: Array = []
+	if _selectors[b + SELECTOR_RADIUS] > 0.0 and fi >= 0 and sid < measured.size():
+		wide = measured[sid]
+	var x := float(wide[0][fi]) if not wide.is_empty() else slope_deg
 	var kind := int(_selectors[b])
 	if kind == 1: # ALTITUDE
 		x = alt
 	elif kind == 2: # CURVATURE
-		x = curv
+		x = float(wide[1][fi]) if not wide.is_empty() else curv
 	elif kind == 3: # FLOW — m² of catchment, already un-logged by the brush
 		x = flow
 	elif kind == 4: # EROSION — metres removed, already positive
@@ -397,6 +423,10 @@ func _selector_value(sid: int, alt: float, slope_deg: float, curv: float,
 ## concave (the toe of a slope, the floor of a gully). Meant to be used WITH a slope selector — the op
 ## supplies the texture and the deposition, the selector decides where rock is being shed at all.
 ## p: [0]=amplitude [1]=grain frequency [2]=downslope streak (m) [3]=toe deposition [4]=seed
+##
+## `curv` is metres of deviation over one cell (§21.6), so the toe ramp is written in metres too. At 1 m
+## vertex spacing SCREE_TOE_FULL_M is the ramp the old `clamp(curvature, 0, 1)` was — the two definitions
+## differ by exactly vs²/4 there — and at every other spacing it is the one that stays put.
 static func _scree(u: float, v: float, curv: float, gx: float, gz: float,
 		params: PackedFloat32Array, p: int, n: FastNoiseLite) -> float:
 	var su := u
@@ -410,7 +440,7 @@ static func _scree(u: float, v: float, curv: float, gx: float, gz: float,
 	var val := n.get_noise_2d(su, sv) * params[p]
 	var toe := params[p + 3]
 	if toe != 0.0:
-		val += toe * clampf(curv, 0.0, 1.0)
+		val += toe * clampf(curv / SCREE_TOE_FULL_M, 0.0, 1.0)
 	return val
 
 

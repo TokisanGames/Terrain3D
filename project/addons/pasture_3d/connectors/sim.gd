@@ -454,12 +454,21 @@ func _managed_mask_warnings(p_list: Array, p_label: String) -> PackedStringArray
 	var out := PackedStringArray()
 	var sim_kinds := 0
 	var pinned := 0
+	var inverted := 0
 	for s: Pasture3DReliefSelector in p_list:
-		if s == null or not s.is_sim_kind():
+		if s == null:
+			continue
+		if s.is_inverted_band():
+			inverted += 1 # fatal under a manager exactly as it is standalone (§21.5)
+		if not s.is_sim_kind():
 			continue
 		sim_kinds += 1
 		if s.sim_result != null:
 			pinned += 1
+	if inverted > 0:
+		out.append(("%s: %d selector(s) have Range Min above Range Max, so the band is inverted and passes "
+			+ "nothing anywhere. This pass will not move any ground. Swap the two values.")
+			% [p_label, inverted])
 	if sim_kinds > 0 and manager().pass_index_of(self) == 0:
 		out.append(("%s: %d selector(s) use a sim Kind, but this is the FIRST pass, so there is no previous "
 			+ "pass to read. They see a defined 0 everywhere and gate nothing. Move this pass down the "
@@ -1147,10 +1156,16 @@ func _mask_warnings(p_list: Array, p_label: String) -> PackedStringArray:
 	var out := PackedStringArray()
 	var selves := 0
 	var dangling := 0
+	var inverted := 0
 	var results: Array = []
 	for s: Pasture3DReliefSelector in p_list:
 		if s == null:
 			continue
+		# §21.5: Range Min above Range Max makes the evaluator's min(rise, fall) 0 everywhere, so the whole
+		# stack multiplies to zero and the Sim erodes nothing — with no other symptom. Checked before the
+		# sim-Kind questions because it is fatal on every Kind, including the three that read no result.
+		if s.is_inverted_band():
+			inverted += 1
 		if _self_references(s):
 			selves += 1
 			continue
@@ -1159,6 +1174,10 @@ func _mask_warnings(p_list: Array, p_label: String) -> PackedStringArray:
 				dangling += 1
 			elif not results.has(s.sim_result):
 				results.append(s.sim_result)
+	if inverted > 0:
+		out.append(("%s: %d selector(s) have Range Min above Range Max, so the band is inverted and passes "
+			+ "nothing anywhere. The whole stack multiplies to zero and this Sim will not move any ground. "
+			+ "Swap the two values.") % [p_label, inverted])
 	if selves > 0:
 		out.append(("%s: %d selector(s) read THIS Sim's own Sim Result, which is this node's own output — "
 			+ "the mask would gate on the previous run and drift every re-run. They are ignored. Point "

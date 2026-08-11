@@ -656,6 +656,9 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 		if (!sim.is_empty()) {
 			relief_fields_add_sim(sim, min_x, min_z, vs, gw, gh, fields);
 		}
+		// The wider slope / curvature grids a selector's `measure_radius` asks for (§21.6). A no-op when
+		// every selector leaves it at 0, which is the default.
+		relief_fields_add_measured(prog.selectors, fields);
 	}
 	ReliefSample ground;
 
@@ -1269,6 +1272,9 @@ void Pasture3DData::stamp_plow_loop(const int p_layer_id, const PackedVector2Arr
 		if (!sim.is_empty()) {
 			relief_fields_add_sim(sim, min_x, min_z, vs, gw, gh, fields);
 		}
+		// The wider slope / curvature grids a selector's `measure_radius` asks for (§21.6). A no-op when
+		// every selector leaves it at 0, which is the default.
+		relief_fields_add_measured(prog.selectors, fields);
 	}
 	ReliefSample ground;
 

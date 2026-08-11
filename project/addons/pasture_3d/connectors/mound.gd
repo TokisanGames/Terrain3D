@@ -213,6 +213,9 @@ func _paint_spline(path: Path3D) -> void:
 	# only when the compiled program actually reads them — the field grids are O(cells).
 	var use_fields := has_relief and _needs_terrain_fields(ops)
 	var fields: Array = _terrain_fields(min_x, min_z, vs, gw, gh) if use_fields else []
+	# §21.6: the wider grids any selector's `measure_radius` asks for, indexed by selector id. Empty when
+	# every selector left it at 0, which is the default.
+	var measured: Array = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh) if use_fields else []
 	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Kinds read, resampled from the
 	# Pasture3DSimResult's own extent (which shares no grid with this bake). Only when a selector asks.
 	var sim_res: Pasture3DSimResult = _relief_sim_result(relief) if use_fields else null
@@ -329,7 +332,8 @@ func _paint_spline(path: Path3D) -> void:
 						f_dep = sim_fields[2][fi]
 						f_wet = sim_fields[3][fi]
 				var rv := relief.eval(x, z, lx * inv_ex, lz * inv_ez, inv_ex, inv_ez,
-						f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet)
+						f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet,
+						measured, row + ix if use_fields else -1)
 				amp += relief_strength * rv * profile * mat_strength
 			vals[row + ix] = amp if add else base_y + amp
 

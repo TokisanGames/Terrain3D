@@ -347,7 +347,8 @@ func _place_scatter(poly: PackedVector2Array) -> PackedFloat32Array:
 ## buckets instances spatially, but visits the same set in the same ascending order, so the two agree.
 func _scatter_eval(x: float, z: float, inst: PackedFloat32Array, alt: float = 0.0,
 		slope_deg: float = 0.0, curv: float = 0.0, gx: float = 0.0, gz: float = 0.0,
-		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0) -> float:
+		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0,
+		measured: Array = [], fi: int = -1) -> float:
 	var has := false
 	var acc := 0.0
 	for i in range(inst.size() / 6):
@@ -367,7 +368,7 @@ func _scatter_eval(x: float, z: float, inst: PackedFloat32Array, alt: float = 0.
 			continue
 		# Window the outer 10% to zero so a non-radial material fades out instead of stamping a hard disc.
 		var val := relief.eval(lx, lz, nu, nv, inv, inv, alt, slope_deg, curv, gx, gz,
-				flow, ero, dep, wet) * inst[b + 5] * smoothstep(1.0, 0.9, rad)
+				flow, ero, dep, wet, measured, fi) * inst[b + 5] * smoothstep(1.0, 0.9, rad)
 		if not has:
 			acc = val
 			has = true
@@ -451,8 +452,12 @@ func _paint_spline(path: Path3D) -> void:
 	# and only when the compiled program actually reads them.
 	var fields: Array = []
 	var use_fields := source == Source.RELIEF and _needs_terrain_fields(ops)
+	# §21.6: plus the wider grids any selector's `measure_radius` asks for, indexed by selector id. Empty
+	# when every selector left it at 0, which is the default and costs nothing.
+	var measured: Array = []
 	if use_fields:
 		fields = _terrain_fields(min_x, min_z, vs, gw, gh)
+		measured = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh)
 	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Kinds read (spec §9). Resampled from the
 	# Pasture3DSimResult's own extent, which is at SIM resolution over the SIMULATED area and shares
 	# nothing with this bake grid. Only when a selector actually asks for them.
@@ -553,11 +558,12 @@ func _paint_spline(path: Path3D) -> void:
 				var rv: float
 				if scattered:
 					rv = _scatter_eval(x, z, instances, f_alt, f_slope, f_curv, f_gx, f_gz,
-							f_flow, f_ero, f_dep, f_wet)
+							f_flow, f_ero, f_dep, f_wet, measured, row + ix if use_fields else -1)
 				else:
 					rv = relief.eval(lx if fit else x, lz if fit else z,
 							lx * inv_ex, lz * inv_ez, inv_ex, inv_ez,
-							f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet)
+							f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet,
+							measured, row + ix if use_fields else -1)
 				amp = height_scale * rv * mask * src_strength
 			else:
 				var v := _sample01(x, z, lx * inv_ex, lz * inv_ez, fit, data, lut_w, lut_h)

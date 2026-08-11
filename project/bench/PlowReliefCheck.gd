@@ -401,6 +401,7 @@ func _gate_g_phase2_ops() -> void:
 		print("    !! the probes measured flat ground, so the parity result is vacuous")
 
 
+
 # --- H: FIT maps a height TEXTURE once onto the loop ----------------------------------------------
 # Spec §6 promises FIT for the LUT sources too, not just RELIEF. The failure mode is silent: the branch
 # just keeps tiling and the loop's shape is ignored.
@@ -751,7 +752,24 @@ func _gate_m_phase3_parity() -> void:
 	scree.amplitude = 0.3
 	scree.downslope_streak = 6.0
 	scree.blend = Pasture3DReliefMaterial.Blend.ADD
-	stack.layers = [rock, scree]
+	# A third layer gated over a MEASURE RADIUS (§21.6). Without it this parity claim stops covering the
+	# selector path from the moment a band asks for one: the wider slope grid is built by _measured_fields
+	# in GDScript and by relief_fields_add_measured in C++, which are two implementations of one stencil
+	# and exactly the pair L6 exists to keep honest. The band is deliberately partial — a slope gate over
+	# 12 m that passes some of this hillside and not all of it.
+	var wide := Pasture3DReliefFractal.new()
+	wide.style = Pasture3DReliefFractal.Style.HILLS
+	wide.feature_size = 30.0
+	wide.blend = Pasture3DReliefMaterial.Blend.ADD
+	var over12 := Pasture3DReliefSelector.new()
+	over12.kind = Pasture3DReliefSelector.Kind.SLOPE
+	over12.range_min = 18.0
+	over12.range_max = 90.0
+	over12.falloff_low = 6.0
+	over12.falloff_high = 0.0
+	over12.measure_radius = 12.0
+	wide.selector = over12
+	stack.layers = [rock, scree, wide]
 	plow.source = Pasture3DPlow.Source.RELIEF
 	plow.relief = stack
 	plow.height_scale = 8.0
@@ -776,6 +794,23 @@ func _gate_m_phase3_parity() -> void:
 	if spread < 0.1:
 		_fail += 1
 		print("    !! the probes measured flat ground, so the parity result is vacuous")
+
+	# FIXTURE CHECK for the measure_radius layer: drop the radius to 0 and the SAME material must stamp
+	# something measurably different. Without this the parity number above would still read 0.00000000
+	# with the radius never reaching either path — two implementations agreeing on a parameter neither of
+	# them used (§21.6).
+	over12.measure_radius = 0.0
+	plow.force_gdscript_raster = false
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var radius_delta := 0.0
+	for i in range(probes.size()):
+		radius_delta = maxf(radius_delta, absf(_height(probes[i]) - native[i]))
+	print("    CONTROL the same bake with measure_radius 0 instead of 12 m: max |difference| %.4f m"
+			% radius_delta)
+	if radius_delta < 1.0e-3:
+		_fail += 1
+		print("    !! the radius changed nothing here, so M's parity claim never exercised it")
+	over12.measure_radius = 12.0
 
 
 # --- N: a gated-out area is left completely alone, PROFILE ops included --------------------------

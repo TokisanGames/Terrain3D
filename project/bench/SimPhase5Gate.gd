@@ -616,7 +616,8 @@ func _slope_field(p_z: PackedFloat32Array) -> PackedFloat32Array:
 func _curvature_field(p_z: PackedFloat32Array) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
 	out.resize(SG * SG)
-	var invsq := 1.0 / (SCELL * SCELL)
+	# §21.6 units: METRES of deviation over one cell (the ring mean minus the centre), not the 1/m
+	# Laplacian. AB derives its band from this field, so the two move together.
 	for iz in range(SG):
 		var row := iz * SG
 		var zm := maxi(iz - 1, 0) * SG
@@ -625,7 +626,7 @@ func _curvature_field(p_z: PackedFloat32Array) -> PackedFloat32Array:
 			var xm := maxi(ix - 1, 0)
 			var xp := mini(ix + 1, SG - 1)
 			out[row + ix] = (p_z[row + xp] + p_z[row + xm] + p_z[zp + ix] + p_z[zm + ix]
-					- 4.0 * p_z[row + ix]) * invsq
+					- 4.0 * p_z[row + ix]) * 0.25
 	return out
 
 
@@ -635,7 +636,8 @@ func _curvature_field(p_z: PackedFloat32Array) -> PackedFloat32Array:
 func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float,
 		p_invert := false, p_strength := 1.0, p_result: Pasture3DSimResult = null) -> Pasture3DReliefSelector:
 	var s := Pasture3DReliefSelector.new()
-	s.kind = p_kind
+	s.kind = p_kind # first — a Kind change re-defaults an untouched band (§21.5)
+	s.measure_radius = 0.0 # this gate computes its own ONE-CELL fields; CURVATURE's preset sets 8 m
 	s.range_min = p_lo
 	s.range_max = p_hi
 	s.falloff_low = p_f_lo

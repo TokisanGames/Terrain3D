@@ -2666,6 +2666,17 @@ func _relief_warnings(mat: Pasture3DReliefMaterial) -> PackedStringArray:
 				warnings.append(("This material's selectors read %d different Sim Results; only the first "
 					+ "is used, so the others gate on the wrong sim's channels. Give the layers one Sim "
 					+ "Result, or split them across brushes.") % distinct.size())
+	# §21.5: an inverted band gates NOTHING through, on every Kind, and nothing about that is visible —
+	# the evaluator's min(rise, fall) is 0 everywhere and the material simply never appears. Said out loud
+	# for the same reason the Sim says it about River Width Min.
+	var inverted := 0
+	for s in mat.selectors():
+		if s != null and s.is_inverted_band():
+			inverted += 1
+	if inverted > 0:
+		warnings.append(("%d relief selector(s) have Range Min above Range Max, so the band is inverted and "
+			+ "passes nothing anywhere — the material will not appear at all. Swap the two values.")
+			% inverted)
 	var finest := _relief_finest_period(mat)
 	if finest > 0.0 and is_instance_valid(terrain):
 		var limit := terrain.vertex_spacing * PERIOD_SAMPLES_MIN
@@ -2723,8 +2734,8 @@ func _sim_fields(r: Pasture3DSimResult, min_x: float, min_z: float, vs: float, g
 
 
 ## Per-cell description of the ground BELOW this brush's layer, over the bake grid: height, steepness in
-## degrees, curvature (the Laplacian — positive is a hollow, negative a ridge) and the height gradient.
-## Returns [alt, slope_deg, curv, gx, gz], each gw*gh.
+## degrees, curvature (METRES this cell sits below the ring of its four neighbours — positive is a hollow,
+## negative a ridge, §21.6) and the height gradient. Returns [alt, slope_deg, curv, gx, gz], each gw*gh.
 ##
 ## The source is `composite_height_below`, NOT the finished terrain: reading the final composite would
 ## feed this brush's own relief into its own mask and drift on every re-bake. Where no lower layer covers
@@ -2753,7 +2764,6 @@ func _terrain_fields(min_x: float, min_z: float, vs: float, gw: int, gh: int) ->
 	var gzs := PackedFloat32Array()
 	gzs.resize(n)
 	var inv2 := 1.0 / (2.0 * vs)
-	var invsq := 1.0 / (vs * vs)
 	for iz in range(gh):
 		var row := iz * gw
 		var zm := maxi(iz - 1, 0) * gw
@@ -2767,9 +2777,84 @@ func _terrain_fields(min_x: float, min_z: float, vs: float, gw: int, gh: int) ->
 			gxs[row + ix] = gx
 			gzs[row + ix] = gz
 			slope[row + ix] = rad_to_deg(atan(sqrt(gx * gx + gz * gz)))
+			# §21.6: METRES of deviation — the one-cell ring's mean height minus this cell's. The old form
+			# divided by vs² instead of 4, so the same hollow read 16x smaller on a 4x coarser grid.
 			curv[row + ix] = (alt[row + xp] + alt[row + xm] + alt[zp + ix] + alt[zm + ix]
-					- 4.0 * c) * invsq
+					- 4.0 * c) * 0.25
 	return [alt, slope, curv, gxs, gzs]
+
+
+## The wider slope / curvature grids a selector's `measure_radius` asks for (§21.6), one entry per SELECTOR
+## id: `[]` for a selector that left the radius at 0 — which reads the one-cell fields above, bit for bit
+## what it read before this phase — and `[slope_grid, curv_grid]` otherwise. Selectors sharing a radius
+## share one pair of grids, so N slope bands over 20 m cost one build.
+##
+## MUST agree with relief_fields_add_measured in C++, which is the path an actual bake takes; this one is
+## the oracle. `alt` is _terrain_fields' first return, so the two measurements are of the same ground.
+func _measured_fields(alt: PackedFloat32Array, curv_base: PackedFloat32Array,
+		op_selectors: PackedFloat32Array, vs: float, gw: int, gh: int) -> Array:
+	var stride := Pasture3DReliefMaterial.SELECTOR_STRIDE
+	var n_sel := op_selectors.size() / stride
+	var out: Array = []
+	out.resize(n_sel)
+	out.fill([])
+	if n_sel < 1:
+		return out
+	var by_radius := {}
+	for s in range(n_sel):
+		var r := op_selectors[s * stride + Pasture3DReliefMaterial.SELECTOR_RADIUS]
+		if not (r > 0.0):
+			continue # 0 = one cell = the base fields; NaN lands here too
+		if not by_radius.has(r):
+			by_radius[r] = _measure_at(alt, curv_base, r, vs, gw, gh)
+		out[s] = by_radius[r]
+	return out
+
+
+## One [slope_grid, curv_grid] pair measured over `r` metres. Slope is the same central difference the
+## one-cell field takes, over ±R cells instead of ±1; curvature is the mean of the ring of cells at radius
+## r, minus the centre. Both clamp at the grid edge, as every derivative here does.
+func _measure_at(alt: PackedFloat32Array, curv_base: PackedFloat32Array, r: float,
+		vs: float, gw: int, gh: int) -> Array:
+	var n := gw * gh
+	var slope := PackedFloat32Array()
+	slope.resize(n)
+	var curv := PackedFloat32Array()
+	curv.resize(n)
+	var rc := maxi(1, int(round(r / vs)))
+	var inv2 := 1.0 / (2.0 * float(rc) * vs)
+	# The ring, built once. At r = vs it is the 4 axial and 4 diagonal neighbours — close to, and
+	# deliberately not identical to, the one-cell field: `measure_radius = 0` is the preserved path.
+	var rr := maxi(1, int(ceil(r / vs)))
+	var ring_dx := PackedInt32Array()
+	var ring_dz := PackedInt32Array()
+	for dz in range(-rr, rr + 1):
+		for dx in range(-rr, rr + 1):
+			if absf(sqrt(float(dx * dx + dz * dz)) * vs - r) <= vs * 0.5:
+				ring_dx.append(dx)
+				ring_dz.append(dz)
+	var inv_ring := 0.0 if ring_dx.is_empty() else 1.0 / float(ring_dx.size())
+	for iz in range(gh):
+		var row := iz * gw
+		var zm := maxi(iz - rc, 0) * gw
+		var zp := mini(iz + rc, gh - 1) * gw
+		for ix in range(gw):
+			var xm := maxi(ix - rc, 0)
+			var xp := mini(ix + rc, gw - 1)
+			var gx := (alt[row + xp] - alt[row + xm]) * inv2
+			var gz := (alt[zp + ix] - alt[zm + ix]) * inv2
+			slope[row + ix] = rad_to_deg(atan(sqrt(gx * gx + gz * gz)))
+			if ring_dx.is_empty():
+				# A radius under half a cell has no ring; the one-cell field IS the answer there.
+				curv[row + ix] = curv_base[row + ix]
+				continue
+			var acc := 0.0
+			for i in range(ring_dx.size()):
+				var sx := clampi(ix + ring_dx[i], 0, gw - 1)
+				var sz := clampi(iz + ring_dz[i], 0, gh - 1)
+				acc += alt[sz * gw + sx]
+			curv[row + ix] = acc * inv_ring - alt[row + ix]
+	return [slope, curv]
 
 
 ## Oriented frame of the loop: [cx, cz, cos, sin, ex, ez] — centre, the unit X axis of the minimum-area

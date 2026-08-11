@@ -45,6 +45,15 @@ func sim_results() -> Array:
 	return out
 
 
+## Our own selector, plus every child's.
+func selectors() -> Array:
+	var out := super()
+	for m in layers:
+		if m != null:
+			out.append_array(m.selectors())
+	return out
+
+
 func wants_sim_result() -> bool:
 	if super():
 		return true

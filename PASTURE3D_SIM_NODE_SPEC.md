@@ -1,9 +1,11 @@
 # Pasture3D Sim Node Spec (`Pasture3DSim`)
 
-**Status:** **PHASES 1–5 IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09, phase 5 2026-08-10).
-**PHASE 5.5 IMPLEMENTED** (2026-08-10) — the mask preview (§18).
-**Phases 6–7 DESIGNED, NOT BUILT** — the manager and pass chain (§19) and moving the solve off the main
-thread (§20). Drafted 2026-08-08; **solver replaced the same
+**Status:** **PHASES 1–6 IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09, phase 5 and 5.5
+2026-08-10, phase 6 — the manager and pass chain, §19 — 2026-08-11).
+**PHASE 6.5 HALF IMPLEMENTED** (2026-08-11): the selector half (§21.5, §21.6) is built and gated; the pass
+container, per-pass masks and build-through (§21.2–§21.4) are still designed only.
+**Phase 7 DESIGNED, NOT BUILT** — moving the solve off the main thread (§20). Drafted 2026-08-08;
+**solver replaced the same
 day** after a survey of Houdini, World Machine, Gaea and the large-scale-terrain literature (§16).
 Target: Godot 4.7, Pasture3D `main`.
 
@@ -792,7 +794,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's Kinds, units and falloff semantics; no solver change |
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DONE** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Clustered by margin-grown loop boxes, with a cell budget that REFUSES rather than coarsening; per-pass mask re-evaluation; one `SimResult`; one water extraction. Retires §5's seam limitation **for the solve** — adjacent loops must still overlap, or the per-pass falloff leaves a ridge at the join (§19) |
-| **6.5 — DESIGNED (§21)** | `Pasture3DSimPass`, a container grouping several Sims into ONE pass whose members all read the same input surface; **per-pass Sim Results**, so a chain can be tuned a step at a time instead of only as a whole; build-through (`Simulate To Here`); per-Kind selector presets; and the `CURVATURE` unit fix + measurement radius. Everything §19 got wrong for the act of *tuning* a chain rather than running one |
+| **6.5 — HALF DONE (§21)** | Two independent halves. **The selector half is DONE** (§21.5, §21.6, gates BE–BH): per-Kind presets that follow a Kind change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half is still DESIGNED** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass`, per-pass Sim Results and build-through. The two share no code — the selector work touched neither the manager nor the chain — which is why they land separately |
 | **7 — DESIGNED (§20)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §20.6) |
 | **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every Kind returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
@@ -1954,7 +1956,12 @@ editor. Say so in the gate output rather than letting a green line imply more th
 
 ---
 
-## 21. Pass containers, per-pass masks and selector presets (phase 6.5) — DESIGNED
+## 21. Pass containers, per-pass masks and selector presets (phase 6.5) — HALF DONE
+
+> **§21.5 and §21.6 are BUILT** (the selector half — presets, `measure_radius`, curvature in metres, the
+> inverted-band warning). Their results, break tests and departures are in *Gate results (phase 6.5,
+> selectors)* after §21.6. **§21.2, §21.3 and §21.4 are still DESIGNED** — the container, per-pass masks and
+> build-through, with gates AZ–BD unwritten. Nothing in the selector half touched the manager or the chain.
 
 Phase 6 shipped a chain that is correct and a workflow that is not usable. This is the addendum that
 makes it usable. It is **6.5 rather than 8** because none of it is new capability — every item below is
@@ -1979,7 +1986,7 @@ guessing which pass moved what. §19.5 is the strongest thing in the feature and
 that makes single-shot tuning impossible: pass 2 reads pass 1's output, so pass 2's behaviour is not a
 function of pass 2's settings alone.
 
-### 21.2 `Pasture3DSimPass`, the container
+### 21.2 `Pasture3DSimPass`, the container — DESIGNED
 
 ```gdscript
 @tool class_name Pasture3DSimPass extends Node3D
@@ -2033,7 +2040,7 @@ both are load-bearing:
   combine a single Sim's own multiple loops use (§19.9 departure 6): that one exists because those loops
   share one solved surface, and these do not.
 
-### 21.3 Per-pass masks — and why per-SIM masks cannot exist
+### 21.3 Per-pass masks — and why per-SIM masks cannot exist — DESIGNED
 
 The request was "each sim saves the mask data for its pass, or failing that the container does". **The
 fallback is the only coherent option, and it is worth being precise about why**, because the reason is
@@ -2084,7 +2091,7 @@ against, which is the one moment you most want the old numbers.
 The manager keeps its own whole-chain result unchanged (§19.6). Per-pass masks are additional, not a
 replacement: a relief material keyed on the finished landscape still wants the finished flow field.
 
-### 21.4 Calibrating a pass: build-through, not solo
+### 21.4 Calibrating a pass: build-through, not solo — DESIGNED
 
 The stated workflow is "calibrate each pass, then run at the manager level". **A solo button would not
 deliver it**, and this is the one place the request needs pushing back on: pass 2's input is pass 1's
@@ -2108,7 +2115,7 @@ A result that survived the height it came from would be the worst of both.
 Everything downstream — the clustering, the one write, the undo action — is untouched: this truncates the
 pass list and changes nothing else, which is why it is cheap.
 
-### 21.5 Selector presets per Kind
+### 21.5 Selector presets per Kind — BUILT
 
 `Pasture3DReliefSelector` defaults to `range_min 25, range_max 90, falloff 10/10` — a `SLOPE` band in
 degrees, applied to every Kind. On `EROSION` (metres, 0–55 measured) it passes nothing. On `FLOW` (m²,
@@ -2175,7 +2182,7 @@ Also retune the `@export_range` hints per Kind through `_validate_property` — 
 falloff measured in square metres is actively misleading, even though the value is `or_greater` and
 accepts more.
 
-### 21.6 Curvature: a documentation bug and a missing baseline
+### 21.6 Curvature: a documentation bug and a missing baseline — BUILT
 
 Two defects. An earlier draft of this section claimed the documented −1…+1 range was simply false; the
 audit says otherwise and the claim is withdrawn. Measured range at 1 m vertex spacing is **−2.60 … +3.30**
@@ -2240,6 +2247,86 @@ being wrong; the alternative — a `legacy_curvature_units` flag defaulting to t
 every consumer with two conventions and makes the wrong one the default. The demo preset is re-tuned in
 the same commit and §21.10 carries the migration note.
 
+### Gate results (phase 6.5 selectors, all passing)
+
+`bench/SimPhase65SelectorGate.tscn`, headless, ~40 s. BE–BH only; AZ–BD belong to the container half and
+get their own scene, so a failure names its own half.
+
+**Nothing here reads a field directly, because nothing exposes one.** The gate recovers a cell's slope or
+curvature by bisecting the band edge at which `selector_mask_field` flips that cell — the mask passes iff
+the value is at or above `range_min`, so the flip point *is* the value. That measures the path that ships
+rather than a second implementation of it. Every reference it compares against is the gate's own: BF's
+fixture is a paraboloid `z = k·r²`, whose ring mean sits exactly `k·r²` above the centre for **any**
+symmetric ring, so the expected deviation is arithmetic and not a number read back out of the code.
+
+| # | Measured | Control |
+|---|---|---|
+| BE | Each of the 7 Kinds, from a fresh selector, lands on its own preset (**0 wrong**). An edited band survives: `range_min 40` on SLOPE → FLOW leaves **[40, 90, 10, 10, 0]**. A hand-tuned CURVATURE band survives a `ResourceSaver` → `ResourceLoader` round trip unchanged | `range_min` set to FLOW's **own** 5000 while still SLOPE, then → FLOW: still **[5000, 90, 10, 10, 0]**, so "untouched" is not being decided against the incoming Kind. And a **two-hop** chain SLOPE → FLOW → EROSION, where the second hop only moves if the comparison tracks the *outgoing* Kind rather than the shipped defaults |
+| BF | One-cell curvature on the dome reads **0.004000 m** where the maths says 0.004000. Deviation at r = 4 m **0.0670** (maths 0.0640) and at r = 16 m **1.0251** (maths 1.0240), a ratio of **15.30** against a predicted 16. A noisy 20% ramp reads a median **11.01°** at r = 16 m against a true grade of 11.31°, and a ±2° band on that grade passes **80.2%** of the grid. `measure_radius = 0` is sandwiched to the exact float32 on **6/6** probes | The same dome at 2 m spacing reads **0.016001 m** — 4× the 1 m answer, as metres must; the **old 1/m units are 0.016001 at both spacings**, which is the resolution-dependence §21.6 exists to kill, measured rather than argued. Radius 0 is **256×** smaller than r = 16 m, exactly `k·r²`. One cell reads the ramp **11.61° off** its real grade and passes only 9.0% of the band. The float32 sandwich **opens on 6/6** cells at r = 16 m |
+| BG | Over one solve at the shipped defaults (rate 0.08, diffusion 0.15, 30 iterations, 320² at 2.5 m): SLOPE **32.5%**, ALTITUDE **27.0%**, CURVATURE **39.2%**, FLOW **2.96%**, EROSION **57.3%**, DEPOSITION **3.02%**, WETNESS **7.50%** — every preset inside 2–60%. Each Kind's field range, median and p90 are printed first, and a constant field fails the gate outright | The 25–90 band this phase replaces, on the same ground: **0.00%** for CURVATURE, **0.00%** for DEPOSITION, **0.01%** for WETNESS — the three §21.5 measured at 0.0% on the demo site, reproduced on a fixture built independently of it |
+| BH | A Plow whose material carries a 60..20 band **warns**; so does a Sim with the same band in its Erosion Mask | The same selector as 20..60 is **silent**, and gates something real: over a ramp it passes **27.0%** of the cells, while inverted it passes **0.0%** — so the warning is about a band that genuinely selects nothing, not about a band the gate never exercised |
+
+**Break tests — each mechanism broken in turn:**
+
+| Broken | Fails |
+|---|---|
+| "Untouched" decided against the **incoming** Kind | BE only, on its first control |
+| The CURVATURE and WETNESS presets **rot back** to 25–90 | BG only, on those two rows |
+| The inverted-band warning removed from the **brush** host | BH only, its Plow leg |
+| The inverted-band warning removed from the **Sim** host | BH only, its Sim leg |
+| Curvature restored to the **1/m Laplacian** | BF only — 0.016 where the maths says 0.004 |
+| `relief_fields_add_measured` made a **no-op** (the radius accepted and ignored) | BF only, five legs including the sandwich's own sensitivity check |
+| The radius-0 SLOPE field multiplied by **1.0000001** | BF only, the bitwise leg — 0/6 probes, while BG's SLOPE row does not move at all |
+
+> **The last break test is the one that earns the word "bitwise".** A drift of one part in ten million is
+> invisible to every other criterion in this spec — BG's SLOPE preset still selected 32.47%, unchanged to
+> the digit — and the float32 sandwich caught it on all six probes. That is the evidence behind §21.6's
+> claim that `measure_radius = 0` did not silently change bands authored before this phase.
+
+> **BG's fixture took five attempts and the failures are the useful part.** A single tilted hillside makes
+> every Kind ask about the same ground: everything is steep, so everything erodes, and DEPOSITION and
+> WETNESS come back **identically zero** — the same emptiness §21.5 measured on the demo site and blamed on
+> the solver rather than the selector. The fixture that works is a **plateau, an escarpment and a plain**,
+> which gives the seven Kinds three different places to look. It is asserted, not assumed: the gate prints
+> every field's range, median and p90 before it judges a single preset, and **fails outright if any field
+> is constant** rather than quietly reporting 0%.
+>
+> **One of those five attempts was a bug in the gate, not the fixture.** `erode_heightfield`'s parameter
+> dictionary spells the key `diffusion`; the *node* property is `hillslope_diffusion`. Passing the node's
+> name leaves diffusion at zero, and the gate spent three fixture revisions proving "deposition cannot
+> exist at shipped defaults" — a finding about nothing. The gate now checks `diffusion_substeps >= 1` on
+> the solve it just ran and fails if the answer is no.
+
+**Regression suite re-run against this build:** `SimPhase1Gate`, `SimPhase2Gate`, `SimPhase3Gate`,
+`SimPhase4Gate`, `SimPhase5Gate`, `SimPhase55Gate`, `SimPhase6Gate`, `PlowReliefCheck`, `PondBrushCheck`,
+`MoundReliefCheck` — **all passing, 0 failures.** Two of them needed repairs, and both were unit changes
+rather than regressions:
+
+- **`SimPhase5Gate` and `SimPhase6Gate` compute their own curvature**, in the units of the day. Both now
+  use §21.6's, and `SimPhase6Gate`'s AL band moved from **0.3 to 0.075** — the same 4× the definitions
+  differ by at its 1 m sim cell. AL selects 1 853 / 6 917 cells either way, so the ground it gates is
+  unchanged; only the number an artist would type has moved. Both gates' `_sel` helpers now pin
+  `measure_radius = 0` explicitly, because CURVATURE's preset otherwise hands them an 8 m radius they
+  never asked for and their own one-cell reference would no longer be the right comparison.
+- **`PlowReliefCheck` gate M — the L6 parity check — now carries a third layer gated over a 12 m
+  `measure_radius`.** Without it the parity claim stopped covering the selector path the moment a band
+  asked for a radius: `_measured_fields` in GDScript and `relief_fields_add_measured` in C++ are two
+  implementations of one stencil, which is exactly the pair L6 exists to keep honest. They agree to
+  **0.00000000 m** over 49 probes, and the gate proves the radius reached the bake by re-baking at radius 0
+  — **2.0005 m** of difference — rather than trusting a zero.
+
+### Departures from the design (selector half)
+
+| # | Departure | Why |
+|---|---|---|
+| 1 | **`ALTITUDE` has a preset entry after all** — the shipped 25/90/10/10/0 band | §21.5 says "unchanged", and this *is* unchanged: the entry is today's default, so switching TO altitude moves nothing, which is what the decision asked for. Omitting the row entirely looked equivalent and is not: with no entry, ALTITUDE becomes a **trap door**. SLOPE → ALTITUDE → CURVATURE on a virgin selector would leave a 25–90 band on a Kind where it selects 0.0%, because the outgoing Kind had no preset to compare against and every later change is treated as edited. The tooltip still says ALTITUDE is the one Kind you set by hand |
+| 2 | **The measurement stencils are stated here, because §21.6 gives the definition and not the discretisation.** Curvature at r > 0 is the mean of the ring of cells within half a cell of radius r, minus the centre. Slope at r > 0 is the same central difference the one-cell field takes, over ±round(r/vs) cells instead of ±1 | The ring at r = one cell is the 4 axial *and* 4 diagonal neighbours, so it is close to but deliberately **not identical** to `measure_radius = 0`, which stays the 4-axial form bit for bit. §21.6's "at r = one cell it reduces to (Σ4 − 4z)/4" describes the radius-0 path, which is the one that had to be preserved |
+| 3 | **A wide slope radius outruns noise, it does not average it** | Worth writing down because the obvious mental model is wrong. A central difference over ±r samples two points; the noise between them is a fixed height difference while the baseline grows with r, so the error in the gradient falls as **1/r** rather than as 1/√n. It is still the right stencil — BF measures a median of 11.01° against a true 11.31° at 16 m, where one cell reads 22.92° — but a single cell at a wide radius can still sit a degree off, and a criterion written per-cell would have been measuring the fixture's noise |
+| 4 | **`ReliefSample` carries a pointer to its `ReliefFields` and its cell index** | A radius is per SELECTOR, not per cell, and a program can hold several — so the evaluator needs the whole grid for the selector it is evaluating, not two more scalars. The alternative was a fixed cap on distinct radii with a silent fallback past it. The GDScript oracle mirrors it by taking the grids plus the index (`measured`, `fi`) rather than by allocating a per-cell array in the hot loop |
+| 5 | **`relief_scree`'s toe ramp is `clamp(curvature / 0.25, 0, 1)`**, not `clamp(curvature, 0, 1)` retuned by eye | 0.25 m is the ramp the old clamp *was* at 1 m vertex spacing: the two definitions differ by exactly `vs²/4` there, so `clamp(4c, 0, 1) == clamp(c/0.25, 0, 1)` identically. Every scree material authored at 1 m — `weathered_cliff.tres` and `talus_slope.tres` among them — is unchanged, and at every other spacing the new one is the one that stays put |
+| 6 | **`measure_radius` is hidden on the five Kinds it does nothing for**, and `to_params()` writes 0 for them | Same habit as the manager hiding what it overrides. The stored value survives, so switching back to Slope or Curvature restores what you had; zeroing it on the wire keeps the block honest about what the evaluator will actually use |
+| 7 | **Presets apply on ANY `kind` assignment, including from code and from `ResourceLoader`** | Restricting them to the editor would have made gate BE untestable headless, which is where every other criterion in this spec lives. The load case is safe because Godot writes *every* script property into a `.tres` and assigns them in declaration order — `kind` first, then the band — so a preset fired during deserialisation is overwritten by the authored values a line later. BE pins that with a save/load round trip rather than leaving it as an argument. The consequence for callers is one line long and worth knowing: **set `kind` first, then the band**, which every gate helper in `bench/` now does explicitly |
+
 ### 21.7 The rename, and its real scope
 
 `sim.gd` → `pasture3d_sim.gd`. Two honest observations before doing it:
@@ -2278,7 +2365,9 @@ a line item folded into this one.
 
 ### 21.9 Gates (phase 6.5)
 
-Lettering continues at **AZ** (§14).
+Lettering continues at **AZ** (§14). ✅ marks a gate that is built and passing —
+`bench/SimPhase65SelectorGate.tscn` holds BE–BH; AZ–BD land with the container half and need their own
+scene, since a manager fixture has nothing to do with a selector band.
 
 | # | Criterion | Control that must fail |
 |---|---|---|
@@ -2287,10 +2376,10 @@ Lettering continues at **AZ** (§14).
 | BB | **Per-pass masks describe that pass's own output.** The result stored on pass N routes the surface after N, not after N−1 or after the whole chain. | The same comparison against pass N−1's stored masks, which must differ measurably — and the flow field must be non-trivial over the cluster, or the two are both empty. |
 | BC | **Build-through truncates and nothing else.** Simulating to pass N gives bitwise the same surface as a full chain whose passes after N are deleted. | The full untruncated chain, which must differ — otherwise the later passes were doing nothing and truncation is untestable here. |
 | BD | **A bare Sim under a manager is still a pass of one.** A phase-6 scene reproduces its phase-6 surface to 0.000000 m after the container exists. | The same scene with that Sim moved inside a container, which must be identical too — a container of one is not a different feature. |
-| BE | **Kind presets apply to untouched bands and never to edited ones.** Changing Kind on a default selector re-defaults the band; changing it on one with an edited `range_min` leaves every field alone. | Edit a field to the *incoming* Kind's preset value and change Kind — it must still be treated as edited, or "untouched" is being decided by comparing against the wrong Kind. |
-| BF | **Curvature is metres of deviation over its radius, and `measure_radius` reaches SLOPE too.** An analytic dome of known geometry reads the deviation the maths says at two different radii, and a slope band over a noisy ramp of known mean grade widens as the radius grows. | The same ground at radius 0 (one cell) vs 16 m, which must differ by the ratio the formula predicts — a radius that changes nothing is a parameter in name only. And `measure_radius = 0` must reproduce today's SLOPE field BITWISE, or the default silently broke every band already authored. |
-| BG | **Every Kind's preset selects a useful fraction of real ground.** Each Kind's shipped band, over one bake at shipped solver defaults, selects between 2% and 60% of the simulated area — not 0% and not everything. | The 25–90 band this phase replaces, which must fail for `CURVATURE`, `WETNESS` and `DEPOSITION` (0.0%) and for `SLOPE` (93.7%). This is the audit in §21.5 turned into a standing check, so the presets cannot rot silently. |
-| BH | **An inverted band is refused, not silently empty.** `range_min > range_max` raises a configuration warning on the brush that owns the selector. | The same selector with the range the right way round, which must NOT warn — and must gate something, or the warning is the only thing being tested. |
+| BE ✅ | **Kind presets apply to untouched bands and never to edited ones.** Changing Kind on a default selector re-defaults the band; changing it on one with an edited `range_min` leaves every field alone. | Edit a field to the *incoming* Kind's preset value and change Kind — it must still be treated as edited, or "untouched" is being decided by comparing against the wrong Kind. |
+| BF ✅ | **Curvature is metres of deviation over its radius, and `measure_radius` reaches SLOPE too.** An analytic dome of known geometry reads the deviation the maths says at two different radii, and a slope band over a noisy ramp of known mean grade widens as the radius grows. | The same ground at radius 0 (one cell) vs 16 m, which must differ by the ratio the formula predicts — a radius that changes nothing is a parameter in name only. And `measure_radius = 0` must reproduce today's SLOPE field BITWISE, or the default silently broke every band already authored. |
+| BG ✅ | **Every Kind's preset selects a useful fraction of real ground.** Each Kind's shipped band, over one bake at shipped solver defaults, selects between 2% and 60% of the simulated area — not 0% and not everything. | The 25–90 band this phase replaces, which must fail for `CURVATURE`, `WETNESS` and `DEPOSITION` (0.0%) and for `SLOPE` (93.7%). This is the audit in §21.5 turned into a standing check, so the presets cannot rot silently. |
+| BH ✅ | **An inverted band is refused, not silently empty.** `range_min > range_max` raises a configuration warning on the brush that owns the selector. | The same selector with the range the right way round, which must NOT warn — and must gate something, or the warning is the only thing being tested. |
 
 **BB and BC both need a chain whose passes visibly disagree**, the same fixture requirement §19.8 records
 for AI/AJ/AK. Assert that the passes moved the ground by different amounts and report it, rather than
@@ -2303,9 +2392,15 @@ inferring it from the criteria passing.
    something else entirely. `ALTITUDE` keeps today's band and its tooltip says plainly that it is the one
    Kind you always set by hand. A brush-side "fit to terrain" action is the escape hatch if that ever
    stops being acceptable; it is real UI work and nobody has needed it yet.
-2. **Curvature's unit change breaks authored bands** (§21.6) — decided and accepted. Still to do at
-   implementation time: sweep the project for `Pasture3DReliefSelector` resources with `kind = 2` and
-   re-tune each, not only `channel_boulders.tres`, and say in the commit which ones moved.
+2. **Curvature's unit change breaks authored bands** (§21.6) — decided, accepted, and **the sweep found
+   none to break.** Every `Pasture3DReliefSelector` in the repo was enumerated: `channel_boulders.tres`
+   (`kind = 3`, FLOW — *not* curvature, which is what this note assumed), `weathered_cliff.tres`
+   (`kind = 0`), the two in `big_regions.tscn` (both SLOPE, no explicit `kind`) and the three in
+   `sculpting_2.tscn` (`kind = 3`, `5`, `3`). **No authored resource uses `kind = 2` anywhere**, so nothing
+   was re-tuned and nothing needed to be. What the unit change does reach is `relief_scree`'s toe ramp,
+   which every scree material rides — and that was retuned to be numerically identical at 1 m vertex
+   spacing (departure 5), so `weathered_cliff.tres` and `talus_slope.tres` are unchanged there too. The
+   cost of this change landed entirely on bands nobody had authored yet.
 3. **Per-pass mask memory at 1× over a large cluster** is the one number that could make the on-by-default
    decision wrong. §11 profiling is still not done and §19.4 still says so; measuring it needs the user's
    go-ahead.

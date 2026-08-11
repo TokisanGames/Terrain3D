@@ -142,11 +142,16 @@ inline double relief_selector_value(const PackedFloat32Array &p_sel, int p_sid,
 		return 1.0;
 	}
 	const int kind = (int)p_sel[b];
-	double x = p_ground.slope_deg;
+	// SLOPE and CURVATURE are the two Kinds a `measure_radius` applies to (§21.6): the same measurement,
+	// taken over a wider stencil. The radius lives on the fields, not on the sample, because it is a whole
+	// extra grid; the sample only carries where it came from.
+	const bool measured = (double)p_sel[b + RELIEF_SELECTOR_RADIUS] > 0.0 && p_ground.fields != nullptr &&
+			p_ground.index >= 0;
+	double x = measured ? p_ground.fields->slope_for(p_sid, p_ground.index) : p_ground.slope_deg;
 	if (kind == RELIEF_SELECT_ALTITUDE) {
 		x = p_ground.altitude;
 	} else if (kind == RELIEF_SELECT_CURVATURE) {
-		x = p_ground.curvature;
+		x = measured ? p_ground.fields->curvature_for(p_sid, p_ground.index) : p_ground.curvature;
 	} else if (kind == RELIEF_SELECT_FLOW) {
 		x = p_ground.sim_flow; // already m², un-logged in relief_fields_add_sim
 	} else if (kind == RELIEF_SELECT_EROSION) {
@@ -172,6 +177,11 @@ inline double relief_selector_value(const PackedFloat32Array &p_sel, int p_sid,
 
 // Loose rock shed downhill — mirrors Pasture3DReliefMaterial._scree.
 // p: [0]=amplitude [1]=grain frequency [2]=downslope streak (m) [3]=toe deposition [4]=seed
+//
+// §21.6 retune: curvature is now metres of deviation over one cell instead of the raw 1/m Laplacian, so
+// the old `clamp(curvature, 0, 1)` would have been a hundredfold different ramp. 0.25 m is the SAME ramp
+// as before at 1 m vertex spacing — the two definitions differ by exactly vs²/4 there — and unlike the old
+// one it now means the same depth of hollow at every spacing. Pinned by SimPhase65SelectorGate's BF.
 inline double relief_scree(double u, double v, const ReliefSample &p_ground,
 		const PackedFloat32Array &p_params, int p, const Ref<FastNoiseLite> &p_noise) {
 	double su = u;
@@ -186,7 +196,7 @@ inline double relief_scree(double u, double v, const ReliefSample &p_ground,
 	double val = (double)p_noise->get_noise_2d(su, sv) * (double)p_params[p];
 	const double toe = (double)p_params[p + 3];
 	if (toe != 0.0) {
-		val += toe * CLAMP(p_ground.curvature, 0.0, 1.0);
+		val += toe * CLAMP(p_ground.curvature / RELIEF_SCREE_TOE_FULL_M, 0.0, 1.0);
 	}
 	return val;
 }
@@ -287,6 +297,8 @@ void godot::ReliefFields::sample(int p_index, ReliefSample &r_out) const {
 		r_out = ReliefSample();
 		return;
 	}
+	r_out.fields = this;
+	r_out.index = p_index;
 	r_out.altitude = (double)altitude[p_index];
 	r_out.slope_deg = (double)slope_deg[p_index];
 	r_out.curvature = (double)curvature[p_index];
@@ -305,6 +317,29 @@ void godot::ReliefFields::sample(int p_index, ReliefSample &r_out) const {
 	}
 }
 
+double godot::ReliefFields::slope_for(int p_sid, int p_index) const {
+	if (p_sid < 0 || p_sid >= (int)sel_slot.size() || p_index < 0) {
+		return p_index >= 0 && p_index < (int)slope_deg.size() ? (double)slope_deg[p_index] : 0.0;
+	}
+	const int slot = sel_slot[p_sid];
+	if (slot < 0 || slot >= (int)measured_slope.size() || p_index >= (int)measured_slope[slot].size()) {
+		return p_index < (int)slope_deg.size() ? (double)slope_deg[p_index] : 0.0;
+	}
+	return (double)measured_slope[slot][p_index];
+}
+
+double godot::ReliefFields::curvature_for(int p_sid, int p_index) const {
+	if (p_sid < 0 || p_sid >= (int)sel_slot.size() || p_index < 0) {
+		return p_index >= 0 && p_index < (int)curvature.size() ? (double)curvature[p_index] : 0.0;
+	}
+	const int slot = sel_slot[p_sid];
+	if (slot < 0 || slot >= (int)measured_curvature.size() ||
+			p_index >= (int)measured_curvature[slot].size()) {
+		return p_index < (int)curvature.size() ? (double)curvature[p_index] : 0.0;
+	}
+	return (double)measured_curvature[slot][p_index];
+}
+
 double godot::relief_selector_weight(const PackedFloat32Array &p_selectors, int p_sid,
 		const ReliefSample &p_ground) {
 	return relief_selector_value(p_selectors, p_sid, p_ground);
@@ -319,6 +354,7 @@ void godot::relief_fields_build(const PackedFloat32Array &p_below, double p_min_
 	}
 	r_out.gw = p_gw;
 	r_out.gh = p_gh;
+	r_out.vs = p_vs;
 	r_out.altitude.assign((size_t)n, 0.f);
 	const bool has_below = p_below.size() == n;
 	for (int iz = 0; iz < p_gh; iz++) {
@@ -337,7 +373,6 @@ void godot::relief_fields_build(const PackedFloat32Array &p_below, double p_min_
 	r_out.grad_x.assign((size_t)n, 0.f);
 	r_out.grad_z.assign((size_t)n, 0.f);
 	const double inv2 = 1.0 / (2.0 * p_vs);
-	const double invsq = 1.0 / (p_vs * p_vs);
 	for (int iz = 0; iz < p_gh; iz++) {
 		const int row = iz * p_gw;
 		const int zm = MAX(iz - 1, 0) * p_gw;
@@ -351,14 +386,115 @@ void godot::relief_fields_build(const PackedFloat32Array &p_below, double p_min_
 			r_out.grad_x[row + ix] = (float)gx;
 			r_out.grad_z[row + ix] = (float)gz;
 			r_out.slope_deg[row + ix] = (float)Math::rad_to_deg(std::atan(std::sqrt(gx * gx + gz * gz)));
+			// §21.6: METRES of deviation — the mean of the ring at one cell, minus the centre. The old
+			// form divided by vs² instead of 4, which made the same hollow read 16x smaller on a 4x
+			// coarser grid. Positive is still a hollow.
 			r_out.curvature[row + ix] = (float)(((double)r_out.altitude[row + xp] +
 														(double)r_out.altitude[row + xm] +
 														(double)r_out.altitude[zp + ix] +
 														(double)r_out.altitude[zm + ix] - 4.0 * c) *
-					invsq);
+					0.25);
 		}
 	}
 	r_out.ready = true;
+}
+
+void godot::relief_fields_add_measured(const PackedFloat32Array &p_selectors, ReliefFields &r_fields) {
+	const int n_sel = p_selectors.size() / RELIEF_SELECTOR_STRIDE;
+	if (!r_fields.ready || n_sel < 1) {
+		return;
+	}
+	const int gw = r_fields.gw;
+	const int gh = r_fields.gh;
+	const double vs = r_fields.vs > 0.0 ? r_fields.vs : 1.0;
+	const int n = gw * gh;
+
+	// One slot per DISTINCT radius. Exact float equality is the right test: both sides are the same
+	// `measure_radius` float off the same wire block, not two numbers that happen to be close.
+	std::vector<double> radii;
+	r_fields.sel_slot.assign((size_t)n_sel, -1);
+	for (int s = 0; s < n_sel; s++) {
+		const double r = (double)p_selectors[s * RELIEF_SELECTOR_STRIDE + RELIEF_SELECTOR_RADIUS];
+		if (!(r > 0.0)) {
+			continue; // 0 = one cell = the base fields, and NaN lands here too
+		}
+		int slot = -1;
+		for (int i = 0; i < (int)radii.size(); i++) {
+			if (radii[i] == r) {
+				slot = i;
+				break;
+			}
+		}
+		if (slot < 0) {
+			slot = (int)radii.size();
+			radii.push_back(r);
+		}
+		r_fields.sel_slot[s] = slot;
+	}
+	if (radii.empty()) {
+		return;
+	}
+
+	r_fields.measured_slope.assign(radii.size(), std::vector<float>());
+	r_fields.measured_curvature.assign(radii.size(), std::vector<float>());
+	for (size_t k = 0; k < radii.size(); k++) {
+		const double r = radii[k];
+		std::vector<float> &slope = r_fields.measured_slope[k];
+		std::vector<float> &curv = r_fields.measured_curvature[k];
+		slope.assign((size_t)n, 0.f);
+		curv.assign((size_t)n, 0.f);
+
+		// SLOPE: the same central difference the one-cell field takes, over +/-R cells instead of +/-1.
+		// Round rather than truncate, and never below 1, so a radius under half a cell is the one-cell
+		// measurement rather than a division by zero.
+		const int rc = MAX(1, (int)std::lround(r / vs));
+		const double inv2 = 1.0 / (2.0 * (double)rc * vs);
+
+		// CURVATURE: the ring of cells one cell wide at radius r, mean height minus the centre (§21.6).
+		// Built once here rather than per cell. At r = vs the ring is the 4 axial and 4 diagonal
+		// neighbours, which is close to but deliberately not identical to the one-cell field's 4 axial
+		// ones — `measure_radius = 0` is the bitwise-preserved path, not "r = one cell".
+		const int rr = MAX(1, (int)std::ceil(r / vs));
+		std::vector<int> ring_dx, ring_dz;
+		for (int dz = -rr; dz <= rr; dz++) {
+			for (int dx = -rr; dx <= rr; dx++) {
+				const double d = std::sqrt((double)(dx * dx + dz * dz)) * vs;
+				if (std::fabs(d - r) <= vs * 0.5) {
+					ring_dx.push_back(dx);
+					ring_dz.push_back(dz);
+				}
+			}
+		}
+		const double inv_ring = ring_dx.empty() ? 0.0 : 1.0 / (double)ring_dx.size();
+
+		for (int iz = 0; iz < gh; iz++) {
+			const int row = iz * gw;
+			const int zm = MAX(iz - rc, 0) * gw;
+			const int zp = MIN(iz + rc, gh - 1) * gw;
+			for (int ix = 0; ix < gw; ix++) {
+				const int xm = MAX(ix - rc, 0);
+				const int xp = MIN(ix + rc, gw - 1);
+				const double gx = ((double)r_fields.altitude[row + xp] -
+										  (double)r_fields.altitude[row + xm]) *
+						inv2;
+				const double gz = ((double)r_fields.altitude[zp + ix] -
+										  (double)r_fields.altitude[zm + ix]) *
+						inv2;
+				slope[row + ix] = (float)Math::rad_to_deg(std::atan(std::sqrt(gx * gx + gz * gz)));
+				if (ring_dx.empty()) {
+					curv[row + ix] = r_fields.curvature[row + ix];
+					continue;
+				}
+				double acc = 0.0;
+				for (size_t i = 0; i < ring_dx.size(); i++) {
+					const int sx = CLAMP(ix + ring_dx[i], 0, gw - 1);
+					const int sz = CLAMP(iz + ring_dz[i], 0, gh - 1);
+					acc += (double)r_fields.altitude[sz * gw + sx];
+				}
+				curv[row + ix] = (float)(acc * inv_ring - (double)r_fields.altitude[row + ix]);
+			}
+		}
+	}
 }
 
 void godot::relief_fields_add_sim(const Dictionary &p_sim, double p_min_x, double p_min_z, double p_vs,
