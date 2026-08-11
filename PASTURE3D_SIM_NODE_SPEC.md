@@ -2005,6 +2005,11 @@ all have to be suppressed again — the manager already pays that tax (§19.9 de
 paying it is enough. It extends `Node3D` and holds the two things a pass genuinely owns: its masks
 (§21.3) and its calibration buttons (§21.4).
 
+**DECIDED — every member carries an `enabled` bool.** Toggling one member off without deleting it is the
+gesture tuning a container of four Sims actually needs, and "which of these is causing that" becomes one
+click instead of a delete-and-undo. A disabled member contributes nothing and is skipped before its solve,
+so it costs nothing either.
+
 **One level, no nesting.** A `Pasture3DSimPass` inside a `Pasture3DSimPass` is not a pass of passes, it is
 a second way to spell the same thing, and the dock would stop showing the stack order at a glance — the
 property §19.2 chose the scene tree for in the first place.
@@ -2070,6 +2075,12 @@ plus four float grids per pass. A 2048² cluster is **64 MB per pass**.
 - **Plan Clusters reports the total mask memory the current stack would allocate** alongside the cell
   counts it already prints. A number nobody sees until the editor swaps is not a budget.
 
+**DECIDED — a stale downstream result WARNS, and is never auto-cleared.** Re-tuning pass 1 makes pass 2's
+stored masks describe a surface that no longer exists. They keep the `source_area_hash` §8.2 decision 6
+already gives every result, and the pass says *"these masks were not written by the current chain"* — the
+same sentence a Sim already uses. Deleting them silently would throw away the thing you were mid-comparison
+against, which is the one moment you most want the old numbers.
+
 The manager keeps its own whole-chain result unchanged (§19.6). Per-pass masks are additional, not a
 replacement: a relief material keyed on the finished landscape still wants the finished flow field.
 
@@ -2087,6 +2098,12 @@ masks.
 - `Pasture3DSimManager.simulate_now(scale, record_undo, up_to_pass := -1)`; −1 keeps today's meaning.
 - The manager's `_baked_hash` records the truncation, so a partial build reads as a partial build and the
   node says *"the layer holds passes 1–2 of 4"* rather than looking like a finished bake.
+
+**DECIDED — a partial build OVERWRITES the manager's whole-chain result**, exactly as a Preview overwrites a
+build's (§8.2 decision 5). The invariant that matters is that a result always describes what is currently
+in the layer, and after Simulate To Here what is in the layer is a two-pass chain. `source_loops` records
+the truncation so a reader can tell a partial from a finished one, and the node's own warning says which.
+A result that survived the height it came from would be the worst of both.
 
 Everything downstream — the clustering, the one write, the undo action — is untouched: this truncates the
 pass list and changes nothing else, which is why it is cheap.
@@ -2142,7 +2159,7 @@ same and is a two-line fix.
 | Kind | Range | Falloff | Reading |
 |---|---|---|---|
 | `SLOPE` | 25 – 90 | 10 / 10 | unchanged |
-| `ALTITUDE` | *terrain-derived* | 10% of span | See §21.10 — a constant is wrong here |
+| `ALTITUDE` | **unchanged** | unchanged | DECIDED — the one Kind you always set by hand (§21.10) |
 | `CURVATURE` | 0.25 – 100 | 0.1 / 0 | Hollows deeper than 0.25 m over the 8 m `measure_radius` its preset also sets |
 | `FLOW` | 5000 – 1e9 | 2500 / 0 | The river extractor's own default threshold: "a channel" |
 | `EROSION` | 2 – 1000 | 1 / 0 | Where the sim actually cut, against a 0–55 m range |
@@ -2281,18 +2298,18 @@ inferring it from the criteria passing.
 
 ### 21.10 Open questions
 
-1. **The `ALTITUDE` preset cannot be a constant.** A 0–1000 m band is meaningless on a 50 m map and on a
-   4 km one. Options: derive from the terrain's actual height range when the Kind is set (needs the
-   selector to reach a terrain, which a `Resource` cannot), have the *brush* offer a "fit to terrain"
-   action, or leave `ALTITUDE` alone and document that it is the one Kind you always set by hand. The
-   third is the honest default until someone wants the second.
+1. **`ALTITUDE` gets no preset — DECIDED.** A `Resource` cannot reach a terrain to derive a band, and any
+   constant is wrong somewhere: the demo measures 1.05–365.6 m and a 50 m map or a 4 km one would want
+   something else entirely. `ALTITUDE` keeps today's band and its tooltip says plainly that it is the one
+   Kind you always set by hand. A brush-side "fit to terrain" action is the escape hatch if that ever
+   stops being acceptable; it is real UI work and nobody has needed it yet.
 2. **Curvature's unit change breaks authored bands** (§21.6) — decided and accepted. Still to do at
    implementation time: sweep the project for `Pasture3DReliefSelector` resources with `kind = 2` and
    re-tune each, not only `channel_boulders.tres`, and say in the commit which ones moved.
 3. **Per-pass mask memory at 1× over a large cluster** is the one number that could make the on-by-default
    decision wrong. §11 profiling is still not done and §19.4 still says so; measuring it needs the user's
    go-ahead.
-4. **Does a container need its own falloff or edge offset?** Currently every member carries its own and the
-   container carries none. If passes routinely want one feathered edge around a *group* of loops, that is
-   a real gap — but it is a union-of-polygons problem, not a container property, and it should wait until
-   someone hits it.
+4. **A container carries NO shared settings — DECIDED, for now.** No container-level mask stack, no
+   container-level falloff; every member keeps its own. A shared feathered edge around a *group* of loops
+   is a union-of-polygons problem wearing a container's clothes, and speccing it before anyone has hit the
+   need would be guessing. Revisit when a real scene wants it.
