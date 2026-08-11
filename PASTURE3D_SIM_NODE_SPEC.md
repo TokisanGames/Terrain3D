@@ -837,7 +837,7 @@ must distinguish "measured nothing" from "measured correctly".
 >
 > **A–Z is now fully consumed**, so later phases letter their criteria **AA onward**: phase 5 AA–AG
 > (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), phase **5.5 AS–AY** (§18.7) and phase **6.5
-> AZ–BF** (§21.9). Phase 5.5 was specced after 6 and 7, and 6.5 after all of them; each takes the letters
+> AZ–BH** (§21.9). Phase 5.5 was specced after 6 and 7, and 6.5 after all of them; each takes the letters
 > that were free rather than displacing theirs — the same rule that left A–Z out of phase order, applied
 > again. Read the *(phase n)* tags, not the alphabet.
 > Same reason: a single-letter scheme that has run out is not worth a renumbering that invalidates every
@@ -2089,7 +2089,46 @@ degrees, applied to every Kind. On `EROSION` (metres, 0–55 measured) it passes
 1–343 889 measured) it passes a sliver of headwater. The Kind is a units change and the band should
 follow it.
 
-**Presets, from the numbers §8.2 already measured on the demo terrain** rather than invented:
+**The audit.** Every Kind was measured against its own field over one bake at the SHIPPED defaults
+(`erosion_rate` 0.08, `hillslope_diffusion` 0.15, 30 iterations, a 200 m loop with the default 128 m
+margin), on a 461 × 461 m grid at 1 m. "Selects" is what the out-of-the-box 25–90 band actually passes:
+
+| Kind | Field range | Median | p90 | Default band selects | Verdict |
+|---|---|---|---|---|---|
+| `SLOPE` | 0.07 – 75.9 ° | 44.05 | 59.49 | **93.7%** | Units right, band nearly a no-op on steep ground |
+| `ALTITUDE` | 1.05 – 365.6 m | 117.87 | 269.73 | 37.7% | Units right, band meaningless without the terrain (§21.10) |
+| `CURVATURE` | −2.60 – 3.30 | −0.0031 | 0.203 | **0.0%** | **Broken** — see §21.6 |
+| `FLOW` | 1 – 48 503 m² | 12.0 | 73.0 | 29.5% | **Broken — INVERTED**, see below |
+| `EROSION` | 0 – 54.7 m | 0.0 | 8.05 | 1.9% | Units right, band an order of magnitude high |
+| `DEPOSITION` | 0 – 0 m | 0.0 | 0.0 | 0.0% | Units right; the FIELD is empty here, see below |
+| `WETNESS` | 0 – 29.8 m | 0.0 | 0.0 | 0.0% | Units right, band ~50× too high |
+
+**`FLOW`'s default band is worse than useless — it is backwards.** The band is 25–90, and it has an upper
+edge, so it selects cells draining 25–90 m² and **excludes every real channel**, which drain thousands.
+Someone who picks `FLOW` because they want channels gets mid-hillslope and not the channels. Nothing about
+that is visible: the mask is populated, the preview shows red, it is simply red in the wrong places. This
+is the strongest argument in §21.5 and it is a stronger one than curvature's, because curvature at least
+fails loudly by selecting nothing.
+
+**`DEPOSITION` is empty here, and that is the solver, not the selector.** Measured across a rate/diffusion
+sweep on the same site: rate 0.08 / diffusion 0.15 over a smaller loop gives 1 230 deposition cells peaking
+at 9.36 m, diffusion 2.0 gives 5 293, and **rate 0.20 gives exactly zero** at any diffusion. §13 already
+records that `erosion_rate` is not scale-free; the consequence nobody wrote down is that on steep ground
+with a large catchment, incision outruns diffusion everywhere and the deposition channel is identically
+zero. A `DEPOSITION` selector then has nothing to gate on and looks broken. **Say so in the tooltip** — it
+is the single most likely "this Kind does not work" report after this phase ships.
+
+**Not found, worth recording as clean:** the unit conversions match on both paths — `relief_fields_add_sim`
+(C++) and `_sim_fields` (GDScript) both `exp()` the log flow, flip erosion to a positive depth, and clamp
+deposition and wetness at zero, so gate L6's parity claim holds for the sim Kinds. `SLOPE` and `ALTITUDE`
+are honest in their stated units.
+
+**One gap that is not a Kind:** there is **no validation anywhere that `range_min <= range_max`**. Invert
+them and the evaluator's `min(rise, fall)` yields 0 everywhere — the selector silently gates nothing, with
+no warning, on any Kind. The Sim already warns about `river_width_min > river_width_max`; this deserves the
+same and is a two-line fix.
+
+**Presets, from the audit above and the numbers §8.2 already measured** rather than invented:
 
 | Kind | Range | Falloff | Reading |
 |---|---|---|---|
@@ -2112,21 +2151,29 @@ accepts more.
 
 ### 21.6 Curvature: a documentation bug and a missing baseline
 
-Two separate defects, and the first one means every curvature band written so far is wrong.
+Two defects. An earlier draft of this section claimed the documented −1…+1 range was simply false; the
+audit says otherwise and the claim is withdrawn. Measured range at 1 m vertex spacing is **−2.60 … +3.30**
+with a median of −0.0031 — so "roughly −1 to +1" is the right order of magnitude *at that spacing*. The
+real problems are subtler and both still hold.
 
-**1 — The documented range is false.** The docstring says *"roughly -1 (ridge/convex) to +1
-(hollow/concave)"*. The code computes the raw Laplacian in **1/m**:
+**1 — The scale is resolution-dependent and presented as if it were absolute.** The code computes the raw
+Laplacian in **1/m**:
 
 ```
 curvature = (z[x+1] + z[x-1] + z[z+1] + z[z-1] − 4·z) / vs²
 ```
 
-([pasture_3d_relief_ops.cpp:354](src/pasture_3d_relief_ops.cpp:354)). Measured on the phase-6 fixture, a
-band of `>= 0.3` selected 1 853 of 35 721 cells and `>= 0.02` selected 16 473 — so real values run from
-about 0.01 to well past 1, and anyone who reads the docstring and types a −1…+1 band selects nearly
-everything. `relief_scree` has the same assumption baked in: it clamps curvature to 0…1 for its toe
-deposition ([pasture_3d_relief_ops.cpp:189](src/pasture_3d_relief_ops.cpp:189)), which saturates wherever
-curvature exceeds 1 — which is most concave ground.
+([pasture_3d_relief_ops.cpp:354](src/pasture_3d_relief_ops.cpp:354)). That `1/vs²` means **the same landform
+reads 16× smaller on a 4× coarser grid** — so a band tuned on a build does not survive a Preview, and a band
+tuned on a 1 m terrain does not survive on a 2 m one. §17.5 documents the effect in general terms; the
+docstring quotes −1…+1 as though it were a property of ground rather than of cell size. `relief_scree`
+inherits the same assumption, clamping curvature to 0…1 for its toe deposition
+([pasture_3d_relief_ops.cpp:189](src/pasture_3d_relief_ops.cpp:189)), which saturates on the upper third of
+the measured range.
+
+**The distribution is the practical problem.** Median −0.0031, p90 0.203, extremes past ±2.6: the signal is
+a thin spike around zero with rare large values, so a usable band is a fraction of a unit wide and the
+shipped 25–90 selects **0.0%** of anything, ever.
 
 **2 — There is no measurement baseline.** It is a one-cell Laplacian, so at 1 m vertex spacing it measures
 curvature over 1 m: fine noise, not landform. §17.5 already documents the same effect as the reason a
@@ -2197,6 +2244,8 @@ Lettering continues at **AZ** (§14).
 | BD | **A bare Sim under a manager is still a pass of one.** A phase-6 scene reproduces its phase-6 surface to 0.000000 m after the container exists. | The same scene with that Sim moved inside a container, which must be identical too — a container of one is not a different feature. |
 | BE | **Kind presets apply to untouched bands and never to edited ones.** Changing Kind on a default selector re-defaults the band; changing it on one with an edited `range_min` leaves every field alone. | Edit a field to the *incoming* Kind's preset value and change Kind — it must still be treated as edited, or "untouched" is being decided by comparing against the wrong Kind. |
 | BF | **Curvature is metres of deviation over its radius.** An analytic dome of known radius reads the deviation the geometry says, at two different `curvature_radius` values. | The same ground at radius 1 vs radius 16, which must differ by the ratio the formula predicts — a radius that changes nothing is a parameter in name only. |
+| BG | **Every Kind's preset selects a useful fraction of real ground.** Each Kind's shipped band, over one bake at shipped solver defaults, selects between 2% and 60% of the simulated area — not 0% and not everything. | The 25–90 band this phase replaces, which must fail for `CURVATURE`, `WETNESS` and `DEPOSITION` (0.0%) and for `SLOPE` (93.7%). This is the audit in §21.5 turned into a standing check, so the presets cannot rot silently. |
+| BH | **An inverted band is refused, not silently empty.** `range_min > range_max` raises a configuration warning on the brush that owns the selector. | The same selector with the range the right way round, which must NOT warn — and must gate something, or the warning is the only thing being tested. |
 
 **BB and BC both need a chain whose passes visibly disagree**, the same fixture requirement §19.8 records
 for AI/AJ/AK. Assert that the passes moved the ground by different amounts and report it, rather than
