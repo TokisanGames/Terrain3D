@@ -408,6 +408,16 @@ func _managed_warnings() -> PackedStringArray:
 		% [mgr.name, mgr.pass_index_of(self) + 1, mgr.passes().size()])
 	if _get_splines().is_empty():
 		out.append("This pass has no loop, so it contributes nothing to the chain. Add one, or delete it.")
+	# The trap this mode split creates. A Sim that baked while standalone left a delta in its OWN layer,
+	# and becoming a pass does not remove it: the manager writes elsewhere, so the old erosion sits under
+	# the new erosion and both are in the terrain. Worse, the obvious remedy is now unreachable — this
+	# node's Clear Simulation delegates to the manager (§19.7) and clears the MANAGER's layer, not this
+	# one. So the warning has to carry the actual way out.
+	if _baked_hash != "":
+		out.append(("This pass still holds erosion in its own '%s' layer from before it joined '%s', and "
+			+ "that is ADDED to the manager's on top of it. Clear Simulation here now clears the "
+			+ "manager's layer, not this one — drag this Sim out of the manager, press Clear Simulation, "
+			+ "then drag it back in.") % [_layer_owner.trim_prefix(BRUSH_OWNER_PREFIX), manager().name])
 	if erodability_range.x <= 0.0 or erodability_range.y <= 0.0:
 		out.append("Erodability Range must be positive at both ends; a 0 multiplier stops erosion entirely.")
 	# §19.5: a sim-Kind selector under a manager reads the PREVIOUS PASS's live fields, so the standalone
