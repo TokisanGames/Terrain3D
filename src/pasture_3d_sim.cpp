@@ -289,6 +289,13 @@ PackedFloat32Array Pasture3DData::selector_mask_field(const PackedFloat32Array &
 	}
 	const int n_sel = p_selectors.size() / RELIEF_SELECTOR_STRIDE;
 
+	// §18: an optional per-cell multiplier, applied on the way out. The mask preview uses it to clip the
+	// weight to the brush's own area, and it lives here rather than in a GDScript loop because that loop
+	// is O(cells) interpreted and runs on every frame of a slider drag.
+	const PackedFloat32Array area = p_params.get("area_mask", PackedFloat32Array());
+	const bool has_area = area.size() == gw * gh;
+	const float *ap = has_area ? area.ptr() : nullptr;
+
 	const PackedFloat32Array erod_lut = p_params.get("erodability_lut", PackedFloat32Array());
 	const int ew = (int)p_params.get("erodability_w", 0);
 	const int eh = (int)p_params.get("erodability_h", 0);
@@ -334,7 +341,7 @@ PackedFloat32Array Pasture3DData::selector_mask_field(const PackedFloat32Array &
 				grid_bilinear(erod_lut.ptr(), ew, eh, u * (double)(ew - 1), v * (double)(eh - 1), t);
 				base = e_lo + (e_hi - e_lo) * t;
 			}
-			o[row + ix] = (float)(base * w);
+			o[row + ix] = (float)(base * w) * (ap ? ap[row + ix] : 1.0f);
 		}
 	}
 	return out;

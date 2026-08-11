@@ -75,6 +75,11 @@ enum FlankMode { FIXED_WIDTH, SLOPE_ANGLE }
 		relief = v
 		if relief != null and not relief.changed.is_connected(_schedule_refresh):
 			relief.changed.connect(_schedule_refresh)
+		# Separate from the re-bake: a material emits `changed` when its Selector's band moves, and the
+		# overlay has to follow that as you drag it, not only when the toggle is flipped.
+		if relief != null and not relief.changed.is_connected(_queue_mask_preview):
+			relief.changed.connect(_queue_mask_preview)
+		_queue_mask_preview()
 		_schedule_refresh()
 		update_configuration_warnings()
 ## Metres of relief at the material's full output, masked by the interior profile so the rim stays clean.

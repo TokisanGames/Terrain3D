@@ -828,7 +828,7 @@ must distinguish "measured nothing" from "measured correctly".
 > the alphabet.
 >
 > **A–Z is now fully consumed**, so later phases letter their criteria **AA onward**: phase 5 AA–AG
-> (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), and phase **5.5 AS–AW** (§18.7). Phase 5.5 was
+> (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), and phase **5.5 AS–AX** (§18.7). Phase 5.5 was
 > specced after 6 and 7 and takes the letters that were free rather than displacing theirs — the same
 > rule that left A–Z out of phase order, applied again. Read the *(phase n)* tags, not the alphabet.
 > Same reason: a single-letter scheme that has run out is not worth a renumbering that invalidates every
@@ -1474,6 +1474,22 @@ worse than none, because it looks authoritative.** Clear on any of —
 - the node being deselected, leaving the tree, or losing its terrain;
 - the terrain's own layers changing underneath it (the field is built from `composite_height_below`).
 
+**And it must be LIVE.** A `Pasture3DReliefSelector` is a `Resource`: the inspector mutates it in place
+and fires `changed`, so a node that does not listen only ever redraws when the toggle is flipped — which
+is how the first build shipped, and it makes the overlay useless for the one job it has. Every selector in
+a previewed stack is connected, plus the relief material's own `changed` for Plow and Mound, plus the
+dirty-rect refresh path so the overlay follows a spline handle as it is dragged.
+
+Rebuilds are **coalesced to the end of the frame**, not debounced on a timer: a slider drag emits about
+one change per frame, so a timer would add latency to the one thing that has to feel immediate, while
+coalescing costs nothing and collapses a burst of edits into one rebuild. An explicit toggle or a stack
+assignment rebuilds *synchronously* — that is a direct instruction, not a burst.
+
+The rebuild has to be cheap enough to run every frame, which rules out two obvious shapes: the area clip
+is multiplied in by `selector_mask_field` rather than by a GDScript loop over the grid, and the texture is
+packed with `Image.create_from_data` off `PackedFloat32Array.to_byte_array()` — `FORMAT_RF` is one
+little-endian float32 per texel, so that is a memcpy instead of `gw*gh` `set_pixel` calls.
+
 **And it must not create anything to show itself.** Resolve the brush's layer, never `_ensure_layer_for`:
 a brush that has never baked would otherwise grow a layer just by being looked at. When there is no layer
 yet, "below" is the **whole stack** — the brush will be appended at the top on its first bake, so
@@ -1500,7 +1516,7 @@ no terrain, no footprint and no way to draw itself.
 
 ### 18.7 Gates (phase 5.5)
 
-Lettering continues at **AS** (§14). AW was added after the first editor test, not designed up front.
+Lettering continues at **AS** (§14). AW and AX were both added after editor testing, not designed up front.
 
 Most of this phase is a visual editor feature and is **headless-blind**, the same accommodation gates M4
 and AO make. But the claim that actually matters — *what you see is what will bake* — is fully gateable
@@ -1514,6 +1530,7 @@ pixels themselves are ungated, rather than letting four green lines imply a rend
 | AU | **One owner.** Enabling a preview on a second brush disables the first, and the first node reports Off. | Enable on one brush only, which must stay on — otherwise "exclusive" is indistinguishable from "always off". |
 | AV | **It leaves nothing behind.** After disabling, the material carries no preview insert and no preview texture, and the terrain data is unchanged — no layer, no control map, nothing written. | A snapshot taken WITH the preview on, which must differ from the off state, or AV is comparing two identical no-ops. |
 | AW | **It shows where the BRUSH acts, not the whole grid.** The lit fraction matches the loop's share of the grid, and previewing creates no layer. | The unclipped field, which must light cells the clipped one does not — if the loop already filled its bounding box there is nothing to clip and the criterion is empty. |
+| AX | **Editing a selector rebuilds the overlay.** Mutating a band in place, as the inspector does, leaves the preview equal to the field that band produces. | The edit must be one that actually changes the field, computed independently — nudging a band that gates the same cells either way would make "the texture changed" impossible to fail. |
 
 ### Gate results (phase 5.5, all passing)
 
@@ -1530,6 +1547,7 @@ bake.*
 | AU | A enables and owns it; B enables, A loses it and B holds it; A turning *itself* off leaves B's preview alone | One brush enabled alone must stay the owner — otherwise "exclusive" is indistinguishable from "never turns on" |
 | AV | With it on: owner set, source carries the insert. Off: owner 0, insert gone. Terrain height moved **0.000000000 m** across the whole cycle | The on-state readings, which must differ from the off-state — otherwise AV compares two identical no-ops |
 | AW | 14 042 of 42 025 cells lit (**33.4%**) against a loop covering ~36% of the grid; layer count 2 before and 2 after | The unclipped field lights all 42 025 — so there was something for the clip to do |
+| AX | Unchanged in the edit's own frame, then **0.000000000** from the expected field one frame later | The edit moves the field by 1.0000, so "the overlay followed" is a claim that could have failed |
 
 **Break tests — each fails only its own criterion:**
 
@@ -1541,6 +1559,7 @@ bake.*
 | The insert left compiled in after disabling | AV only |
 | The area clip removed | AS and AW — the preview stops being what the bake applies, and starts painting the bounding box |
 | The preview creating its layer with `_ensure_layer_for` | AW only |
+| The selector's `changed` never connected | AX only |
 
 > Phases 1–5, `PlowReliefCheck` and `PondBrushCheck` were re-run against the phase-5.5 build: **all
 > passing, 0 failures.**

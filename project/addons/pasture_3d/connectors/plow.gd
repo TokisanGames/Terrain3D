@@ -67,6 +67,11 @@ const _LUT_MAX := 256
 		relief = v
 		if relief != null and not relief.changed.is_connected(_schedule_refresh):
 			relief.changed.connect(_schedule_refresh)
+		# Separate from the re-bake: a material emits `changed` when its Selector's band moves, and the
+		# overlay has to follow that as you drag it, not only when the toggle is flipped.
+		if relief != null and not relief.changed.is_connected(_queue_mask_preview):
+			relief.changed.connect(_queue_mask_preview)
+		_queue_mask_preview()
 		update_configuration_warnings()
 		_schedule_refresh()
 ## How the source is laid out across the loop (TILE repeats; FIT maps it once onto the loop's oriented

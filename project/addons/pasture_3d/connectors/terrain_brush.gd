@@ -176,6 +176,8 @@ func _ready() -> void:
 	_ready_done = true
 	# A freshly added/duplicated brush may have made an existing brush's curve newly shared — refresh all.
 	_refresh_group_warnings()
+	# A scene saved with a preview toggle on should show its overlay on load, not on the next edit.
+	_queue_mask_preview()
 	# Most shape properties are plain @export (no setter), so they wouldn't auto-refresh on inspector edit.
 	# Hook the inspector's property_edited signal instead (gated to the selected brush) — one hook covers
 	# every brush's every property without per-property setters.
@@ -646,7 +648,7 @@ func _refresh_owner(owner: String, record_undo: bool, extra_clears: Array) -> vo
 	_emit_baked(sibs)
 	# §18.5: the preview is built from the surface below this layer, which this bake may have moved.
 	for s in sibs:
-		s._update_mask_preview()
+		s._queue_mask_preview()
 
 
 ## Dirty-rect refresh (Stage 1 partial redraw): one or more of THIS node's splines moved. Rework only the
@@ -743,6 +745,9 @@ func _refresh_owner_rect(owner: String, changed_ids: Dictionary, snap_all: bool 
 	# Only the tools that were actually repainted inside the box: the rest of the layer's
 	# height is untouched, so waking their listeners would be a rebuild for nothing.
 	_emit_baked(_tools_on_owner(owner).filter(func(s): return s._overlaps_box(clip_box)))
+	# §18: a spline drag takes THIS path, not the full refresh, and moving the loop moves the preview's
+	# area mask — so the overlay has to follow the handle rather than waiting for the next full bake.
+	_queue_mask_preview()
 	if log_bake_timing:
 		_log_bake_timing(clip_box, painted, t_start, t_clear, t_snap, t_paint, t_composite, Time.get_ticks_usec())
 
@@ -892,6 +897,39 @@ const MASK_PREVIEW_COLOR := Color(0.95, 0.15, 0.1, 0.65)
 ## megabytes of base64 for something that is rebuilt on demand anyway.
 var _mask_preview_texture: ImageTexture = null
 var _mask_preview_rect: Vector4 = Vector4()
+## Set between a change arriving and the deferred rebuild running, so a dozen property edits in one frame
+## cost one rebuild. A slider drag emits roughly one change per frame, so this coalesces the burst
+## without adding latency — a debounce TIMER would, and "live" is the whole point.
+var _mask_preview_queued: bool = false
+
+
+## Ask for a rebuild at the end of this frame. Connected to every selector's `changed`, so editing a band
+## edge redraws the overlay as you drag it.
+func _queue_mask_preview() -> void:
+	if _mask_preview_queued:
+		return
+	_mask_preview_queued = true
+	_run_queued_mask_preview.call_deferred()
+
+
+func _run_queued_mask_preview() -> void:
+	_mask_preview_queued = false
+	_update_mask_preview()
+
+
+## Connect (or disconnect) `changed` on every selector in a stack. A Pasture3DReliefSelector is a
+## Resource, so editing Range Min in the inspector mutates it in place and fires `changed` — the node
+## never hears about it otherwise, which is why the first build of §18 only updated when the toggle was
+## flipped. Idempotent: a bound Callable compares equal across calls.
+func _bind_mask_preview_signals(p_list: Array, p_connect: bool) -> void:
+	for s in p_list:
+		if s == null or not (s is Resource):
+			continue
+		if p_connect:
+			if not s.changed.is_connected(_queue_mask_preview):
+				s.changed.connect(_queue_mask_preview)
+		elif s.changed.is_connected(_queue_mask_preview):
+			s.changed.disconnect(_queue_mask_preview)
 
 
 ## Build the weight field for `p_selectors` over `p_box` (a world AABB) and hand it to the terrain
@@ -938,28 +976,25 @@ func _show_mask_preview(p_selectors: PackedFloat32Array, p_box: AABB, p_sim: Dic
 	if below.size() != gw * gh:
 		_clear_mask_preview()
 		return ""
+	# Clip to where this brush actually acts. The selector weight is defined over the whole grid, but the
+	# brush only applies it inside its own loop — so showing the raw weight paints the footprint RECTANGLE
+	# and overstates the affected area, corners included. That is what the first editor test of this
+	# feature reported, and it is a defect in the preview rather than in the mask.
+	#
+	# Handed to the field builder rather than multiplied in afterwards: a GDScript loop over the grid is
+	# O(cells) interpreted, and this whole function runs on every frame of a slider drag.
 	var field: PackedFloat32Array = terrain.data.selector_mask_field(below, {
 			"gw": gw, "gh": gh, "cell_size": cell, "min_x": b[0], "min_z": b[2],
+			"area_mask": _preview_area_mask(b[0], b[2], cell, gw, gh),
 		}, p_selectors, p_sim)
 	if field.size() != gw * gh:
 		_clear_mask_preview()
 		return ""
 
-	# Clip to where this brush actually acts. The selector weight is defined over the whole grid, but the
-	# brush only applies it inside its own loop — so showing the raw weight paints the footprint RECTANGLE
-	# and overstates the affected area, corners included. That is what the first editor test of this
-	# feature reported, and it is a defect in the preview rather than in the mask.
-	var area := _preview_area_mask(b[0], b[2], cell, gw, gh)
-	if area.size() == gw * gh:
-		for i in range(gw * gh):
-			field[i] *= area[i]
-
-	var img := Image.create_empty(gw, gh, false, Image.FORMAT_RF)
-	for iz in range(gh):
-		var row := iz * gw
-		for ix in range(gw):
-			var w: float = field[row + ix]
-			img.set_pixel(ix, iz, Color(w if is_finite(w) else 0.0, 0.0, 0.0))
+	# FORMAT_RF is one little-endian float32 per texel, which is exactly what a PackedFloat32Array already
+	# is — so this is a memcpy, not gw*gh set_pixel calls. At the 1024 cap that is the difference between
+	# a live preview and a slideshow.
+	var img := Image.create_from_data(gw, gh, false, Image.FORMAT_RF, field.to_byte_array())
 	# Half-cell widened so world→uv lands on texel CENTRES: the grid is corner-aligned, so sample (0,0)
 	# sits at world (b[0], b[2]) and must map to uv 0.5/gw, not 0.
 	var rect := Vector4(b[0] - cell * 0.5, b[2] - cell * 0.5, float(gw) * cell, float(gh) * cell)

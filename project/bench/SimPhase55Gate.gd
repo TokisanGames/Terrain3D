@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Phase 5.5 gates AS-AW for the mask preview (PASTURE3D_SIM_NODE_SPEC.md §18.7).
+# Phase 5.5 gates AS-AX for the mask preview (PASTURE3D_SIM_NODE_SPEC.md §18.7).
 #
 # WHAT THIS GATE DOES NOT TEST: the red pixels. The overlay is a `DEBUG_MASK_PREVIEW` shader insert, and
 # a headless run has no viewport to photograph — so nothing here proves the terrain is tinted, that the
@@ -38,7 +38,7 @@ var _mat
 
 
 func _ready() -> void:
-	print("\n=== Pasture3DSim phase 5.5 (spec §18.7 gates AS-AW) ===\n")
+	print("\n=== Pasture3DSim phase 5.5 (spec §18.7 gates AS-AX) ===\n")
 	print("NOTE: the rendered overlay is UNGATED here — headless has no viewport. These criteria test")
 	print("      that the previewed field IS the bake's field, not that it appears on screen.\n")
 	_root = Node3D.new()
@@ -64,6 +64,7 @@ func _ready() -> void:
 	_gate_au_one_owner()
 	_gate_av_leaves_nothing()
 	_gate_aw_clipped_to_brush()
+	await _gate_ax_live_update()
 
 	_done()
 
@@ -345,6 +346,59 @@ func _gate_aw_clipped_to_brush() -> void:
 	if raw_lit <= lit:
 		_fail += 1
 		print("    !! the unclipped field lights no extra cells, so there was nothing for the clip to do")
+	sim.mask_preview = 0
+
+
+# --- AX: editing a selector updates the overlay ----------------------------------------------------
+# A Pasture3DReliefSelector is a Resource: the inspector mutates it in place and fires `changed`. Without
+# a connection the node never hears, and the overlay only moved when the toggle was flipped — reported
+# from the editor as "the preview does not update live when editing".
+#
+# The rebuild is deferred so a burst of edits in one frame costs one rebuild, hence the frame wait.
+#
+# CONTROL: the edit must be one that actually changes the field, computed independently. Nudging a band
+# that gates the same cells either way would make "the texture changed" impossible to fail.
+func _gate_ax_live_update() -> void:
+	print("[AX] editing a selector rebuilds the overlay:")
+	var sim = _make_sim("AX", SITE_B)
+	if sim == null:
+		return
+	var sel := _sel(K_ALTITUDE, 40.0, 1.0e6, 0.0, 0.0)
+	sim.erosion_mask = [sel] as Array[Pasture3DReliefSelector]
+	sim.mask_preview = 1
+	# Drain anything already queued before recording the baseline. `_ready` queues a rebuild of its own,
+	# and the first version of this criterion was measuring THAT firing on the awaited frame rather than
+	# the selector's signal — it passed with the signal connection disabled, which is what the break test
+	# is for. After this await the only thing left that can rebuild the overlay is the edit below.
+	await get_tree().process_frame
+	var before := _preview_field(sim)
+	if before.is_empty():
+		_fail += 1
+		print("    !! no preview to start from")
+		return
+
+	# CONTROL: what the field becomes with the new band, worked out here rather than read back.
+	var g := _preview_grid(sim)
+	var moved := _sel(K_ALTITUDE, 80.0, 1.0e6, 0.0, 0.0)
+	var want: PackedFloat32Array = _data.selector_mask_field(
+			_below(sim, g), {"gw": g[2], "gh": g[3], "cell_size": g[4], "min_x": g[0], "min_z": g[1],
+			"area_mask": _area_mask(sim, g)}, _block([moved]), {})
+	var delta := _max_abs_diff(before, want)
+	print("    CONTROL the edit changes the field by %.4f at most (want > 0.01)" % delta)
+	if delta <= 0.01:
+		_fail += 1
+		print("    !! this band edit gates the same cells; AX could not fail")
+		return
+
+	sel.range_min = 80.0 # mutates in place and emits `changed`, exactly as the inspector does
+	var immediate := _max_abs_diff(_preview_field(sim), before)
+	await get_tree().process_frame
+	var after := _preview_field(sim)
+	print("    same frame: overlay moved %.4f; after one frame: %.9f from the expected field" % [
+			immediate, _max_abs_diff(after, want)])
+	if _max_abs_diff(after, want) != 0.0:
+		_fail += 1
+		print("    !! editing the selector did not rebuild the overlay")
 	sim.mask_preview = 0
 
 

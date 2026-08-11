@@ -107,7 +107,9 @@ const RESULT_MAX_CELLS: int = 4194304
 ## incision. Empty = erode everywhere, exactly as before this existed.
 @export var erosion_mask: Array[Pasture3DReliefSelector] = []:
 	set(v):
+		_bind_mask_preview_signals(erosion_mask, false)
 		erosion_mask = v
+		_bind_mask_preview_signals(erosion_mask, true)
 		update_configuration_warnings()
 		_update_mask_preview()
 ## Where this Sim is allowed to WRITE what it solved (§17.3). Read the same way as Erosion Mask, and the
@@ -118,7 +120,9 @@ const RESULT_MAX_CELLS: int = 4194304
 ## excluded. Multiplies the loop's own edge falloff. Empty = write everything inside the loop.
 @export var write_mask: Array[Pasture3DReliefSelector] = []:
 	set(v):
+		_bind_mask_preview_signals(write_mask, false)
 		write_mask = v
+		_bind_mask_preview_signals(write_mask, true)
 		update_configuration_warnings()
 		_update_mask_preview()
 ## Tint the terrain red where the chosen mask passes, live, so a band can be tuned by eye instead of by
