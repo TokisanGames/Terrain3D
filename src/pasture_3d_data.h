@@ -327,6 +327,13 @@ public:
 	// {sw, sh, gw, gh, sim_min_x, sim_min_z, sim_cell, min_x, min_z, vs}.
 	PackedFloat32Array sim_chain_blend(const PackedFloat32Array &p_before, const PackedFloat32Array &p_after, const PackedFloat32Array &p_gate);
 	PackedFloat32Array sim_chain_write(const PackedFloat32Array &p_z0, const PackedFloat32Array &p_zn, const Dictionary &p_params);
+	// §21.2 — the same fold, split in two, for a Pasture3DSimPass whose MEMBERS all read one input surface.
+	// `sim_pass_accumulate` adds one member's gated delta gate*(after - before) into a double accumulator
+	// without touching `before`; `sim_pass_commit` turns the accumulator back into a surface once every
+	// member has run. One member through the pair is bitwise `sim_chain_blend`, which is what keeps a
+	// container of one — and a bare Sim that is a pass — identical to phase 6.
+	PackedFloat64Array sim_pass_accumulate(const PackedFloat64Array &p_acc, const PackedFloat32Array &p_before, const PackedFloat32Array &p_after, const PackedFloat32Array &p_gate);
+	PackedFloat32Array sim_pass_commit(const PackedFloat32Array &p_before, const PackedFloat64Array &p_acc);
 	// §8.1 — batched delta write, the same raw-tile path the stamp_* rasterisers use. Deltas are gw*gh
 	// row-major with NaN = skip, anchored at vertex round(min_x/vs), round(min_z/vs). Deferred: the
 	// caller composites the box and pushes to the GPU once.

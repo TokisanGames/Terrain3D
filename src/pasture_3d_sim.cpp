@@ -493,6 +493,74 @@ PackedFloat32Array Pasture3DData::sim_chain_blend(const PackedFloat32Array &p_be
 	return out;
 }
 
+// §21.2 — one MEMBER of a Pasture3DSimPass, added into the pass's accumulator.
+//
+//     acc += gate * (after - before)
+//
+// The difference from `sim_chain_blend` is the whole difference between a member and a pass: `before` is
+// the pass's ONE input surface and is never advanced, so every member of a container solves the same
+// ground and their masked deltas SUM. Overlapping members therefore cut deeper, which is what two
+// overlapping stamp brushes on one ADD layer have always done here.
+//
+// The accumulator is double because it is summed across members and the terms partially cancel; the
+// surface it is committed back to is float either way. Same NaN rules as the blend: a NaN gate is a gate
+// of zero (outside this member's loop, the ground passes through), and a non-finite `after` means the
+// solver had no answer and contributes nothing rather than poisoning the cell.
+//
+// NaN IN THE ACCUMULATOR MEANS "NO MEMBER HAS REACHED THIS CELL" — the same convention `sim_mask_deltas`
+// and `sim_chain_write` already use for "uncovered", and not merely a tidy default. Zero would collide
+// with a member that legitimately contributed nothing, and `sim_pass_commit` has to tell those apart to
+// stay bit-identical to `sim_chain_blend`: the blend leaves an untouched cell's bytes alone, while
+// `before + 0.0` turns a stored -0.0f into +0.0f. Numerically nil, bitwise a difference, and gate BD
+// compares bytes.
+PackedFloat64Array Pasture3DData::sim_pass_accumulate(const PackedFloat64Array &p_acc,
+		const PackedFloat32Array &p_before, const PackedFloat32Array &p_after, const PackedFloat32Array &p_gate) {
+	PackedFloat64Array out;
+	const int n = p_before.size();
+	if (n < 1 || p_after.size() != n || p_gate.size() != n) {
+		return out; // size mismatch is a caller bug; an empty return fails loudly rather than half-adding
+	}
+	const bool seeded = p_acc.size() == n;
+	out.resize(n);
+	double *o = out.ptrw();
+	const double *acc = seeded ? p_acc.ptr() : nullptr;
+	const float *b = p_before.ptr();
+	const float *a = p_after.ptr();
+	const float *g = p_gate.ptr();
+	for (int i = 0; i < n; i++) {
+		const double prev = seeded ? acc[i] : (double)NAN;
+		const float gate = std::isfinite(g[i]) ? std::min(std::max(g[i], 0.0f), 1.0f) : 0.0f;
+		if (gate <= 0.0f || !std::isfinite(a[i]) || !std::isfinite(b[i])) {
+			o[i] = prev; // this member did not reach here; whoever else did still stands
+			continue;
+		}
+		o[i] = (std::isnan(prev) ? 0.0 : prev) + (double)gate * ((double)a[i] - (double)b[i]);
+	}
+	return out;
+}
+
+// §21.2 — the pass's finished surface: `before` plus everything its members contributed.
+//
+// A cell no member reached (NaN accumulator) comes back UNTOUCHED, byte for byte. Everywhere else this
+// evaluates the same double expression `sim_chain_blend` does, so a pass of ONE member is bitwise that
+// blend in every case — including the cell where a member's gate is positive and its delta is exactly
+// zero, which is why the untouched case needed a sentinel of its own rather than a test for 0.
+PackedFloat32Array Pasture3DData::sim_pass_commit(const PackedFloat32Array &p_before, const PackedFloat64Array &p_acc) {
+	PackedFloat32Array out;
+	const int n = p_before.size();
+	if (n < 1 || p_acc.size() != n) {
+		return out;
+	}
+	out.resize(n);
+	float *o = out.ptrw();
+	const float *b = p_before.ptr();
+	const double *a = p_acc.ptr();
+	for (int i = 0; i < n; i++) {
+		o[i] = (std::isnan(a[i]) || !std::isfinite(b[i])) ? b[i] : (float)((double)b[i] + a[i]);
+	}
+	return out;
+}
+
 // §19.2 step 4 — the chain's TOTAL delta `z_N - z0`, upsampled from the cluster's sim grid onto the
 // terrain-resolution write grid. ONE write per cluster, however many passes ran.
 //

@@ -2,8 +2,9 @@
 
 **Status:** **PHASES 1–6 IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09, phase 5 and 5.5
 2026-08-10, phase 6 — the manager and pass chain, §19 — 2026-08-11).
-**PHASE 6.5 HALF IMPLEMENTED** (2026-08-11): the selector half (§21.5, §21.6) is built and gated; the pass
-container, per-pass masks and build-through (§21.2–§21.4) are still designed only.
+**PHASE 6.5 IMPLEMENTED** (2026-08-11): the selector half (§21.5, §21.6, gates BE–BH) and the container
+half (§21.2–§21.4, gates AZ–BD) are both built and gated. §21.7's folder-wide file rename is deliberately
+left for its own commit.
 **Phase 7 DESIGNED, NOT BUILT** — moving the solve off the main thread (§20). Drafted 2026-08-08;
 **solver replaced the same
 day** after a survey of Houdini, World Machine, Gaea and the large-scale-terrain literature (§16).
@@ -15,7 +16,7 @@ Target: Godot 4.7, Pasture3D `main`.
 > this document references them yet — §18 was inserted and the two below it renumbered when the mask
 > preview was specced.
 
-Phases 1–4 ship as:
+Phases 1–6.5 ship as:
 
 | File | What | Phase |
 |---|---|---|
@@ -45,6 +46,15 @@ Phases 1–4 ship as:
 | [pasture_3d_material.cpp](src/pasture_3d_material.cpp) | `set_mask_preview` / `clear_mask_preview` with single-owner arbitration, and `get_generated_shader_code` | 5.5 |
 | [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd) | `_show_mask_preview` / `_update_relief_mask_preview` — shared by Sim, Plow and Mound | 5.5 |
 | [bench/SimPhase55Gate.tscn](project/bench/SimPhase55Gate.gd) | Gates AS–AV, all passing with their controls | 5.5 |
+| [connectors/sim_manager.gd](project/addons/pasture_3d/connectors/sim_manager.gd) | `Pasture3DSimManager` — clustering, the pass chain, one write, one result | 6 |
+| [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `sim_chain_blend` / `sim_chain_write` — one pass folded in, and the chain's total delta back up | 6 |
+| [bench/SimPhase6Gate.tscn](project/bench/SimPhase6Gate.gd) | Gates AH–AN, all passing with their controls | 6 |
+| [connectors/relief_selector.gd](project/addons/pasture_3d/connectors/relief_selector.gd) | Per-Filter-Type presets, `measure_radius`, the inverted-band question, and the `kind` migration shim | 6.5 |
+| [pasture_3d_relief_ops.cpp](src/pasture_3d_relief_ops.cpp) | `relief_fields_add_measured` — slope and curvature over a per-selector radius, curvature in metres | 6.5 |
+| [connectors/sim_pass.gd](project/addons/pasture_3d/connectors/sim_pass.gd) | `Pasture3DSimPass` — one pass, many Sims, its own masks and its build-through buttons | 6.5 |
+| [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `sim_pass_accumulate` / `sim_pass_commit` — the members' summed deltas, bitwise the phase-6 fold at one member | 6.5 |
+| [bench/SimPhase65PassGate.tscn](project/bench/SimPhase65PassGate.gd) | Gates AZ–BD, all passing with their controls | 6.5 |
+| [bench/SimPhase65SelectorGate.tscn](project/bench/SimPhase65SelectorGate.gd) | Gates BE–BH, all passing with their controls | 6.5 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
 records the gate results and the criteria that were vacuous until their controls caught them.
@@ -794,7 +804,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's filter types, units and falloff semantics; no solver change |
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DONE** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Clustered by margin-grown loop boxes, with a cell budget that REFUSES rather than coarsening; per-pass mask re-evaluation; one `SimResult`; one water extraction. Retires §5's seam limitation **for the solve** — adjacent loops must still overlap, or the per-pass falloff leaves a ridge at the join (§19) |
-| **6.5 — HALF DONE (§21)** | Two independent halves. **The selector half is DONE** (§21.5, §21.6, gates BE–BH): per-filter-type presets that follow a filter type change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half is still DESIGNED** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass`, per-pass Sim Results and build-through. The two share no code — the selector work touched neither the manager nor the chain — which is why they land separately |
+| **6.5 — DONE (§21)** | Two independent halves, landed separately because they share no code. **The selector half** (§21.5, §21.6, gates BE–BH): per-filter-type presets that follow a filter type change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass` — one pass, many Sims, all reading one input surface and summing their deltas — plus a per-pass Sim Result and Simulate/Preview To Here. Still outstanding from this section: §21.7's `connectors/*.gd` → `pasture3d_*.gd` migration |
 | **7 — DESIGNED (§20)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §20.6) |
 | **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every filter type returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
@@ -1956,12 +1966,14 @@ editor. Say so in the gate output rather than letting a green line imply more th
 
 ---
 
-## 21. Pass containers, per-pass masks and selector presets (phase 6.5) — HALF DONE
+## 21. Pass containers, per-pass masks and selector presets (phase 6.5) — BUILT
 
-> **§21.5 and §21.6 are BUILT** (the selector half — presets, `measure_radius`, curvature in metres, the
-> inverted-band warning). Their results, break tests and departures are in *Gate results (phase 6.5,
-> selectors)* after §21.6. **§21.2, §21.3 and §21.4 are still DESIGNED** — the container, per-pass masks and
-> build-through, with gates AZ–BD unwritten. Nothing in the selector half touched the manager or the chain.
+> **All of §21.2–§21.6 is built**, in two commits and two gate scenes. The *selector* half (§21.5, §21.6 —
+> presets, `measure_radius`, curvature in metres, the inverted-band warning) is pinned by gates BE–BH in
+> `bench/SimPhase65SelectorGate.tscn`, with its results after §21.6. The *container* half (§21.2, §21.3,
+> §21.4 — `Pasture3DSimPass`, per-pass masks, build-through) is pinned by gates AZ–BD in
+> `bench/SimPhase65PassGate.tscn`, with its results after §21.4. **§21.7's folder-wide rename is still
+> undone** and is deliberately its own commit.
 
 Phase 6 shipped a chain that is correct and a workflow that is not usable. This is the addendum that
 makes it usable. It is **6.5 rather than 8** because none of it is new capability — every item below is
@@ -1982,11 +1994,14 @@ its gates **AZ onward** for the same reason §14 already records: the free lette
 
 The through-line is that **§19 designed for the finished build and not for the act of tuning one.** A
 chain you cannot inspect between its steps is a chain you can only tune by running the whole thing and
-guessing which pass moved what. §19.5 is the strongest thing in the feature and it is exactly the thing
+guessing which pass moved what. **All four rows are now addressed**: several settings over
+several areas is a container (§21.2), "nothing describes what pass 2 did" is the per-pass Sim Result
+(§21.3), the tuning loop is Simulate To Here (§21.4), and the defaults are the per-Filter-Type presets
+(§21.5). The preview complaint is the one this spec deliberately does not fix — see §21.8 for why. §19.5 is the strongest thing in the feature and it is exactly the thing
 that makes single-shot tuning impossible: pass 2 reads pass 1's output, so pass 2's behaviour is not a
 function of pass 2's settings alone.
 
-### 21.2 `Pasture3DSimPass`, the container — DESIGNED
+### 21.2 `Pasture3DSimPass`, the container — BUILT
 
 ```gdscript
 @tool class_name Pasture3DSimPass extends Node3D
@@ -2040,7 +2055,7 @@ both are load-bearing:
   combine a single Sim's own multiple loops use (§19.9 departure 6): that one exists because those loops
   share one solved surface, and these do not.
 
-### 21.3 Per-pass masks — and why per-SIM masks cannot exist — DESIGNED
+### 21.3 Per-pass masks — and why per-SIM masks cannot exist — BUILT
 
 The request was "each sim saves the mask data for its pass, or failing that the container does". **The
 fallback is the only coherent option, and it is worth being precise about why**, because the reason is
@@ -2091,7 +2106,7 @@ against, which is the one moment you most want the old numbers.
 The manager keeps its own whole-chain result unchanged (§19.6). Per-pass masks are additional, not a
 replacement: a relief material keyed on the finished landscape still wants the finished flow field.
 
-### 21.4 Calibrating a pass: build-through, not solo — DESIGNED
+### 21.4 Calibrating a pass: build-through, not solo — BUILT
 
 The stated workflow is "calibrate each pass, then run at the manager level". **A solo button would not
 deliver it**, and this is the one place the request needs pushing back on: pass 2's input is pass 1's
@@ -2114,6 +2129,74 @@ A result that survived the height it came from would be the worst of both.
 
 Everything downstream — the clustering, the one write, the undo action — is untouched: this truncates the
 pass list and changes nothing else, which is why it is cheap.
+
+### Gate results (phase 6.5 containers, all passing)
+
+`bench/SimPhase65PassGate.tscn`, gates AZ–BD, on the demo terrain at five sites with a layer owner each.
+
+**Every reference here is independent of the thing it judges.** BB's answer to "what did pass 1 produce"
+is a **separate truncated bake, read back through `get_height`** — not the chain's own capture and not the
+result resource under test. BD's answer to "what is a pass of one" is **`sim_chain_blend`**, the phase-6
+primitive this phase did not touch, driven directly over a fixture that carries NaN gates, NaN heights and
+negative zero.
+
+| # | Measured | Control |
+|---|---|---|
+| AZ | Two members of one container are handed **bitwise identical** solver input over 45 171 cells. Each moves real ground: the first cuts **99.20 m**, the second adds **6.93 m** on top | The same two Sims as a **two-pass chain** over the same ground differ by **23.54 m** — that arrangement *is* "member 2 sees member 1's output", so a container that agreed with it would not be composing anything. Plus §21.2's `enabled`: disabling a member vs deleting it is **0.000000000 m**, and disabling it changes the landscape by **5.21 m**, so the toggle is exercised rather than assumed |
+| BA | Shuffling three overlapping members A,B,C → C,B,A reproduces the surface to **0.000000000 m**. The accumulator itself is order-independent to **0.000000000 m** when the same two deltas are added the other way round | Shuffling the same three as **passes** moves it **28.94 m** (gate AH's control, one level up). If both were stable, "order-independent" would be a fact about the fixture |
+| BB | Pass 1's stored masks against the independently measured after-pass-1 delta: **0.0000 m** over 16 probes, on a reference that moved the ground **126.1 m** | The same reference against **pass 2's** masks: **145.92 m**. Against the **whole chain's**: **38.55 m**. Flow is non-trivial — largest catchment **16 534 m²**, **475** cells draining over 500 m². §21.3's staleness rule: after a downstream pass moves, pass 1's masks are still present and still carry their **old** bake hash. §21.3's opt-out: with Store Masks off, pass 2 keeps the old hash while pass 1 takes the new one |
+| BC | Building through to pass 2 gives **0.000000000 m** against a chain whose pass 3 was **deleted**, and the node reports "passes 1-2 of 3" on itself | The full three-pass chain differs by **4.80 m**. And the precondition is checked rather than hoped for: pass 3's loop **does** extend the cluster (265 m spanning, 216 m truncated), so truncation is being tested on the grid and not only on the solve |
+| BD | Accumulate+commit is **bitwise `sim_chain_blend`** across 96 cells, 30 of them corner cases. On real ground, two bare Sims as two passes vs the same two each in a container of one: **0.000000000 m** | A second member into the same accumulator moves it **1.75 m**, so the comparison is not satisfied by an accumulator that ignores its input. And putting both Sims in **one** container instead differs by **19.95 m**, so the wrapping test is not vacuous |
+
+**Break tests — each mechanism broken in turn:**
+
+| Broken | Fails |
+|---|---|
+| Members **chain** instead of sharing one input surface | AZ **and BA** — see the note below |
+| The pass sums only its **last** member (an accumulator reset per member) | BA only |
+| Pass N stores pass **N+1's** masks | BB only |
+| Truncation drops the **solve** but not the **cluster box** | BC only, both legs |
+| The untouched-cell **sentinel** replaced by a test for zero | BD only, at the negative-zero cell — `0x00000000` against `0x80000000` |
+| The truncation is **not recorded** in the baked hash | BC only, both reporting legs |
+
+> **One break legitimately trips two gates, and that is the correct answer rather than a weak test.**
+> Order-independence is not a second mechanism — it is a *consequence* of the shared input surface, which
+> is why breaking the shared input breaks BA as well as AZ. The second break test is the one that separates
+> them: an accumulator that resets per member still hands every member the same input (AZ green) while
+> destroying the sum (BA red). Two breaks, three outcomes, and the pair pins both claims independently.
+
+> **BB's first run found a real confound and reported it as a mask error of 0.13 m.** Truncating the chain
+> also shrinks the **cluster**, because §21.4 truncates at `plan_clusters` — so pass 1 in the reference
+> build was solving a *smaller grid* than pass 1 in the full build, and the 0.13 m was a boundary effect on
+> a 127 m delta. The fix is the fixture: BB's loops are now **concentric**, so the plan is identical either
+> way, and the gate **asserts that** before it measures anything. The error went to exactly 0.0000 m. The
+> confound is a correct behaviour of the feature, and BC exists to test it deliberately.
+
+> **BD's negative-zero corner was silently absent from the fixture twice.** GDScript folds the literal
+> `-0.0` to positive zero, and folds `0.0 * -1.0` as well; the cell was built, asserted to be the corner,
+> and was not. The fixture now constructs it from its bit pattern and **checks the sign bit before using
+> it**. Until that check existed, the break test that should have caught the near-shipped implementation
+> passed clean — which is the whole argument for asserting a fixture rather than describing one.
+
+**Regression suite re-run against this build:** `SimPhase1Gate`–`SimPhase6Gate`, `SimPhase55Gate`,
+`SimPhase65SelectorGate`, `SimPhase65PassGate`, `PlowReliefCheck`, `MoundReliefCheck`, `PondBrushCheck` —
+**all passing, 0 failures.** One needed a repair, and it was a shape change rather than a regression:
+`SimPhase6Gate`'s AM control reimplements the chain from the cluster plan by hand, and a plan entry gained
+a `members` list. Its inner loop now reads through it. AM's own control still measures **38.14 m** of drift
+from the wrong source, so the repair did not hollow it out.
+
+### Departures from the design (container half)
+
+| # | Departure | Why |
+|---|---|---|
+| 1 | **`enabled` lives on `Pasture3DSim`, and a bare Sim that is a pass has one too** | §21.2 says "every member carries an `enabled` bool", which would have made it a container-only feature. But the gesture — "is it this one?" without a delete-and-undo — is exactly as useful on a pass of one, and the manager already had to skip disabled members before clustering, so honouring it for both shapes is the same code path rather than an extra one. Hidden when standalone, where a Sim is switched off by not pressing Simulate |
+| 2 | **The fold is split into `sim_pass_accumulate` + `sim_pass_commit`**, with a double accumulator and a NaN sentinel for "no member reached this cell" | `sim_chain_blend` advances a surface, which is the one thing a container must not do between members. The accumulator is double because the terms partially cancel across members; the sentinel is what makes a pass of one **bitwise** the old blend rather than merely equal — `before + 0.0` turns a stored `-0.0f` into `+0.0f`, and BD compares bytes. A test for `acc == 0` cannot tell an untouched cell from a member that contributed exactly nothing |
+| 3 | **A pass's stored `erosion`/`deposition` are baselined on that PASS's input; the live fields handed to the next pass are baselined on `z0`** | Two different questions wearing one name. "What did pass 2 do" is about pass 2 alone, which is what §21.3's table means by "each member's masked delta is its own". But a later pass gating on `EROSION` means "where has this ground been cut", which is about the chain so far — baselining that per-pass would make an `EROSION` band on pass 3 blind to everything pass 1 carved. `flow` and `wetness` are the whole routed surface at that moment in both cases, exactly as §21.3 requires |
+| 4 | **The truncation is recorded as `_baked_upto` plus a `\|to:N` suffix on the baked hash**, not in `source_loops` | §21.4 says "`source_loops` records the truncation". It counts merged **clusters**, so a two-cluster build would have been indistinguishable from a two-pass truncation. `Pasture3DSimResult` gained `source_passes` instead, and the manager compares against `_bake_signature(_baked_upto)` so a partial build reads as *"the layer holds passes 1-2 of 3"* rather than as *"the passes have changed"* — two different sentences, and the user needs the right one |
+| 5 | **One routing pass per pass boundary serves both the stored masks and the next pass's live fields**, and the final pass's is reused by the manager's own result | §21.3 costs a fill+route per pass and says so. Buying it twice at the same boundary would have doubled a cost the design already calls out — and would have invited the two answers to drift, which is the failure mode §19.5's shared `sim_result_build` exists to prevent |
+| 6 | **`save_masks`, `_save_result` and the result warnings became statics on `Pasture3DSimBase`** | §21.3 asks the pass's Save Masks button to share the manager's implementation. A `Pasture3DSimPass` is a `Node3D` and cannot inherit a `Pasture3DTerrainBrush`, so sharing had to mean sharing as a function of its inputs. Three copies of "write the .res, take the path over, print where it went" would eventually stop agreeing, on the button a user is most likely to compare across nodes |
+| 7 | **`_area_hash` folds in the pass names AND their members' names** | Moving a Sim from one container to another changes nothing about where any loop is, and it changes which pass owns that ground — so the bake is stale and the old hash would have called it current. The same braces make `enabled` invalidate a bake, since a disabled member drops out of the list entirely |
+| 8 | **`Pasture3DSim.manager()` walks up through a container**, and `is_pass()` is a separate question from `is_managed()` | A member has to reach the manager for its warnings and for the layer refusal that keeps §19.2's one-writer rule structural, but it must NOT claim to be a pass — the container is. Splitting the two questions is what lets §21.3 narrow the hidden-properties rule from "managed" to "inside a container" without a special case anywhere else |
 
 ### 21.5 Selector presets per Filter Type — BUILT
 
@@ -2366,17 +2449,17 @@ a line item folded into this one.
 
 ### 21.9 Gates (phase 6.5)
 
-Lettering continues at **AZ** (§14). ✅ marks a gate that is built and passing —
-`bench/SimPhase65SelectorGate.tscn` holds BE–BH; AZ–BD land with the container half and need their own
-scene, since a manager fixture has nothing to do with a selector band.
+Lettering continues at **AZ** (§14). All nine are built and passing, in two scenes:
+`bench/SimPhase65PassGate.tscn` holds **AZ–BD** and `bench/SimPhase65SelectorGate.tscn` holds **BE–BH**.
+Two scenes rather than one because a manager fixture has nothing to do with a selector band.
 
 | # | Criterion | Control that must fail |
 |---|---|---|
-| AZ | **A pass's members all read the same input surface.** Every member of a container is handed the identical `z_in`, bitwise, and none of them sees another's output. | Feed member 2 member 1's output → the surface differs. And the members must each MOVE the ground, or "they read the same input" is a claim about two no-ops. |
-| BA | **A pass is order-independent.** Shuffling a container's members reproduces the surface to 0.000000 m. | Shuffling the **passes** at manager level, which MUST change it (gate AH's control, re-run one level up). If both are stable the container is not composing anything. |
-| BB | **Per-pass masks describe that pass's own output.** The result stored on pass N routes the surface after N, not after N−1 or after the whole chain. | The same comparison against pass N−1's stored masks, which must differ measurably — and the flow field must be non-trivial over the cluster, or the two are both empty. |
-| BC | **Build-through truncates and nothing else.** Simulating to pass N gives bitwise the same surface as a full chain whose passes after N are deleted. | The full untruncated chain, which must differ — otherwise the later passes were doing nothing and truncation is untestable here. |
-| BD | **A bare Sim under a manager is still a pass of one.** A phase-6 scene reproduces its phase-6 surface to 0.000000 m after the container exists. | The same scene with that Sim moved inside a container, which must be identical too — a container of one is not a different feature. |
+| AZ ✅ | **A pass's members all read the same input surface.** Every member of a container is handed the identical `z_in`, bitwise, and none of them sees another's output. | Feed member 2 member 1's output → the surface differs. And the members must each MOVE the ground, or "they read the same input" is a claim about two no-ops. |
+| BA ✅ | **A pass is order-independent.** Shuffling a container's members reproduces the surface to 0.000000 m. | Shuffling the **passes** at manager level, which MUST change it (gate AH's control, re-run one level up). If both are stable the container is not composing anything. |
+| BB ✅ | **Per-pass masks describe that pass's own output.** The result stored on pass N routes the surface after N, not after N−1 or after the whole chain. | The same comparison against pass N−1's stored masks, which must differ measurably — and the flow field must be non-trivial over the cluster, or the two are both empty. |
+| BC ✅ | **Build-through truncates and nothing else.** Simulating to pass N gives bitwise the same surface as a full chain whose passes after N are deleted. | The full untruncated chain, which must differ — otherwise the later passes were doing nothing and truncation is untestable here. |
+| BD ✅ | **A bare Sim under a manager is still a pass of one.** A phase-6 scene reproduces its phase-6 surface to 0.000000 m after the container exists. | The same scene with that Sim moved inside a container, which must be identical too — a container of one is not a different feature. |
 | BE ✅ | **filter type presets apply to untouched bands and never to edited ones.** Changing filter type on a default selector re-defaults the band; changing it on one with an edited `range_min` leaves every field alone. | Edit a field to the *incoming* filter type's preset value and change filter type — it must still be treated as edited, or "untouched" is being decided by comparing against the wrong filter type. |
 | BF ✅ | **Curvature is metres of deviation over its radius, and `measure_radius` reaches SLOPE too.** An analytic dome of known geometry reads the deviation the maths says at two different radii, and a slope band over a noisy ramp of known mean grade widens as the radius grows. | The same ground at radius 0 (one cell) vs 16 m, which must differ by the ratio the formula predicts — a radius that changes nothing is a parameter in name only. And `measure_radius = 0` must reproduce today's SLOPE field BITWISE, or the default silently broke every band already authored. |
 | BG ✅ | **Every filter type's preset selects a useful fraction of real ground.** Each filter type's shipped band, over one bake at shipped solver defaults, selects between 2% and 60% of the simulated area — not 0% and not everything. | The 25–90 band this phase replaces, which must fail for `CURVATURE`, `WETNESS` and `DEPOSITION` (0.0%) and for `SLOPE` (93.7%). This is the audit in §21.5 turned into a standing check, so the presets cannot rot silently. |
@@ -2404,7 +2487,11 @@ inferring it from the criteria passing.
    cost of this change landed entirely on bands nobody had authored yet.
 3. **Per-pass mask memory at 1× over a large cluster** is the one number that could make the on-by-default
    decision wrong. §11 profiling is still not done and §19.4 still says so; measuring it needs the user's
-   go-ahead.
+   go-ahead. **Partly closed by making it predictable rather than measured:** Plan Clusters now prints the
+   megabytes the current stack would allocate for per-pass masks, per (pass, cluster) pair, alongside the
+   cell counts — so the budget is readable *before* a build rather than discovered when the editor swaps.
+   The arithmetic is exact (four float32 channels over the cluster grid); what is still unmeasured is the
+   wall-clock cost of the extra fill+route per pass, which is the other half of §21.3's cost note.
 4. **A container carries NO shared settings — DECIDED, for now.** No container-level mask stack, no
    container-level falloff; every member keeps its own. A shared feathered edge around a *group* of loops
    is a union-of-polygons problem wearing a container's clothes, and speccing it before anyone has hit the

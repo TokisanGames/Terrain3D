@@ -1005,25 +1005,29 @@ func _wrong_source_chain(p_mgr: Pasture3DSimManager, p_probes: Array[Vector3]) -
 	var ones := PackedFloat32Array()
 	ones.resize(w * h)
 	ones.fill(1.0)
-	for m: Dictionary in cl["passes"]:
-		var sim: Pasture3DSim = m["pass"]
-		var res: Dictionary = _data.erode_heightfield(z, {
-				"gw": w, "gh": h, "cell_size": cl["cell"], "time_step": 1.0,
-				"iterations": sim.iterations, "erosion_rate": sim.erosion_rate,
-				"area_exponent": sim.area_exponent, "diffusion": sim.hillslope_diffusion},
-				PackedFloat32Array())
-		if not bool(res.get("ok", false)):
-			return empty
-		for s in m["splines"]:
-			var poly: PackedVector2Array = p_mgr._polygon_xz(s)
-			var gate: PackedFloat32Array = _data.sim_mask_deltas(ones, poly, {
-					"sw": w, "sh": h, "gw": w, "gh": h,
-					"sim_min_x": min_x, "sim_min_z": min_z, "sim_cell": cl["cell"],
-					"min_x": min_x, "min_z": min_z, "vs": cl["cell"],
-					"edge_offset": sim.edge_offset, "falloff_width": sim.falloff_width},
-					p_mgr._ramp_lut(sim.falloff_curve))
-			if gate.size() == w * h:
-				z = _data.sim_chain_blend(z, res["z"], gate)
+	# §21.2 gave a pass MEMBERS, so a plan entry is now {pass, index, members: [{sim, splines}]}. This gate
+	# predates that and every one of its passes is a pass of one, so the inner loop is a formality here —
+	# but reading through it is what keeps the control an honest mirror of what the manager does.
+	for entry: Dictionary in cl["passes"]:
+		for m: Dictionary in entry["members"]:
+			var sim: Pasture3DSim = m["sim"]
+			var res: Dictionary = _data.erode_heightfield(z, {
+					"gw": w, "gh": h, "cell_size": cl["cell"], "time_step": 1.0,
+					"iterations": sim.iterations, "erosion_rate": sim.erosion_rate,
+					"area_exponent": sim.area_exponent, "diffusion": sim.hillslope_diffusion},
+					PackedFloat32Array())
+			if not bool(res.get("ok", false)):
+				return empty
+			for s in m["splines"]:
+					var poly: PackedVector2Array = p_mgr._polygon_xz(s)
+					var gate: PackedFloat32Array = _data.sim_mask_deltas(ones, poly, {
+							"sw": w, "sh": h, "gw": w, "gh": h,
+							"sim_min_x": min_x, "sim_min_z": min_z, "sim_cell": cl["cell"],
+							"min_x": min_x, "min_z": min_z, "vs": cl["cell"],
+							"edge_offset": sim.edge_offset, "falloff_width": sim.falloff_width},
+							p_mgr._ramp_lut(sim.falloff_curve))
+					if gate.size() == w * h:
+						z = _data.sim_chain_blend(z, res["z"], gate)
 	var write: PackedFloat32Array = _data.sim_chain_write(z0, z, {
 			"sw": w, "sh": h, "gw": cl["tw"], "gh": cl["th"],
 			"sim_min_x": min_x, "sim_min_z": min_z, "sim_cell": cl["cell"],

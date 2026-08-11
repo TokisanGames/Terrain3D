@@ -51,6 +51,21 @@ const MIN_SIM_CELLS: int = 8
 ## largest thing this node ever allocates, so the merge coarsens to fit and says so.
 const RESULT_MAX_CELLS: int = 4194304
 
+## §21.2 — run this Sim as part of the chain. Off skips it entirely: no solve, no delta, no cost.
+##
+## The gesture tuning a container of four Sims actually needs — "which of these is causing that" becomes
+## one click instead of a delete-and-undo — and it invalidates the bake exactly as moving a loop does, so
+## the manager asks for a re-simulate rather than showing erosion from the configuration before the click.
+##
+## Only shown under a Pasture3DSimManager. A standalone Sim is switched off by not pressing Simulate.
+@export var enabled: bool = true:
+	set(v):
+		enabled = v
+		update_configuration_warnings()
+		var mgr := manager()
+		if mgr != null:
+			mgr.update_configuration_warnings()
+
 @export_group("Simulation")
 ## How many solve iterations. The drainage network REORGANISES between iterations, and that progressive
 ## capture is what produces dendritic structure — so 30 iterations is not one big step, and lowering
@@ -170,6 +185,13 @@ const RESULT_MAX_CELLS: int = 4194304
 	set(v):
 		sim_result = v
 		update_configuration_warnings()
+## §21.3 — keep this node's masks after a build. Standalone that is always true and the property is
+## hidden; as a PASS of a manager it is a real choice, because the chain stores one set per pass and a
+## 2048² cluster is 64 MB of them. Press Plan Clusters on the manager to see the total before paying it.
+@export var store_masks: bool = true:
+	set(v):
+		store_masks = v
+		update_configuration_warnings()
 ## Give the masks a .res of their own next to your terrain data, so a Plow's or Mound's relief selector
 ## can point at a FILE. Until they have one they live inside this scene, where nothing else can reach them.
 @export_tool_button("Save Masks") var _save_masks_btn = save_masks
@@ -208,6 +230,12 @@ const RESULT_MAX_CELLS: int = 4194304
 @export_tool_button("Preview") var _preview_btn = preview_simulation
 ## Solve at Build Resolution and write the result. The final commit.
 @export_tool_button("Simulate") var _simulate_btn = run_simulation
+## §21.4 — run passes 1…this one at Preview Resolution and write. Shown only when this Sim IS a pass of a
+## manager (a bare child of one); inside a container the container owns the button.
+@export_tool_button("Preview To Here") var _preview_here_btn = preview_to_here
+## Run passes 1…this one at Build Resolution and write. The layer then holds a PARTIAL chain, and the
+## manager says so until the whole thing is simulated.
+@export_tool_button("Simulate To Here") var _simulate_here_btn = simulate_to_here
 ## Empty the Erosion layer under this node's loops, restoring the ground beneath.
 @export_tool_button("Clear Simulation") var _clear_sim_btn = clear_simulation
 ## Abandon a solve in progress. The layer is left exactly as it was — nothing is written.
@@ -315,14 +343,37 @@ func _paint_into(p_layer_id: int, p_blend: int) -> void:
 # it. Dragging a Sim in or out of a manager is therefore the whole gesture, with nothing to remember to
 # set afterwards.
 
-## The Pasture3DSimManager this Sim is a pass of, or null when it is standalone.
+## The Pasture3DSimManager whose chain this Sim runs in, or null when it is standalone. Reached through
+## a Pasture3DSimPass when there is one, so a member does not have to know whether it is in a container.
 func manager() -> Pasture3DSimManager:
 	var p := get_parent()
-	return p as Pasture3DSimManager if p is Pasture3DSimManager else null
+	if p is Pasture3DSimManager:
+		return p as Pasture3DSimManager
+	if p is Pasture3DSimPass:
+		return (p as Pasture3DSimPass).manager()
+	return null
+
+
+## The Pasture3DSimPass this Sim is a member of, or null. §21.2's one level: a container's own parent must
+## be the manager, so a Sim two containers deep is not a member of anything and its container warns.
+func container() -> Pasture3DSimPass:
+	var p := get_parent()
+	return p as Pasture3DSimPass if p is Pasture3DSimPass else null
 
 
 func is_managed() -> bool:
 	return manager() != null
+
+
+## True when this Sim IS a pass — a bare direct child of a manager, which is what every phase-6 scene has
+## and what §21.2 keeps working untouched. False for a member inside a container: the container is the
+## pass there, and it is the container that owns the masks and the build-through buttons (§21.3).
+func is_pass() -> bool:
+	return get_parent() is Pasture3DSimManager
+
+
+func is_member() -> bool:
+	return container() != null
 
 
 ## §19.2's "one writer", made structural rather than merely intended: a managed Sim cannot reserve a layer
@@ -365,10 +416,29 @@ func pass_spec() -> Dictionary:
 ## Hidden, not disabled, and not cleared. The values are still stored, so dragging the Sim back out of the
 ## manager restores the node it was.
 func _validate_property(p_property: Dictionary) -> void:
-	if not is_managed():
-		return
-	if p_property.name in ["sim_result", "_save_masks_btn", "catchment_margin",
-			"preview_resolution", "build_resolution"]:
+	var managed := is_managed()
+	var hide := false
+	match p_property.name:
+		# §21.2: a standalone Sim is switched off by not pressing Simulate, so the toggle would be a
+		# control with nothing to control.
+		"enabled":
+			hide = not managed
+		# §21.4's build-through belongs to the PASS. A member's own position in the chain is its
+		# container's, and a standalone Sim has no chain to build through.
+		"_preview_here_btn", "_simulate_here_btn":
+			hide = not is_pass()
+		# §19.3: these define the SHARED grid and belong to the manager.
+		"catchment_margin", "preview_resolution", "build_resolution":
+			hide = managed
+		# §21.3 narrows §19.7's rule from "managed" to "inside a container": whichever node IS the pass
+		# holds the masks, and a bare Sim under a manager is a pass — its Sim Result now fills, so hiding
+		# it would be hiding a populated output, the opposite of the confusion the original hide fixed.
+		# Standalone, Store Masks is always true and would be a switch that does nothing.
+		"sim_result", "_save_masks_btn":
+			hide = is_member()
+		"store_masks":
+			hide = is_member() or not managed
+	if hide:
 		p_property.usage = PROPERTY_USAGE_NONE
 
 
@@ -423,11 +493,24 @@ func _get_configuration_warnings() -> PackedStringArray:
 func _managed_warnings() -> PackedStringArray:
 	var out := PackedStringArray()
 	var mgr := manager()
-	out.append(("This Sim is a pass of '%s' (pass %d of %d). The manager owns the grid, the layer and the "
-		+ "write, so Catchment Margin, the resolutions and Sim Result are hidden here — select '%s' to "
-		+ "set them, and to find the Sim Result the chain writes. Everything still shown on this node is "
-		+ "what makes it a distinct pass.")
-		% [mgr.name, mgr.pass_index_of(self) + 1, mgr.passes().size(), mgr.name])
+	var box := container()
+	if box != null:
+		# §21.2 — the sentence a member needs is different from the one a pass needs, because the thing it
+		# shares with its siblings (the input surface) is the thing most likely to be misread as sequence.
+		out.append(("This Sim is member %d of %d in the pass '%s' (pass %d of %d in '%s'). Every member "
+			+ "reads the SAME input surface and their deltas are added, so this one does not see what its "
+			+ "siblings did and their order in the dock does not matter. The pass owns the masks and the "
+			+ "build-through buttons — select '%s' for those.")
+			% [box.members().find(self) + 1, box.members().size(), box.name,
+			mgr.pass_index_of(self) + 1, mgr.passes().size(), mgr.name, box.name])
+	else:
+		out.append(("This Sim is a pass of '%s' (pass %d of %d). The manager owns the grid, the layer and "
+			+ "the write, so Catchment Margin and the resolutions are hidden here — select '%s' to set "
+			+ "them. Everything still shown on this node is what makes it a distinct pass.")
+			% [mgr.name, mgr.pass_index_of(self) + 1, mgr.passes().size(), mgr.name])
+	if not enabled:
+		out.append(("This pass is DISABLED, so it is skipped entirely — no solve, no delta, no cost. "
+			+ "Nothing else on this node has any effect until it is switched back on."))
 	if _get_splines().is_empty():
 		out.append("This pass has no loop, so it contributes nothing to the chain. Add one, or delete it.")
 	# The trap this mode split creates. A Sim that baked while standalone left a delta in its OWN layer,
@@ -447,6 +530,12 @@ func _managed_warnings() -> PackedStringArray:
 	# obeyed. Both facts have to be said, because both change what the same selector does here.
 	out.append_array(_managed_mask_warnings(erosion_mask, "Erosion Mask"))
 	out.append_array(_managed_mask_warnings(write_mask, "Write Mask"))
+	# §21.3 — a bare Sim that is a pass owns its own masks again, so it owns their warnings again too.
+	if is_pass():
+		if not store_masks and sim_result != null:
+			out.append(("Store Masks is off but a Sim Result is still assigned here. It will not be "
+				+ "rewritten by a build, so it describes whatever chain last wrote it."))
+		out.append_array(_result_warnings(manager().pass_bake_hash()))
 	return out
 
 
@@ -527,6 +616,32 @@ func run_simulation() -> void:
 		await mgr.run_simulation()
 		return
 	await _simulate_interactive(build_resolution, false)
+
+
+## §21.4 — Preview To Here / Simulate To Here: run the chain from pass 1 up to and including this one.
+## NOT this pass alone; see Pasture3DSimManager.simulate_to_pass for why solo would calibrate a fiction.
+func preview_to_here() -> void:
+	await _run_to_here(true)
+
+
+func simulate_to_here() -> void:
+	await _run_to_here(false)
+
+
+func _run_to_here(p_preview: bool) -> void:
+	var mgr := manager()
+	if mgr == null:
+		push_warning(("Pasture3DSim '%s': this Sim is not a pass of a Pasture3DSimManager, so there is no "
+			+ "chain to build through. Press Preview or Simulate instead.") % name)
+		return
+	if not is_pass():
+		# A member's chain position is its container's, and the container has the button. Running it from
+		# here would work and would still be the wrong affordance: it would read as "build through this
+		# MEMBER", which is not a thing the chain can express.
+		push_warning(("Pasture3DSim '%s': this Sim is a member of the pass '%s'; press Simulate To Here on "
+			+ "that container instead.") % [name, container().name])
+		return
+	await mgr.simulate_to_pass(mgr.pass_index_of(self), p_preview)
 
 
 ## Clear Simulation: empty this node's footprint out of the Erosion layer, restoring the ground below.

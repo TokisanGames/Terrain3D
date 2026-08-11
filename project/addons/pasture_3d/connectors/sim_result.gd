@@ -86,6 +86,13 @@ const FLOW_FLOOR_M2: float = 1.0
 @export var source_time: String = ""
 ## How many loops were merged into this grid. > 1 means the §8.2 precedence rule was in play.
 @export var source_loops: int = 0
+## How many PASSES of a Pasture3DSimManager's chain stand behind this surface (§21.4). On a pass's own
+## masks it is that pass's 1-based position; on a manager's it is the whole chain, or fewer after a
+## build-through, which is how a reader tells a partial bake from a finished one.
+##
+## Deliberately not folded into `source_loops`: that counts merged CLUSTERS, so a two-cluster build would
+## otherwise be indistinguishable from a two-pass truncation. 0 = written by a standalone Sim.
+@export var source_passes: int = 0
 
 
 ## True when the grid dimensions and all four channels agree. A result that fails this is not partially
@@ -157,8 +164,9 @@ func describe() -> String:
 	if not is_valid():
 		return "Pasture3DSimResult: empty"
 	var b := world_bounds()
-	return "Pasture3DSimResult: %dx%d @ %.2f m, X %.0f..%.0f Z %.0f..%.0f, %d loop(s)%s" % [
+	return "Pasture3DSimResult: %dx%d @ %.2f m, X %.0f..%.0f Z %.0f..%.0f, %d loop(s)%s%s" % [
 			width, height, cell_size, b[0], b[1], b[2], b[3], source_loops,
+			"" if source_passes < 1 else ", %d pass(es)" % source_passes,
 			", PREVIEW 1/%d" % source_resolution if source_preview else ""]
 
 

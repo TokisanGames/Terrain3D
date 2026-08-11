@@ -135,6 +135,9 @@ const RESULT_MAX_CELLS: int = 4194304
 @export_storage var _baked_hash: String = ""
 ## True when the bake in the layer came from Preview rather than Simulate.
 @export_storage var _baked_preview: bool = false
+## §21.4 — how far a build-through went, 0-based, or −1 for the whole chain. Stored because the layer
+## holds a PARTIAL landscape afterwards and nothing else on screen would say so.
+@export_storage var _baked_upto: int = -1
 
 var _running: bool = false
 var _cancel: bool = false
@@ -180,7 +183,7 @@ func _write_polygons() -> Array:
 	var out: Array = []
 	if not is_configured():
 		return out
-	for p: Pasture3DSim in passes():
+	for p: Pasture3DSim in member_sims():
 		for s in p._get_splines():
 			if not p._spline_paintable(s):
 				continue
@@ -200,7 +203,7 @@ func _write_polygons() -> Array:
 
 func _own_footprints() -> Array:
 	var out: Array = []
-	for p: Pasture3DSim in passes():
+	for p: Pasture3DSim in member_sims():
 		for s in p._get_splines():
 			var a := p._spline_footprint_aabb(s)
 			if a.size != Vector3.ZERO:
@@ -235,24 +238,40 @@ func _get_configuration_warnings() -> PackedStringArray:
 	var warnings := super()
 	var ps := passes()
 	if ps.is_empty():
-		warnings.append(("This manager has no passes. Add Pasture3DSim children — each one is a pass, and "
-			+ "the order they appear in here is the order they run in."))
+		warnings.append(("This manager has no passes. Add Pasture3DSim children — each one is a pass — or "
+			+ "Pasture3DSimPass children for a pass of several Sims. The order they appear in here is the "
+			+ "order they run in."))
 		return warnings
 	if _baked_hash == "":
 		warnings.append("No simulation in the layer — press Simulate.")
-	elif _baked_hash != _area_hash():
+	elif _baked_hash != _bake_signature(_baked_upto):
 		warnings.append(("The passes have changed since the last simulation — a loop moved, the margin "
-			+ "changed, or the children were reordered — so the erosion in the layer no longer matches. "
-			+ "Press Simulate again."))
+			+ "changed, a member was enabled or disabled, or the children were reordered — so the erosion "
+			+ "in the layer no longer matches. Press Simulate again."))
+	elif _baked_upto >= 0:
+		# §21.4: a partial build is a legitimate state to sit in while tuning, so this is a statement of
+		# fact rather than a fault — but nothing else on screen distinguishes it from a finished landscape.
+		warnings.append(("The layer holds passes 1-%d of %d — a build-through, not the finished chain. "
+			+ "Press Simulate on this manager when you are done calibrating.") % [_baked_upto + 1, ps.size()])
 	elif _baked_preview:
 		warnings.append(("The erosion in the layer is a PREVIEW (1/%d resolution), not a build. Press "
 			+ "Simulate to commit it at full resolution.") % preview_resolution)
 	var loopless: Array = []
-	for p: Pasture3DSim in ps:
-		if p._get_splines().filter(func(s): return p._spline_paintable(s)).is_empty():
+	for p in ps:
+		var live := pass_members(p)
+		if live.is_empty():
+			loopless.append(p.name)
+			continue
+		var has_loop := false
+		for sim: Pasture3DSim in live:
+			if not sim._get_splines().filter(func(s): return sim._spline_paintable(s)).is_empty():
+				has_loop = true
+				break
+		if not has_loop:
 			loopless.append(p.name)
 	if not loopless.is_empty():
-		warnings.append("These passes have no usable loop and contribute nothing: %s." % ", ".join(loopless))
+		warnings.append(("These passes have no enabled member with a usable loop and contribute nothing: %s."
+			% ", ".join(loopless)))
 	var plan := plan_clusters(build_resolution)
 	if not bool(plan["ok"]):
 		warnings.append(plan["reason"])
@@ -311,19 +330,48 @@ func _standalone_sim_on_layer() -> String:
 
 # ---- The passes -----------------------------------------------------------------------------------
 
-## The chain, in scene-dock order. Direct Pasture3DSim children only: a Sim nested two levels down is
-## somebody's organisational choice, and silently promoting it to a pass would make the stack order in the
-## dock stop matching the stack order that runs.
+## The chain, in scene-dock order. Direct children only — of EITHER kind (§21.2): a bare Pasture3DSim is
+## a pass of one, which is what every phase-6 scene is and stays; a Pasture3DSimPass is a pass of many.
+##
+## A Sim nested two levels down (inside a container, or in somebody's organisational Node3D) is never
+## promoted to a pass on its own, because that would make the stack order in the dock stop matching the
+## stack order that runs.
 func passes() -> Array:
 	var out: Array = []
 	for c in get_children():
-		if c is Pasture3DSim:
+		if c is Pasture3DSim or c is Pasture3DSimPass:
 			out.append(c)
 	return out
 
 
-func pass_index_of(p_sim: Pasture3DSim) -> int:
-	return passes().find(p_sim)
+## The Sims one pass actually solves, in order, with disabled members already dropped. The one place that
+## knows a pass can be either kind — everything downstream works on this list and never asks again.
+func pass_members(p_pass: Node) -> Array:
+	if p_pass is Pasture3DSim:
+		return [p_pass] if (p_pass as Pasture3DSim).enabled else []
+	if p_pass is Pasture3DSimPass:
+		return (p_pass as Pasture3DSimPass).enabled_members()
+	return []
+
+
+## Every Sim in the whole chain, in execution order. For the footprint questions the base class asks,
+## which do not care which pass a loop belongs to.
+func member_sims() -> Array:
+	var out: Array = []
+	for p in passes():
+		out.append_array(pass_members(p))
+	return out
+
+
+## Which pass a node belongs to, 0-based. Accepts the pass itself or one of its members, so a Sim inside
+## a container can ask where it is in the chain without knowing it is in one.
+func pass_index_of(p_node: Node) -> int:
+	var ps := passes()
+	var i := ps.find(p_node)
+	if i >= 0:
+		return i
+	var parent := p_node.get_parent() if p_node != null else null
+	return ps.find(parent) if parent != null else -1
 
 
 # ---- Clustering (spec §19.4) ----------------------------------------------------------------------
@@ -338,24 +386,34 @@ func pass_index_of(p_sim: Pasture3DSim) -> int:
 ## Returns {ok, reason, clusters: [{passes, loops, box, min_x, min_z, cell, sw, sh, tw, th, cells}]}.
 ## `ok` is false when any cluster is over budget: §19.4 refuses, and refusing one cluster while building
 ## the others would commit a landscape missing part of its chain and call it a success.
-func plan_clusters(p_scale: int = 1) -> Dictionary:
+##
+## §21.4 — `p_up_to` truncates the chain to passes 0…p_up_to for build-through. −1 is the whole chain.
+## Truncating HERE and not at the solve is what makes gate BC's claim true by construction: a partial
+## build plans, clusters and solves exactly as a chain whose later passes had been deleted.
+func plan_clusters(p_scale: int = 1, p_up_to: int = -1) -> Dictionary:
 	var out := {"ok": false, "reason": "", "clusters": []}
 	if not is_configured():
 		out["reason"] = "no Pasture3D terrain assigned"
 		return out
 	var vs: float = terrain.vertex_spacing
 	var scale := maxi(p_scale, 1)
+	var chain := passes()
+	if p_up_to >= 0:
+		chain = chain.slice(0, mini(p_up_to + 1, chain.size()))
 
-	# Every usable loop, with the pass that owns it and its margin-grown box.
+	# Every usable loop, with the MEMBER that owns it, the PASS that member belongs to, and its
+	# margin-grown box. Clustering is by loop (§19.4), so a container whose members are far apart splits
+	# across clusters exactly as two separate passes would — the container is a chain position, not a box.
 	var loops: Array = []
-	for p: Pasture3DSim in passes():
-		for s in p._get_splines():
-			if not p._spline_paintable(s):
-				continue
-			loops.append({"pass": p, "spline": s,
-					"box": p._spline_footprint_aabb(s).grow(catchment_margin)})
+	for pi in range(chain.size()):
+		for sim: Pasture3DSim in pass_members(chain[pi]):
+			for s in sim._get_splines():
+				if not sim._spline_paintable(s):
+					continue
+				loops.append({"pass": chain[pi], "index": pi, "sim": sim, "spline": s,
+						"box": sim._spline_footprint_aabb(s).grow(catchment_margin)})
 	if loops.is_empty():
-		out["reason"] = "no pass has a loop with at least 3 points"
+		out["reason"] = "no pass has an enabled member with a loop of at least 3 points"
 		return out
 
 	# Connected components over box overlap. Union-find would be asymptotically nicer; the count here is
@@ -392,16 +450,21 @@ func plan_clusters(p_scale: int = 1) -> Dictionary:
 		# Square cells, as the solver assumes (D8 diagonal lengths, the Laplacian's 1/Δx²). The two axes
 		# differ only by the rounding above, so take the mean — the same rule Pasture3DSim uses.
 		var cell := (float(tw - 1) / float(maxi(sw - 1, 1)) + float(th - 1) / float(maxi(sh - 1, 1))) * 0.5 * vs
-		# The pass list, in STACK order, restricted to the passes with a loop in this cluster.
-		var members: Array = []
-		for p: Pasture3DSim in passes():
-			var mine: Array = []
-			for l: Dictionary in g["loops"]:
-				if l["pass"] == p:
-					mine.append(l["spline"])
-			if not mine.is_empty():
-				members.append({"pass": p, "splines": mine})
-		var cl := {"passes": members, "loops": g["loops"], "box": g["box"],
+		# The pass list, in STACK order, restricted to the passes with a loop in this cluster — and inside
+		# each, its members in dock order with the loops of theirs that land here.
+		var chain_here: Array = []
+		for pi in range(chain.size()):
+			var mem: Array = []
+			for sim: Pasture3DSim in pass_members(chain[pi]):
+				var mine: Array = []
+				for l: Dictionary in g["loops"]:
+					if l["sim"] == sim:
+						mine.append(l["spline"])
+				if not mine.is_empty():
+					mem.append({"sim": sim, "splines": mine})
+			if not mem.is_empty():
+				chain_here.append({"pass": chain[pi], "index": pi, "members": mem})
+		var cl := {"passes": chain_here, "loops": g["loops"], "box": g["box"],
 				"min_x": sb[0], "max_x": sb[1], "min_z": sb[2], "max_z": sb[3],
 				"cell": cell, "sw": sw, "sh": sh, "tw": tw, "th": th, "cells": sw * sh}
 		if sw * sh > max_cluster_cells:
@@ -435,17 +498,44 @@ func print_plan() -> Dictionary:
 		push_warning("%s: %s" % [_sim_label(), plan["reason"]])
 		return plan
 	var total := 0
+	var mask_cells := 0
 	print("%s: %d cluster(s) at build resolution 1/%d:" % [_sim_label(), plan["clusters"].size(), build_resolution])
 	for cl: Dictionary in plan["clusters"]:
 		var pn: Array = []
 		for m: Dictionary in cl["passes"]:
-			pn.append(m["pass"].name)
+			var mem: Array = m["members"]
+			pn.append(m["pass"].name if mem.size() < 2 else "%s[%d]" % [m["pass"].name, mem.size()])
+			if _pass_stores_masks(m["pass"]):
+				mask_cells += int(cl["cells"])
 		total += int(cl["cells"])
 		print("    %d x %d cells at %.2f m over %.0f x %.0f m — passes: %s" % [
 				cl["sw"], cl["sh"], cl["cell"], cl["max_x"] - cl["min_x"], cl["max_z"] - cl["min_z"],
 				" -> ".join(pn)])
+	# §21.3's "the cost is real and must be visible". Four float32 channels per stored pass per cluster,
+	# plus the manager's own whole-chain result over the same cells. A number nobody sees until the editor
+	# swaps is not a budget, and this is the only place it can be read BEFORE paying it.
 	print("    %d cells total, budget %d per cluster." % [total, max_cluster_cells])
+	print("    per-pass masks: %d cell(s) stored across %d pass/cluster pair(s) = %.1f MB, plus %.1f MB "
+			% [mask_cells, _stored_pass_count(plan), float(mask_cells) * 16.0 / 1048576.0,
+			float(total) * 16.0 / 1048576.0]
+			+ "for this manager's own result. Turn Store Masks off on a pass you are not tuning.")
 	return plan
+
+
+## How many (pass, cluster) pairs would keep masks — the multiplier on the megabytes above.
+func _stored_pass_count(p_plan: Dictionary) -> int:
+	var n := 0
+	for cl: Dictionary in p_plan["clusters"]:
+		for m: Dictionary in cl["passes"]:
+			if _pass_stores_masks(m["pass"]):
+				n += 1
+	return n
+
+
+## §21.3 — whichever node IS the pass holds its masks: a container holds its own, and a bare Sim that is
+## a direct child of this manager holds its own again. One rule, both shapes.
+func _pass_stores_masks(p_pass: Node) -> bool:
+	return p_pass != null and bool(p_pass.get("store_masks"))
 
 
 # ---- The buttons ----------------------------------------------------------------------------------
@@ -469,7 +559,24 @@ func clear_simulation() -> void:
 	_commit([], layer_id, true, "Clear")
 	_baked_hash = ""
 	_baked_preview = false
+	_baked_upto = -1
 	_empty_result()
+	# §21.3's masks describe erosion that is no longer in the layer, on every pass as well as here. Leaving
+	# them would be the exact silent staleness the whole result convention exists to avoid.
+	for p in passes():
+		var r: Pasture3DSimResult = p._sim_result_res()
+		if r != null:
+			r.width = 0
+			r.height = 0
+			r.flow = PackedFloat32Array()
+			r.erosion = PackedFloat32Array()
+			r.deposition = PackedFloat32Array()
+			r.wetness = PackedFloat32Array()
+			r.source_area_hash = ""
+			r.source_loops = 0
+			r.source_time = Time.get_datetime_string_from_system(true, true)
+			r.emit_changed()
+			p._save_result(r)
 	update_configuration_warnings()
 
 
@@ -492,8 +599,10 @@ func cancel_simulation() -> void:
 
 ## Solve and write, running straight through with no frame yields. The entry point for scripts and gates.
 ## Returns {ok, reason, clusters, passes, cells, msec, substeps, masks}.
-func simulate_now(p_scale: int = 1, p_record_undo: bool = false) -> Dictionary:
-	var ctx := _begin(p_scale, p_record_undo, p_scale != build_resolution)
+##
+## §21.4 — `p_up_to_pass` stops after that pass, 0-based; −1 keeps today's meaning of "the whole chain".
+func simulate_now(p_scale: int = 1, p_record_undo: bool = false, p_up_to_pass: int = -1) -> Dictionary:
+	var ctx := _begin(p_scale, p_record_undo, p_scale != build_resolution, p_up_to_pass)
 	if not bool(ctx["ok"]):
 		return ctx["report"]
 	for cl in ctx["clusters"]:
@@ -502,8 +611,18 @@ func simulate_now(p_scale: int = 1, p_record_undo: bool = false) -> Dictionary:
 	return _finish(ctx)
 
 
-func _simulate_interactive(p_scale: int, p_is_preview: bool) -> void:
-	var ctx := _begin(p_scale, true, p_is_preview)
+## §21.4 — Simulate To Here / Preview To Here, from a pass's own button. Build-through rather than solo:
+## pass 2's input is pass 1's output, so a pass solved against z0 is not that pass, and calibrating it
+## in isolation would calibrate something that never runs.
+func simulate_to_pass(p_index: int, p_preview: bool) -> void:
+	if p_index < 0 or p_index >= passes().size():
+		push_warning("%s: there is no pass %d to build through to." % [_sim_label(), p_index + 1])
+		return
+	await _simulate_interactive(preview_resolution if p_preview else build_resolution, p_preview, p_index)
+
+
+func _simulate_interactive(p_scale: int, p_is_preview: bool, p_up_to: int = -1) -> void:
+	var ctx := _begin(p_scale, true, p_is_preview, p_up_to)
 	if not bool(ctx["ok"]):
 		return
 	var total := 0
@@ -531,9 +650,9 @@ func _simulate_interactive(p_scale: int, p_is_preview: bool) -> void:
 
 ## Validate, resolve the layer, plan the clusters and read each one's starting surface. `ok` false means
 ## nothing was done and `report.reason` says why.
-func _begin(p_scale: int, p_record_undo: bool, p_is_preview: bool) -> Dictionary:
+func _begin(p_scale: int, p_record_undo: bool, p_is_preview: bool, p_up_to: int = -1) -> Dictionary:
 	var report := {"ok": false, "reason": "", "clusters": 0, "passes": 0, "cells": 0, "msec": 0,
-			"substeps": 0, "masks": ""}
+			"substeps": 0, "masks": "", "up_to": p_up_to}
 	var fail := {"ok": false, "report": report}
 	if _running:
 		report["reason"] = "a solve is already running"
@@ -554,7 +673,7 @@ func _begin(p_scale: int, p_record_undo: bool, p_is_preview: bool) -> Dictionary
 		return fail
 
 	var scale := maxi(p_scale, 1)
-	var plan := plan_clusters(scale)
+	var plan := plan_clusters(scale, p_up_to)
 	if not bool(plan["ok"]):
 		report["reason"] = plan["reason"]
 		push_warning("%s: %s" % [_sim_label(), report["reason"]])
@@ -575,7 +694,7 @@ func _begin(p_scale: int, p_record_undo: bool, p_is_preview: bool) -> Dictionary
 	last_chain = []
 	return {"ok": true, "report": report, "clusters": clusters, "layer_id": layer_id,
 			"is_preview": p_is_preview, "record_undo": p_record_undo, "scale": scale,
-			"t0": Time.get_ticks_msec()}
+			"up_to": p_up_to, "t0": Time.get_ticks_msec()}
 
 
 ## One cluster's solve state: the shared grid, the ONE below-layer read that seeds the chain (§19.2 step
@@ -601,44 +720,56 @@ func _prepare_cluster(p_cl: Dictionary, p_layer_id: int) -> Dictionary:
 		return {}
 	var total := 0
 	for m: Dictionary in p_cl["passes"]:
-		total += maxi((m["pass"] as Pasture3DSim).iterations, 1)
+		for mem: Dictionary in m["members"]:
+			total += maxi((mem["sim"] as Pasture3DSim).iterations, 1)
 	var st := p_cl.duplicate()
 	st["layer_id"] = p_layer_id
 	st["vs"] = vs
 	st["z0"] = z0
-	st["z"] = z0            # the chain's running surface
+	st["z"] = z0            # the chain's running surface, advanced ONCE PER PASS
+	st["z_pass_in"] = z0    # the surface the current pass started from (§21.3's per-pass baseline)
 	st["z_solved"] = PackedFloat32Array()
+	st["acc"] = PackedFloat64Array() # §21.2 — the current pass's members' deltas, summed
 	st["step"] = 0          # which pass is running
-	st["done"] = 0          # iterations completed within it
+	st["member"] = 0        # which member within it
+	st["done"] = 0          # iterations completed within that member
 	st["started"] = false
 	st["iterations_done"] = 0
 	st["total_iterations"] = maxi(total, 1)
 	st["fields"] = {}       # the previous pass's live sim channels (§19.5); empty for pass 1
+	st["pass_parts"] = {}   # §21.3 — pass index -> this cluster's part of that pass's masks
 	st["failed"] = false
 	return st
 
 
-## Advance one cluster by up to CHUNK_ITERATIONS of its current pass. Returns true when the whole chain
+## Advance one cluster by up to CHUNK_ITERATIONS of its current MEMBER. Returns true when the whole chain
 ## for that cluster is finished (or has failed).
+##
+## Two nested cursors since §21.2: `step` is the pass and `member` is which of its Sims is solving. The
+## pass's input surface `z` is not touched until every member has run, which is the whole of "every member
+## reads the same input surface" — there is no separate mechanism enforcing it.
 func _solve_chunk(p_st: Dictionary) -> bool:
 	if bool(p_st["failed"]):
 		return true
-	var members: Array = p_st["passes"]
-	if int(p_st["step"]) >= members.size():
+	var chain: Array = p_st["passes"]
+	if int(p_st["step"]) >= chain.size():
 		return true
-	var member: Dictionary = members[int(p_st["step"])]
-	var sim: Pasture3DSim = member["pass"]
+	var entry: Dictionary = chain[int(p_st["step"])]
+	var members: Array = entry["members"]
+	var member: Dictionary = members[int(p_st["member"])]
+	var sim: Pasture3DSim = member["sim"]
 	var iters: int = maxi(sim.iterations, 1)
 
 	if not bool(p_st["started"]):
-		if not _start_pass(p_st, member):
+		if not _start_member(p_st, member):
 			return true
 		p_st["started"] = true
-		# §19.8 AH: the surface the SOLVER was handed, captured here rather than in _start_pass because
+		# §19.8 AH: the surface the SOLVER was handed, captured here rather than in _start_member because
 		# here it cannot be anything else. A capture taken off the chain bookkeeping is a record of what
 		# the chain intended, and a break test proved the difference: with every pass re-seeded from z0 —
 		# the chain disconnected outright — the bookkeeping capture still showed a bitwise handover and AH
-		# passed. This is what erode_heightfield actually receives.
+		# passed. This is what erode_heightfield actually receives, and gate AZ reads the same field to
+		# assert that two members of one container were handed the identical surface.
 		if capture_chain and not last_chain.is_empty():
 			last_chain[-1]["z_seed"] = (p_st["z_solved"] as PackedFloat32Array).duplicate()
 
@@ -647,8 +778,9 @@ func _solve_chunk(p_st: Dictionary) -> bool:
 	params["iterations"] = chunk
 	var res: Dictionary = terrain.data.erode_heightfield(p_st["z_solved"], params, p_st["erod"])
 	if not bool(res.get("ok", false)):
-		push_warning(("%s: the solver rejected pass '%s' on the %dx%d cluster grid — most likely no "
-			+ "terrain regions under it.") % [_sim_label(), sim.name, int(p_st["sw"]), int(p_st["sh"])])
+		push_warning(("%s: the solver rejected member '%s' of pass '%s' on the %dx%d cluster grid — most "
+			+ "likely no terrain regions under it.") % [_sim_label(), sim.name, entry["pass"].name,
+			int(p_st["sw"]), int(p_st["sh"])])
 		p_st["failed"] = true
 		return true
 	p_st["z_solved"] = res["z"]
@@ -658,17 +790,25 @@ func _solve_chunk(p_st: Dictionary) -> bool:
 	if int(p_st["done"]) < iters:
 		return false
 
-	_finish_pass(p_st, member)
-	p_st["step"] = int(p_st["step"]) + 1
+	_finish_member(p_st, member)
 	p_st["done"] = 0
 	p_st["started"] = false
-	return int(p_st["step"]) >= members.size()
+	p_st["member"] = int(p_st["member"]) + 1
+	if int(p_st["member"]) < members.size():
+		return false
+	_finish_pass(p_st, entry)
+	p_st["member"] = 0
+	p_st["step"] = int(p_st["step"]) + 1
+	return int(p_st["step"]) >= chain.size()
 
 
-## Set one pass up against the surface the chain has reached: its erodability field, its erosion mask
+## Set one MEMBER up against the surface its PASS started from: its erodability field, its erosion mask
 ## evaluated HERE and NOW (§19.5), and the solver parameters that are its own (§19.3).
-func _start_pass(p_st: Dictionary, p_member: Dictionary) -> bool:
-	var sim: Pasture3DSim = p_member["pass"]
+##
+## `z_in` is `p_st["z"]`, which advances once per pass and not once per member — so every member of a
+## container is set up against, and solved from, the identical surface.
+func _start_member(p_st: Dictionary, p_member: Dictionary) -> bool:
+	var sim: Pasture3DSim = p_member["sim"]
 	var sw: int = p_st["sw"]
 	var sh: int = p_st["sh"]
 	var z_in: PackedFloat32Array = p_st["z"]
@@ -699,7 +839,7 @@ func _start_pass(p_st: Dictionary, p_member: Dictionary) -> bool:
 			e_lo = 0.0
 			e_hi = 1.0
 		else:
-			push_warning(("%s: the erosion mask for pass '%s' could not be built, so it eroded UNMASKED. "
+			push_warning(("%s: the erosion mask for member '%s' could not be built, so it eroded UNMASKED. "
 				+ "Nothing was silently gated.") % [_sim_label(), sim.name])
 	p_st["erod"] = e_field
 	p_st["params"] = {
@@ -713,16 +853,20 @@ func _start_pass(p_st: Dictionary, p_member: Dictionary) -> bool:
 	}
 	p_st["z_solved"] = z_in
 	if capture_chain:
-		last_chain.append({"cluster": p_st["min_x"], "pass": int(p_st["step"]), "name": sim.name,
+		last_chain.append({"cluster": p_st["min_x"], "pass": int(p_st["step"]),
+				"member": int(p_st["member"]), "name": sim.name,
 				"z_in": z_in.duplicate(), "z_out": PackedFloat32Array(),
 				"mask": e_field.duplicate() if e_field.size() == sw * sh else PackedFloat32Array()})
 	return true
 
 
-## Fold a finished pass into the chain (§19.2 step 3) and, if a later pass needs them, route its output
-## once for the live fields §19.5 hands forward.
-func _finish_pass(p_st: Dictionary, p_member: Dictionary) -> void:
-	var sim: Pasture3DSim = p_member["pass"]
+## Add one finished member's masked delta to its pass's accumulator (§19.2 step 3, split by §21.2).
+##
+## The delta goes into `acc` rather than onto `z`, so nothing a member does is visible to the next member.
+## For a pass of one — every phase-6 scene, and a bare Sim under a manager — the accumulate/commit pair is
+## bitwise the `sim_chain_blend` this used to call directly, which is what gate BD pins.
+func _finish_member(p_st: Dictionary, p_member: Dictionary) -> void:
+	var sim: Pasture3DSim = p_member["sim"]
 	var sw: int = p_st["sw"]
 	var sh: int = p_st["sh"]
 	var gate_params := {
@@ -743,49 +887,87 @@ func _finish_pass(p_st: Dictionary, p_member: Dictionary) -> void:
 		if wfield.size() == sw * sh:
 			gate_params["write_mask"] = wfield
 		else:
-			push_warning(("%s: the write mask for pass '%s' could not be built, so its whole solved delta "
+			push_warning(("%s: the write mask for member '%s' could not be built, so its whole solved delta "
 				+ "was folded in.") % [_sim_label(), sim.name])
 
 	var ones := PackedFloat32Array()
 	ones.resize(sw * sh)
 	ones.fill(1.0)
 	var ramp := _ramp_lut(sim.falloff_curve)
-	var z: PackedFloat32Array = p_st["z"]
+	var z_in: PackedFloat32Array = p_st["z"]
 	var z_solved: PackedFloat32Array = p_st["z_solved"]
+	var acc: PackedFloat64Array = p_st["acc"]
 	for s in p_member["splines"]:
 		var poly := _polygon_xz(s)
 		if poly.size() < 3:
 			continue
-		# The pass's own loop mask AT SIM RESOLUTION: `sim_mask_deltas` fed a field of ones returns the
+		# The member's own loop mask AT SIM RESOLUTION: `sim_mask_deltas` fed a field of ones returns the
 		# mask itself — edge offset, falloff width, falloff curve and write mask included — with the sim
 		# grid standing in for the write grid so no resampling happens. The bake's own masker, not a
 		# reimplementation of it.
 		var gate: PackedFloat32Array = terrain.data.sim_mask_deltas(ones, poly, gate_params, ramp)
 		if gate.size() != sw * sh:
-			push_warning(("%s: the loop mask for pass '%s' could not be rasterised; that loop contributed "
+			push_warning(("%s: the loop mask for member '%s' could not be rasterised; that loop contributed "
 				+ "nothing.") % [_sim_label(), sim.name])
 			continue
-		z = terrain.data.sim_chain_blend(z, z_solved, gate)
-	p_st["z"] = z
+		acc = terrain.data.sim_pass_accumulate(acc, z_in, z_solved, gate)
+	p_st["acc"] = acc
 	if capture_chain and not last_chain.is_empty():
-		last_chain[-1]["z_out"] = z.duplicate()
+		# What this member alone left on the pass's input surface. For a pass of one that is the pass's
+		# output, which is what gate AH reads; inside a container it is this member's own contribution,
+		# and the members' shared `z_in` is the separate field AZ compares.
+		last_chain[-1]["z_out"] = terrain.data.sim_pass_commit(z_in, acc)
 
-	# The live fields for the NEXT pass, but only when a later pass actually asks for them: routing the
-	# surface is a fill+route per pass, and most chains gate on slope and altitude rather than on flow.
-	if _later_pass_wants_fields(p_st):
-		p_st["fields"] = _live_fields(p_st)
+
+## Close a pass: commit its members' summed deltas onto the chain's surface, then route once for whatever
+## the next pass or this pass's own masks need (§19.5, §21.3).
+func _finish_pass(p_st: Dictionary, p_entry: Dictionary) -> void:
+	var z_in: PackedFloat32Array = p_st["z_pass_in"]
+	var acc: PackedFloat64Array = p_st["acc"]
+	if acc.size() == z_in.size():
+		var z: PackedFloat32Array = terrain.data.sim_pass_commit(z_in, acc)
+		if z.size() == z_in.size():
+			p_st["z"] = z
+		else:
+			push_warning(("%s: pass '%s' could not be committed onto the chain, so it contributed nothing.")
+				% [_sim_label(), p_entry["pass"].name])
+	p_st["acc"] = PackedFloat64Array()
+
+	# ONE routing pass serves both consumers. The live fields the NEXT pass gates on (§19.5) and this
+	# pass's own stored masks (§21.3) describe the same surface at the same moment, so buying the fill+route
+	# twice would be paying twice for one answer — and would invite the two to disagree.
+	var last := int(p_st["step"]) >= (p_st["passes"] as Array).size() - 1
+	var want_fields := _later_pass_wants_fields(p_st)
+	var want_masks := _pass_stores_masks(p_entry["pass"])
+	if want_fields or want_masks or last:
+		var diag := _diagnose(p_st, p_st["z"])
+		if not diag.is_empty():
+			if want_fields:
+				p_st["fields"] = _fields_from(p_st, diag)
+			if want_masks:
+				# Baselined on this PASS's input, not on z0: the erosion and deposition stored here are
+				# what this pass moved, which is the question "what did pass 2 do" actually asks. Flow and
+				# wetness are the whole routed surface at this moment and belong to no member (§21.3).
+				(p_st["pass_parts"] as Dictionary)[int(p_entry["index"])] = _result_part(
+						p_st, diag, z_in, p_st["z"])
+			if last:
+				# The final surface is also what the MANAGER's whole-chain result describes, and _finish
+				# would otherwise route it a second time for a different baseline.
+				p_st["final_diag"] = diag
+	p_st["z_pass_in"] = p_st["z"]
 
 
 ## Does any pass after the current one use a sim Filter Type in either mask stack? If not, the routing
 ## pass is a fill+route bought for nothing.
 func _later_pass_wants_fields(p_st: Dictionary) -> bool:
-	var members: Array = p_st["passes"]
-	for i in range(int(p_st["step"]) + 1, members.size()):
-		var sim: Pasture3DSim = members[i]["pass"]
-		for stack in [sim.erosion_mask, sim.write_mask]:
-			for s: Pasture3DReliefSelector in stack:
-				if s != null and s.is_sim_filter_type():
-					return true
+	var chain: Array = p_st["passes"]
+	for i in range(int(p_st["step"]) + 1, chain.size()):
+		for member: Dictionary in chain[i]["members"]:
+			var sim: Pasture3DSim = member["sim"]
+			for stack in [sim.erosion_mask, sim.write_mask]:
+				for s: Pasture3DReliefSelector in stack:
+					if s != null and s.is_sim_filter_type():
+						return true
 	return false
 
 
@@ -797,13 +979,14 @@ func _later_pass_wants_fields(p_st: Dictionary) -> bool:
 ## log-scaled at both ends, and erosion/deposition are the two signs of one net field at both ends. Two
 ## implementations of that would eventually disagree, and the disagreement would show up as a mask that
 ## gates differently from the .res describing the same ground.
-func _live_fields(p_st: Dictionary) -> Dictionary:
-	var diag := _diagnose(p_st, p_st["z"])
-	if diag.is_empty():
-		return {}
+func _fields_from(p_st: Dictionary, p_diag: Dictionary) -> Dictionary:
 	var target := {"min_x": p_st["min_x"], "min_z": p_st["min_z"], "cell_size": p_st["cell"],
 			"width": p_st["sw"], "height": p_st["sh"]}
-	var built: Dictionary = terrain.data.sim_result_build([_result_part(p_st, diag)], target)
+	# Baselined on z0 rather than on the pass's own input, deliberately and differently from the stored
+	# per-pass masks: a later pass gating on EROSION means "where has this ground been cut", which is a
+	# question about the chain so far and not about the last pass in isolation.
+	var built: Dictionary = terrain.data.sim_result_build(
+			[_result_part(p_st, p_diag, p_st["z0"], p_st["z"])], target)
 	if not bool(built.get("ok", false)):
 		return {}
 	var out := target.duplicate()
@@ -817,11 +1000,12 @@ func _live_fields(p_st: Dictionary) -> Dictionary:
 ## One `sim_result_build` part for a cluster. The whole cluster counts as write area: the merge's
 ## "write beats margin" precedence exists to arbitrate between two loops that solved the same ground to
 ## different answers, and inside one cluster there is only ever one answer.
-func _result_part(p_st: Dictionary, p_diag: Dictionary) -> Dictionary:
+func _result_part(p_st: Dictionary, p_diag: Dictionary, p_z0: PackedFloat32Array,
+		p_z1: PackedFloat32Array) -> Dictionary:
 	return {
 		"sw": p_st["sw"], "sh": p_st["sh"], "cell": p_st["cell"],
 		"min_x": p_st["min_x"], "min_z": p_st["min_z"],
-		"z0": p_st["z0"], "z1": p_st["z"], "flow": p_diag["flow"], "lake": p_diag["lake"],
+		"z0": p_z0, "z1": p_z1, "flow": p_diag["flow"], "lake": p_diag["lake"],
 		"write_min_x": p_st["min_x"], "write_max_x": p_st["max_x"],
 		"write_min_z": p_st["min_z"], "write_max_z": p_st["max_z"],
 	}
@@ -858,11 +1042,16 @@ func _finish(p_ctx: Dictionary) -> Dictionary:
 		if block.is_empty():
 			continue
 		cells += int(st["sw"]) * int(st["sh"])
-		pass_runs += (st["passes"] as Array).size()
+		for e: Dictionary in (st["passes"] as Array):
+			pass_runs += (e["members"] as Array).size()
 		solved.append(block)
-		var diag := _diagnose(st, st["z"])
+		# The last pass already routed this surface for its own masks; re-routing it would buy the same
+		# answer twice (§21.3's cost note is about exactly this kind of quiet duplication).
+		var diag: Dictionary = st.get("final_diag", {})
+		if diag.is_empty():
+			diag = _diagnose(st, st["z"])
 		if not diag.is_empty():
-			parts.append(_result_part(st, diag))
+			parts.append(_result_part(st, diag, st["z0"], st["z"]))
 			states.append(st)
 	_running = false
 	if solved.is_empty():
@@ -871,11 +1060,14 @@ func _finish(p_ctx: Dictionary) -> Dictionary:
 		return report
 
 	var is_preview: bool = p_ctx["is_preview"]
+	var up_to := int(p_ctx["up_to"])
 	_commit(solved, int(p_ctx["layer_id"]), bool(p_ctx["record_undo"]),
 			"Preview" if is_preview else "Simulate")
-	_baked_hash = _area_hash()
+	_baked_upto = up_to
+	_baked_hash = _bake_signature(up_to)
 	_baked_preview = is_preview
-	report["masks"] = _write_result(parts, states, is_preview, int(p_ctx["scale"]))
+	report["masks"] = _write_result(parts, states, is_preview, int(p_ctx["scale"]), up_to)
+	report["pass_masks"] = _write_pass_results(states, is_preview, int(p_ctx["scale"]))
 	update_configuration_warnings()
 	report["ok"] = true
 	report["clusters"] = solved.size()
@@ -883,8 +1075,9 @@ func _finish(p_ctx: Dictionary) -> Dictionary:
 	report["cells"] = cells
 	report["msec"] = Time.get_ticks_msec() - int(p_ctx["t0"])
 	report["substeps"] = _last_substeps
-	print("%s: %s %d cluster(s), %d pass run(s), %d sim cells, %d ms.%s" % [
-			_sim_label(), "previewed" if is_preview else "simulated", solved.size(), pass_runs, cells,
+	print("%s: %s %d cluster(s), %d member run(s)%s, %d sim cells, %d ms.%s" % [
+			_sim_label(), "previewed" if is_preview else "simulated", solved.size(), pass_runs,
+			"" if up_to < 0 else " through pass %d of %d" % [up_to + 1, passes().size()], cells,
 			report["msec"], "\n  " + str(report["masks"]) if report["masks"] != "" else ""])
 	return report
 
@@ -903,7 +1096,7 @@ func _cluster_write(p_st: Dictionary) -> Dictionary:
 	var box := AABB()
 	var have := false
 	for l: Dictionary in p_st["loops"]:
-		var a: AABB = (l["pass"] as Pasture3DSim)._spline_footprint_aabb(l["spline"])
+		var a: AABB = (l["sim"] as Pasture3DSim)._spline_footprint_aabb(l["spline"])
 		box = a if not have else box.merge(a)
 		have = true
 	# Keyed by the cluster's first loop, because _last_paint_aabb is a per-spline footprint cache and one
@@ -921,7 +1114,8 @@ func _cluster_write(p_st: Dictionary) -> Dictionary:
 ## size, coarsened with a warning past RESULT_MAX_CELLS. That keeps one resource for a selector to point
 ## at, which is what makes the phase-3 limitation §19.6 retires actually retired. The single-cluster case,
 ## which is the one the design is really about, is bit-exact with no resampling at all.
-func _write_result(p_parts: Array, p_states: Array, p_is_preview: bool, p_scale: int) -> String:
+func _write_result(p_parts: Array, p_states: Array, p_is_preview: bool, p_scale: int,
+		p_up_to: int) -> String:
 	_clear_water_overlay()
 	if p_parts.is_empty():
 		return ""
@@ -934,6 +1128,7 @@ func _write_result(p_parts: Array, p_states: Array, p_is_preview: bool, p_scale:
 	if r == null:
 		r = Pasture3DSimResult.new()
 		sim_result = r
+	r.source_passes = passes().size() if p_up_to < 0 else p_up_to + 1
 	r.min_x = target["min_x"]
 	r.min_z = target["min_z"]
 	r.cell_size = target["cell_size"]
@@ -952,28 +1147,106 @@ func _write_result(p_parts: Array, p_states: Array, p_is_preview: bool, p_scale:
 	# is true of the chain as a whole: iterations SUM, because the passes ran in sequence over one grid,
 	# and the rates are the strongest any pass used. `source_node` names the manager, so a reader who needs
 	# the per-pass settings knows where to find them.
-	var it := 0
-	var hi := 0.0
-	var dhi := 0.0
-	var ex := 0.0
+	var sims: Array = []
 	for st: Dictionary in p_states:
 		for m: Dictionary in st["passes"]:
-			var sim: Pasture3DSim = m["pass"]
-			it += maxi(sim.iterations, 1)
-			hi = maxf(hi, sim.erosion_rate)
-			dhi = maxf(dhi, sim.hillslope_diffusion)
-			ex = maxf(ex, sim.area_exponent)
-	r.source_iterations = it
-	r.source_erosion_rate = hi
-	r.source_area_exponent = ex
-	r.source_diffusion = dhi
-	r.source_catchment_margin = catchment_margin
-	r.source_area_hash = _area_hash()
+			for mem: Dictionary in m["members"]:
+				sims.append(mem["sim"])
+	_stamp_solver_settings(r, sims)
+	r.source_area_hash = _bake_signature(p_up_to)
 	r.source_time = Time.get_datetime_string_from_system(true, true)
 	r.source_loops = int(built.get("parts", p_parts.size()))
 	r.emit_changed()
 	_save_result(r)
 	return r.describe()
+
+
+## §8.2 decision 6's one-value-per-setting bookkeeping, over however many Sims contributed. Iterations
+## SUM because they ran in sequence over one grid; the rates are the strongest any of them used.
+func _stamp_solver_settings(p_r: Pasture3DSimResult, p_sims: Array) -> void:
+	var it := 0
+	var hi := 0.0
+	var dhi := 0.0
+	var ex := 0.0
+	for sim: Pasture3DSim in p_sims:
+		it += maxi(sim.iterations, 1)
+		hi = maxf(hi, sim.erosion_rate)
+		dhi = maxf(dhi, sim.hillslope_diffusion)
+		ex = maxf(ex, sim.area_exponent)
+	p_r.source_iterations = it
+	p_r.source_erosion_rate = hi
+	p_r.source_area_exponent = ex
+	p_r.source_diffusion = dhi
+	p_r.source_catchment_margin = catchment_margin
+
+
+## §21.3 — one Pasture3DSimResult per PASS that asked for one, merged across the clusters that pass
+## reached exactly as the manager's own result is. Returns a one-line summary for the bake report.
+##
+## The pass keeps its own resource; nothing is written to disk unless that resource already has a file
+## (or its Save Masks button is pressed). Auto-saving N .res files into the terrain data directory on
+## every Preview is a lot of churn for masks you are still iterating on.
+func _write_pass_results(p_states: Array, p_is_preview: bool, p_scale: int) -> String:
+	# Which pass indices produced anything, and from which clusters.
+	var by_pass: Dictionary = {}
+	for st: Dictionary in p_states:
+		for k in (st["pass_parts"] as Dictionary):
+			if not by_pass.has(k):
+				by_pass[k] = {"parts": [], "states": []}
+			by_pass[k]["parts"].append(st["pass_parts"][k])
+			by_pass[k]["states"].append(st)
+	if by_pass.is_empty():
+		return ""
+	var chain := passes()
+	var written: Array = []
+	var keys: Array = by_pass.keys()
+	keys.sort()
+	for k in keys:
+		var idx := int(k)
+		if idx < 0 or idx >= chain.size():
+			continue
+		var node: Node = chain[idx]
+		var group: Dictionary = by_pass[k]
+		var target := _result_target(group["states"])
+		var built: Dictionary = terrain.data.sim_result_build(group["parts"], target)
+		if not bool(built.get("ok", false)):
+			push_warning("%s: pass '%s' masks could not be built for this bake." % [_sim_label(), node.name])
+			continue
+		var r: Pasture3DSimResult = node._sim_result_res()
+		if r == null:
+			r = Pasture3DSimResult.new()
+			node._set_sim_result_res(r)
+		r.min_x = target["min_x"]
+		r.min_z = target["min_z"]
+		r.cell_size = target["cell_size"]
+		r.width = target["width"]
+		r.height = target["height"]
+		r.flow = built["flow"]
+		r.erosion = built["erosion"]
+		r.deposition = built["deposition"]
+		r.wetness = built["wetness"]
+		r.source_node = node.name
+		r.source_preview = p_is_preview
+		r.source_resolution = p_scale
+		r.source_passes = idx + 1
+		var sims: Array = []
+		for st: Dictionary in group["states"]:
+			for e: Dictionary in (st["passes"] as Array):
+				if int(e["index"]) != idx:
+					continue
+				for mem: Dictionary in e["members"]:
+					sims.append(mem["sim"])
+		_stamp_solver_settings(r, sims)
+		# The hash of the bake that produced them, so re-tuning an EARLIER pass makes this one say "these
+		# masks were not written by the current chain" rather than being silently cleared (§21.3): the
+		# moment a downstream result goes stale is the moment you most want the old numbers to compare to.
+		r.source_area_hash = _baked_hash
+		r.source_time = Time.get_datetime_string_from_system(true, true)
+		r.source_loops = int(built.get("parts", (group["parts"] as Array).size()))
+		r.emit_changed()
+		node._save_result(r)
+		written.append("%s %dx%d" % [node.name, r.width, r.height])
+	return "" if written.is_empty() else "pass masks: %s" % ", ".join(written)
 
 
 ## The grid the clusters' masks are merged onto. One cluster gets its own grid verbatim.
@@ -1022,11 +1295,28 @@ func _area_hash() -> String:
 		return _baked_hash
 	var acc := PackedFloat32Array()
 	var names := ""
-	for p: Pasture3DSim in passes():
-		names += p.name + "|"
-		for s in p._get_splines():
-			for pt in p._baked_world_points(s):
-				acc.append(snappedf(pt.x, 0.01))
-				acc.append(snappedf(pt.z, 0.01))
+	for p in passes():
+		# The PASS's name and then its members', so moving a Sim between two containers changes the hash
+		# even when every loop stays exactly where it is — it has changed which pass owns that ground.
+		names += p.name + "{"
+		for sim: Pasture3DSim in pass_members(p):
+			names += sim.name + "|"
+			for s in sim._get_splines():
+				for pt in sim._baked_world_points(s):
+					acc.append(snappedf(pt.x, 0.01))
+					acc.append(snappedf(pt.z, 0.01))
+		names += "}"
 	acc.append(snappedf(catchment_margin, 0.01))
 	return "%s:%s" % [hash(names), hash(acc)]
+
+
+## What `_baked_hash` records: the area, plus how far a build-through went (§21.4). A partial build must
+## not read as a finished one, and it must not read as "the passes have changed" either — those are two
+## different sentences and the user needs the right one.
+func _bake_signature(p_up_to: int) -> String:
+	return _area_hash() if p_up_to < 0 else "%s|to:%d" % [_area_hash(), p_up_to]
+
+
+## The bake signature a pass's stored masks should carry, for the staleness check §21.3 asks for.
+func pass_bake_hash() -> String:
+	return _baked_hash
