@@ -265,7 +265,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 		warnings.append("Assign a Pasture3D terrain for this brush to paint into.")
 	elif not terrain.data or terrain.data.region_locations.size() == 0:
 		warnings.append("The Pasture3D terrain has no regions yet — add regions in Pasture3D first.")
-	if _get_splines().is_empty():
+	if _get_splines().is_empty() and _wants_own_splines():
 		warnings.append("Add at least one spline (press Add Spline, or add a Path3D child).")
 	warnings.append_array(_mask_preview_warnings())
 	var shared := _shared_curve_spline_names()
@@ -274,6 +274,15 @@ func _get_configuration_warnings() -> PackedStringArray:
 			+ "(and re-bakes) them all: %s. Select each Path3D and use the Curve property's dropdown "
 			+ "→ Make Unique.") % ", ".join(shared))
 	return warnings
+
+
+## Does a brush of this kind draw its own area? True for every stamp brush and for a standalone Sim.
+##
+## FALSE for Pasture3DSimManager, whose loops live on its child passes (§19.2) — a manager with no spline
+## of its own is correctly configured, and telling the user to add one sends them to make a Path3D that
+## nothing will ever read. Also hides the Add Spline / Add Water buttons there.
+func _wants_own_splines() -> bool:
+	return true
 
 
 ## Names of this brush's child splines whose Curve3D is also referenced by another spline anywhere in the

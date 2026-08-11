@@ -216,6 +216,18 @@ func _overlaps_box(p_box: AABB) -> bool:
 	return false
 
 
+## §19.2: the loops belong to the passes. A manager with no spline of its own is correctly configured, so
+## it must not be told to add one — and the two buttons that would build one are hidden rather than left
+## to produce a Path3D nothing reads.
+func _wants_own_splines() -> bool:
+	return false
+
+
+func _validate_property(p_property: Dictionary) -> void:
+	if p_property.name in ["_add_spline_btn", "_add_water_btn"]:
+		p_property.usage = PROPERTY_USAGE_NONE
+
+
 func _get_configuration_warnings() -> PackedStringArray:
 	var warnings := super()
 	var ps := passes()
