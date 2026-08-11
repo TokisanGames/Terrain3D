@@ -79,6 +79,7 @@ enum FlankMode { FIXED_WIDTH, SLOPE_ANGLE }
 		# overlay has to follow that as you drag it, not only when the toggle is flipped.
 		if relief != null and not relief.changed.is_connected(_queue_mask_preview):
 			relief.changed.connect(_queue_mask_preview)
+		notify_property_list_changed() # the Mask Preview Source list is built from this material
 		_queue_mask_preview()
 		_schedule_refresh()
 		update_configuration_warnings()
@@ -360,3 +361,8 @@ func _paint_spline(path: Path3D) -> void:
 
 func _update_mask_preview() -> void:
 	_update_relief_mask_preview(relief if mask_preview else null)
+
+
+## §18.6: the material whose selectors the Mask Preview Source dropdown lists.
+func _preview_relief_material():
+	return relief

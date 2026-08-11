@@ -828,7 +828,7 @@ must distinguish "measured nothing" from "measured correctly".
 > the alphabet.
 >
 > **A–Z is now fully consumed**, so later phases letter their criteria **AA onward**: phase 5 AA–AG
-> (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), and phase **5.5 AS–AX** (§18.7). Phase 5.5 was
+> (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), and phase **5.5 AS–AY** (§18.7). Phase 5.5 was
 > specced after 6 and 7 and takes the letters that were free rather than displacing theirs — the same
 > rule that left A–Z out of phase order, applied again. Read the *(phase n)* tags, not the alphabet.
 > Same reason: a single-letter scheme that has run out is not worth a renumbering that invalidates every
@@ -1505,18 +1505,31 @@ no terrain, no footprint and no way to draw itself.
 | Node | Control |
 |---|---|
 | `Pasture3DSim` | `mask_preview: {Off, Erosion Mask, Write Mask}` — an enum, not two bools, because the two are mutually exclusive by §18.4 anyway |
-| `Pasture3DPlow` / `Pasture3DMound` | `relief_mask_preview: bool` over the relief material's own selector |
+| `Pasture3DPlow` / `Pasture3DMound` | `mask_preview: bool`, plus `mask_preview_source` — a dropdown over the material's own selector and each stack layer's |
 
-> **The open question is `Pasture3DReliefStack`.** A stack has N layers, each with its own selector, so
-> "preview the mask" is ambiguous: the composite of every layer's gate, or one named layer's? The
-> composite is what the bake applies and is the honest default; a single layer is what an artist tuning
-> that layer wants. Previewing one layer turns the API from a bool into a path into the material tree,
-> which is why this is called out rather than assumed. **Decide before building**, and if in doubt ship
-> the composite only — it is the one that cannot be misread.
+> **`Pasture3DReliefStack` — settled by editor use, not by the guess above.** The first build previewed
+> the material's own `selector` only, on the reasoning that it gates every op the material emits and is
+> therefore exact. That is true and it was the wrong call: a stack's own selector is usually empty and
+> the ones that matter are on its LAYERS, so the toggle drew nothing, in silence, on the most common
+> stack there is. Reported as *"why isn't mask preview working here?"*.
+>
+> There is still no honest composite — each layer's selector gates only that layer's ops, and no single
+> field describes them — so the answer is to **choose** rather than to combine. `mask_preview_source` is
+> a dropdown rebuilt from the live material: entry 0 is the material's own selector, then one per layer.
+> Per-layer selectors are where a stack gets its power, and they are now the thing you can actually look
+> at.
+>
+> **One level deep.** A layer that is itself a stack contributes its own selector, not its children's;
+> listing a whole tree would need a path rather than an index. The node says so in a configuration
+> warning instead of letting a nested selector look reachable.
+>
+> **And an empty source must say so.** Drawing nothing with no explanation is indistinguishable from a
+> broken button — the same defect Preview Water Features shipped with in phase 4, repeated here. The
+> warning names the chosen source and lists the ones that do carry a selector.
 
 ### 18.7 Gates (phase 5.5)
 
-Lettering continues at **AS** (§14). AW and AX were both added after editor testing, not designed up front.
+Lettering continues at **AS** (§14). AW, AX and AY were all added after editor testing, not designed up front — which is most of what §18 learned.
 
 Most of this phase is a visual editor feature and is **headless-blind**, the same accommodation gates M4
 and AO make. But the claim that actually matters — *what you see is what will bake* — is fully gateable
@@ -1531,6 +1544,7 @@ pixels themselves are ungated, rather than letting four green lines imply a rend
 | AV | **It leaves nothing behind.** After disabling, the material carries no preview insert and no preview texture, and the terrain data is unchanged — no layer, no control map, nothing written. | A snapshot taken WITH the preview on, which must differ from the off state, or AV is comparing two identical no-ops. |
 | AW | **It shows where the BRUSH acts, not the whole grid.** The lit fraction matches the loop's share of the grid, and previewing creates no layer. | The unclipped field, which must light cells the clipped one does not — if the loop already filled its bounding box there is nothing to clip and the criterion is empty. |
 | AX | **Editing a selector rebuilds the overlay.** Mutating a band in place, as the inspector does, leaves the preview equal to the field that band produces. | The edit must be one that actually changes the field, computed independently — nudging a band that gates the same cells either way would make "the texture changed" impossible to fail. |
+| AY | **A stack layer's selector can be chosen and previewed**, and an empty source warns instead of drawing nothing. | The two sources must produce different fields (or the index is ignored), and the empty source must warn (or a dead toggle stays indistinguishable from a broken one). |
 
 ### Gate results (phase 5.5, all passing)
 
@@ -1548,6 +1562,7 @@ bake.*
 | AV | With it on: owner set, source carries the insert. Off: owner 0, insert gone. Terrain height moved **0.000000000 m** across the whole cycle | The on-state readings, which must differ from the off-state — otherwise AV compares two identical no-ops |
 | AW | 14 042 of 42 025 cells lit (**33.4%**) against a loop covering ~36% of the grid; layer count 2 before and 2 after | The unclipped field lights all 42 025 — so there was something for the clip to do |
 | AX | Unchanged in the edit's own frame, then **0.000000000** from the expected field one frame later | The edit moves the field by 1.0000, so "the overlay followed" is a claim that could have failed |
+| AY | Dropdown offers `Material Selector, Layer 0: Fractal`; selecting layer 0 gives a field spanning 0.000–1.000 over 15 625 cells | The empty `Material Selector` warns and claims no overlay; a second layer banded to pass nothing differs from layer 0 by 1.0000 |
 
 **Break tests — each fails only its own criterion:**
 
@@ -1560,6 +1575,8 @@ bake.*
 | The area clip removed | AS and AW — the preview stops being what the bake applies, and starts painting the bounding box |
 | The preview creating its layer with `_ensure_layer_for` | AW only |
 | The selector's `changed` never connected | AX only |
+| `mask_preview_source` ignored (always the material's own selector) | AY only |
+| An empty source warning suppressed | AY only |
 
 > Phases 1–5, `PlowReliefCheck` and `PondBrushCheck` were re-run against the phase-5.5 build: **all
 > passing, 0 failures.**

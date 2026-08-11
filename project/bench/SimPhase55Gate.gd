@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Phase 5.5 gates AS-AX for the mask preview (PASTURE3D_SIM_NODE_SPEC.md §18.7).
+# Phase 5.5 gates AS-AY for the mask preview (PASTURE3D_SIM_NODE_SPEC.md §18.7).
 #
 # WHAT THIS GATE DOES NOT TEST: the red pixels. The overlay is a `DEBUG_MASK_PREVIEW` shader insert, and
 # a headless run has no viewport to photograph — so nothing here proves the terrain is tinted, that the
@@ -38,7 +38,7 @@ var _mat
 
 
 func _ready() -> void:
-	print("\n=== Pasture3DSim phase 5.5 (spec §18.7 gates AS-AX) ===\n")
+	print("\n=== Pasture3DSim phase 5.5 (spec §18.7 gates AS-AY) ===\n")
 	print("NOTE: the rendered overlay is UNGATED here — headless has no viewport. These criteria test")
 	print("      that the previewed field IS the bake's field, not that it appears on screen.\n")
 	_root = Node3D.new()
@@ -65,6 +65,7 @@ func _ready() -> void:
 	_gate_av_leaves_nothing()
 	_gate_aw_clipped_to_brush()
 	await _gate_ax_live_update()
+	_gate_ay_stack_sources()
 
 	_done()
 
@@ -402,6 +403,101 @@ func _gate_ax_live_update() -> void:
 	sim.mask_preview = 0
 
 
+# --- AY: a stack layer's selector can be previewed -------------------------------------------------
+# A Pasture3DReliefStack's power is its per-layer selectors, and each gates only its own layer's ops, so
+# there is no single field describing all of them. The dropdown picks WHICH one to show instead of
+# inventing a composite. Reported from the editor as "why isn't mask preview working here?" — the stack's
+# own Selector was empty and the one that mattered was on layer 0, so the toggle drew nothing in silence.
+#
+# CONTROL: the two sources must produce DIFFERENT fields, and the empty source must warn. Without the
+# first, "the dropdown works" would pass with the index ignored; without the second, a dead toggle stays
+# indistinguishable from a broken one.
+func _gate_ay_stack_sources() -> void:
+	print("[AY] a stack layer's selector can be chosen and previewed:")
+	var plow := Pasture3DPlow.new()
+	plow.name = "AY"
+	_root.add_child(plow)
+	plow.terrain = _terrain
+	plow.global_position = SITE_A
+	plow.snap_to_surface = false
+	plow._layer_owner = "pasture3d_brush:Plow_AY"
+	var path := Path3D.new()
+	var c := Curve3D.new()
+	for p in [Vector3(-LOOP_HALF, 0, -LOOP_HALF), Vector3(LOOP_HALF, 0, -LOOP_HALF),
+			Vector3(LOOP_HALF, 0, LOOP_HALF), Vector3(-LOOP_HALF, 0, LOOP_HALF)]:
+		c.add_point(p)
+	c.closed = true
+	path.curve = c
+	plow.add_child(path)
+
+	# The reported shape exactly: a stack whose OWN selector is empty, carrying one layer that has one.
+	# Band derived from the SITE, so layer 0's field is a strong signal rather than the shoulder of a
+	# hard-coded band that happens to graze this ground. The first version peaked at 0.104.
+	var heights := _snapshot(_probe_ring(SITE_A))
+	var mid := _median(heights)
+	print("    site spans %.1f..%.1f m; banding layer 0 above %.1f m" % [
+			heights.min(), heights.max(), mid])
+	var layer := Pasture3DReliefFractal.new()
+	layer.selector = _sel(K_ALTITUDE, mid, 1.0e6, 0.0, 0.0)
+	var stack := Pasture3DReliefStack.new()
+	stack.layers = [layer] as Array[Pasture3DReliefMaterial]
+	plow.relief = stack
+
+	var sources: Array = plow._preview_selector_sources(stack)
+	print("    dropdown offers %d source(s): %s" % [sources.size(),
+			", ".join(sources.map(func(e): return String(e[0])))])
+	if sources.size() != 2:
+		_fail += 1
+		print("    !! the stack's layer is not offered as a source")
+		return
+
+	# CONTROL 1: the material's own selector is empty, so it must warn rather than draw nothing quietly.
+	plow.mask_preview = true
+	plow._mask_preview_layer = -1
+	plow._update_mask_preview()
+	var warned := false
+	for w in plow._get_configuration_warnings():
+		if String(w).contains("has no Selector"):
+			warned = true
+	print("    CONTROL source 'Material Selector' is empty: warns = %s, overlay owned = %s" % [
+			warned, plow._owns_mask_preview()])
+	if not warned:
+		_fail += 1
+		print("    !! an empty source draws nothing and says nothing; that is the reported defect")
+	if plow._owns_mask_preview():
+		_fail += 1
+		print("    !! an empty source still claimed the overlay")
+
+	# The layer's selector must produce a real field.
+	plow._mask_preview_layer = 0
+	plow._update_mask_preview()
+	var field := _preview_field(plow)
+	if field.is_empty() or not plow._owns_mask_preview():
+		_fail += 1
+		print("    !! choosing the layer's selector produced no overlay")
+		return
+	var spread := _spread(field)
+	print("    layer 0 selected: %d cells, weights %.3f..%.3f" % [field.size(), spread[0], spread[1]])
+	if spread[1] - spread[0] < 0.01:
+		_fail += 1
+		print("    !! the layer's field is constant, so AY cannot tell it from the empty source")
+
+	# CONTROL 2: a second layer with a DIFFERENT band must give a different field, or the index is ignored.
+	var layer2 := Pasture3DReliefFractal.new()
+	layer2.selector = _sel(K_ALTITUDE, -1.0e6, -9.0e5, 0.0, 0.0) # passes nothing here
+	stack.layers = [layer, layer2] as Array[Pasture3DReliefMaterial]
+	plow.notify_property_list_changed()
+	plow._mask_preview_layer = 1
+	plow._update_mask_preview()
+	var other := _preview_field(plow)
+	var diff := _max_abs_diff(field, other) if other.size() == field.size() else INF
+	print("    CONTROL layer 1 (a band that passes nothing): differs from layer 0 by %.4f (want > 0)" % diff)
+	if diff <= 0.0:
+		_fail += 1
+		print("    !! both layers preview the same field; the source index is ignored")
+	plow.mask_preview = false
+
+
 # --- helpers --------------------------------------------------------------------------------------
 
 func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float) -> Pasture3DReliefSelector:
@@ -550,6 +646,12 @@ func _ramp_lut(p_curve: Curve) -> PackedFloat32Array:
 		var x := float(i) / 255.0
 		out[i] = p_curve.sample_baked(x) if p_curve != null else smoothstep(0.0, 1.0, x)
 	return out
+
+
+func _median(p_a: Array[float]) -> float:
+	var t := p_a.duplicate()
+	t.sort()
+	return t[t.size() / 2] if not t.is_empty() else 0.0
 
 
 func _layer_count() -> int:

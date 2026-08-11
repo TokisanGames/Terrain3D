@@ -267,6 +267,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 		warnings.append("The Pasture3D terrain has no regions yet — add regions in Pasture3D first.")
 	if _get_splines().is_empty():
 		warnings.append("Add at least one spline (press Add Spline, or add a Path3D child).")
+	warnings.append_array(_mask_preview_warnings())
 	var shared := _shared_curve_spline_names()
 	if not shared.is_empty():
 		warnings.append(("These splines share a Curve3D with another spline, so editing one edits "
@@ -402,18 +403,39 @@ func _get_property_list() -> Array[Dictionary]:
 		"hint_string": ",".join(names),
 		"usage": PROPERTY_USAGE_EDITOR,
 	})
+	# §18.6: which selector the mask overlay shows. Only offered when this brush has a relief material —
+	# `Pasture3DSim` has none and its own stacks multiply into one field, so there is nothing to choose.
+	var relief = _preview_relief_material()
+	if relief != null:
+		var labels := PackedStringArray()
+		for e in _preview_selector_sources(relief):
+			labels.append(String(e[0]).replace(",", " "))
+		props.append({
+			"name": "mask_preview_source",
+			"type": TYPE_INT,
+			"hint": PROPERTY_HINT_ENUM,
+			"hint_string": ",".join(labels),
+			"usage": PROPERTY_USAGE_EDITOR,
+		})
 	return props
 
 
 func _get(property: StringName) -> Variant:
 	if property == &"tool_layer":
 		return _layer_display_name()
+	if property == &"mask_preview_source":
+		return _mask_preview_layer + 1
 	return null
 
 
 func _set(property: StringName, value: Variant) -> bool:
 	if property == &"tool_layer":
 		_assign_layer_by_name(str(value))
+		return true
+	if property == &"mask_preview_source":
+		_mask_preview_layer = int(value) - 1
+		_update_mask_preview()
+		update_configuration_warnings()
 		return true
 	return false
 
@@ -897,6 +919,20 @@ const MASK_PREVIEW_COLOR := Color(0.95, 0.15, 0.1, 0.65)
 ## megabytes of base64 for something that is rebuilt on demand anyway.
 var _mask_preview_texture: ImageTexture = null
 var _mask_preview_rect: Vector4 = Vector4()
+## Which selector `mask_preview` shows: -1 = the relief material's own, 0..N-1 = that stack layer's.
+## Persisted but hidden; the inspector shows it as the `Mask Preview Source` dropdown, whose entries are
+## rebuilt from the live material so a layer added to the stack appears without reselecting the node.
+@export_storage var _mask_preview_layer: int = -1
+
+## The selector `mask_preview` is currently pointed at, or null.
+func _preview_selector(p_relief) -> Pasture3DReliefSelector:
+	var sources := _preview_selector_sources(p_relief)
+	var idx := _mask_preview_layer + 1
+	if idx < 0 or idx >= sources.size():
+		return null
+	return sources[idx][1]
+
+
 ## Set between a change arriving and the deferred rebuild running, so a dozen property edits in one frame
 ## cost one rebuild. A slider drag emits roughly one change per frame, so this coalesces the burst
 ## without adding latency — a debounce TIMER would, and "live" is the whole point.
@@ -1017,19 +1053,96 @@ func _clear_mask_preview() -> void:
 		mat.clear_mask_preview(get_instance_id())
 
 
-## §18.6: preview a relief material's OWN selector over this brush's footprint. Pass null to drop it.
+## Why the mask overlay is showing nothing, when it is switched on and should be.
 ##
-## `Pasture3DReliefMaterial.selector` gates every op the material emits, including a
-## `Pasture3DReliefStack`'s, so this is exact and unambiguous for any material. What it does NOT cover is
-## a stack's per-LAYER selectors, which gate only their own layer's ops — there is no single field that
-## describes those, and inventing a composite would draw a mask the bake never applies.
+## Exists because the first build simply drew nothing when the chosen source had no selector — a toggle
+## that does nothing with no explanation is indistinguishable from a broken one, which is the same
+## defect Preview Water Features shipped with in phase 4. If the overlay is off, say why.
+func _mask_preview_warnings() -> PackedStringArray:
+	var out := PackedStringArray()
+	var relief = _preview_relief_material()
+	if relief == null or not bool(get("mask_preview")):
+		return out
+	var sources := _preview_selector_sources(relief)
+	var idx := _mask_preview_layer + 1
+	if idx < 0 or idx >= sources.size():
+		out.append(("Mask Preview is on but Mask Preview Source points at a layer that no longer exists. "
+			+ "Pick another source."))
+		return out
+	if sources[idx][1] == null:
+		var others := PackedStringArray()
+		for i in range(sources.size()):
+			if i != idx and sources[i][1] != null:
+				others.append(String(sources[i][0]))
+		out.append(("Mask Preview is on but '%s' has no Selector, so there is nothing to show.%s")
+			% [sources[idx][0], (" These do: %s." % ", ".join(others)) if not others.is_empty() else ""])
+	# One level deep (§18.6): a layer that is itself a stack contributes its own selector, not its
+	# children's, and a nested selector is not reachable from this dropdown at all.
+	if "layers" in relief:
+		var nested := PackedStringArray()
+		for i in range((relief.layers as Array).size()):
+			var m = relief.layers[i]
+			if m != null and ("layers" in m) and not (m.layers as Array).is_empty():
+				nested.append("Layer %d" % i)
+		if not nested.is_empty():
+			out.append(("Mask Preview lists one level of this stack. %s %s nested stack(s), whose own "
+				+ "layers' selectors cannot be previewed — flatten them, or move the selector you want to "
+				+ "see up a level.") % [", ".join(nested), "is a" if nested.size() == 1 else "are"])
+	return out
+
+
+## The relief material whose selector this brush can preview, or null. Overridden by the brushes that
+## have one (`Pasture3DPlow`, `Pasture3DMound`) so the dropdown below can live here once.
+func _preview_relief_material():
+	return null
+
+
+## Selectors a relief material offers for preview: the material's own first, then one per stack layer.
+## Returns an Array of [label, Pasture3DReliefSelector-or-null], index 0 being the material's own.
+##
+## ONE level deep. A layer that is itself a `Pasture3DReliefStack` contributes its own selector and not
+## its children's — listing a whole tree would need a path rather than an index, and the configuration
+## warning says so rather than letting a nested selector look reachable.
+func _preview_selector_sources(p_relief) -> Array:
+	var out: Array = [["Material Selector", p_relief.selector if p_relief != null else null]]
+	if p_relief == null or not ("layers" in p_relief):
+		return out
+	var layers: Array = p_relief.layers
+	for i in range(layers.size()):
+		var m = layers[i]
+		out.append(["Layer %d: %s" % [i, _relief_type_name(m)], m.selector if m != null else null])
+	return out
+
+
+## A layer's class name for the dropdown ("Pasture3DReliefFractal" → "Fractal"), falling back to its
+## resource name and then to nothing. Cosmetic: the index is what identifies the layer.
+func _relief_type_name(p_material) -> String:
+	if p_material == null:
+		return "(empty)"
+	if p_material.resource_name != "":
+		return p_material.resource_name
+	var scr: Script = p_material.get_script()
+	if scr != null and scr.has_method("get_global_name"):
+		var n := String(scr.get_global_name())
+		if n != "":
+			return n.trim_prefix("Pasture3DRelief")
+	return "Layer"
+
+
+## §18.6: preview one selector from a relief material over this brush's footprint. Pass null to drop it.
+##
+## `Pasture3DReliefMaterial.selector` gates every op the material emits and is index 0. A stack's
+## per-LAYER selectors gate only their own layer's ops, so they cannot be combined into one honest field —
+## but they are where a stack gets its power, so `mask_preview_source` picks WHICH one to look at instead
+## of pretending a composite exists.
 func _update_relief_mask_preview(p_relief) -> void:
 	var sel := PackedFloat32Array()
 	var sim: Dictionary = {}
-	if p_relief != null and p_relief.selector != null:
-		sel.append_array(PackedFloat32Array(p_relief.selector.to_params()))
-		if p_relief.selector.is_sim_kind() and p_relief.selector.sim_result != null:
-			sim = _sim_result_dict(p_relief.selector.sim_result)
+	var chosen: Pasture3DReliefSelector = _preview_selector(p_relief)
+	if chosen != null:
+		sel.append_array(PackedFloat32Array(chosen.to_params()))
+		if chosen.is_sim_kind() and chosen.sim_result != null:
+			sim = _sim_result_dict(chosen.sim_result)
 	if sel.is_empty():
 		_clear_mask_preview()
 		return
