@@ -1523,6 +1523,17 @@ no terrain, no footprint and no way to draw itself.
 > listing a whole tree would need a path rather than an index. The node says so in a configuration
 > warning instead of letting a nested selector look reachable.
 >
+> **Two things the dropdown got wrong on its first build, both editor-only and both now gated.**
+> `PROPERTY_HINT_ENUM` treats `,` as the entry separator *and* `:` as an explicit value assignment, so a
+> label like `Layer 0: Fractal` collapsed the whole list into one unusable entry — the dropdown existed
+> and offered nothing to choose between. Labels are sanitised of both characters, and gate AY inspects
+> the hint string the inspector will actually parse rather than the source array behind it.
+>
+> And a property appended by `_get_property_list` always lands *after* the script's own `@export`s, so a
+> toggle declared beside `relief` and a dropdown declared dynamically ended up in different sections of
+> the inspector. Both are declared dynamically now, under one `Mask Preview` group, which is the only way
+> to keep them adjacent.
+>
 > **And an empty source must say so.** Drawing nothing with no explanation is indistinguishable from a
 > broken button — the same defect Preview Water Features shipped with in phase 4, repeated here. The
 > warning names the chosen source and lists the ones that do carry a selector.
@@ -1562,7 +1573,7 @@ bake.*
 | AV | With it on: owner set, source carries the insert. Off: owner 0, insert gone. Terrain height moved **0.000000000 m** across the whole cycle | The on-state readings, which must differ from the off-state — otherwise AV compares two identical no-ops |
 | AW | 14 042 of 42 025 cells lit (**33.4%**) against a loop covering ~36% of the grid; layer count 2 before and 2 after | The unclipped field lights all 42 025 — so there was something for the clip to do |
 | AX | Unchanged in the edit's own frame, then **0.000000000** from the expected field one frame later | The edit moves the field by 1.0000, so "the overlay followed" is a claim that could have failed |
-| AY | Dropdown offers `Material Selector, Layer 0: Fractal`; selecting layer 0 gives a field spanning 0.000–1.000 over 15 625 cells | The empty `Material Selector` warns and claims no overlay; a second layer banded to pass nothing differs from layer 0 by 1.0000 |
+| AY | Dropdown offers `Material Selector, Layer 0 (Fractal)` and the inspector hint splits into **2** entries with no colon in either; selecting layer 0 gives a field spanning 0.000–1.000 over 15 625 cells | The empty `Material Selector` warns and claims no overlay; a second layer banded to pass nothing differs from layer 0 by 1.0000 |
 
 **Break tests — each fails only its own criterion:**
 
@@ -1577,6 +1588,7 @@ bake.*
 | The selector's `changed` never connected | AX only |
 | `mask_preview_source` ignored (always the material's own selector) | AY only |
 | An empty source warning suppressed | AY only |
+| Hint-string labels not sanitised of `,` and `:` | AY only — the entry count still parses, but the colon check fires |
 
 > Phases 1–5, `PlowReliefCheck` and `PondBrushCheck` were re-run against the phase-5.5 build: **all
 > passing, 0 failures.**

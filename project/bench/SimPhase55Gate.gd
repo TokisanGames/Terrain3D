@@ -451,6 +451,25 @@ func _gate_ay_stack_sources() -> void:
 		print("    !! the stack's layer is not offered as a source")
 		return
 
+	# The INSPECTOR's view of that list, not just the array behind it. A PROPERTY_HINT_ENUM hint string
+	# is comma-separated with `:` assigning an explicit value, so a label containing either collapses the
+	# whole dropdown into one unusable entry — which is what shipped, and what the source array alone
+	# cannot see.
+	var hint := ""
+	for prop in plow.get_property_list():
+		if prop["name"] == "mask_preview_source":
+			hint = String(prop["hint_string"])
+	var entries := hint.split(",", false)
+	print("    inspector hint splits into %d entr(ies): %s" % [entries.size(), hint])
+	if entries.size() != sources.size():
+		_fail += 1
+		print("    !! the dropdown offers %d choice(s) for %d source(s); labels are breaking the hint"
+				% [entries.size(), sources.size()])
+	for e in entries:
+		if e.contains(":"):
+			_fail += 1
+			print("    !! '%s' contains a colon, which Godot reads as an enum value assignment" % e)
+
 	# CONTROL 1: the material's own selector is empty, so it must warn rather than draw nothing quietly.
 	plow.mask_preview = true
 	plow._mask_preview_layer = -1

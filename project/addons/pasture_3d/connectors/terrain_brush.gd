@@ -403,13 +403,23 @@ func _get_property_list() -> Array[Dictionary]:
 		"hint_string": ",".join(names),
 		"usage": PROPERTY_USAGE_EDITOR,
 	})
-	# §18.6: which selector the mask overlay shows. Only offered when this brush has a relief material —
-	# `Pasture3DSim` has none and its own stacks multiply into one field, so there is nothing to choose.
+	# §18.6: the mask overlay and the selector it shows. Both are declared HERE rather than as plain
+	# @export on the subclasses so they sit together under one group — a dynamic property appended by
+	# `_get_property_list` always lands after the script's own exports, so a toggle declared beside
+	# `relief` and a dropdown declared here would end up in different sections of the inspector, which is
+	# exactly where the first build put them.
+	#
+	# Only offered when this brush has a relief material. `Pasture3DSim` has none, and its own mask stacks
+	# multiply into one field that IS what the bake applies, so there is nothing to choose there — its
+	# `mask_preview` stays a plain export and this block never runs for it.
 	var relief = _preview_relief_material()
 	if relief != null:
+		props.append({"name": "Mask Preview", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP,
+				"hint_string": "mask_preview"})
+		props.append({"name": "mask_preview", "type": TYPE_BOOL, "usage": PROPERTY_USAGE_EDITOR})
 		var labels := PackedStringArray()
 		for e in _preview_selector_sources(relief):
-			labels.append(String(e[0]).replace(",", " "))
+			labels.append(String(e[0]).replace(",", " ").replace(":", " "))
 		props.append({
 			"name": "mask_preview_source",
 			"type": TYPE_INT,
@@ -425,6 +435,8 @@ func _get(property: StringName) -> Variant:
 		return _layer_display_name()
 	if property == &"mask_preview_source":
 		return _mask_preview_layer + 1
+	if property == &"mask_preview" and _preview_relief_material() != null:
+		return _mask_preview_on
 	return null
 
 
@@ -434,6 +446,11 @@ func _set(property: StringName, value: Variant) -> bool:
 		return true
 	if property == &"mask_preview_source":
 		_mask_preview_layer = int(value) - 1
+		_update_mask_preview()
+		update_configuration_warnings()
+		return true
+	if property == &"mask_preview" and _preview_relief_material() != null:
+		_mask_preview_on = bool(value)
 		_update_mask_preview()
 		update_configuration_warnings()
 		return true
@@ -923,6 +940,9 @@ var _mask_preview_rect: Vector4 = Vector4()
 ## Persisted but hidden; the inspector shows it as the `Mask Preview Source` dropdown, whose entries are
 ## rebuilt from the live material so a layer added to the stack appears without reselecting the node.
 @export_storage var _mask_preview_layer: int = -1
+## The overlay toggle for brushes with a relief material, surfaced as `mask_preview` in the group above.
+## Pasture3DSim keeps its own exported enum and never reads this.
+@export_storage var _mask_preview_on: bool = false
 
 ## The selector `mask_preview` is currently pointed at, or null.
 func _preview_selector(p_relief) -> Pasture3DReliefSelector:
@@ -1061,7 +1081,7 @@ func _clear_mask_preview() -> void:
 func _mask_preview_warnings() -> PackedStringArray:
 	var out := PackedStringArray()
 	var relief = _preview_relief_material()
-	if relief == null or not bool(get("mask_preview")):
+	if relief == null or not _mask_preview_on:
 		return out
 	var sources := _preview_selector_sources(relief)
 	var idx := _mask_preview_layer + 1
@@ -1110,7 +1130,10 @@ func _preview_selector_sources(p_relief) -> Array:
 	var layers: Array = p_relief.layers
 	for i in range(layers.size()):
 		var m = layers[i]
-		out.append(["Layer %d: %s" % [i, _relief_type_name(m)], m.selector if m != null else null])
+		# NO COLON in the label. `,` and `:` are both structural in a PROPERTY_HINT_ENUM hint string —
+		# `:` assigns an explicit integer value — so "Layer 0: Fractal" made Godot read the whole list as
+		# one broken entry and the dropdown offered nothing to choose between.
+		out.append(["Layer %d (%s)" % [i, _relief_type_name(m)], m.selector if m != null else null])
 	return out
 
 
