@@ -792,6 +792,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's Kinds, units and falloff semantics; no solver change |
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DONE** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Clustered by margin-grown loop boxes, with a cell budget that REFUSES rather than coarsening; per-pass mask re-evaluation; one `SimResult`; one water extraction. Retires §5's seam limitation **for the solve** — adjacent loops must still overlap, or the per-pass falloff leaves a ridge at the join (§19) |
+| **6.5 — DESIGNED (§21)** | `Pasture3DSimPass`, a container grouping several Sims into ONE pass whose members all read the same input surface; **per-pass Sim Results**, so a chain can be tuned a step at a time instead of only as a whole; build-through (`Simulate To Here`); per-Kind selector presets; and the `CURVATURE` unit fix + measurement radius. Everything §19 got wrong for the act of *tuning* a chain rather than running one |
 | **7 — DESIGNED (§20)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §20.6) |
 | **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every Kind returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
@@ -835,9 +836,10 @@ must distinguish "measured nothing" from "measured correctly".
 > the alphabet.
 >
 > **A–Z is now fully consumed**, so later phases letter their criteria **AA onward**: phase 5 AA–AG
-> (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), and phase **5.5 AS–AY** (§18.7). Phase 5.5 was
-> specced after 6 and 7 and takes the letters that were free rather than displacing theirs — the same
-> rule that left A–Z out of phase order, applied again. Read the *(phase n)* tags, not the alphabet.
+> (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), phase **5.5 AS–AY** (§18.7) and phase **6.5
+> AZ–BF** (§21.9). Phase 5.5 was specced after 6 and 7, and 6.5 after all of them; each takes the letters
+> that were free rather than displacing theirs — the same rule that left A–Z out of phase order, applied
+> again. Read the *(phase n)* tags, not the alphabet.
 > Same reason: a single-letter scheme that has run out is not worth a renumbering that invalidates every
 > existing reference.
 
@@ -1838,6 +1840,11 @@ tightening the fixture until it cleared would have been tuning the gate to its a
 | 10 | **A managed child's spline edit does not clear the manager's layer** | A standalone Sim's auto-refresh clears its own footprint (§12); a pass is on a different layer owner, so a loop drag leaves the erosion in place and only trips the "the passes have changed" warning. Different from standalone, and better — no silent wipe |
 | 11 | **The manager's `SimResult` source fields summarise the chain** | §8.2 decision 6 records one value per solver setting and a chain has one per pass. Iterations SUM, because the passes ran in sequence over one grid; the rates record the strongest any pass used; `source_node` names the manager. A sentinel — a negated rate meaning "several" — was the first attempt and is exactly the undocumented convention §8.2's own `flow` note warns about |
 
+> **Superseded in part by phase 6.5 (§21).** Everything above is what the chain DOES and still holds; what
+> it does not do is let you tune one. Four days of use produced a container that groups several Sims into
+> one pass, per-pass Sim Results, build-through, and the selector fixes that make a sim Kind usable at
+> all. Read §21 before building anything on top of this section.
+
 **§19.8's predicted control for AK was wrong in a way worth recording.** It expected two independent Sims
 to produce "two half-Ponds" for a lake spanning their boundary. They produce **none**: a Pond is one closed
 loop with no way to express a clipped shore, so `_clip_to_write_area` drops a lake whose contour leaves the
@@ -1944,3 +1951,270 @@ assignment.
 AO and AR are **editor-path criteria and headless-blind**, the same accommodation gate M4 makes: a
 headless gate can assert the join and the absence of an orphan task, but the frame-time claim needs an
 editor. Say so in the gate output rather than letting a green line imply more than was measured.
+
+---
+
+## 21. Pass containers, per-pass masks and selector presets (phase 6.5) — DESIGNED
+
+Phase 6 shipped a chain that is correct and a workflow that is not usable. This is the addendum that
+makes it usable. It is **6.5 rather than 8** because none of it is new capability — every item below is
+something §19 either got wrong for practice or left implicit, found by the first person to try to build
+a landscape with it rather than a gate.
+
+Placed after §20 because renumbering would invalidate every existing reference to §20.x, and lettering
+its gates **AZ onward** for the same reason §14 already records: the free letters, not the next ones.
+
+### 21.1 What phase 6 got wrong, from four days of use
+
+| Reported | What is actually wrong |
+|---|---|
+| *"I can only iterate over curve"* | A pass is one `Pasture3DSim`, so everything except the loop — rate, diffusion, iterations, falloff, masks — is shared across every loop that pass owns. Several areas that need different **settings** can only be expressed as several **passes**, which forces a chain order onto things that were never meant to be ordered |
+| *"the Sim Result is empty, it never fills"* | Partly fixed already (the slot is hidden on a pass now), but the real complaint is underneath it: there is **one** result, at the manager, describing the whole chain. Nothing describes what pass 2 did |
+| *"the material preview does not work"* | Very likely downstream of the two above rather than its own defect — see §21.8, which says how to tell before anything is built |
+| *"the defaults are good for Slope but not for erosion"* | True, and worse for `CURVATURE`, whose documented range is simply wrong (§21.6) |
+
+The through-line is that **§19 designed for the finished build and not for the act of tuning one.** A
+chain you cannot inspect between its steps is a chain you can only tune by running the whole thing and
+guessing which pass moved what. §19.5 is the strongest thing in the feature and it is exactly the thing
+that makes single-shot tuning impossible: pass 2 reads pass 1's output, so pass 2's behaviour is not a
+function of pass 2's settings alone.
+
+### 21.2 `Pasture3DSimPass`, the container
+
+```gdscript
+@tool class_name Pasture3DSimPass extends Node3D
+```
+
+One pass, many Sims. The manager's stack becomes:
+
+```
+Pasture3DSimManager
+├── Pasture3DSim              ← pass 1, a pass of one (still valid, still the common case)
+├── Pasture3DSimPass          ← pass 2
+│   ├── Pasture3DSim          ← member
+│   └── Pasture3DSim          ← member
+└── Pasture3DSim              ← pass 3
+```
+
+`passes()` returns direct children that are **either** kind, in dock order. A bare `Pasture3DSim` child
+is a pass of one — every scene built against phase 6 keeps working untouched, and gate BD pins that.
+
+**Not a `Pasture3DTerrainBrush`.** It owns no layer, draws no spline, has no footprint and never paints.
+Extending the brush base would inherit a layer binding, an Add Spline button and an Add Water button that
+all have to be suppressed again — the manager already pays that tax (§19.9 departure 1) and one node
+paying it is enough. It extends `Node3D` and holds the two things a pass genuinely owns: its masks
+(§21.3) and its calibration buttons (§21.4).
+
+**One level, no nesting.** A `Pasture3DSimPass` inside a `Pasture3DSimPass` is not a pass of passes, it is
+a second way to spell the same thing, and the dock would stop showing the stack order at a glance — the
+property §19.2 chose the scene tree for in the first place.
+
+**Every member reads the same input surface.** This is what makes it one pass rather than a folder:
+
+```
+z_out = z_in + Σ  gate_i · ( solve_i(z_in) − z_in )
+```
+
+Members do not see each other; the next pass sees all of them. Two consequences worth stating because
+both are load-bearing:
+
+- **A pass is ORDER-INDEPENDENT.** Shuffling the members of a container must be bitwise identical, which
+  gate BA asserts and which the sum above guarantees. That is the whole difference between a member and a
+  pass, and it is why the dock order of members means nothing while the dock order of passes means
+  everything.
+- **Overlapping members ADD.** Where two members' loops overlap their deltas sum, so overlapping loops cut
+  deeper. That is what two overlapping stamp brushes on one ADD layer have always done in this codebase,
+  and the falloff is the control. Note this is deliberately *not* the `1 − (1−g1)(1−g2)` saturating
+  combine a single Sim's own multiple loops use (§19.9 departure 6): that one exists because those loops
+  share one solved surface, and these do not.
+
+### 21.3 Per-pass masks — and why per-SIM masks cannot exist
+
+The request was "each sim saves the mask data for its pass, or failing that the container does". **The
+fallback is the only coherent option, and it is worth being precise about why**, because the reason is
+not implementation difficulty.
+
+| Channel | Attributable to one member? |
+|---|---|
+| `flow` | **No.** Drainage area accumulates across the entire cluster grid. The area draining through a cell is a property of the whole routed surface; there is no member it belongs to |
+| `wetness` | **No.** Standing water comes from a global priority-flood depression fill. A basin can be fed by one member's channel and dammed by another's |
+| `erosion` / `deposition` | Yes — each member's masked delta is its own |
+
+A per-Sim `Pasture3DSimResult` would therefore be **half a lie**: two channels global, two local, in one
+resource whose docstring says it describes one Sim. §8.2 decision 3 already commits to erosion and
+deposition being the two signs of one field, and that field would be a different field from the one flow
+and wetness describe. Refuse it.
+
+**So the pass owns the masks, and the rule is: whichever node IS the pass holds them.** A container holds
+its pass's result; a bare `Pasture3DSim` that is a direct manager child holds its own again — which means
+narrowing the rule that currently hides `sim_result` on every managed Sim from "managed" to "inside a
+container". One rule, both shapes, nothing to remember.
+
+**Where they come from is already built.** The manager runs a zero-iteration routing pass between passes
+whenever a later pass wants sim Kinds (`_live_fields`, §19.5) and builds the four channels through
+`sim_result_build`, the same code the manager's own result uses. Phase 6.5 makes that unconditional when
+storage is on, and writes the result to the pass rather than only handing it forward.
+
+**The cost is real and must be visible.** One extra fill+route per pass — about a thirtieth of a solve —
+plus four float grids per pass. A 2048² cluster is **64 MB per pass**. So: a `store_masks` toggle on each
+pass, default **on** (tuning is the entire point), and **Plan Clusters reports the total mask memory the
+current stack would allocate** alongside the cell counts it already prints. A number nobody sees until
+the editor swaps is not a budget.
+
+The manager keeps its own whole-chain result unchanged (§19.6). Per-pass masks are additional, not a
+replacement: a relief material keyed on the finished landscape still wants the finished flow field.
+
+### 21.4 Calibrating a pass: build-through, not solo
+
+The stated workflow is "calibrate each pass, then run at the manager level". **A solo button would not
+deliver it**, and this is the one place the request needs pushing back on: pass 2's input is pass 1's
+output, so pass 2 solved against `z0` is not pass 2. Tuning it in isolation calibrates something that
+never runs.
+
+What the workflow actually needs is **build-through**: run passes 1…N, stop, commit, and store pass N's
+masks.
+
+- `Simulate To Here` / `Preview To Here` on `Pasture3DSimPass`, and on a bare Sim that is a pass.
+- `Pasture3DSimManager.simulate_now(scale, record_undo, up_to_pass := -1)`; −1 keeps today's meaning.
+- The manager's `_baked_hash` records the truncation, so a partial build reads as a partial build and the
+  node says *"the layer holds passes 1–2 of 4"* rather than looking like a finished bake.
+
+Everything downstream — the clustering, the one write, the undo action — is untouched: this truncates the
+pass list and changes nothing else, which is why it is cheap.
+
+### 21.5 Selector presets per Kind
+
+`Pasture3DReliefSelector` defaults to `range_min 25, range_max 90, falloff 10/10` — a `SLOPE` band in
+degrees, applied to every Kind. On `EROSION` (metres, 0–55 measured) it passes nothing. On `FLOW` (m²,
+1–343 889 measured) it passes a sliver of headwater. The Kind is a units change and the band should
+follow it.
+
+**Presets, from the numbers §8.2 already measured on the demo terrain** rather than invented:
+
+| Kind | Range | Falloff | Reading |
+|---|---|---|---|
+| `SLOPE` | 25 – 90 | 10 / 10 | unchanged |
+| `ALTITUDE` | *terrain-derived* | 10% of span | See §21.10 — a constant is wrong here |
+| `CURVATURE` | 0.25 – 100 | 0.1 / 0 | Hollows, in the metres §21.6 gives it |
+| `FLOW` | 5000 – 1e9 | 2500 / 0 | The river extractor's own default threshold: "a channel" |
+| `EROSION` | 2 – 1000 | 1 / 0 | Where the sim actually cut, against a 0–55 m range |
+| `DEPOSITION` | 0.25 – 100 | 0.1 / 0 | Against a 0–3.66 m range — deposition is small and a metre band misses it |
+| `WETNESS` | 0.5 – 1000 | 0.25 / 0 | Matches `lake_depth_threshold`: "standing water, not a film" |
+
+**The rule that makes this safe: a preset only applies when the current band is still the OUTGOING Kind's
+preset.** Change Kind on an untouched selector and the band follows; change Kind on one you have tuned and
+your numbers survive. Silently overwriting an edited band would be worse than useless defaults, because
+useless defaults are at least visible. Gate BE asserts both halves.
+
+Also retune the `@export_range` hints per Kind through `_validate_property` — a 0–90 slider on a `FLOW`
+falloff measured in square metres is actively misleading, even though the value is `or_greater` and
+accepts more.
+
+### 21.6 Curvature: a documentation bug and a missing baseline
+
+Two separate defects, and the first one means every curvature band written so far is wrong.
+
+**1 — The documented range is false.** The docstring says *"roughly -1 (ridge/convex) to +1
+(hollow/concave)"*. The code computes the raw Laplacian in **1/m**:
+
+```
+curvature = (z[x+1] + z[x-1] + z[z+1] + z[z-1] − 4·z) / vs²
+```
+
+([pasture_3d_relief_ops.cpp:354](src/pasture_3d_relief_ops.cpp:354)). Measured on the phase-6 fixture, a
+band of `>= 0.3` selected 1 853 of 35 721 cells and `>= 0.02` selected 16 473 — so real values run from
+about 0.01 to well past 1, and anyone who reads the docstring and types a −1…+1 band selects nearly
+everything. `relief_scree` has the same assumption baked in: it clamps curvature to 0…1 for its toe
+deposition ([pasture_3d_relief_ops.cpp:189](src/pasture_3d_relief_ops.cpp:189)), which saturates wherever
+curvature exceeds 1 — which is most concave ground.
+
+**2 — There is no measurement baseline.** It is a one-cell Laplacian, so at 1 m vertex spacing it measures
+curvature over 1 m: fine noise, not landform. §17.5 already documents the same effect as the reason a
+`CURVATURE` mask reads differently on preview and build. An artist asking for "hollows" means hollows at
+some scale, and there is nowhere to say which.
+
+**The fix, in the free slot.** `to_params()` already returns a stride-8 block whose **eighth float is
+unused** ([relief_selector.gd:130](project/addons/pasture_3d/connectors/relief_selector.gd:130)), so a
+per-selector `curvature_radius` costs no stride change and no wire-format break:
+
+- `curvature_radius: float = 8.0` metres, sampled as a ± radius stencil rather than ± one cell.
+- **Change the unit to METRES of deviation** — Laplacian × r², which is how far this cell sits below the
+  mean of its neighbours at that radius. Dimensionless-and-undocumented becomes the same unit `EROSION`,
+  `DEPOSITION` and `WETNESS` already use, and "hollows deeper than 0.25 m over 8 m" is a sentence an
+  artist can write.
+- Fix `relief_scree`'s clamp to match, and fix the docstring.
+
+**This breaks existing curvature bands**, including `channel_boulders.tres` and anything authored against
+the old numbers. That is the cost of the unit being wrong; a compatibility flag preserving a documented
+falsehood is not worth it. The migration note belongs in §21.10 and the demo preset must be re-tuned in
+the same commit.
+
+### 21.7 The rename, and its real scope
+
+`sim.gd` → `pasture3d_sim.gd`. Two honest observations before doing it:
+
+- **There is no functional collision to fix.** GDScript resolves scripts by path, so
+  `res://addons/pasture_3d/connectors/sim.gd` cannot collide with another addon's `sim.gd`, and the global
+  identifier is already `Pasture3DSim`. The risk being avoided is theoretical.
+- **The consistency argument is real, and it is folder-wide.** `mound.gd`, `plow.gd`, `pond.gd`,
+  `pool.gd`, `ridge.gd`, `splat.gd`, `stream.gd`, `trough.gd` and `water_body.gd` are all equally generic,
+  and the C++ half of the same features is already `pasture_3d_*.cpp`. **Renaming one file leaves the
+  folder half-converted, which is worse than either end state.**
+
+So: do it as **one folder-wide migration or not at all**, and separately from phase 6.5's behaviour work
+so a bisect can tell a rename from a regression. What it touches:
+
+1. Every `.gd` keeps its **`.uid` file** so scenes resolve by uid across the rename.
+2. `toolbar.gd`'s `PLACEABLE_BRUSHES` references `connectors/sim.gd` **by path** and must be updated.
+3. Scenes carry both `uid=` and `path=`; `sculpting_2.tscn` — the live working scene — references
+   `connectors/sim.gd` by path and must be resaved.
+4. `.godot/global_script_class_cache.cfg` regenerates on the next editor start.
+
+### 21.8 Diagnose the preview before building anything for it
+
+*"The material preview does not work"* has no fix in this spec on purpose, because the likeliest
+explanation is that it never had a chance to work:
+
+- A selector with a sim Kind and a **null `sim_result`** reads a defined 0 everywhere and previews blank
+  ([terrain_brush.gd:1176](project/addons/pasture_3d/connectors/terrain_brush.gd:1176)) — and until the
+  `Save Masks` commit there was no reachable populated result to point it at.
+- A sim-Kind band left at the `SLOPE` defaults of 25–90 passes almost nothing (§21.5).
+
+Both are addressed by other parts of this spec. **Re-test with a populated result and a Kind-appropriate
+band before speccing a fix**, and if it still fails, that is its own investigation with its own gate — not
+a line item folded into this one.
+
+### 21.9 Gates (phase 6.5)
+
+Lettering continues at **AZ** (§14).
+
+| # | Criterion | Control that must fail |
+|---|---|---|
+| AZ | **A pass's members all read the same input surface.** Every member of a container is handed the identical `z_in`, bitwise, and none of them sees another's output. | Feed member 2 member 1's output → the surface differs. And the members must each MOVE the ground, or "they read the same input" is a claim about two no-ops. |
+| BA | **A pass is order-independent.** Shuffling a container's members reproduces the surface to 0.000000 m. | Shuffling the **passes** at manager level, which MUST change it (gate AH's control, re-run one level up). If both are stable the container is not composing anything. |
+| BB | **Per-pass masks describe that pass's own output.** The result stored on pass N routes the surface after N, not after N−1 or after the whole chain. | The same comparison against pass N−1's stored masks, which must differ measurably — and the flow field must be non-trivial over the cluster, or the two are both empty. |
+| BC | **Build-through truncates and nothing else.** Simulating to pass N gives bitwise the same surface as a full chain whose passes after N are deleted. | The full untruncated chain, which must differ — otherwise the later passes were doing nothing and truncation is untestable here. |
+| BD | **A bare Sim under a manager is still a pass of one.** A phase-6 scene reproduces its phase-6 surface to 0.000000 m after the container exists. | The same scene with that Sim moved inside a container, which must be identical too — a container of one is not a different feature. |
+| BE | **Kind presets apply to untouched bands and never to edited ones.** Changing Kind on a default selector re-defaults the band; changing it on one with an edited `range_min` leaves every field alone. | Edit a field to the *incoming* Kind's preset value and change Kind — it must still be treated as edited, or "untouched" is being decided by comparing against the wrong Kind. |
+| BF | **Curvature is metres of deviation over its radius.** An analytic dome of known radius reads the deviation the geometry says, at two different `curvature_radius` values. | The same ground at radius 1 vs radius 16, which must differ by the ratio the formula predicts — a radius that changes nothing is a parameter in name only. |
+
+**BB and BC both need a chain whose passes visibly disagree**, the same fixture requirement §19.8 records
+for AI/AJ/AK. Assert that the passes moved the ground by different amounts and report it, rather than
+inferring it from the criteria passing.
+
+### 21.10 Open questions
+
+1. **The `ALTITUDE` preset cannot be a constant.** A 0–1000 m band is meaningless on a 50 m map and on a
+   4 km one. Options: derive from the terrain's actual height range when the Kind is set (needs the
+   selector to reach a terrain, which a `Resource` cannot), have the *brush* offer a "fit to terrain"
+   action, or leave `ALTITUDE` alone and document that it is the one Kind you always set by hand. The
+   third is the honest default until someone wants the second.
+2. **Curvature's unit change breaks authored bands** (§21.6). Confirm nothing outside
+   `channel_boulders.tres` is affected before committing, and re-tune that preset in the same commit.
+3. **Per-pass mask memory at 1× over a large cluster** is the one number here that could make the default
+   wrong. §11 profiling is still not done and §19.4 still says so; this needs the user's go-ahead before
+   anything is measured.
+4. **Does a container need its own falloff or edge offset?** Currently every member carries its own and the
+   container carries none. If passes routinely want one feathered edge around a *group* of loops, that is
+   a real gap — but it is a union-of-polygons problem, not a container property, and it should wait until
+   someone hits it.
