@@ -319,6 +319,14 @@ public:
 	// optionally, the erodability texture composed in). Empty when there is nothing to mask with.
 	PackedFloat32Array selector_mask_field(const PackedFloat32Array &p_z, const Dictionary &p_params, const PackedFloat32Array &p_selectors, const Dictionary &p_sim_result);
 	PackedFloat32Array sim_mask_deltas(const PackedFloat32Array &p_deltas, const PackedVector2Array &p_poly, const Dictionary &p_params, const PackedFloat32Array &p_lut);
+	// §19.2 — the two halves of Pasture3DSimManager's pass chain, both over one cluster's sim grid.
+	// `sim_chain_blend` folds one pass's solved surface in through that pass's own loop gate (a NaN gate is
+	// 0, so the surface passes through untouched and the next pass still sees continuous ground).
+	// `sim_chain_write` takes the finished chain's total delta z_N - z0 up to the terrain write grid, with
+	// no polygon and no falloff — every pass already gated its own contribution. Params for the latter:
+	// {sw, sh, gw, gh, sim_min_x, sim_min_z, sim_cell, min_x, min_z, vs}.
+	PackedFloat32Array sim_chain_blend(const PackedFloat32Array &p_before, const PackedFloat32Array &p_after, const PackedFloat32Array &p_gate);
+	PackedFloat32Array sim_chain_write(const PackedFloat32Array &p_z0, const PackedFloat32Array &p_zn, const Dictionary &p_params);
 	// §8.1 — batched delta write, the same raw-tile path the stamp_* rasterisers use. Deltas are gw*gh
 	// row-major with NaN = skip, anchored at vertex round(min_x/vs), round(min_z/vs). Deferred: the
 	// caller composites the box and pushes to the GPU once.

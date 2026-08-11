@@ -4,6 +4,8 @@
 //   resample_grid      the §6 preview/build bridge — below-layer heights DOWN onto the sim grid
 //   erode_heightfield  the §4 solver, as a pure function of a heightfield (pasture_3d_erosion.cpp)
 //   sim_mask_deltas    §5 "simulate wide, write narrow" — deltas back UP, through the loop's falloff
+//   sim_chain_blend    §19.2 — one manager pass folded into the chain, gated by its own loop
+//   sim_chain_write    §19.2 — the whole chain's total delta, once, back UP onto the terrain grid
 //   apply_sim_block    §8.1 — the batched raw-tile delta write, shared with the stamp_* rasterisers
 //   sim_result_build   §8.2 — the four Pasture3DSimResult channels, merged across a node's loops
 //   sim_extract_water  §10 — rivers off the drainage tree and lakes off the depression fill
@@ -442,6 +444,107 @@ PackedFloat32Array Pasture3DData::sim_mask_deltas(const PackedFloat32Array &p_de
 			const double delta = (a * (1.0 - ty) + b * ty) * gate;
 			if (delta == 0.0) {
 				continue; // an exact zero is not a write; leaving the cell uncovered keeps the layer sparse
+			}
+			o[row + ix] = (float)delta;
+		}
+	}
+	return out;
+}
+
+// §19.2 step 3 — fold ONE pass's solved surface into the chain, masked to that pass's own loop:
+//
+//     z_out = z_before + gate * (z_after - z_before)
+//
+// `gate` is that pass's own loop mask at sim resolution — the very falloff `sim_mask_deltas` rasterises,
+// obtained by feeding it a field of ones — already multiplied by the pass's write mask. So a pass gates
+// its contribution through exactly the same masker a standalone Sim gates its write through, and the two
+// cannot drift apart.
+//
+// A NaN gate means "outside this pass's loop", and that is a gate of ZERO, not a hole: the surface has to
+// pass through untouched so the NEXT pass reads continuous ground across the whole cluster. Getting that
+// wrong would punch the margin out of the chain and reintroduce, inside one solve, exactly the §5 seam the
+// manager exists to delete. A non-finite `z_after` is different — the solver had no answer there — and
+// leaves `z_before` standing.
+PackedFloat32Array Pasture3DData::sim_chain_blend(const PackedFloat32Array &p_before,
+		const PackedFloat32Array &p_after, const PackedFloat32Array &p_gate) {
+	PackedFloat32Array out;
+	const int n = p_before.size();
+	if (n < 1 || p_after.size() != n || p_gate.size() != n) {
+		return out; // size mismatch is a caller bug; an empty return fails loudly rather than half-blending
+	}
+	out.resize(n);
+	float *o = out.ptrw();
+	const float *b = p_before.ptr();
+	const float *a = p_after.ptr();
+	const float *g = p_gate.ptr();
+	for (int i = 0; i < n; i++) {
+		const float gate = std::isfinite(g[i]) ? std::min(std::max(g[i], 0.0f), 1.0f) : 0.0f;
+		if (gate <= 0.0f || !std::isfinite(a[i]) || !std::isfinite(b[i])) {
+			o[i] = b[i];
+			continue;
+		}
+		o[i] = (float)((double)b[i] + (double)gate * ((double)a[i] - (double)b[i]));
+	}
+	return out;
+}
+
+// §19.2 step 4 — the chain's TOTAL delta `z_N - z0`, upsampled from the cluster's sim grid onto the
+// terrain-resolution write grid. ONE write per cluster, however many passes ran.
+//
+// No polygon and no falloff here, deliberately: every pass already gated its own contribution through its
+// own loop in `sim_chain_blend`, so the total delta is zero everywhere no pass touched. Masking again
+// would apply one pass's falloff to another pass's delta. An exact zero therefore comes back NaN — not a
+// write — which is the same "leave the cell uncovered" rule `sim_mask_deltas` uses and what keeps the
+// catchment margin out of the layer (gate G's claim, re-earned by the manager).
+//
+// Reads the sim grid through `grid_bilinear`, the same tap `sim_mask_deltas` samples its write mask with.
+PackedFloat32Array Pasture3DData::sim_chain_write(const PackedFloat32Array &p_z0, const PackedFloat32Array &p_zn,
+		const Dictionary &p_params) {
+	PackedFloat32Array out;
+	const int sw = (int)p_params.get("sw", 0);
+	const int sh = (int)p_params.get("sh", 0);
+	const int gw = (int)p_params.get("gw", 0);
+	const int gh = (int)p_params.get("gh", 0);
+	if (sw < 2 || sh < 2 || gw < 1 || gh < 1 || p_z0.size() < sw * sh || p_zn.size() < sw * sh) {
+		return out;
+	}
+	const double sim_min_x = p_params.get("sim_min_x", 0.0);
+	const double sim_min_z = p_params.get("sim_min_z", 0.0);
+	const double sim_cell = p_params.get("sim_cell", 1.0);
+	const double min_x = p_params.get("min_x", 0.0);
+	const double min_z = p_params.get("min_z", 0.0);
+	const double vs = p_params.get("vs", 1.0);
+	if (sim_cell <= 0.0 || vs <= 0.0) {
+		return out;
+	}
+	// The difference is taken on the SIM grid and interpolated afterwards. Interpolation is linear, so
+	// this is the same arithmetic as differencing two interpolated surfaces — but it keeps the cancellation
+	// exact at build resolution, where the tap is an identity and z_N - z0 must come out bit-for-bit.
+	std::vector<float> d((size_t)sw * sh);
+	const float *z0 = p_z0.ptr();
+	const float *zn = p_zn.ptr();
+	for (int i = 0; i < sw * sh; i++) {
+		d[(size_t)i] = (std::isfinite(z0[i]) && std::isfinite(zn[i])) ? (float)((double)zn[i] - (double)z0[i]) : (float)NAN;
+	}
+	out.resize(gw * gh);
+	float *o = out.ptrw();
+	for (int iz = 0; iz < gh; iz++) {
+		const double z = min_z + iz * vs;
+		const double fv = (z - sim_min_z) / sim_cell;
+		const int row = iz * gw;
+		for (int ix = 0; ix < gw; ix++) {
+			o[row + ix] = (float)NAN;
+			const double x = min_x + ix * vs;
+			const double fu = (x - sim_min_x) / sim_cell;
+			if (fu < -0.001 || fv < -0.001 || fu > (double)(sw - 1) + 0.001 || fv > (double)(sh - 1) + 0.001) {
+				continue; // outside the cluster's simulated area entirely
+			}
+			double delta = 0.0;
+			if (!grid_bilinear(d.data(), sw, sh, fu, fv, delta)) {
+				continue; // a no-data corner: no honest delta here, so write nothing
+			}
+			if (delta == 0.0) {
+				continue; // no pass reached this cell; leaving it uncovered keeps the layer sparse
 			}
 			o[row + ix] = (float)delta;
 		}

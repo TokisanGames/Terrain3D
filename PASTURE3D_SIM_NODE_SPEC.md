@@ -230,6 +230,13 @@ tooltip.
 > independently and will not agree at their shared edge. World Machine documents the same problem for
 > tiled builds and its answer is the same as ours: overlap generously and let the falloff blend. Do not
 > expect to tile a large map from many small Sim loops; use few large ones.
+>
+> **Retired for the SOLVE by phase 6 (§19).** Put the loops under a `Pasture3DSimManager` and they become
+> passes over one grid, so the drainage is computed continuously across what used to be a boundary — gate
+> AJ measures 3.6× the catchment arriving in the downstream loop, and continuity of 1.00 against 0.27 for
+> the same two as independent Sims. **The "overlap generously" half still stands**: each pass is still
+> masked to its own loop through its own falloff, so loops that merely abut leave a ridge at the join
+> whatever computed the drainage.
 
 ---
 
@@ -784,7 +791,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **4 — DONE** | River + lake extraction; Add / Clear Brushes; preview counts; generated layers |
 | **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's Kinds, units and falloff semantics; no solver change |
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
-| **6 — DESIGNED (§19)** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Retires §5's seam limitation; per-pass mask re-evaluation; one `SimResult`; one water extraction |
+| **6 — DONE** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Clustered by margin-grown loop boxes, with a cell budget that REFUSES rather than coarsening; per-pass mask re-evaluation; one `SimResult`; one water extraction. Retires §5's seam limitation **for the solve** — adjacent loops must still overlap, or the per-pass falloff leaves a ridge at the join (§19) |
 | **7 — DESIGNED (§20)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §20.6) |
 | **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every Kind returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
@@ -1270,6 +1277,13 @@ them is a bug:
   Phase 6 delivers it (§19.5); phase 5 cannot, and its warning should say which one is missing rather
   than implying the combination is illegal.
 
+  > **Built, and the refusal now knows about the manager.** Under a `Pasture3DSimManager`,
+  > `_self_references` returns false: there is nothing to refuse, because a pass's sim Kinds read the
+  > previous pass's live fields rather than any resource, and this node's own `sim_result` is ignored
+  > entirely (§19.9 departure 4). The phase-5 warning above now points at the manager instead of at a
+  > future phase. Gate AL measures the idiom working; gate AG still measures the refusal for a standalone
+  > Sim, and the break test confirms the manager did not disable it there.
+
 ### 17.7 Node surface
 
 | Property | Group | Meaning |
@@ -1595,14 +1609,29 @@ bake.*
 
 ---
 
-## 19. The manager and the pass chain (phase 6)
+## 19. The manager and the pass chain (phase 6) — DONE
 
 ```gdscript
-@tool class_name Pasture3DSimManager extends Pasture3DTerrainBrush
+@tool class_name Pasture3DSimManager extends Pasture3DSimBase
 ```
 
 Child `Pasture3DSim` nodes become **ordered passes** over one shared grid. Scene-dock order is stack
 order, top to bottom.
+
+> **Built as designed.** The model (§19.2), the clustering and the refusing budget (§19.4), the per-pass
+> mask re-evaluation (§19.5) and the mode split (§19.7) are all as written. Eleven departures, recorded in
+> §19.9 with their reasons — the two that change what the design *says* are the shared base class the
+> extends line above already shows, and one `Pasture3DSimResult` for the manager rather than one per
+> cluster.
+>
+> **The usage note §19.2 did not have, and it will bite:** *overlap adjacent loops.* Step 3 masks every
+> pass to its own loop through its own falloff, so two loops that merely ABUT leave a band at the join
+> where neither gate reaches 1 and the original ground stands proud as a ridge. The solve is one grid and
+> the drainage AREA is continuous — but the routing pass runs over the *written* surface, and it finds a
+> divide sitting on the join. The first AJ fixture was built that way and measured 546 m² of catchment
+> arriving at the seam and 13 m² leaving it. This is §5's own advice — "overlap generously and let the
+> falloff blend" — applying to passes exactly as it applied to Sims, and the manager does not repeal it.
+> It only makes the *solve* seamless, which is what it claimed.
 
 ### 19.1 Why, and it is not layer sharing
 
@@ -1725,6 +1754,95 @@ N children each tracking a landform, one solve, continuous drainage running betw
 
 Note AI, AJ and AK all depend on a fixture with real cross-boundary drainage. Assert that property of the
 fixture directly and report it, rather than inferring it from the criteria passing.
+
+### Gate results (phase 6, all passing)
+
+`bench/SimPhase6Gate.tscn`, headless, ~7 s. Every criterion is a claim about the NODE, so there is no
+"drive the arithmetic directly" family here — a pass chain over a clustered grid *is* the plumbing.
+
+**The fixture is synthetic and its key property is asserted, not assumed.** AI, AJ and AK need real
+drainage across the boundary between two loops, and "the demo terrain probably slopes that way here" is
+not a fixture. The gate writes its own surface — a plane tilted 0.15 in +X, coherent noise at a gradient
+the tilt dominates, and one narrow 120 m basin straddling the seam — into a **REPLACE layer created below
+every manager's layer**, then verifies the write landed (worst |terrain − formula| **0.000039 m** over 20
+probes) and measures the drainage direction itself, by steepest descent over its own analytic surface:
+**100.0%** of the seam column over the band AJ measures runs downhill into loop B, 57.3% over the whole
+column (the remainder is the basin's own catchment, which drains inward by design).
+
+| # | Measured | Control |
+|---|---|---|
+| AH | Pass 2's **solver input** is bitwise pass 1's output: **0 of 36 099** cells differ. Pass 1 moved the chain 93.22 m and pass 2 moved it a further 28.49 m, so the handover carries something. Committed delta vs `z_N − z0` over 81 probes: worst difference **0.000000 m** | Passes reversed → the surface moves **23.21 m** |
+| AI | After a build and an auto-refresh on each pass: manager layer 7, both passes at **−1**. The manager's layer contributes all 11.68 m of the 11.68 m that moved. The catchment margin, simulated but never written, sits **0.000035 m** from the untouched fixture | Two standalone Sims on one shared layer: Sim 1 eroded its probes by 19.41 m, and after Sim 2 baked **0.0000 m** of it remained — the §19.1 wipe, at probes inside Sim 1's loop, outside Sim 2's, and inside the tiles Sim 2's clear drops |
+| AJ | Trunk catchment crossing x = 402, just past the seam: manager **16 553 m²**, independent **4 648 m²**. Continuity across the seam (x 382 → 402): manager **1.00** | The same two as independent Sims: **0.27** — the independent field loses three quarters of its catchment at a boundary the fixture crosses at 100% |
+| AK | Manager: 25 river runs, **1** of them reaching both X 352–367 and X 417–432; 3 lakes, **1** of them the basin (at 391, 392 — 3 578 m², 67.5 m deep) | Independent: 36 runs before clipping, 27 after, **0** reaching both windows; 2 lakes before clipping, **0** on the basin |
+| AL | The gate's own curvature band holds 1 853 cells over `z0` and 6 917 over pass 1's output. The mask pass 2 **used**: **100.0%** of its passing cells are in the post-pass-1 band, 21.5% in the pre-pass-1 band | Evaluated once against `z0` → 1 853 cells, agreeing with only 21.5% of the real mask. And only 21.5% of the post-pass-1 band was already in the pre-pass-1 band, so the two are genuinely different questions |
+| AM | Two passes, one of them masked, so the §19.5 re-evaluation is inside what is being called idempotent. First run moved 83.65 m; re-run drift **0.000000000 m** | H's own control — the same chain seeded from the finished composite — drifts **38.14 m** |
+| AN | Loop edges 240 m apart with a 40 m margin → **2** grids; moved to 40 m apart → **1**, spanning 284 m and listing both passes. Over budget: `ok=false`, the reason names both passes | The cluster **count changes** across the move, so neither an always-union nor an always-split manager passes. The refused plan still reports the full 285 × 165 grid, not a smaller one, and the build wrote **0.000000 m** |
+
+**AJ's loose ceiling, reported and not asserted.** An independent Sim's grid cannot route more than
+everything upstream of the probe inside its own extent — 16 815 m² here — so "the manager exceeds that"
+would be an assumption-free proof that catchment crossed the boundary. It landed **262 m² short**.
+Clearing it needs one trunk to carry 25% of the whole domain's upstream area, which is a fact about how
+many parallel channels the fixture grows, not about the manager. The number is printed every run;
+tightening the fixture until it cleared would have been tuning the gate to its answer.
+
+**Break tests — each mechanism disabled in turn:**
+
+| Broken | Fails |
+|---|---|
+| Every pass re-seeded from `z0` (the chain cut outright) | AH only |
+| Passes folded in without their loop gate | AI only, the margin leg |
+| Masks evaluated once against `z0` | AL only, all three legs |
+| Clustering always unions | AN only, both cluster-count legs |
+| The budget never refuses | AN only, all three budget legs |
+| A managed child may reserve its own layer | AI only |
+| The chain seeded from the finished composite | AM only |
+
+> **Two criteria were vacuous and the break tests found them, not the pass.**
+>
+> **AH passed with the chain cut outright.** The capture it compared was taken in `_start_pass`, off the
+> chain's own bookkeeping — so it recorded what the chain *intended* to hand over, which stayed correct
+> even when every pass was re-seeded from `z0` and the handover meant nothing. It now captures the array
+> `erode_heightfield` actually receives, at the call site, where it cannot be anything else.
+>
+> **AI passed with its guard deleted.** Driving a manager through `simulate_now` never reaches
+> `_ensure_layer_for` on a child at all, so "no pass reserved a layer" was true whether or not anything
+> prevented it. The gate now pokes each pass down `_refresh_owner` — the path a spline-handle drag takes —
+> before looking, and deleting the guard fails it.
+>
+> **Three measurements were wrong before AJ was right**, and the sequence is worth keeping. A *mean* over
+> part of the column measures whether the sampling landed on a channel: drainage area is violently
+> concentrated, and it read 24 m² one side of the seam and 1 267 m² the other. The *sum* over the whole
+> column looks conserved and is not — a channel meandering in X crosses the same column repeatedly and its
+> whole accumulated area counts at each crossing, inflating the two runs by 2.4× and 4.4× and destroying
+> the ratio it was meant to predict. The *median* has a closed form on a tilted plane, but the surface
+> being routed is the *eroded* one, and on dissected ground the median cell sits near a local divide and
+> reads 8 m² whatever is upstream. The **maximum** — the trunk — needs none of that.
+>
+> Phases 1–5.5, `PlowReliefCheck` and `PondBrushCheck` were re-run against the phase-6 build: **all
+> passing, 0 failures.**
+
+### 19.9 Departures from the design
+
+| # | Departure | Why |
+|---|---|---|
+| 1 | **`Pasture3DSimBase`, a new shared base class**, and the manager extends it rather than `Pasture3DTerrainBrush` | Everything downstream of "there is a `SimResult` and an eroded surface" — §10's extraction, the generated brushes, the layer commit, the `.res` bookkeeping — is identical for both front ends. The exports stay on the subclasses and the base reads them through four hooks, because Godot lists a base script's exports FIRST and moving `sim_result` and the water thresholds up would push `Pasture3DSim`'s Simulation group below its own outputs — a visible change to a node §19.7 promises stays unchanged |
+| 2 | **One `Pasture3DSimResult` for the manager, not one per cluster** (§19.6) | The node has one `sim_result` slot, and one resource is what makes the phase-3 limitation §19.6 retires actually retired — a selector points at one thing. Several clusters merge through the same union-box path a multi-loop Sim already uses, coarsened past `RESULT_MAX_CELLS` with a warning. One cluster, the case the design is really about, is bit-exact with no resampling. **The solve is never coarsened; only this output** |
+| 3 | **Two new C++ functions**, `sim_chain_blend` and `sim_chain_write` | §19.2's "chaining costs nothing to build" is true of the solve and not of the plumbing around it: the per-pass fold and the final upsample are each O(cells) and would have been GDScript loops over millions of them. Both reuse what exists — the loop gate is `sim_mask_deltas` fed a field of ones, so a pass gates its contribution through the bake's own masker; the upsample uses the same `grid_bilinear` tap |
+| 4 | **Sim Kinds under a manager ignore an explicitly assigned `sim_result`** | §19.5 says they read the previous pass's live fields; it did not say what happens to a selector that also names a resource. Live fields always win, and the child warns that the pointer is ignored. The cost is that a managed pass cannot use §17.6's legitimate "point at another Sim's result" case |
+| 5 | **A refused cluster refuses the WHOLE build** | §19.4 says refuse and name the cluster; it did not say whether the others still build. Nothing is written at all — a partial build would commit a landscape missing part of its chain and report success |
+| 6 | **A multi-loop pass composes overlapping loops as `1 − (1−g₁)(1−g₂)`** | Two overlapping loops on one standalone Sim ADD their deltas (two `apply_sim_block` calls with ADD blend). In the chain each loop folds in sequentially, so the combined weight saturates at 1 instead of doubling the cut. Different from standalone, and better |
+| 7 | **`_ensure_layer_for` returns −1 for a managed child** | §19.7 says the layer binding is "ignored"; this makes it structural. A pass cannot reserve a layer by any path, including the auto-refresh a spline drag triggers — and the break test showed the difference is real, not decorative |
+| 8 | **`max_cluster_cells` is a new export**, default 4 194 304 | §19.4 required a budget and named no property |
+| 9 | **`capture_chain` / `last_chain`**, off by default | AH and AL need the intermediate surfaces. It holds two full grids per pass alive, so it is not exported |
+| 10 | **A managed child's spline edit does not clear the manager's layer** | A standalone Sim's auto-refresh clears its own footprint (§12); a pass is on a different layer owner, so a loop drag leaves the erosion in place and only trips the "the passes have changed" warning. Different from standalone, and better — no silent wipe |
+| 11 | **The manager's `SimResult` source fields summarise the chain** | §8.2 decision 6 records one value per solver setting and a chain has one per pass. Iterations SUM, because the passes ran in sequence over one grid; the rates record the strongest any pass used; `source_node` names the manager. A sentinel — a negated rate meaning "several" — was the first attempt and is exactly the undocumented convention §8.2's own `flow` note warns about |
+
+**§19.8's predicted control for AK was wrong in a way worth recording.** It expected two independent Sims
+to produce "two half-Ponds" for a lake spanning their boundary. They produce **none**: a Pond is one closed
+loop with no way to express a clipped shore, so `_clip_to_write_area` drops a lake whose contour leaves the
+write area *whole*. The feature is not halved, it is lost — which is worse, and which is why the control
+asserts the lakes existed **before** clipping (2 of them) rather than merely that none survived.
 
 ---
 
