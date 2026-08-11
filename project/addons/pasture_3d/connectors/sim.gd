@@ -354,6 +354,24 @@ func pass_spec() -> Dictionary:
 	}
 
 
+## §19.7's "ignored in favour of the manager's", made visible instead of merely stated.
+##
+## A pass that still SHOWS a Sim Result slot shows one that will never fill: the manager writes the
+## result, and a pass writes nothing. Leaving the slot there with a configuration warning explaining it
+## puts the burden in the wrong place — the obvious reading of an empty slot after a bake is that the bake
+## is broken, and that is exactly how it was read. The same goes for the two settings that define the
+## SHARED grid (§19.3): a Catchment Margin on a pass looks like it does something and cannot.
+##
+## Hidden, not disabled, and not cleared. The values are still stored, so dragging the Sim back out of the
+## manager restores the node it was.
+func _validate_property(p_property: Dictionary) -> void:
+	if not is_managed():
+		return
+	if p_property.name in ["sim_result", "_save_masks_btn", "catchment_margin",
+			"preview_resolution", "build_resolution"]:
+		p_property.usage = PROPERTY_USAGE_NONE
+
+
 func _get_configuration_warnings() -> PackedStringArray:
 	if is_managed():
 		return _managed_warnings()
@@ -406,9 +424,10 @@ func _managed_warnings() -> PackedStringArray:
 	var out := PackedStringArray()
 	var mgr := manager()
 	out.append(("This Sim is a pass of '%s' (pass %d of %d). The manager owns the grid, the layer and the "
-		+ "write, so Catchment Margin, the resolutions, the layer binding and Sim Result here are ignored "
-		+ "— its own are used. Everything else on this node is what makes it a distinct pass.")
-		% [mgr.name, mgr.pass_index_of(self) + 1, mgr.passes().size()])
+		+ "write, so Catchment Margin, the resolutions and Sim Result are hidden here — select '%s' to "
+		+ "set them, and to find the Sim Result the chain writes. Everything still shown on this node is "
+		+ "what makes it a distinct pass.")
+		% [mgr.name, mgr.pass_index_of(self) + 1, mgr.passes().size(), mgr.name])
 	if _get_splines().is_empty():
 		out.append("This pass has no loop, so it contributes nothing to the chain. Add one, or delete it.")
 	# The trap this mode split creates. A Sim that baked while standalone left a delta in its OWN layer,
