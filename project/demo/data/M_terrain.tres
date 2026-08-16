@@ -1,4 +1,6 @@
-[gd_resource type="Terrain3DMaterial" load_steps=4 format=3 uid="uid://ccvn15t8km0ft"]
+[gd_resource type="Terrain3DMaterial" load_steps=5 format=3 uid="uid://ccvn15t8km0ft"]
+
+[ext_resource type="Shader" uid="uid://bfh6hwt1cljia" path="res://heightmap_fragment_normal_mipmaps.gdshader" id="1_bqowf"]
 
 [sub_resource type="Gradient" id="Gradient_vr1m7"]
 offsets = PackedFloat32Array(0.2, 1)
@@ -70,4 +72,6 @@ auto_shader_enabled = true
 dual_scaling_enabled = true
 macro_variation_enabled = true
 projection_enabled = true
+shader_override_enabled = true
+shader_override = ExtResource("1_bqowf")
 displacement_sharpness = 0.25
