@@ -57,6 +57,7 @@ void fragment() {
 	ALBEDO = vec3(0.20, 0.22, 0.05) * (data[2] * 0.5 + 0.5);
 	ALBEDO.rg *= (data.rg * 0.3 + 0.9);
 	ALBEDO *= pow(COLOR.rgb, vec3(2.2));
+	ALBEDO = clamp(ALBEDO, vec3(0.), vec3(1.));
 	// Modify roughness / specular based on wind force for added detail
 	float spec_rough = clamp(max(data[2], data[3]), 0., 1.);
 	ROUGHNESS = 1. - spec_rough;

@@ -8,7 +8,7 @@ R"(
 	// Show instancer grid
 	{
 		vec3 __grid_color = vec3(.05);
-		float __line_thickness = 0.01 * sqrt(-VERTEX.z);
+		float __line_thickness = 0.01 * sqrt(-VERTEX.z) * _vertex_density;
 		vec3 __pixel_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz * _vertex_density;
 		vec2 __p = __pixel_pos.xz;
 		// Instancer Grid
