@@ -1,0 +1,13 @@
+# Every change requests a review from the maintainer. Paired with the branch rule on `main`, this is what
+# makes "changes must be made through a pull request" mean a person looked at it rather than a click.
+#
+# Last match wins in this file, so the catch-all goes FIRST and anything more specific goes below it.
+* @dosh847
+
+# The two places where a wrong change is expensive rather than merely wrong:
+#   src/          — the solver. §11's gates pin its behaviour bitwise; a change here that passes the
+#                   gates can still be a landscape nobody asked for.
+#   project/demo/ — 46 MB of binary terrain data that CANNOT be merged (see .gitattributes). Two people
+#                   editing it produce a conflict resolvable only by discarding one side's work.
+/src/ @dosh847
+/project/demo/ @dosh847

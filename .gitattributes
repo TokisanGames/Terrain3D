@@ -1,2 +1,11 @@
 # Normalize EOL for all files that Git considers text files.
 * text=auto eol=lf
+
+# Terrain layer data: baked heightfield tiles, tens of megabytes of them.
+#
+# Git already DETECTS these as binary, so nothing is corrupt today — but `text=auto` above is a guess,
+# and on 46 MB of heightfields a wrong guess is destructive rather than untidy. This states it.
+#
+# `binary` also implies `-merge`, which is the point for a shared repo: these files cannot be merged, so
+# git must stop and say so rather than produce a tile that is half of each side's terrain.
+*.res binary

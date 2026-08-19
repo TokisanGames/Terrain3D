@@ -1,0 +1,106 @@
+name: ✅ Gates
+
+# Runs the headless gate suite in project/bench/gates.txt.
+#
+# THIS IS THE CHECK THE BRANCH RULE POINTS AT. Before it existed, "Changes must be made through a pull
+# request" gated nothing: no workflow ran on `pull_request`, so a PR opened with zero checks and the rule
+# cost a contributor one click. `pasture-libs.yml` runs on push to main and produces artifacts; it is not
+# a criterion. This is.
+#
+# Also runs on push to main, deliberately. An admin can bypass the branch rule — that is what the rule is
+# for, so the maintainer is not locked out — and a bypassed push should still be told it broke something,
+# even if only afterwards.
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: gates-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Must match the editor the project targets (compatibility_minimum in the .gdextension) and the asset
+  # name on the Godot release. Bumping the engine is these two lines and nothing else.
+  GODOT_VERSION: "4.7-stable"
+  GODOT_ASSET: "Godot_v4.7-stable_linux.x86_64"
+
+jobs:
+  gates:
+    name: 🧪 Headless gates
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout (with godot-cpp submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Base Dependencies
+        uses: ./.github/actions/base-deps
+        with:
+          platform: linux
+
+      - name: Setup Build Cache
+        uses: ./.github/actions/build-cache
+        with:
+          cache-name: gates-linux-debug
+        continue-on-error: true
+
+      # template_debug, not release: the gates read `_layer_owner` and other internals, and debug is what
+      # the dev box runs, so a gate that passes here is a gate that passes there.
+      - name: Build the GDExtension
+        env:
+          SCONS_CACHE: "${{ github.workspace }}/.scons-cache/"
+        run: scons target=template_debug platform=linux arch=x86_64 debug_symbols=no -j2
+
+      - name: Confirm the library landed where the .gdextension expects it
+        run: |
+          ls -l project/addons/pasture_3d/bin/
+          test -f project/addons/pasture_3d/bin/libpasture.linux.debug.x86_64.so
+
+      - name: Fetch Godot ${{ env.GODOT_VERSION }}
+        run: |
+          curl -fLO "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/${GODOT_ASSET}.zip"
+          unzip -q "${GODOT_ASSET}.zip"
+          mv "${GODOT_ASSET}" godot
+          chmod +x godot
+          ./godot --headless --version
+
+      # A cold checkout has no project/.godot/ (it is gitignored), and without it Godot cannot resolve
+      # `class_name` globals — every script that extends Pasture3DSimBase fails to parse. This is not
+      # hypothetical: the connectors rename hit exactly this, with every renamed script reporting
+      # "Class Pasture3DSim hides a global script class" until one editor pass rebuilt the cache.
+      - name: Import the project (builds .godot and the global class cache)
+        run: |
+          ./godot --headless --path project --import \
+            || ./godot --headless --path project --editor --quit-after 5000
+
+      - name: Run the gates
+        run: |
+          set -u
+          fail=0
+          passed=0
+          while read -r scene; do
+            case "$scene" in ''|\#*) continue ;; esac
+            echo "::group::$scene"
+            # `< /dev/null` is not decoration: a command inside `while read` inherits the loop's stdin
+            # and will happily swallow the rest of the list, so the suite would silently run one gate
+            # and report success.
+            if ./godot --headless --path project "$scene" < /dev/null; then
+              passed=$((passed + 1))
+              echo "PASS  $scene"
+            else
+              code=$?
+              fail=$((fail + 1))
+              echo "::error title=Gate failed::$scene exited $code"
+            fi
+            echo "::endgroup::"
+          done < project/bench/gates.txt
+          echo "----------------------------------------"
+          echo "$passed passed, $fail failed"
+          # Every scene runs even after one fails: a suite that stops at the first red tells you about one
+          # problem per push, which is the slowest possible way to fix three.
+          test "$fail" -eq 0

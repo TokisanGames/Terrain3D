@@ -1,0 +1,42 @@
+# The gate scenes CI runs on every pull request, one per line, blank lines and #comments ignored.
+#
+# WHY THIS IS A FILE AND NOT A LIST IN THE WORKFLOW: it lives next to the gates, so adding one is a
+# one-line change in the same commit as the gate itself rather than a second edit somewhere else that
+# is easy to forget. `.github/workflows/gates.yml` reads it.
+#
+# WHAT BELONGS HERE: a scene that ends with `get_tree().quit(0 if _fail == 0 else 1)` and whose exit
+# code has actually been observed to be 0 on a passing run. Every entry below was run and its exit code
+# checked on 2026-08-19 before it was added — a list that fails for reasons unrelated to the change is
+# worse than no list, because the first red run teaches everyone to ignore it.
+#
+# WHAT DOES NOT BELONG HERE: the probes and diagnostics. `PreviewSimDiag` and `SimProfile` assert
+# nothing and print measurements; `SimProfile` is a BENCHMARK and needs the user's go-ahead (§11, §14),
+# which a CI runner cannot give. The various *Probe scenes are investigation tools, not criteria.
+#
+# Not yet included, and not because they fail — they have simply never been run to a verdict here:
+# WaterBodiesPhase4Gate, PoolClipmapWarningProbe, StreamBankSurfaceCheck, StreamCustom0Probe,
+# WaterGeometryParamsCheck. Add them once someone has watched one go green.
+
+# --- The erosion sim, phases 1-6.5 (PASTURE3D_SIM_NODE_SPEC.md §14) ---
+bench/SimPhase1Gate.tscn
+bench/SimPhase2Gate.tscn
+bench/SimPhase3Gate.tscn
+bench/SimPhase4Gate.tscn
+bench/SimPhase5Gate.tscn
+bench/SimPhase55Gate.tscn
+bench/SimPhase6Gate.tscn
+bench/SimPhase65SelectorGate.tscn
+bench/SimPhase65PassGate.tscn
+
+# --- Solver internals and the mask preview ---
+bench/SimFloodGate.tscn
+bench/SimPreviewGate.tscn
+
+# --- The brushes that share the sim's selector and relief machinery ---
+bench/PlowReliefCheck.tscn
+bench/MoundReliefCheck.tscn
+bench/PondBrushCheck.tscn
+
+# --- Water bodies: the two that load connectors BY PATH, so a rename breaks them loudly ---
+bench/WaterBodySplitCheck.tscn
+bench/StreamRippleCheck.tscn
