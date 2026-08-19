@@ -130,16 +130,20 @@ void Terrain3D::__physics_process(const double p_delta) {
 		if (light) {
 			Color color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
 			Vector3 direction = light->get_global_basis().get_column(2);
-			if (_material.is_valid()) {
-				_material->set_shader_param("_light_color", color);
-				_material->set_shader_param("_light_direction", direction);
-			}
-			if (_ocean_material.is_valid()) {
-				ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
-				if (ocean_shader_mat) {
-					ocean_shader_mat->set_shader_parameter("_light_color", color);
-					ocean_shader_mat->set_shader_parameter("_light_direction", direction);
+			if (!direction.is_equal_approx(_last_light_direction) || !color.is_equal_approx(_last_light_color)) {
+				if (_material.is_valid()) {
+					_material->set_shader_param("_light_color", color);
+					_material->set_shader_param("_light_direction", direction);
 				}
+				if (_ocean_material.is_valid()) {
+					ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
+					if (ocean_shader_mat) {
+						ocean_shader_mat->set_shader_parameter("_light_color", color);
+						ocean_shader_mat->set_shader_parameter("_light_direction", direction);
+					}
+				}
+				_last_light_color = color;
+				_last_light_direction = direction;
 			}
 		}
 	}

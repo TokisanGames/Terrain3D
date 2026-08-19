@@ -69,8 +69,8 @@ private:
 	// Tracked Targets
 	TargetNode3D _clipmap_target;
 	TargetNode3D _collision_target;
-	TargetNode3D _light_target;
 	TargetNode3D _camera; // Fallback target for clipmap and collision
+	TargetNode3D _light_target;
 
 	// Terrain Mesh
 	Terrain3DMesher *_terrain_mesher = nullptr;
@@ -111,6 +111,10 @@ private:
 	uint32_t _mouse_layer = 32u;
 	// Parent containers for child nodes
 	Node3D *_label_parent;
+
+	// Work variables
+	Color _last_light_color = COLOR_WHITE;
+	Vector3 _last_light_direction = V3_ZERO;
 
 	void _initialize();
 	void __physics_process(const double p_delta);
