@@ -78,6 +78,16 @@ public partial class Terrain3D : Node3D
 		Size2048 = 2048,
 	}
 
+	public enum CompressMode
+	{
+		None = 5,
+		S3tc = 0,
+		Bptc = 3,
+		Etc = 1,
+		Etc2 = 2,
+		Astc = 4,
+	}
+
 	public new class GDExtensionSignalName : Node3D.SignalName
 	{
 		/// <summary>
@@ -181,10 +191,6 @@ public partial class Terrain3D : Node3D
 		/// </summary>
 		public new static readonly StringName RegionSize = "region_size";
 		/// <summary>
-		/// Cached name for the 'save_16_bit' member.
-		/// </summary>
-		public new static readonly StringName Save16Bit = "save_16_bit";
-		/// <summary>
 		/// Cached name for the 'label_distance' member.
 		/// </summary>
 		public new static readonly StringName LabelDistance = "label_distance";
@@ -196,6 +202,14 @@ public partial class Terrain3D : Node3D
 		/// Cached name for the 'show_grid' member.
 		/// </summary>
 		public new static readonly StringName ShowGrid = "show_grid";
+		/// <summary>
+		/// Cached name for the 'save_16_bit' member.
+		/// </summary>
+		public new static readonly StringName Save16Bit = "save_16_bit";
+		/// <summary>
+		/// Cached name for the 'color_compress_mode' member.
+		/// </summary>
+		public new static readonly StringName ColorCompressMode = "color_compress_mode";
 		/// <summary>
 		/// Cached name for the 'collision_mode' member.
 		/// </summary>
@@ -478,12 +492,6 @@ public partial class Terrain3D : Node3D
 		set => Set(GDExtensionPropertyName.RegionSize, Variant.From(value));
 	}
 
-	public new bool Save16Bit
-	{
-		get => Get(GDExtensionPropertyName.Save16Bit).As<bool>();
-		set => Set(GDExtensionPropertyName.Save16Bit, value);
-	}
-
 	public new double LabelDistance
 	{
 		get => Get(GDExtensionPropertyName.LabelDistance).As<double>();
@@ -500,6 +508,18 @@ public partial class Terrain3D : Node3D
 	{
 		get => Get(GDExtensionPropertyName.ShowGrid).As<bool>();
 		set => Set(GDExtensionPropertyName.ShowGrid, value);
+	}
+
+	public new bool Save16Bit
+	{
+		get => Get(GDExtensionPropertyName.Save16Bit).As<bool>();
+		set => Set(GDExtensionPropertyName.Save16Bit, value);
+	}
+
+	public new long/* "Empty Enum Constant String" */ ColorCompressMode
+	{
+		get => Get(GDExtensionPropertyName.ColorCompressMode).As<long/* "Empty Enum Constant String" */>();
+		set => Set(GDExtensionPropertyName.ColorCompressMode, value);
 	}
 
 	public new Terrain3DCollision.CollisionMode CollisionMode
@@ -956,5 +976,17 @@ public static int SafeAsInt32(this Terrain3D.RegionSizeEnum enumValue, int defau
 Convert.ToInt32(enumValue);
 
 public static int SafeAsInt32(this Terrain3D.RegionSizeEnum? enumValue, int defaultValue = 0) =>
+enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
+}
+
+file static class CompressModeExtensions
+{
+public static int SafeAsInt32(this Terrain3D.CompressMode enumValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3D.CompressMode enumValue, int defaultValue) =>
+Convert.ToInt32(enumValue);
+
+public static int SafeAsInt32(this Terrain3D.CompressMode? enumValue, int defaultValue = 0) =>
 enumValue.HasValue ? Convert.ToInt32(enumValue.Value) : defaultValue;
 }
