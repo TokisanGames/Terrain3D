@@ -4,7 +4,8 @@
 2026-08-10, phase 6 — the manager and pass chain, §19 — 2026-08-11).
 **PHASE 6.5 IMPLEMENTED** (2026-08-11): the selector half (§21.5, §21.6, gates BE–BH) and the container
 half (§21.2–§21.4, gates AZ–BD) are both built and gated. §21.7's folder-wide file rename is deliberately
-left for its own commit.
+left for its own commit, and §21.8's preview complaint is **diagnosed and still broken** — three
+divergences between the previewed field and the baked one, handed on as their own investigation.
 **Phase 7 DESIGNED, NOT BUILT** — moving the solve off the main thread (§20). Drafted 2026-08-08;
 **solver replaced the same
 day** after a survey of Houdini, World Machine, Gaea and the large-scale-terrain literature (§16).
@@ -56,6 +57,7 @@ Phases 1–6.5 ship as:
 | [bench/SimPhase65PassGate.tscn](project/bench/SimPhase65PassGate.gd) | Gates AZ–BD, all passing with their controls | 6.5 |
 | [bench/SimPhase65SelectorGate.tscn](project/bench/SimPhase65SelectorGate.gd) | Gates BE–BH, all passing with their controls | 6.5 |
 | [bench/PreviewSimDiag.tscn](project/bench/PreviewSimDiag.gd) | §21.8's re-test of the preview complaint. **A diagnosis, not a gate** — it asserts nothing and prints three measured divergences that are still unfixed | 6.5 |
+| [bench/SimProfile.tscn](project/bench/SimProfile.gd) | §11 / §20.6's profiling pass. **A measurement, not a gate** — solve vs commit, and the depression fill's share of the solve | 6.5 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
 records the gate results and the criteria that were vacuous until their controls caught them.
@@ -658,10 +660,11 @@ iterations rather than every one; adopt an O(n) priority-flood variant; or move 
 escape hatch is intact: `Pasture3DGPURaster` can still be generalised into a shared compute host later
 (the first draft's §10 describes how), and nothing in this design forecloses it.
 
-> **Built on CPU, and no profiling has been done.** The numbers below are wall-clock times incidental to
-> the gate and probe runs, not a profiling pass and not a comparative benchmark — those still need the
-> user's go-ahead, and in particular **nothing has yet measured whether depression filling dominates**,
-> which is the one question §11 actually poses.
+> **Built on CPU. PROFILED 2026-08-19** with the user's go-ahead —
+> [bench/SimProfile.tscn](project/bench/SimProfile.gd). **The answer to the question this section poses
+> is yes: depression filling dominates the solve, by a wide margin.** The measurements are below the
+> incidental table. The numbers in the table itself are still the old wall-clock times, kept because they
+> are what the design was judged against.
 >
 > | Case | Sim grid | Time |
 > |---|---|---|
@@ -678,6 +681,60 @@ escape hatch is intact: `Pasture3DGPURaster` can still be generalised into a sha
 > ends up in an inspector. Note it is implemented as freezing the WHOLE flow network for k iterations,
 > not just the fill: reusing a filled surface under a `z` that incision has since lowered would leave
 > cells routing to neighbours that are no longer downhill.
+
+#### The profiling pass (2026-08-19)
+
+`bench/SimProfile.tscn`, headless, ~90 s. Every figure is the **minimum** of N runs with the spread
+printed beside it, so a difference smaller than the spread is reported as below the noise floor rather
+than as an answer. Two full runs; the numbers below reproduced between them.
+
+**Where a build's wall clock goes.** The commit is the **shipped `_commit`**, called on a real node
+against a real layer — not a reconstruction — and the total is the real `simulate_now`.
+
+| Case | Sim grid | Full build | The commit | Everything else |
+|---|---|---|---|---|
+| 120 m loop + 40 m margin | 205² = 42k | 203.0 ms | **1.7 ms — 0.9 %** | 201.2 ms — 99.1 % |
+| 500 m loop + 128 m margin | 762² = 581k | 3436.8 ms | **12.8 ms — 0.4 %** | 3424.0 ms — 99.6 % |
+
+Inside the large commit: `composite_area` 5.8 ms, `apply_sim_block` 1.8 ms, `clear_layer_in_area` 0.002 ms
+(3.9 ms on the first call, ~0 once the region is already clear — so the verdict is taken against the
+**worst** reading of every stage, which is still 13.7 ms against the *fastest* build: **0.40 %**).
+**Control:** the commit's share must FALL as the grid grows, since it is dominated by fixed per-tile work
+and the solve by cell count. 0.9 % → 0.4 % over 13× the cells, as expected — a share that held constant
+would have meant the split was measuring something other than what it claims.
+
+**Where the solve's time goes**, on the 762² grid at 30 iterations:
+
+| Configuration | Time | |
+|---|---|---|
+| **A** shipped — fill on, network rebuilt every iteration | **3149.0 ms** | (spread 75.7) |
+| **B** `fill_every = 30` — network built once | 578.4 ms | (spread 4.9) |
+| **C** `fill_depressions = false` — routed every iteration, no priority queue | 1223.7 ms | (spread 8.9) |
+| **D** 0 iterations — one network build and nothing else | 92.5 ms | (spread 3.5) |
+
+| Share of the shipped solve | | |
+|---|---|---|
+| fill + route + accumulate, all 30 rebuilds | 2659.3 ms | **84.4 %** |
+| the priority-flood **fill** specifically (A−C) | 1925.3 ms | **61.1 %** |
+| incision + diffusion — the whole rest of the solver | 489.7 ms | 15.6 % |
+
+**Control:** the cost of one network rebuild, estimated by two independent routes that must agree —
+`(A−B)/29 = 88.6 ms` from the sweep, and `D = 92.5 ms` from the zero-iteration solve, which is an upper
+bound because it carries the fixed setup too. They agree to 4 %. Had they not, the model of where the
+time goes would have been wrong and none of the shares above would mean anything.
+
+**Two things this changes.**
+
+1. **§11 called it.** The one O(n log n) step in an O(n) solver is 61 % of the solve on its own, and the
+   network rebuild it belongs to is 84 %. Everything the solver is *about* — incision and diffusion — is
+   15.6 %.
+2. **`fill_every` is worth more than phase 7 in wall clock, and it is already implemented.** The manager
+   solves in chunks of `CHUNK_ITERATIONS = 5` and every `erode_heightfield` call rebuilds the network at
+   its own iteration 0, so 30 iterations already means at least **6** rebuilds and `fill_every` can never
+   reach B's 1. Chunk-aligned at `fill_every = 5`, projected from A and B rather than measured:
+   **~1022 ms against 3149 ms, a 3.1× saving** — for a surface that is *not* the same one, since the
+   network is stale for four iterations in five. That trade is a decision for the user, not a default,
+   which is why the knob is still not exposed.
 
 ---
 
@@ -806,7 +863,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DONE** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Clustered by margin-grown loop boxes, with a cell budget that REFUSES rather than coarsening; per-pass mask re-evaluation; one `SimResult`; one water extraction. Retires §5's seam limitation **for the solve** — adjacent loops must still overlap, or the per-pass falloff leaves a ridge at the join (§19) |
 | **6.5 — DONE (§21)** | Two independent halves, landed separately because they share no code. **The selector half** (§21.5, §21.6, gates BE–BH): per-filter-type presets that follow a filter type change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass` — one pass, many Sims, all reading one input surface and summing their deltas — plus a per-pass Sim Result and Simulate/Preview To Here. Still outstanding from this section: §21.7's `connectors/*.gd` → `pasture3d_*.gd` migration, and §21.8's preview complaint, which this phase re-tested and **did not fix** — the diagnosis found three divergences between the previewed field and the baked one, none of them the causes 6.5 removed, and hands them on as their own investigation |
-| **7 — DESIGNED (§20)** | The pure half of the solve moves onto a worker thread. **Gated on profiling first** — if the commit dominates the build, this buys much less than it appears to (§11, §20.6) |
+| **7 — DESIGNED (§20), PROFILING GATE CLEARED** | The pure half of the solve moves onto a worker thread. The profiling §20.6 demanded was run 2026-08-19: **the commit is 0.4 % of a full-resolution build**, so 99.6 % of it is what phase 7 would move and the phase is worth building. The same pass found **depression filling is 61 % of the solve** (§11), which makes the cheaper win — `fill_every`, already implemented, or an O(n) priority-flood — the better thing to do first |
 | **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every filter type returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
 ### Gates
@@ -1708,8 +1765,9 @@ independent Sims it replaces. `RESULT_MAX_CELLS` already exists because a multi-
   big, which is a lossy output. Coarsening the *solve* changes the result, and §6 has already measured
   that a coarser grid erodes deeper — so a manager that quietly dropped resolution would hand back a
   different landscape with no indication. Refuse, name the cluster, and say what to split.
-- **Cost is unmeasured.** §11 profiling still has not been done and needs the user's go-ahead. No
-  performance claim in this section has a number behind it.
+- ~~**Cost is unmeasured.**~~ **Measured 2026-08-19** (§11). A one-pass build over a 762² cluster —
+  a 500 m loop with a 128 m margin, 30 iterations at 1 m — is **3.44 s**, of which the layer commit is
+  **12.8 ms**. The solve is the whole cost, and 84 % of the solve is the flow-network rebuild.
 
 ### 19.5 Per-pass mask re-evaluation — the reason to chain
 
@@ -1944,13 +2002,24 @@ assignment.
   speedup, and it needs §19.
 - **It does not remove the commit.** `clear_layer_in_area`, `composite_area` and `update_maps` stay on the
   main thread and are the part felt at the *end* of a build.
-- **Nobody has measured which of the two dominates.** §11's incidental wall-clock numbers cover the solve
-  only, and the one question §11 actually poses — whether depression filling dominates — is still
-  unanswered. **If the commit dominates a full-resolution build, phase 7 buys much less than it looks
-  like**, and the right work would be `fill_every` (§11) or a cheaper composite instead.
+- ~~**Nobody has measured which of the two dominates.**~~ **MEASURED 2026-08-19** (§11, `bench/SimProfile.tscn`).
 
-> **Recommendation: profile before building phase 7.** This is the one phase in this document whose value
-> is a measurement nobody has taken. Benchmarks need the user's go-ahead (§11, §14).
+> **The gate is cleared: the commit does NOT dominate.** On a 762² build it is **12.8 ms of 3436.8 ms —
+> 0.4 %**, and 0.9 % on a 205² one; taking the worst reading of every stage against the fastest build
+> still gives 0.40 %. So **99.6 % of a full-resolution build is the part phase 7 would move off the main
+> thread**, and the fear this section was written around does not hold. Phase 7 is worth building on its
+> own terms.
+>
+> **But it is no longer the best thing to build first.** The same pass answered §11's question too:
+> depression filling is **61 %** of the solve and the network rebuild it belongs to is **84 %**. Phase 7
+> makes 3.4 s of work *invisible*; `fill_every = 5` — already implemented, chunk-aligned, just not
+> exposed — makes it **~1.0 s of work**, projected, at the cost of a surface that is not bit-identical.
+> An O(n) priority-flood would take the same 61 % without changing the answer at all.
+>
+> These buy different goods and are not alternatives: one is responsiveness, the other is speed. The
+> honest ordering is **the fill first** — it is cheaper, it changes the number the user actually waits
+> on, and a solver 3× faster is a solver whose main-thread freeze phase 7 is designed to hide may no
+> longer be worth hiding.
 
 ### 20.7 Gates (phase 7)
 
@@ -2517,12 +2586,13 @@ inferring it from the criteria passing.
    spacing (departure 5), so `weathered_cliff.tres` and `talus_slope.tres` are unchanged there too. The
    cost of this change landed entirely on bands nobody had authored yet.
 3. **Per-pass mask memory at 1× over a large cluster** is the one number that could make the on-by-default
-   decision wrong. §11 profiling is still not done and §19.4 still says so; measuring it needs the user's
-   go-ahead. **Partly closed by making it predictable rather than measured:** Plan Clusters now prints the
-   megabytes the current stack would allocate for per-pass masks, per (pass, cluster) pair, alongside the
-   cell counts — so the budget is readable *before* a build rather than discovered when the editor swaps.
-   The arithmetic is exact (four float32 channels over the cluster grid); what is still unmeasured is the
-   wall-clock cost of the extra fill+route per pass, which is the other half of §21.3's cost note.
+   decision wrong. **Now closed on both halves.** *Memory:* Plan Clusters prints the megabytes the current
+   stack would allocate for per-pass masks, per (pass, cluster) pair, alongside the cell counts — so the
+   budget is readable *before* a build rather than discovered when the editor swaps, and the arithmetic is
+   exact (four float32 channels over the cluster grid). *Time:* §11's profiling pass measured the extra
+   fill+route a per-pass mask costs — it is a zero-iteration solve, and one of those over a 762² cluster
+   is **92.5 ms**, against a 3.44 s build. Roughly **2.7 % per extra pass** at the largest cluster size
+   the budget allows. That is small enough that on-by-default stands.
 4. **A container carries NO shared settings — DECIDED, for now.** No container-level mask stack, no
    container-level falloff; every member keeps its own. A shared feathered edge around a *group* of loops
    is a union-of-polygons problem wearing a container's clothes, and speccing it before anyone has hit the
