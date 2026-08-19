@@ -40,6 +40,10 @@ struct ErosionParams {
 	int fill_every = 1; // re-run the depression fill every k iterations (§11 escape hatch)
 	bool fill_depressions = true; // GATE A CONTROL: off leaves pits with no downhill receiver
 	bool break_stack_order = false; // GATE C CONTROL: accumulate the drainage tree the wrong way
+	// GATE BI CONTROL: flood with the original binary heap instead of the monotone bucket queue. The two
+	// must agree bitwise (§11's profiling note), and the only way to assert that is to be able to run
+	// both. Not exposed on the node — it is slower and identical, so there is nothing to choose.
+	bool legacy_flood = false;
 	bool want_diagnostics = false; // also return receiver / stack / flow / lake_depth
 };
 

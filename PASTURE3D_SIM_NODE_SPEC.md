@@ -58,6 +58,7 @@ Phases 1–6.5 ship as:
 | [bench/SimPhase65SelectorGate.tscn](project/bench/SimPhase65SelectorGate.gd) | Gates BE–BH, all passing with their controls | 6.5 |
 | [bench/PreviewSimDiag.tscn](project/bench/PreviewSimDiag.gd) | §21.8's re-test of the preview complaint. **A diagnosis, not a gate** — it asserts nothing and prints three measured divergences that are still unfixed | 6.5 |
 | [bench/SimProfile.tscn](project/bench/SimProfile.gd) | §11 / §20.6's profiling pass. **A measurement, not a gate** — solve vs commit, and the depression fill's share of the solve | 6.5 |
+| [bench/SimFloodGate.tscn](project/bench/SimFloodGate.gd) | Gate BI — the monotone bucket queue floods bitwise identically to the binary heap it replaced | 6.5 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
 records the gate results and the criteria that were vacuous until their controls caught them.
@@ -727,7 +728,7 @@ time goes would have been wrong and none of the shares above would mean anything
 
 1. **§11 called it.** The one O(n log n) step in an O(n) solver is 61 % of the solve on its own, and the
    network rebuild it belongs to is 84 %. Everything the solver is *about* — incision and diffusion — is
-   15.6 %.
+   15.6 %. **Acted on the same day — see "The flood queue" below.**
 2. **`fill_every` is worth more than phase 7 in wall clock, and it is already implemented.** The manager
    solves in chunks of `CHUNK_ITERATIONS = 5` and every `erode_heightfield` call rebuilds the network at
    its own iteration 0, so 30 iterations already means at least **6** rebuilds and `fill_every` can never
@@ -735,6 +736,48 @@ time goes would have been wrong and none of the shares above would mean anything
    **~1022 ms against 3149 ms, a 3.1× saving** — for a surface that is *not* the same one, since the
    network is stale for four iterations in five. That trade is a decision for the user, not a default,
    which is why the knob is still not exposed.
+
+#### The flood queue — BUILT, gate BI (2026-08-19)
+
+The profiling pointed at the priority-flood's **binary heap**: `n` pushes and `n` pops at ~log₂(580k) = 20
+comparisons each, on 24-byte entries, with the scattered access a heap implies. That is now a **monotone
+bucket queue** (a radix heap, Barnes 2016) — O(1) amortised, because the pop key never decreases. Buckets
+are indexed by the highest bit at which a key differs from the last key popped, so an element descends at
+most 65 buckets in its whole lifetime and the common case moves it once.
+
+**It had to pop in exactly the order the heap did**, and the hard half of that is ties. Two cells can share
+a `zf_route` and still carry different `zf_true`, so whichever is processed first decides a shared
+neighbour's lake depth — the tie-break is not cosmetic. Equal keys always land in the same bucket (the
+index is a function of the key alone), pushes append, and redistribution preserves relative order, so
+equal keys stay in insertion order and bucket 0 is drained front-first. That reproduces `FloodGreater`'s
+`seq` tie-break without storing a `seq` — but it is an *argument*, so it is gated rather than trusted.
+
+| Gate | Criterion | Control that must fail |
+|---|---|---|
+| BI ✅ | **The bucket queue floods bitwise identically to the heap.** `z`, `flow`, `lake_depth`, `receiver` and `stack` compared as raw bytes across five fixtures: real demo terrain; the same **quantised to 0.5 m** so exact ties are everywhere; a **flat plateau with one pit**, where the entire flood is one tie; terrain with **NaN no-data**, whose cells all share one key *and* are all boundary; and a **smooth bowl** with no ties, as the control on the fixtures themselves. | `fill_depressions = false` on the same fixture, which must change **all five** fields — otherwise the comparison is reading something that does not depend on the flood and every pass is vacuous. Each fixture also asserts it **ponded** something and that the solve **moved** the ground, so neither side can be two no-ops agreeing. |
+
+`legacy_flood` runs the old heap. It exists for this gate and is not exposed on the node: it is slower and
+identical, so there is nothing to choose.
+
+**What it bought, and what it did not.**
+
+| | Solve, 762² at 30 iterations |
+|---|---|
+| the binary heap (`legacy_flood`) | 3244.8 ms (spread 83.3) |
+| the monotone bucket queue (shipped) | **2869.0 ms** (spread 253.9) |
+
+**1.13×** — 376 ms off every build of this size. Real, reproduced across two runs, and free of any change
+to the landscape. But far short of the 2–3× the structure promises on paper, and that gap is the finding:
+**the flood is memory-bound, not heap-bound.** It touches three `double` arrays a row apart plus `visited`,
+which is ~14 MB of working set on this grid — the heap's log factor was never the wall. Removing the
+per-neighbour bounds tests as well changed the solve by less than its own run-to-run spread and was
+**reverted rather than kept**, which is the same finding from the other direction.
+
+The fill is still ~60 % of the solve after this. The remaining levers are a memory-layout change (a real
+project, and the arrays are `double` for the incision scheme's sake, not the flood's) or `fill_every`,
+which is a quality trade rather than an optimisation. The whole-build figure moved 3436.8 → 3269.1 ms, but
+that comparison spans two builds of the binary and carries a spread of up to 358 ms, so read it as
+consistent with the solve measurement rather than as one of its own.
 
 ---
 
@@ -907,15 +950,17 @@ must distinguish "measured nothing" from "measured correctly".
 >
 > **A–Z is now fully consumed**, so later phases letter their criteria **AA onward**: phase 5 AA–AG
 > (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), phase **5.5 AS–AY** (§18.7) and phase **6.5
-> AZ–BH** (§21.9). Phase 5.5 was specced after 6 and 7, and 6.5 after all of them; each takes the letters
+> AZ–BH** (§21.9), plus **BI** for the flood queue (§11), which belongs to no phase — it is an
+> optimisation the profiling pass turned up. Phase 5.5 was specced after 6 and 7, and 6.5 after all of them; each takes the letters
 > that were free rather than displacing theirs — the same rule that left A–Z out of phase order, applied
 > again. Read the *(phase n)* tags, not the alphabet.
 > Same reason: a single-letter scheme that has run out is not worth a renumbering that invalidates every
 > existing reference.
 
-> **Perf gates need the user's go-ahead before running.** When approved, the number that matters is
-> whether a full-resolution build over a large loop stays inside a few seconds, and whether depression
-> filling dominates (§11).
+> **Perf gates need the user's go-ahead before running** — and that stands *after* the 2026-08-19 pass,
+> for every re-run. Both questions it was waiting on are answered in §11: a full-resolution build over a
+> large loop is 3.4 s of which the commit is 0.4 %, and **depression filling dominates the solve** at
+> ~60 %, which is what `bench/SimFloodGate.tscn` (gate BI) and the flood-queue rewrite came out of.
 
 ### Gate results (phase 1, all passing)
 

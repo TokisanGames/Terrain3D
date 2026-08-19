@@ -6,7 +6,12 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <queue>
+
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 
 using namespace godot;
 
@@ -50,6 +55,124 @@ struct FloodGreater {
 	}
 };
 
+// ---- The flood's priority queue (§11 profiling, 2026-08-19) ---------------------------------------
+//
+// Profiling put the priority-flood at 61% of the whole solve — the one O(n log n) step in an otherwise
+// O(n) solver, run once per iteration over every cell. The binary heap was the cost: n pushes and n pops
+// at ~log2(580k) = 20 comparisons each, on 24-byte entries, with the random access a heap implies.
+//
+// This replaces it with a MONOTONE BUCKET QUEUE (a radix heap, Barnes 2016 "Parallel Priority-Flood"),
+// which is O(1) amortised because the pop key never decreases. Buckets are indexed by the highest bit
+// where a key differs from the last key popped, so an element moves down at most 65 buckets in its whole
+// lifetime, and the common case — a neighbour barely above the water line — moves it once.
+//
+// IT MUST POP IN EXACTLY THE ORDER THE BINARY HEAP DID, or the landscape changes silently. Two things
+// make that true, and gate BI asserts it bitwise against the old implementation rather than trusting
+// either of them:
+//
+//   1. ELEVATION ORDER is the bucket structure's own guarantee.
+//   2. TIES are broken by insertion order, which matters because two cells can share a `zf_route` and
+//      still carry different `zf_true` — so whichever is processed first decides a shared neighbour's
+//      lake depth. Equal keys always land in the same bucket (the index is a function of the key alone),
+//      pushes append, and redistribution preserves relative order — so equal keys stay in insertion
+//      order, and bucket 0 is drained front-first. That is the `seq` tie-break of FloodGreater, without
+//      storing a `seq`.
+inline uint64_t flood_key(double p_z) {
+	// Order-preserving double -> uint64: flip the sign bit for positives, invert everything for
+	// negatives, so unsigned < matches double < across the whole finite range.
+	uint64_t u = 0;
+	std::memcpy(&u, &p_z, sizeof(u));
+	return (u & 0x8000000000000000ULL) ? ~u : (u | 0x8000000000000000ULL);
+}
+
+inline int highest_bit(uint64_t p_x) {
+#if defined(_MSC_VER)
+	unsigned long i = 0;
+	_BitScanReverse64(&i, p_x);
+	return (int)i;
+#else
+	return 63 - __builtin_clzll(p_x);
+#endif
+}
+
+class MonotoneFloodQueue {
+public:
+	void reset() {
+		for (int i = 0; i < BUCKETS; i++) {
+			_items[i].clear();
+			_head[i] = 0;
+		}
+		_last = 0;
+		_count = 0;
+	}
+
+	void push(uint64_t p_key, int p_index) {
+		const int b = bucket_of(p_key);
+		_items[b].push_back({ p_key, p_index });
+		_count++;
+	}
+
+	bool empty() const { return _count == 0; }
+
+	// Pops the smallest key, ties in insertion order. Returns false when the queue is empty.
+	bool pop(int &r_index) {
+		if (_count == 0) {
+			return false;
+		}
+		if (_head[0] >= _items[0].size()) {
+			refill();
+		}
+		r_index = _items[0][_head[0]].index;
+		_head[0]++;
+		_count--;
+		if (_head[0] >= _items[0].size()) {
+			_items[0].clear();
+			_head[0] = 0;
+		}
+		return true;
+	}
+
+private:
+	struct Item {
+		uint64_t key;
+		int index;
+	};
+	static constexpr int BUCKETS = 65; // 0 holds keys equal to `_last`; i+1 holds "differs first at bit i"
+
+	int bucket_of(uint64_t p_key) const {
+		const uint64_t x = p_key ^ _last;
+		return x == 0 ? 0 : highest_bit(x) + 1;
+	}
+
+	// Bucket 0 is empty but the queue is not: take the lowest non-empty bucket, make its minimum the new
+	// `_last`, and re-file every one of its entries. Entries only ever move to LOWER buckets, which is
+	// what bounds the total work.
+	void refill() {
+		int b = 1;
+		while (b < BUCKETS && _head[b] >= _items[b].size()) {
+			b++;
+		}
+		uint64_t lo = UINT64_MAX;
+		for (size_t i = _head[b]; i < _items[b].size(); i++) {
+			lo = std::min(lo, _items[b][i].key);
+		}
+		_last = lo;
+		// Relative order preserved: this walks the bucket front to back and appends, so equal keys keep
+		// the insertion order the tie-break depends on.
+		for (size_t i = _head[b]; i < _items[b].size(); i++) {
+			const Item it = _items[b][i];
+			_items[bucket_of(it.key)].push_back(it);
+		}
+		_items[b].clear();
+		_head[b] = 0;
+	}
+
+	std::vector<Item> _items[BUCKETS];
+	size_t _head[BUCKETS] = {};
+	uint64_t _last = 0;
+	size_t _count = 0;
+};
+
 // Bilinear read of a row-major 0..1 LUT at normalised (u,v). Clamped at the edges.
 inline double lut_sample(const PackedFloat32Array &p_lut, int p_w, int p_h, double p_u, double p_v) {
 	const double fx = std::min(std::max(p_u, 0.0), 1.0) * (double)(p_w - 1);
@@ -84,6 +207,7 @@ ErosionParams godot::erosion_params_from_dict(const Dictionary &p_params) {
 	p.fill_every = (int)p_params.get("fill_every", p.fill_every);
 	p.fill_depressions = (bool)p_params.get("fill_depressions", p.fill_depressions);
 	p.break_stack_order = (bool)p_params.get("break_stack_order", p.break_stack_order);
+	p.legacy_flood = (bool)p_params.get("legacy_flood", p.legacy_flood);
 	p.want_diagnostics = (bool)p_params.get("want_diagnostics", p.want_diagnostics);
 	return p;
 }
@@ -171,6 +295,9 @@ ErosionResult godot::erosion_solve(const std::vector<float> &p_z, const ErosionP
 	work.reserve((size_t)n);
 	std::vector<double> lake((size_t)n, 0.0);
 	std::vector<double> lap;
+	// Declared out here, like every other working array: the flood runs once per iteration and its
+	// buckets keep their capacity between rebuilds, so 30 iterations allocate once rather than 30 times.
+	MonotoneFloodQueue flood_q;
 
 	const int iterations = std::max(p_params.iterations, 0);
 	const int fill_every = std::max(p_params.fill_every, 1);
@@ -197,20 +324,14 @@ ErosionResult godot::erosion_solve(const std::vector<float> &p_z, const ErosionP
 	auto rebuild_network = [&]() {
 		if (p_params.fill_depressions) {
 			std::fill(visited.begin(), visited.end(), (uint8_t)0);
-			std::priority_queue<FloodEntry, std::vector<FloodEntry>, FloodGreater> pq;
-			int64_t seq = 0;
-			for (int64_t i = 0; i < n; i++) {
-				if (boundary[(size_t)i]) {
-					zf_route[(size_t)i] = zz[(size_t)i];
-					zf_true[(size_t)i] = zz[(size_t)i];
-					visited[(size_t)i] = 1;
-					pq.push({ zz[(size_t)i], seq++, (int)i });
-				}
-			}
-			while (!pq.empty()) {
-				const FloodEntry e = pq.top();
-				pq.pop();
-				const int ci = e.index;
+			// The body of the flood, shared by both queues so the two paths cannot drift apart in
+			// anything except the order cells come out — which is the whole of what gate BI tests.
+			// MEASURED AND REJECTED (§11, 2026-08-19): hoisting the four bounds tests into one
+			// interior/edge branch per popped cell, the way the receiver pass below gets for free,
+			// changed the solve by less than its own run-to-run spread. The flood is bound by the memory
+			// it touches — three double arrays a row apart, plus `visited` — not by the arithmetic in
+			// this loop, so the branch was reverted rather than kept for a saving that is not there.
+			const auto spread = [&](const int ci, const auto &p_push) {
 				const int cx = ci % gw;
 				const int cz = ci / gw;
 				for (int k = 0; k < 8; k++) {
@@ -226,7 +347,38 @@ ErosionResult godot::erosion_solve(const std::vector<float> &p_z, const ErosionP
 					visited[(size_t)ni] = 1;
 					zf_route[(size_t)ni] = std::max(zz[(size_t)ni], zf_route[(size_t)ci] + FILL_EPSILON);
 					zf_true[(size_t)ni] = std::max(zz[(size_t)ni], zf_true[(size_t)ci]);
-					pq.push({ zf_route[(size_t)ni], seq++, ni });
+					p_push(ni);
+				}
+			};
+			if (p_params.legacy_flood) {
+				std::priority_queue<FloodEntry, std::vector<FloodEntry>, FloodGreater> pq;
+				int64_t seq = 0;
+				for (int64_t i = 0; i < n; i++) {
+					if (boundary[(size_t)i]) {
+						zf_route[(size_t)i] = zz[(size_t)i];
+						zf_true[(size_t)i] = zz[(size_t)i];
+						visited[(size_t)i] = 1;
+						pq.push({ zz[(size_t)i], seq++, (int)i });
+					}
+				}
+				while (!pq.empty()) {
+					const FloodEntry e = pq.top();
+					pq.pop();
+					spread(e.index, [&](int ni) { pq.push({ zf_route[(size_t)ni], seq++, ni }); });
+				}
+			} else {
+				flood_q.reset();
+				for (int64_t i = 0; i < n; i++) {
+					if (boundary[(size_t)i]) {
+						zf_route[(size_t)i] = zz[(size_t)i];
+						zf_true[(size_t)i] = zz[(size_t)i];
+						visited[(size_t)i] = 1;
+						flood_q.push(flood_key(zz[(size_t)i]), (int)i);
+					}
+				}
+				int ci = 0;
+				while (flood_q.pop(ci)) {
+					spread(ci, [&](int ni) { flood_q.push(flood_key(zf_route[(size_t)ni]), ni); });
 				}
 			}
 			for (int64_t i = 0; i < n; i++) {
@@ -249,13 +401,12 @@ ErosionResult godot::erosion_solve(const std::vector<float> &p_z, const ErosionP
 				}
 				double best = 0.0;
 				int best_i = i;
+				// No bounds test: every cell on the grid edge is `boundary` and took the branch above,
+				// so anything reaching here is interior and has all eight neighbours. The test that used
+				// to be here could never fail — it was dead, and the flood pays for the same insight
+				// with an explicit interior branch because its cells are not pre-filtered that way.
 				for (int k = 0; k < 8; k++) {
-					const int nx = ix + NB_DX[k];
-					const int nz = iz + NB_DZ[k];
-					if (nx < 0 || nz < 0 || nx >= gw || nz >= gh) {
-						continue;
-					}
-					const int ni = nz * gw + nx;
+					const int ni = i + NB_DZ[k] * gw + NB_DX[k];
 					const double drop = zf_route[(size_t)i] - zf_route[(size_t)ni];
 					if (drop <= 0.0) {
 						continue;

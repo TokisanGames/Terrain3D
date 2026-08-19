@@ -63,6 +63,7 @@ func _ready() -> void:
 	var large := _q1_solve_vs_commit(LARGE, REPS_LARGE)
 	_q1_verdict(small, large)
 	_q2_fill_share(LARGE, REPS_LARGE)
+	_q3_flood_queue(LARGE, REPS_LARGE)
 
 	print("\n=== end of profiling pass ===\n")
 	get_tree().quit(0)
@@ -288,6 +289,72 @@ func _q2_fill_share(p_case: Dictionary, p_reps: int) -> void:
 	print("    %d rebuilds and cost about %.0f ms against the shipped %.0f ms — a %.1fx wall-clock saving," % [
 			floor_rebuilds, projected, a, a / maxf(projected, 0.001)])
 	print("    for a surface that is NOT the same one (the network is stale for 4 iterations in 5).")
+	print("")
+
+
+# --- Q3: what the monotone bucket queue actually bought --------------------------------------------
+#
+# The optimisation Q2 pointed at. `legacy_flood` runs the binary heap the solver shipped with; the
+# default runs the bucket queue that replaced it. Gate BI has already established the two produce
+# bitwise identical output on five fixtures, so this is purely a question of time.
+func _q3_flood_queue(p_case: Dictionary, p_reps: int) -> void:
+	print("[Q3] %.0f m loop, %d iterations — the new flood queue against the heap it replaced" % [
+			p_case["half"] * 2.0, ITERATIONS])
+	var mgr := _make_manager(p_case)
+	if mgr == null:
+		print("    !! no terrain here; skipping\n")
+		return
+	var plan: Dictionary = mgr.plan_clusters(1)
+	var groups: Array = plan.get("clusters", [])
+	if not bool(plan.get("ok", false)) or groups.size() != 1:
+		print("    !! expected one in-budget cluster; skipping\n")
+		return
+	var cl: Dictionary = groups[0]
+	var sw: int = cl["sw"]
+	var sh: int = cl["sh"]
+	var layer_id: int = mgr._ensure_layer_for(mgr._layer_owner, true)
+	var below: PackedFloat32Array = _data.composite_height_below(
+			layer_id, cl["min_x"], cl["min_z"], _terrain.vertex_spacing, cl["tw"], cl["th"])
+	var z0: PackedFloat32Array = _data.resample_grid(below, cl["tw"], cl["th"], sw, sh)
+	var base := {"gw": sw, "gh": sh, "cell_size": cl["cell"], "time_step": 1.0,
+			"iterations": ITERATIONS, "erosion_rate": 0.15, "area_exponent": 0.45, "diffusion": 0.15}
+
+	var res := {}
+	for legacy in [true, false]:
+		var params: Dictionary = base.duplicate()
+		params["legacy_flood"] = legacy
+		var runs: Array[float] = []
+		for r in range(p_reps):
+			var t0 := Time.get_ticks_usec()
+			var out: Dictionary = _data.erode_heightfield(z0, params, PackedFloat32Array())
+			runs.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+			if not bool(out.get("ok", false)):
+				print("    !! the solve failed")
+				return
+		res[legacy] = [_min(runs), _spread(runs)]
+		print("    %-40s %9.1f ms   (spread %.1f)" % [
+				"the binary heap (legacy_flood)" if legacy else "the monotone bucket queue (shipped)",
+				_min(runs), _spread(runs)])
+
+	var old_ms: float = res[true][0]
+	var new_ms: float = res[false][0]
+	var noise: float = maxf(res[true][1], res[false][1])
+	print("    solve: %.1f -> %.1f ms, a %.2fx saving (%.0f ms off every build of this size)" % [
+			old_ms, new_ms, old_ms / maxf(new_ms, 0.001), old_ms - new_ms])
+	if absf(old_ms - new_ms) < noise:
+		print("    !! the difference is inside the noise floor (%.1f ms): this bought nothing measurable." % noise)
+	# The whole-build number, since the solve is not all a user waits for. Re-measured rather than
+	# inferred: a saving in the solver that does not show up in `simulate_now` did not happen.
+	var builds: Array[float] = []
+	for r in range(p_reps):
+		var t0 := Time.get_ticks_usec()
+		var rep: Dictionary = mgr.simulate_now(1, false)
+		builds.append(float(Time.get_ticks_usec() - t0) / 1000.0)
+		if not bool(rep.get("ok", false)):
+			return
+	print("    the same as a FULL BUILD through simulate_now: %.1f ms (spread %.1f) — compare the" % [
+			_min(builds), _spread(builds)])
+	print("    3436.8 ms this case measured before the change (§11's profiling table).")
 	print("")
 
 
