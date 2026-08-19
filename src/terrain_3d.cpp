@@ -617,11 +617,11 @@ void Terrain3D::set_save_16_bit(const bool p_enabled) {
 }
 
 void Terrain3D::set_color_compress_mode(const CompressMode p_color_compress_mode) {
-	SET_IF_DIFF(_color_compress_mode, p_color_compress_mode);
+	SET_IF_DIFF(_color_compress_mode, CLAMP(p_color_compress_mode, COMPRESS_S3TC, COMPRESS_NONE));
 	LOG(INFO, "Setting compression mode for color maps: ", _color_compress_mode);
 	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
 	for (Ref<Terrain3DRegion> region : regions) {
-		region->set_modified(true);
+		region->check_compressed_color_map(_color_compress_mode);
 	}
 }
 
@@ -1126,23 +1126,6 @@ PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_gl
 	return faces;
 }
 
-Image::CompressMode Terrain3D::get_image_compress_mode(const CompressMode p_compress_mode) {
-	switch (p_compress_mode) {
-		case COMPRESS_S3TC:
-			return Image::COMPRESS_S3TC;
-		case COMPRESS_BPTC:
-			return Image::COMPRESS_BPTC;
-		case COMPRESS_ETC:
-			return Image::COMPRESS_ETC;
-		case COMPRESS_ETC2:
-			return Image::COMPRESS_ETC2;
-		case COMPRESS_ASTC:
-			return Image::COMPRESS_ASTC;
-		default:
-			return Image::COMPRESS_MAX;
-	}
-}
-
 void Terrain3D::set_warning(const uint8_t p_warning, const bool p_enabled) {
 	if (p_enabled) {
 		_warnings |= p_warning;
@@ -1424,7 +1407,6 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
 	ClassDB::bind_method(D_METHOD("set_color_compress_mode", "compress_mode"), &Terrain3D::set_color_compress_mode);
 	ClassDB::bind_method(D_METHOD("get_color_compress_mode"), &Terrain3D::get_color_compress_mode);
-	ClassDB::bind_method(D_METHOD("get_color_image_compress_mode"), &Terrain3D::get_color_image_compress_mode);
 	ClassDB::bind_method(D_METHOD("set_free_color_map"), &Terrain3D::set_free_color_map);
 	ClassDB::bind_method(D_METHOD("get_free_color_map"), &Terrain3D::get_free_color_map);
 	ClassDB::bind_method(D_METHOD("set_label_distance", "distance"), &Terrain3D::set_label_distance);
@@ -1575,7 +1557,6 @@ void Terrain3D::_bind_methods() {
 			&Terrain3D::get_raycast_result, DEFVAL(0xFFFFFFFF), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh, DEFVAL(Terrain3DData::HEIGHT_FILTER_NEAREST));
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
-	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_image_compress_mode", "compress_mode"), &Terrain3D::get_image_compress_mode);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Extreme"), "set_debug_level", "get_debug_level");
@@ -1597,7 +1578,7 @@ void Terrain3D::_bind_methods() {
 	ADD_SUBGROUP("Advanced", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "color_compress_mode", PROPERTY_HINT_ENUM,
-						 "None,S3TC (LQ Desktop),BPTC (HQ Desktop),ETC1 (LQ Mobile),ETC2 (Mobile),ASTC (Mobile)"),
+						 "None:5,S3TC (LQ Desktop):0,BPTC (HQ Desktop):3,ETC1 (LQ Mobile):1,ETC2 (Mobile):2,ASTC (Mobile):4"),
 			"set_color_compress_mode", "get_color_compress_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "free_color_map"), "set_free_color_map", "get_free_color_map");
 

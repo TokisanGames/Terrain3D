@@ -18,6 +18,7 @@ void Terrain3DRegion::clear() {
 	_height_map.unref();
 	_control_map.unref();
 	_color_map.unref();
+	_compressed_color_map.unref();
 	_instances.clear();
 	_vertex_spacing = 1.f;
 	_deleted = false;
@@ -180,6 +181,7 @@ void Terrain3DRegion::set_compressed_color_map(const Ref<Image> &p_map) {
 		_modified = true;
 	}
 	_compressed_color_map = p_map;
+	_last_color_compression = p_map.is_valid() ? Util::get_compress_mode(p_map->get_format()) : COMPRESS_NONE;
 }
 
 void Terrain3DRegion::compress_color_map(const CompressMode p_compress_mode) {
@@ -190,19 +192,29 @@ void Terrain3DRegion::compress_color_map(const CompressMode p_compress_mode) {
 		LOG(ERROR, "Cannot compress maps in export builds");
 		return;
 	}
-	if (p_compress_mode > COMPRESS_NONE && p_compress_mode <= COMPRESS_ASTC) {
+	if (p_compress_mode < COMPRESS_NONE && p_compress_mode >= COMPRESS_S3TC) {
 		LOG(INFO, "Compressing color map with mode: ", p_compress_mode);
 		_compressed_color_map = Image::create_from_data(_color_map->get_width(), _color_map->get_height(),
 				_color_map->has_mipmaps(), _color_map->get_format(), _color_map->get_data());
 		_compressed_color_map->copy_from(_color_map);
-		_compressed_color_map->compress_from_channels(Terrain3D::get_image_compress_mode(p_compress_mode), Image::USED_CHANNELS_RGBA);
+		_compressed_color_map->compress_from_channels(Image::CompressMode(p_compress_mode), Image::USED_CHANNELS_RGBA);
 		_modified = true;
+	}
+	_last_color_compression = p_compress_mode;
+}
+
+void Terrain3DRegion::check_compressed_color_map(const CompressMode p_compress_mode) {
+	if (_last_color_compression != p_compress_mode) {
+		_modified = true;
+		LOG(MESG, "Setting region ", _location, " modified as compression format differs");
 	}
 }
 
 void Terrain3DRegion::clear_compressed_color_map() {
-	LOG(INFO, "Freeing compressed color map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
-	_compressed_color_map.unref();
+	if (_compressed_color_map.is_valid()) {
+		LOG(MESG, "Freeing compressed color map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
+		_compressed_color_map.unref();
+	}
 }
 
 void Terrain3DRegion::sanitize_maps() {
@@ -340,10 +352,6 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const Com
 	if (_location.x == INT32_MAX) {
 		LOG(ERROR, "Region has not been setup. Location is INT32_MAX. Skipping ", p_path);
 	}
-	if (!_modified) {
-		LOG(DEBUG, "Region ", _location, " not modified. Skipping ", p_path);
-		return ERR_SKIP;
-	}
 	if (p_path.is_empty() && get_path().is_empty()) {
 		LOG(ERROR, "No valid path provided");
 		return ERR_FILE_NOT_FOUND;
@@ -354,13 +362,20 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const Com
 		// Set region path and take over the path from any other cached resources,
 		// incuding those in the undo queue
 	}
-	LOG(MESG, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
-	set_version(Terrain3DData::CURRENT_DATA_VERSION);
-	Error err = OK;
+	// Don't save if not modified, or current color compression mode is different from what was loaded
+	if (!_modified && _last_color_compression == p_color_compress_mode) {
+		LOG(MESG, "Region ", _location, " not modified. Skipping ", p_path);
+		return ERR_SKIP;
+	}
+
 	_compressed_color_map.unref();
 	if (IS_EDITOR && p_color_compress_mode != COMPRESS_NONE) {
 		compress_color_map(p_color_compress_mode);
 	}
+
+	LOG(MESG, "Writing", (p_16_bit) ? " 16-bit" : "", " region ", _location, " to ", get_path());
+	set_version(Terrain3DData::CURRENT_DATA_VERSION);
+	Error err = OK;
 	if (p_16_bit) {
 		Ref<Image> original_map;
 		original_map.instantiate();
@@ -434,9 +449,10 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 		dict["deleted"] = _deleted;
 		dict["location"] = _location;
 		// Resource duplicates
-		dict["height_map"] = _height_map->duplicate();
-		dict["control_map"] = _control_map->duplicate();
-		dict["color_map"] = _color_map->duplicate();
+		dict["height_map"] = Ref<Image>(_height_map->duplicate());
+		dict["control_map"] = Ref<Image>(_control_map->duplicate());
+		dict["color_map"] = Ref<Image>(_color_map->duplicate());
+		dict["compressed_color_map"] = _compressed_color_map.is_valid() ? Ref<Image>(_compressed_color_map->duplicate()) : Ref<Image>();
 		dict["instances"] = _instances.duplicate(true);
 		region->set_data(dict);
 	}
@@ -448,8 +464,15 @@ void Terrain3DRegion::dump(const bool verbose) const {
 			", spacing: ", vformat("%.1f", _vertex_spacing), ", range: ", vformat("%.2v", _height_range),
 			", flags (", _edited ? "ed," : "", _modified ? "mod," : "", _deleted ? "del" : "", "), ",
 			ptr_to_str(this));
-	LOG(MESG, "Height map: ", ptr_to_str(*_height_map), ", Control map: ", ptr_to_str(*_control_map),
-			", Color map: ", ptr_to_str(*_color_map));
+	String fmt;
+	fmt = _height_map.is_valid() ? "  size: " + _height_map->get_size() + " fmt: " + String::num_int64(_height_map->get_format()) : "";
+	LOG(MESG, "Height map: ", ptr_to_str(*_height_map), fmt);
+	fmt = _control_map.is_valid() ? "  size: " + _control_map->get_size() + " fmt: " + String::num_int64(_control_map->get_format()) : "";
+	LOG(MESG, "Control map: ", ptr_to_str(*_control_map), fmt);
+	fmt = _color_map.is_valid() ? "  size: " + _color_map->get_size() + " fmt: " + String::num_int64(_color_map->get_format()) : "";
+	LOG(MESG, "Color map: ", ptr_to_str(*_color_map), fmt);
+	fmt = _compressed_color_map.is_valid() ? "  size: " + _compressed_color_map->get_size() + " fmt: " + String::num_int64(_compressed_color_map->get_format()) : "";
+	LOG(MESG, "Compressed Color map: ", ptr_to_str(*_compressed_color_map), fmt);
 	LOG(MESG, "Instances: Mesh IDs: ", _instances.size(), ", ", ptr_to_str(_instances._native_ptr()));
 	Array mesh_ids = _instances.keys();
 	for (const int &mesh_id : mesh_ids) {

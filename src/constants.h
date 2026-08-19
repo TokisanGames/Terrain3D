@@ -5,6 +5,7 @@
 
 #include <functional>
 
+#include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/variant/color.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 #include <godot_cpp/variant/vector2i.hpp>
@@ -35,12 +36,12 @@ static const Color COLOR_WHITE{ 1.0f, 1.0f, 1.0f, 1.0f };
 // Enums
 
 enum CompressMode {
-	COMPRESS_NONE,
-	COMPRESS_S3TC,
-	COMPRESS_BPTC,
-	COMPRESS_ETC,
-	COMPRESS_ETC2,
-	COMPRESS_ASTC,
+	COMPRESS_NONE = Image::COMPRESS_MAX,
+	COMPRESS_S3TC = Image::COMPRESS_S3TC,
+	COMPRESS_BPTC = Image::COMPRESS_BPTC,
+	COMPRESS_ETC = Image::COMPRESS_ETC,
+	COMPRESS_ETC2 = Image::COMPRESS_ETC2,
+	COMPRESS_ASTC = Image::COMPRESS_ASTC,
 };
 VARIANT_ENUM_CAST(CompressMode);
 

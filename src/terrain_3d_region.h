@@ -62,6 +62,7 @@ private:
 	bool _edited = false; // Marked for undo/redo storage
 	bool _modified = false; // Marked for saving
 	Vector2i _location = V2I_MAX;
+	CompressMode _last_color_compression = COMPRESS_NONE;
 
 public:
 	Terrain3DRegion() {}
@@ -90,6 +91,7 @@ public:
 	void set_compressed_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_compressed_color_map() const { return _compressed_color_map; }
 	void compress_color_map(const CompressMode p_compress_mode);
+	void check_compressed_color_map(const CompressMode p_compress_mode);
 	void clear_compressed_color_map();
 	void sanitize_maps();
 	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;

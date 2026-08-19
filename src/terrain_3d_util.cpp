@@ -131,6 +131,25 @@ PackedStringArray Terrain3DUtil::get_files(const String &p_dir, const String &p_
 	return files;
 }
 
+CompressMode Terrain3DUtil::get_compress_mode(const Image::Format p_format) {
+	if (p_format >= Image::FORMAT_BPTC_RGBA && p_format <= Image::FORMAT_BPTC_RGBFU) {
+		return COMPRESS_BPTC;
+	}
+	if (p_format == Image::FORMAT_DXT5_RA_AS_RG || (p_format >= Image::FORMAT_DXT1 && p_format <= Image::FORMAT_DXT5)) {
+		return COMPRESS_S3TC;
+	}
+	if (p_format == Image::FORMAT_ETC) {
+		return COMPRESS_ETC;
+	}
+	if (p_format >= Image::FORMAT_ETC2_R11 && p_format <= Image::FORMAT_ETC2_RA_AS_RG) {
+		return COMPRESS_ETC2;
+	}
+	if (p_format >= Image::FORMAT_ASTC_4x4 && p_format <= Image::FORMAT_ASTC_8x8_HDR) {
+		return COMPRESS_ASTC;
+	}
+	return COMPRESS_NONE;
+}
+
 Ref<Image> Terrain3DUtil::black_to_alpha(const Ref<Image> &p_image) {
 	if (p_image.is_null()) {
 		return Ref<Image>();

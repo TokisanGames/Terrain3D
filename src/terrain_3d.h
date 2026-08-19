@@ -181,7 +181,6 @@ public:
 	bool get_save_16_bit() const { return _save_16_bit; }
 	void set_color_compress_mode(const CompressMode p_compress_mode = COMPRESS_NONE);
 	CompressMode get_color_compress_mode() const { return _color_compress_mode; }
-	Image::CompressMode get_color_image_compress_mode() const { return get_image_compress_mode(_color_compress_mode); }
 	void set_free_color_map(const bool p_free_color_map) { _free_color_map = p_free_color_map; }
 	bool get_free_color_map() const { return _free_color_map; }
 	void set_label_distance(const real_t p_distance);
@@ -286,7 +285,6 @@ public:
 	Dictionary get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_direction, const uint32_t p_col_mask = 0xFFFFFFFF, const bool p_exclude_self = false) const;
 	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
-	static Image::CompressMode get_image_compress_mode(const CompressMode p_compress_mode);
 
 	// Warnings
 	void set_warning(const uint8_t p_warning, const bool p_enabled);

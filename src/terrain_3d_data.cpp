@@ -290,9 +290,9 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 	// Free compressed color map in editor
 	if (IS_EDITOR) {
 		p_region->clear_compressed_color_map();
+		// Free uncompressed color map in game if valid and desired
 	} else if (_terrain && _terrain->get_free_color_map() &&
 			p_region->get_compressed_color_map().is_valid()) {
-		// Free uncompressed color map in game if valid and desired
 		p_region->clear_color_map();
 	}
 	p_region->set_deleted(false);
