@@ -146,7 +146,7 @@ per-point tilt; `sample_baked_with_rotation` already exists if we later want tru
 
 ## 5. Files touched (anticipated)
 
-- `connectors/terrain_brush.gd` — `snap_to_surface` + `surface_offset` exports, the
+- `connectors/pasture3d_terrain_brush.gd` — `snap_to_surface` + `surface_offset` exports, the
   `snap_points_to_surface()` button, and the toggle hook in the refresh path (A + B).
 - `connectors/{ridge,trough,mound}.gd` — nothing required (inherit the base button/exports); maybe a
   doc note that Ridge/Trough benefit most.
@@ -170,7 +170,7 @@ per-point tilt; `sample_baked_with_rotation` already exists if we later want tru
 ## 7. Sources
 
 - Internal: `editor_plugin.gd` (`_forward_3d_gui_input` ray-march via `terrain.get_intersection`,
-  `get_height`), `src/pasture_3d_data.cpp` (bound `get_height`/`get_normal`), `connectors/trough.gd`
+  `get_height`), `src/pasture_3d_data.cpp` (bound `get_height`/`get_normal`), `connectors/pasture3d_trough.gd`
   (`make_descend` / `_set_curve_points_and_repaint` undo pattern to reuse).
 - [Godot Path3D snap-to-colliders — PR #102085](https://github.com/godotengine/godot/pull/102085)
 - [Path3D snap-to-colliders — proposal #11650](https://github.com/godotengine/godot-proposals/issues/11650)

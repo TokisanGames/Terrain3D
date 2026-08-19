@@ -1331,7 +1331,7 @@ published once to a global rather than pushed per-material every frame.
    the shader), so cost is not the objection to any of the three. Purely a visual call, for the Phase 5 A/B.
 2. **Should `water_time` be pausable/scrubbable?** Trivial to add (the plugin owns the clock) and useful
    for cinematics, but adds a public surface. Defer until asked.
-3. **Flow maps for the trough connector.** [trough.gd:7](project/addons/pasture_3d/connectors/trough.gd:7)
+3. **Flow maps for the trough connector.** [pasture3d_trough.gd:7](project/addons/pasture_3d/connectors/pasture3d_trough.gd:7)
    describes water flow. A `WATER_FLOWMAP` define distorting the detail UVs would slot in cleanly. Out of
    scope here; noted so the detail-sampling code is not written in a way that forecloses it.
 4. ~~MultiMesh for the ocean draws~~ — **closed by Phase 0.** Draw calls cost ~0.02 ms (§4.6). Not doing it.

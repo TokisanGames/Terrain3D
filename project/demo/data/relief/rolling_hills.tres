@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="Pasture3DReliefFractal" load_steps=2 format=3 uid="uid://crelief0hills"]
 
-[ext_resource type="Script" uid="uid://b4reut2qigpsv" path="res://addons/pasture_3d/connectors/relief_fractal.gd" id="1_frac"]
+[ext_resource type="Script" uid="uid://b4reut2qigpsv" path="res://addons/pasture_3d/connectors/pasture3d_relief_fractal.gd" id="1_frac"]
 
 [resource]
 script = ExtResource("1_frac")

@@ -125,12 +125,12 @@ Per-path instrumentation (`[dbg]` prints on every scheduler + bake entry) pinned
 
 1. A tab switch re-attaches the whole scene, so **every brush's child splines re-enter the SceneTree**,
    firing `child_entered_tree` on each brush → `_on_child_changed()`
-   ([`terrain_brush.gd:301`,`:308`](project/addons/pasture_3d/connectors/terrain_brush.gd)).
+   ([`pasture3d_terrain_brush.gd:301`,`:308`](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd)).
 2. `_on_child_changed()` treats any child enter/exit as a structural edit and calls **`_schedule_refresh()`
    (full)** — the instrumentation showed this firing once per brush (`full=true, nsplines=0`), i.e. a
    **whole-layer bake per brush**, for ~40 brushes.
 3. The debounce timer fires after ENTER_TREE returns → `_refresh_owner()`
-   ([`terrain_brush.gd:521`](project/addons/pasture_3d/connectors/terrain_brush.gd)) clears + repaints
+   ([`pasture3d_terrain_brush.gd:521`](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd)) clears + repaints
    every tool bound to the layer, for every brush = **the freeze**.
 4. The re-bake marks regions modified → written to disk (the "Writing region…" logs are the identical
    re-baked data being persisted). Explains the pre-existing `.res` churn in `git status`.
@@ -139,7 +139,7 @@ Per-path instrumentation (`[dbg]` prints on every scheduler + bake entry) pinned
 but the instrumentation showed the transforms are identical (`eq=true`) and correctly skipped by the
 transform guard — they never bake. The bake is entirely the `child_entered_tree` path.
 
-The `terrain_brush.gd` `create_timer`-on-null errors are the **same trigger** firing during the detach
+The `pasture3d_terrain_brush.gd` `create_timer`-on-null errors are the **same trigger** firing during the detach
 half of the churn (tree is transiently null) — the null guard in `_arm_refresh_timer` handles them.
 
 **Why only some scenes:** every scene with brushes schedules the refresh on switch; the *cost* scales
@@ -170,13 +170,13 @@ must clear.
 
 ## 6. Phase 1 — Suppress the spurious spline re-bake (THE fix) — IMPLEMENTED 2026-07-11
 
-All changes in [`terrain_brush.gd`](project/addons/pasture_3d/connectors/terrain_brush.gd), **no C++
+All changes in [`pasture3d_terrain_brush.gd`](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd), **no C++
 rebuild required**. Confirmed trigger (§4a.1): `child_entered_tree` during scene re-attach →
 `_on_child_changed()` → `_schedule_refresh()` (full-layer bake per brush).
 
 ### 6.1 Primary: skip child-refresh during the node's own tree-enter churn
 
-`_on_child_changed()` ([`terrain_brush.gd:301`](project/addons/pasture_3d/connectors/terrain_brush.gd))
+`_on_child_changed()` ([`pasture3d_terrain_brush.gd:301`](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd))
 treats any child enter/exit as a structural edit and full-bakes the layer. On a tab switch the child
 splines merely re-enter the tree — no structural change, and the baked data is already correct.
 
@@ -200,7 +200,7 @@ identical and this path already skips), but keep a defensive guard so it can nev
 
 ### 6.3 Supporting: null-guard the debounce timer
 
-`_arm_refresh_timer()` ([`terrain_brush.gd`](project/addons/pasture_3d/connectors/terrain_brush.gd))
+`_arm_refresh_timer()` ([`pasture3d_terrain_brush.gd`](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd))
 guards `get_tree()` against null (transiently null during the detach boundary), fixing the
 `create_timer`-on-null error spam (§9a item 1).
 
@@ -209,7 +209,7 @@ guards `get_tree()` against null (transiently null during the detach boundary), 
 After 6.1, switching to `sculpting_2` should produce **no** "Writing region…" logs (nothing was
 re-baked, so nothing is dirtied/saved) and **no** `[dbg]`/error spam. If saves persist, there is another
 dirtying path (a property setter firing `_schedule_refresh` on load) to track down — check the setters at
-[`terrain_brush.gd:53`,`:83`,`:90`](project/addons/pasture_3d/connectors/terrain_brush.gd).
+[`pasture3d_terrain_brush.gd:53`,`:83`,`:90`](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd).
 
 ### 6.4 Optional secondary — the ~50 ms recurring C++ cost (defer unless it matters)
 
@@ -326,7 +326,7 @@ All traced to `_arm_refresh_timer` running while the brush was detached during s
 Fixed by guarding it with `is_inside_tree()` before arming (never arm a timer detached, never call the
 node's `get_tree()` detached):
 
-1. **`terrain_brush.gd` — `Cannot call method 'create_timer' on a null value`** + **`node.h:559 -
+1. **`pasture3d_terrain_brush.gd` — `Cannot call method 'create_timer' on a null value`** + **`node.h:559 -
    Parameter "data.tree" is null`.** `get_tree()` called on a detached node. Fixed.
 2. **`node_3d.cpp:649` — `Condition "!is_inside_tree()" is true. Returning: Transform3D()` (spam).**
    A timer that armed on a detached/churning node fired a bake that read spline `global_transform` while

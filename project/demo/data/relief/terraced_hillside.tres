@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="Pasture3DReliefTerraces" format=3 uid="uid://dmde6saycilie"]
 
-[ext_resource type="Script" uid="uid://bl6s71hjqixse" path="res://addons/pasture_3d/connectors/relief_terraces.gd" id="1_terr"]
+[ext_resource type="Script" uid="uid://bl6s71hjqixse" path="res://addons/pasture_3d/connectors/pasture3d_relief_terraces.gd" id="1_terr"]
 
 [resource]
 script = ExtResource("1_terr")

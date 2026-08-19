@@ -3,7 +3,7 @@
 **Status:** Draft spec (2026-06-18). Target: Godot 4.7, Pasture3D `main`.
 **Builds on:** the non-destructive Layers feature (`PASTURE3D_LAYERS_GUIDE.md`, phases 1–7
 complete) and the road-generator integration pattern (`PASTURE3D_ROAD_CONNECTOR_GUIDE.md`,
-`connectors/road_connector.gd`).
+`connectors/pasture3d_road_connector.gd`).
 
 ---
 
@@ -76,7 +76,7 @@ mode ⇒ our `Pasture3DLayer.BlendMode`.
 - **Popular Godot addons / road-generator:** `@tool` + `class_name` to appear in the *Add Node*
   dialog with no plugin registration; `@export_tool_button` for in-inspector actions;
   `_get_configuration_warnings()` for setup hints; auto-refresh by connecting to the curve's
-  `changed` signal. We mirror `road_connector.gd` so the feel matches the existing tool.
+  `changed` signal. We mirror `pasture3d_road_connector.gd` so the feel matches the existing tool.
 
 ### 2.3 Closed loops in Godot
 
@@ -115,7 +115,7 @@ Pasture3DTrough       (Node3D, @tool, class_name)   ── same, but open spline
 
 ### 3.2 Shared base class — `Pasture3DTerrainBrush` (abstract)
 
-Both nodes share ~70% of `road_connector.gd`'s machinery; factor it into a base:
+Both nodes share ~70% of `pasture3d_road_connector.gd`'s machinery; factor it into a base:
 
 | Concern | Reused from road connector |
 |---|---|
@@ -394,7 +394,7 @@ flow. Optional follow-up: a **"Make Descend"** tool button that clamps each curv
   < 2 points (Ridge, Trough), `auto_refresh` off (hint to press Refresh).
 - **Discoverability:** `@tool` + `class_name Pasture3DMound`/`Pasture3DRidge`/`Pasture3DTrough` →
   they appear in *Add Node* with no `editor_plugin.gd` change (same as `RoadPastureConnector`). Place
-  the scripts in `addons/pasture_3d/connectors/` (or a new `tools/`) next to `road_connector.gd`.
+  the scripts in `addons/pasture_3d/connectors/` (or a new `tools/`) next to `pasture3d_road_connector.gd`.
 
 ---
 
@@ -446,7 +446,7 @@ flow. Optional follow-up: a **"Make Descend"** tool button that clamps each curv
 ## 10. Suggested build order
 
 1. **`Pasture3DTerrainBrush` base** — extract the reserved-layer + clear/repaint + auto-refresh
-   plumbing from `road_connector.gd` (shared, tested once).
+   plumbing from `pasture3d_road_connector.gd` (shared, tested once).
 2. **`Pasture3DMound`** — closed-loop fill; start with `capped`/`MAX`, then uncapped dome, then
    falloff curve, then noise, then multi-spline.
 3. **`Pasture3DRidge`** — adapt the road approx-flatten path with the profile curve, raise (`MAX`).
@@ -465,6 +465,6 @@ flow. Optional follow-up: a **"Make Descend"** tool button that clamps each curv
 - [Path3D — Godot Engine docs](https://docs.godotengine.org/en/stable/classes/class_path3d.html)
 - [Path3D "closed curve" proposal — godot-proposals#8650](https://github.com/godotengine/godot-proposals/issues/8650)
 - Internal: `PASTURE3D_LAYERS_GUIDE.md` (§8 Tool API), `PASTURE3D_ROAD_CONNECTOR_GUIDE.md`,
-  `connectors/road_connector.gd`, `src/pasture_3d_data.h` (Tool API), `src/pasture_3d_layer.h` (BlendMode).
+  `connectors/pasture3d_road_connector.gd`, `src/pasture_3d_data.h` (Tool API), `src/pasture_3d_layer.h` (BlendMode).
 </content>
 </invoke>

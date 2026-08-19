@@ -158,7 +158,7 @@ the cross-section banks with the hillside. Off by default; pure polish.
 
 ## 5. Files touched (anticipated)
 
-- `connectors/terrain_brush.gd` — **Fix A** (reorder the auto-snap after the clear in `_refresh_owner`);
+- `connectors/pasture3d_terrain_brush.gd` — **Fix A** (reorder the auto-snap after the clear in `_refresh_owner`);
   optionally **Fix B** (changed-point tracking); a "Draw on Surface" / "Apply" toggle+button for §3.3.
 - `project/addons/pasture_3d/src/editor_plugin.gd` — register the gizmo plugin; extend `_handles` +
   `_forward_3d_gui_input` for draw-on-surface; manage draw mode.
@@ -182,7 +182,7 @@ the cross-section banks with the hillside. Off by default; pure polish.
 
 - Internal: `PASTURE3D_SPLINE_SURFACE_SNAP_SPEC.md` (A+B shipped; C/D were deferred — this spec
   supersedes them), `PASTURE3D_LANDSCAPE_TOOLS_SPEC.md` §6 (preview gizmo), `editor_plugin.gd`
-  (`_forward_3d_gui_input` ray-march, `_handles`), `connectors/road_connector.gd`
+  (`_forward_3d_gui_input` ray-march, `_handles`), `connectors/pasture3d_road_connector.gd`
   (`curve_2d_to_boundingbox` perpendicular/edge math to reuse for footprint lines).
 - [Godot Path3D snap-to-colliders PR #102085](https://github.com/godotengine/godot/pull/102085) /
   [proposal #11650](https://github.com/godotengine/godot-proposals/issues/11650) — same idea,

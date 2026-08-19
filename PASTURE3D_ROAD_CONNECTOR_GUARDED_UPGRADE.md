@@ -1,7 +1,7 @@
 # Upgrading the Pasture3D Road Connector to the "Guarded" Version
 
 > **Status:** Not needed yet. The current connector
-> ([`road_connector.gd`](project/addons/pasture_3d/connectors/road_connector.gd))
+> ([`pasture3d_road_connector.gd`](project/addons/pasture_3d/connectors/pasture3d_road_connector.gd))
 > uses the **hard-dependency** approach and works correctly. Keep this guide on
 > hand; follow it **only if** you later need the Pasture3D addon to load cleanly
 > in a project where **godot-road-generator is NOT installed**.
@@ -299,7 +299,7 @@ func configure_road_update_signal() -> void:
 2. **Without road-generator** (temporarily rename/move
    `project/addons/road-generator/` out of the project): reopen the editor and
    confirm:
-   - No parse/compile errors for `road_connector.gd`.
+   - No parse/compile errors for `pasture3d_road_connector.gd`.
    - The Pasture3D addon still enables.
    - A `RoadPastureConnector` node (if present in a scene) shows the
      "godot-road-generator addon not found" configuration warning instead of

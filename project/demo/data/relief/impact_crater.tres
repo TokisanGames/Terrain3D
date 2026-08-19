@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="Pasture3DReliefCrater" load_steps=2 format=3 uid="uid://crelief0crater"]
 
-[ext_resource type="Script" uid="uid://dcif4tn1qyeou" path="res://addons/pasture_3d/connectors/relief_crater.gd" id="1_crat"]
+[ext_resource type="Script" uid="uid://dcif4tn1qyeou" path="res://addons/pasture_3d/connectors/pasture3d_relief_crater.gd" id="1_crat"]
 
 [resource]
 script = ExtResource("1_crat")

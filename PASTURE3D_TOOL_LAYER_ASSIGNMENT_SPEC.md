@@ -215,7 +215,7 @@ migration is required; the warning is the migration path. Optionally provide a o
 
 ## 6. Files touched (anticipated)
 
-- `connectors/terrain_brush.gd` — `_owner_id()` → name-based; `target_layer_name` setter +
+- `connectors/pasture3d_terrain_brush.gd` — `_owner_id()` → name-based; `target_layer_name` setter +
   `_get_property_list` dropdown; `_rebind_layer`; group membership; `_layer_siblings()`;
   `_refresh_layer()` (split out of `_do_paint`); `_existing_brush_layer_names`,
   `_unique_brush_layer_name`.

@@ -696,7 +696,7 @@ func _gate_g_transform() -> void:
 	# move the water. Without this, "the water stayed put" could just mean the mesh never moves.
 	var croot := _make_world()
 	_make_manager(croot)
-	var bare = load("res://addons/pasture_3d/connectors/pool.gd").new()
+	var bare = load("res://addons/pasture_3d/connectors/pasture3d_pool.gd").new()
 	bare.name = "BareCurvePool"
 	bare.curve = _square_curve(30.0)
 	bare.material = load(LAKE_MAT)

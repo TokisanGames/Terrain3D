@@ -6,7 +6,7 @@ selected and edited *using the same gizmo interface* while the **brush** stays s
 Drag/snap behaviour is governed by the brush's existing **Snap to Surface** + **Surface Offset**.
 
 Files: `project/addons/pasture_3d/src/brush_gizmo.gd` (the `EditorNode3DGizmoPlugin`),
-`project/addons/pasture_3d/src/editor_plugin.gd` (input forwarding), `connectors/terrain_brush.gd`
+`project/addons/pasture_3d/src/editor_plugin.gd` (input forwarding), `connectors/pasture3d_terrain_brush.gd`
 (editor add/remove helpers). GDScript-only — no engine rebuild.
 
 Loop points are exposed as **subgizmos** (not handles), so clicking one shows Godot's standard
@@ -43,7 +43,7 @@ tangents at once.
 ## Phase 4 — niceties
 GDScript trio ✅ DONE (user-verified), all no-rebuild:
 - **Auto-smooth point** — double-click a loop point toggles it between a smooth curve (seeds mirrored
-  in/out tangents at ¼ of the shorter adjacent segment) and a sharp corner. `terrain_brush.gd`
+  in/out tangents at ¼ of the shorter adjacent segment) and a sharp corner. `pasture3d_terrain_brush.gd`
   `editor_smooth_point`/`_smooth_handle`; wired in `editor_plugin.gd` `_forward_brush_input` on
   left double-click.
 - **Mirror tangents** — on an already-smooth point, dragging one tangent mirrors the opposite (equal

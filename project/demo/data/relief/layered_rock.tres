@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="Pasture3DReliefStrata" format=3 uid="uid://dmde6safb05g"]
 
-[ext_resource type="Script" uid="uid://peulc4l115ho" path="res://addons/pasture_3d/connectors/relief_strata.gd" id="1_strat"]
+[ext_resource type="Script" uid="uid://peulc4l115ho" path="res://addons/pasture_3d/connectors/pasture3d_relief_strata.gd" id="1_strat"]
 
 [resource]
 script = ExtResource("1_strat")

@@ -11,7 +11,7 @@
 [ext_resource type="NavigationMesh" uid="uid://yf3fu23666k8" path="res://demo/data/nav_mesh.res" id="8_6jfdr"]
 [ext_resource type="Pasture3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="10_qmhh8"]
 [ext_resource type="PackedScene" uid="uid://di5fovhcyd7re" path="res://demo/components/Enemy.tscn" id="12_b2xl8"]
-[ext_resource type="Script" uid="uid://2vhjm1t0432a" path="res://addons/pasture_3d/connectors/road_connector.gd" id="12_dgpao"]
+[ext_resource type="Script" uid="uid://2vhjm1t0432a" path="res://addons/pasture_3d/connectors/pasture3d_road_connector.gd" id="12_dgpao"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_s5mq5"]
 _shader_parameters = {

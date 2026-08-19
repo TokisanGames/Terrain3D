@@ -26,8 +26,8 @@
 # Run: Godot_v4.7-stable_win64_console.exe --headless --path project bench/WaterBodySplitCheck.tscn
 extends Node
 
-const POOL_SCRIPT := "res://addons/pasture_3d/connectors/pool.gd"
-const STREAM_SCRIPT := "res://addons/pasture_3d/connectors/stream.gd"
+const POOL_SCRIPT := "res://addons/pasture_3d/connectors/pasture3d_pool.gd"
+const STREAM_SCRIPT := "res://addons/pasture_3d/connectors/pasture3d_stream.gd"
 const LAKE_MAT := "res://addons/pasture_3d/extras/shaders/water/M_water_lake.tres"
 
 var _fail := 0

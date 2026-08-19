@@ -28,7 +28,7 @@ host for them and says what that host does differently. Read that one first; thi
 `Pasture3DSplat` has a `noise` / `noise_strength` pair with the same names, which makes it look like a
 fourth candidate. It is not. Its noise perturbs a texture blend weight `t` in `[0,1]` that is quantised to
 8 bits and encoded into the **control map**
-([splat.gd:177](project/addons/pasture_3d/connectors/splat.gd:177)) — no height is involved anywhere in
+([pasture3d_splat.gd:177](project/addons/pasture_3d/connectors/pasture3d_splat.gd:177)) — no height is involved anywhere in
 that brush. A relief material there has nothing to write to.
 
 ---
@@ -140,7 +140,7 @@ unchanged and is the reason this was cheap:
 
 **A selector reads the surface *below this brush's own layer*, never the finished composite.** Mound
 already sends a per-cell `base_below` grid whenever `relative_to_terrain`
-([mound.gd:156](project/addons/pasture_3d/connectors/mound.gd:156)) — the exact input the field builder
+([pasture3d_mound.gd:156](project/addons/pasture_3d/connectors/pasture3d_mound.gd:156)) — the exact input the field builder
 needs. The only change is that the grid must now also travel when `need_fields` is set but
 `relative_to_terrain` is not:
 
@@ -193,7 +193,7 @@ The relief block sits after the noise block in the per-cell loop and is skipped 
 assigned-but-zero-strength warning of §3.
 
 Live re-bake comes free: the material emits `changed` on every property setter, and the setter wires that
-to `_schedule_refresh` — the same pattern as [plow.gd:63](project/addons/pasture_3d/connectors/plow.gd:63).
+to `_schedule_refresh` — the same pattern as [pasture3d_plow.gd:63](project/addons/pasture_3d/connectors/pasture3d_plow.gd:63).
 
 ---
 
@@ -290,7 +290,7 @@ and closing it means touching the shared SDF path that every brush depends on.
 ## 12. Known issues found in passing, deliberately not fixed here
 
 1. **The Plow's Crater-under-TILE warning is wrong.** It says a crater "repeats once per tile" under
-   `Mapping = Tile` ([plow.gd:254](project/addons/pasture_3d/connectors/plow.gd:254)). Per §4, `nu,nv` are
+   `Mapping = Tile` ([pasture3d_plow.gd:254](project/addons/pasture_3d/connectors/pasture3d_plow.gd:254)). Per §4, `nu,nv` are
    loop-relative in every mapping mode, so it does not — under TILE a crater is fitted to the loop, which
    gate F measures directly on the same evaluator. Left alone because it is Plow-side behaviour with its
    own spec and gate suite, and changing a warning users may have learned to work around is a separate
@@ -305,7 +305,7 @@ Both have the same `noise` / `noise_strength` pair and both write height, so bot
 Neither is free, and the two reasons are worth recording:
 
 - **No per-cell below-layer grid.** They send `base_below_pts` — one value per polyline point, interpolated
-  per segment ([ridge.gd:183](project/addons/pasture_3d/connectors/ridge.gd:183)). Selectors need a grid.
+  per segment ([pasture3d_ridge.gd:183](project/addons/pasture_3d/connectors/pasture3d_ridge.gd:183)). Selectors need a grid.
   Either they gain `_base_below_grid` plumbing, or they ship relief without selectors.
 - **No oriented interior.** They are open polylines. `_loop_frame` needs a closed polygon, so `nu,nv` has
   no natural definition and radial ops have no frame to sit in. The likely answer is a per-segment frame
@@ -322,7 +322,7 @@ them, which was the point of doing the refactor in §9 rather than copying the p
 [PASTURE3D_RELIEF_MATERIALS_GUIDE.md](PASTURE3D_RELIEF_MATERIALS_GUIDE.md),
 [PASTURE3D_LANDSCAPE_TOOLS_SPEC.md](PASTURE3D_LANDSCAPE_TOOLS_SPEC.md),
 [PASTURE3D_SIM_NODE_SPEC.md](PASTURE3D_SIM_NODE_SPEC.md),
-[mound.gd](project/addons/pasture_3d/connectors/mound.gd),
-[terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd),
+[pasture3d_mound.gd](project/addons/pasture_3d/connectors/pasture3d_mound.gd),
+[pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd),
 [pasture_3d_brush_raster.cpp:566](src/pasture_3d_brush_raster.cpp:566),
 [pasture_3d_relief_ops.h](src/pasture_3d_relief_ops.h).

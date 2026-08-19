@@ -11,7 +11,7 @@ Related: `PASTURE3D_LANDSCAPE_TOOLS_SPEC.md`, `PASTURE3D_BRUSH_GIZMO_SPEC.md`, `
 
 ### Current behavior
 Landscape brushes (`Pasture3DMound` / `Pasture3DRidge` / `Pasture3DTrough`, all subclasses of
-`Pasture3DTerrainBrush` — `project/addons/pasture_3d/connectors/terrain_brush.gd`) are non-destructive
+`Pasture3DTerrainBrush` — `project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd`) are non-destructive
 spline nodes parented under a `Pasture3D` terrain. To add one today the user must:
 
 1. Manually add the node in the Scene dock (or instance `project/PastureToolNodes.tscn`),
@@ -55,30 +55,30 @@ The ray→surface-hit recipe we need is already written twice — the sculpt pat
 brush-input path (`_forward_brush_input` `:338-358`). The placement tool reuses it verbatim.
 
 ### 2.2 How a brush is created / parented today
-- `Pasture3DTerrainBrush.add_spline()` (`terrain_brush.gd:1367-1378`) is the canonical "create a child
+- `Pasture3DTerrainBrush.add_spline()` (`pasture3d_terrain_brush.gd:1367-1378`) is the canonical "create a child
   node and make it persist" pattern: `add_child(path)` then `path.owner = get_tree().edited_scene_root`
   so the node saves with the scene, then `refresh()`.
 - On entering the tree a brush **auto-targets its terrain** and **auto-binds a layer**:
-  - `_ready` (`terrain_brush.gd:128-162`): joins `BRUSH_GROUP`, and if `terrain == null` walks up to the
+  - `_ready` (`pasture3d_terrain_brush.gd:128-162`): joins `BRUSH_GROUP`, and if `terrain == null` walks up to the
     nearest `Pasture3D` ancestor and assigns it (`:141-144`). `_layer_owner` defaults to
-    `"pasture3d_brush:" + _default_layer_name()` (`:129-130`) — e.g. `"Mounds"` (`mound.gd:49-50`),
+    `"pasture3d_brush:" + _default_layer_name()` (`:129-130`) — e.g. `"Mounds"` (`pasture3d_mound.gd:49-50`),
     so a freshly placed brush auto-shares the type's layer.
   - `NOTIFICATION_PARENTED` → `_auto_assign_terrain()` (`:173-178`, `:183-188`) follows a reparent.
 - Painting is **non-destructive and deterministic**: a brush's terrain contribution is a pure function
   of its splines (curve + `global_transform`) + params + its layer-mates. `refresh()`
-  (`terrain_brush.gd:482-485`) repaints; auto-refresh (`_schedule_refresh`, debounced
+  (`pasture3d_terrain_brush.gd:482-485`) repaints; auto-refresh (`_schedule_refresh`, debounced
   `REFRESH_DELAY = 0.1s`, `:410-445`) fires on edits.
-- `_detach_from_current()` (`terrain_brush.gd:204-211`) **lifts this brush's contribution off its layer
+- `_detach_from_current()` (`pasture3d_terrain_brush.gd:204-211`) **lifts this brush's contribution off its layer
   and repaints the overlapping layer-mates** so no hole is punched. It is the existing, tested inverse
   of a bake. (Today it is called on terrain re-assignment / reparent only — see §6.1.)
 
 ### 2.3 Undo/redo facilities available
 - The plugin exposes the editor undo manager via `get_undo_redo()` → `EditorUndoRedoManager`
   (used by the wrappers `create_undo_action`/`add_*_method`/`commit_action`, `editor_plugin.gd:604-621`).
-  Brushes use `EditorInterface.get_editor_undo_redo()` directly (`terrain_brush.gd:981-984`).
+  Brushes use `EditorInterface.get_editor_undo_redo()` directly (`pasture3d_terrain_brush.gd:981-984`).
 - The brush bake records its own undo when (and only when) asked: the **Refresh** button calls
   `refresh(true)` which snapshots the layer tiles before/after and registers
-  `_restore_owner(owner, before/after)` as the undo/do (`terrain_brush.gd:478-539`,
+  `_restore_owner(owner, before/after)` as the undo/do (`pasture3d_terrain_brush.gd:478-539`,
   `_snapshot_owner`/`_restore_owner` `:988-1009`). Auto-refresh deliberately does **not** record undo
   because its *cause* (a gizmo/inspector edit) is already undoable and re-triggers auto-refresh on undo.
 - Node add/remove with undo is the standard `EditorUndoRedoManager` pattern: `add_do_method(parent,
@@ -116,7 +116,7 @@ const PLACEABLE_BRUSHES := [
 ]
 ```
 
-Each entry's icon is the one already declared with `@icon(...)` on the class (e.g. `mound.gd:11`), so the
+Each entry's icon is the one already declared with `@icon(...)` on the class (e.g. `pasture3d_mound.gd:11`), so the
 toolbar/selector are visually consistent with the Scene dock. Instantiation uses
 `ClassDB.instantiate(entry["class"])` (the brushes are `@tool class_name` GDExtension-registered scripts,
 so `ClassDB` knows them) — falling back to `load(<script path>).new()` if a registry entry is data-driven
@@ -167,10 +167,10 @@ if placement_mode and is_terrain_valid():
 
 ### 3.5 Placement geometry
 The brush node's **origin** is placed at the hit point; its starter spline is authored in *local* space
-around the origin (e.g. Mound's `_make_starter_curve` is a ±20 m square, `mound.gd:71-78`), so the loop
+around the origin (e.g. Mound's `_make_starter_curve` is a ±20 m square, `pasture3d_mound.gd:71-78`), so the loop
 lands centred on the click. Set `node.global_position = hit` **before** the first bake.
 
-- For `snap_to_surface` brushes (Mound default ON — `terrain_brush.gd:80`, the base `_init` default),
+- For `snap_to_surface` brushes (Mound default ON — `pasture3d_terrain_brush.gd:80`, the base `_init` default),
   the points re-seat onto the surface on the first refresh anyway; placing the origin at `hit` is
   correct.
 - For brushes that default `snap_to_surface = OFF` (Ridge/Trough — see memory "Ridge/Trough: default
@@ -187,7 +187,7 @@ If placement only records node add/remove (`add_do_method(parent,"add_child")` /
 - **Do:** node enters tree → auto-targets terrain → auto-refresh **bakes a footprint into the layer**
   (debounced, *not* part of the recorded action).
 - **Undo:** `remove_child` fires, but nothing clears the layer → **the baked dome/ridge is stranded on
-  the terrain.** `NOTIFICATION_EXIT_TREE` only does `remove_from_group` (`terrain_brush.gd:171-172`); it
+  the terrain.** `NOTIFICATION_EXIT_TREE` only does `remove_from_group` (`pasture3d_terrain_brush.gd:171-172`); it
   does **not** lift the contribution.
 
 So the node-only action desyncs node-state from terrain-state — the same class of bug catalogued in
@@ -248,19 +248,19 @@ Properties of this design:
   the bake is deterministic from the node's curve/transform/params.
 - **No pixel snapshots**, so it composes correctly with later edits to the same layer by *other*
   brushes (each brush re-bakes from its own state; `_detach_from_current`/`refresh` already repaint
-  shared layer-mates — `terrain_brush.gd:204-211`, `492-539`).
+  shared layer-mates — `pasture3d_terrain_brush.gd:204-211`, `492-539`).
 - Reuses only **existing, tested** methods (`refresh`, `_detach_from_current`, `add_node`,
   `edit_node`).
 
 ### 4.3 The auto-refresh race, and how to neutralize it
 `_do_place_brush` calls `refresh()` synchronously, but `add_child`/`_ready` also **queues** a debounced
-auto-refresh (`_schedule_refresh`, `terrain_brush.gd:410-414`). The queued bake fires ~0.1 s later and
+auto-refresh (`_schedule_refresh`, `pasture3d_terrain_brush.gd:410-414`). The queued bake fires ~0.1 s later and
 is **idempotent** (same shape → same layer), so it is *harmless* but does redundant work and could, in
 theory, land after an immediate undo. Two safe options (pick A):
 
 - **(A) Suppress auto-refresh around the scripted bake.** Set `node._suspend_auto = true` before
   `add_child`, restore after the explicit `refresh()`. `_suspend_auto` already exists for exactly this
-  purpose — "Blocks auto-refresh while we mutate curves programmatically" (`terrain_brush.gd:110`,
+  purpose — "Blocks auto-refresh while we mutate curves programmatically" (`pasture3d_terrain_brush.gd:110`,
   honoured by `_can_auto_refresh` `:404-405`). Note `_ready` may re-enable scheduling paths, so set it
   again immediately after `add_child` returns and clear it only after the manual `refresh()`.
 - **(B) Do nothing** and rely on idempotency. Acceptable, but a stray late bake after a fast undo is a
@@ -270,7 +270,7 @@ theory, land after an immediate undo. Two safe options (pick A):
 The undo path above relies on `_detach_from_current()` being the correct inverse of a bake. The same
 gap that makes naive undo wrong **also affects plain node deletion**: pressing Delete on a placed brush
 (or cutting it) removes the node via `EXIT_TREE`, which today does **not** lift its contribution
-(`terrain_brush.gd:171-172`) — so the footprint is stranded until the next full layer refresh.
+(`pasture3d_terrain_brush.gd:171-172`) — so the footprint is stranded until the next full layer refresh.
 
 Recommended companion change (small, general): in `Pasture3DTerrainBrush`, lift the contribution when
 the node is **deleted** (not merely reparented). Reparent is an EXIT+ENTER pair and must *not* clear, so
@@ -306,7 +306,7 @@ guards on `is_inside_tree()` at `:205`).
    `plugin.placement_mode = false`. Add the brush-type `OptionButton` to `tool_settings` and show it
    only for the Place-Brush tool (§3.3 item 2); wire its selection to `plugin.placement_brush_type` +
    editor-settings persistence.
-6. **(Optional companion)** `terrain_brush.gd` `_notification` — add the `NOTIFICATION_PREDELETE`
+6. **(Optional companion)** `pasture3d_terrain_brush.gd` `_notification` — add the `NOTIFICATION_PREDELETE`
    detach (§4.4).
 7. **Icons/strings** — reuse the per-class `@icon` svgs already in `icons/`.
 
@@ -318,7 +318,7 @@ No C++ changes. No save/load format changes.
 
 - **No terrain / no regions.** `place_brush_at` bails if `get_terrain()` is null. If the terrain has no
   regions, `get_intersection` returns the miss sentinel and the click is ignored — same as sculpt. The
-  brush's own `_get_configuration_warnings` (`terrain_brush.gd:214-227`) then prompts the user.
+  brush's own `_get_configuration_warnings` (`pasture3d_terrain_brush.gd:214-227`) then prompts the user.
 - **Click misses the terrain** (sky / hole). Sentinel check → `AFTER_GUI_INPUT_PASS`, no node created,
   no empty undo entry committed.
 - **Layer sharing.** A placed Mound auto-binds the `"Mounds"` layer and shares it with existing mounds
@@ -433,7 +433,7 @@ First in-editor pass worked; these refinements followed:
   (`_ready` `:34-101`, `add_tool_button` `:104-139`).
 - `project/addons/pasture_3d/src/ui.gd` — tool-change routing (`_on_tool_changed` `:155-279`),
   `tool_settings` selector row.
-- `project/addons/pasture_3d/connectors/terrain_brush.gd` — reused: `refresh` (`:482`),
+- `project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd` — reused: `refresh` (`:482`),
   `_detach_from_current` (`:204`), `_suspend_auto` (`:110`), `add_spline` ownership pattern (`:1367`);
   optional `_notification` predelete detach (`:164`).
 - No changes to C++ (`src/`), the layer/compositor, or the save format.

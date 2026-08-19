@@ -46,7 +46,7 @@ var _use_meta: bool = false
 # sculpt path. placement_mode = click drops a brush; selection_mode = click selects an existing brush.
 var placement_mode: bool = false
 var selection_mode: bool = false
-var placement_brush_script: String = "res://addons/pasture_3d/connectors/mound.gd"
+var placement_brush_script: String = "res://addons/pasture_3d/connectors/pasture3d_mound.gd"
 var placement_brush_label: String = "Mound"
 ## Vertical (Y) offset added to the surface hit when dropping a brush (set from the bottom-bar selector;
 ## defaults per brush type — Ridge 20, Trough -10, others 0). See tool_settings.build_placement_selector.

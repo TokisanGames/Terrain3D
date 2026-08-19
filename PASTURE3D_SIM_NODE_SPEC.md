@@ -3,8 +3,8 @@
 **Status:** **PHASES 1–6 IMPLEMENTED** (phase 1 2026-08-08, phases 2–4 2026-08-09, phase 5 and 5.5
 2026-08-10, phase 6 — the manager and pass chain, §19 — 2026-08-11).
 **PHASE 6.5 IMPLEMENTED** (2026-08-11): the selector half (§21.5, §21.6, gates BE–BH) and the container
-half (§21.2–§21.4, gates AZ–BD) are both built and gated. §21.7's folder-wide file rename is deliberately
-left for its own commit, and §21.8's preview complaint is **diagnosed and still broken** — three
+half (§21.2–§21.4, gates AZ–BD) are both built and gated. §21.7's folder-wide file rename is **done** (2026-08-19,
+its own commit, all 27 connectors), and §21.8's preview complaint is **diagnosed and still broken** — three
 divergences between the previewed field and the baked one, handed on as their own investigation.
 **Phase 7 DESIGNED, NOT BUILT** — moving the solve off the main thread (§20). Drafted 2026-08-08;
 **solver replaced the same
@@ -24,35 +24,35 @@ Phases 1–6.5 ship as:
 | [pasture_3d_erosion.h](src/pasture_3d_erosion.h) / [.cpp](src/pasture_3d_erosion.cpp) | The §4 solver, as a pure function of a heightfield — no terrain dependency at all | 1 |
 | [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `erode_heightfield` / `resample_grid` / `sim_mask_deltas` / `apply_sim_block` / `sim_result_build` on `Pasture3DData` | 1, 2 |
 | [pasture_3d_raster_util.h](src/pasture_3d_raster_util.h) | The SDF + ramp primitives Sim's loop mask shares with the spline brushes | 1 |
-| [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | `Pasture3DSim` — area, resolution, mask, layer and UX plumbing | 1 |
-| [connectors/sim_result.gd](project/addons/pasture_3d/connectors/sim_result.gd) | `Pasture3DSimResult` — the four §8.2 channels, their extent, and how to sample them | 2 |
+| [connectors/pasture3d_sim.gd](project/addons/pasture_3d/connectors/pasture3d_sim.gd) | `Pasture3DSim` — area, resolution, mask, layer and UX plumbing | 1 |
+| [connectors/pasture3d_sim_result.gd](project/addons/pasture_3d/connectors/pasture3d_sim_result.gd) | `Pasture3DSimResult` — the four §8.2 channels, their extent, and how to sample them | 2 |
 | [bench/SimPhase1Gate.tscn](project/bench/SimPhase1Gate.gd) | Gates A–K, all passing with their controls | 1 |
 | [bench/SimPhase2Gate.tscn](project/bench/SimPhase2Gate.gd) | Gates P–X, all passing with their controls | 2 |
 | [bench/SimFieldProbe.tscn](project/bench/SimFieldProbe.gd) | Hillshade diagnostic — what the solver actually produces, synthetic and on the demo terrain | 1 |
 | [bench/SimResultProbe.tscn](project/bench/SimResultProbe.gd) | The same for the masks: one image per channel, plus an RGB composite showing the three occupy different ground | 2 |
 | [pasture_3d_relief_ops.h](src/pasture_3d_relief_ops.h) / [.cpp](src/pasture_3d_relief_ops.cpp) | The four sim selector filter types, the `ReliefSample` fields they read, and `relief_fields_add_sim` | 3 |
-| [connectors/relief_selector.gd](project/addons/pasture_3d/connectors/relief_selector.gd) | `FilterType.FLOW/EROSION/DEPOSITION/WETNESS` and the `sim_result` reference | 3 |
-| [connectors/plow.gd](project/addons/pasture_3d/connectors/plow.gd) | Resolving the result off the material tree, resampling it onto the bake grid, and the four warnings | 3 |
+| [connectors/pasture3d_relief_selector.gd](project/addons/pasture_3d/connectors/pasture3d_relief_selector.gd) | `FilterType.FLOW/EROSION/DEPOSITION/WETNESS` and the `sim_result` reference | 3 |
+| [connectors/pasture3d_plow.gd](project/addons/pasture_3d/connectors/pasture3d_plow.gd) | Resolving the result off the material tree, resampling it onto the bake grid, and the four warnings | 3 |
 | [demo/data/relief/channel_boulders.tres](project/demo/data/relief/channel_boulders.tres) | The demo preset: gravel that only appears where more than 2 000 m² drains through | 3 |
 | [bench/SimPhase3Gate.tscn](project/bench/SimPhase3Gate.gd) | Gate L (L1–L7), all passing with their controls | 3 |
 | [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `sim_extract_water` — the drainage tree to river links, the depression fill to shorelines | 4 |
-| [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | Thresholds, surface reconstruction, Preview / Add / Clear Brushes, and the generated Trough and Pond builders | 4 |
-| [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd) | `INTERNAL_CHILD_META` — a brush's own presentation/bookkeeping children do not count as a structural edit | 4 |
+| [connectors/pasture3d_sim.gd](project/addons/pasture_3d/connectors/pasture3d_sim.gd) | Thresholds, surface reconstruction, Preview / Add / Clear Brushes, and the generated Trough and Pond builders | 4 |
+| [connectors/pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd) | `INTERNAL_CHILD_META` — a brush's own presentation/bookkeeping children do not count as a structural edit | 4 |
 | [bench/SimPhase4Gate.tscn](project/bench/SimPhase4Gate.gd) | Gates M (M1–M4), N, O, Y, Z, all passing with their controls | 4 |
 | [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `sim_mask_field` — the §17 selector-driven mask field, and the write mask inside `sim_mask_deltas` | 5 |
 | [pasture_3d_relief_ops.h](src/pasture_3d_relief_ops.h) / [.cpp](src/pasture_3d_relief_ops.cpp) | `relief_selector_weight` — the selector evaluator exposed to callers outside the relief path | 5 |
-| [connectors/sim.gd](project/addons/pasture_3d/connectors/sim.gd) | `erosion_mask` / `write_mask`, the field composition, and the self-reference refusal | 5 |
+| [connectors/pasture3d_sim.gd](project/addons/pasture_3d/connectors/pasture3d_sim.gd) | `erosion_mask` / `write_mask`, the field composition, and the self-reference refusal | 5 |
 | [bench/SimPhase5Gate.tscn](project/bench/SimPhase5Gate.gd) | Gates AA–AG, all passing with their controls | 5 |
 | [shaders/debug_views.glsl](src/shaders/debug_views.glsl) | `DEBUG_MASK_PREVIEW` — the §18 overlay, editor-only because `_apply_inserts` skips `DEBUG_*` | 5.5 |
 | [pasture_3d_material.cpp](src/pasture_3d_material.cpp) | `set_mask_preview` / `clear_mask_preview` with single-owner arbitration, and `get_generated_shader_code` | 5.5 |
-| [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd) | `_show_mask_preview` / `_update_relief_mask_preview` — shared by Sim, Plow and Mound | 5.5 |
+| [connectors/pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd) | `_show_mask_preview` / `_update_relief_mask_preview` — shared by Sim, Plow and Mound | 5.5 |
 | [bench/SimPhase55Gate.tscn](project/bench/SimPhase55Gate.gd) | Gates AS–AV, all passing with their controls | 5.5 |
-| [connectors/sim_manager.gd](project/addons/pasture_3d/connectors/sim_manager.gd) | `Pasture3DSimManager` — clustering, the pass chain, one write, one result | 6 |
+| [connectors/pasture3d_sim_manager.gd](project/addons/pasture_3d/connectors/pasture3d_sim_manager.gd) | `Pasture3DSimManager` — clustering, the pass chain, one write, one result | 6 |
 | [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `sim_chain_blend` / `sim_chain_write` — one pass folded in, and the chain's total delta back up | 6 |
 | [bench/SimPhase6Gate.tscn](project/bench/SimPhase6Gate.gd) | Gates AH–AN, all passing with their controls | 6 |
-| [connectors/relief_selector.gd](project/addons/pasture_3d/connectors/relief_selector.gd) | Per-Filter-Type presets, `measure_radius`, the inverted-band question, and the `kind` migration shim | 6.5 |
+| [connectors/pasture3d_relief_selector.gd](project/addons/pasture_3d/connectors/pasture3d_relief_selector.gd) | Per-Filter-Type presets, `measure_radius`, the inverted-band question, and the `kind` migration shim | 6.5 |
 | [pasture_3d_relief_ops.cpp](src/pasture_3d_relief_ops.cpp) | `relief_fields_add_measured` — slope and curvature over a per-selector radius, curvature in metres | 6.5 |
-| [connectors/sim_pass.gd](project/addons/pasture_3d/connectors/sim_pass.gd) | `Pasture3DSimPass` — one pass, many Sims, its own masks and its build-through buttons | 6.5 |
+| [connectors/pasture3d_sim_pass.gd](project/addons/pasture_3d/connectors/pasture3d_sim_pass.gd) | `Pasture3DSimPass` — one pass, many Sims, its own masks and its build-through buttons | 6.5 |
 | [pasture_3d_sim.cpp](src/pasture_3d_sim.cpp) | `sim_pass_accumulate` / `sim_pass_commit` — the members' summed deltas, bitwise the phase-6 fold at one member | 6.5 |
 | [bench/SimPhase65PassGate.tscn](project/bench/SimPhase65PassGate.gd) | Gates AZ–BD, all passing with their controls | 6.5 |
 | [bench/SimPhase65SelectorGate.tscn](project/bench/SimPhase65SelectorGate.gd) | Gates BE–BH, all passing with their controls | 6.5 |
@@ -905,7 +905,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's filter types, units and falloff semantics; no solver change |
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DONE** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Clustered by margin-grown loop boxes, with a cell budget that REFUSES rather than coarsening; per-pass mask re-evaluation; one `SimResult`; one water extraction. Retires §5's seam limitation **for the solve** — adjacent loops must still overlap, or the per-pass falloff leaves a ridge at the join (§19) |
-| **6.5 — DONE (§21)** | Two independent halves, landed separately because they share no code. **The selector half** (§21.5, §21.6, gates BE–BH): per-filter-type presets that follow a filter type change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass` — one pass, many Sims, all reading one input surface and summing their deltas — plus a per-pass Sim Result and Simulate/Preview To Here. Still outstanding from this section: §21.7's `connectors/*.gd` → `pasture3d_*.gd` migration, and §21.8's preview complaint, which this phase re-tested and **did not fix** — the diagnosis found three divergences between the previewed field and the baked one, none of them the causes 6.5 removed, and hands them on as their own investigation |
+| **6.5 — DONE (§21)** | Two independent halves, landed separately because they share no code. **The selector half** (§21.5, §21.6, gates BE–BH): per-filter-type presets that follow a filter type change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass` — one pass, many Sims, all reading one input surface and summing their deltas — plus a per-pass Sim Result and Simulate/Preview To Here. §21.7's `connectors/*.gd` → `pasture3d_*.gd` migration landed 2026-08-19 in its own commit. Still outstanding from this section: §21.8's preview complaint, which this phase re-tested and **did not fix** — the diagnosis found three divergences between the previewed field and the baked one, none of them the causes 6.5 removed, and hands them on as their own investigation |
 | **7 — DESIGNED (§20), PROFILING GATE CLEARED** | The pure half of the solve moves onto a worker thread. The profiling §20.6 demanded was run 2026-08-19: **the commit is 0.4 % of a full-resolution build**, so 99.6 % of it is what phase 7 would move and the phase is worth building. The same pass found **depression filling is 61 % of the solve** (§11), which makes the cheaper win — `fill_every`, already implemented, or an O(n) priority-flood — the better thing to do first |
 | **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every filter type returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
@@ -1210,7 +1210,7 @@ own authored basins rather than anything the sim made. The channel table in §8.
 10. **A landform brush's selector cannot see the landform.** *(Raised by the first editor test of §18 —
     intended as phase 8, after §20.)* A relief selector reads the surface **below** this brush's own layer,
     which is what keeps it from feeding its own relief into its own mask and drifting (§13,
-    `relief_selector.gd`). For a Plow over existing terrain that is exactly right. For a **Mound**, the
+    `pasture3d_relief_selector.gd`). For a Plow over existing terrain that is exactly right. For a **Mound**, the
     ground below its layer is whatever it was placed on — often flat — so slope ≡ 0, curvature ≡ 0 and
     altitude ≡ one constant, every filter type returns the same uniform weight, and *"craggy on the flanks,
     smooth on top"* — the most natural thing to want on a hill — is not expressible at all.
@@ -1236,9 +1236,9 @@ own authored basins rather than anything the sim made. The channel table in §8.
 
 **Internal:** [pasture_3d_gpu_raster.h](src/pasture_3d_gpu_raster.h),
 [pasture_3d_brush_raster.cpp](src/pasture_3d_brush_raster.cpp),
-[terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd),
-[trough.gd](project/addons/pasture_3d/connectors/trough.gd) (`width_curve`, `make_descend`),
-[pond.gd](project/addons/pasture_3d/connectors/pond.gd),
+[pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd),
+[pasture3d_trough.gd](project/addons/pasture_3d/connectors/pasture3d_trough.gd) (`width_curve`, `make_descend`),
+[pasture3d_pond.gd](project/addons/pasture_3d/connectors/pasture3d_pond.gd),
 [PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md](PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md) (§7 selectors, §13 gate
 discipline), `PASTURE3D_LAYERS_GUIDE.md`, `PASTURE3D_WATER_BODIES_SPEC.md`,
 `PASTURE3D_TAB_SWITCH_FREEZE_SPEC.md`.
@@ -1319,7 +1319,7 @@ An **array** of `Pasture3DReliefSelector`, combined by **multiply**, and multipl
 `erodability_map` contributes. Reusing the phase-3 resource verbatim means the filter types, the units, the
 `falloff_low` / `falloff_high` band edges, `invert` and `strength` all mean here exactly what they mean on
 a Plow or a Mound, and `to_params()`
-([relief_selector.gd:116](project/addons/pasture_3d/connectors/relief_selector.gd:116)) is already the
+([pasture3d_relief_selector.gd:116](project/addons/pasture_3d/connectors/pasture3d_relief_selector.gd:116)) is already the
 wire format the evaluator reads.
 
 **Why an array and not one slot.** A relief material gets its compositional power from stacking ops; a Sim
@@ -1355,7 +1355,7 @@ same reason: reading the finished composite feeds a bake's own output into its o
 run (§13).
 
 **Fields are built at sim resolution, in C++.** `_terrain_fields`
-([terrain_brush.gd:2351](project/addons/pasture_3d/connectors/terrain_brush.gd:2351)) is GDScript and
+([pasture3d_terrain_brush.gd:2351](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:2351)) is GDScript and
 O(cells) over the bake grid; a sim grid plus a 128 m margin is larger than any brush footprint, and
 `ERODABILITY_LUT_MAX = 256` exists precisely because that path is too slow to run at full size. Phase 6
 then re-evaluates the mask **once per pass** (§19.5), so a GDScript field builder would be run N times.
@@ -1753,7 +1753,7 @@ order, top to bottom.
 ### 19.1 Why, and it is not layer sharing
 
 Layer sharing is the *symptom*. Today `_commit` clears the layer over the tile-snapped box before writing
-([sim.gd:1376](project/addons/pasture_3d/connectors/sim.gd:1376)), and a layer-mate Sim cannot be
+([pasture3d_sim.gd:1376](project/addons/pasture_3d/connectors/pasture3d_sim.gd:1376)), and a layer-mate Sim cannot be
 repainted afterwards because `_paint_spline()` is a no-op (§12) — so two Sims on one layer wipe each
 other, which is what `_overlapping_sim_on_layer()` warns about. A manager with **one writer** removes the
 problem rather than coordinating it.
@@ -1974,7 +1974,7 @@ asserts the lakes existed **before** clipping (2 of them) rather than merely tha
 ### 20.1 What actually freezes today, and what does not
 
 **The solve is already chunked.** `_simulate_interactive` yields a frame every `CHUNK_ITERATIONS = 5`
-([sim.gd:404](project/addons/pasture_3d/connectors/sim.gd:404)), so the editor is not frozen for the
+([pasture3d_sim.gd:404](project/addons/pasture_3d/connectors/pasture3d_sim.gd:404)), so the editor is not frozen for the
 duration of a build. What is unchunked and on the main thread is everything around it:
 
 | Stage | Work | Chunked today |
@@ -1993,7 +1993,7 @@ half on**, and then shorten what remains.
 
 `_begin` / `_solve_chunk` / `_finish` was built as a state machine specifically so there could be two
 drivers over identical work — straight-through for gates, frame-yielding for the button (§ the bake
-comment in `sim.gd`). **A third, threaded driver fits the same seam with no restructuring.** That is the
+comment in `pasture3d_sim.gd`). **A third, threaded driver fits the same seam with no restructuring.** That is the
 design paying off, and it is why this phase is small.
 
 | Stage | Thread | Why |
@@ -2087,8 +2087,8 @@ editor. Say so in the gate output rather than letting a green line imply more th
 > presets, `measure_radius`, curvature in metres, the inverted-band warning) is pinned by gates BE–BH in
 > `bench/SimPhase65SelectorGate.tscn`, with its results after §21.6. The *container* half (§21.2, §21.3,
 > §21.4 — `Pasture3DSimPass`, per-pass masks, build-through) is pinned by gates AZ–BD in
-> `bench/SimPhase65PassGate.tscn`, with its results after §21.4. **§21.7's folder-wide rename is still
-> undone** and is deliberately its own commit. **§21.8's preview complaint has now been diagnosed and is
+> `bench/SimPhase65PassGate.tscn`, with its results after §21.4. **§21.7's folder-wide rename is done**
+> (2026-08-19), in its own commit, all 27 connectors. **§21.8's preview complaint has now been diagnosed and is
 > still broken** — three divergences, none of them the two causes this phase removed, handed on as their
 > own investigation rather than folded in here.
 
@@ -2416,7 +2416,7 @@ some scale, and there is nowhere to say which.
 
 **The fix, in the free slot. DECIDED — metres of deviation, breaking, no compatibility flag.**
 `to_params()` already returns a stride-8 block whose **eighth float is unused**
-([relief_selector.gd:130](project/addons/pasture_3d/connectors/relief_selector.gd:130)), so the new
+([pasture3d_relief_selector.gd:130](project/addons/pasture_3d/connectors/pasture3d_relief_selector.gd:130)), so the new
 parameter costs no stride change and no wire-format break.
 
 **The definition**, which is simpler than "Laplacian × r²" and means the same thing:
@@ -2529,27 +2529,50 @@ rather than regressions:
 | 7 | **Presets apply on ANY `filter_type` assignment, including from code and from `ResourceLoader`** | Restricting them to the editor would have made gate BE untestable headless, which is where every other criterion in this spec lives. The load case is safe because Godot writes *every* script property into a `.tres` and assigns them in declaration order — `filter_type` first, then the band — so a preset fired during deserialisation is overwritten by the authored values a line later. BE pins that with a save/load round trip rather than leaving it as an argument. The consequence for callers is one line long and worth knowing: **set `filter_type` first, then the band**, which every gate helper in `bench/` now does explicitly |
 | 8 | **`kind` → `filter_type`, and `Kind` → `FilterType`**, with a `_set`/`_get` migration shim | Not in the design at all — asked for after the fact, because "Kind" is jargon and the inspector label "Filter Type" says what the property does. The rename is only safe because of the shim: **Godot silently discards a stored property it cannot find**, so every `.tres` and `.tscn` written before the rename would have loaded as `SLOPE` — the default, and therefore the one wrong value that looks like nothing went wrong. `_set` catches the old name during deserialisation and `_get` answers for it so existing user scripts keep reading. Gate BE hand-writes a pre-rename `.tres` and fails if the filter type comes back as Slope, with a control proving `_set` still refuses names it does not know. The wire format, the ids and the C++ evaluator are untouched — only the GDScript-facing name and the C++ enum's *type* name moved |
 
-### 21.7 The rename, and its real scope
+### 21.7 The rename, and its real scope — DONE (2026-08-19)
 
-`sim.gd` → `pasture3d_sim.gd`. Two honest observations before doing it:
+Was: `sim.gd` → `pasture3d_sim.gd`. Two honest observations were recorded before doing it:
 
-- **There is no functional collision to fix.** GDScript resolves scripts by path, so
-  `res://addons/pasture_3d/connectors/sim.gd` cannot collide with another addon's `sim.gd`, and the global
-  identifier is already `Pasture3DSim`. The risk being avoided is theoretical.
+- **There was no functional collision to fix.** GDScript resolves scripts by path, so
+  `res://addons/pasture_3d/connectors/sim.gd` could not collide with another addon's `sim.gd`, and the
+  global identifier was already `Pasture3DSim`. The risk being avoided was theoretical.
 - **The consistency argument is real, and it is folder-wide.** `mound.gd`, `plow.gd`, `pond.gd`,
-  `pool.gd`, `ridge.gd`, `splat.gd`, `stream.gd`, `trough.gd` and `water_body.gd` are all equally generic,
-  and the C++ half of the same features is already `pasture_3d_*.cpp`. **Renaming one file leaves the
-  folder half-converted, which is worse than either end state.**
+  `pool.gd`, `ridge.gd`, `splat.gd`, `stream.gd`, `trough.gd` and `water_body.gd` were all equally
+  generic, and the C++ half of the same features was already `pasture_3d_*.cpp`. **Renaming one file
+  would have left the folder half-converted, which is worse than either end state.**
 
-**DECIDED — one folder-wide migration, in its own commit, separate from phase 6.5's behaviour work** so a
-bisect can tell a rename from a regression. Every connector takes the `pasture3d_` prefix, matching the
-C++ half. What it touches:
+**DECIDED, and done — one folder-wide migration in its own commit**, separate from phase 6.5's behaviour
+work so a bisect can tell a rename from a regression. **All 27 connectors** took the `pasture3d_` prefix.
 
-1. Every `.gd` keeps its **`.uid` file** so scenes resolve by uid across the rename.
-2. `toolbar.gd`'s `PLACEABLE_BRUSHES` references `connectors/sim.gd` **by path** and must be updated.
-3. Scenes carry both `uid=` and `path=`; `sculpting_2.tscn` — the live working scene — references
-   `connectors/sim.gd` by path and must be resaved.
-4. `.godot/global_script_class_cache.cfg` regenerates on the next editor start.
+What it actually touched, against the four items this section predicted:
+
+1. **`.uid` files — as predicted.** Each moved with its script and all **27 uid values are byte-identical
+   to their pre-rename values**, which is what lets every scene resolve across the rename without being
+   opened. Verified rather than assumed.
+2. **Path references — wider than predicted.** Not just `toolbar.gd`: **51 tracked files** carried a
+   `connectors/*.gd` path, including `editor_plugin.gd`, `pool.gd` and `terrain_brush.gd` (which load
+   `stream.gd` and `pool.gd` by path at runtime), nine bench scripts, twelve `.tres` relief materials,
+   six scenes, and three C++ files that name the GDScript half in comments.
+3. **Scenes — as predicted, and edited surgically.** `sculpting_2.tscn` and `big_regions.tscn` both had
+   uncommitted editor work in them, so they were **text-edited rather than resaved**: on
+   `big_regions.tscn`, whose only pending change was staged, the resulting diff is 11 lines and *every
+   one of them contains `connectors/`* — which is the check that the migration touched nothing else.
+4. **The class cache — as predicted, and it is load-bearing.** Until one editor run regenerated it, every
+   renamed script failed to parse with *"Class Pasture3DSim hides a global script class"*: the cache
+   still mapped the name to the old path, so the new file looked like a second declaration. That is the
+   one step of this migration that cannot be done by moving files and rewriting text.
+
+Two things were deliberately **not** renamed, and both look like misses in a grep:
+`addons/road-generator/connectors/terrain3d_road_connector.gd` is a **different addon's** upstream file,
+and `connectors/brush_gizmo.gd` in §PASTURE3D_BRUSH_GIZMO_SPEC is a proposal for a file that lives at
+`src/brush_gizmo.gd` and does not exist under that name.
+
+Prose mentions across the other eighteen spec documents were updated in the same pass, so a doc that says
+`terrain_brush.gd` is not describing a file that no longer exists.
+
+**Verification:** 13 gate suites re-run with 0 failures, plus `WaterBodySplitCheck` and `StreamRippleCheck`
+specifically, because those two load `pool.gd` and `stream.gd` **by path** at runtime and so are the ones
+a broken path would take down rather than a stale reference nobody follows.
 
 ### 21.8 Diagnose the preview before building anything for it — DIAGNOSED, STILL BROKEN
 
@@ -2557,7 +2580,7 @@ C++ half. What it touches:
 explanation was that it never had a chance to work:
 
 - A selector with a sim filter type and a **null `sim_result`** reads a defined 0 everywhere and previews blank
-  ([terrain_brush.gd:1176](project/addons/pasture_3d/connectors/terrain_brush.gd:1176)) — and until the
+  ([pasture3d_terrain_brush.gd:1176](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:1176)) — and until the
   `Save Masks` commit there was no reachable populated result to point it at.
 - A sim-filter type band left at the `SLOPE` defaults of 25–90 passes almost nothing (§21.5).
 
@@ -2573,8 +2596,8 @@ something is true by construction rather than by luck.
 
 | # | The two paths disagree about | Measured | Control |
 |---|---|---|---|
-| **D1** | **which Sim Result a stack layer reads.** The bake hands the whole compiled program ONE dict, from `_sim_result_for()` → `_relief_sim_result()` → the **first non-null result anywhere in the stack** ([plow.gd:464](project/addons/pasture_3d/connectors/plow.gd:464), shared at [plow.gd:498](project/addons/pasture_3d/connectors/plow.gd:498)). The preview hands it only the **chosen selector's own** `sim_result` ([terrain_brush.gd:1176](project/addons/pasture_3d/connectors/terrain_brush.gd:1176)). | Layer 1, same band, result held by layer 0: previews **0.0 % selected**, bakes **47.1 %**. | Layer 0, which holds the reference: **43.8 %**. And assigning the result to layer 1 as well recovers it to **43.8 %** — so the blank was the missing reference and nothing else. |
-| **D2** | **which fields a managed Sim reads.** The bake gates a member on `p_st["fields"]`, the previous pass's **live** flow / erosion / deposition / wetness ([sim_manager.gd:834](project/addons/pasture_3d/connectors/sim_manager.gd:834)). The preview gates it on `_mask_sim_dict()`, the selector's `sim_result` **resource** ([sim.gd:1261](project/addons/pasture_3d/connectors/sim.gd:1261)) — which under a manager is documented as ignored, so the correct configuration is null, so the dict is empty. | Pass 2 with a `FLOW` band and no `sim_result`: the bake gated **0.2 %** of 42 025 cells, the preview showed **0.0 %**, and its dict was empty. | A `SLOPE` band on the same node previews **8.1 %** — the preview machinery is not broken on a managed Sim, only on the sim filter types. |
+| **D1** | **which Sim Result a stack layer reads.** The bake hands the whole compiled program ONE dict, from `_sim_result_for()` → `_relief_sim_result()` → the **first non-null result anywhere in the stack** ([pasture3d_plow.gd:464](project/addons/pasture_3d/connectors/pasture3d_plow.gd:464), shared at [pasture3d_plow.gd:498](project/addons/pasture_3d/connectors/pasture3d_plow.gd:498)). The preview hands it only the **chosen selector's own** `sim_result` ([pasture3d_terrain_brush.gd:1176](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:1176)). | Layer 1, same band, result held by layer 0: previews **0.0 % selected**, bakes **47.1 %**. | Layer 0, which holds the reference: **43.8 %**. And assigning the result to layer 1 as well recovers it to **43.8 %** — so the blank was the missing reference and nothing else. |
+| **D2** | **which fields a managed Sim reads.** The bake gates a member on `p_st["fields"]`, the previous pass's **live** flow / erosion / deposition / wetness ([pasture3d_sim_manager.gd:834](project/addons/pasture_3d/connectors/pasture3d_sim_manager.gd:834)). The preview gates it on `_mask_sim_dict()`, the selector's `sim_result` **resource** ([pasture3d_sim.gd:1261](project/addons/pasture_3d/connectors/pasture3d_sim.gd:1261)) — which under a manager is documented as ignored, so the correct configuration is null, so the dict is empty. | Pass 2 with a `FLOW` band and no `sim_result`: the bake gated **0.2 %** of 42 025 cells, the preview showed **0.0 %**, and its dict was empty. | A `SLOPE` band on the same node previews **8.1 %** — the preview machinery is not broken on a managed Sim, only on the sim filter types. |
 | **D3** | **which ground either reads.** `_show_mask_preview` always builds from `composite_height_below`, the surface under this brush's layer — the ground *before* the chain ran. Under a manager, pass N's masks are evaluated against pass N−1's **output**. | Pass 1's input surface vs pass 2's input surface, both off the chain's own capture so the grid is shared exactly: **40.97 m** of difference over 42 025 cells. | Pass 1 against itself: **0.000000 m**, so the comparison is measuring the chain and not grid drift. |
 
 **D3 is the one that matters most and the one nobody reported**, because it is not about sim filter types

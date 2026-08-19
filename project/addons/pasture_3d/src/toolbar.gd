@@ -28,16 +28,16 @@ const ICON_INSTANCER: String = "res://addons/pasture_3d/icons/multimesh.svg"
 ## the bottom-bar brush-type selector (built in tool_settings.gd) reads this list too. "offset" is the
 ## default vertical (Y) placement offset applied on top of the surface hit for that brush type.
 const PLACEABLE_BRUSHES: Array[Dictionary] = [
-	{ "label":"Mound",  "script":"res://addons/pasture_3d/connectors/mound.gd",  "icon":"res://addons/pasture_3d/icons/brush_mound.svg",  "offset":0.0 },
+	{ "label":"Mound",  "script":"res://addons/pasture_3d/connectors/pasture3d_mound.gd",  "icon":"res://addons/pasture_3d/icons/brush_mound.svg",  "offset":0.0 },
 	# Offset 0: a Pond's stamp is inverted, so it carves DOWN from where it is dropped. Lifting it
 	# the way Ridge does would leave the basin floating above the ground it is meant to cut into.
-	{ "label":"Pond",   "script":"res://addons/pasture_3d/connectors/pond.gd",   "icon":"res://addons/pasture_3d/icons/brush_mound.svg",  "offset":0.0 },
-	{ "label":"Ridge",  "script":"res://addons/pasture_3d/connectors/ridge.gd",  "icon":"res://addons/pasture_3d/icons/brush_ridge.svg",  "offset":20.0 },
-	{ "label":"Trough", "script":"res://addons/pasture_3d/connectors/trough.gd", "icon":"res://addons/pasture_3d/icons/brush_trough.svg", "offset":-10.0 },
-	{ "label":"Plow",   "script":"res://addons/pasture_3d/connectors/plow.gd",   "icon":"res://addons/pasture_3d/icons/brush_plow.svg",   "offset":0.0 },
-	{ "label":"Splat",  "script":"res://addons/pasture_3d/connectors/splat.gd",  "icon":"res://addons/pasture_3d/icons/brush_splat.svg",  "offset":0.0 },
+	{ "label":"Pond",   "script":"res://addons/pasture_3d/connectors/pasture3d_pond.gd",   "icon":"res://addons/pasture_3d/icons/brush_mound.svg",  "offset":0.0 },
+	{ "label":"Ridge",  "script":"res://addons/pasture_3d/connectors/pasture3d_ridge.gd",  "icon":"res://addons/pasture_3d/icons/brush_ridge.svg",  "offset":20.0 },
+	{ "label":"Trough", "script":"res://addons/pasture_3d/connectors/pasture3d_trough.gd", "icon":"res://addons/pasture_3d/icons/brush_trough.svg", "offset":-10.0 },
+	{ "label":"Plow",   "script":"res://addons/pasture_3d/connectors/pasture3d_plow.gd",   "icon":"res://addons/pasture_3d/icons/brush_plow.svg",   "offset":0.0 },
+	{ "label":"Splat",  "script":"res://addons/pasture_3d/connectors/pasture3d_splat.gd",  "icon":"res://addons/pasture_3d/icons/brush_splat.svg",  "offset":0.0 },
 	# Sim only ever erodes the ground it is dropped on, so like Pond it wants no placement lift.
-	{ "label":"Sim",    "script":"res://addons/pasture_3d/connectors/sim.gd",    "icon":"res://addons/pasture_3d/icons/brush_sim.svg",    "offset":0.0 },
+	{ "label":"Sim",    "script":"res://addons/pasture_3d/connectors/pasture3d_sim.gd",    "icon":"res://addons/pasture_3d/icons/brush_sim.svg",    "offset":0.0 },
 ]
 
 var add_tool_group: ButtonGroup = ButtonGroup.new()

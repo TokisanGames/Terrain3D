@@ -51,10 +51,10 @@ The user's existing brush workflow and every public surface must be **untouched*
 
 1. **GDScript shim unchanged.** Each subclass `_paint_spline` keeps calling
    `terrain.data.stamp_mound_loop(_layer_id, poly, _clip_aabb, params, lut)` exactly as today
-   ([mound.gd:105](project/addons/pasture_3d/connectors/mound.gd:105)). **The shim does not know GPU
+   ([pasture3d_mound.gd:105](project/addons/pasture_3d/connectors/pasture3d_mound.gd:105)). **The shim does not know GPU
    exists.** The GPU-vs-CPU decision is made *inside* `Pasture3DData::stamp_*` (§4). No new call site, no
    new exported brush knob the user must learn (the one optional tunable is a project setting, §5.3).
-2. **Orchestration unchanged.** `_refresh_owner_rect` ([terrain_brush.gd:543](project/addons/pasture_3d/connectors/terrain_brush.gd:543))
+2. **Orchestration unchanged.** `_refresh_owner_rect` ([pasture3d_terrain_brush.gd:543](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:543))
    — dirty-rect trigger, tile-snapped `clip_box`, `clear_layer_in_area`, moved-point snap,
    overlap-correct repaint of layer-mates, `_defer_composite` + one `composite_area`,
    `update_maps(type,false,false)`, edited-flag reset, footprint/curve caches — **all of it stays in
@@ -63,7 +63,7 @@ The user's existing brush workflow and every public surface must be **untouched*
    collision, and the saved `.res` files. GPU output is **read back** and merged into the same layer
    samples the C++ path writes (§3.4). Nothing downstream (collision, save, `get_height`) can tell GPU
    from C++ apart.
-4. **`force_gdscript_raster`** ([terrain_brush.gd:64](project/addons/pasture_3d/connectors/terrain_brush.gd:64))
+4. **`force_gdscript_raster`** ([pasture3d_terrain_brush.gd:64](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:64))
    still forces the GDScript reference path (and therefore also bypasses GPU) — the existing A/B escape
    hatch keeps working and now also serves as the GPU kill-switch.
 5. **Builds without the GPU path degrade gracefully.** If `RenderingDevice` is unavailable, the method
@@ -154,7 +154,7 @@ stays clean.
   the CPU pre-samples, for the clip box, **two** R32F grids and uploads them so the shader never calls
   `get_height`:
   1. `base_below` — `composite_height_below` for the box (already built by `_base_below_grid`,
-     [terrain_brush.gd:1444](project/addons/pasture_3d/connectors/terrain_brush.gd:1444)); NaN where no
+     [pasture3d_terrain_brush.gd:1444](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:1444)); NaN where no
      lower layer covers.
   2. `terrain_height` — native `get_height` over the box (the fallback the C++ path uses when
      `base_below` is NaN, e.g. [stamp_mound_loop:351](src/pasture_3d_brush_raster.cpp:351)). Cheap,
@@ -274,15 +274,15 @@ Undo correctness is **structurally preserved** because the GPU path changes *onl
 are computed*, never how edits are recorded:
 
 - **Undo is recorded by the orchestration, not the rasteriser.** The undoable causes are the gizmo/curve
-  edit and the manual Refresh button ([terrain_brush.gd:528-533](project/addons/pasture_3d/connectors/terrain_brush.gd:528),
-  snap [:1054](project/addons/pasture_3d/connectors/terrain_brush.gd:1054), point add/remove
-  [:1170](project/addons/pasture_3d/connectors/terrain_brush.gd:1170)). The GPU stamp sits **below** that
+  edit and the manual Refresh button ([pasture3d_terrain_brush.gd:528-533](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:528),
+  snap [:1054](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:1054), point add/remove
+  [:1170](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:1170)). The GPU stamp sits **below** that
   layer and records nothing — same as the C++ stamp. Async is **not** introduced (readback is synchronous),
   so there is no "stale bake after undo" window like the threading spec worried about.
 - **Auto-refresh re-fires on undo.** Undoing a gizmo edit restores the curve → `curve.changed` →
   `_schedule_refresh` → a fresh bake (GPU or C++ by threshold). The terrain follows the undo exactly as it
   does today, regardless of which rasteriser produced the original.
-- **The manual Refresh action's `_snapshot_owner`/`_restore_owner`** ([:529-532](project/addons/pasture_3d/connectors/terrain_brush.gd:529))
+- **The manual Refresh action's `_snapshot_owner`/`_restore_owner`** ([:529-532](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd:529))
   snapshots **layer samples** (the CPU `Image`s) — which the GPU path writes back into identically. So a
   recorded bake-undo restores the same data whether GPU or C++ produced it.
 

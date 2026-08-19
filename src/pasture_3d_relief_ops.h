@@ -2,7 +2,7 @@
 // to a flat, branch-free layer list in GDScript; this evaluates that list per cell in C++ so the brush
 // keeps the native rasteriser's budget. It is deliberately a fixed op catalogue, not a scripting VM.
 //
-// The GDScript evaluator in connectors/relief_material.gd is the A/B oracle: every op here must agree
+// The GDScript evaluator in connectors/pasture3d_relief_material.gd is the A/B oracle: every op here must agree
 // with it to 1e-4 m on the final amplitude, and the noise construction in relief_build must mirror
 // Pasture3DReliefMaterial._configure_noise exactly. See PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md §4-5, §10.
 
@@ -18,7 +18,7 @@
 
 namespace godot {
 
-// Op ids — MUST stay in sync with Pasture3DReliefMaterial.Op (connectors/relief_material.gd).
+// Op ids — MUST stay in sync with Pasture3DReliefMaterial.Op (connectors/pasture3d_relief_material.gd).
 enum ReliefOpType {
 	RELIEF_OP_CONST = 0,
 	RELIEF_OP_FBM = 1,

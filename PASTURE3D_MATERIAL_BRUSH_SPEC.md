@@ -168,10 +168,10 @@ texture id. Falls back to a plain int spinner if assets are unset.
 
 ## 6. Files touched (anticipated)
 
-- `connectors/terrain_brush.gd` — `_map_type()` virtual; `_ensure_layer_for` via
+- `connectors/pasture3d_terrain_brush.gd` — `_map_type()` virtual; `_ensure_layer_for` via
   `create_owned_layer_typed`; `update_maps(_map_type())`; `_paint_control`/`_paint_color` helpers;
   (optionally) factor Mound's polygon+SDF setup into a shared `_loop_sdf(path)` helper.
-- new `connectors/splat.gd` — `Pasture3DSplat` (closed-loop control painter), reusing the SDF.
+- new `connectors/pasture3d_splat.gd` — `Pasture3DSplat` (closed-loop control painter), reusing the SDF.
 - No C++ changes.
 
 ---
@@ -193,7 +193,7 @@ texture id. Falls back to a plain int spinner if assets are unset.
 - Internal: `src/pasture_3d_util.cpp` (bound `enc_*`/`get_*` control encoders), `src/pasture_3d_data.cpp`
   (`create_owned_layer_typed`, `set_control_on_layer`, `set_color_on_layer`, `get_control`,
   `update_maps`), `src/pasture_3d_editor.cpp` (texture-paint control encoding to mirror),
-  `PASTURE3D_LAYERS_GUIDE.md` §7 (typed layers), `connectors/mound.gd` (SDF loop to reuse).
+  `PASTURE3D_LAYERS_GUIDE.md` §7 (typed layers), `connectors/pasture3d_mound.gd` (SDF loop to reuse).
 - [Substance multilayer material masks](https://assettocorsamods.net/threads/masks-for-multilayer-material-with-substance.2304/)
 - [World Machine splatmap workflow](http://www.world-machine.com/learn.php?page=workflow&workflow=wfunity)
 - [Frostbite procedural shader splatting (terrain material masking)](https://www.slideshare.net/slideshow/terrain-rendering-in-frostbite-using-procedural-shader-splatting-presentation/916086)

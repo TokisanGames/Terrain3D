@@ -1,6 +1,6 @@
 # Pasture3D Plow Brush Spec (`Pasture3DPlow`)
 
-**Status:** **IMPLEMENTED 2026-06-19** (GDScript-only, no rebuild) — `connectors/plow.gd`, all three
+**Status:** **IMPLEMENTED 2026-06-19** (GDScript-only, no rebuild) — `connectors/pasture3d_plow.gd`, all three
 sources (NOISE / TEXTURE / MATERIAL) per the chosen scope; layer name "Plow"; mid-grey neutral
 (`height_offset = 0.5`) so relief goes up *and* down. Headless-verified: NOISE relief up+down +
 idempotent + rim-flat, TEXTURE compressed→decompress LUT + baked relief, MATERIAL alpha-height LUT,
@@ -9,8 +9,8 @@ Pasture3D `main`.
 **Expected scope:** GDScript-only — **no engine rebuild** (reuses the already-bound C++ Tool API:
 `create_owned_layer_typed`, `set_height_on_layer`, `add_height_on_layer`, `clear_layer_in_area`,
 `composite_region`, `update_maps`).
-**Builds on:** `connectors/splat.gd` (closed-loop area mask + falloff + tiling), `connectors/mound.gd`
-(height application), and the shared `connectors/terrain_brush.gd` base (reserved-layer plumbing, undo,
+**Builds on:** `connectors/pasture3d_splat.gd` (closed-loop area mask + falloff + tiling), `connectors/pasture3d_mound.gd`
+(height application), and the shared `connectors/pasture3d_terrain_brush.gd` base (reserved-layer plumbing, undo,
 surface-snap, layer-sharing, O(cells) SDF). Sibling of `PASTURE3D_MATERIAL_BRUSH_SPEC.md`.
 
 ---
@@ -38,13 +38,13 @@ spline region" idea to Pasture3D's non-destructive layers.
 
 | Concern | Source | Reuse |
 | --- | --- | --- |
-| Closed-loop spline, decimation, footprint AABB | `splat.gd` / `mound.gd` `_polygon_xz`, `_spline_footprint_aabb` | verbatim |
-| Area mask + falloff (`falloff_width`, `falloff_curve`, `edge_offset`) | `splat.gd` / base `_signed_distance_field`, `_ramp` | verbatim |
+| Closed-loop spline, decimation, footprint AABB | `pasture3d_splat.gd` / `pasture3d_mound.gd` `_polygon_xz`, `_spline_footprint_aabb` | verbatim |
+| Area mask + falloff (`falloff_width`, `falloff_curve`, `edge_offset`) | `pasture3d_splat.gd` / base `_signed_distance_field`, `_ramp` | verbatim |
 | Height write into a reserved layer + blend (REPLACE/ADD/MAX/MIN) | base `_paint_height`, `_get_blend_mode` | verbatim |
 | Map type = HEIGHT → layer-sharing, undo, **surface-snap**, dock badges | base (`_map_type()` default) | free |
 | **Height-source sampler** (noise / texture / material relief) | — | **NEW (this spec)** |
 
-So the brush body is `splat.gd`'s `_paint_spline` mask loop with the control-write swapped for Mound's
+So the brush body is `pasture3d_splat.gd`'s `_paint_spline` mask loop with the control-write swapped for Mound's
 `_paint_height(pos, base_y + amp, amp)`, where `amp` comes from the new sampler instead of a dome
 profile. Map type stays HEIGHT (the base default), so `Pasture3DPlow` is automatically part of the
 height layer family and gets undo/snap/sharing with zero extra work.
@@ -79,7 +79,7 @@ default** (robust, GDScript-only, no asset prep, exactly fits "small hills / cra
 - **Decision (user 2026-06-19):** MATERIAL must be a *brush material assigned on the plow*, NOT the
   terrain's surface textures (reusing the landscape's materials was explicitly unwanted). The original
   "sample a terrain `Pasture3DTextureAsset`'s alpha height via a named dropdown" design was dropped.
-- New `connectors/plow_material.gd` — `@tool class_name Pasture3DPlowMaterial extends Resource` holding
+- New `connectors/pasture3d_plow_material.gd` — `@tool class_name Pasture3DPlowMaterial extends Resource` holding
   `height_map: Texture2D` (grayscale relief, read by **luminance**), `invert: bool`, and `strength:
   float` (a relief multiplier on top of the brush's `height_scale`). It is a normal saveable `.tres`,
   reusable across plow brushes, and `emit_changed()` on edit so the brush re-bakes live.
@@ -185,10 +185,10 @@ budget as Splat/Mound.
 
 ## 8. Files touched
 
-- **NEW** `project/addons/pasture_3d/connectors/plow.gd` (`Pasture3DPlow`).
-- No base changes expected — `terrain_brush.gd` already exposes `_paint_height`, `_signed_distance_
+- **NEW** `project/addons/pasture_3d/connectors/pasture3d_plow.gd` (`Pasture3DPlow`).
+- No base changes expected — `pasture3d_terrain_brush.gd` already exposes `_paint_height`, `_signed_distance_
   field`, `_ramp`, `_map_type` (HEIGHT default), `_get_blend_mode`, and the named-texture dropdown
-  helper pattern (copy `_texture_names`/`_validate_property` from `splat.gd`, or hoist them to the base
+  helper pattern (copy `_texture_names`/`_validate_property` from `pasture3d_splat.gd`, or hoist them to the base
   if both brushes end up sharing them — a small optional refactor).
 - Optional: register the new node in the tool palette / `PastureToolNodes.tscn` if brushes are listed
   there.
@@ -218,8 +218,8 @@ budget as Splat/Mound.
 
 ## 11. Sources
 
-- Internal: `connectors/splat.gd` (mask/tiling/dropdown), `connectors/mound.gd` (height write),
-  `connectors/terrain_brush.gd` (base API: `_paint_height`, `_signed_distance_field`, `_map_type`),
+- Internal: `connectors/pasture3d_splat.gd` (mask/tiling/dropdown), `connectors/pasture3d_mound.gd` (height write),
+  `connectors/pasture3d_terrain_brush.gd` (base API: `_paint_height`, `_signed_distance_field`, `_map_type`),
   `PASTURE3D_MATERIAL_BRUSH_SPEC.md`, `PASTURE3D_LANDSCAPE_TOOLS_SPEC.md`.
 - UE5: Landmass / Water custom brushes render a **material into the landscape heightmap edit layer**
   within a brush region — the "material deforms the terrain" model this brush mirrors.

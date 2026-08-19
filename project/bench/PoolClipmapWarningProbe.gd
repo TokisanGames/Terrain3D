@@ -166,7 +166,7 @@ func _build(p_half: float, p_static: bool, p_max_vertices: int):
 	path.curve = c
 	_root.add_child(path)
 
-	var script: GDScript = load("res://addons/pasture_3d/connectors/pool.gd")
+	var script: GDScript = load("res://addons/pasture_3d/connectors/pasture3d_pool.gd")
 	var pool: Node = script.new()
 	pool.name = "P%d%s%d" % [int(p_half), "S" if p_static else "C", p_max_vertices]
 	_root.add_child(pool)

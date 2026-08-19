@@ -241,8 +241,8 @@ happens.
 
 ## 6. Sources
 
-**Internal:** [pond.gd](project/addons/pasture_3d/connectors/pond.gd),
-[terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd),
+**Internal:** [pasture3d_pond.gd](project/addons/pasture_3d/connectors/pasture3d_pond.gd),
+[pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd),
 [pasture_3d_brush_raster.cpp:325](src/pasture_3d_brush_raster.cpp:325),
 [pasture_3d_data.cpp:1329](src/pasture_3d_data.cpp:1329),
 `PASTURE3D_BRUSH_PERF_ROUND3_SPEC.md`, `PASTURE3D_BRUSH_PERF_ROUND2_SPEC.md`,

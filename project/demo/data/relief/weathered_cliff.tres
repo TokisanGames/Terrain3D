@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="Pasture3DReliefStack" format=3 uid="uid://crelief0cliff"]
 
-[ext_resource type="Script" uid="uid://bohmiy2gws6iy" path="res://addons/pasture_3d/connectors/relief_stack.gd" id="1_stack"]
-[ext_resource type="Script" uid="uid://peulc4l115ho" path="res://addons/pasture_3d/connectors/relief_strata.gd" id="2_strat"]
-[ext_resource type="Script" uid="uid://d24spa7oiiel7" path="res://addons/pasture_3d/connectors/relief_scree.gd" id="3_scree"]
-[ext_resource type="Script" uid="uid://nw2i8ancr82j" path="res://addons/pasture_3d/connectors/relief_selector.gd" id="4_sel"]
+[ext_resource type="Script" uid="uid://bohmiy2gws6iy" path="res://addons/pasture_3d/connectors/pasture3d_relief_stack.gd" id="1_stack"]
+[ext_resource type="Script" uid="uid://peulc4l115ho" path="res://addons/pasture_3d/connectors/pasture3d_relief_strata.gd" id="2_strat"]
+[ext_resource type="Script" uid="uid://d24spa7oiiel7" path="res://addons/pasture_3d/connectors/pasture3d_relief_scree.gd" id="3_scree"]
+[ext_resource type="Script" uid="uid://nw2i8ancr82j" path="res://addons/pasture_3d/connectors/pasture3d_relief_selector.gd" id="4_sel"]
 
 [sub_resource type="Resource" id="Resource_steep"]
 script = ExtResource("4_sel")

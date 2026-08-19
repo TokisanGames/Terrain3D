@@ -1,8 +1,8 @@
 # Pasture3D — Ridge / Trough Flank Redesign Spec
 
 Status: **drafted, not implemented** (interview complete 2026-06-21).
-Scope: `Pasture3DRidge` ([ridge.gd](project/addons/pasture_3d/connectors/ridge.gd)),
-`Pasture3DTrough` ([trough.gd](project/addons/pasture_3d/connectors/trough.gd)), and the native
+Scope: `Pasture3DRidge` ([pasture3d_ridge.gd](project/addons/pasture_3d/connectors/pasture3d_ridge.gd)),
+`Pasture3DTrough` ([pasture3d_trough.gd](project/addons/pasture_3d/connectors/pasture3d_trough.gd)), and the native
 rasterisers `stamp_ridge_line` / `stamp_trough_line` in
 [pasture_3d_brush_raster.cpp:600](src/pasture_3d_brush_raster.cpp:600). GDScript reference paths in the
 two connectors must stay byte-equivalent to the C++ (A/B oracle via `force_gdscript_raster`).
@@ -158,7 +158,7 @@ SLOPE_ANGLE), `blend_mode`, `invert`, `profile`, `width_curve`. Crest line: `clo
 All shape exports keep their `_schedule_refresh()` setters where they have them; `flank_mode`,
 `slope_angle`, `width_curve`, `crest_height`/`depth`, `width` should get setters too so edits re-bake
 live (today only `blend_mode`/`closed`/`slope_tilt` do). `width_curve` setter must (dis)connect the
-curve's `changed` signal like `plow_material` does in [plow.gd](project/addons/pasture_3d/connectors/plow.gd).
+curve's `changed` signal like `plow_material` does in [pasture3d_plow.gd](project/addons/pasture_3d/connectors/pasture3d_plow.gd).
 
 ---
 

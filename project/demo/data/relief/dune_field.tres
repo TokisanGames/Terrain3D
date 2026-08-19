@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="Pasture3DReliefDunes" load_steps=2 format=3 uid="uid://crelief0dunes"]
 
-[ext_resource type="Script" uid="uid://caa48xt61qh0l" path="res://addons/pasture_3d/connectors/relief_dunes.gd" id="1_dune"]
+[ext_resource type="Script" uid="uid://caa48xt61qh0l" path="res://addons/pasture_3d/connectors/pasture3d_relief_dunes.gd" id="1_dune"]
 
 [resource]
 script = ExtResource("1_dune")

@@ -20,7 +20,7 @@
 # Run: Godot_v4.7-stable_win64_console.exe --headless --path project bench/StreamRippleCheck.tscn
 extends Node
 
-const STREAM_SCRIPT := "res://addons/pasture_3d/connectors/stream.gd"
+const STREAM_SCRIPT := "res://addons/pasture_3d/connectors/pasture3d_stream.gd"
 const RIVER_MAT := "res://addons/pasture_3d/extras/shaders/water/M_water_river.tres"
 const STREAM_INC := "res://addons/pasture_3d/extras/shaders/water/water_stream.gdshaderinc"
 const WAVES_INC := "res://addons/pasture_3d/extras/shaders/water/water_waves.gdshaderinc"

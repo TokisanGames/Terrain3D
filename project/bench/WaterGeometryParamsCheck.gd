@@ -103,7 +103,7 @@ func _check_b_pool_dials() -> void:
 	var manager := Pasture3DPoolManager.new()
 	root.add_child(manager)
 
-	var pool = load("res://addons/pasture_3d/connectors/stream.gd").new()
+	var pool = load("res://addons/pasture_3d/connectors/pasture3d_stream.gd").new()
 	pool.material = load(LAKE_MAT)
 	pool.wave_profile = &"lake_calm"
 	pool.vertex_spacing = 1.0

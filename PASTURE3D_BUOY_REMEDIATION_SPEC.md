@@ -60,7 +60,7 @@ criterion that would have caught it** rather than only by fixing the code.
 
 > *"the second one is free, but only because that memo is there"*
 
-The memo is [`water_body.gd:958`](project/addons/pasture_3d/connectors/water_body.gd:958), keyed on
+The memo is [`pasture3d_water_body.gd:958`](project/addons/pasture_3d/connectors/pasture3d_water_body.gd:958), keyed on
 `(world XZ, physics frame)`. It is GDScript, and it belongs to `Pasture3DWaterBody`.
 [`Pasture3DOcean::get_water_height()`](src/pasture_3d_ocean.cpp:379) has no memo, and
 [`contains_point()`](src/pasture_3d_ocean.cpp:407) calls straight into it. So on the ocean:
@@ -101,7 +101,7 @@ redundant.
 - `set_domain_origin()` — it is subtracted before the solve.
 - `set_wave_profile()` — a different table is a different surface.
 
-This mirrors `water_body.gd`'s `_height_cache_frame = -1` on transform change, which exists for the
+This mirrors `pasture3d_water_body.gd`'s `_height_cache_frame = -1` on transform change, which exists for the
 identical reason and is the precedent to point at.
 
 **One entry, not a map.** Each body's two queries are *adjacent within one buoy's

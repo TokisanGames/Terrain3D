@@ -631,7 +631,7 @@ Each phase is independently testable and leaves `main` shippable.
   shoulder `edge_falloff` becomes a coverage weight `1 - ease(factor, -1.5)` (1 on the road easing to 0), and the
   REPLACE composite `lerp(below, road_y, weight)` feathers into whatever is underneath — **removing the old
   `get_height`→`_lerp_smoothed_height` read-modify-write** on the live-layer path.
-- **`road_connector.gd` migration.** New `@export var target_layer_name := "Roads"`; `_ensure_layer()` resolves
+- **`pasture3d_road_connector.gd` migration.** New `@export var target_layer_name := "Roads"`; `_ensure_layer()` resolves
   the reserved layer via `create_owned_layer(str(get_path()), target_layer_name, REPLACE)` (stable owner id =
   node path). `refresh_roads` calls `_ensure_layer()` then `clear_layer_in_area(_affected_aabb(mesh_parents))`
   before repainting. Every former `terrain.data.set_height(pos, h)` (approx + raycast + intersection) now routes
@@ -750,7 +750,7 @@ normalise.
 `set_hole_on_layer` (reads the composited control, flips the hole bit preserving texture/nav/etc, stores the
 full value at weight 1 so topmost-wins replaces cleanly), and `set_color_on_layer` — all with the same
 null-stack/invalid-layer fallback to the destructive `set_control`/`set_control_hole`/`set_color` path.
-`road_connector.gd` now owns a second reserved layer (`owner_id + "#holes"`, `target_layer_name + " Holes"`,
+`pasture3d_road_connector.gd` now owns a second reserved layer (`owner_id + "#holes"`, `target_layer_name + " Holes"`,
 `TYPE_CONTROL`): `bake_holes` resolves it, `clear_layer_in_area`s its footprint, re-carves via
 `_set_road_hole` → `set_hole_on_layer`, then `update_maps(CONTROL)`. Carving is now non-destructive and
 idempotent like the road height; on a build/terrain without typed layers it falls back to `set_control_hole`
@@ -825,6 +825,6 @@ These four were confirmed and are now binding for the implementation:
 - [Complete Guide to Non-Destructive Landscape Layers — World of Level Design](https://www.worldofleveldesign.com/categories/ue4/landscape-layers-01-sculpting.php)
 - [Krita `Tile` (64×64 planar tile) — paint_layer docs](https://docs.rs/krita/latest/krita/paint_layer/struct.Tile.html)
 - [How Krita renders tiles / tile manager discussion](https://kimageshop.kde.narkive.com/krDHO1YW/how-does-krita-render-tiles-to-the-screen)
-- Pasture3D source: `src/pasture_3d_data.{h,cpp}`, `src/pasture_3d_region.h`, `src/pasture_3d_editor.h`, `project/addons/pasture_3d/connectors/road_connector.gd`
+- Pasture3D source: `src/pasture_3d_data.{h,cpp}`, `src/pasture_3d_region.h`, `src/pasture_3d_editor.h`, `project/addons/pasture_3d/connectors/pasture3d_road_connector.gd`
 </content>
 </invoke>

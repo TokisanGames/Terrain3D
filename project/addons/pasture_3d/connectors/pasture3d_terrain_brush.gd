@@ -1979,8 +1979,8 @@ func place_bake() -> void:
 ## or an install without it — would stop this file compiling and take every brush in the scene down
 ## with it, which is exactly how the Phase 1 DLL failure presented. By path, missing water is a
 ## failed button press.
-const POOL_SCRIPT := "res://addons/pasture_3d/connectors/pool.gd"
-const STREAM_SCRIPT := "res://addons/pasture_3d/connectors/stream.gd"
+const POOL_SCRIPT := "res://addons/pasture_3d/connectors/pasture3d_pool.gd"
+const STREAM_SCRIPT := "res://addons/pasture_3d/connectors/pasture3d_stream.gd"
 ## Group both of them join (mirrors Pasture3DWaterBody.POOL_GROUP), for the same reason. Named for
 ## the pool because it predates the split and is written into saved scenes.
 const POOL_GROUP: StringName = &"pasture3d_pool"

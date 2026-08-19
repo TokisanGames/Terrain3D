@@ -1,12 +1,12 @@
 [gd_scene format=3 uid="uid://banmmrio06yy5"]
 
-[ext_resource type="Script" uid="uid://br5raorbyrwhw" path="res://addons/pasture_3d/connectors/mound.gd" id="1_ume0e"]
-[ext_resource type="Script" uid="uid://bvg7srpngxqfj" path="res://addons/pasture_3d/connectors/trough.gd" id="2_7ivm1"]
-[ext_resource type="Script" uid="uid://bj10ochgiqrlg" path="res://addons/pasture_3d/connectors/ridge.gd" id="3_4xbm0"]
+[ext_resource type="Script" uid="uid://br5raorbyrwhw" path="res://addons/pasture_3d/connectors/pasture3d_mound.gd" id="1_ume0e"]
+[ext_resource type="Script" uid="uid://bvg7srpngxqfj" path="res://addons/pasture_3d/connectors/pasture3d_trough.gd" id="2_7ivm1"]
+[ext_resource type="Script" uid="uid://bj10ochgiqrlg" path="res://addons/pasture_3d/connectors/pasture3d_ridge.gd" id="3_4xbm0"]
 [ext_resource type="Script" uid="uid://brm6p1ca6p7o6" path="res://addons/road-generator/nodes/road_manager.gd" id="4_wxaqu"]
 [ext_resource type="Script" uid="uid://bkche4ip07xfu" path="res://addons/road-generator/nodes/road_container.gd" id="5_3b32r"]
 [ext_resource type="Script" uid="uid://cn7224ow1rdj6" path="res://addons/road-generator/nodes/road_point.gd" id="6_878i5"]
-[ext_resource type="Script" uid="uid://2vhjm1t0432a" path="res://addons/pasture_3d/connectors/road_connector.gd" id="7_m0obx"]
+[ext_resource type="Script" uid="uid://2vhjm1t0432a" path="res://addons/pasture_3d/connectors/pasture3d_road_connector.gd" id="7_m0obx"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_2bfyl"]
 _shader_parameters = {

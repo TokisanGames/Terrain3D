@@ -25,10 +25,10 @@ sections, strata, dunes, furrows, and **individually placed craters** — with l
 [pasture_3d.h:94](src/pasture_3d.h:94)) cannot be expressed in the height map and belongs to the terrain
 surface shader. That track is explicitly **out of scope here**.
 
-**Builds on:** [plow.gd](project/addons/pasture_3d/connectors/plow.gd),
-[plow_material.gd](project/addons/pasture_3d/connectors/plow_material.gd),
+**Builds on:** [pasture3d_plow.gd](project/addons/pasture_3d/connectors/pasture3d_plow.gd),
+[pasture3d_plow_material.gd](project/addons/pasture_3d/connectors/pasture3d_plow_material.gd),
 `Pasture3DData::stamp_plow_loop` ([pasture_3d_brush_raster.cpp:1125](src/pasture_3d_brush_raster.cpp:1125)),
-and the base [terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd).
+and the base [pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd).
 Supersedes nothing — it *adds* a fourth source alongside the existing three.
 
 ---
@@ -102,7 +102,7 @@ func _configuration_warning() -> String: return ""
 ```
 
 Every exported property setter calls `emit_changed()`, which the plow is **already** wired to
-([plow.gd:44](project/addons/pasture_3d/connectors/plow.gd:44)) — live re-bake comes free.
+([pasture3d_plow.gd:44](project/addons/pasture_3d/connectors/pasture3d_plow.gd:44)) — live re-bake comes free.
 
 **Compile caching:** `compile()` memoises into `_program` and clears it on `emit_changed()`. The plow calls
 it **once per `_paint_spline`**, never per cell.
@@ -163,7 +163,7 @@ amp = height_scale * acc * mask * material.strength
 
 Note the difference from the existing sources: there is **no `height_offset` subtraction**. The existing
 sources normalise to `[0,1]` and lean on `height_offset = 0.5` to recover a signed value
-([plow.gd:236](project/addons/pasture_3d/connectors/plow.gd:236)). `RELIEF` is signed natively, so
+([pasture3d_plow.gd:236](project/addons/pasture_3d/connectors/pasture3d_plow.gd:236)). `RELIEF` is signed natively, so
 `height_offset` is hidden for this source (§8).
 
 `acc` is **not** hard-clamped by default — a stack that overshoots `[-1,1]` is legal and sometimes wanted.
@@ -230,7 +230,7 @@ periodic ops**, which produce *nothing visible* and read as a broken material.
 samples per cycle. Meshing and LOD ate it; the material looked dead until the spacing was raised roughly
 four-fold. Three changes came out of that:
 
-1. **Four samples per cycle is the practical floor** (`PERIOD_SAMPLES_MIN` in `plow.gd`). Two is Nyquist,
+1. **Four samples per cycle is the practical floor** (`PERIOD_SAMPLES_MIN` in `pasture3d_plow.gd`). Two is Nyquist,
    which recovers a frequency but not a recognisable cross-section.
 2. **The brush warns** when any `DUNES`/`FURROWS` op's period drops under `vertex_spacing × 4`. Only the
    brush can do this — the material has no idea what terrain it will be stamped into. Fractal ops are
@@ -267,7 +267,7 @@ configuration warning for that combination rather than silently producing a crat
 ## 6. Mapping modes
 
 **This is the piece that makes "place an individual crater" possible.** The plow today only tiles:
-`fposmod(x / tile_size, 1.0)` in both paths ([plow.gd:266](project/addons/pasture_3d/connectors/plow.gd:266),
+`fposmod(x / tile_size, 1.0)` in both paths ([pasture3d_plow.gd:266](project/addons/pasture_3d/connectors/pasture3d_plow.gd:266),
 [pasture_3d_brush_raster.cpp:1220](src/pasture_3d_brush_raster.cpp:1220)). There is no way to say
 "one instance, fitted to this loop".
 
@@ -346,7 +346,7 @@ Terrain-aware masking is designed in now and built in phase 3. The design point 
 
 **Selectors must read the surface *below this brush's own layer*, never the final composite.** The
 rasteriser already receives exactly that as `base_below`
-([plow.gd:209](project/addons/pasture_3d/connectors/plow.gd:209) →
+([pasture3d_plow.gd:209](project/addons/pasture_3d/connectors/pasture3d_plow.gd:209) →
 [pasture_3d_brush_raster.cpp:1180](src/pasture_3d_brush_raster.cpp:1180)), over the same grid, at the same
 resolution. Slope and curvature are a 3×3 finite difference over that grid — computed per bake, not cached.
 
@@ -427,7 +427,7 @@ enum Mapping { TILE, FIT, SCATTER }
 | `tile_size` | `source == NOISE`, **or** `source == RELIEF` (ops carry their own frequency), **or** `mapping != TILE` |
 | `scatter_*` | `mapping != SCATTER` |
 
-`_raise_inverted()` ([plow.gd:115](project/addons/pasture_3d/connectors/plow.gd:115)) currently only knows
+`_raise_inverted()` ([pasture3d_plow.gd:115](project/addons/pasture_3d/connectors/pasture3d_plow.gd:115)) currently only knows
 about `MATERIAL`. It must also return `true` for `source == RELIEF and relief != null and not relief._raises()`,
 so the Add Water button keeps working with a crater material.
 
@@ -483,7 +483,7 @@ stateless given a `ReliefProgram`, so it parallelises later without a redesign �
 ## 10. GDScript parity path
 
 Every op is implemented twice: `relief_eval` in C++ and `_relief_eval` in
-`connectors/relief_material.gd`. `force_gdscript_raster` selects the reference path. This is the same
+`connectors/pasture3d_relief_material.gd`. `force_gdscript_raster` selects the reference path. This is the same
 discipline `_blur_grid`/`nan_blur` and `_ramp`/`raster_ramp` already follow, and it is what makes the A/B
 gate in §13 meaningful.
 
@@ -641,11 +641,11 @@ wrong for negative relief, so the default is `STRONGEST`, §6.2); stack recursio
 
 ## 15. Sources
 
-**Internal:** [plow.gd](project/addons/pasture_3d/connectors/plow.gd),
-[plow_material.gd](project/addons/pasture_3d/connectors/plow_material.gd),
+**Internal:** [pasture3d_plow.gd](project/addons/pasture_3d/connectors/pasture3d_plow.gd),
+[pasture3d_plow_material.gd](project/addons/pasture_3d/connectors/pasture3d_plow_material.gd),
 [pasture_3d_brush_raster.cpp:1125](src/pasture_3d_brush_raster.cpp:1125),
 [pasture_3d_gpu_raster.h:25](src/pasture_3d_gpu_raster.h:25),
-[terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd),
+[pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd),
 `PASTURE3D_PLOW_BRUSH_SPEC.md`, `PASTURE3D_BRUSH_PERF_ROUND2_SPEC.md`,
 `PASTURE3D_BRUSH_GPU_RASTER_SPEC.md`, `PASTURE3D_WATER_BODIES_SPEC.md`.
 

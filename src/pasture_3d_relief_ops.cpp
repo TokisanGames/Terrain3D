@@ -1,6 +1,6 @@
 // Relief op-program evaluator. See pasture_3d_relief_ops.h and PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md.
 //
-// Everything here is a faithful port of connectors/relief_material.gd. Where the two could plausibly
+// Everything here is a faithful port of connectors/pasture3d_relief_material.gd. Where the two could plausibly
 // diverge — noise settings, the crater profile, accumulation order, the exact clamp bounds — the C++ is
 // written to match the GDScript line for line rather than to be idiomatic, because the A/B gate compares
 // them numerically. If you change one, change the other in the same commit.

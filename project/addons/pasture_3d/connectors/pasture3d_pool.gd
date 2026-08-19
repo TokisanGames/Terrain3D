@@ -1065,7 +1065,7 @@ func convert_to_stream() -> Node:
 		push_warning("Pasture3DPool '%s': nothing to convert into — it has no parent." % name)
 		return null
 
-	var script: GDScript = load("res://addons/pasture_3d/connectors/stream.gd")
+	var script: GDScript = load("res://addons/pasture_3d/connectors/pasture3d_stream.gd")
 	if script == null:
 		push_error("Pasture3D: could not load stream.gd — cannot convert.")
 		return null

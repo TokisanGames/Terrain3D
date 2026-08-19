@@ -4,7 +4,7 @@
 **Builds on:** [PASTURE3D_WATER_SHADER_SPEC.md](PASTURE3D_WATER_SHADER_SPEC.md) (all six phases
 complete), [PASTURE3D_WATER_GUIDE.md](PASTURE3D_WATER_GUIDE.md),
 [PASTURE3D_LANDSCAPE_TOOLS_SPEC.md](PASTURE3D_LANDSCAPE_TOOLS_SPEC.md) and the
-`Pasture3DTerrainBrush` base in [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd).
+`Pasture3DTerrainBrush` base in [connectors/pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd).
 
 ---
 
@@ -123,7 +123,7 @@ waterline — which is why W3 is a goal and not a nicety.
 | Clipmap mesher | [src/pasture_3d_mesher.cpp](src/pasture_3d_mesher.cpp) | Direct, after §6.2 breaks its `Pasture3D*` dependency (6 call sites) |
 | Shader family + 4 presets | `extras/shaders/water/` | Direct. One change: §5.4 |
 | Global uniform registration | [src/editor_plugin.gd:104](project/addons/pasture_3d/src/editor_plugin.gd:104) | Direct, unchanged |
-| Spline plumbing: baked world points, decimation, footprint AABB, debounced refresh, shared-curve detection | `terrain_brush.gd` | Pasture3DPool borrows the *patterns*; it is not a `Pasture3DTerrainBrush` subclass (it paints no terrain) |
+| Spline plumbing: baked world points, decimation, footprint AABB, debounced refresh, shared-curve detection | `pasture3d_terrain_brush.gd` | Pasture3DPool borrows the *patterns*; it is not a `Pasture3DTerrainBrush` subclass (it paints no terrain) |
 | Phase-gate harness convention | `project/bench/Water*Gate.*` | Direct — §11 adds gates in the same shape |
 
 The single most valuable thing already on disk is the **CPU/GPU parity test** and the discipline
@@ -193,7 +193,7 @@ change-detected, exactly as `_update_water_clock` already does today.
 | `Pasture3DOcean` | C++ | Owns `Pasture3DMesher`, which is C++ |
 | `Pasture3DBuoy` | C++ | Per-physics-tick math over potentially dozens of instances (§9.3) |
 | `Pasture3DPool` | **GDScript** | It is an *authoring* node: curve reading, mesh building, editor buttons, config warnings. Same character as the brushes, same fast iteration, and it inherits their idioms |
-| Brush button | GDScript | It is three methods on `terrain_brush.gd` |
+| Brush button | GDScript | It is three methods on `pasture3d_terrain_brush.gd` |
 
 `Pasture3DPool` in GDScript is the one call worth flagging: it builds the surface mesh in a script loop, and
 the brushes' own history (164 s → 0.23 s once rasterisation moved to C++) says that is exactly where
@@ -441,7 +441,7 @@ they ever see a warning.
 - `source_spline` is the button's output and the normal case. Pasture3DPool reads
   `source_spline.curve.get_baked_points()` through `source_spline.global_transform`, so moving either
   the brush or the spline moves the water. It connects to `curve_changed` on the Path3D and `changed`
-  on the `Curve3D`, debounced through the same 0.1 s timer idiom `terrain_brush.gd` uses (and with the
+  on the `Curve3D`, debounced through the same 0.1 s timer idiom `pasture3d_terrain_brush.gd` uses (and with the
   same `_tree_settling` suppression, or a scene-tab switch will rebuild every pool in the scene).
   **Moving is not a signal.** Node3D transform notifications reach the node that moved and its
   children, and a pool is a *sibling* of its brush (§7.7) — in neither set. So "moving the brush moves
@@ -451,7 +451,7 @@ they ever see a warning.
   resource form: a `Curve3D` carries no transform, so a curve lifted from a brush whose Path3D is
   offset will land offset. The inspector help text says exactly that.
 - Neither set → configuration warning, no mesh.
-- **Shared-curve detection**: `terrain_brush.gd:255` already warns when two splines share a `Curve3D`
+- **Shared-curve detection**: `pasture3d_terrain_brush.gd:255` already warns when two splines share a `Curve3D`
   because it is a silent performance trap. A pool sharing its brush's curve is the *intended* case and
   must not trip that warning — Phase 4 excludes `Pasture3DPool` readers from the count.
 
@@ -530,7 +530,7 @@ than one that needs a number. §12 q2 keeps it on the list.
 ```
 
 Implemented through `_get_property_list` / `_validate_property` as an enum hint over the live names —
-the same mechanism `terrain_brush.gd:362` uses for its `tool_layer` dropdown, so the pattern already
+the same mechanism `pasture3d_terrain_brush.gd:362` uses for its `tool_layer` dropdown, so the pattern already
 exists in the codebase. A name that no longer resolves is a configuration warning that keeps the
 stored value (so fixing the manager fixes the pool, rather than the pool having silently reset).
 
@@ -568,7 +568,7 @@ stored value (so fixing the manager fixes the pool, rather than the pool having 
   `_water_domain_origin` is somewhere useful. Position only — the water plane is horizontal by
   construction, so no basis is inherited.
 - `Surface`, `Volume` and `Fog` are created at runtime with `owner = null` so they never serialise —
-  the same internal-child idiom `terrain_brush.gd` uses for its `_name_label`. The scene stores the
+  the same internal-child idiom `pasture3d_terrain_brush.gd` uses for its `_name_label`. The scene stores the
   `Pasture3DPool` and its exports; the mesh is derived data and is rebuilt on `_ready`.
 - Because `Surface` is not selectable and the node's origin is a bare point, a pool would otherwise be
   unclickable in the viewport. `src/pool_gizmo.gd` draws an **orange** marker above the water — the
@@ -1464,7 +1464,7 @@ worth doing before this is ever quoted as a cost of the ocean extraction, and no
 Harness: [bench/WaterBodiesPhase3Gate.tscn](project/bench/WaterBodiesPhase3Gate.tscn).
 RTX 3070 / Ryzen desktop, Godot 4.7.
 
-**Built:** [connectors/pool.gd](project/addons/pasture_3d/connectors/pool.gd) — `Pasture3DPool`
+**Built:** [connectors/pasture3d_pool.gd](project/addons/pasture_3d/connectors/pasture3d_pool.gd) — `Pasture3DPool`
 (curve binding, scanline-masked grid tessellation with clipped boundary cells, node-Y water level,
 `edge_offset`, preset/unique/save material path, profile dropdown, wave-aware cull box, config
 warnings including the raising-brush check) — plus the body registry deferred from Phase 1
@@ -1570,16 +1570,16 @@ RTX 3070 / Ryzen desktop, Godot 4.7. **No timing criteria** — this phase adds 
 the one per-frame cost it does add is priced in prose below rather than measured on a shared machine.
 
 **Built:**
-- [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd) — the
+- [connectors/pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd) — the
   `Add Water` button, `add_pool` / `add_pool_now`, the `brush_raises` effective-sign check, the
   confirmation dialog, per-spline idempotency, manager creation, profile seeding from loop size, and
   the `_apply_add_water` / `_revert_add_water` undo pair.
-- [connectors/plow.gd](project/addons/pasture_3d/connectors/plow.gd) — `_raise_inverted()` override
+- [connectors/pasture3d_plow.gd](project/addons/pasture_3d/connectors/pasture3d_plow.gd) — `_raise_inverted()` override
   (a `Pasture3DPlow`'s inversion lives on its material, and only in `MATERIAL` mode).
 - [pasture_3d_pool_manager.cpp](src/pasture_3d_pool_manager.cpp) — `_seed_default_profiles()`. §5.2
   said four profiles ship on a freshly added manager; nothing had implemented it, and the button is
   its first consumer.
-- [connectors/pool.gd](project/addons/pasture_3d/connectors/pool.gd) — the spline-move watcher, the
+- [connectors/pasture3d_pool.gd](project/addons/pasture_3d/connectors/pasture3d_pool.gd) — the spline-move watcher, the
   open-curve refusal, and `_brush_raises` delegating to the brush.
 - [bench/WavePresetTables.gd](project/bench/WavePresetTables.gd) — ported off the removed
   `Pasture3D.ocean_wave_*` API (dead since Phase 2) onto `Pasture3DPoolManager`.
@@ -2059,7 +2059,7 @@ a refactor.
 
 ### 13.1 Why
 
-`pool.gd` had reached 1,943 lines and was two nodes wearing one class. It decided which at every
+`pasture3d_pool.gd` had reached 1,943 lines and was two nodes wearing one class. It decided which at every
 rebuild, from `curve.closed`:
 
 - Roughly a third of the file was ribbon-only state that a lake carried and never filled —
@@ -2078,16 +2078,16 @@ And it was wrong at the seam the user actually touches. A lake whose loop you op
 
 | | Lines | Holds |
 |---|---|---|
-| `connectors/water_body.gd` | 1,126 | `Pasture3DWaterBody`: source plumbing, the manager, spacing, the cull box, the surface child, the material, the underwater volume/fog/overlay/camera poll, `get_water_height` / `contains_point` / `is_point_underwater`, `fit_to_curve`, the presets machinery, the shared warnings |
-| `connectors/pool.gd` | 477 | `Pasture3DPool`: closed-curve polygon, the scanline mask, both meshers, `get_polygon()`, and the migration button |
-| `connectors/stream.gd` | 716 | `Pasture3DStream`: the centreline, bank sampling, waterline widths, flow encoding, the cell grid, `get_centreline()` |
+| `connectors/pasture3d_water_body.gd` | 1,126 | `Pasture3DWaterBody`: source plumbing, the manager, spacing, the cull box, the surface child, the material, the underwater volume/fog/overlay/camera poll, `get_water_height` / `contains_point` / `is_point_underwater`, `fit_to_curve`, the presets machinery, the shared warnings |
+| `connectors/pasture3d_pool.gd` | 477 | `Pasture3DPool`: closed-curve polygon, the scanline mask, both meshers, `get_polygon()`, and the migration button |
+| `connectors/pasture3d_stream.gd` | 716 | `Pasture3DStream`: the centreline, bank sampling, waterline widths, flow encoding, the cell grid, `get_centreline()` |
 
 **2,319 lines against the 1,943 that went in.** The split did not shrink the code and was not
 expected to; what it bought is that no file is now more than one thing. The extra ~380 lines are the
 subclass-contract block, the Convert to Stream migration path with its undo inverse, and the
 per-class preset lists — new behaviour and new documentation, not the same logic spread thinner.
 
-The subclass contract is eight hooks, gathered in one block at the top of `water_body.gd` rather
+The subclass contract is eight hooks, gathered in one block at the top of `pasture3d_water_body.gd` rather
 than scattered: `_build_surface`, `_contains_local`, `_has_surface`, `_still_surface_y`,
 `_preset_names`, `_preset_paths`, `_shape_warnings`, `is_ribbon`.
 
@@ -2133,7 +2133,7 @@ been deleted went on reporting swimmers as submerged in water nobody could see.
   owner, and is one undo step. It is deliberately not automatic — rewriting a user's scene on load,
   before they have seen the warning or had a chance to undo, is how a migration becomes a bug report.
 - **`sculpting_2.tscn`**: `TroughWater` and `Trough1Water` became `TroughStream` and `Trough1Stream`
-  on `stream.gd`, `water_preset` 2 → 0 (River).
+  on `pasture3d_stream.gd`, `water_preset` 2 → 0 (River).
 - **Group membership is unchanged.** Both classes join `pasture3d_pool`. That is why the selection
   gizmo (`src/pool_gizmo.gd`, duck-typed on the group), `Pasture3DTerrainBrush.pool_for_spline()`
   and the Phase 4 gate's group scan all kept working without being told about the new class.
@@ -2163,7 +2163,7 @@ bug, and it is written so that a fixture which never got the point inside in the
 | Phase 7 | `_make_pool` became `_make_stream` **and** `_make_lake`. Every "control" in that gate is a closed curve that must behave as a flat lake; built through one shared helper they would now both be streams, and the controls would quietly stop opposing anything |
 | Phase 8 | The documented-API check walks `get_base_script()` and runs against *both* classes. Without the walk it would report the whole water API as missing, since it all lives on the base now |
 | `WaterGeometryParamsCheck` | Criterion B moved to a stream, with a note on why: `fill_offset` only reaches the mesh on a ribbon, so a pool fixture would pass without exercising it |
-| `StreamBankSurfaceCheck` | Points at `stream.gd`. Results identical: 44 of 98 rows wet, 7.40 m deepest, `bank_height` 1:1, 12 asymmetric rows |
+| `StreamBankSurfaceCheck` | Points at `pasture3d_stream.gd`. Results identical: 44 of 98 rows wet, 7.40 m deepest, `bank_height` 1:1, 12 asymmetric rows |
 
 ---
 
@@ -2177,5 +2177,5 @@ bug, and it is written so that a fixture which never got the point inside in the
   [PASTURE3D_WATER_GUIDE.md](PASTURE3D_WATER_GUIDE.md),
   [PASTURE3D_LANDSCAPE_TOOLS_SPEC.md](PASTURE3D_LANDSCAPE_TOOLS_SPEC.md),
   [src/water_waves.h](src/water_waves.h), [src/pasture_3d_mesher.cpp](src/pasture_3d_mesher.cpp),
-  [connectors/terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd)
+  [connectors/pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd)
 </content>

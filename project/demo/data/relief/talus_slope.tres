@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="Pasture3DReliefScree" format=3 uid="uid://crelief0talus"]
 
-[ext_resource type="Script" uid="uid://d24spa7oiiel7" path="res://addons/pasture_3d/connectors/relief_scree.gd" id="1_scree"]
+[ext_resource type="Script" uid="uid://d24spa7oiiel7" path="res://addons/pasture_3d/connectors/pasture3d_relief_scree.gd" id="1_scree"]
 
 [resource]
 script = ExtResource("1_scree")

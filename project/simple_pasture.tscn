@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://t5hbmhmf5l5t"]
 
-[ext_resource type="Script" uid="uid://br5raorbyrwhw" path="res://addons/pasture_3d/connectors/mound.gd" id="1_xkygt"]
+[ext_resource type="Script" uid="uid://br5raorbyrwhw" path="res://addons/pasture_3d/connectors/pasture3d_mound.gd" id="1_xkygt"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_g143p"]
 _shader_parameters = {

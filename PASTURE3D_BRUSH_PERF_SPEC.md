@@ -5,7 +5,7 @@ Status: design agreed 2026-06-19. **Ship now:** configurable threaded bake (live
 
 Covers the spline-driven landscape brushes (`Pasture3DMound` / `Pasture3DRidge` / `Pasture3DTrough` /
 `Pasture3DPlow` / `Pasture3DSplat`) that share `Pasture3DTerrainBrush`
-([terrain_brush.gd](project/addons/pasture_3d/connectors/terrain_brush.gd)).
+([pasture3d_terrain_brush.gd](project/addons/pasture_3d/connectors/pasture3d_terrain_brush.gd)).
 
 ---
 

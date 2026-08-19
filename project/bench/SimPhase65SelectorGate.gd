@@ -210,7 +210,7 @@ func _gate_be_presets() -> void:
 			+ "load_steps=2 format=3]
 
 "
-			+ "[ext_resource type=\"Script\" path=\"res://addons/pasture_3d/connectors/relief_selector.gd\" "
+			+ "[ext_resource type=\"Script\" path=\"res://addons/pasture_3d/connectors/pasture3d_relief_selector.gd\" "
 			+ "id=\"1_sel\"]
 
 "

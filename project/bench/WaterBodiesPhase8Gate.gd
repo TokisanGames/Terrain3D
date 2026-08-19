@@ -158,8 +158,8 @@ func _gate_b_api_exists(p_guide: String) -> void:
 	# this list is defined on Pasture3DWaterBody rather than on either leaf, so a check that looked
 	# only at pool.gd's own method list would report the entire documented API as missing -- and one
 	# that looked only at the base would stop noticing if a subclass broke an override.
-	var pool_methods := _script_methods("res://addons/pasture_3d/connectors/pool.gd")
-	var stream_methods := _script_methods("res://addons/pasture_3d/connectors/stream.gd")
+	var pool_methods := _script_methods("res://addons/pasture_3d/connectors/pasture3d_pool.gd")
+	var stream_methods := _script_methods("res://addons/pasture_3d/connectors/pasture3d_stream.gd")
 	for m in ["get_water_height", "get_water_normal", "contains_point", "is_point_underwater",
 			"fit_to_curve", "make_unique", "is_ribbon"]:
 		if not p_guide.contains(m):

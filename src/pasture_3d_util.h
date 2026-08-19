@@ -68,7 +68,7 @@ public:
 	//
 	// The O(area) half of Pasture3DPool.rebuild(): a uniform grid clipped to a closed loop, with
 	// interior lattice points shared between the four cells that touch them and boundary cells
-	// exactly clipped and triangulated. The GDScript implementation in connectors/pool.gd stays as
+	// exactly clipped and triangulated. The GDScript implementation in connectors/pasture3d_pool.gd stays as
 	// the A/B oracle -- selected by `force_gdscript_mesh` -- exactly as force_gdscript_raster does
 	// for the brushes, so the two can be compared on the same inputs at any time.
 	//
