@@ -4,8 +4,8 @@
 2026-08-10, phase 6 — the manager and pass chain, §19 — 2026-08-11).
 **PHASE 6.5 IMPLEMENTED** (2026-08-11): the selector half (§21.5, §21.6, gates BE–BH) and the container
 half (§21.2–§21.4, gates AZ–BD) are both built and gated. §21.7's folder-wide file rename is **done** (2026-08-19,
-its own commit, all 27 connectors), and §21.8's preview complaint is **diagnosed and still broken** — three
-divergences between the previewed field and the baked one, handed on as their own investigation.
+its own commit, all 27 connectors), and §21.8's preview complaint is **diagnosed and fixed** — three
+divergences between the previewed field and the baked one, each pinned by a gate.
 **Phase 7 DESIGNED, NOT BUILT** — moving the solve off the main thread (§20). Drafted 2026-08-08;
 **solver replaced the same
 day** after a survey of Houdini, World Machine, Gaea and the large-scale-terrain literature (§16).
@@ -59,6 +59,7 @@ Phases 1–6.5 ship as:
 | [bench/PreviewSimDiag.tscn](project/bench/PreviewSimDiag.gd) | §21.8's re-test of the preview complaint. **A diagnosis, not a gate** — it asserts nothing and prints three measured divergences that are still unfixed | 6.5 |
 | [bench/SimProfile.tscn](project/bench/SimProfile.gd) | §11 / §20.6's profiling pass. **A measurement, not a gate** — solve vs commit, and the depression fill's share of the solve | 6.5 |
 | [bench/SimFloodGate.tscn](project/bench/SimFloodGate.gd) | Gate BI — the monotone bucket queue floods bitwise identically to the binary heap it replaced | 6.5 |
+| [bench/SimPreviewGate.tscn](project/bench/SimPreviewGate.gd) | Gates BJ–BL — the previewed field is the field the bake will use (§21.8's three divergences, fixed) | 6.5 |
 
 Sections below carry **Built:** notes wherever the implementation departed from the design, and §14
 records the gate results and the criteria that were vacuous until their controls caught them.
@@ -905,7 +906,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **5 — DONE** | Masking: a stack of `Pasture3DReliefSelector`s driving the per-cell erodability field, plus a separate write mask. Reuses phase 3's filter types, units and falloff semantics; no solver change |
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DONE** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Clustered by margin-grown loop boxes, with a cell budget that REFUSES rather than coarsening; per-pass mask re-evaluation; one `SimResult`; one water extraction. Retires §5's seam limitation **for the solve** — adjacent loops must still overlap, or the per-pass falloff leaves a ridge at the join (§19) |
-| **6.5 — DONE (§21)** | Two independent halves, landed separately because they share no code. **The selector half** (§21.5, §21.6, gates BE–BH): per-filter-type presets that follow a filter type change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass` — one pass, many Sims, all reading one input surface and summing their deltas — plus a per-pass Sim Result and Simulate/Preview To Here. §21.7's `connectors/*.gd` → `pasture3d_*.gd` migration landed 2026-08-19 in its own commit. Still outstanding from this section: §21.8's preview complaint, which this phase re-tested and **did not fix** — the diagnosis found three divergences between the previewed field and the baked one, none of them the causes 6.5 removed, and hands them on as their own investigation |
+| **6.5 — DONE (§21)** | Two independent halves, landed separately because they share no code. **The selector half** (§21.5, §21.6, gates BE–BH): per-filter-type presets that follow a filter type change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass` — one pass, many Sims, all reading one input surface and summing their deltas — plus a per-pass Sim Result and Simulate/Preview To Here. §21.7's `connectors/*.gd` → `pasture3d_*.gd` migration landed 2026-08-19 in its own commit. §21.8's preview complaint was re-tested, and the re-test failed: the diagnosis found three divergences between the previewed field and the baked one, none of them the causes 6.5 removed. **All three are now fixed** (gates BJ–BL). **Nothing in section 21 is outstanding.** |
 | **7 — DESIGNED (§20), PROFILING GATE CLEARED** | The pure half of the solve moves onto a worker thread. The profiling §20.6 demanded was run 2026-08-19: **the commit is 0.4 % of a full-resolution build**, so 99.6 % of it is what phase 7 would move and the phase is worth building. The same pass found **depression filling is 61 % of the solve** (§11), which makes the cheaper win — `fill_every`, already implemented, or an O(n) priority-flood — the better thing to do first |
 | **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every filter type returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
@@ -951,7 +952,7 @@ must distinguish "measured nothing" from "measured correctly".
 > **A–Z is now fully consumed**, so later phases letter their criteria **AA onward**: phase 5 AA–AG
 > (§17.8), phase 6 AH–AN (§19.8), phase 7 AO–AR (§20.7), phase **5.5 AS–AY** (§18.7) and phase **6.5
 > AZ–BH** (§21.9), plus **BI** for the flood queue (§11), which belongs to no phase — it is an
-> optimisation the profiling pass turned up. Phase 5.5 was specced after 6 and 7, and 6.5 after all of them; each takes the letters
+> optimisation the profiling pass turned up, and **BJ–BL** for the mask preview (§21.8). Phase 5.5 was specced after 6 and 7, and 6.5 after all of them; each takes the letters
 > that were free rather than displacing theirs — the same rule that left A–Z out of phase order, applied
 > again. Read the *(phase n)* tags, not the alphabet.
 > Same reason: a single-letter scheme that has run out is not worth a renumbering that invalidates every
@@ -2088,9 +2089,8 @@ editor. Say so in the gate output rather than letting a green line imply more th
 > `bench/SimPhase65SelectorGate.tscn`, with its results after §21.6. The *container* half (§21.2, §21.3,
 > §21.4 — `Pasture3DSimPass`, per-pass masks, build-through) is pinned by gates AZ–BD in
 > `bench/SimPhase65PassGate.tscn`, with its results after §21.4. **§21.7's folder-wide rename is done**
-> (2026-08-19), in its own commit, all 27 connectors. **§21.8's preview complaint has now been diagnosed and is
-> still broken** — three divergences, none of them the two causes this phase removed, handed on as their
-> own investigation rather than folded in here.
+> (2026-08-19), in its own commit, all 27 connectors. **§21.8's preview complaint is diagnosed and fixed** — three
+> divergences, none of them the two causes this phase removed, each now pinned by a gate (BJ–BL).
 
 Phase 6 shipped a chain that is correct and a workflow that is not usable. This is the addendum that
 makes it usable. It is **6.5 rather than 8** because none of it is new capability — every item below is
@@ -2106,16 +2106,16 @@ its gates **AZ onward** for the same reason §14 already records: the free lette
 |---|---|
 | *"I can only iterate over curve"* | A pass is one `Pasture3DSim`, so everything except the loop — rate, diffusion, iterations, falloff, masks — is shared across every loop that pass owns. Several areas that need different **settings** can only be expressed as several **passes**, which forces a chain order onto things that were never meant to be ordered |
 | *"the Sim Result is empty, it never fills"* | Partly fixed already (the slot is hidden on a pass now), but the real complaint is underneath it: there is **one** result, at the manager, describing the whole chain. Nothing describes what pass 2 did |
-| *"the material preview does not work"* | Guessed to be downstream of the two above; **it is not**. §21.8's re-test found three real divergences between the previewed field and the baked one, and none of them is either row above. Its own investigation, still unfixed |
+| *"the material preview does not work"* | Guessed to be downstream of the two above; **it was not**. §21.8's re-test found three real divergences between the previewed field and the baked one, none of them either row above. **All three are now fixed** and pinned by gates BJ–BL |
 | *"the defaults are good for Slope but not for erosion"* | True, and worse for `CURVATURE`, whose documented range is simply wrong (§21.6) |
 
 The through-line is that **§19 designed for the finished build and not for the act of tuning one.** A
 chain you cannot inspect between its steps is a chain you can only tune by running the whole thing and
-guessing which pass moved what. **Three of the four rows are now addressed**: several settings over
+guessing which pass moved what. **All four rows are now addressed**: several settings over
 several areas is a container (§21.2), "nothing describes what pass 2 did" is the per-pass Sim Result
 (§21.3), the tuning loop is Simulate To Here (§21.4), and the defaults are the per-Filter-Type presets
-(§21.5). The preview complaint this spec deliberately did not fix is now **diagnosed and still open** —
-§21.8 has the three measured divergences and hands it on. §19.5 is the strongest thing in the feature and it is exactly the thing
+(§21.5). The preview complaint this spec deliberately did not fix up front is **diagnosed and fixed** —
+§21.8 has the three measured divergences and what each one became. §19.5 is the strongest thing in the feature and it is exactly the thing
 that makes single-shot tuning impossible: pass 2 reads pass 1's output, so pass 2's behaviour is not a
 function of pass 2's settings alone.
 
@@ -2574,7 +2574,7 @@ Prose mentions across the other eighteen spec documents were updated in the same
 specifically, because those two load `pool.gd` and `stream.gd` **by path** at runtime and so are the ones
 a broken path would take down rather than a stale reference nobody follows.
 
-### 21.8 Diagnose the preview before building anything for it — DIAGNOSED, STILL BROKEN
+### 21.8 Diagnose the preview before building anything for it — DIAGNOSED, THEN FIXED
 
 *"The material preview does not work"* had no fix in this spec on purpose, because the likeliest
 explanation was that it never had a chance to work:
@@ -2605,15 +2605,38 @@ at all — a `SLOPE`, `ALTITUDE` or `CURVATURE` band on any pass after the first
 41 m away from the one the bake will use. §19.5 is the reason the chain exists, and D3 is §19.5 made
 invisible.
 
-So this is now **its own investigation with its own gate**, as this section always said it would be if the
-re-test failed. It is not a line item folded into phase 6.5. Three notes for whoever specs it:
+It became **its own investigation with its own gate**, as this section always said it would if the
+re-test failed — and all three are now fixed, pinned by gates **BJ–BL** in
+[bench/SimPreviewGate.tscn](project/bench/SimPreviewGate.gd). The three notes left for whoever specced it
+turned out to be right, and each one became the fix:
 
-- D1 and D2 are the same shape — *the preview resolves a reference the way one node would, the bake
-  resolves it the way the whole program does* — and probably want one fix, not two.
-- D3 needs the preview to run the chain up to the pass being looked at, which **§21.4's `Simulate To Here`
-  already does**. The cheap version of D3 is "preview after a build-through", not a second solver path.
-- Whatever is built, the gate has to compare the previewed field against **the bake's own field**, the way
-  gate AS does. A gate that only checked the preview was non-blank would pass on all three of these.
+| Was | Fix |
+|---|---|
+| **D1** the preview resolved the reference the way one selector would | `_update_relief_mask_preview` now calls **`_relief_sim_result(p_relief)`** — the bake's own resolver — instead of reading `chosen.sim_result`. One resolver, one answer, by construction rather than by keeping two in step. |
+| **D2** the preview read a resource the bake ignores | `_mask_sim_dict` now returns **the previous pass's stored masks** (`manager().pass_result(idx - 1)`) whenever the node is managed. This is only possible because §21.3 landed: the previous pass's *live* fields are exactly what it saved. Pass 1 has no predecessor and reads a defined 0 in both paths, which is §19.5's documented behaviour rather than a gap. |
+| **D3** the preview read the pre-chain ground | The surface is now an overridable **`_preview_below`** hook. `Pasture3DSim` overrides it to read one layer further up the stack — through the manager's own committed delta — **exactly when the chain is built through the previous pass**, which is what §21.4's `Simulate To Here` produces. That is the "preview after a build-through" this section predicted, and it needs no second solver path. |
+
+**D3's fallback is the interesting half.** When the chain is *not* built to exactly the previous pass
+there is no correct surface to show, so the preview keeps the pre-chain ground and the node says so:
+*"The mask preview is drawn against the ground BEFORE the chain ran... Press Simulate To Here on pass N."*
+Drawing against the wrong surface was the defect; drawing against it **in silence** was what made it
+undiagnosable for four days.
+
+| Gate | Criterion | Control that must fail |
+|---|---|---|
+| BJ ✅ | **A stack's layers all preview against the result the bake resolves.** Two layers with the same band over the same ground preview the **same field to 0.000000000**, whichever holds the reference — compared layer-against-layer, so the area mask, grid and clipping are identical on both sides and the only thing left that can differ is the result each resolved. | A **different** result assigned to layer 1's own selector must move the preview by **0**, because the bake ignores it — if the field moves, the preview is still resolving per-selector. Plus a band that passes nothing, which must differ by **1.0000**, or every zero above is two blank fields agreeing. |
+| BK ✅ | **A managed Sim previews the previous pass's fields.** Pass 2's preview matches, **to 0.000000000**, a standalone Sim with identical geometry pointed at pass 1's stored result by hand. A `FLOW` band reads only the sim fields and never the ground, so the two nodes reading different surfaces cannot contaminate the comparison. | The same reference pointed at **pass 2's own** masks, which must differ (**1.000000**) — otherwise "the *previous* pass's" is untested and any result would have satisfied it. And pass 1, which has no predecessor, must preview a flat **0**. |
+| BL ✅ | **A managed Sim previews against the previous pass's output surface.** With nothing built, the preview surface is bitwise the pre-chain ground **and the node warns**. After `Simulate To Here` on pass 1 — which moved the ground **64.6 m** here — it is bitwise the chain's output **and the warning is gone**. | **Pass 1's own** preview surface must stay the pre-chain ground even after pass 1 is committed. If it followed the layer too, the override would be reading "whatever is baked" rather than "what my predecessor produced" — which is the §13 drift class, not a fix. |
+
+Tested on the **surface** rather than on a finished band, because the surface is what was wrong and a band
+only shows it indirectly. [bench/PreviewSimDiag.tscn](project/bench/PreviewSimDiag.gd), the original
+diagnosis, is kept and still runs: all three of its findings now report **NOT REPRODUCED** or **FIXED**,
+which is a cheaper regression witness than re-reading the gate.
+
+**Still true, and not a defect:** a managed Sim's preview grid is its own loops grown by its own margin,
+while the bake solves the whole *cluster*. At 1× the cell size is the same and the mask is clipped to the
+brush's own area either way, so what you see is what will bake — but the previewed texture covers more
+ground than that node alone will write.
 
 ### 21.9 Gates (phase 6.5)
 

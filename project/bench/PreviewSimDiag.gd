@@ -281,14 +281,41 @@ func _d2_managed_sim() -> void:
 	for i in range(z1.size()):
 		if is_finite(z1[i]) and is_finite(z2[i]):
 			drift = maxf(drift, absf(z2[i] - z1[i]))
-	print("    pass 1's input (= what the preview reads) vs pass 2's input (= what the bake gates on):")
+	print("    pass 1's input vs pass 2's input (the two surfaces in play):")
 	print("      max |difference| over %d cells: %.6f m" % [z1.size(), drift])
 	print("    CONTROL pass 1 against itself: %.6f m (want exactly 0)" % _self_drift(z1))
-	if drift > 0.0:
+	if drift <= 0.0:
+		print("    -> INCONCLUSIVE: pass 1 moved nothing here, so there is no difference to see.\n")
+		return
+
+	# The two surfaces differ, which is just the chain working. The QUESTION is which of them the preview
+	# reads — so ask the preview, rather than inferring it from the chain the way the first version of
+	# this diagnosis did.
+	var layer_id: int = mgr._ensure_layer_for(mgr._layer_owner, true)
+	var vs: float = _terrain.vertex_spacing
+	var pad := LOOP_HALF + CHAIN_MARGIN + 4.0
+	var mx := floorf((SITE_D2.x - pad) / vs) * vs
+	var mz := floorf((SITE_D2.z - pad) / vs) * vs
+	var gw := int(round(((ceilf((SITE_D2.x + pad) / vs) * vs) - mx) / vs)) + 1
+	var gh := int(round(((ceilf((SITE_D2.z + pad) / vs) * vs) - mz) / vs)) + 1
+	var ground: PackedFloat32Array = _data.composite_height_below(layer_id, mx, mz, vs, gw, gh)
+	var reads: PackedFloat32Array = p2._preview_below(layer_id, mx, mz, vs, gw, gh)
+	var on_ground := reads.to_byte_array() == ground.to_byte_array()
+	print("    with the WHOLE chain built, pass 2's preview reads the pre-chain ground: %s" % on_ground)
+	if not bool(mgr.simulate_now(1, false, 0).get("ok", false)):
+		print("    !! the build-through failed; cannot finish D3\n")
+		return
+	var after: PackedFloat32Array = p2._preview_below(layer_id, mx, mz, vs, gw, gh)
+	var chained: PackedFloat32Array = _data.composite_height_below(layer_id + 1, mx, mz, vs, gw, gh)
+	var on_chain := after.to_byte_array() == chained.to_byte_array()
+	print("    after Simulate To Here on pass 1, it reads pass 1's OUTPUT instead:      %s" % on_chain)
+	if on_ground and on_chain:
+		print("    -> D3 FIXED: the preview follows the build-through, and falls back with a warning")
+		print("       when the chain is not built to exactly the previous pass. Gate BL pins both halves.")
+	elif not on_chain:
 		print("    -> D3 CONFIRMED: for pass 2+ the previewed surface is not the surface the bake gates on.")
-		print("       This one affects SLOPE / ALTITUDE / CURVATURE too, not only the sim Filter Types.")
 	else:
-		print("    -> NOT REPRODUCED: pass 1 moved nothing here, so there is no difference to see.")
+		print("    -> PARTIAL: it reads the chain's output but the fallback is not the pre-chain ground.")
 	print("")
 
 

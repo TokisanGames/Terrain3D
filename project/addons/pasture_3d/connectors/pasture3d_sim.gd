@@ -525,6 +525,16 @@ func _managed_warnings() -> PackedStringArray:
 			+ "then drag it back in.") % [_layer_owner.trim_prefix(BRUSH_OWNER_PREFIX), manager().name])
 	if erodability_range.x <= 0.0 or erodability_range.y <= 0.0:
 		out.append("Erodability Range must be positive at both ends; a 0 multiplier stops erosion entirely.")
+	# §21.8 D3. The preview reads a surface, and for pass 2 onward the right one is what the pass before
+	# produced — which exists only in the layer, and only while the chain is built through exactly that
+	# pass. When it is not, the overlay still draws, against the PRE-CHAIN ground; on this demo terrain
+	# those two surfaces were measured 41 m apart. Saying which one you are looking at is the whole point,
+	# because a preview that is quietly answering a different question is the defect §18 exists to avoid.
+	if mask_preview != 0 and mgr != null and mgr.pass_index_of(self) > 0 and not _preview_surface_is_current():
+		out.append(("The mask preview is drawn against the ground BEFORE the chain ran, not against what "
+			+ "pass %d leaves behind — so a Slope, Altitude or Curvature band previews against a surface "
+			+ "this pass will never see. Press Simulate To Here on pass %d to make the preview exact.")
+			% [mgr.pass_index_of(self), mgr.pass_index_of(self)])
 	# §19.5: a sim-Kind selector under a manager reads the PREVIOUS PASS's live fields, so the standalone
 	# self-reference refusal (§17.6) does not apply and the resource pointer is overridden rather than
 	# obeyed. Both facts have to be said, because both change what the same selector does here.
@@ -1259,10 +1269,46 @@ func _self_references(p_sel: Pasture3DReliefSelector) -> bool:
 ## selectors pointed at different Sims would need two sets of four resampled grids, so the first wins and
 ## `_mask_warnings` says so rather than letting the second look like it is doing something.
 func _mask_sim_dict(p_list: Array) -> Dictionary:
+	# §21.8 D2. Under a manager the bake does NOT read the selector's `sim_result` — §19.5 gates a member
+	# on `p_st["fields"]`, the previous pass's LIVE flow / erosion / deposition / wetness. The node's own
+	# docs say to leave the resource null here, so the preview used to read an empty dict and show a
+	# defined 0 everywhere: blank, on exactly the idiom the pass chain exists to deliver. Since §21.3
+	# those live fields are stored on the pass that produced them, so the preview can show the same field
+	# the solver used. Pass 1 has no predecessor and reads a defined 0 in BOTH paths, which is §19.5's
+	# documented behaviour rather than a gap.
+	var mgr := manager()
+	if mgr != null:
+		var idx := mgr.pass_index_of(self)
+		return _sim_result_dict(mgr.pass_result(idx - 1)) if idx > 0 else {}
 	for s: Pasture3DReliefSelector in p_list:
 		if s != null and s.is_sim_filter_type() and s.sim_result != null and not _self_references(s):
 			return _sim_result_dict(s.sim_result)
 	return {}
+
+
+## §21.8 D3 — the surface this node's masks are really evaluated against.
+##
+## A standalone Sim, and pass 1 of a chain, both read the ground under the layer: the base class is right
+## for them. Pass N reads what pass N-1 produced, and the only place that surface exists outside a solve
+## is the manager's own layer — so this includes that layer (`layer_id + 1` sums one further up the
+## stack) exactly when the layer holds the chain built through pass N-1, and falls back to the base class
+## otherwise. `_managed_warnings` says which of the two you are looking at; it is never silent.
+func _preview_below(p_layer_id: int, p_min_x: float, p_min_z: float, p_cell: float,
+		p_gw: int, p_gh: int) -> PackedFloat32Array:
+	if _preview_surface_is_current():
+		return terrain.data.composite_height_below(p_layer_id + 1, p_min_x, p_min_z, p_cell, p_gw, p_gh)
+	return super(p_layer_id, p_min_x, p_min_z, p_cell, p_gw, p_gh)
+
+
+## True when the layer's committed delta ends exactly one pass before this one, so reading through it
+## gives this pass its real input surface. False for pass 1 and for a standalone Sim, where the base
+## class's read is already right, and false when the build-through is anywhere else or stale.
+func _preview_surface_is_current() -> bool:
+	var mgr := manager()
+	if mgr == null:
+		return false
+	var idx := mgr.pass_index_of(self)
+	return idx > 0 and mgr.built_through() == idx - 1
 
 
 ## Everything that can be wrong with one mask stack. `p_label` names it, because "a selector" is useless

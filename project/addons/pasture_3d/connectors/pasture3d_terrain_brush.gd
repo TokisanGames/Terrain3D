@@ -1037,7 +1037,7 @@ func _show_mask_preview(p_selectors: PackedFloat32Array, p_box: AABB, p_sim: Dic
 	if layer_id < 0:
 		var stack = terrain.data.get_layer_stack()
 		layer_id = stack.get_layer_count() if stack != null else -1
-	var below: PackedFloat32Array = terrain.data.composite_height_below(layer_id, b[0], b[2], cell, gw, gh)
+	var below: PackedFloat32Array = _preview_below(layer_id, b[0], b[2], cell, gw, gh)
 	if below.size() != gw * gh:
 		_clear_mask_preview()
 		return ""
@@ -1068,6 +1068,17 @@ func _show_mask_preview(p_selectors: PackedFloat32Array, p_box: AABB, p_sim: Dic
 	mat.set_mask_preview(get_instance_id(), _mask_preview_texture, rect, MASK_PREVIEW_COLOR)
 	return "mask preview: %dx%d cells at %.2f m over X %.0f..%.0f Z %.0f..%.0f%s" % [
 			gw, gh, cell, b[0], b[1], b[2], b[3], note]
+
+
+## The surface the preview evaluates its band against. The ground UNDER this brush's layer, which for
+## every brush that stamps once is exactly the ground its bake will read.
+##
+## Overridable because §19.5's pass chain breaks that identity: pass N of a manager reads what pass N-1
+## produced, not the pre-chain ground, and previewing a Slope band against a surface the chain has since
+## cut by tens of metres is §21.8's D3. `Pasture3DSim` overrides this; nothing else needs to.
+func _preview_below(p_layer_id: int, p_min_x: float, p_min_z: float, p_cell: float,
+		p_gw: int, p_gh: int) -> PackedFloat32Array:
+	return terrain.data.composite_height_below(p_layer_id, p_min_x, p_min_z, p_cell, p_gw, p_gh)
 
 
 ## Take the preview down, if this node still owns it. A no-op when another brush has claimed it since —
@@ -1173,8 +1184,12 @@ func _update_relief_mask_preview(p_relief) -> void:
 	var chosen: Pasture3DReliefSelector = _preview_selector(p_relief)
 	if chosen != null:
 		sel.append_array(PackedFloat32Array(chosen.to_params()))
-		if chosen.is_sim_filter_type() and chosen.sim_result != null:
-			sim = _sim_result_dict(chosen.sim_result)
+		# §21.8 D1: resolved the way the BAKE resolves it — `_relief_sim_result`, the first non-null
+		# result anywhere in the stack — and NOT from `chosen.sim_result`. The bake hands the whole
+		# compiled program one dict (see `_sim_result_for`), so a stack that carries its result on layer 0
+		# gates layer 1 correctly and used to preview it blank. One resolver, one answer, by construction.
+		if chosen.is_sim_filter_type():
+			sim = _sim_result_dict(_relief_sim_result(p_relief))
 	if sel.is_empty():
 		_clear_mask_preview()
 		return

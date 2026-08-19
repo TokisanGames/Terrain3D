@@ -363,6 +363,30 @@ func member_sims() -> Array:
 	return out
 
 
+## How far into the chain the layer's committed delta currently reaches, 0-based, or **-2 when nothing
+## usable is there** — never built, or built from a chain that has since changed. -1 means the whole chain.
+##
+## §21.8 D3: the mask preview reads a SURFACE, and for pass N that surface has to be the one pass N-1
+## produced. The only place that surface exists outside a solve is the layer itself, and it only says
+## something true while this hash still matches. So the preview asks this rather than reading
+## `_baked_upto` directly and trusting it.
+func built_through() -> int:
+	if _baked_hash == "" or _baked_hash != _bake_signature(_baked_upto):
+		return -2
+	return _baked_upto
+
+
+## The masks pass `p_index` produced, or null. §21.8 D2: a member's sim Filter Types are gated at bake
+## time on the PREVIOUS pass's live fields, and since §21.3 those fields are stored on the pass itself —
+## so this is the same field the solver used, which is what lets a preview show it.
+func pass_result(p_index: int) -> Pasture3DSimResult:
+	var ps := passes()
+	if p_index < 0 or p_index >= ps.size():
+		return null
+	var p: Node = ps[p_index]
+	return p._sim_result_res() if p.has_method("_sim_result_res") else null
+
+
 ## Which pass a node belongs to, 0-based. Accepts the pass itself or one of its members, so a Sim inside
 ## a container can ask where it is in the chain without knowing it is in one.
 func pass_index_of(p_node: Node) -> int:
