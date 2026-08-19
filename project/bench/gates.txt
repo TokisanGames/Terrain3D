@@ -4,10 +4,16 @@
 # one-line change in the same commit as the gate itself rather than a second edit somewhere else that
 # is easy to forget. `.github/workflows/gates.yml` reads it.
 #
-# WHAT BELONGS HERE: a scene that ends with `get_tree().quit(0 if _fail == 0 else 1)` and whose exit
-# code has actually been observed to be 0 on a passing run. Every entry below was run and its exit code
-# checked on 2026-08-19 before it was added — a list that fails for reasons unrelated to the change is
-# worse than no list, because the first red run teaches everyone to ignore it.
+# WHAT BELONGS HERE: a scene that ends with `get_tree().quit(0 if _fail == 0 else 1)` and that has been
+# watched printing a green verdict. Every entry below was run before it was added — a list that fails for
+# reasons unrelated to the change is worse than no list, because the first red run teaches everyone to
+# ignore it.
+#
+# DO NOT JUDGE A GATE BY ITS EXIT CODE. Several of these intermittently segfault at SHUTDOWN, after
+# printing a pass: SimPhase65SelectorGate did it on 3 runs in 4 on 2026-08-19, and SimPhase5Gate and
+# SimPhase55Gate do it too. Sampling exit codes a handful of times looked clean, which is exactly how an
+# intermittent fault hides. The workflow keys on the printed verdict and reports a post-verdict crash as
+# a warning; fixing the crash itself is its own job and nobody has done it.
 #
 # WHAT DOES NOT BELONG HERE: the probes and diagnostics. `PreviewSimDiag` and `SimProfile` assert
 # nothing and print measurements; `SimProfile` is a BENCHMARK and needs the user's go-ahead (§11, §14),

@@ -83,24 +83,47 @@ jobs:
           set -u
           fail=0
           passed=0
+          crashed=0
           while read -r scene; do
-            case "$scene" in ''|\#*) continue ;; esac
+            case "$scene" in ''|'#'*) continue ;; esac
             echo "::group::$scene"
             # `< /dev/null` is not decoration: a command inside `while read` inherits the loop's stdin
             # and will happily swallow the rest of the list, so the suite would silently run one gate
             # and report success.
-            if ./godot --headless --path project "$scene" < /dev/null; then
-              passed=$((passed + 1))
-              echo "PASS  $scene"
-            else
-              code=$?
-              fail=$((fail + 1))
-              echo "::error title=Gate failed::$scene exited $code"
-            fi
+            out="$(./godot --headless --path project "$scene" < /dev/null 2>&1)" && code=0 || code=$?
+            echo "$out"
+
+            # THE EXIT CODE ALONE IS NOT THE ANSWER, and finding that out cost a wrong claim. Several
+            # gates intermittently segfault at SHUTDOWN, after printing a green verdict — measured on
+            # 2026-08-19 at 3 runs in 4 for SimPhase65SelectorGate, on unmodified code. Sampling exit
+            # codes a handful of times looked clean, which is exactly how an intermittent fault hides.
+            #
+            # So: a gate passes when it SAYS it passed. A crash after a green verdict is a real defect,
+            # reported here as a warning, but it must not fail a PR about something else — a check that
+            # goes red at random is a check everybody learns to ignore.
+            #
+            # Two verdict formats are in use, "=== PASS ===" and "=== PASS (0 failures) ===", so the
+            # pattern accepts both. A FAIL verdict, or NO verdict at all, is a failure whatever the exit
+            # code says: no verdict means the run died before finishing, which is the case a bare grep
+            # for PASS would have let through.
+            verdict="$(echo "$out" | grep -oE '^=== .*(PASS|FAIL).*===' | tail -1)"
+            case "$verdict" in
+              *FAIL*|'')
+                fail=$((fail + 1))
+                echo "::error title=Gate failed::$scene / ${verdict:-no verdict line} (exit $code)"
+                ;;
+              *)
+                passed=$((passed + 1))
+                if [ "$code" -ne 0 ]; then
+                  crashed=$((crashed + 1))
+                  echo "::warning title=Gate passed but crashed on exit::$scene exited $code after reporting a pass"
+                fi
+                ;;
+            esac
             echo "::endgroup::"
           done < project/bench/gates.txt
           echo "----------------------------------------"
-          echo "$passed passed, $fail failed"
+          echo "$passed passed, $fail failed, $crashed passed-then-crashed"
           # Every scene runs even after one fails: a suite that stops at the first red tells you about one
           # problem per push, which is the slowest possible way to fix three.
           test "$fail" -eq 0
