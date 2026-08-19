@@ -187,20 +187,25 @@ void Terrain3DRegion::set_compressed_color_map(const Ref<Image> &p_map) {
 void Terrain3DRegion::compress_color_map(const CompressMode p_compress_mode) {
 	if (_color_map.is_null() || _color_map->is_empty()) {
 		LOG(ERROR, "Color map is null or empty");
+		return;
 	}
 	if (!IS_EDITOR) {
 		LOG(ERROR, "Cannot compress maps in export builds");
 		return;
 	}
-	if (p_compress_mode < COMPRESS_NONE && p_compress_mode >= COMPRESS_S3TC) {
+	if (p_compress_mode == COMPRESS_NONE) {
+		_last_color_compression = COMPRESS_NONE;
+		return;
+	}
+	if (p_compress_mode >= COMPRESS_S3TC && p_compress_mode <= COMPRESS_ASTC) {
 		LOG(INFO, "Compressing color map with mode: ", p_compress_mode);
 		_compressed_color_map = Image::create_from_data(_color_map->get_width(), _color_map->get_height(),
 				_color_map->has_mipmaps(), _color_map->get_format(), _color_map->get_data());
 		_compressed_color_map->copy_from(_color_map);
 		_compressed_color_map->compress_from_channels(Image::CompressMode(p_compress_mode), Image::USED_CHANNELS_RGBA);
 		_modified = true;
+		_last_color_compression = p_compress_mode;
 	}
-	_last_color_compression = p_compress_mode;
 }
 
 void Terrain3DRegion::check_compressed_color_map(const CompressMode p_compress_mode) {
@@ -449,10 +454,9 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 		dict["deleted"] = _deleted;
 		dict["location"] = _location;
 		// Resource duplicates
-		dict["height_map"] = Ref<Image>(_height_map->duplicate());
-		dict["control_map"] = Ref<Image>(_control_map->duplicate());
-		dict["color_map"] = Ref<Image>(_color_map->duplicate());
-		dict["compressed_color_map"] = _compressed_color_map.is_valid() ? Ref<Image>(_compressed_color_map->duplicate()) : Ref<Image>();
+		dict["height_map"] = _height_map->duplicate();
+		dict["control_map"] = _control_map->duplicate();
+		dict["color_map"] = _color_map->duplicate();
 		dict["instances"] = _instances.duplicate(true);
 		region->set_data(dict);
 	}
