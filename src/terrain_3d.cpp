@@ -1126,6 +1126,23 @@ PackedVector3Array Terrain3D::generate_nav_mesh_source_geometry(const AABB &p_gl
 	return faces;
 }
 
+Image::CompressMode Terrain3D::get_image_compress_mode(const CompressMode p_compress_mode) {
+	switch (p_compress_mode) {
+		case COMPRESS_S3TC:
+			return Image::COMPRESS_S3TC;
+		case COMPRESS_BPTC:
+			return Image::COMPRESS_BPTC;
+		case COMPRESS_ETC:
+			return Image::COMPRESS_ETC;
+		case COMPRESS_ETC2:
+			return Image::COMPRESS_ETC2;
+		case COMPRESS_ASTC:
+			return Image::COMPRESS_ASTC;
+		default:
+			return Image::COMPRESS_MAX;
+	}
+}
+
 void Terrain3D::set_warning(const uint8_t p_warning, const bool p_enabled) {
 	if (p_enabled) {
 		_warnings |= p_warning;
@@ -1374,6 +1391,13 @@ void Terrain3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(SIZE_1024);
 	BIND_ENUM_CONSTANT(SIZE_2048);
 
+	BIND_ENUM_CONSTANT(COMPRESS_NONE);
+	BIND_ENUM_CONSTANT(COMPRESS_S3TC);
+	BIND_ENUM_CONSTANT(COMPRESS_BPTC);
+	BIND_ENUM_CONSTANT(COMPRESS_ETC);
+	BIND_ENUM_CONSTANT(COMPRESS_ETC2);
+	BIND_ENUM_CONSTANT(COMPRESS_ASTC);
+
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
@@ -1551,6 +1575,7 @@ void Terrain3D::_bind_methods() {
 			&Terrain3D::get_raycast_result, DEFVAL(0xFFFFFFFF), DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("bake_mesh", "lod", "filter"), &Terrain3D::bake_mesh, DEFVAL(Terrain3DData::HEIGHT_FILTER_NEAREST));
 	ClassDB::bind_method(D_METHOD("generate_nav_mesh_source_geometry", "global_aabb", "require_nav"), &Terrain3D::generate_nav_mesh_source_geometry, DEFVAL(true));
+	ClassDB::bind_static_method("Terrain3D", D_METHOD("get_image_compress_mode", "compress_mode"), &Terrain3D::get_image_compress_mode);
 
 	ADD_PROPERTY(PropertyInfo(Variant::STRING, "version", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY), "", "get_version");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "debug_level", PROPERTY_HINT_ENUM, "Errors,Info,Debug,Extreme"), "set_debug_level", "get_debug_level");

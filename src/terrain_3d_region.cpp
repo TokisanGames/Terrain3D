@@ -38,8 +38,8 @@ void Terrain3DRegion::set_version(const real_t p_version) {
 	_version = version;
 	LOG(INFO, vformat("%.3f", _version));
 	if (_version < Terrain3DData::CURRENT_DATA_VERSION) {
-		LOG(WARN, "Region Data ", get_path(), " version ", vformat("%.3f", _version),
-				" will be updated to ", vformat("%.3f", Terrain3DData::CURRENT_DATA_VERSION), " upon save");
+		LOG(WARN, "Region ", get_path(), " v", vformat("%.3f", _version),
+				" will be upgraded to v", vformat("%.3f", Terrain3DData::CURRENT_DATA_VERSION), " upon save");
 	}
 }
 
@@ -191,11 +191,11 @@ void Terrain3DRegion::compress_color_map(const CompressMode p_compress_mode) {
 		return;
 	}
 	if (p_compress_mode > COMPRESS_NONE && p_compress_mode <= COMPRESS_ASTC) {
-		LOG(INFO, "Compressing color map with ", COMPRESS_STR[p_compress_mode]);
+		LOG(INFO, "Compressing color map with mode: ", p_compress_mode);
 		_compressed_color_map = Image::create_from_data(_color_map->get_width(), _color_map->get_height(),
 				_color_map->has_mipmaps(), _color_map->get_format(), _color_map->get_data());
 		_compressed_color_map->copy_from(_color_map);
-		_compressed_color_map->compress_from_channels(get_image_compress_mode(p_compress_mode), Image::USED_CHANNELS_RGBA);
+		_compressed_color_map->compress_from_channels(Terrain3D::get_image_compress_mode(p_compress_mode), Image::USED_CHANNELS_RGBA);
 		_modified = true;
 	}
 }
@@ -443,23 +443,6 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 	return region;
 }
 
-Image::CompressMode Terrain3DRegion::get_image_compress_mode(const CompressMode p_compress_mode) {
-	switch (p_compress_mode) {
-		case COMPRESS_S3TC:
-			return Image::COMPRESS_S3TC;
-		case COMPRESS_BPTC:
-			return Image::COMPRESS_BPTC;
-		case COMPRESS_ETC:
-			return Image::COMPRESS_ETC;
-		case COMPRESS_ETC2:
-			return Image::COMPRESS_ETC2;
-		case COMPRESS_ASTC:
-			return Image::COMPRESS_ASTC;
-		default:
-			return Image::COMPRESS_MAX;
-	}
-}
-
 void Terrain3DRegion::dump(const bool verbose) const {
 	LOG(MESG, "Region: ", _location, ", version: ", vformat("%.2f", _version), ", size: ", _region_size,
 			", spacing: ", vformat("%.1f", _vertex_spacing), ", range: ", vformat("%.2v", _height_range),
@@ -502,13 +485,6 @@ void Terrain3DRegion::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_CONTROL);
 	BIND_ENUM_CONSTANT(TYPE_COLOR);
 	BIND_ENUM_CONSTANT(TYPE_MAX);
-
-	BIND_ENUM_CONSTANT(COMPRESS_NONE);
-	BIND_ENUM_CONSTANT(COMPRESS_S3TC);
-	BIND_ENUM_CONSTANT(COMPRESS_BPTC);
-	BIND_ENUM_CONSTANT(COMPRESS_ETC);
-	BIND_ENUM_CONSTANT(COMPRESS_ETC2);
-	BIND_ENUM_CONSTANT(COMPRESS_ASTC);
 
 	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DRegion::clear);
 	ClassDB::bind_method(D_METHOD("set_version", "version"), &Terrain3DRegion::set_version);
@@ -561,7 +537,6 @@ void Terrain3DRegion::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_data", "data"), &Terrain3DRegion::set_data);
 	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3DRegion::get_data);
 	ClassDB::bind_method(D_METHOD("duplicate", "deep"), &Terrain3DRegion::duplicate, DEFVAL(false));
-	ClassDB::bind_static_method("Terrain3DRegion", D_METHOD("get_image_compress_mode", "compress_mode"), &Terrain3DRegion::get_image_compress_mode);
 	ClassDB::bind_method(D_METHOD("dump", "verbose"), &Terrain3DRegion::dump, DEFVAL(false));
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;

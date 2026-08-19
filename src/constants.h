@@ -10,7 +10,7 @@
 #include <godot_cpp/variant/vector2i.hpp>
 #include <godot_cpp/variant/vector3.hpp>
 
-// GDExtension uses the godot namespace, custom modules do not.
+// GDExtension uses the godot namespace, custom modules do not
 #if defined(GDEXTENSION) && !defined(GODOT_MODULE)
 using namespace godot;
 #endif
@@ -31,6 +31,18 @@ static const Color COLOR_WHITE{ 1.0f, 1.0f, 1.0f, 1.0f };
 #define COLOR_CHECKED Color(1.f, 1.f, 1.0f, -1.0f)
 #define COLOR_NORMAL Color(0.5f, 0.5f, 1.0f, 1.0f)
 #define COLOR_CONTROL Color(as_float(enc_auto(true)), 0.f, 0.f, 1.0f)
+
+// Enums
+
+enum CompressMode {
+	COMPRESS_NONE,
+	COMPRESS_S3TC,
+	COMPRESS_BPTC,
+	COMPRESS_ETC,
+	COMPRESS_ETC2,
+	COMPRESS_ASTC,
+};
+VARIANT_ENUM_CAST(CompressMode);
 
 // For consistency between MSVC, gcc, clang
 #ifndef FLT_MAX

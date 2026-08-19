@@ -42,27 +42,9 @@ public: // Constants
 		COLOR_NAN, // TYPE_MAX, unused just in case someone indexes the array
 	};
 
-	enum CompressMode {
-		COMPRESS_NONE,
-		COMPRESS_S3TC,
-		COMPRESS_BPTC,
-		COMPRESS_ETC,
-		COMPRESS_ETC2,
-		COMPRESS_ASTC,
-	};
-
-	static inline const char *COMPRESS_STR[] = {
-		"COMPRESS_NONE",
-		"COMPRESS_S3TC",
-		"COMPRESS_BPTC",
-		"COMPRESS_ETC",
-		"COMPRESS_ETC2",
-		"COMPRESS_ASTC",
-	};
-
 private:
 	// Saved data
-	real_t _version = 0.8f; // Set to first version to ensure we always upgrades this
+	real_t _version = 0.8f; // Set to first version. See Terrain3DData::CURRENT_DATA_VERSION
 	int _region_size = 0;
 	Vector2 _height_range = V2_ZERO;
 	// Maps
@@ -142,16 +124,12 @@ public:
 	void set_data(const Dictionary &p_data);
 	Dictionary get_data() const;
 	Ref<Terrain3DRegion> duplicate(const bool p_deep = false);
-	static Image::CompressMode get_image_compress_mode(const CompressMode p_compress_mode);
-
 	void dump(const bool verbose = false) const;
 
 protected:
 	static void _bind_methods();
 };
 
-using CompressMode = Terrain3DRegion::CompressMode;
-VARIANT_ENUM_CAST(Terrain3DRegion::CompressMode);
 using MapType = Terrain3DRegion::MapType;
 VARIANT_ENUM_CAST(Terrain3DRegion::MapType);
 constexpr Terrain3DRegion::MapType TYPE_HEIGHT = Terrain3DRegion::MapType::TYPE_HEIGHT;

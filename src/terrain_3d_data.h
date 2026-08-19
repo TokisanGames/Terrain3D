@@ -15,7 +15,7 @@ class Terrain3DData : public Object {
 	friend Terrain3D;
 
 public: // Constants
-	static inline const real_t CURRENT_DATA_VERSION = 0.93f; // Current Data format version
+	static inline const real_t CURRENT_DATA_VERSION = 1.10f; // Current Data format version
 	static inline const int REGION_MAP_SIZE = 32;
 	static inline const Vector2i REGION_MAP_VSIZE = V2I(REGION_MAP_SIZE);
 
@@ -128,7 +128,7 @@ public:
 
 	// File I/O
 	void save_directory(const String &p_dir);
-	void save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit = false, const CompressMode p_color_compress_mode = Terrain3DRegion::COMPRESS_NONE);
+	void save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit = false, const CompressMode p_color_compress_mode = COMPRESS_NONE);
 	void load_directory(const String &p_dir);
 	void load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update = true);
 

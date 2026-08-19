@@ -63,7 +63,7 @@ private:
 	// Regions
 	RegionSize _region_size = SIZE_256;
 	bool _save_16_bit = false;
-	CompressMode _color_compress_mode = Terrain3DRegion::COMPRESS_NONE;
+	CompressMode _color_compress_mode = COMPRESS_NONE;
 	bool _free_color_map = false;
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
@@ -179,9 +179,9 @@ public:
 	void change_region_size(const RegionSize p_size) { _data ? _data->change_region_size(p_size) : void(); }
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
-	void set_color_compress_mode(const CompressMode p_compress_mode = Terrain3DRegion::COMPRESS_NONE);
-	Terrain3DRegion::CompressMode get_color_compress_mode() const { return _color_compress_mode; }
-	Image::CompressMode get_color_image_compress_mode() const { return Terrain3DRegion::get_image_compress_mode(_color_compress_mode); }
+	void set_color_compress_mode(const CompressMode p_compress_mode = COMPRESS_NONE);
+	CompressMode get_color_compress_mode() const { return _color_compress_mode; }
+	Image::CompressMode get_color_image_compress_mode() const { return get_image_compress_mode(_color_compress_mode); }
 	void set_free_color_map(const bool p_free_color_map) { _free_color_map = p_free_color_map; }
 	bool get_free_color_map() const { return _free_color_map; }
 	void set_label_distance(const real_t p_distance);
@@ -286,6 +286,7 @@ public:
 	Dictionary get_raycast_result(const Vector3 &p_src_pos, const Vector3 &p_direction, const uint32_t p_col_mask = 0xFFFFFFFF, const bool p_exclude_self = false) const;
 	Ref<Mesh> bake_mesh(const int p_lod, const Terrain3DData::HeightFilter p_filter = Terrain3DData::HEIGHT_FILTER_NEAREST) const;
 	PackedVector3Array generate_nav_mesh_source_geometry(const AABB &p_global_aabb, const bool p_require_nav = true) const;
+	static Image::CompressMode get_image_compress_mode(const CompressMode p_compress_mode);
 
 	// Warnings
 	void set_warning(const uint8_t p_warning, const bool p_enabled);
@@ -348,8 +349,8 @@ protected:
 	static void _bind_methods();
 };
 
-VARIANT_ENUM_CAST(Terrain3D::RegionSize);
 VARIANT_ENUM_CAST(Terrain3D::DebugLevel);
+VARIANT_ENUM_CAST(Terrain3D::RegionSize);
 
 constexpr Terrain3D::DebugLevel MESG = Terrain3D::DebugLevel::MESG;
 constexpr Terrain3D::DebugLevel WARN = Terrain3D::DebugLevel::WARN;
