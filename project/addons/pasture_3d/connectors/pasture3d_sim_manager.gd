@@ -142,6 +142,9 @@ const RESULT_MAX_CELLS: int = 4194304
 ## Diffusion sub-steps the last solve actually used, across every pass (the worst case, since one pass
 ## hitting the ceiling is enough to under-smooth the chain).
 var _last_substeps: int = 0
+## Worst deposition sweep count across the chain, and whether any pass hit the ceiling.
+var _last_dep_sweeps: int = 0
+var _dep_capped: bool = false
 
 ## §19.8 gates AH and AL: when set, every pass's input and output surface is kept so a gate can assert
 ## that pass 2's input IS pass 1's output, bitwise, and that a mask was evaluated against it. Off by
@@ -286,6 +289,10 @@ func _get_configuration_warnings() -> PackedStringArray:
 	if _last_substeps >= 64:
 		warnings.append(("At least one pass's Hillslope Diffusion is large enough that the explicit "
 			+ "diffusion pass hit its sub-step ceiling, so less smoothing was applied than asked for."))
+	if _dep_capped:
+		warnings.append(("At least one pass's Deposition is high enough that the solver hit its sweep "
+			+ "ceiling before converging, so that pass's surface is an unconverged estimate. Lower its "
+			+ "Deposition, or raise its Iterations so each step moves less."))
 	warnings.append_array(_result_warnings(_baked_hash))
 	if _water_preview != "":
 		warnings.append("Water features: %s." % _water_preview)
@@ -853,6 +860,8 @@ func _solve_chunk(p_st: Dictionary) -> bool:
 		return true
 	p_st["z_solved"] = res["z"]
 	_last_substeps = maxi(_last_substeps, int(res.get("diffusion_substeps", 0)))
+	_last_dep_sweeps = maxi(_last_dep_sweeps, int(res.get("deposition_sweeps", 0)))
+	_dep_capped = _dep_capped or bool(res.get("deposition_capped", false))
 	p_st["done"] = int(p_st["done"]) + chunk
 	p_st["iterations_done"] = int(p_st["iterations_done"]) + chunk
 	if int(p_st["done"]) < iters:
@@ -915,7 +924,7 @@ func _start_member(p_st: Dictionary, p_member: Dictionary) -> bool:
 		"time_step": 1.0,
 		"erosion_rate": sim.erosion_rate,
 		"area_exponent": sim.area_exponent,
-		"diffusion": sim.hillslope_diffusion,
+		"diffusion": sim.hillslope_diffusion, "deposition": sim.deposition,
 		"erodability_min": e_lo, "erodability_max": e_hi,
 		"erodability_w": e_w, "erodability_h": e_h,
 	}
@@ -1086,7 +1095,7 @@ func _diagnose(p_st: Dictionary, p_z: PackedFloat32Array) -> Dictionary:
 	var params := {
 		"gw": p_st["sw"], "gh": p_st["sh"], "cell_size": p_st["cell"],
 		"time_step": 1.0, "iterations": 0, "want_diagnostics": true,
-		"erosion_rate": 0.0, "area_exponent": 0.45, "diffusion": 0.0,
+		"erosion_rate": 0.0, "area_exponent": 0.45, "diffusion": 0.0, "deposition": 0.0,
 	}
 	var res: Dictionary = terrain.data.erode_heightfield(p_z, params, PackedFloat32Array())
 	if not bool(res.get("ok", false)):
@@ -1144,6 +1153,8 @@ func _finish(p_ctx: Dictionary) -> Dictionary:
 	report["cells"] = cells
 	report["msec"] = Time.get_ticks_msec() - int(p_ctx["t0"])
 	report["substeps"] = _last_substeps
+	report["dep_sweeps"] = _last_dep_sweeps
+	report["dep_capped"] = _dep_capped
 	print("%s: %s %d cluster(s), %d member run(s)%s, %d sim cells, %d ms.%s" % [
 			_sim_label(), "previewed" if is_preview else "simulated", solved.size(), pass_runs,
 			"" if up_to < 0 else " through pass %d of %d" % [up_to + 1, passes().size()], cells,

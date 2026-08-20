@@ -40,6 +40,17 @@ constexpr int DIFFUSION_SUBSTEPS_MAX = 64;
 // "uphill" across a filled basin from being raised by the implicit update.
 constexpr double SUBMERGED_TOLERANCE = 1.0e-6;
 
+// ---- The deposition term's Gauss-Seidel loop (Yuan et al. 2019) -----------------------------------
+//
+// With G > 0 a cell's new elevation depends on how much its whole upstream catchment eroded THIS step,
+// and that erosion depends on the new elevations — so the step is implicit in a way one downstream sweep
+// cannot resolve, and is iterated to a fixed point instead. Convergence is independent of grid size but
+// degrades sharply as G approaches 1 (the transport-limited end), which is why the cap exists and is
+// reported rather than hidden.
+constexpr double DEPOSITION_TOL_REL = 1.0e-6; // scaled by the largest |z| in the field
+constexpr double DEPOSITION_TOL_ABS = 1.0e-6; // metres, so a flat field still has a floor
+constexpr int DEPOSITION_SWEEPS_MAX = 50; // ~20 is the published worst case near G = 1
+
 struct FloodEntry {
 	double z;
 	int64_t seq; // insertion counter — breaks elevation ties deterministically
@@ -200,6 +211,7 @@ ErosionParams godot::erosion_params_from_dict(const Dictionary &p_params) {
 	p.erosion_rate = (double)p_params.get("erosion_rate", p.erosion_rate);
 	p.area_exponent = (double)p_params.get("area_exponent", p.area_exponent);
 	p.diffusion = (double)p_params.get("diffusion", p.diffusion);
+	p.deposition = (double)p_params.get("deposition", p.deposition);
 	p.erodability_min = (double)p_params.get("erodability_min", p.erodability_min);
 	p.erodability_max = (double)p_params.get("erodability_max", p.erodability_max);
 	p.erodability_w = (int)p_params.get("erodability_w", p.erodability_w);
@@ -295,6 +307,11 @@ ErosionResult godot::erosion_solve(const std::vector<float> &p_z, const ErosionP
 	work.reserve((size_t)n);
 	std::vector<double> lake((size_t)n, 0.0);
 	std::vector<double> lap;
+	// Yuan et al. 2019's three extra fields, allocated ONLY when G > 0 so the detachment-limited path
+	// costs exactly what it always did — which is what makes gate BS's bitwise control a real control.
+	// `ht` is the elevation at the start of the step (fixed through the sweeps), `hp` the previous
+	// sweep's iterate, `sed` the erosion accumulated down the drainage tree.
+	std::vector<double> ht, hp, sed;
 	// Declared out here, like every other working array: the flood runs once per iteration and its
 	// buckets keep their capacity between rebuilds, so 30 iterations allocate once rather than 30 times.
 	MonotoneFloodQueue flood_q;
@@ -305,6 +322,13 @@ ErosionResult godot::erosion_solve(const std::vector<float> &p_z, const ErosionP
 	const double kdt = dt * p_params.erosion_rate;
 	const double m = p_params.area_exponent;
 	const double ddt = dt * p_params.diffusion;
+	const double g_dep = std::max(p_params.deposition, 0.0);
+	const bool has_dep = g_dep > 0.0;
+	if (has_dep) {
+		ht.assign((size_t)n, 0.0);
+		hp.assign((size_t)n, 0.0);
+		sed.assign((size_t)n, 0.0);
+	}
 
 	int diffusion_substeps = 1;
 	double diff_step = 0.0;
@@ -501,27 +525,96 @@ ErosionResult godot::erosion_solve(const std::vector<float> &p_z, const ErosionP
 		// ---- 4.3 Implicit stream-power incision --------------------------------------------------
 		// Downstream-first: z[r] is already this iteration's value when i is visited, which is what
 		// makes the scheme implicit (and unconditionally stable) rather than merely explicit.
-		if (kdt > 0.0) {
+		//
+		// The incision of ONE cell, from a starting elevation `p_from` — which is the cell's own current
+		// elevation in the detachment-limited path and its post-deposition elevation in the transporting
+		// one. Shared so the three guards below cannot drift between the two.
+		const auto incise = [&](const int i, const int r, const double p_from) -> double {
+			if (lake[(size_t)i] > SUBMERGED_TOLERANCE) {
+				return p_from; // under standing water: deposits, does not incise
+			}
+			const double zr = zz[(size_t)r];
+			if (zr >= p_from) {
+				return p_from; // routed across a filled basin; incising here would RAISE the cell
+			}
+			const int dx = (i % gw) - (r % gw);
+			const int dz = (i / gw) - (r / gw);
+			const double len = (dx != 0 && dz != 0) ? diag : cell;
+			const double kp = kdt * (double)erod[(size_t)i] * std::pow(area[(size_t)i], m) / len;
+			const double zn = (p_from + kp * zr) / (1.0 + kp);
+			return std::max(zn, zr); // §4.3: never incise below the receiver
+		};
+
+		if (kdt > 0.0 && !has_dep) {
 			for (size_t k = 0; k < stack.size(); k++) {
 				const int i = stack[k];
 				const int r = receiver[(size_t)i];
 				if (r == i || boundary[(size_t)i]) {
 					continue;
 				}
-				if (lake[(size_t)i] > SUBMERGED_TOLERANCE) {
-					continue; // under standing water: deposits, does not incise
+				zz[(size_t)i] = incise(i, r, zz[(size_t)i]);
+			}
+		} else if (kdt > 0.0) {
+			// ---- 4.3b Stream power WITH deposition (Yuan et al. 2019) ----------------------------
+			//
+			// A cell receives `G * Qs / A` metres of sediment, where Qs is everything its catchment shed
+			// this step. Qs depends on the new elevations upstream, which depend on their own deposition,
+			// so one downstream sweep cannot close it: the step is iterated to a fixed point.
+			//
+			// Deposition is applied to `elev` BEFORE incision, so a cell that gains material can then be
+			// cut back into — which is what lays a fan down and then lets the channel re-cross it.
+			//
+			// The three guards live in `incise` and gate the INCISION only. Deposition applies whatever
+			// they say, and that is deliberate: a cell under standing water is precisely where sediment
+			// settles, so a lake must be allowed to fill even though it must not be allowed to cut.
+			double zmax_abs = 0.0;
+			for (int64_t i = 0; i < n; i++) {
+				ht[(size_t)i] = zz[(size_t)i];
+				hp[(size_t)i] = zz[(size_t)i];
+				sed[(size_t)i] = 0.0;
+				zmax_abs = std::max(zmax_abs, std::fabs(zz[(size_t)i]));
+			}
+			const double tol = DEPOSITION_TOL_REL * zmax_abs + DEPOSITION_TOL_ABS;
+			int sweeps = 0;
+			while (sweeps < DEPOSITION_SWEEPS_MAX) {
+				sweeps++;
+				for (size_t k = 0; k < stack.size(); k++) {
+					const int i = stack[k];
+					const int r = receiver[(size_t)i];
+					if (r == i || boundary[(size_t)i]) {
+						continue; // a boundary cell is fixed base level: sediment leaves through it
+					}
+					// `sed` carries this cell's own erosion as well as its catchment's, so its own share
+					// comes back off — a cell does not deposit the material it just shed itself.
+					const double own = ht[(size_t)i] - hp[(size_t)i];
+					const double upstream = sed[(size_t)i] - own;
+					const double elev = ht[(size_t)i] +
+							g_dep * cell_area * upstream / area[(size_t)i];
+					zz[(size_t)i] = incise(i, r, elev);
 				}
-				const double zr = zz[(size_t)r];
-				const double zi = zz[(size_t)i];
-				if (zr >= zi) {
-					continue; // routed across a filled basin; incising here would RAISE the cell
+				// Fixed-point test on the sweep's own movement, then re-accumulate the drainage tree's
+				// sediment for the next one. Leaves first, exactly as the drainage-area pass runs.
+				double err2 = 0.0;
+				for (int64_t i = 0; i < n; i++) {
+					const double d = zz[(size_t)i] - hp[(size_t)i];
+					err2 += d * d;
+					hp[(size_t)i] = zz[(size_t)i];
+					sed[(size_t)i] = ht[(size_t)i] - zz[(size_t)i];
 				}
-				const int dx = (i % gw) - (r % gw);
-				const int dz = (i / gw) - (r / gw);
-				const double len = (dx != 0 && dz != 0) ? diag : cell;
-				const double kp = kdt * (double)erod[(size_t)i] * std::pow(area[(size_t)i], m) / len;
-				const double zn = (zi + kp * zr) / (1.0 + kp);
-				zz[(size_t)i] = std::max(zn, zr); // §4.3: never incise below the receiver
+				for (size_t k = stack.size(); k-- > 0;) {
+					const int i = stack[k];
+					const int r = receiver[(size_t)i];
+					if (r != i) {
+						sed[(size_t)r] += sed[(size_t)i];
+					}
+				}
+				if (std::sqrt(err2 / (double)n) <= tol) {
+					break;
+				}
+			}
+			out.deposition_sweeps = std::max(out.deposition_sweeps, sweeps);
+			if (sweeps >= DEPOSITION_SWEEPS_MAX) {
+				out.deposition_capped = true;
 			}
 		}
 

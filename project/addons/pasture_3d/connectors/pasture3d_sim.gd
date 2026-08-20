@@ -93,6 +93,21 @@ const RESULT_MAX_CELLS: int = 4194304
 ## gullies end up.
 @export_range(0.0, 10.0, 0.01, "or_greater") var hillslope_diffusion: float = 0.15
 
+## How much of what the rivers strip out gets laid back DOWN, instead of leaving the map (Yuan et al.
+## 2019's G). This is the difference between a landscape that reads as weathered and one that reads as
+## cut: at 0 the solver only removes material -- no alluvial fans, no valley fill, and the Deposition
+## mask stays nearly empty.
+##
+## 0 = detachment-limited, exactly the solver Pasture3D shipped before this existed. Toward 1 the rivers
+## carry an increasing share of their load only as far as the next place it can settle -- fans where a
+## channel leaves the steep ground, silt in the basins, aprons at the foot of a slope. 0.3-0.6 is the
+## useful range for landscape work; 1 is the transport-limited end member.
+##
+## [b]It is not free.[/b] A cell's new height now depends on how much its whole upstream catchment eroded
+## in the same step, which can only be solved by iterating -- and the iteration count climbs steeply as
+## this approaches 1 (about 1 sweep near 0, 20 near 1, capped at 50). The node warns if it hits the cap.
+@export_range(0.0, 1.0, 0.01) var deposition: float = 0.0
+
 @export_group("Erodability")
 ## Rock softness across the area (§7): white erodes at Erodability Range's max, black at its min.
 ## Sampled once across the whole simulated area, the loop's oriented bounds included. Null = uniform.
@@ -258,6 +273,9 @@ const RESULT_MAX_CELLS: int = 4194304
 ## Diffusion sub-steps the last solve actually used (§4.4). Reported when it hit the ceiling, which is
 ## the only way an over-large diffusion setting is visible rather than silently clamped.
 var _last_substeps: int = 0
+## Worst Gauss-Seidel sweep count the deposition term needed, and whether it hit the ceiling.
+var _last_dep_sweeps: int = 0
+var _dep_capped: bool = false
 
 
 # ---- Pasture3DSimBase hooks (spec §19.7) ----------------------------------------------------------
@@ -394,7 +412,7 @@ func pass_spec() -> Dictionary:
 		"node": self, "name": name,
 		"iterations": maxi(iterations, 1),
 		"erosion_rate": erosion_rate, "area_exponent": area_exponent,
-		"diffusion": hillslope_diffusion,
+		"diffusion": hillslope_diffusion, "deposition": deposition,
 		"erodability_map": erodability_map, "erodability_range": erodability_range,
 		"erosion_mask": erosion_mask, "write_mask": write_mask,
 		"falloff_width": maxf(falloff_width, 0.001), "falloff_curve": falloff_curve,
@@ -466,6 +484,11 @@ func _get_configuration_warnings() -> PackedStringArray:
 		warnings.append(("Hillslope Diffusion is large enough that the explicit diffusion pass hit its "
 			+ "sub-step ceiling, so less smoothing was applied than asked for. Lower it, or simulate at "
 			+ "a coarser resolution."))
+	if _dep_capped:
+		warnings.append(("Deposition is high enough that the solver hit its sweep ceiling before "
+			+ "converging, so the surface is an unconverged estimate rather than what was asked for. "
+			+ "Lower Deposition (it converges much faster below about 0.7), or raise Iterations so each "
+			+ "step moves less."))
 	warnings.append_array(_result_warnings(_baked_hash))
 	# §15 open question 7: two Sims sharing a layer wipe each other, because baking one clears the shared
 	# layer's tiles under its box and a Sim cannot be repainted from its spline (§12). The check needs the
@@ -850,6 +873,8 @@ func _finish(p_ctx: Dictionary) -> Dictionary:
 	report["cells"] = cells
 	report["msec"] = Time.get_ticks_msec() - int(p_ctx["t0"])
 	report["substeps"] = _last_substeps
+	report["dep_sweeps"] = _last_dep_sweeps
+	report["dep_capped"] = _dep_capped
 	print("Pasture3DSim '%s': %s %d area(s), %d sim cells, %d ms.%s" % [
 			name, "previewed" if is_preview else "simulated", solved.size(), cells, report["msec"],
 			"\n  " + str(report["masks"]) if report["masks"] != "" else ""])
@@ -947,6 +972,7 @@ func _prepare_solve(p_path: Path3D, p_layer_id: int, p_scale: int) -> Dictionary
 			"erosion_rate": erosion_rate,
 			"area_exponent": area_exponent,
 			"diffusion": hillslope_diffusion,
+			"deposition": deposition,
 			"erodability_min": e_lo,
 			"erodability_max": e_hi,
 			"erodability_w": e_w, "erodability_h": e_h,
@@ -976,6 +1002,8 @@ func _solve_chunk(p_state: Dictionary) -> bool:
 		return true
 	p_state["z"] = res["z"]
 	_last_substeps = int(res.get("diffusion_substeps", 0))
+	_last_dep_sweeps = maxi(_last_dep_sweeps, int(res.get("deposition_sweeps", 0)))
+	_dep_capped = _dep_capped or bool(res.get("deposition_capped", false))
 	p_state["done"] = done + chunk
 	return p_state["done"] >= iterations
 

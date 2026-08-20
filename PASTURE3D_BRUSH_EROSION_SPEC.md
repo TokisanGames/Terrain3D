@@ -8,10 +8,12 @@ updated: 2026-08-20
 # Pasture3D Brush Erosion Spec (`Pasture3DMound.erosion`, and four things it needs)
 
 **Status:** Drafted 2026-08-20 from a design interview after four months of using the shipped relief and
-Sim systems. **PHASE 1 BUILT 2026-08-20** (§4) — gates BM–BQ pass headless in
+Sim systems. **PHASES 1 AND 2 BUILT 2026-08-20** (§4, §5) — gates BM–BQ pass headless in
 [bench/HostProfileGate.tscn](project/bench/HostProfileGate.gd), and `bench/PlowReliefCheck.tscn` and
 `bench/MoundReliefCheck.tscn` both re-run at 0 failures, which is the migration evidence.
-**User-verified in the editor 2026-08-20** (Strata banding a Mound's own profile). Phases 2–6 are NOT BUILT.
+**Phase 1 user-verified in the editor 2026-08-20** (Strata banding a Mound's own profile); phase 2 is
+headless-only so far. Gates BR–BU pass in [bench/SedimentGate.tscn](project/bench/SedimentGate.gd),
+and all twelve existing Sim gate suites re-run at 0 failures. Phases 3–6 are NOT BUILT.
 Target: Godot 4.7, Pasture3D `main`.
 
 > **One departure from §4.2, decided during the build.** The Host Profile divisor is the **measured peak
@@ -175,13 +177,19 @@ every scene already built.
 > shape as §4.4's diffusion sub-stepping, for the same reason: silently clamping what the artist asked for
 > is worse than telling them it was not reached.
 
-**Two existing gates are invalidated, and must be re-derived rather than re-tuned.**
+**Two existing gates are SCOPED by this phase, not invalidated — a correction to this spec's first
+draft.** Both remain true at `G = 0`, which is the default and what every existing scene runs at, so
+`SimPhase1Gate` and `SimPhase2Gate` pass untouched and were confirmed to.
 
-- **Gate R** (*"with `hillslope_diffusion = 0`, deposition is IDENTICALLY zero"*) becomes false by
-  construction — a transporting solver deposits with no diffusion at all. §15.8 of the Sim spec predicted
-  exactly this. Its replacement is **BR**.
-- **Gate S** (deposited volume against a closed-form diffused Gaussian) still holds *with `G = 0`* and
-  must be re-run in that configuration, which is now a control rather than the shipped setting.
+- **Gate R** (*"with `hillslope_diffusion = 0`, deposition is IDENTICALLY zero"*) is false at `G > 0` by
+  construction — a transporting solver deposits with no diffusion at all, exactly as §15.8 of the Sim
+  spec predicted. It is true and useful at `G = 0`, and **BR keeps it as its own control**: the claim
+  "deposition happens with D = 0" is only evidence about G if the same fixture deposits nothing when G
+  is taken away.
+- **Gate K** (*"with `D = 0`, no cell rises"*) is the same shape: deposition raises ground, which is the
+  point. True at `G = 0`, false above it.
+- **Gate S** (deposited volume against a closed-form diffused Gaussian) is a `G = 0` claim throughout and
+  needed no change.
 
 **What this buys:** alluvial fans at slope breaks, valley fill, and a `deposition` channel with something
 in it — which retroactively makes the `DEPOSITION` selector filter type worth having. It also directly
@@ -454,7 +462,7 @@ DLA is sized by the loop, exactly like `CRATER`, so:
 | Phase | Contents | Gates | Depends on |
 |---|---|---|---|
 | **1 — BUILT** | Host profile field; `field_source` on the selector; band source on `TERRACE`/`STRATIFY`; the measured divisor | BM–BQ ✅ | nothing |
-| **2** | Yuan 2019 deposition in `erosion_solve`; `G` on the params; the convergence cap and its warning; gates R and S re-derived | BR–BV | nothing |
+| **2 — BUILT** | Yuan 2019 deposition in `erosion_solve`; `deposition` on the node; the sweep cap, its report and its warning | BR–BU ✅, BV deferred | nothing |
 | **3** | `enable_erosion` on `Pasture3DMound`; the solve in the stamp seam; clear-on-edit | BW–CB | 1 (for masks worth writing), 2 (so the constants are set once) |
 | **4** | The manager registry; `Bake All Brushes`; `Register Eroding Brushes`; stale-path warnings | CC–CE | 3 |
 | **5** | The resolution-calibration measurement, **then** coarse→fine amplification | CF–CJ | 2, 3 |
@@ -483,11 +491,11 @@ the Sim spec already established.
 | BO | *(1)* **`Host Profile` banding follows the hill.** A square loop's signed distance is symmetric through its centre, so mirrored probe pairs sit at the same height up the dome and must land on the **same bench** — measured at **0.79 m against a 2.00 m riser**. | Band source `Accumulator` with its Base Relief, i.e. today's behaviour, which must scatter the same pairs across different benches — **3.51 m**, nearly two risers. **Plus a diagnostic that decides what the headline number means**: with `hardness = 0` the op is a pass-through, so the disagreement measures the FIELD, and it is not zero — the chamfer SDF is a few per cent lopsided through the centre and a field that IS the dome inherits exactly that. The criterion is therefore that the two lopsidednesses are the SAME one, scaled by `2 × strength / height`: **0.284 m measured against 0.327 m predicted from the dome's own 1.090 m**. A field derived from anything else would not track it. |
 | BP ✅ | *(1)* **The historical band source and field source are the defaults**, on fresh resources and on every shipped preset — **5 settings across `demo/data/relief/`, all historical**. A default that drifts silently re-shapes every scene that ever loaded one. | One preset switched to `Host Profile`, which must move the ground — **6.86 m**. A migration gate that cannot detect a change is not testing migration. |
 | BQ ✅ | *(1)* **The C++ evaluator and the GDScript oracle agree** on all three new paths at once — a host-profile SLOPE selector with a `measure_radius`, a `Host Profile` band, and a `Ground Altitude` band. Measured as the gap the new paths ADD over a dome-only baseline, because the dome term carries a pre-existing float-against-double divergence that scales with amplitude: **+0.00003 m against a 0.0001 m tolerance**, on a fixture deforming the ground **38.0 m**. | The dome-only baseline itself (**0.00032 m**), which is what separates a divergence this phase introduced from one it merely made visible. Plus the deformation, which must dwarf the tolerance or two nearly flat surfaces are being compared. |
-| BR | *(2)* **Deposition is non-zero with `hillslope_diffusion = 0`.** The replacement for gate R, which phase 2 makes false by construction. On a slope-break fixture, material accumulates below the break with `D = 0` exactly. | `G = 0`, which must deposit **identically** zero — that is old gate R, preserved as this one's control. |
-| BS | *(2)* **`G = 0` reproduces today's solver bitwise.** `z`, `flow`, `lake_depth`, `receiver` and `stack` compared as raw bytes across the phase-1 fixture set. | `G = 0.5` on the same fixtures, which must change all five. And each fixture must assert it *eroded something*, so two no-ops cannot agree. |
-| BT | *(2)* **Mass is conserved.** Σdeposition equals Σerosion minus what leaves through the boundary, to tolerance, on a closed fixture where the outflux is measurable. | The same sum with the boundary flux omitted, which must be short by a measurable margin — otherwise the fixture has no outflux and conservation is trivially true. |
-| BU | *(2)* **High `G` hits the iteration cap and says so.** The count is reported like `diffusion_substeps` and raises a configuration warning; the solve terminates in bounded time. | A moderate `G` on the same fixture, which must converge *under* the cap and raise nothing. A cap that is always hit is not a cap. |
-| BV | *(2)* **Cost stays close to linear in cell count.** Solve time across three grid sizes at fixed `G`. **Perf gate — needs the user's go-ahead before running.** | `G` raised toward the transport-limited end, where the published behaviour is that convergence degrades. If that does *not* show up, the gate is not measuring convergence. |
+| BR ✅ | *(2)* **Deposition happens with hillslope diffusion at zero**, and lands where the physics says: on a slope-break fixture at `G = 0.5`, **927 cells gain material, 559 m of it below the break against 105 m above**. | `G = 0` on the same fixture must deposit **identically** zero — old gate R, preserved as this one's control, and it reads **0 cells**. Plus the fixture must erode at all (**174 660 m removed**), or "deposited below the break" is about nothing. |
+| BS ✅ | *(2)* **`G = 0` never enters the iterative path.** The solver reports **0 Gauss-Seidel sweeps**, two runs are bitwise identical, and a params dict with no `deposition` key at all — what every already-authored scene sends — is bitwise an explicit `0`. | `G = 0.5` must run sweeps and move the ground: **8 sweeps, 14.95 m**. Without it, a solver that ignored `deposition` entirely would pass every agreement above. |
+| BT ✅ | *(2)* **G puts material back, and never more than it took.** Across a sweep `G = 0 … 0.75`, net erosion falls monotonically **by 38 %** and net deposition rises monotonically **0 → 1238 m**, with deposition never exceeding erosion. **The measurement is on net erosion, not on the retained fraction**, and that is the point: §8.2 decision 3 defines the two channels as the two signs of one *net* field, so a channel cell that gains 0.3 m and loses 0.5 m in the same step reports as erosion — net deposition comes out near 1 % while the material actually moving is tens of per cent. That is §15.8's open question, not a defect here. | `G = 0` must deposit exactly zero, and the sweep must span a real range — **38 %** — or "monotonic" is four near-equal numbers in a row. |
+| BU ✅ | *(2)* **The sweep count tracks `G`, is reported, and is bounded.** **4 sweeps at `G = 0.1`, 7 at 0.4, 10 at 0.7, 12 at 0.95** — the published 1-to-20 shape — and never above the ceiling of 50. | A moderate `G = 0.3` must converge **under** the ceiling and report `capped = false`, which it does. A cap that is always hit is not a cap, and a flag that is always true tells nobody anything. |
+| BV ⏸ | *(2)* **Cost stays close to linear in cell count.** Solve time across 64²/128²/256² at fixed `G`. **Written but NOT RUN — perf gates need the user's go-ahead on this machine**, so `_gate_bv_cost(false)` skips it and prints what it would do. | `G` raised toward the transport-limited end, where the published behaviour is that convergence degrades. If that does *not* show up, the gate is not measuring convergence. |
 | BW | *(3)* **A brush-hosted bake erodes.** The eroded Mound differs from the un-eroded one by a measurable delta, concentrated in channels rather than spread uniformly (drainage area is heavy-tailed, as gate E measures). | `enable_erosion = false`, which must reproduce today's Mound bake **bitwise**. |
 | BX | *(3)* **The delta written is `eroded − base_below`.** The layer's contribution, read back through `get_height`, equals the eroded absolute surface minus the ground beneath the layer, on every cell inside the loop. | The same comparison against `eroded − 0`, i.e. forgetting the base — which must be wrong by the ground height, and on flat ground at y=0 would not be, so the fixture sits on sloped, non-zero terrain. |
 | BY | *(3)* **Editing clears.** Moving a spline point, and separately changing `height`, each invalidate the hash and clear the erosion. | A change to a property that does **not** affect the solved surface (the node's name, its relief material's `output_curve`), which must **not** clear — otherwise the hash is over-broad and the workflow is unusable for a different reason. |

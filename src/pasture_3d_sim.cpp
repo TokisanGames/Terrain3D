@@ -221,6 +221,8 @@ Dictionary Pasture3DData::erode_heightfield(const PackedFloat32Array &p_z, const
 	}
 	out["z"] = zo;
 	out["diffusion_substeps"] = r.diffusion_substeps;
+	out["deposition_sweeps"] = r.deposition_sweeps;
+	out["deposition_capped"] = r.deposition_capped;
 	if (params.want_diagnostics) {
 		PackedFloat32Array flow, lake;
 		PackedInt32Array recv, stack;
