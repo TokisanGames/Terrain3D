@@ -82,7 +82,7 @@ Ref<Image> Terrain3DRegion::get_map(const MapType p_map_type) const {
 		case TYPE_CONTROL:
 			return _control_map;
 		case TYPE_COLOR:
-			if (is_color_compressed()) {
+			if (!IS_EDITOR && is_color_compressed()) {
 				return *_compressed_color_map;
 			} else {
 				return *_color_map;
@@ -100,7 +100,7 @@ Image *Terrain3DRegion::get_map_ptr(const MapType p_map_type) const {
 		case TYPE_CONTROL:
 			return *_control_map;
 		case TYPE_COLOR:
-			if (is_color_compressed()) {
+			if (!IS_EDITOR && is_color_compressed()) {
 				return *_compressed_color_map;
 			} else {
 				return *_color_map;
@@ -127,7 +127,7 @@ TypedArray<Image> Terrain3DRegion::get_maps() const {
 	TypedArray<Image> maps;
 	maps.push_back(_height_map);
 	maps.push_back(_control_map);
-	maps.push_back(is_color_compressed() ? _compressed_color_map : _color_map);
+	maps.push_back(!IS_EDITOR && is_color_compressed() ? _compressed_color_map : _color_map);
 	return maps;
 }
 
@@ -462,7 +462,7 @@ Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
 		dict["height_map"] = _height_map->duplicate();
 		dict["control_map"] = _control_map->duplicate();
 		dict["color_map"] = _color_map->duplicate();
-		dict["compressed_color_map"] = _compressed_color_map->duplicate();
+		dict["compressed_color_map"] = is_color_compressed() ? _compressed_color_map->duplicate() : Ref<Resource>();
 		dict["instances"] = _instances.duplicate(true);
 		region->set_data(dict);
 	}

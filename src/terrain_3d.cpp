@@ -1576,7 +1576,7 @@ void Terrain3D::_bind_methods() {
 	ADD_SUBGROUP("Advanced", "");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "color_compress_mode", PROPERTY_HINT_ENUM,
-						 "None:5,S3TC (Desktop LQ):0,BPTC (Desktop HQ):3,ETC1 (Mobile LQ):1,ETC2 (Mobile):2,ASTC (Mobile):4"),
+						 "None:5,S3TC (Desktop):0,BPTC (Desktop HQ):3,ETC (Mobile LQ):1,ETC2 (Mobile):2,ASTC (Mobile):4"),
 			"set_color_compress_mode", "get_color_compress_mode");
 
 	ADD_GROUP("Collision", "");

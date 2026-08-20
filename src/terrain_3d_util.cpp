@@ -131,6 +131,7 @@ PackedStringArray Terrain3DUtil::get_files(const String &p_dir, const String &p_
 	return files;
 }
 
+// Converts Image::Format to Image::CompressMode and our CompressMode
 CompressMode Terrain3DUtil::get_compress_mode(const Image::Format p_format) {
 	if (p_format >= Image::FORMAT_BPTC_RGBA && p_format <= Image::FORMAT_BPTC_RGBFU) {
 		return COMPRESS_BPTC;
