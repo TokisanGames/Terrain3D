@@ -361,8 +361,12 @@ func _on_source_baked() -> void:
 ## what sizes a pool's mesh. It sizes nothing here -- _effective_spacing reads ripple_frequency off
 ## the material instead -- so the rebuild would be a provable no-op, and editing a profile in a
 ## scene with a long river in it would rebuild it for nothing every time.
+## Guarded the same way the base is: `profiles_changed` fires for every knob on every profile, and a
+## re-hint is an inspector rebuild that collapses whatever this node has expanded. Only the NAME list
+## can make the dropdown stale.
 func _on_profiles_changed() -> void:
-	notify_property_list_changed()
+	if _profile_names_moved():
+		notify_property_list_changed()
 
 
 # ---- meshing (spec §7.3, §10) ------------------------------------------------

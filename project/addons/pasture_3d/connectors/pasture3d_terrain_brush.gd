@@ -1124,6 +1124,16 @@ func _mask_preview_warnings() -> PackedStringArray:
 		out.append(("Mask Preview is on but Mask Preview Source points at a layer that no longer exists. "
 			+ "Pick another source."))
 		return out
+	# The dropdown deliberately follows the first Relief modifier that HAS a material, not the first
+	# active one, so that the property list does not move when a slider does (see `_preview_relief_material`
+	# on Pasture3DMound). The cost is that the overlay can be showing a modifier that stamps nothing, and
+	# an overlay whose relief is invisible on the terrain is exactly the confusion this warning family
+	# exists to prevent.
+	var previewed = _preview_relief_modifier()
+	if previewed != null and not previewed.is_active():
+		out.append(("Mask Preview is showing '%s', which is not stamping right now — %s. The overlay is "
+			+ "where its selector WOULD put relief.") % [previewed.display_name(),
+			"it is disabled" if not previewed.enabled else "its Strength is 0 m"])
 	if sources[idx][1] == null:
 		var others := PackedStringArray()
 		for i in range(sources.size()):
@@ -1155,14 +1165,24 @@ func _preview_relief_material():
 	return null
 
 
+## The modifier `_preview_relief_material` took its material from, on hosts that keep relief in a stack.
+## Null on hosts whose relief is a plain property — there is nothing there that can be switched off
+## independently of the material being assigned.
+func _preview_relief_modifier():
+	return null
+
+
 ## Selectors a relief material offers for preview: the material's own first, then one per stack layer.
 ## Returns an Array of [label, Pasture3DReliefSelector-or-null], index 0 being the material's own.
 ##
 ## ONE level deep. A layer that is itself a `Pasture3DReliefStack` contributes its own selector and not
 ## its children's — listing a whole tree would need a path rather than an index, and the configuration
 ## warning says so rather than letting a nested selector look reachable.
+## Each entry is `[label, selector-or-null, structural tag]`. The LABEL is cosmetic and may carry a
+## `resource_name`; the TAG deliberately may not — see `_inspector_rebuild_signature`.
 func _preview_selector_sources(p_relief) -> Array:
-	var out: Array = [["Material Selector", p_relief.selector if p_relief != null else null]]
+	var out: Array = [["Material Selector", p_relief.selector if p_relief != null else null,
+			_relief_class_tag(p_relief)]]
 	# See the note in `_mask_preview_warnings`: only a Stack has an ARRAY called `layers`, and a Strata
 	# material's `layers` is the band count.
 	if not (p_relief is Pasture3DReliefStack):
@@ -1173,8 +1193,22 @@ func _preview_selector_sources(p_relief) -> Array:
 		# NO COLON in the label. `,` and `:` are both structural in a PROPERTY_HINT_ENUM hint string —
 		# `:` assigns an explicit integer value — so "Layer 0: Fractal" made Godot read the whole list as
 		# one broken entry and the dropdown offered nothing to choose between.
-		out.append(["Layer %d (%s)" % [i, _relief_type_name(m)], m.selector if m != null else null])
+		out.append(["Layer %d (%s)" % [i, _relief_type_name(m)], m.selector if m != null else null,
+				_relief_class_tag(m)])
 	return out
+
+
+## A layer's class alone, with no `resource_name` in it. The structural half of `_relief_type_name`,
+## split out because the inspector-rebuild signature must not move when someone types a name.
+func _relief_class_tag(p_material) -> String:
+	if p_material == null:
+		return "(empty)"
+	var scr: Script = p_material.get_script()
+	if scr != null and scr.has_method("get_global_name"):
+		var n := String(scr.get_global_name())
+		if n != "":
+			return n.trim_prefix("Pasture3DRelief")
+	return "Layer"
 
 
 ## A layer's class name for the dropdown ("Pasture3DReliefFractal" → "Fractal"), falling back to its
@@ -2692,7 +2726,7 @@ var modifiers: Array[Pasture3DBrushModifier] = []:
 		# Unconditional here, unlike `_on_modifier_changed`: the list itself changed length or contents,
 		# so the rows and the Mask Preview Source dropdown both have to be rebuilt anyway.
 		_stack_names_cache = _stack_names()
-		_stack_ui_signature = _preview_source_labels()
+		_stack_ui_signature = _inspector_rebuild_signature()
 		notify_property_list_changed()
 		_queue_mask_preview()
 		_schedule_refresh()
@@ -2748,9 +2782,12 @@ func _on_modifier_changed() -> void:
 	# it — the Mask Preview Source dropdown, whose entries come from the first Relief modifier's material
 	# — so only a change to THAT is worth a rebuild.
 	#
-	# The row labels are derived too, but they are deliberately not on this list: the inspector re-reads
-	# `resource_name` on its own refresh, and forcing it would cost the text field its focus.
-	var now := _preview_source_labels()
+	# And only to its STRUCTURE. See `_inspector_rebuild_signature`: the signature deliberately excludes
+	# every value and every name, because both are edited continuously and a rebuild mid-edit is the bug
+	# this guard exists for. The row labels are derived too and are deliberately not on the list either —
+	# the inspector re-reads `resource_name` on its own refresh, and forcing it would cost the text field
+	# its focus.
+	var now := _inspector_rebuild_signature()
 	if now != _stack_ui_signature:
 		_stack_ui_signature = now
 		notify_property_list_changed()
@@ -2768,14 +2805,25 @@ func _stack_names() -> PackedStringArray:
 	return out
 
 
-## The Mask Preview Source dropdown's entries, which are built from a modifier's material and so have to
-## be rebuilt when one is swapped.
-func _preview_source_labels() -> PackedStringArray:
+## What the derived half of `_get_property_list` actually depends on — STRUCTURE ONLY. Compared before
+## and after a modifier's `changed` to decide whether the inspector has to be rebuilt.
+##
+## THE RULE THIS ENFORCES: a property list must never be a function of a value or of a name. Both are
+## edited CONTINUOUSLY — a slider sweeps, a text field arrives one character at a time — and every
+## rebuild collapses every expanded sub-resource under the cursor. So this holds only discrete facts:
+## whether there is a preview material at all, what class each dropdown entry is, and whether that entry
+## carries a selector. Strengths, `enabled`, and every `resource_name` are excluded by construction.
+##
+## The cost is that a RENAMED relief layer keeps its old text in the Mask Preview Source dropdown until
+## something else rebuilds the inspector. The dropdown resolves BY INDEX, so nothing reads the wrong
+## selector — the label is stale, not wrong. Gates CT and CU (bench/InspectorStabilityGate.tscn).
+func _inspector_rebuild_signature() -> PackedStringArray:
 	var out := PackedStringArray()
 	var relief = _preview_relief_material()
-	if relief != null:
-		for e in _preview_selector_sources(relief):
-			out.append(String(e[0]))
+	if relief == null:
+		return out
+	for e in _preview_selector_sources(relief):
+		out.append("%s%s" % [e[2], "+" if e[1] != null else "-"])
 	return out
 
 

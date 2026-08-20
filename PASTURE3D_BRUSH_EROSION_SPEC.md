@@ -300,6 +300,21 @@ as 3b's design.
   ops' ids into the result. One block, indexed exactly as it always was, however many materials the stack
   carries.
 
+- **The node's property list must never be a function of a value or of a name.** `notify_property_list_changed()`
+  rebuilds the whole inspector, which collapses every expanded sub-resource and destroys any text field
+  being typed into — and both values and names are edited *continuously*, a slider sweeping through every
+  number on its way and a name arriving one keystroke at a time. This was got wrong twice. First the Mask
+  Preview dropdown followed the first **active** Relief modifier, so dragging Strength up from 0 made the
+  dropdown appear and folded the modifier shut under the cursor; it now follows the first Relief modifier
+  with a **material assigned**, which is also the better rule — the preview exists to show where a
+  selector *would* land, which is what you want before deciding how many metres to ask for. Second, the
+  rebuild trigger included the dropdown's LABEL text, which embeds a relief layer's `resource_name`, so
+  renaming a layer closed the field per keystroke exactly as renaming a modifier once did. The trigger
+  (`_inspector_rebuild_signature`) is now structural only: what class each entry is and whether it carries
+  a selector. A renamed layer keeps stale TEXT in the dropdown until something else rebuilds it, and the
+  dropdown resolves by INDEX, so nothing reads wrong. Gates CT and CU. The same defect existed on
+  `Pasture3DWaterBody`, which re-hinted its wave-profile dropdown on every knob of every profile — gate CV.
+
 Phase 3a ships three, each reproducing one step the pipeline already hard-codes:
 
 | Modifier | Replaces | Notes |
@@ -807,6 +822,9 @@ the Sim spec already established.
 | CP | *(6)* **The DLA field is deterministic from its seed.** Two bakes at one seed are bitwise identical; two seeds differ. | A fixed seed with the RNG reseeded from time, which must differ between runs. |
 | CQ | *(6)* **It is dendritic, not noise.** Branch-count and mass distribution against the heavy-tailed statistic gate E already uses for drainage networks. | White noise blurred through the same blur stack, which must fail the statistic — a blur stack alone produces something smooth and plausible, and that is precisely the null hypothesis. |
 | CR | *(6)* **Both evaluators sample the same bytes.** The C++ op and the GDScript oracle agree to 1e-4 by construction; the gate asserts it rather than trusting the argument. | The oracle sampling a field grown at a different resolution, which must disagree. |
+| CT ✅ | *(3a fix)* **Editing a value never rebuilds the inspector.** Ten value edits across three modifier kinds — including Strength swept across 0, which is where the defect lived — caused **0 rebuilds**, counted on `property_list_changed` itself rather than on a proxy for it. | Structural edits, which must rebuild or "0" is a dead measurement: clearing the Relief Material rebuilt **1**, reassigning **1**, adding a stack layer **1**. Plus a HEIGHT delta, because decoupling the preview dropdown from `is_active()` could plausibly have reached the bake: a zero-strength Relief modifier bakes **bitwise** what no Relief modifier bakes, while the same modifier at 8 m moves the same probes **45.6 m**. Against the pre-fix code the criterion reads **5 rebuilds**. |
+| CU ✅ | *(3a fix)* **Renaming never rebuilds the inspector, at either level.** Typed one character at a time, which is the only way to catch a guard that holds for a whole string: naming a modifier and naming a relief stack LAYER both cost **0 rebuilds over 7 keystrokes**. | The names must land, or the guard is being credited for a no-op — the modifier reads `Hardpan` and the dropdown reads `Layer 0 (Hardpan)`. Plus structure, which must still rebuild: swapping a layer's class **1**, giving it a Selector **1**. Against the pre-fix code the layer rename reads **7 rebuilds, the first after 'H'** — and the label-based trigger it replaced also missed the Selector control entirely. |
+| CV ✅ | *(3a fix)* **The same rule, in the one other place the plugin broke it.** `Pasture3DWaterBody` re-hinted its wave-profile dropdown on `profiles_changed`, which the manager emits for every knob on every profile. Three amplitude edits now cost **0 rebuilds**. Lives in this suite because the water suites need a real rendering device and cannot run headless at all. | Two counters, not one: the manager's **3 emissions** are what separate "did not rebuild" from "was never asked". Plus the edits that MUST re-hint — renaming a profile **1**, adding one **1** — and the dropdown itself, which must still list every live profile. The stronger observable also caught a **cold-start rebuild**: the name cache is now primed where the signal is connected. Against the pre-fix code: **3 rebuilds**. |
 | CS | *(6)* **`TILE` warns.** A DLA material under `Mapping = TILE` raises the configuration warning, as `CRATER` does. | `FIT`, which must not warn. |
 
 ---
