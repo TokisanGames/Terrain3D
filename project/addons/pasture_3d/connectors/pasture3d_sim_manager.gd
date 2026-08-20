@@ -139,8 +139,6 @@ const RESULT_MAX_CELLS: int = 4194304
 ## holds a PARTIAL landscape afterwards and nothing else on screen would say so.
 @export_storage var _baked_upto: int = -1
 
-var _running: bool = false
-var _cancel: bool = false
 ## Diffusion sub-steps the last solve actually used, across every pass (the worst case, since one pass
 ## hitting the ceiling is enough to under-smooth the chain).
 var _last_substeps: int = 0
@@ -653,20 +651,16 @@ func _simulate_interactive(p_scale: int, p_is_preview: bool, p_up_to: int = -1) 
 	for cl in ctx["clusters"]:
 		total += int(cl["total_iterations"])
 	total = maxi(total, 1)
-	for cl in ctx["clusters"]:
-		while not _solve_chunk(cl):
-			if _cancel:
-				_abort(ctx)
-				return
-			if not is_inside_tree() or not is_configured():
-				_abort(ctx)
-				return
-			var done := 0
-			for c in ctx["clusters"]:
-				done += int(c["iterations_done"])
-			print("%s: %d%%" % [_sim_label(), int(100.0 * float(done) / float(total))])
-			await get_tree().process_frame
-	if _cancel:
+	# §20: the chain solves on a worker and this thread does nothing but report and watch for teardown.
+	# The editor no longer takes a CHUNK_ITERATIONS-sized hitch per yield — measured at ~477 ms on a 762²
+	# cluster, six times in a row, which is what "already chunked" was hiding.
+	var ok: bool = await _solve_on_worker(ctx["clusters"], "%s: solving" % _sim_label(),
+			func() -> void:
+				var done := 0
+				for c in ctx["clusters"]:
+					done += int(c["iterations_done"])
+				print("%s: %d%%" % [_sim_label(), int(100.0 * float(done) / float(total))]))
+	if not ok:
 		_abort(ctx)
 		return
 	_finish(ctx)
@@ -713,12 +707,62 @@ func _begin(p_scale: int, p_record_undo: bool, p_is_preview: bool, p_up_to: int 
 		push_warning("%s: %s." % [_sim_label(), report["reason"]])
 		return fail
 
+	# §20.2 — everything the solve loop needs that a WORKER THREAD must not read, gathered here on the
+	# main thread and carried in the cluster state. Three things qualify, and the solve loop used to do
+	# all three inline once per member per pass:
+	#   * the erodability LUT      — `Texture2D.get_image()`, which can go to the RenderingServer;
+	#   * the falloff ramp         — `Curve.sample_baked()` lazily bakes a SHARED resource;
+	#   * the loop polygons        — `Curve3D.get_baked_points()` plus the node's `global_transform`.
+	# Hoisting them is what makes `_solve_chunk` pure enough to run off the main thread. It is also
+	# faster on the synchronous path, since none of the three changes between iterations.
+	var prep := _main_thread_inputs(clusters)
+	for st: Dictionary in clusters:
+		st["prep"] = prep
+		st["warnings"] = PackedStringArray()
+
 	_running = true
 	_cancel = false
 	last_chain = []
 	return {"ok": true, "report": report, "clusters": clusters, "layer_id": layer_id,
 			"is_preview": p_is_preview, "record_undo": p_record_undo, "scale": scale,
 			"up_to": p_up_to, "t0": Time.get_ticks_msec()}
+
+
+## §20.2 — the main-thread-only reads the solve loop depends on, resolved once per build.
+##
+## Keyed by instance id rather than by node, so the dictionary holds no references that could keep a
+## freed node alive if a build outlives its scene. Returns
+## {"erod": {id: [lut, w, h]}, "ramp": {id: PackedFloat32Array}, "poly": {id: PackedVector2Array}}.
+func _main_thread_inputs(p_clusters: Array) -> Dictionary:
+	var erod := {}
+	var ramp := {}
+	var poly := {}
+	for st: Dictionary in p_clusters:
+		for entry: Dictionary in (st["passes"] as Array):
+			for member: Dictionary in (entry["members"] as Array):
+				var sim: Pasture3DSim = member["sim"]
+				var sid := sim.get_instance_id()
+				if not erod.has(sid):
+					erod[sid] = sim._erodability_lut()
+					ramp[sid] = _ramp_lut(sim.falloff_curve)
+				for s in member["splines"]:
+					var pid: int = (s as Path3D).get_instance_id()
+					if not poly.has(pid):
+						poly[pid] = _polygon_xz(s)
+	return {"erod": erod, "ramp": ramp, "poly": poly}
+
+
+## A warning raised from inside the solve. Collected rather than pushed, because `push_warning` from a
+## WorkerThreadPool task is not the main thread — `_flush_warnings` empties this after the join (§20.4).
+func _warn_later(p_st: Dictionary, p_text: String) -> void:
+	(p_st["warnings"] as PackedStringArray).append(p_text)
+
+
+func _flush_warnings(p_ctx: Dictionary) -> void:
+	for st: Dictionary in p_ctx["clusters"]:
+		for w in (st["warnings"] as PackedStringArray):
+			push_warning(w)
+		st["warnings"] = PackedStringArray()
 
 
 ## One cluster's solve state: the shared grid, the ONE below-layer read that seeds the chain (§19.2 step
@@ -802,8 +846,8 @@ func _solve_chunk(p_st: Dictionary) -> bool:
 	params["iterations"] = chunk
 	var res: Dictionary = terrain.data.erode_heightfield(p_st["z_solved"], params, p_st["erod"])
 	if not bool(res.get("ok", false)):
-		push_warning(("%s: the solver rejected member '%s' of pass '%s' on the %dx%d cluster grid — most "
-			+ "likely no terrain regions under it.") % [_sim_label(), sim.name, entry["pass"].name,
+		_warn_later(p_st, ("%s: the solver rejected member '%s' of pass '%s' on the %dx%d cluster grid — "
+			+ "most likely no terrain regions under it.") % [_sim_label(), sim.name, entry["pass"].name,
 			int(p_st["sw"]), int(p_st["sh"])])
 		p_st["failed"] = true
 		return true
@@ -836,7 +880,7 @@ func _start_member(p_st: Dictionary, p_member: Dictionary) -> bool:
 	var sw: int = p_st["sw"]
 	var sh: int = p_st["sh"]
 	var z_in: PackedFloat32Array = p_st["z"]
-	var erod: Array = sim._erodability_lut()
+	var erod: Array = (p_st["prep"]["erod"] as Dictionary)[sim.get_instance_id()]
 	var e_field: PackedFloat32Array = erod[0]
 	var e_w := int(erod[1])
 	var e_h := int(erod[2])
@@ -863,8 +907,8 @@ func _start_member(p_st: Dictionary, p_member: Dictionary) -> bool:
 			e_lo = 0.0
 			e_hi = 1.0
 		else:
-			push_warning(("%s: the erosion mask for member '%s' could not be built, so it eroded UNMASKED. "
-				+ "Nothing was silently gated.") % [_sim_label(), sim.name])
+			_warn_later(p_st, ("%s: the erosion mask for member '%s' could not be built, so it eroded "
+				+ "UNMASKED. Nothing was silently gated.") % [_sim_label(), sim.name])
 	p_st["erod"] = e_field
 	p_st["params"] = {
 		"gw": sw, "gh": sh, "cell_size": p_st["cell"],
@@ -911,18 +955,18 @@ func _finish_member(p_st: Dictionary, p_member: Dictionary) -> void:
 		if wfield.size() == sw * sh:
 			gate_params["write_mask"] = wfield
 		else:
-			push_warning(("%s: the write mask for member '%s' could not be built, so its whole solved delta "
-				+ "was folded in.") % [_sim_label(), sim.name])
+			_warn_later(p_st, ("%s: the write mask for member '%s' could not be built, so its whole solved "
+				+ "delta was folded in.") % [_sim_label(), sim.name])
 
 	var ones := PackedFloat32Array()
 	ones.resize(sw * sh)
 	ones.fill(1.0)
-	var ramp := _ramp_lut(sim.falloff_curve)
+	var ramp: PackedFloat32Array = (p_st["prep"]["ramp"] as Dictionary)[sim.get_instance_id()]
 	var z_in: PackedFloat32Array = p_st["z"]
 	var z_solved: PackedFloat32Array = p_st["z_solved"]
 	var acc: PackedFloat64Array = p_st["acc"]
 	for s in p_member["splines"]:
-		var poly := _polygon_xz(s)
+		var poly: PackedVector2Array = (p_st["prep"]["poly"] as Dictionary)[(s as Path3D).get_instance_id()]
 		if poly.size() < 3:
 			continue
 		# The member's own loop mask AT SIM RESOLUTION: `sim_mask_deltas` fed a field of ones returns the
@@ -931,8 +975,8 @@ func _finish_member(p_st: Dictionary, p_member: Dictionary) -> void:
 		# reimplementation of it.
 		var gate: PackedFloat32Array = terrain.data.sim_mask_deltas(ones, poly, gate_params, ramp)
 		if gate.size() != sw * sh:
-			push_warning(("%s: the loop mask for member '%s' could not be rasterised; that loop contributed "
-				+ "nothing.") % [_sim_label(), sim.name])
+			_warn_later(p_st, ("%s: the loop mask for member '%s' could not be rasterised; that loop "
+				+ "contributed nothing.") % [_sim_label(), sim.name])
 			continue
 		acc = terrain.data.sim_pass_accumulate(acc, z_in, z_solved, gate)
 	p_st["acc"] = acc
@@ -953,8 +997,8 @@ func _finish_pass(p_st: Dictionary, p_entry: Dictionary) -> void:
 		if z.size() == z_in.size():
 			p_st["z"] = z
 		else:
-			push_warning(("%s: pass '%s' could not be committed onto the chain, so it contributed nothing.")
-				% [_sim_label(), p_entry["pass"].name])
+			_warn_later(p_st, ("%s: pass '%s' could not be committed onto the chain, so it contributed "
+				+ "nothing.") % [_sim_label(), p_entry["pass"].name])
 	p_st["acc"] = PackedFloat64Array()
 
 	# ONE routing pass serves both consumers. The live fields the NEXT pass gates on (§19.5) and this
@@ -1046,13 +1090,14 @@ func _diagnose(p_st: Dictionary, p_z: PackedFloat32Array) -> Dictionary:
 	}
 	var res: Dictionary = terrain.data.erode_heightfield(p_z, params, PackedFloat32Array())
 	if not bool(res.get("ok", false)):
-		push_warning("%s: the diagnostics pass failed; this cluster contributes no masks." % _sim_label())
+		_warn_later(p_st, "%s: the diagnostics pass failed; this cluster contributes no masks." % _sim_label())
 		return {}
 	return {"flow": res["flow"], "lake": res["lake_depth"]}
 
 
 ## Turn every finished cluster into its write block and commit them all as ONE action (§19.2 step 4).
 func _finish(p_ctx: Dictionary) -> Dictionary:
+	_flush_warnings(p_ctx) # §20.4: anything the solve wanted to say, said now that we are on main again
 	var report: Dictionary = p_ctx["report"]
 	var solved: Array = []
 	var parts: Array = []
@@ -1305,6 +1350,7 @@ func _result_target(p_states: Array) -> Dictionary:
 
 
 func _abort(p_ctx: Dictionary) -> void:
+	_flush_warnings(p_ctx)
 	_running = false
 	_cancel = false
 	p_ctx["report"]["reason"] = "cancelled"
