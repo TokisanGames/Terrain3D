@@ -41,7 +41,7 @@ jobs:
 
     steps:
       - name: Checkout (with godot-cpp submodule)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -73,7 +73,7 @@ jobs:
         run: ls -lR project/addons/pasture_3d/bin/
 
       - name: Upload library
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           include-hidden-files: true
           name: libpasture-${{ matrix.identifier }}-${{ matrix.target }}

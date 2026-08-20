@@ -37,10 +37,12 @@ Meanwhile the repo has 16 headless gate scenes that only ran when somebody remem
 
 Do these once, in order. **Order matters** — do not close the escape hatch before a green path exists.
 
-- [ ] Merge this PR, so `gates.yml` is on `main` and GitHub knows the check exists.
-- [ ] Open a throwaway PR and let it run once. Expect a fix or two: the workflow has never executed, and
-      the Godot Linux asset name, `--import` support and the runner's package set are all unverified.
-- [ ] Once it goes green: **Settings → Rules → Rulesets →** the ruleset on `main` **→ Require status
+- [x] ~~Merge this PR, so `gates.yml` is on `main` and GitHub knows the check exists.~~ Done 2026-08-19.
+- [x] ~~Open a throwaway PR and let it run once.~~ Done: the first two runs both went **green first
+      time** (2026-08-19, commits `74dc813` and `f72c44c`). The Godot Linux asset name was right,
+      `--import` exists in 4.7 so the fallback was never needed, and no extra runner packages were
+      required.
+- [ ] **NEXT, and the only step left:** **Settings → Rules → Rulesets →** the ruleset on `main` **→ Require status
       checks to pass →** add **`🧪 Headless gates`**.
       The name must match the job's `name:` exactly, emoji included.
 - [ ] Decide about your own bypass — see [[#About bypassing]] below.
@@ -52,6 +54,19 @@ Do these once, in order. **Order matters** — do not close the escape hatch bef
 ---
 
 ## Day to day
+
+> [!info] How long it takes
+> Measured on the first two runs:
+>
+> | | Build | Gates | Total |
+> |---|---|---|---|
+> | cold cache | 519 s | 74 s | **10 m 52 s** |
+> | warm cache | 19 s | 74 s | **2 m 33 s** |
+>
+> The `build-cache` action is doing most of that work — 519 s down to 19 s. The gate suite itself is
+> **74 s on CI and 86 s on the dev box**, so a local run before pushing costs about a minute and a half
+> and is nearly always the faster way to find a failure.
+
 
 ```mermaid
 flowchart LR
