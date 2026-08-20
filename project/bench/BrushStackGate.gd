@@ -329,29 +329,43 @@ func _gate_bw_editor() -> void:
 	mr.strength = 7.0
 	var on_edit: int = rebuilds[0]
 
-	# CONTROL 1 — renaming must rebuild, or the row would keep its old text forever.
+	# THE SECOND CRITERION, and the reason the first build of this gate had it backwards. `label` is a
+	# TEXT FIELD: its setter fires once per character typed. A rebuild there tears down the field being
+	# typed into, so the name closed after the first keystroke and a modifier ended up called "Cr".
+	# Renaming must therefore rebuild NOTHING — the inspector re-reads `resource_name` on its own
+	# refresh, and forcing it would cost the field its focus.
 	rebuilds[0] = 0
-	mr.label = "Ridge benches"
+	for ch in ["R", "Ri", "Rid", "Ridge", "Ridge benches"]:
+		mr.label = ch
 	var on_rename: int = rebuilds[0]
 
-	# CONTROL 2 — swapping the material must rebuild, because the Mask Preview Source list is built from
-	# it and would otherwise offer the previous material's selectors.
+	# THE CONTROL — swapping the material must rebuild, because the Mask Preview Source list is built
+	# from it and would otherwise keep offering the previous material's selectors. Without this, "0
+	# rebuilds" above would also be what a handler that never rebuilds anything reports.
 	rebuilds[0] = 0
 	var stack := Pasture3DReliefStack.new()
 	stack.layers = [Pasture3DReliefFractal.new(), Pasture3DReliefTerraces.new()]
 	mr.material = stack
 	var on_swap: int = rebuilds[0]
 
-	print("    inspector rebuilds — value edits: %d (want 0) | rename: %d (want >0) | material swap: %d (want >0)"
+	print("    inspector rebuilds — value edits: %d | 5 keystrokes of rename: %d | material swap: %d"
 		% [on_edit, on_rename, on_swap])
+	print("    (want 0, 0, >0)")
 	if on_edit > 0:
 		_fail += 1
 		print("    !! editing a value still rebuilds the property list, so every expanded modifier "
 			+ "collapses mid-drag")
-	if on_rename < 1 or on_swap < 1:
+	if on_rename > 0:
 		_fail += 1
-		print("    !! a rename or a material swap does NOT rebuild either — the check above is passing "
+		print("    !! typing a name still rebuilds the property list, so the text field closes under "
+			+ "the cursor after the first character")
+	if on_swap < 1:
+		_fail += 1
+		print("    !! a material swap does NOT rebuild either — the two checks above are passing "
 			+ "because nothing ever rebuilds, not because the right things do")
+	if mr.label != "Ridge benches":
+		_fail += 1
+		print("    !! the name did not survive being typed: %s" % mr.label)
 
 	# The label is a view onto `resource_name`, not a second stored string. If they ever came apart, the
 	# row would show one name and the resource would carry another.

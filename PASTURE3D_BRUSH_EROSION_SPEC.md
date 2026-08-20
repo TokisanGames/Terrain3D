@@ -388,9 +388,22 @@ stamps, and re-baking is bitwise stable.
   preference to the class name — so the storage and the wiring both existed, buried at the bottom of the
   built-in Resource section. `PROPERTY_USAGE_EDITOR` only, so there is no second string to drift.
 
-Both are measured on the node's own `property_list_changed` signal (0 emissions for value edits, ≥1 for a
-rename and for a material swap), because "the inspector collapsed" regresses without anyone noticing
-until they are editing.
+**And the first fix for the label was backwards.** Rebuilding on a rename so the row would relabel is
+wrong for a TEXT field: its setter fires once per character, so the field it was rebuilding was the one
+being typed into, and the name closed after the first keystroke. A rename now rebuilds nothing — the
+inspector re-reads `resource_name` on its own refresh, and forcing it costs the field its focus. The
+same early return also keeps a rename from re-rastering the brush per keystroke: a name is not geometry.
+
+All of it is measured on the node's own `property_list_changed` signal — 0 emissions for value edits, 0
+for five keystrokes of renaming, ≥1 for a material swap, with the swap as the control so "nothing ever
+rebuilds" cannot pass. "The inspector collapsed" regresses without anyone noticing until they are editing.
+
+**The erosion family's gizmo and nameplate are dark blue** (`Pasture3DSimBase.EROSION_COLOR`). The default
+neon purple washes out against the pale blue-grey a wet or checkered terrain renders as, which is exactly
+the terrain a sim is usually aimed at. The colour is the BRUSH's decision — `_gizmo_color()` and
+`_label_colors()` on `Pasture3DTerrainBrush` — and the gizmo plugin interns a material per distinct colour
+asked for, so a new family declares a colour and nothing else. The nameplate is outlined near-white
+rather than black, because a dark fill on a dark outline is a smudge at distance.
 
 **A pre-existing bug surfaced on the way**, because the collapse fix put `_preview_selector_sources` in
 the hot path: it duck-typed on `"layers" in relief` to find a `Pasture3DReliefStack`, and

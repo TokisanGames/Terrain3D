@@ -927,3 +927,20 @@ func _make_pond(p_lake: Dictionary) -> Pasture3DPond:
 	path.curve = c
 	p.add_child(path)
 	return p
+
+
+## Dark blue for the whole erosion family (§: reported from use). The default neon purple washes out
+## against the pale blue-grey a wet or checkered terrain renders as, which is exactly the terrain a sim
+## is usually being aimed at. Dark blue survives that AND a dry ochre hillside, and it separates the
+## erosion passes from every stamping brush in a crowded scene at a glance.
+const EROSION_COLOR := Color(0.13, 0.30, 0.80)
+
+
+func _gizmo_color() -> Color:
+	return EROSION_COLOR
+
+
+## Nameplate: the same blue, but outlined in near-white rather than black — a dark fill on a black
+## outline is a smudge at distance, which is the readability half of the complaint.
+func _label_colors() -> Array:
+	return [EROSION_COLOR, Color(0.96, 0.97, 1.0, 0.9)]

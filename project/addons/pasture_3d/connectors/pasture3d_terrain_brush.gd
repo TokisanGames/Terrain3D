@@ -1388,8 +1388,9 @@ func _ensure_label() -> void:
 	_name_label.pixel_size = 0.0007
 	_name_label.font_size = 64
 	_name_label.outline_size = 16
-	_name_label.modulate = Color(1.0, 0.96, 0.85)
-	_name_label.outline_modulate = Color(0.0, 0.0, 0.0, 0.85)
+	var lc := _label_colors()
+	_name_label.modulate = lc[0]
+	_name_label.outline_modulate = lc[1]
 	_name_label.render_priority = 20
 	_name_label.outline_render_priority = 19
 	_name_label.position = Vector3(0.0, 2.0, 0.0) # float just above the origin marker
@@ -1402,6 +1403,24 @@ func _update_label_text() -> void:
 	if not is_instance_valid(_name_label):
 		return
 	_name_label.text = "%s — %s" % [name, _layer_display_name()]
+
+
+## Colour of this brush's ORIGIN MARKER in the viewport. Light neon purple by default — it stands out
+## against terrain greens, browns, yellows and ochres. A family of brushes that has to be told apart at a
+## glance overrides it; `Pasture3DSimBase` does, because an erosion pass is the one thing in a scene you
+## want to find without reading nameplates.
+##
+## Declared on the brush rather than in the gizmo plugin so the node owns the decision, and so the plugin
+## does not have to carry a list of which class gets which colour.
+func _gizmo_color() -> Color:
+	return Color(0.74, 0.42, 1.0)
+
+
+## Nameplate `[fill, outline]`. Warm white on black by default: the label sits over terrain of every
+## brightness, so the pair matters more than either colour alone — a dark fill needs a light outline to
+## survive a dark hillside, and vice versa.
+func _label_colors() -> Array:
+	return [Color(1.0, 0.96, 0.85), Color(0.0, 0.0, 0.0, 0.85)]
 
 
 ## Editor selection changed: update the nameplate, and redraw the gizmo so the loop-point handles
@@ -2672,15 +2691,17 @@ var modifiers: Array[Pasture3DBrushModifier] = []:
 		_bind_modifiers(modifiers, true)
 		# Unconditional here, unlike `_on_modifier_changed`: the list itself changed length or contents,
 		# so the rows and the Mask Preview Source dropdown both have to be rebuilt anyway.
-		_stack_ui_signature = _stack_ui_labels()
+		_stack_names_cache = _stack_names()
+		_stack_ui_signature = _preview_source_labels()
 		notify_property_list_changed()
 		_queue_mask_preview()
 		_schedule_refresh()
 		update_configuration_warnings()
 
-## Last inspector-facing description of the stack (see `_stack_ui_labels`). Not exported — it is a
-## comparison cache, and a stale one after a scene load costs at most one extra rebuild.
+## Last Mask Preview Source list, and last set of modifier names. Not exported — they are comparison
+## caches, and a stale one after a scene load costs at most one extra rebuild.
 var _stack_ui_signature: PackedStringArray = PackedStringArray()
+var _stack_names_cache: PackedStringArray = PackedStringArray()
 
 
 ## True when this brush's rasteriser actually RUNS the stack. False hides the property entirely rather
@@ -2709,14 +2730,27 @@ func _bind_modifiers(p_list: Array, p_connect: bool) -> void:
 
 
 func _on_modifier_changed() -> void:
-	# NOT an unconditional notify_property_list_changed(). That rebuilds the node's whole inspector, and
-	# a rebuild COLLAPSES every expanded sub-resource — so dragging one slider inside a modifier folded
-	# the modifier shut under the cursor, once per step.
+	# A RENAME IS NOT A CHANGE TO THE BRUSH, and it arrives one keystroke at a time.
 	#
-	# Only two things the inspector shows are DERIVED from the stack rather than stored in it: the row
-	# label of each modifier, and the Mask Preview Source dropdown's entries. Rebuild when one of those
-	# actually moves, which renaming a modifier or swapping a material does and editing a slider does not.
-	var now := _stack_ui_labels()
+	# `Resource.set_name` emits `changed` like every other setter, so typing into a modifier's `label`
+	# fires this handler once per character. Two things must not happen then. A re-bake would raster the
+	# whole brush per keystroke; and `notify_property_list_changed()` would tear down the very text field
+	# being typed into, so the field closed after the first character. Both are answered by leaving early.
+	var names := _stack_names()
+	if names != _stack_names_cache:
+		_stack_names_cache = names
+		update_configuration_warnings() # warnings name the modifier they are about
+		return
+
+	# NOT an unconditional notify_property_list_changed() either. A rebuild COLLAPSES every expanded
+	# sub-resource, so dragging one slider inside a modifier folded the modifier shut under the cursor,
+	# once per step. Only ONE thing the inspector shows is derived from the stack rather than stored in
+	# it — the Mask Preview Source dropdown, whose entries come from the first Relief modifier's material
+	# — so only a change to THAT is worth a rebuild.
+	#
+	# The row labels are derived too, but they are deliberately not on this list: the inspector re-reads
+	# `resource_name` on its own refresh, and forcing it would cost the text field its focus.
+	var now := _preview_source_labels()
 	if now != _stack_ui_signature:
 		_stack_ui_signature = now
 		notify_property_list_changed()
@@ -2725,14 +2759,19 @@ func _on_modifier_changed() -> void:
 	update_configuration_warnings()
 
 
-## What the inspector says ABOUT the stack, as opposed to what is in it: one entry per modifier row
-## label, then the Mask Preview Source list. Compared against `_stack_ui_signature` to decide whether a
-## `changed` from somewhere inside a modifier is worth a rebuild.
-func _stack_ui_labels() -> PackedStringArray:
+## Each modifier's row name, in order. Compared against `_stack_names_cache` to recognise a `changed`
+## that carried nothing but a rename.
+func _stack_names() -> PackedStringArray:
 	var out := PackedStringArray()
 	for m in modifiers:
 		out.append("" if m == null else m.resource_name)
-	out.append("--- mask preview ---") # separator: a rename must not be able to spell a preview entry
+	return out
+
+
+## The Mask Preview Source dropdown's entries, which are built from a modifier's material and so have to
+## be rebuilt when one is swapped.
+func _preview_source_labels() -> PackedStringArray:
+	var out := PackedStringArray()
 	var relief = _preview_relief_material()
 	if relief != null:
 		for e in _preview_selector_sources(relief):
