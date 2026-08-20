@@ -67,6 +67,7 @@ func _enter_tree() -> void:
 	else:
 		asset_dock = load(ASSET_DOCK_45).instantiate()
 	asset_dock.initialize(self)
+	export_plugin.plugin = self
 	add_export_plugin(export_plugin)
 
 
