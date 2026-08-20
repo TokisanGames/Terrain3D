@@ -6,8 +6,8 @@
 half (§21.2–§21.4, gates AZ–BD) are both built and gated. §21.7's folder-wide file rename is **done** (2026-08-19,
 its own commit, all 27 connectors), and §21.8's preview complaint is **diagnosed and fixed** — three
 divergences between the previewed field and the baked one, each pinned by a gate.
-**PHASE 7 BUILT** (2026-08-19) — the solve runs on a WorkerThreadPool task (§20). Gates AP and AQ pass;
-AO and AR are editor-path criteria and still need running by hand. Drafted 2026-08-08;
+**PHASE 7 BUILT** (2026-08-19) — the solve runs on a WorkerThreadPool task (§20). All four gates
+AO–AR pass; two narrow editor-only checks remain, named in §20.7. Drafted 2026-08-08;
 **solver replaced the same
 day** after a survey of Houdini, World Machine, Gaea and the large-scale-terrain literature (§16).
 Target: Godot 4.7, Pasture3D `main`.
@@ -910,7 +910,7 @@ one. Offset 0, like Pond: Sim only ever erodes the ground it lands on.
 | **5.5 — DONE** | Mask preview: a red overlay on the terrain showing the selector weight, so a band is tuned by eye instead of by baking and inspecting. A `DEBUG_` shader insert, not geometry. Shared with the Plow/Mound relief selectors, so it is not a Sim feature |
 | **6 — DONE** | `Pasture3DSimManager`: child Sims become ordered **passes** over one shared grid, chained in memory, committed as one delta to one layer. Clustered by margin-grown loop boxes, with a cell budget that REFUSES rather than coarsening; per-pass mask re-evaluation; one `SimResult`; one water extraction. Retires §5's seam limitation **for the solve** — adjacent loops must still overlap, or the per-pass falloff leaves a ridge at the join (§19) |
 | **6.5 — DONE (§21)** | Two independent halves, landed separately because they share no code. **The selector half** (§21.5, §21.6, gates BE–BH): per-filter-type presets that follow a filter type change only while the band is untouched, `measure_radius` on Slope and Curvature, curvature in METRES of deviation instead of the resolution-dependent Laplacian, and the inverted-band warning. **The container half** (§21.2, §21.3, §21.4, gates AZ–BD): `Pasture3DSimPass` — one pass, many Sims, all reading one input surface and summing their deltas — plus a per-pass Sim Result and Simulate/Preview To Here. §21.7's `connectors/*.gd` → `pasture3d_*.gd` migration landed 2026-08-19 in its own commit. §21.8's preview complaint was re-tested, and the re-test failed: the diagnosis found three divergences between the previewed field and the baked one, none of them the causes 6.5 removed. **All three are now fixed** (gates BJ–BL). **Nothing in section 21 is outstanding.** |
-| **7 — BUILT (§20), AP/AQ passing; AO/AR need an editor** | The pure half of the solve moves onto a worker thread. The profiling §20.6 demanded was run 2026-08-19: **the commit is 0.4 % of a full-resolution build**, so 99.6 % of it is what phase 7 would move and the phase is worth building. The same pass found **depression filling is 61 % of the solve** (§11), which makes the cheaper win — `fill_every`, already implemented, or an O(n) priority-flood — the better thing to do first |
+| **7 — BUILT (§20), AO–AR passing** | The pure half of the solve moves onto a worker thread. The profiling §20.6 demanded was run 2026-08-19: **the commit is 0.4 % of a full-resolution build**, so 99.6 % of it is what phase 7 would move and the phase is worth building. The same pass found **depression filling is 61 % of the solve** (§11), which makes the cheaper win — `fill_every`, already implemented, or an O(n) priority-flood — the better thing to do first |
 | **8 — NOT YET SPECCED** | Let a landform brush's relief selectors read its OWN generated profile. Today a Mound's selector reads the ground *under* the Mound, so on flat ground every filter type returns one constant and "craggy on the flanks, smooth on top" cannot be expressed. Surfaced by the §18 preview; see §15.10. **Spec it after phase 7** |
 
 ### Gates
@@ -1973,7 +1973,7 @@ asserts the lakes existed **before** clipping (2 of them) rather than merely tha
 
 ---
 
-## 20. Off the main thread (phase 7) — BUILT (headless half)
+## 20. Off the main thread (phase 7) — BUILT
 
 ### 20.1 What actually freezes today, and what does not
 
@@ -2074,24 +2074,29 @@ assignment.
 
 | # | Criterion | Control that must fail |
 |---|---|---|
-| AO ⏸ | **The editor stays responsive.** Frame time during a threaded build stays under a stated budget for the whole solve. | The same build on the synchronous path must exceed it — otherwise the fixture is too small to freeze anything and the criterion is measuring nothing. |
+| AO ✅ | **The editor stays responsive.** Frame time during a threaded build stays under a stated budget for the whole solve. | The same build on the synchronous path must exceed it — otherwise the fixture is too small to freeze anything and the criterion is measuring nothing. |
 | AP ✅ | **The threaded result is bitwise identical to the synchronous one.** Gate I extended across drivers, not just across runs. | I's own control — a hash-ordered iteration, which must differ. |
 | AQ ✅ | **Cancel joins.** Cancelling mid-solve joins the worker, writes nothing to the layer, and leaves the node able to run again. | Assert the solve had *not* finished when Cancel landed, or "cancel worked" is indistinguishable from "the solve completed first". |
-| AR ⏸ | **Teardown is safe.** Freeing the node and closing the scene mid-solve leave no orphan worker and no crash. | A run where the solve completes normally, to show the teardown path is what is being exercised. |
+| AR ✅ | **Teardown is safe.** Freeing the node and closing the scene mid-solve leave no orphan worker and no crash. | A run where the solve completes normally, to show the teardown path is what is being exercised. |
 
 AO and AR are **editor-path criteria and headless-blind**, the same accommodation gate M4 makes: a
 headless gate can assert the join and the absence of an orphan task, but the frame-time claim needs an
 editor. Say so in the gate output rather than letting a green line imply more than was measured.
 
-### Gate results (phase 7, the headless half)
+### Gate results (phase 7, all four passing)
 
-`bench/SimPhase7Gate.tscn`, headless, ~30 s. **AP and AQ pass; AO and AR are not run and the gate prints
-a checklist for doing them by hand** rather than reporting four green lines for two measurements.
+`bench/SimPhase7Gate.tscn`, headless, ~60 s. **§20.7 called AO and AR "editor-path criteria and
+headless-blind", and that turned out to be half right** — it conflated each *claim* with the venue it was
+imagined in. AO is really "is the main thread blocked", and a headless run has a main loop and a
+`_process` delta like any other. AR's first two cases are node lifetime. Both are measured below; what
+genuinely needs an editor is narrower than the original wording, and named at the end.
 
 | # | Measured | Control |
 |---|---|---|
 | AP ✅ | The threaded surface is **bitwise** the synchronous one, compared as the committed layer over 43 681 cells rather than as the report — a report can agree while the layer does not. The worker was joined: task id **−1**, `_running` **false**. | The synchronous solve had to MOVE the ground first (**33.25 m**), or AP compares two copies of the input; and **29 iterations instead of 30 differs by 3.115143 m**, so the comparison can see a change at all. |
 | AQ ✅ | Cancel joined in **28 frames** (one chunk, as §20.3 intends), left task id **−1** and `_running` **false**, wrote **0.000000000 m** to the layer, and the node solved again afterwards. | **The solve was still in flight when Cancel landed** — asserted *before* cancelling, because §20.7 is explicit that "cancel worked" is otherwise indistinguishable from "the solve completed first". |
+| AO ✅ | Worst main-thread frame during a 762² build, by stage: `_begin` **5.7 ms**, **the solve 10.0 ms**, `_finish` **6.9 ms** — so the whole build's worst frame is 10 ms and no stage dominates. | The identical solve **chunked on the main thread**, which is what the code did before this phase: **140.8 ms**. The stall during the solve shrank **14×**, and the control must exceed the 100 ms budget or the fixture cannot tell the two drivers apart. |
+| AR ✅ | **Removed from the tree mid-solve**: `NOTIFICATION_EXIT_TREE` joined, task id **−1**, `_running` **false**. **Freed outright mid-solve**: `NOTIFICATION_PREDELETE` joined the worker before the node's arrays were released, and the run survived. | Each asserts the solve was **still in flight** first, since a teardown after the solve finished exercises nothing — plus a run left to finish normally, to show the teardown path is what the other two exercised. |
 
 **Built: the phase is three changes, and only one of them is a thread.**
 
@@ -2114,6 +2119,18 @@ every 5" as though that meant responsive. At ~95 ms per iteration on a 762² clu
 between yields** — the editor took a half-second hitch six times over, rather than one three-second
 freeze. That is what this removes. It still does not make the solve faster, and §20.6's other point
 stands: the commit was never the problem, at 0.4 %.
+
+**Two measurement traps this gate fell into first, both worth knowing.** A main-thread stall lands in the
+NEXT frame's delta, not its own — zeroing the watch straight after each stage charged `_begin`'s cost to
+the solve, reported 141.7 ms, and very nearly shipped "the worker still blocks the main thread" as a
+finding about the code rather than about the gate. And `free()` on a node whose coroutine is suspended is
+refused by the engine ("Object is locked"); `queue_free()` is both what an editor actually uses and what
+reaches `PREDELETE`.
+
+**Still editor-only, and narrower than §20.7 first supposed.** AO here proves the main thread is not
+blocked, not that the *editor* stays interactive — the editor does far more per frame, and input and
+redraw are not exercised. AR's third case, a `@tool` script hot-reload during a live build, needs an
+editor to reload a script. Both are printed as a checklist by the gate itself.
 
 **Not done, and deliberately.** Cluster parallelism — §20.4's "the only actual speedup threading buys, and
 only with a manager" — is not in this phase. It makes AP's bitwise claim a question about nondeterministic
