@@ -24,9 +24,27 @@ const OP_STRIDE := 4     # [op_type, blend, selector_id, flags]
 const PARAM_STRIDE := 12 # per-op float block
 const FLAG_NEGATE := 1   # bit0 — negate the op's value before blending
 const FLAG_CLAMP := 2    # bit1 — clamp the accumulator to [-1,1] after blending
+const FLAG_BAND_SHIFT := 2 # bits 2-3 — which coordinate a PROFILE band op quantises (BandSource)
+const FLAG_BAND_MASK := 3 << FLAG_BAND_SHIFT
 const NO_SELECTOR := -1  # op is ungated
-const SELECTOR_STRIDE := 8 # [filter_type, min, max, falloff_lo, falloff_hi, invert, strength, radius]
+## [filter_type, min, max, falloff_lo, falloff_hi, invert, strength, radius, field_source]. The stride was
+## 8 until the host-profile phase added the last slot; widening it needs no migration because the block is
+## never serialised — it is rebuilt from the selector resources on every compile.
+const SELECTOR_STRIDE := 9
 const SELECTOR_RADIUS := 7 # slot of measure_radius, in METRES; 0 = one cell (spec §21.6)
+const SELECTOR_FIELD_SOURCE := 8 # slot of field_source, a Pasture3DReliefSelector.FieldSource
+
+## Which coordinate TERRACE / STRATIFY quantise into bands. Ids MUST stay in sync with ReliefBandSource
+## in src/pasture_3d_relief_ops.h.
+enum BandSource {
+	ACCUMULATOR,      ## band the relief already in the accumulator — the historical behaviour
+	HOST_PROFILE,     ## band the host brush's own shape, normalised by the divisor the brush measured
+	GROUND_ALTITUDE,  ## band world height out of the below-layer composite, over BAND_RANGE
+}
+## Param slots carrying a GROUND_ALTITUDE band's world-metre range. 7 and 8 are the lowest pair free in
+## BOTH TERRACE (uses 0-4) and STRATIFY (uses 0-6), so one rule covers both ops.
+const BAND_RANGE_LO := 7
+const BAND_RANGE_HI := 8
 const CURVE_LUT_N := 256 # samples per baked Curve, one contiguous block per CURVE op
 ## Depth of hollow, in metres over one cell, at which SCREE's toe deposition reaches full strength.
 ## Sync with RELIEF_SCREE_TOE_FULL_M in src/pasture_3d_relief_ops.h — see _scree.
@@ -148,6 +166,16 @@ func selectors() -> Array:
 ## the reference is MISSING — so this cannot be `not sim_results().is_empty()`.
 func wants_sim_result() -> bool:
 	return selector != null and selector.is_sim_filter_type()
+
+
+## True when anything here reads the HOST BRUSH'S OWN generated profile: a selector whose Field Source is
+## Host Profile, or — on Terraces and Strata, which override this — a Band Source of the same name.
+##
+## Only a landform brush has a profile to offer. Every other host turns this into a configuration warning
+## rather than silently substituting the below-layer fields, so a Field Source set on the wrong kind of
+## brush is visible instead of merely disappointing.
+func wants_host_profile() -> bool:
+	return selector != null and selector.uses_host_profile()
 
 
 ## Append a selector to the table and return its index (the value an op stores in its selector slot).
@@ -275,11 +303,20 @@ static func _configure_noise(freq: float, octaves: int, lacunarity: float, gain:
 ## rather than two more floats because the radius is per SELECTOR, not per cell, and a program can hold
 ## several — the same shape ReliefFields uses in C++. Defaulted, so every caller that has no radius in play
 ## passes nothing and behaves exactly as before.
+## `host_*` are the same three measurements over the HOST BRUSH'S OWN generated shape, for selectors whose
+## `field_source` is Host Profile and for a TERRACE / STRATIFY band source of the same name.
+## `host_alt` is the brush's own contribution in METRES (the delta it adds, not the absolute world
+## height); `host_norm` is that already divided by the divisor the brush measured, so 0 is the rim and 1
+## the crest. `host_measured` mirrors `measured` for host-source radius selectors. Defaulted, and
+## `has_host` stays false for every caller that passes nothing — a host-source selector then reads a
+## defined zero rather than falling back to the below-layer numbers, which would hide a mis-set source.
 func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float,
 		alt: float = 0.0, slope_deg: float = 0.0, curv: float = 0.0,
 		gx: float = 0.0, gz: float = 0.0,
 		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0,
-		measured: Array = [], fi: int = -1) -> float:
+		measured: Array = [], fi: int = -1,
+		host_alt: float = 0.0, host_slope_deg: float = 0.0, host_curv: float = 0.0,
+		host_norm: float = 0.0, has_host: bool = false, host_measured: Array = []) -> float:
 	# Compile on demand. Callers in the bake path always compile first, but an uncompiled material used
 	# to evaluate to a silent 0 — which reads exactly like "correctly gated out" and cost a gate its
 	# meaning once already. One bool test per cell is not worth that trap.
@@ -300,7 +337,9 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		var sid := _ops[o + 2]
 		var sel := 1.0
 		if sid >= 0:
-			sel = _selector_value(sid, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi)
+			sel = _selector_value(sid, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi,
+					host_alt, host_slope_deg, host_curv, has_host, host_measured)
+		var band_source := (flags & FLAG_BAND_MASK) >> FLAG_BAND_SHIFT
 
 		# --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
 		if op == Op.WARP:
@@ -316,19 +355,28 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 
 		# --- PROFILE: remaps acc in place; ignores blend.
 		if op == Op.TERRACE:
-			var tx := clampf(acc * 0.5 + 0.5, 0.0, 1.0)
+			var tx := _band_coord(band_source, acc, host_norm, alt, p)
 			var jit := _params[p + 2]
 			if jit != 0.0:
 				tx = clampf(tx + _noise[i].get_noise_2d(u, v) * jit, 0.0, 1.0)
 			acc = lerpf(acc, _band(tx, _params[p], _params[p + 1]) * 2.0 - 1.0, sel)
 			continue
 		if op == Op.STRATIFY:
-			# Bands are horizontal in the accumulator, then tilted by a linear ramp across the ground
-			# (dip, in normalised units per 100 m) and broken up laterally so they are not dead straight.
+			# Bands are horizontal in the banded coordinate, then tilted by a linear ramp across the
+			# ground (dip, in normalised units per 100 m) and broken up laterally so they are not dead
+			# straight.
 			var dipdir := _params[p + 3]
-			var w := acc + _params[p + 2] * (u * cos(dipdir) + v * sin(dipdir)) * 0.01
-			w += _noise[i].get_noise_2d(u, v) * _params[p + 5]
-			acc = lerpf(acc, _band(clampf(w * 0.5 + 0.5, 0.0, 1.0), _params[p], _params[p + 1]) * 2.0 - 1.0, sel)
+			var tilt := _params[p + 2] * (u * cos(dipdir) + v * sin(dipdir)) * 0.01
+			tilt += _noise[i].get_noise_2d(u, v) * _params[p + 5]
+			# The ACCUMULATOR path folds dip and break-up in BEFORE the -1..1 -> 0..1 remap, exactly as it
+			# always did — that expression is what gate BP holds to the byte. The other band sources are
+			# already in 0..1, so the same tilt is halved to land at the same visual magnitude, not twice it.
+			var w := 0.0
+			if band_source == BandSource.ACCUMULATOR:
+				w = clampf((acc + tilt) * 0.5 + 0.5, 0.0, 1.0)
+			else:
+				w = clampf(_band_coord(band_source, acc, host_norm, alt, p) + tilt * 0.5, 0.0, 1.0)
+			acc = lerpf(acc, _band(w, _params[p], _params[p + 1]) * 2.0 - 1.0, sel)
 			continue
 		if op == Op.CLAMP:
 			acc = lerpf(acc, clampf(acc, _params[p], _params[p + 1]), sel)
@@ -378,26 +426,54 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 	return acc
 
 
+## The 0..1 coordinate a PROFILE band op quantises. Mirrors relief_band_coord in C++.
+##
+## ACCUMULATOR is deliberately spelled as the exact expression it always was, not as a special case of a
+## more general one: it is the default on every material authored so far, and gate BP compares it to the
+## byte.
+func _band_coord(band_source: int, acc: float, host_norm: float, alt: float, p: int) -> float:
+	if band_source == BandSource.HOST_PROFILE:
+		# Already divided by the host's measured divisor, so 0 is the rim and 1 the crest. Reads a flat 0
+		# when the caller built no host fields, which is what makes a Host Profile band on a Plow do
+		# visibly nothing rather than something arbitrary.
+		return clampf(host_norm, 0.0, 1.0)
+	if band_source == BandSource.GROUND_ALTITUDE:
+		var lo := _params[p + BAND_RANGE_LO]
+		var hi := _params[p + BAND_RANGE_HI]
+		var d := hi - lo
+		return clampf((alt - lo) / d, 0.0, 1.0) if absf(d) > 1.0e-9 else 0.0
+	return clampf(acc * 0.5 + 0.5, 0.0, 1.0)
+
+
 ## Evaluate one selector against this cell's terrain, returning the multiplier to apply to a gated op.
 ## Strength lerps between "ungated" (1.0) and the band value, so a selector fades a material out rather
 ## than deleting it unless you ask for the full gate.
 func _selector_value(sid: int, alt: float, slope_deg: float, curv: float,
 		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0,
-		measured: Array = [], fi: int = -1) -> float:
+		measured: Array = [], fi: int = -1,
+		host_alt: float = 0.0, host_slope_deg: float = 0.0, host_curv: float = 0.0,
+		has_host: bool = false, host_measured: Array = []) -> float:
 	var b := sid * SELECTOR_STRIDE
 	if b < 0 or b + SELECTOR_STRIDE > _selectors.size():
 		return 1.0
+	# Which of the two parallel field sets the three SHAPE filter types read. Decided before anything is
+	# measured, because it picks the grids every read below comes out of. A host-source selector on a host
+	# that built no host fields reads zeros — not the below-layer values under another name.
+	var host := int(_selectors[b + SELECTOR_FIELD_SOURCE]) == Pasture3DReliefSelector.FieldSource.HOST_PROFILE
+	var src_measured: Array = host_measured if host else measured
 	# SLOPE and CURVATURE are the two filter types a measure_radius applies to (§21.6) — the same
 	# measurement over a wider stencil. Everything else reads the one value it always did.
 	var wide: Array = []
-	if _selectors[b + SELECTOR_RADIUS] > 0.0 and fi >= 0 and sid < measured.size():
-		wide = measured[sid]
-	var x := float(wide[0][fi]) if not wide.is_empty() else slope_deg
+	if _selectors[b + SELECTOR_RADIUS] > 0.0 and fi >= 0 and sid < src_measured.size():
+		wide = src_measured[sid]
+	var base_slope := (host_slope_deg if has_host else 0.0) if host else slope_deg
+	var x := float(wide[0][fi]) if not wide.is_empty() else base_slope
 	var ft := int(_selectors[b])
 	if ft == 1: # ALTITUDE
-		x = alt
+		x = ((host_alt if has_host else 0.0) if host else alt)
 	elif ft == 2: # CURVATURE
-		x = float(wide[1][fi]) if not wide.is_empty() else curv
+		var base_curv := (host_curv if has_host else 0.0) if host else curv
+		x = float(wide[1][fi]) if not wide.is_empty() else base_curv
 	elif ft == 3: # FLOW — m² of catchment, already un-logged by the brush
 		x = flow
 	elif ft == 4: # EROSION — metres removed, already positive

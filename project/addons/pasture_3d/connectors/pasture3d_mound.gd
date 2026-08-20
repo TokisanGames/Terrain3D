@@ -109,6 +109,12 @@ func _validate_property(property: Dictionary) -> void:
 		property.usage &= ~PROPERTY_USAGE_EDITOR
 
 
+## A Mound generates a dome, so its own shape is a field a selector or a band op can read. This is what
+## makes "craggy on the flanks, smooth on top" expressible here and not on a Plow.
+func _offers_host_profile() -> bool:
+	return true
+
+
 func _get_configuration_warnings() -> PackedStringArray:
 	var warnings := super()
 	# The material's own complaint plus the shared sim-selector and periodic-resolution diagnostics.
@@ -215,7 +221,12 @@ func _paint_spline(path: Path3D) -> void:
 	var fields: Array = _terrain_fields(min_x, min_z, vs, gw, gh) if use_fields else []
 	# §21.6: the wider grids any selector's `measure_radius` asks for, indexed by selector id. Empty when
 	# every selector left it at 0, which is the default.
-	var measured: Array = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh) if use_fields else []
+	var measured: Array = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh,
+			Pasture3DReliefSelector.FieldSource.BELOW_LAYER) if use_fields else []
+	# The HOST PROFILE set: the same five measurements over this Mound's OWN dome, before any relief is
+	# added to it, for a selector whose Field Source is Host Profile and for a TERRACE / STRATIFY banding
+	# it. Only when the compiled program asks — it is another O(cells) grid.
+	var use_host := has_relief and _needs_host_fields(ops, op_selectors)
 	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Filter Types read, resampled from the
 	# Pasture3DSimResult's own extent (which shares no grid with this bake). Only when a selector asks.
 	var sim_res: Pasture3DSimResult = _relief_sim_result(relief) if use_fields else null
@@ -243,6 +254,7 @@ func _paint_spline(path: Path3D) -> void:
 			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
 			"fit_ex": frame[4], "fit_ez": frame[5],
 			"need_fields": use_fields, "sim_result": sim_dict,
+			"need_host_fields": use_host,
 		}
 		# C++ derives the slope/curvature/gradient grids itself (same formula, same input, so the two paths
 		# agree) — but only if it is handed the below-layer heights, which otherwise travel only when the
@@ -279,6 +291,48 @@ func _paint_spline(path: Path3D) -> void:
 	vals.resize(gw * gh)
 	vals.fill(NAN)
 
+	# This brush's OWN generated shape at one cell, before noise and before relief: `[amp_metres, profile]`,
+	# or `[]` where it contributes nothing. Written once and called from both the host-profile pre-pass and
+	# the cell loop, for the same reason the C++ path extracts it: a second copy of this arithmetic is how
+	# the field a selector reads would quietly stop being the shape the brush stamps.
+	var host_profile_at := func(signed_d: float) -> Array:
+		if signed_d <= 0.0:
+			return []
+		if cone:
+			return [sign * minf(slope_tan * signed_d, safety_max),
+					clampf(signed_d / dome_denom, 0.0, 1.0)]
+		var pr := _ramp(falloff_curve, signed_d / (ramp_denom if capped else dome_denom))
+		if pr <= 0.0:
+			return []
+		return [sign * height * pr, pr]
+
+	# The HOST PROFILE fields. A pre-pass over the WHOLE grid, because slope and curvature need
+	# neighbours and so cannot be derived inside the loop that is producing the values. Mirrors the
+	# pre-pass in stamp_mound_loop; gate BQ compares the two.
+	var host_fields: Array = []
+	var host_measured: Array = []
+	var host_div := 1.0
+	if use_host:
+		var host_alt := PackedFloat32Array()
+		host_alt.resize(gw * gh)
+		var peak := 0.0
+		for iz in range(gh):
+			var row := iz * gw
+			for ix in range(gw):
+				# Outside the loop the brush contributes nothing, and 0 is the honest value there — it is
+				# what makes the rim read as the foot of the slope rather than as a hole.
+				var hp: Array = host_profile_at.call(field[row + ix] + edge_offset)
+				var a: float = hp[0] if not hp.is_empty() else 0.0
+				host_alt[row + ix] = a
+				peak = maxf(peak, absf(a))
+		host_fields = _derive_fields(host_alt, vs, gw, gh)
+		# The divisor is the MEASURED peak, not the `height` property: an uncapped slope derives its height
+		# from geometry and never reads `height`, and a capped mound whose falloff_width exceeds its
+		# half-width never reaches full profile. See the same note in stamp_mound_loop.
+		host_div = peak if peak > 0.0 else 1.0
+		host_measured = _measured_fields(host_fields[0], host_fields[2], op_selectors, vs, gw, gh,
+				Pasture3DReliefSelector.FieldSource.HOST_PROFILE)
+
 	for iz in range(gh):
 		var z := min_z + iz * vs
 		var row := iz * gw
@@ -289,18 +343,11 @@ func _paint_spline(path: Path3D) -> void:
 			var x := min_x + ix * vs
 			var pos := Vector3(x, 0.0, z)
 			var base_y := _base_height_below(pos) if relative_to_terrain else global_position.y
-			var amp: float
-			var profile: float
-			if cone:
-				# Free-rising cone: tan × distance, capped by the region safety height. profile is the
-				# 0→1 interior mask used only to keep noise / relief off the rim.
-				profile = clampf(signed_d / dome_denom, 0.0, 1.0)
-				amp = sign * minf(slope_tan * signed_d, safety_max)
-			else:
-				profile = _ramp(falloff_curve, signed_d / (ramp_denom if capped else dome_denom))
-				if profile <= 0.0:
-					continue
-				amp = sign * height * profile
+			var hp: Array = host_profile_at.call(signed_d)
+			if hp.is_empty():
+				continue
+			var amp: float = hp[0]
+			var profile: float = hp[1]
 			if noise:
 				amp += noise_strength * noise.get_noise_2d(x, z) * profile
 			if has_relief:
@@ -331,9 +378,22 @@ func _paint_spline(path: Path3D) -> void:
 						f_ero = sim_fields[1][fi]
 						f_dep = sim_fields[2][fi]
 						f_wet = sim_fields[3][fi]
+				var h_alt := 0.0
+				var h_slope := 0.0
+				var h_curv := 0.0
+				var h_norm := 0.0
+				if use_host:
+					var hi := row + ix
+					h_alt = host_fields[0][hi]
+					h_slope = host_fields[1][hi]
+					h_curv = host_fields[2][hi]
+					# Divided once, here, so the divisor lives in exactly one place — the same rule the
+					# native path follows by pre-dividing in ReliefFields::sample_host.
+					h_norm = h_alt / host_div
 				var rv := relief.eval(x, z, lx * inv_ex, lz * inv_ez, inv_ex, inv_ez,
 						f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet,
-						measured, row + ix if use_fields else -1)
+						measured, row + ix if (use_fields or use_host) else -1,
+						h_alt, h_slope, h_curv, h_norm, use_host, host_measured)
 				amp += relief_strength * rv * profile * mat_strength
 			vals[row + ix] = amp if add else base_y + amp
 

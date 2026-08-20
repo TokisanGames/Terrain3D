@@ -637,6 +637,31 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	const double ramp_denom = (use_angle && capped) ? MAX(std::fabs(height) / slope_tan, 0.001) : MAX(falloff_width, 0.001);
 	const bool add = (blend == 1); // BLEND_ADD
 
+	// The brush's OWN generated shape at one cell, before noise and before relief: `r_amp` in metres and
+	// `r_profile` as the 0..1 interior mask. Returns false where the brush contributes nothing.
+	//
+	// Extracted into one expression because TWO things now evaluate it — the host-profile pre-pass below
+	// and the main cell loop — and a second copy of this arithmetic is exactly how the field a selector
+	// reads would quietly stop being the shape the brush stamps.
+	const auto host_profile_at = [&](const double p_signed_d, double &r_amp, double &r_profile) -> bool {
+		if (p_signed_d <= 0.0) {
+			return false;
+		}
+		if (cone) {
+			// Free-rising cone: tan × distance, capped by the region safety height. profile (0..1
+			// interior mask) only gates the noise so the rim stays clean.
+			r_profile = CLAMP(p_signed_d / dome_denom, 0.0, 1.0);
+			r_amp = sign * MIN(slope_tan * p_signed_d, slope_safety);
+			return true;
+		}
+		r_profile = (double)raster_ramp(p_lut, (float)(p_signed_d / (capped ? ramp_denom : dome_denom)));
+		if (r_profile <= 0.0) {
+			return false;
+		}
+		r_amp = sign * height * r_profile;
+		return true;
+	};
+
 	Pasture3DLayer *wlayer = _layer_stack.is_null() ? nullptr : _layer_stack->get_layer_ptr(p_layer_id);
 	Vector2i wloc(0x7fffffff, 0x7fffffff);
 	Pasture3DRegion *wregion = nullptr;
@@ -658,7 +683,48 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 		}
 		// The wider slope / curvature grids a selector's `measure_radius` asks for (§21.6). A no-op when
 		// every selector leaves it at 0, which is the default.
-		relief_fields_add_measured(prog.selectors, fields);
+		relief_fields_add_measured(prog.selectors, fields, RELIEF_FIELD_BELOW);
+	}
+
+	// HOST PROFILE fields: the same five measurements over the brush's OWN generated shape, for selectors
+	// with `field_source = Host Profile` and for TERRACE / STRATIFY banding it. Built by a pre-pass over
+	// the whole grid, because slope and curvature need neighbours and so cannot be derived inside the
+	// cell loop that is producing the values.
+	//
+	// The pre-pass deliberately ignores the clip box. Clipping decides which cells get WRITTEN; the field
+	// must be continuous across a clip edge, or a selector reads a cliff that is an artefact of tiling.
+	ReliefFields host_fields;
+	if (has_relief && (bool)p_params.get("need_host_fields", false)) {
+		PackedFloat32Array host_grid;
+		host_grid.resize(gw * gh);
+		float *hp = host_grid.ptrw();
+		double peak = 0.0;
+		for (int iz = 0; iz < gh; iz++) {
+			const int row = iz * gw;
+			for (int ix = 0; ix < gw; ix++) {
+				double a = 0.0;
+				double pr = 0.0;
+				// Outside the loop the brush contributes nothing, and 0 is the honest value there — it is
+				// what makes the rim read as the foot of the slope rather than as a hole.
+				hp[row + ix] = host_profile_at((double)field[row + ix] + edge_offset, a, pr) ? (float)a : 0.f;
+				peak = MAX(peak, std::fabs((double)hp[row + ix]));
+			}
+		}
+		// No NaN can reach the fallback — the grid above is fully written — so it is never called.
+		relief_fields_build(host_grid, min_x, min_z, vs, gw, gh,
+				[](double, double) { return 0.f; }, host_fields);
+
+		// THE DIVISOR, and why it is the measured peak rather than the brush's `height` property.
+		// `height` is not the crest in two shipped configurations: an uncapped slope ("cone") derives its
+		// height from the geometry and never reads `height` at all, and a capped mound whose
+		// falloff_width exceeds its half-width never reaches full profile — the case the authoring guide
+		// already warns about. Using `height` there would put every band a user authored somewhere other
+		// than where they put it.
+		//
+		// The peak is a deterministic function of the loop and the shape properties — the same property
+		// that makes this whole field non-drifting — so it is reproducible, not merely measured.
+		host_fields.norm_divisor = peak > 0.0 ? peak : 1.0;
+		relief_fields_add_measured(prog.selectors, host_fields, RELIEF_FIELD_HOST);
 	}
 	ReliefSample ground;
 
@@ -686,19 +752,10 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 			if (signed_d <= 0.0) {
 				continue;
 			}
-			double amp;
-			double profile;
-			if (cone) {
-				// Free-rising cone: tan × distance, capped by the region safety height. profile (0..1
-				// interior mask) only gates the noise so the rim stays clean.
-				profile = CLAMP(signed_d / dome_denom, 0.0, 1.0);
-				amp = sign * MIN(slope_tan * signed_d, slope_safety);
-			} else {
-				profile = (double)raster_ramp(p_lut, (float)(signed_d / (capped ? ramp_denom : dome_denom)));
-				if (profile <= 0.0) {
-					continue;
-				}
-				amp = sign * height * profile;
+			double amp = 0.0;
+			double profile = 0.0;
+			if (!host_profile_at(signed_d, amp, profile)) {
+				continue;
 			}
 			const double x = min_x + ix * vs;
 			if (has_clip && (x < cx0 || x >= cx1)) {
@@ -722,7 +779,10 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 				const double dz = z - fit_cz;
 				const double lx = dx * fit_cos + dz * fit_sin;
 				const double lz = -dx * fit_sin + dz * fit_cos;
+				// Below-layer first, host second: `sample` blank-slates the whole struct when it is out of
+				// range or not ready, so filling the host half before it would silently discard it.
 				fields.sample(row + ix, ground);
+				host_fields.sample_host(row + ix, ground);
 				const double rv = relief_eval(prog, x, z, lx * inv_ex, lz * inv_ez, inv_ex, inv_ez, ground);
 				amp += relief_strength * rv * profile * relief_mat_strength;
 			}
@@ -1274,7 +1334,11 @@ void Pasture3DData::stamp_plow_loop(const int p_layer_id, const PackedVector2Arr
 		}
 		// The wider slope / curvature grids a selector's `measure_radius` asks for (§21.6). A no-op when
 		// every selector leaves it at 0, which is the default.
-		relief_fields_add_measured(prog.selectors, fields);
+		//
+		// BELOW only: a Plow has no host profile to offer — its "own generated shape" IS its stamp, i.e.
+		// its output — so a `Host Profile` selector here reads a defined zero and the brush warns. See
+		// Pasture3DPlow._get_configuration_warnings.
+		relief_fields_add_measured(prog.selectors, fields, RELIEF_FIELD_BELOW);
 	}
 	ReliefSample ground;
 

@@ -2581,6 +2581,53 @@ func _needs_terrain_fields(ops: PackedInt32Array) -> bool:
 		var o := i * Pasture3DReliefMaterial.OP_STRIDE
 		if ops[o + 2] >= 0 or ops[o] == Pasture3DReliefMaterial.Op.SCREE:
 			return true
+		# A GROUND_ALTITUDE band reads `alt` out of the below-layer set, so it needs the fields even
+		# though it carries no selector.
+		if _band_source_of(ops, i) == Pasture3DReliefMaterial.BandSource.GROUND_ALTITUDE:
+			return true
+	return false
+
+
+## True when this brush generates a shape of its own that a selector or a band op can read — a Mound's
+## dome, and later a Ridge's crest section. False on the hosts whose output IS their shape (Plow, Splat)
+## and on Sim, which is a transform over a surface rather than a landform.
+##
+## Overridden rather than sniffed from the class so a new landform host opts in deliberately: the field
+## has to be BUILT by that host's rasteriser, and a host that answers yes without building it would gate
+## everything to zero with no warning at all — the exact failure this method exists to report.
+func _offers_host_profile() -> bool:
+	return false
+
+
+## The BandSource a PROFILE band op carries, or ACCUMULATOR for every op that is not one. One place that
+## knows the flag packing, so the two predicates below and any future reader cannot disagree about it.
+func _band_source_of(ops: PackedInt32Array, i: int) -> int:
+	var o := i * Pasture3DReliefMaterial.OP_STRIDE
+	if (ops[o] != Pasture3DReliefMaterial.Op.TERRACE
+			and ops[o] != Pasture3DReliefMaterial.Op.STRATIFY):
+		return Pasture3DReliefMaterial.BandSource.ACCUMULATOR
+	return ((ops[o + 3] & Pasture3DReliefMaterial.FLAG_BAND_MASK)
+			>> Pasture3DReliefMaterial.FLAG_BAND_SHIFT)
+
+
+## True when the compiled program reads the HOST BRUSH'S OWN generated profile — either through a selector
+## whose Field Source is Host Profile, or through a TERRACE / STRATIFY banding it.
+##
+## Only landform brushes can answer yes; a Pasture3DPlow never builds the field, so a program asking for it
+## there reads a defined zero and the brush warns. Kept beside _needs_terrain_fields because the two are
+## the same kind of question over the same program, and a caller almost always asks both.
+func _needs_host_fields(ops: PackedInt32Array, op_selectors: PackedFloat32Array) -> bool:
+	var stride := Pasture3DReliefMaterial.SELECTOR_STRIDE
+	for i in range(ops.size() / Pasture3DReliefMaterial.OP_STRIDE):
+		var o := i * Pasture3DReliefMaterial.OP_STRIDE
+		var sid := ops[o + 2]
+		if sid >= 0:
+			var b := sid * stride + Pasture3DReliefMaterial.SELECTOR_FIELD_SOURCE
+			if (b < op_selectors.size()
+					and int(op_selectors[b]) == Pasture3DReliefSelector.FieldSource.HOST_PROFILE):
+				return true
+		if _band_source_of(ops, i) == Pasture3DReliefMaterial.BandSource.HOST_PROFILE:
+			return true
 	return false
 
 
@@ -2659,6 +2706,14 @@ func _relief_warnings(mat: Pasture3DReliefMaterial) -> PackedStringArray:
 	var w := mat._configuration_warning()
 	if not w.is_empty():
 		warnings.append(w)
+	# Host Profile on a host that has none. Said out loud for the same reason the missing sim result is:
+	# the field reads a defined 0, which produces relief that is uniformly gated out or a single unbroken
+	# band, and "gated to nothing" is indistinguishable from "material is broken" by looking at it.
+	if mat.wants_host_profile() and not _offers_host_profile():
+		warnings.append(("A relief selector or Band Source reads the Host Profile, but a %s has no "
+			+ "generated profile of its own — its shape IS its output. That field reads zero everywhere, "
+			+ "so the gate excludes everything (or the bands collapse onto one). Use Below Layer here, or "
+			+ "move the material to a Pasture3DMound.") % get_class())
 	if mat.wants_sim_result():
 		var distinct: Array = []
 		for r in mat.sim_results():
@@ -2769,7 +2824,17 @@ func _terrain_fields(min_x: float, min_z: float, vs: float, gw: int, gh: int) ->
 			if not is_finite(h):
 				h = terrain.data.get_height(Vector3(min_x + ix * vs, 0.0, min_z + iz * vs))
 			alt[row + ix] = h if is_finite(h) else 0.0
+	return _derive_fields(alt, vs, gw, gh)
 
+
+## Slope / curvature / gradients from ANY altitude grid, in that grid's own units. Split out of
+## _terrain_fields so the host-profile set (_host_profile_fields) is derived by the same arithmetic as the
+## below-layer one — two copies of this would be a silent way for the two field sets to stop being
+## comparable, and a selector's whole job is to compare them.
+##
+## Mirrors relief_fields_build in C++, which is the path an actual bake takes; this one is the oracle.
+func _derive_fields(alt: PackedFloat32Array, vs: float, gw: int, gh: int) -> Array:
+	var n := gw * gh
 	var slope := PackedFloat32Array()
 	slope.resize(n)
 	var curv := PackedFloat32Array()
@@ -2807,7 +2872,8 @@ func _terrain_fields(min_x: float, min_z: float, vs: float, gw: int, gh: int) ->
 ## MUST agree with relief_fields_add_measured in C++, which is the path an actual bake takes; this one is
 ## the oracle. `alt` is _terrain_fields' first return, so the two measurements are of the same ground.
 func _measured_fields(alt: PackedFloat32Array, curv_base: PackedFloat32Array,
-		op_selectors: PackedFloat32Array, vs: float, gw: int, gh: int) -> Array:
+		op_selectors: PackedFloat32Array, vs: float, gw: int, gh: int,
+		field_source: int = Pasture3DReliefSelector.FieldSource.BELOW_LAYER) -> Array:
 	var stride := Pasture3DReliefMaterial.SELECTOR_STRIDE
 	var n_sel := op_selectors.size() / stride
 	var out: Array = []
@@ -2817,9 +2883,14 @@ func _measured_fields(alt: PackedFloat32Array, curv_base: PackedFloat32Array,
 		return out
 	var by_radius := {}
 	for s in range(n_sel):
-		var r := op_selectors[s * stride + Pasture3DReliefMaterial.SELECTOR_RADIUS]
+		var b := s * stride
+		var r := op_selectors[b + Pasture3DReliefMaterial.SELECTOR_RADIUS]
 		if not (r > 0.0):
 			continue # 0 = one cell = the base fields; NaN lands here too
+		# This radius belongs to the OTHER field set — a host-source selector must not make the
+		# below-layer set build a pair it will never read, and vice versa.
+		if int(op_selectors[b + Pasture3DReliefMaterial.SELECTOR_FIELD_SOURCE]) != field_source:
+			continue
 		if not by_radius.has(r):
 			by_radius[r] = _measure_at(alt, curv_base, r, vs, gw, gh)
 		out[s] = by_radius[r]

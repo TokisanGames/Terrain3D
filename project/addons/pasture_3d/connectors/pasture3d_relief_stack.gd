@@ -63,6 +63,15 @@ func wants_sim_result() -> bool:
 	return false
 
 
+func wants_host_profile() -> bool:
+	if super():
+		return true
+	for m in layers:
+		if m != null and m.wants_host_profile():
+			return true
+	return false
+
+
 func _build() -> void:
 	for m in layers:
 		if m == null:

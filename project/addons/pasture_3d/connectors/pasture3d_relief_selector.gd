@@ -34,6 +34,14 @@ enum FilterType {
 	WETNESS,    ## depth of standing water in metres, from the sim's depression fill
 }
 
+## Which surface Slope / Altitude / Curvature measure. Ids MUST stay in sync with ReliefFieldSource in
+## src/pasture_3d_relief_ops.h. The four sim Filter Types ignore this — a Sim Result is one field with one
+## meaning, and there is no host-profile version of "how much land drains through here".
+enum FieldSource {
+	BELOW_LAYER, ## the composite of the layers UNDER this brush's own — the historical behaviour
+	HOST_PROFILE, ## the host brush's OWN generated shape, before any relief is added to it
+}
+
 ## The Filter Types that read a Sim Result rather than the ground's own shape.
 const SIM_FILTER_TYPES: Array[FilterType] = [FilterType.FLOW, FilterType.EROSION,
 		FilterType.DEPOSITION, FilterType.WETNESS]
@@ -139,6 +147,29 @@ const FALLOFF_HINTS := {
 		measure_radius = maxf(v, 0.0)
 		emit_changed()
 
+## WHICH SURFACE Slope, Altitude and Curvature are measured on.
+##
+## [b]Below Layer[/b] (the default, and what every selector did before this existed) reads the composite
+## of the layers UNDER this brush's own. That is what stops a brush gating on its own relief and drifting
+## a little further on every re-bake, and on a Plow laid over existing terrain it is exactly right.
+##
+## [b]Host Profile[/b] reads the host brush's own generated shape — a Mound's dome — before any relief is
+## added to it. Use it when the thing you want to gate on is the landform this brush is making, which is
+## the usual case on a Mound: "craggy on the flanks, smooth on top" is a Slope band on Host Profile, and
+## cannot be expressed on Below Layer at all, because the ground under a Mound is usually flat and every
+## Filter Type then returns one constant.
+##
+## It cannot drift either, and for a structural reason rather than a lucky one: the profile is a function
+## of the loop and the shape properties ONLY, so relief keyed on it can never feed itself.
+##
+## Only landform brushes have a profile to offer. On a Pasture3DPlow or a Pasture3DSim this reads a
+## defined 0 everywhere and the host raises a configuration warning — it does NOT quietly fall back to
+## Below Layer, because a fallback would make a mis-set Field Source invisible.
+@export var field_source: FieldSource = FieldSource.BELOW_LAYER:
+	set(v):
+		field_source = v
+		emit_changed()
+
 
 ## The erosion sim's masks, for the FLOW / EROSION / DEPOSITION / WETNESS Filter Types. Point it at the Sim
 ## Result of the Pasture3DSim that eroded this ground. Ignored by the other Filter Types.
@@ -236,12 +267,25 @@ func _validate_property(property: Dictionary) -> void:
 		property.hint_string = "%f,%f,%f,or_greater" % [h[0], h[1], h[2]]
 	elif n == "measure_radius" and not uses_measure_radius():
 		property.usage &= ~PROPERTY_USAGE_EDITOR # still stored, so switching back restores it
+	elif n == "field_source" and is_sim_filter_type():
+		property.usage &= ~PROPERTY_USAGE_EDITOR # same: hidden on the sim Filter Types, never cleared
 
 
-## Flatten to the stride-8 wire block the evaluators read (spec §7).
+## True when this selector measures the host brush's own profile rather than the layers below it. Only a
+## landform brush can answer that; every other host turns this into a configuration warning.
+func uses_host_profile() -> bool:
+	return field_source == FieldSource.HOST_PROFILE and not is_sim_filter_type()
+
+
+## Flatten to the stride-9 wire block the evaluators read (spec §7).
 ##
-## The eighth float was the reserved slot until §21.6 spent it on `measure_radius`; the stride, and so the
-## wire format, is unchanged.
+## The eighth float was the reserved slot until §21.6 spent it on `measure_radius`; the ninth is
+## `field_source`. Widening the stride needs no migration BECAUSE THE BLOCK IS NEVER SERIALISED — it is
+## rebuilt from these resources on every compile, so nothing on disk carries the old width. (Contrast the
+## `kind` rename below, which touched a STORED property and did need a shim.)
+##
+## `field_source` is written as BELOW_LAYER for the four sim Filter Types whatever the property says: a
+## Sim Result has no host-profile variant, and normalising it here means the evaluators never have to ask.
 ##
 ## The Sim Result is NOT in this block and cannot be: the wire format is flat floats, and the masks are
 ## a whole grid with its own extent. The brush collects them separately (Pasture3DPlow._sim_result_for)
@@ -249,7 +293,8 @@ func _validate_property(property: Dictionary) -> void:
 func to_params() -> Array:
 	return [float(filter_type), range_min, range_max, falloff_low, falloff_high,
 			1.0 if invert else 0.0, strength,
-			measure_radius if uses_measure_radius() else 0.0]
+			measure_radius if uses_measure_radius() else 0.0,
+			float(FieldSource.HOST_PROFILE if uses_host_profile() else FieldSource.BELOW_LAYER)]
 
 
 ## Migration: this property was called `kind` until it was renamed for legibility. Every `.tres` and

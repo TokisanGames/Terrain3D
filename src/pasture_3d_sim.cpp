@@ -327,7 +327,12 @@ PackedFloat32Array Pasture3DData::selector_mask_field(const PackedFloat32Array &
 	// grid's cell size, which for a mask is the sim cell and not the terrain's vertex spacing — the same
 	// choice §17.5 already records for the one-cell fields, and the reason a radius in metres is worth
 	// having at all: it is the one part of a band that now means the same thing at both resolutions.
-	relief_fields_add_measured(p_selectors, fields);
+	//
+	// BELOW only, and not by omission: a Sim has no generated profile of its own — it is a transform over
+	// a surface, not a landform — so there is no host field for a `Host Profile` selector to read here.
+	// One set to it reads a defined zero and the Sim warns, rather than quietly being given the
+	// below-layer numbers under another name.
+	relief_fields_add_measured(p_selectors, fields, RELIEF_FIELD_BELOW);
 
 	out.resize(gw * gh);
 	float *o = out.ptrw();
