@@ -28,6 +28,9 @@ bench/SimPhase6Gate.tscn
 bench/SimPhase65SelectorGate.tscn
 bench/SimPhase65PassGate.tscn
 
+# --- The threaded solve (phase 7). AO and AR are editor-only and not in here ---
+bench/SimPhase7Gate.tscn
+
 # --- Solver internals and the mask preview ---
 bench/SimFloodGate.tscn
 bench/SimPreviewGate.tscn

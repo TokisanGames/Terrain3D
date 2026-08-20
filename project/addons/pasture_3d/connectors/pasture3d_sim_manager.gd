@@ -139,8 +139,6 @@ const RESULT_MAX_CELLS: int = 4194304
 ## holds a PARTIAL landscape afterwards and nothing else on screen would say so.
 @export_storage var _baked_upto: int = -1
 
-var _running: bool = false
-var _cancel: bool = false
 ## Diffusion sub-steps the last solve actually used, across every pass (the worst case, since one pass
 ## hitting the ceiling is enough to under-smooth the chain).
 var _last_substeps: int = 0
@@ -653,20 +651,16 @@ func _simulate_interactive(p_scale: int, p_is_preview: bool, p_up_to: int = -1) 
 	for cl in ctx["clusters"]:
 		total += int(cl["total_iterations"])
 	total = maxi(total, 1)
-	for cl in ctx["clusters"]:
-		while not _solve_chunk(cl):
-			if _cancel:
-				_abort(ctx)
-				return
-			if not is_inside_tree() or not is_configured():
-				_abort(ctx)
-				return
-			var done := 0
-			for c in ctx["clusters"]:
-				done += int(c["iterations_done"])
-			print("%s: %d%%" % [_sim_label(), int(100.0 * float(done) / float(total))])
-			await get_tree().process_frame
-	if _cancel:
+	# §20: the chain solves on a worker and this thread does nothing but report and watch for teardown.
+	# The editor no longer takes a CHUNK_ITERATIONS-sized hitch per yield — measured at ~477 ms on a 762²
+	# cluster, six times in a row, which is what "already chunked" was hiding.
+	var ok: bool = await _solve_on_worker(ctx["clusters"], "%s: solving" % _sim_label(),
+			func() -> void:
+				var done := 0
+				for c in ctx["clusters"]:
+					done += int(c["iterations_done"])
+				print("%s: %d%%" % [_sim_label(), int(100.0 * float(done) / float(total))]))
+	if not ok:
 		_abort(ctx)
 		return
 	_finish(ctx)

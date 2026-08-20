@@ -255,9 +255,6 @@ const RESULT_MAX_CELLS: int = 4194304
 ## preview that is never built is the easy mistake this workflow invites.
 @export_storage var _baked_preview: bool = false
 
-## A solve is running. Blocks a second press and lets Cancel find something to cancel.
-var _running: bool = false
-var _cancel: bool = false
 ## Diffusion sub-steps the last solve actually used (§4.4). Reported when it hit the ceiling, which is
 ## the only way an over-large diffusion setting is visible rather than silently clamped.
 var _last_substeps: int = 0
@@ -745,21 +742,16 @@ func _simulate_interactive(p_scale: int, p_is_preview: bool) -> void:
 	if not bool(ctx["ok"]):
 		return
 	var total: int = maxi(ctx["states"].size(), 1) * maxi(iterations, 1)
-	var done := 0
-	for st in ctx["states"]:
-		while not _solve_chunk(st):
-			done = int(st["done"])
-			if _cancel:
-				_abort(ctx)
-				return
-			if not is_inside_tree() or not is_configured():
-				# The node left the tree mid-solve. Writing into a terrain we are no longer attached to
-				# would bake a footprint nothing owns, so abandon instead.
-				_abort(ctx)
-				return
-			print("Pasture3DSim '%s': %d%%" % [name, int(100.0 * float(done) / float(total))])
-			await get_tree().process_frame
-	if _cancel:
+	# §20: solved on a worker. Teardown — the node leaving the tree mid-solve, which would otherwise bake
+	# a footprint nothing owns — is watched by `_solve_on_worker` from the main thread and comes back as
+	# a false here, exactly as a cancel does.
+	var ok: bool = await _solve_on_worker(ctx["states"], "Pasture3DSim '%s': solving" % name,
+			func() -> void:
+				var done := 0
+				for st in ctx["states"]:
+					done += int(st["done"])
+				print("Pasture3DSim '%s': %d%%" % [name, int(100.0 * float(done) / float(total))]))
+	if not ok:
 		_abort(ctx)
 		return
 	_finish(ctx)
@@ -816,7 +808,16 @@ func _begin(p_scale: int, p_record_undo: bool, p_is_preview: bool) -> Dictionary
 
 
 ## Mask, upsample and write every solved loop, then record the bake. Returns the report.
+## §20.4: anything the worker wanted to say, said now that we are back on the main thread.
+func _flush_warnings(p_ctx: Dictionary) -> void:
+	for st: Dictionary in p_ctx.get("states", []):
+		for w in (st["warnings"] as PackedStringArray):
+			push_warning(w)
+		st["warnings"] = PackedStringArray()
+
+
 func _finish(p_ctx: Dictionary) -> Dictionary:
+	_flush_warnings(p_ctx)
 	var report: Dictionary = p_ctx["report"]
 	var solved: Array = []
 	var written: Array = []
@@ -857,6 +858,7 @@ func _finish(p_ctx: Dictionary) -> Dictionary:
 
 ## Give up on a solve in progress. Nothing has been written, so there is nothing to undo.
 func _abort(p_ctx: Dictionary) -> void:
+	_flush_warnings(p_ctx)
 	_running = false
 	_cancel = false
 	p_ctx["report"]["reason"] = "cancelled"
@@ -938,6 +940,7 @@ func _prepare_solve(p_path: Path3D, p_layer_id: int, p_scale: int) -> Dictionary
 		"path": p_path, "poly": poly, "layer_id": p_layer_id, "vs": vs,
 		"wb": wb, "sb": sb, "gw": gw, "gh": gh, "sw": sw, "sh": sh, "sim_cell": sim_cell,
 		"z0": z0, "z": z0, "erod": e_field, "done": 0, "failed": false,
+		"warnings": PackedStringArray(), # §20.4: the solve runs on a worker and may not push_warning
 		"params": {
 			"gw": sw, "gh": sh, "cell_size": sim_cell,
 			"time_step": 1.0,
@@ -966,8 +969,9 @@ func _solve_chunk(p_state: Dictionary) -> bool:
 	# masks come from one routing-only pass over the FINAL surface instead — see _finish_solve.
 	var res: Dictionary = terrain.data.erode_heightfield(p_state["z"], params, p_state["erod"])
 	if not bool(res.get("ok", false)):
-		push_warning(("Pasture3DSim '%s': the solver rejected the %dx%d grid — most likely no terrain "
-			+ "regions under the area.") % [name, int(p_state["sw"]), int(p_state["sh"])])
+		(p_state["warnings"] as PackedStringArray).append(
+			("Pasture3DSim '%s': the solver rejected the %dx%d grid — most likely no terrain regions "
+			+ "under the area.") % [name, int(p_state["sw"]), int(p_state["sh"])])
 		p_state["failed"] = true
 		return true
 	p_state["z"] = res["z"]
