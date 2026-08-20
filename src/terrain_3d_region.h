@@ -87,12 +87,13 @@ public:
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
 	void clear_color_map();
-	Ref<Image> get_active_color_map() const;
 	void set_compressed_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_compressed_color_map() const { return _compressed_color_map; }
+	void clear_compressed_color_map();
+	Ref<Image> get_active_color_map() const;
+	bool is_color_compressed() const { return _compressed_color_map.is_valid(); }
 	void compress_color_map(const CompressMode p_compress_mode);
 	void check_compressed_color_map(const CompressMode p_compress_mode);
-	void clear_compressed_color_map();
 	void sanitize_maps();
 	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;
 	bool validate_map_size(const Ref<Image> &p_map) const;

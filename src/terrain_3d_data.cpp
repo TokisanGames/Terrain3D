@@ -273,6 +273,7 @@ Ref<Terrain3DRegion> Terrain3DData::add_region_blank(const Vector2i &p_region_lo
  *	p_update - rebuild the maps if true. Set to false if bulk adding many regions.
  */
 Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool p_update) {
+	IS_INIT_MESG("Data not initialized", FAILED);
 	if (p_region.is_null()) {
 		LOG(ERROR, "Provided region is null. Returning");
 		return FAILED;
@@ -287,14 +288,13 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 		return FAILED;
 	}
 	p_region->sanitize_maps();
-	// Free compressed color map in editor
-	if (IS_EDITOR) {
+	// Free uncompressed color map in game if compressed map valid
+	if (!IS_EDITOR && _terrain->get_color_compress_mode() != COMPRESS_NONE && p_region->is_color_compressed()) {
+		p_region->clear_color_map();
+	} else {
+		// Free compressed color map in editor and verify current compression mode against loaded compression
 		p_region->clear_compressed_color_map();
 		p_region->check_compressed_color_map(_terrain->get_color_compress_mode());
-		// Free uncompressed color map in game if valid and desired
-	} else if (_terrain && _terrain->get_free_color_map() &&
-			p_region->get_compressed_color_map().is_valid()) {
-		p_region->clear_color_map();
 	}
 	p_region->set_deleted(false);
 	if (!_region_locations.has(region_loc)) {

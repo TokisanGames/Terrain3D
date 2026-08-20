@@ -568,6 +568,7 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("location_to_filename", "region_location"), &Terrain3DUtil::location_to_filename);
 
 	// Image handling
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_compress_mode", "image_format"), &Terrain3DUtil::get_compress_mode);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("black_to_alpha", "image"), &Terrain3DUtil::black_to_alpha);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_min_max", "image"), &Terrain3DUtil::get_min_max);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(V2I(256)));
