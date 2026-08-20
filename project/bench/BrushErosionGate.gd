@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Gates CA, CB, CC, BX, BY and CE for BRUSH-HOSTED EROSION — phase 3b of PASTURE3D_BRUSH_EROSION_SPEC.md §6.7.
+# Gates CA-CE and BX, BY for BRUSH-HOSTED EROSION — phase 3b of PASTURE3D_BRUSH_EROSION_SPEC.md §6.7.
 #
 # The claim under test: the stream-power solver runs as a modifier over a brush's OWN output, before it
 # composites, and the four channels it produces are readable by the modifiers after it — with no
@@ -52,6 +52,7 @@ func _ready() -> void:
 	_gate_cc_published_fields()
 	_gate_bx_positional()
 	_gate_by_frozen_is_a_cache()
+	_gate_cd_no_catchment_margin()
 	_gate_ce_idempotent()
 
 	print("\n=== %s (%d failures) ===\n" % ["BRUSH EROSION PASS" if _fail == 0 else "BRUSH EROSION FAIL", _fail])
@@ -401,6 +402,131 @@ func _gate_by_frozen_is_a_cache() -> void:
 		_fail += 1
 		print("    !! Bake Erosion did not re-solve against the current surface, so a stale modifier "
 			+ "cannot be recovered")
+
+
+# --- CD: the no-catchment-margin claim, and where it stops being true -------------------------------
+#
+# §6.8 argues that a brush-hosted solve needs no `catchment_margin`: a mountain IS the drainage divide,
+# so nothing upstream feeds it, and the NaN outside the loop is already the right boundary condition.
+# That is a structural claim about a shape, and it is stated in the spec as one that CAN BE WRONG. This
+# gate is what makes it falsifiable.
+#
+# Measured SYNTHETICALLY, through `erode_heightfield` directly, rather than by driving a Pasture3DSim.
+# The Sim would add its own grid resampling and its own chunked solve to the comparison, and a number
+# that could come from any of three places is not evidence about one of them. Here the ONLY difference
+# between the two solves is what lies outside the loop.
+#
+#   no margin   the loop's box, real surface inside, NaN outside — exactly what the brush hands over
+#   margin      a box expanded by half the loop again, real surface everywhere, then cropped back
+#
+# The CONTROL is the case the reasoning does not cover: the same footprint placed BELOW a large hill, so
+# a real catchment drains through it. There the two must disagree, or the gate is not sensitive enough
+# to have told us anything about the first case either.
+func _gate_cd_no_catchment_margin() -> void:
+	print("\n[CD] a landform that is its own divide needs no catchment margin:")
+	var divide := _margin_experiment(false)
+	var downslope := _margin_experiment(true)
+	if divide.is_empty() or downslope.is_empty():
+		_fail += 1
+		print("    !! the solver rejected one of the fixtures; nothing was measured")
+		return
+	print("    divide (a dome):        core cut %.2f m, margin changes it by %.3f m (%.1f%%)"
+		% [divide["cut"], divide["diff"], divide["rel"] * 100.0])
+	print("    control (below a hill): core cut %.2f m, margin changes it by %.3f m (%.1f%%)"
+		% [downslope["cut"], downslope["diff"], downslope["rel"] * 100.0])
+	if downslope["rel"] < 0.15:
+		_fail += 1
+		print("    !! even a footprint with a large upstream catchment barely noticed the margin, so "
+			+ "this comparison cannot detect a missing one and says nothing about the case above")
+	elif divide["rel"] > 0.05:
+		_fail += 1
+		print("    !! a self-draining dome DOES change when the surroundings are included, by %.1f%% "
+			% (divide["rel"] * 100.0) + "of its own cut — §6.8's claim is wrong for this host and a "
+			+ "catchment margin is needed after all")
+
+
+## One margin experiment. Builds the same landform twice — once as the brush sees it (its own box, NaN
+## outside) and once with half a loop of real surroundings on every side — solves both, and compares the
+## CORE, where the answer is supposed to be independent of the boundary.
+##
+## Returns `{cut, diff, rel}`: the mean metres removed in the core, the mean disagreement there, and the
+## second over the first.
+func _margin_experiment(p_downslope: bool) -> Dictionary:
+	var n := 121          # the loop's own box
+	var pad := 60         # half a loop of surroundings on each side
+	var m := n + pad * 2
+	var half := (n - 1) / 2.0
+	var noise := FastNoiseLite.new()
+	noise.seed = 5
+	noise.frequency = 1.0 / 22.0
+
+	# The surface, in the PADDED frame. `p_downslope` puts a 300 m hill off the -X side draining across
+	# the footprint to an outlet on the +X side; without it the surroundings are flat and the dome in the
+	# middle is the only high ground, i.e. its own divide.
+	var big := PackedFloat32Array()
+	big.resize(m * m)
+	for iz in range(m):
+		for ix in range(m):
+			var lx := ix - pad
+			var lz := iz - pad
+			var dx := (lx - half) / half
+			var dz := (lz - half) / half
+			var d := sqrt(dx * dx + dz * dz)
+			var h := 0.0
+			if p_downslope:
+				# A long ramp down from the hill, so a large catchment genuinely crosses the footprint.
+				h = 300.0 * (1.0 - float(ix) / float(m - 1)) - 50.0 * (float(ix) / float(m - 1))
+			if d < 1.0:
+				var pr := 1.0 - d
+				pr = pr * pr * (3.0 - 2.0 * pr)
+				h += (30.0 if p_downslope else 55.0) * pr + 8.0 * noise.get_noise_2d(lx, lz) * pr
+			big[iz * m + ix] = h
+
+	# ARM 1 — what the brush hands the solver: its own box, NaN outside the loop.
+	var brush := PackedFloat32Array()
+	brush.resize(n * n)
+	for iz in range(n):
+		for ix in range(n):
+			var dx := (ix - half) / half
+			var dz := (iz - half) / half
+			brush[iz * n + ix] = (big[(iz + pad) * m + (ix + pad)]
+				if sqrt(dx * dx + dz * dz) < 1.0 else NAN)
+
+	var a := _solve(brush, n, n)
+	var b := _solve(big, m, m)
+	if a.is_empty() or b.is_empty():
+		return {}
+
+	# Compare the CORE — the inner 60% — because the rim is where the two boundary conditions genuinely
+	# differ and nobody claims otherwise. The claim is about the landform's interior.
+	var cut := 0.0
+	var diff := 0.0
+	var cells := 0
+	for iz in range(n):
+		for ix in range(n):
+			var dx := (ix - half) / half
+			var dz := (iz - half) / half
+			if sqrt(dx * dx + dz * dz) > 0.6:
+				continue
+			var i := iz * n + ix
+			var j := (iz + pad) * m + (ix + pad)
+			cut += absf(brush[i] - a[i])
+			diff += absf(a[i] - b[j])
+			cells += 1
+	if cells == 0:
+		return {}
+	cut /= float(cells)
+	diff /= float(cells)
+	return {"cut": cut, "diff": diff, "rel": diff / cut if cut > 0.0 else 0.0}
+
+
+func _solve(p_z: PackedFloat32Array, p_gw: int, p_gh: int) -> PackedFloat32Array:
+	var res: Dictionary = _terrain.data.erode_heightfield(p_z, {
+		"gw": p_gw, "gh": p_gh, "cell_size": 1.0, "time_step": 1.0,
+		"iterations": 60, "erosion_rate": 0.09, "area_exponent": 0.45,
+		"diffusion": 0.02, "deposition": 0.0,
+	}, PackedFloat32Array())
+	return res["z"] if bool(res.get("ok", false)) else PackedFloat32Array()
 
 
 # --- CE: idempotent and deterministic ---------------------------------------------------------------
