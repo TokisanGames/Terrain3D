@@ -47,6 +47,13 @@ extends Resource
 	get:
 		return resource_name
 
+## LIVE recomputes on every refresh; FROZEN caches its output and re-solves only when it has nothing
+## cached, or on an explicit Bake.
+##
+## Hidden on the modifiers that do not support it — see `_supports_freezing`. Shipping a control that
+## silently does nothing is worse than not shipping it.
+enum Evaluation { LIVE, FROZEN }
+
 ## Off leaves the modifier in the list, and in the inspector, without applying it. The point is A/B
 ## comparison: the alternative is deleting a configured modifier to see what it was doing, and then
 ## rebuilding it.
@@ -54,6 +61,28 @@ extends Resource
 	set(v):
 		enabled = v
 		_touch()
+
+
+## Whether this modifier recomputes on every refresh, or caches. See `_supports_freezing` for why it is
+## only meaningful on some of them.
+@export var evaluation: Evaluation = Evaluation.LIVE:
+	set(v):
+		evaluation = v
+		_touch()
+
+
+## True when this modifier is expensive enough that caching its output is worth a staleness problem.
+##
+## FALSE by default, and the property is hidden when it is. `auto_refresh` re-bakes on every spline drag,
+## which is fine for noise, relief and a blur — they cost microseconds. Freezing one of those would be a
+## cache for something cheaper than the cache, plus a way for the viewport to disagree with the inspector.
+func _supports_freezing() -> bool:
+	return false
+
+
+func _validate_property(property: Dictionary) -> void:
+	if property.name == "evaluation" and not _supports_freezing():
+		property.usage &= ~PROPERTY_USAGE_EDITOR
 
 
 ## Invalidate and notify the host brush to re-bake. Every exported setter must call this. Mirrors
@@ -81,9 +110,21 @@ func is_active() -> bool:
 	return enabled
 
 
-## The per-modifier block handed to the native rasteriser. `kind` is added by the caller.
+## The per-modifier block handed to the native rasteriser. `kind` is added by the caller, and so is the
+## cache plumbing for a modifier that supports freezing.
 func to_params() -> Dictionary:
 	return {}
+
+
+## Drop every cached output. The host calls this on an explicit Bake; a modifier that caches nothing has
+## nothing to do.
+func clear_cache() -> void:
+	pass
+
+
+## Cached bytes currently held, so the brush can report a budget nobody would otherwise see.
+func cache_bytes() -> int:
+	return 0
 
 
 ## Problems worth telling the user about, in the host brush's configuration warnings. `p_host` is the

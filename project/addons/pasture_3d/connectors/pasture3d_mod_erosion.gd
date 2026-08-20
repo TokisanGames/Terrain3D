@@ -101,9 +101,89 @@ extends Pasture3DBrushModifier
 ## Cleared whenever the map is reassigned.
 var _lut_cache: Array = []
 
+# ---- The frozen cache (§6.3) -----------------------------------------------------------------------
+#
+# `auto_refresh` re-bakes on every spline drag, and a solve per drag is unusable. FROZEN caches this
+# modifier's output and re-solves only when it has nothing cached, or on an explicit Bake — which is what
+# makes the modifiers AFTER it tunable at interactive speed. That is the real prize: iterating on a
+# flow-gated detail pass stops costing a re-solve.
+#
+# IN MEMORY ONLY, deliberately. The baked heights already persist — they are in the terrain's own layer
+# data — so a cache does not have to survive a reload for the LANDSCAPE to. All it would buy is skipping
+# one solve after reopening a scene, and the price would be tens of megabytes of float grid inside a
+# .tscn. Reopening and then tweaking a downstream modifier costs one solve; that is the whole cost.
+#
+# Keyed by GRID EXTENT, because a brush with several loops bakes several grids and one slot would thrash
+# between them. Each entry holds the solve's own key — a hash of the exact surface handed to the solver,
+# which is what makes staleness detection complete: nothing upstream can change without changing it.
+var _cache: Dictionary = {}
+
+## Set after a bake when a frozen entry was served against a surface it was not solved for. Reported as
+## a configuration warning rather than silently re-solving or silently serving old data.
+var _stale: bool = false
+
+@export_tool_button("Bake Erosion") var _bake_btn = clear_cache
+
+
+## Erosion is the one modifier that defaults to FROZEN (§6.3). Every other modifier costs microseconds
+## and can afford to recompute on each of the many refreshes an `auto_refresh` spline drag fires; a solve
+## cannot, and a brush that locked the editor per drag is the complaint this whole phase came from.
+##
+## The consequence is worth knowing before it surprises you: while Frozen, ANY change — upstream or to
+## this modifier's own sliders — leaves the cached solve in place and raises a stale warning, until you
+## press Bake Erosion. One rule, applied to everything, rather than a list of which edits re-solve.
+## Set Evaluation to Live on a small brush where a solve is cheap enough to watch.
+func _init() -> void:
+	evaluation = Evaluation.FROZEN
+
 
 func is_field_operator() -> bool:
 	return true
+
+
+## Expensive by a wide margin — the one modifier where a cache is worth its own staleness problem.
+func _supports_freezing() -> bool:
+	return true
+
+
+## Drop every cached solve, so the next refresh recomputes. This is the explicit Bake.
+func clear_cache() -> void:
+	if _cache.is_empty() and not _stale:
+		return
+	_cache.clear()
+	_stale = false
+	_touch()
+
+
+func cache_bytes() -> int:
+	var n := 0
+	for k in _cache:
+		var e: Dictionary = _cache[k]
+		for f in ["grid", "flow", "ero", "dep", "wet"]:
+			n += (e[f] as PackedFloat32Array).size() * 4
+	return n
+
+
+## The cache entry for one bake grid, or an empty Dictionary. `p_extent` identifies the grid; the host
+## compares the entry's `key` against the surface it is about to solve.
+func cache_for(p_extent: String) -> Dictionary:
+	return _cache.get(p_extent, {})
+
+
+## Store one solve. Called by the host after a bake, with what the solver actually produced.
+func store_cache(p_extent: String, p_entry: Dictionary) -> void:
+	_cache[p_extent] = p_entry
+
+
+## Record whether the last bake served a stale entry. Deliberately does NOT `_touch()` — this is set
+## DURING a bake, and re-baking from inside a bake is how a refresh loop starts.
+func set_stale(p_stale: bool) -> void:
+	if _stale == p_stale:
+		return
+	_stale = p_stale
+	# The warning list is the only thing that changed, and it is safe to refresh from here.
+	if Engine.is_editor_hint():
+		emit_changed.call_deferred()
 
 
 func kind() -> StringName:
@@ -137,6 +217,13 @@ func modifier_warnings(_p_host) -> PackedStringArray:
 	var w := PackedStringArray()
 	if not enabled:
 		return w
+	if _stale:
+		w.append(("%s is FROZEN and the surface under it has changed, so the terrain is showing the "
+			+ "erosion it solved for the OLD shape. Press Bake Erosion to re-solve, or set Evaluation "
+			+ "to Live.") % display_name())
+	if evaluation == Evaluation.FROZEN and not _cache.is_empty():
+		w.append("%s holds %.1f MB of frozen solve. Press Bake Erosion to re-solve it."
+			% [display_name(), cache_bytes() / 1048576.0])
 	if is_zero_approx(erosion_rate) and is_zero_approx(hillslope_diffusion):
 		w.append(("%s: both Erosion Rate and Hillslope Diffusion are 0, so the solver would route water "
 			+ "and change nothing. Raise Erosion Rate to cut channels.") % display_name())

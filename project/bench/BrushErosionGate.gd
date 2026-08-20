@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Gates CA, CB, CC, BX and CE for BRUSH-HOSTED EROSION — phase 3b of PASTURE3D_BRUSH_EROSION_SPEC.md §6.7.
+# Gates CA, CB, CC, BX, BY and CE for BRUSH-HOSTED EROSION — phase 3b of PASTURE3D_BRUSH_EROSION_SPEC.md §6.7.
 #
 # The claim under test: the stream-power solver runs as a modifier over a brush's OWN output, before it
 # composites, and the four channels it produces are readable by the modifiers after it — with no
@@ -24,6 +24,7 @@ const SITE_CB_SLOPE := Vector3(660.0, 0.0, 120.0)
 const SITE_CC := Vector3(180.0, 0.0, 360.0)
 const SITE_BX := Vector3(420.0, 0.0, 360.0)
 const SITE_CE := Vector3(660.0, 0.0, 360.0)
+const SITE_BY := Vector3(180.0, 0.0, 600.0)
 
 ## Half-extent of the test loop, metres. Large enough that a drainage network has room to organise.
 const HALF := 60.0
@@ -50,6 +51,7 @@ func _ready() -> void:
 	_gate_cb_absolute_surface()
 	_gate_cc_published_fields()
 	_gate_bx_positional()
+	_gate_by_frozen_is_a_cache()
 	_gate_ce_idempotent()
 
 	print("\n=== %s (%d failures) ===\n" % ["BRUSH EROSION PASS" if _fail == 0 else "BRUSH EROSION FAIL", _fail])
@@ -305,6 +307,102 @@ func _gate_bx_positional() -> void:
 			+ "is ordering in general and not the field context")
 
 
+# --- BY: Frozen is a CACHE, not a different answer --------------------------------------------------
+#
+# Freezing is what makes an expensive modifier tunable at all — freeze the erosion and the modifiers
+# after it stay editable at interactive speed. That is only true if a frozen solve is the SAME solve,
+# so the first criterion is bitwise equality against Live.
+#
+# The second is the one that decides whether "frozen" means anything: change the surface underneath it.
+# Live must follow, Frozen must NOT, and the brush must say the modifier is stale. A freeze that quietly
+# keeps up is not a freeze; one that quietly serves old data with no warning is worse.
+func _gate_by_frozen_is_a_cache() -> void:
+	print("\n[BY] a frozen solve is the same solve, and it stops following its input:")
+	var mound = _make_mound("BY", SITE_BY)
+	if mound == null:
+		return
+	var probes := _lattice(SITE_BY)
+	var shape := _craggy(8.0)
+	var ero := _erosion(60, 0.09)
+	var stack: Array[Pasture3DBrushModifier] = [shape, ero]
+	mound.modifiers = stack
+
+	ero.evaluation = Pasture3DBrushModifier.Evaluation.LIVE
+	ero.clear_cache()
+	var live := _bake(mound, probes)
+
+	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
+	ero.clear_cache()
+	var frozen_fresh := _bake(mound, probes)
+	var at := _first_difference(live, frozen_fresh)
+	print("    a freshly baked Frozen modifier vs Live: %s"
+		% ["bitwise identical" if at < 0 else "DIFFERS at probe %d" % at])
+	if at >= 0:
+		_fail += 1
+		print("    !! freezing changed the answer; the cache is not holding what the solver produced")
+
+	# Nothing has been cached yet if this stayed empty — a Frozen modifier with no cache must SOLVE, not
+	# skip, or reopening a scene would silently lose its erosion.
+	var held := ero.cache_bytes()
+	print("    the frozen modifier now holds %.2f MB across %d probes' worth of grid"
+		% [held / 1048576.0, probes.size()])
+	if held <= 0:
+		_fail += 1
+		print("    !! nothing was cached, so every 'frozen' bake below is really just another solve")
+
+	# --- change the surface underneath it ---
+	shape.strength = 16.0
+
+	ero.evaluation = Pasture3DBrushModifier.Evaluation.LIVE
+	ero.clear_cache()
+	var live_after := _bake(mound, probes)
+	var live_moved := _max_abs_diff(live, live_after)
+
+	# Frozen, with the cache from the ORIGINAL surface still in hand.
+	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
+	ero.clear_cache()
+	shape.strength = 8.0
+	var _seed := _bake(mound, probes) # solve and cache against the original shape
+	shape.strength = 16.0
+	var frozen_after := _bake(mound, probes)
+	var frozen_moved := _max_abs_diff(frozen_fresh, frozen_after)
+	var warns := ero.modifier_warnings(mound)
+	var says_stale := false
+	for w in warns:
+		if w.contains("FROZEN") and w.contains("changed"):
+			says_stale = true
+
+	print("    doubling the relief under it: Live moves %.3f m, Frozen moves %.3f m, stale warning: %s"
+		% [live_moved, frozen_moved, says_stale])
+	if live_moved < 0.5:
+		_fail += 1
+		print("    !! Live did not follow the change either, so the fixture never changed anything and "
+			+ "'Frozen did not follow' is not evidence")
+	elif frozen_moved > live_moved * 0.25:
+		_fail += 1
+		print("    !! the frozen modifier followed the change nearly as far as Live did, so it is "
+			+ "re-solving and the freeze does nothing")
+	if not says_stale:
+		_fail += 1
+		print("    !! the brush does not report the frozen modifier as stale, so it is serving old data "
+			+ "with nothing said — which is the one failure this design must not have")
+
+	# THE CONTROL ON THE WARNING: pressing Bake must clear it AND catch the surface up.
+	ero.clear_cache()
+	var rebaked := _bake(mound, probes)
+	var caught_up := _max_abs_diff(rebaked, live_after)
+	var still_stale := false
+	for w in ero.modifier_warnings(mound):
+		if w.contains("FROZEN") and w.contains("changed"):
+			still_stale = true
+	print("    control: after Bake Erosion it is %.4f m from the Live answer, stale warning: %s"
+		% [caught_up, still_stale])
+	if caught_up > 0.001 or still_stale:
+		_fail += 1
+		print("    !! Bake Erosion did not re-solve against the current surface, so a stale modifier "
+			+ "cannot be recovered")
+
+
 # --- CE: idempotent and deterministic ---------------------------------------------------------------
 #
 # The configuration most able to feed itself: a flow-gated modifier downstream of the erosion, on a brush
@@ -364,8 +462,14 @@ func _craggy(p_strength: float) -> Pasture3DModRelief:
 ## Solver settings calibrated on a mound-sized craggy dome (bench/BrushErosionProbe.tscn):
 ## 60 iterations at 0.09 cut a mean 13 m with a max of 42 m, and the hillslope term is turned DOWN to
 ## 0.02 because at the shipped 0.15 it smooths the channels away faster than they cut.
+## LIVE, deliberately, even though the shipped default is Frozen. A gate that measures what the SOLVER
+## does must not measure the cache: with the default, changing `area_exponent` or `iterations` correctly
+## leaves the cached solve in place and raises a stale warning, and CA's and CE's controls would both
+## read "nothing moved" for entirely the right reason. Gate BY is the one that sets Frozen, and it sets
+## it explicitly.
 func _erosion(p_iterations: int, p_rate: float) -> Pasture3DModErosion:
 	var m := Pasture3DModErosion.new()
+	m.evaluation = Pasture3DBrushModifier.Evaluation.LIVE
 	m.label = "Erosion"
 	m.iterations = p_iterations
 	m.erosion_rate = p_rate

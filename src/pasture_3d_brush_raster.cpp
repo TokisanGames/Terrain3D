@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <vector>
 
 using namespace godot;
@@ -332,7 +333,65 @@ struct BrushModStep {
 	ErosionParams erosion; // EROSION
 	PackedFloat32Array erodability; // EROSION: the hardness LUT, empty for uniform rock
 	bool publish_fields = false; // EROSION: write the four channels into the stack's field context
+	// EROSION freezing (§6.3). `frozen` caches the solve; `cache` is what the modifier had stored for
+	// THIS grid extent, and `cache_key` the surface it was solved for. `out` is the modifier's own
+	// Dictionary — a reference type, so writing into it here is how the result gets back to GDScript.
+	bool frozen = false;
+	// Whether GDScript handed over an `out` slot at all. NOT `out.is_empty()`: the slot arrives EMPTY —
+	// it is what this function fills — so emptiness says nothing about whether anyone is listening.
+	bool has_out = false;
+	int64_t cache_key = 0;
+	PackedFloat32Array cache, cache_flow, cache_ero, cache_dep, cache_wet;
+	Dictionary out;
 };
+
+constexpr uint64_t BRUSH_FNV_OFFSET = 1469598103934665603ULL;
+constexpr uint64_t BRUSH_FNV_PRIME = 1099511628211ULL;
+
+inline uint64_t brush_fnv(uint64_t p_h, uint64_t p_v) {
+	return (p_h ^ p_v) * BRUSH_FNV_PRIME;
+}
+
+// A key for one frozen solve: the EXACT surface handed to the solver, plus the settings that surface
+// does not capture. Hashing the input grid rather than enumerating what fed it is what makes staleness
+// detection complete — the spline, the shape properties and every modifier above this one are all in
+// there, and none of them can move without moving this.
+//
+// NaN is canonicalised, because "no data" must hash the same however it was produced.
+//
+// This does NOT have to agree with the GDScript oracle's key, and deliberately is not made to: each path
+// only ever compares keys it wrote itself, and a build that switches rasterisers pays one extra solve.
+int64_t brush_mod_erosion_key(const BrushModStep &p_step, const std::vector<float> &p_z) {
+	uint64_t h = BRUSH_FNV_OFFSET;
+	for (size_t i = 0; i < p_z.size(); i++) {
+		uint32_t b;
+		const float f = p_z[i];
+		std::memcpy(&b, &f, sizeof(b));
+		if (std::isnan(f)) {
+			b = 0x7fc00000u;
+		}
+		h = brush_fnv(h, (uint64_t)b);
+	}
+	// The grid does not change when `iterations` does, so the settings have to be folded in separately.
+	const double settings[] = {
+		(double)p_step.erosion.iterations, p_step.erosion.erosion_rate, p_step.erosion.area_exponent,
+		p_step.erosion.diffusion, p_step.erosion.deposition, p_step.erosion.erodability_min,
+		p_step.erosion.erodability_max, (double)p_step.erosion.erodability_w,
+		(double)p_step.erosion.erodability_h, p_step.publish_fields ? 1.0 : 0.0
+	};
+	for (double v : settings) {
+		uint64_t b;
+		std::memcpy(&b, &v, sizeof(b));
+		h = brush_fnv(h, b);
+	}
+	for (int i = 0; i < p_step.erodability.size(); i++) {
+		uint32_t b;
+		const float f = p_step.erodability[i];
+		std::memcpy(&b, &f, sizeof(b));
+		h = brush_fnv(h, (uint64_t)b);
+	}
+	return (int64_t)h;
+}
 
 // Read the "modifiers" array out of the brush's params. Steps that would contribute nothing are dropped
 // here rather than tested per cell — an unassigned noise field, a material that compiled to no ops, a
@@ -395,6 +454,15 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			st.publish_fields = d.get("publish_fields", false);
 			st.erosion.want_diagnostics = st.publish_fields;
 			st.erodability = d.get("erodability_lut", PackedFloat32Array());
+			st.frozen = d.get("frozen", false);
+			st.cache_key = d.get("cache_key", (int64_t)0);
+			st.cache = d.get("cache", PackedFloat32Array());
+			st.cache_flow = d.get("cache_flow", PackedFloat32Array());
+			st.cache_ero = d.get("cache_ero", PackedFloat32Array());
+			st.cache_dep = d.get("cache_dep", PackedFloat32Array());
+			st.cache_wet = d.get("cache_wet", PackedFloat32Array());
+			st.has_out = d.has("out");
+			st.out = d.get("out", Dictionary());
 			if (st.erosion.iterations < 1 || (st.erosion.erosion_rate == 0.0 && st.erosion.diffusion == 0.0)) {
 				continue; // would route water and subtract nothing
 			}
@@ -420,7 +488,7 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 //
 // A mountain IS the drainage divide, so nothing upstream feeds it and the Sim's `catchment_margin` —
 // quadratic, and much of why a standalone Sim is expensive over a big area — does not apply here.
-void brush_mod_erode(const BrushModStep &p_step, std::vector<float> &r_vals,
+void brush_mod_erode(BrushModStep &p_step, std::vector<float> &r_vals,
 		const std::vector<float> &p_basey, bool p_add, int p_gw, int p_gh, double p_vs,
 		ReliefFields &r_fields) {
 	const size_t n = (size_t)p_gw * p_gh;
@@ -428,6 +496,47 @@ void brush_mod_erode(const BrushModStep &p_step, std::vector<float> &r_vals,
 	for (size_t i = 0; i < n; i++) {
 		z[i] = p_add ? (float)((double)p_basey[i] + (double)r_vals[i]) : r_vals[i];
 	}
+	// ---- FROZEN (§6.3) ----
+	//
+	// A frozen modifier re-solves only when it has nothing usable cached. Note the three-way split:
+	// a MISSING cache solves (reopening a scene must not lose the erosion), a MATCHING cache is served,
+	// and a cache for a DIFFERENT surface is served AND reported stale. That last case is the design
+	// decision: clearing on edit — which the first draft of the spec called for — throws away a
+	// multi-second solve at the exact moment you were mid-comparison. Stale data plus a warning is
+	// recoverable; deleted data is not.
+	//
+	// A cache of the wrong SIZE is not stale, it is unusable: the loop moved and the grid is a different
+	// shape, so there is nothing to serve.
+	const bool want_key = p_step.frozen && p_step.has_out;
+	const int64_t key = want_key ? brush_mod_erosion_key(p_step, z) : 0;
+	// A cached surface is not enough on its own. If a modifier BELOW this one now reads the published
+	// channels and the entry does not carry them, the cache is unusable however well its key matches —
+	// adding a flow-gated modifier does not change the surface handed to the solver, so the key WOULD
+	// still match and the new modifier would quietly read zeros.
+	const bool want_channels = p_step.publish_fields && r_fields.ready;
+	const bool have_cache = p_step.frozen && p_step.cache.size() == (int)n
+			&& !(want_channels && p_step.cache_flow.size() != (int)n);
+	if (have_cache) {
+		const bool stale = p_step.cache_key != key;
+		if (p_step.publish_fields && r_fields.ready
+				&& p_step.cache_flow.size() == (int)n && p_step.cache_wet.size() == (int)n) {
+			r_fields.sim_flow.assign(p_step.cache_flow.ptr(), p_step.cache_flow.ptr() + n);
+			r_fields.sim_erosion.assign(p_step.cache_ero.ptr(), p_step.cache_ero.ptr() + n);
+			r_fields.sim_deposition.assign(p_step.cache_dep.ptr(), p_step.cache_dep.ptr() + n);
+			r_fields.sim_wetness.assign(p_step.cache_wet.ptr(), p_step.cache_wet.ptr() + n);
+			r_fields.has_sim = true;
+		}
+		for (size_t i = 0; i < n; i++) {
+			if (std::isnan(r_vals[i])) {
+				continue;
+			}
+			r_vals[i] = p_add ? (float)((double)p_step.cache[i] - (double)p_basey[i]) : p_step.cache[i];
+		}
+		p_step.out["stale"] = stale;
+		p_step.out["served"] = true;
+		return;
+	}
+
 	ErosionParams ep = p_step.erosion;
 	ep.gw = p_gw;
 	ep.gh = p_gh;
@@ -461,6 +570,33 @@ void brush_mod_erode(const BrushModStep &p_step, std::vector<float> &r_vals,
 			continue;
 		}
 		r_vals[i] = p_add ? (float)((double)res.z[i] - (double)p_basey[i]) : res.z[i];
+	}
+
+	// Hand the solve back so the modifier can cache it. `out` is a Dictionary the GDScript side owns —
+	// a reference type, so this is visible the moment stamp_mound_loop returns.
+	if (want_key) {
+		PackedFloat32Array grid;
+		grid.resize((int)n);
+		std::memcpy(grid.ptrw(), res.z.data(), n * sizeof(float));
+		p_step.out["key"] = key;
+		p_step.out["grid"] = grid;
+		p_step.out["stale"] = false;
+		p_step.out["served"] = false;
+		if (r_fields.has_sim && p_step.publish_fields) {
+			PackedFloat32Array f, e, dp, w;
+			f.resize((int)n);
+			e.resize((int)n);
+			dp.resize((int)n);
+			w.resize((int)n);
+			std::memcpy(f.ptrw(), r_fields.sim_flow.data(), n * sizeof(float));
+			std::memcpy(e.ptrw(), r_fields.sim_erosion.data(), n * sizeof(float));
+			std::memcpy(dp.ptrw(), r_fields.sim_deposition.data(), n * sizeof(float));
+			std::memcpy(w.ptrw(), r_fields.sim_wetness.data(), n * sizeof(float));
+			p_step.out["flow"] = f;
+			p_step.out["ero"] = e;
+			p_step.out["dep"] = dp;
+			p_step.out["wet"] = w;
+		}
 	}
 }
 

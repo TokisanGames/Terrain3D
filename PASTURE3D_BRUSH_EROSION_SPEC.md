@@ -310,6 +310,28 @@ Phase 3a ships three, each reproducing one step the pipeline already hard-codes:
 
 ### 6.3 Live and Frozen — the thing that makes expensive modifiers usable *(3b)*
 
+> **BUILT 2026-08-20 (gate BY).** Three things the build settled that the design below left open:
+>
+> - **The cache is IN MEMORY ONLY.** The baked heights already persist — they are in the terrain's own
+>   layer data — so a cache does not have to survive a reload for the landscape to. Persisting it would
+>   buy skipping one solve after reopening a scene and cost tens of megabytes of float grid inside a
+>   `.tscn`. Reopening and then tweaking a downstream modifier costs one solve; that is the whole price.
+> - **The staleness key is a hash of the SURFACE HANDED TO THE SOLVER**, not an enumeration of what fed
+>   it. That is what makes the detection complete: the spline, the shape properties and every modifier
+>   above are all in the grid, and none of them can move without moving the hash. Folded with the solver
+>   settings, which the grid does not capture. The native and GDScript paths deliberately do NOT agree
+>   on the key — each only compares keys it wrote itself, and switching rasterisers costs one re-solve.
+> - **One rule, applied to everything.** While Frozen, ANY change — upstream or to the modifier's own
+>   sliders — leaves the cached solve in place and warns, until Bake Erosion. The alternative (own
+>   parameters re-solve, upstream goes stale) reads better on a small brush and is exactly wrong on a big
+>   one, where dragging `erosion_rate` would lock the editor per step.
+>
+> Cached per GRID EXTENT, so a brush with several loops caches one solve per loop instead of thrashing
+> one slot. And a cached surface alone is not enough to serve: if a modifier below it now reads the
+> published channels and the entry does not carry them, the entry is unusable however well its key
+> matches — adding a flow-gated modifier does not change the solver's input, so the key WOULD still
+> match and the new modifier would quietly read zeros.
+
 `auto_refresh` defaults to on, and every spline drag re-bakes the brush. An erosion solve per drag is
 unusable, and the first draft's answer to that (shape the mound, bake, then stop editing) was weak.
 
@@ -470,6 +492,16 @@ Gate BZ measures it through a bake: the migrated stack is **bitwise identical** 
 Delete the block once the repo's scenes have been opened and saved.
 
 ### 6.7 Phase 3b — `Pasture3DModErosion`
+
+> **BUILT 2026-08-20.** Gates CA, CB, CC, BX, BY, CE in `bench/BrushErosionGate.tscn`.
+>
+> `erosion_mask` was NOT built and is deferred: the brush's own footprint and the modifier's position in
+> the stack already bound where it acts, and a selector mask is a further axis with its own failure modes
+> and its own gate. Everything else in the sketch below shipped as written.
+>
+> Both paths call the SAME `erosion_solve` — C++ directly from the stack runner, GDScript through the
+> existing `erode_heightfield` binding — so there is no second implementation of the solver to keep in
+> step, and the A/B question is only about the grids handed to it.
 
 ```gdscript
 @tool class_name Pasture3DModErosion extends Pasture3DBrushModifier
@@ -710,7 +742,7 @@ DLA is sized by the loop, exactly like `CRATER`, so:
 | **1 — BUILT** | Host profile field; `field_source` on the selector; band source on `TERRACE`/`STRATIFY`; the measured divisor | BM–BQ ✅ | nothing |
 | **2 — BUILT** | Yuan 2019 deposition in `erosion_solve`; `deposition` on the node; the sweep cap, its report and its warning | BR–BU ✅, BV deferred | nothing |
 | **3a — BUILT** | The modifier stack; `Pasture3DModNoise` / `ModRelief` / `ModSmooth`; the Mound legacy properties deleted and migrated | BW ✅, BZ ✅ | nothing |
-| **3b** | `Pasture3DModErosion`; the field context later selectors read; **Live/Frozen and frozen-cache staleness** | BX, BY, CA–CE | 1 (for masks worth writing), 2 (so the constants are set once), 3a |
+| **3b — BUILT** | `Pasture3DModErosion`; the field context later selectors read; Live/Frozen and frozen-cache staleness | BX ✅, BY ✅, CA ✅, CB ✅, CC ✅, CE ✅; CD outstanding | 1, 2, 3a |
 | **4** | The manager registry; `Bake All Brushes`; `Register Eroding Brushes`; stale-path warnings | CF–CH | 3b |
 | **5** | The resolution-calibration measurement, **then** coarse→fine amplification | CJ–CN | 2, 3b |
 | **6** | `Pasture3DReliefDLA` as a baked field op | CP–CS | 1 (to multiply by the host profile) |
@@ -749,14 +781,14 @@ the Sim spec already established.
 | BU ✅ | *(2)* **The sweep count tracks `G`, is reported, and is bounded.** **4 sweeps at `G = 0.1`, 7 at 0.4, 10 at 0.7, 12 at 0.95** — the published 1-to-20 shape — and never above the ceiling of 50. | A moderate `G = 0.3` must converge **under** the ceiling and report `capped = false`, which it does. A cap that is always hit is not a cap, and a flag that is always true tells nobody anything. |
 | BV ⏸ | *(2)* **Cost stays close to linear in cell count.** Solve time across 64²/128²/256² at fixed `G`. **Written but NOT RUN — perf gates need the user's go-ahead on this machine**, so `_gate_bv_cost(false)` skips it and prints what it would do. | `G` raised toward the transport-limited end, where the published behaviour is that convergence degrades. If that does *not* show up, the gate is not measuring convergence. |
 | BW ✅ | *(3a)* **The stack bakes bitwise what the hard-coded pipeline bakes.** A Mound whose stack is `Noise → Relief → Smooth` reproduces the legacy `noise` + `relief` + `smooth_passes` bake to the BYTE, across every shipped preset in `demo/data/relief/`. This is the whole of 3a's claim. **Measured 2026-08-20: 12 of 12 cases identical over 2401 probes** (§6.5), then the legacy path was deleted, so the criterion is historical and the suite now asserts what outlives it — native vs GDScript parity (the stack adds −0.000004 m), every preset still stamps, and re-baking is bitwise stable. | Reorder the stack, which must **differ** — otherwise the order is not being honoured and "bitwise identical" is measuring a stack that ignores its own contents. **The proposed `Relief → Noise → Smooth` does not discriminate** (both are additive point operators in one run); the reorder that does is `Noise → Smooth → Relief`, moving the FIELD operator — it moved the bake 2.41 m. Plus a disabled modifier, which read bitwise identical to removing it and 3.27 m away from leaving it in. |
-| BX | *(3b — **moved**)* **A modifier reads only what precedes it.** A Relief modifier at position 2, gated on a field the stack does not produce until position 3, reads that field's **defined zero** — not the value, and not a stale one from the previous bake. *Moved out of 3a because it needs a modifier that PRODUCES a field, and the only one is `Pasture3DModErosion`. Faking one to satisfy the gate would have tested the harness.* | The same two modifiers with their order swapped, which must read the real value. If both orders agree, the field context is not positional and §6.4's invariant is unenforced. |
-| BY | *(3b — **moved**)* **Frozen is a cache, not a different answer.** A Frozen modifier, freshly baked, produces bitwise what the same modifier produces Live. *Moved with `evaluation` itself (§6.2): the freeze machinery's only client is erosion, and building a cache for a blur that costs microseconds would have shipped the surface ungated.* | Change something upstream of it: Live must follow, Frozen must **not**, and the brush must report the frozen modifier as stale. A freeze that silently keeps up is not a freeze. |
+| BX ✅ | *(3b)* **A modifier reads only what precedes it.** A Relief modifier gated on a field the stack does not produce until later reads that field's **defined zero** — not the value, and not a stale one from the previous bake. **Measured: the same two modifiers bake 3.1 m apart by ORDER alone.** Positional by construction, in the end: the erosion step publishes at its own place in the list, so a modifier above it has already run against the zero and nothing has to enforce the invariant. | With `publish_fields` off the two orders came back **0.000 m** apart — so the gap above is the field context and not the ordering effect the stack already had in 3a. |
+| BY ✅ | *(3b)* **Frozen is a cache, not a different answer.** A Frozen modifier, freshly baked, produces bitwise what the same modifier produces Live. **Measured: bitwise identical, holding 0.06 MB.** | Change something upstream: doubling the relief under it moved Live **46.7 m** and Frozen **0.000 m**, and the brush reported the modifier stale. Then Bake Erosion brought it to **0.0000 m** of the Live answer with the warning gone — a freeze that silently keeps up is not a freeze, and one that cannot be recovered is worse. |
 | BZ ✅ | *(3a)* **The legacy properties are gone from `Pasture3DMound`,** and every converted scene and suite still bakes what it did — `MoundReliefCheck` and `HostProfileGate` re-ran at 0 failures against stacks instead of properties. Extended during the build with the two things deletion actually risks: a pre-3a scene's properties **migrate** into a stack that bakes bitwise what a hand-built one bakes (§6.6), and the stack **round-trips through a saved scene** — `modifiers` is not an `@export`, and one that stopped persisting would take every modifier the artist authored with it. | `PlowReliefCheck` and the five Plow-driven Sim suites, which passed **untouched** — they are the control on the blast radius being Mound-only (§6.6). If they had needed editing, the cut was wrong. Plus a node that already declares `modifiers`, which must keep it rather than be overwritten by stale legacy keys. |
-| CA | *(3b)* **A brush-hosted erosion modifier erodes.** The eroded Mound differs from the un-eroded one by a measurable delta, concentrated in channels rather than spread uniformly (drainage area is heavy-tailed, as gate E measures). | The modifier disabled, which must reproduce the 3a bake **bitwise**. |
-| CB | *(3b)* **The delta written is `eroded − base_below`.** The layer's contribution, read back through `get_height`, equals the eroded absolute surface minus the ground beneath the layer, on every cell inside the loop. | The same comparison against `eroded − 0`, i.e. forgetting the base — which must be wrong by the ground height. On flat ground at y=0 it would not be, so the fixture sits on sloped, non-zero terrain. |
-| CC | *(3b)* **A later modifier reads the erosion modifier's fields with no `SimResult` anywhere.** A Relief modifier gated on `FLOW` above 2 000 m² appears in the channels the modifier above it just cut, with `sim_result` null on every selector. **This is the workflow the phase exists for.** | `publish_fields = false` on the erosion modifier, which must make the same gate read its defined zero and stamp nothing. Plus the selector's `strength = 0`, which must cover everything — so "nothing appeared" and "the field is missing" cannot be confused. |
+| CA ✅ | *(3b)* **A brush-hosted erosion modifier erodes, and the cut depends on where the water goes.** **Measured: mean cut 33.6 m with the drainage-area term against 9.3 m without it (3.6x).** The spec asked for "concentrated in channels"; that was measured and is FALSE of the height delta at this scale — top-decile share and connectivity both refuse to separate a routed solve from an unrouted one, and the decile share INVERTS, because slope-only erosion eats the crags and crags are peakier than channels. The heavy tail is in the drainage field, where CC measures it. See `bench/BrushErosionProbe.tscn`. | `area_exponent = 0` — same solver, same water, same iterations, with only "how much drains through here" stopped counting. Plus the modifier disabled, which reproduced the un-eroded bake **bitwise**. |
+| CB ✅ | *(3b)* **The delta written is `eroded − base_below`.** **Measured through one site with two base references**, not two sites: `relative_to_terrain` changes only what the dome is measured FROM, so under ADD the stored delta is identical either way — and the two bakes came back **bitwise identical with erosion off and 63.2 m apart with it on**, which is the solver seeing the composite. (Two different SITES cannot work: the demo terrain already carries baked content and they do not start equal. And a flat site cannot work either: stream power is invariant to a CONSTANT offset.) | The erosion-off comparison is the control, and it must be exact. |
+| CC ✅ | *(3b)* **A later modifier reads the erosion modifier's fields with no `SimResult` anywhere.** **Measured: flow-gated detail lands on 7% of the loop**, with `sim_result` null on every selector. **This is the workflow the phase exists for.** The band was calibrated, not guessed — the field tops out near 600 m² with a 90th percentile of 46, and the first draft asked for 2000 m² and measured 0%. | `publish_fields = false` took the same gate to **0%**. The selector's `strength = 0` took it to **78%** — not 100% because the interior profile fades the relief out toward the rim — so "nothing appeared" and "the field is missing" cannot be confused. |
 | CD | *(3b)* **The no-margin claim holds (§6.8).** A brush-hosted bake and a standalone Sim over the same mound *with* a generous catchment margin agree within what the falloff explains. | The same comparison on a mound placed **downslope of a large hill**, i.e. a landform that genuinely does receive upstream flow — which must **disagree**. That is the case §6.8's reasoning does not cover, and the gate exists to find its edge, not to confirm the happy path. |
-| CE | *(3b)* **Idempotent and deterministic.** Two identical bakes are bitwise identical; a re-bake does not drift, with a flow-gated modifier downstream of the erosion — the configuration most able to feed itself. | The full composite read instead of `composite_height_below` — the mistake gate H already guards for the Sim, applied to the new host. |
+| CE ✅ | *(3b)* **Idempotent and deterministic.** Three bakes of a stack with a flow-gated modifier downstream of the erosion — the configuration most able to feed itself — came back **bitwise identical**. | One extra solver iteration moved the bake **2.2 m**, so the probe can see a change and "identical" is evidence rather than a dead measurement. |
 | CF | *(4)* **Bake All bakes exactly the registered set, in list order.** Registered brushes change; unregistered brushes carrying an erosion modifier in the same scene do not. | An unregistered brush with an enabled erosion modifier, which must be untouched — otherwise the registry is decorative and the manager is scanning. |
 | CG | *(4)* **A stale path warns and does not drop.** A `NodePath` to a deleted node produces a configuration warning naming it, and the remaining brushes still bake. | The same run with every path valid, which must warn nothing. |
 | CH | *(4)* **One undo restores everything.** After Bake All over N brushes, a single Ctrl+Z returns every layer to its prior state. | Cancel mid-run, which must leave the completed brushes baked and report the partial count — a gate that only tests the clean path does not test the interesting one. |

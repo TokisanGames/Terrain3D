@@ -211,7 +211,8 @@ func _paint_spline(path: Path3D) -> void:
 	# ---- What this bake needs, compiled from the MODIFIER STACK once (never per cell). An empty stack
 	# leaves every field below empty or false, and the brush stamps its bare profile — which is exactly
 	# what a Mound with nothing configured should do.
-	var stack := _compile_modifiers()
+	var extent := _extent_key(min_x, min_z, vs, gw, gh)
+	var stack := _compile_modifiers(extent)
 	var op_selectors: PackedFloat32Array = stack["op_selectors"]
 	var use_fields := bool(stack["need_fields"])
 	var use_host := bool(stack["need_host"])
@@ -263,6 +264,9 @@ func _paint_spline(path: Path3D) -> void:
 		if relative_to_terrain or use_fields:
 			params["base_below"] = _base_below_grid(min_x, min_z, vs, gw, gh)
 		terrain.data.stamp_mound_loop(_layer_id, poly, _clip_aabb, params, _ramp_lut(falloff_curve))
+		# The rasteriser writes each frozen modifier's solve into the `out` dictionary it was handed, so
+		# there is something to collect the moment it returns.
+		_commit_modifier_caches(stack, extent)
 		return
 
 	# One O(cells) signed distance field replaces the old per-pixel O(edges) polygon distance (×2 for
@@ -361,7 +365,9 @@ func _paint_spline(path: Path3D) -> void:
 		"inv_ex": inv_ex, "inv_ez": inv_ez,
 		"fields": fields, "sim_fields": sim_fields, "measured": measured,
 		"host_fields": host_fields, "host_measured": host_measured, "host_div": host_div,
+		"extent": extent,
 	})
+	_commit_modifier_caches(stack, extent)
 
 	for iz in range(gh):
 		var z := min_z + iz * vs

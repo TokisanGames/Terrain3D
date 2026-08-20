@@ -2816,7 +2816,7 @@ func _modifier_warnings() -> PackedStringArray:
 ## slots (`ReliefFields::sel_slot`) that are keyed by id. Concatenating and offsetting keeps ONE block, so
 ## the native evaluator, the measured-radius grids and the mask preview all keep indexing it the way they
 ## already do.
-func _compile_modifiers() -> Dictionary:
+func _compile_modifiers(p_extent: String = "") -> Dictionary:
 	var out := {
 		"list": [], "gd": [], "op_selectors": PackedFloat32Array(),
 		"need_fields": false, "need_host": false, "sim": null, "count": 0,
@@ -2831,6 +2831,21 @@ func _compile_modifiers() -> Dictionary:
 		var blk: Dictionary = m.to_params()
 		blk["kind"] = m.kind()
 		var step := {"mod": m, "kind": m.kind(), "field": m.is_field_operator()}
+		if m._supports_freezing():
+			# `out` is a plain Dictionary handed BOTH ways: the rasteriser writes the solve into it and
+			# `_commit_modifier_caches` reads it back after the bake. Dictionaries are reference types,
+			# which is the whole reason a void rasteriser call can return a grid.
+			var slot := {}
+			var entry: Dictionary = m.cache_for(p_extent) if p_extent != "" else {}
+			blk["frozen"] = m.evaluation == Pasture3DBrushModifier.Evaluation.FROZEN
+			blk["cache_key"] = int(entry.get("key", 0))
+			blk["cache"] = entry.get("grid", PackedFloat32Array())
+			blk["cache_flow"] = entry.get("flow", PackedFloat32Array())
+			blk["cache_ero"] = entry.get("ero", PackedFloat32Array())
+			blk["cache_dep"] = entry.get("dep", PackedFloat32Array())
+			blk["cache_wet"] = entry.get("wet", PackedFloat32Array())
+			blk["out"] = slot
+			step["out"] = slot
 		if m is Pasture3DModRelief:
 			var prog: Array = m.material.compile()
 			var ops: PackedInt32Array = prog[0]
@@ -2860,6 +2875,31 @@ func _compile_modifiers() -> Dictionary:
 	out["op_selectors"] = sel
 	out["count"] = out["list"].size()
 	return out
+
+
+## Identifies one bake grid, so a brush with several loops caches one frozen solve PER LOOP rather than
+## thrashing a single slot between them.
+func _extent_key(p_min_x: float, p_min_z: float, p_vs: float, p_gw: int, p_gh: int) -> String:
+	return "%d,%d,%d,%d" % [roundi(p_min_x / p_vs), roundi(p_min_z / p_vs), p_gw, p_gh]
+
+
+## Store what the bake solved, and record which modifiers served stale data. Called after BOTH paths,
+## because both fill the same `out` dictionaries.
+func _commit_modifier_caches(p_stack: Dictionary, p_extent: String) -> void:
+	for step in p_stack["gd"]:
+		if not step.has("out"):
+			continue
+		var out: Dictionary = step["out"]
+		var m = step["mod"]
+		if out.has("grid"):
+			m.store_cache(p_extent, {
+				"key": out["key"], "grid": out["grid"],
+				"flow": out.get("flow", PackedFloat32Array()),
+				"ero": out.get("ero", PackedFloat32Array()),
+				"dep": out.get("dep", PackedFloat32Array()),
+				"wet": out.get("wet", PackedFloat32Array()),
+			})
+		m.set_stale(bool(out.get("stale", false)))
 
 
 ## Run the compiled stack over the GDScript-side grids. The oracle for the native path in
@@ -3038,6 +3078,42 @@ func _apply_erosion_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		var v: float = p_vals[i]
 		z[i] = (basey[i] + v) if add else v
 
+	# ---- FROZEN (§6.3), the same three-way split the rasteriser makes ----
+	#
+	# A MISSING cache solves (reopening a scene must not lose the erosion), a MATCHING one is served, and
+	# a cache for a DIFFERENT surface is served AND reported stale — clearing on edit would throw away a
+	# multi-second solve at the moment you were mid-comparison.
+	#
+	# The key is `hash()` of the exact surface handed to the solver, folded with the settings that
+	# surface does not capture. Hashing the input rather than enumerating what fed it makes staleness
+	# detection complete: the spline, the shape properties and every modifier above are all in there.
+	# It deliberately does NOT match the native path's key — each path only compares keys it wrote
+	# itself, and switching rasterisers costs one extra solve.
+	var out: Dictionary = p_step.get("out", {})
+	var frozen: bool = m.evaluation == Pasture3DBrushModifier.Evaluation.FROZEN
+	var extent: String = p_ctx.get("extent", "")
+	var key := hash([z, m.iterations, m.erosion_rate, m.area_exponent, m.hillslope_diffusion,
+			m.deposition, m.erodability_range, m.publish_fields])
+	var entry: Dictionary = m.cache_for(extent) if frozen and extent != "" else {}
+	var cached: PackedFloat32Array = entry.get("grid", PackedFloat32Array())
+	# A cached surface is not enough on its own: if a modifier BELOW this one now reads the published
+	# channels and the entry does not carry them, the cache is unusable however well its key matches.
+	# Adding a flow-gated modifier does not change the surface handed to the solver, so the key WOULD
+	# still match and the new modifier would quietly read zeros.
+	var want_channels: bool = m.publish_fields and not (p_ctx["fields"] as Array).is_empty()
+	if want_channels and (entry.get("flow", PackedFloat32Array()) as PackedFloat32Array).size() != n:
+		cached = PackedFloat32Array()
+	if cached.size() == n:
+		if m.publish_fields and entry.has("flow"):
+			p_ctx["sim_fields"] = [entry["flow"], entry["ero"], entry["dep"], entry["wet"]]
+		for i in range(n):
+			if not is_finite(p_vals[i]):
+				continue
+			p_vals[i] = (cached[i] - basey[i]) if add else cached[i]
+		out["stale"] = int(entry.get("key", 0)) != key
+		out["served"] = true
+		return p_vals
+
 	var params: Dictionary = m.to_params()
 	params["gw"] = gw
 	params["gh"] = gh
@@ -3063,6 +3139,18 @@ func _apply_erosion_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		if not is_finite(p_vals[i]):
 			continue
 		p_vals[i] = (zo[i] - basey[i]) if add else zo[i]
+
+	if not out.is_empty():
+		out["key"] = key
+		out["grid"] = zo
+		out["stale"] = false
+		out["served"] = false
+		var pub: Array = p_ctx["sim_fields"]
+		if m.publish_fields and pub.size() == 4:
+			out["flow"] = pub[0]
+			out["ero"] = pub[1]
+			out["dep"] = pub[2]
+			out["wet"] = pub[3]
 	return p_vals
 
 
