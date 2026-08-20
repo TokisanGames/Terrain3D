@@ -22,73 +22,132 @@ const ICON_INSTANCER: String = "res://addons/terrain_3d/icons/multimesh.svg"
 
 var add_tool_group: ButtonGroup = ButtonGroup.new()
 var sub_tool_group: ButtonGroup = ButtonGroup.new()
-var buttons: Dictionary
+var buttons: Dictionary[String, Button]
 var plugin: EditorPlugin
+var editor_settings: EditorSettings
+# < 4.6 compatiblility
+var version: int
+var default_keybinds: Dictionary[String, String] = {
+	"Invert Tool": "Ctrl",
+	"Sculpt Smooth": "Shift",
+	"Alternate Mode": "Alt",
+	"Decrease Tool Size": "[",
+	"Increase Tool Size": "]",
+	"Decrease Tool Strength": "-",
+	"Increase Tool Strength": "=",
+	"Toggle Region Grid": "1",
+	"Toggle Region Labels": "2",
+	"Toggle Contour Lines": "3",
+	"Toggle Instancer Grid": "4",
+	"Toggle Vertex Grid": "5",
+	"Add or Remove Region": "E",
+	"Sculpt Raise or Lower": "R",
+	"Sculpt Height": "H",
+	"Sculpt Slope": "S",
+	"Paint Color": "C",
+	"Remove Color": "C",
+	"Paint Navigable Area": "N",
+	"Remove Navigable Area": "N",
+	"Instance Meshes": "I",
+	"Remove Meshes": "I",
+	"Add Holes": "X",
+	"Paint Wetness": "W",
+	"Remove Wetness": "W",
+	"Paint Texture": "B",
+	"Spray Texture": "V",
+	"Paint Autoshader": "A",
+	"Inverse Slope Range": "T",
+}
 
 
 func _init() -> void:
 	set_custom_minimum_size(Vector2(20, 0))
+	version = Engine.get_version_info().hex
 
 
 func _ready() -> void:
 	add_tool_group.pressed.connect(_on_tool_selected)
 	sub_tool_group.pressed.connect(_on_tool_selected)
-
-	add_tool_button({ "tool":Terrain3DEditor.REGION, 
-		"add_text":"Add Region (E)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_REGION_ADD,
-		"sub_text":"Remove Region", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_REGION_REMOVE })
+	
+	editor_settings = EditorInterface.get_editor_settings()
+	
+	add_tool_button({ "tool":Terrain3DEditor.REGION,
+		"add_text":"Add Region (%s)" % get_shortcut_key("Add or Remove Region"), 
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_REGION_ADD,
+		"sub_text":"Remove Region (%s)" % get_shortcut_key("Add or Remove Region"),
+		"sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_REGION_REMOVE })
 	
 	add_child(HSeparator.new())
 	
-	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
-		"add_text":"Raise (R)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_ADD,
-		"sub_text":"Lower (R)", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_SUB })
+	add_tool_button({ "tool":Terrain3DEditor.SCULPT,
+		"add_text":"Raise (%s)" % get_shortcut_key("Sculpt Raise or Lower"),
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_ADD,
+		"sub_text":"Lower (%s)" % get_shortcut_key("Sculpt Raise or Lower"),
+		"sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_SUB })
 
-	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
-		"add_text":"Smooth (Shift)", "add_op":Terrain3DEditor.AVERAGE, "add_icon":ICON_HEIGHT_SMOOTH })
+	add_tool_button({ "tool":Terrain3DEditor.SCULPT,
+		"add_text":"Smooth (%s)" % get_shortcut_key("Sculpt Smooth"),
+		"add_op":Terrain3DEditor.AVERAGE, "add_icon":ICON_HEIGHT_SMOOTH })
 
-	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
-		"add_text":"Height (H)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_FLAT,
-		"sub_text":"Height (H)", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_FLAT })
+	add_tool_button({ "tool":Terrain3DEditor.HEIGHT,
+		"add_text":"Height (%s)" % get_shortcut_key("Sculpt Height"),
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_FLAT,
+		"sub_text":"Height (%s)" % get_shortcut_key("Sculpt Height"),
+		"sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_FLAT })
 
-	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
-		"add_text":"Slope (S)", "add_op":Terrain3DEditor.GRADIENT, "add_icon":ICON_HEIGHT_SLOPE })
+	add_tool_button({ "tool":Terrain3DEditor.SCULPT,
+		"add_text":"Slope (%s)" % get_shortcut_key("Sculpt Slope"),
+		"add_op":Terrain3DEditor.GRADIENT, "add_icon":ICON_HEIGHT_SLOPE })
 
 	add_child(HSeparator.new())
 
-	add_tool_button({ "tool":Terrain3DEditor.TEXTURE, 
-		"add_text":"Paint Texture (B)", "add_op":Terrain3DEditor.REPLACE, "add_icon":ICON_PAINT_TEXTURE })
+	add_tool_button({ "tool":Terrain3DEditor.TEXTURE,
+		"add_text":"Paint Texture (%s)" % get_shortcut_key("Paint Texture"),
+		"add_op":Terrain3DEditor.REPLACE, "add_icon":ICON_PAINT_TEXTURE })
 
-	add_tool_button({ "tool":Terrain3DEditor.TEXTURE, 
-		"add_text":"Spray Texture (V)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_SPRAY_TEXTURE })
+	add_tool_button({ "tool":Terrain3DEditor.TEXTURE,
+		"add_text":"Spray Texture (%s)" % get_shortcut_key("Spray Texture"),
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_SPRAY_TEXTURE })
 
 	add_tool_button({ "tool":Terrain3DEditor.AUTOSHADER,
-		"add_text":"Paint Autoshader (A)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_AUTOSHADER,
-		"sub_text":"Disable Autoshader (A)", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Paint Autoshader (%s)" % get_shortcut_key("Paint Autoshader"),
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_AUTOSHADER,
+		"sub_text":"Disable Autoshader (%s)" % get_shortcut_key("Paint Autoshader"),
+		"sub_op":Terrain3DEditor.SUBTRACT })
 
 	add_child(HSeparator.new())
 
 	add_tool_button({ "tool":Terrain3DEditor.COLOR,
-		"add_text":"Paint Color (C)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_COLOR,
-		"sub_text":"Remove Color (C)", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Paint Color (%s)"  % get_shortcut_key("Paint Color"), 
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_COLOR,
+		"sub_text":"Remove Color (%s)" % get_shortcut_key("Remove Color"),
+		"sub_op":Terrain3DEditor.SUBTRACT })
 	
 	add_tool_button({ "tool":Terrain3DEditor.ROUGHNESS,
-		"add_text":"Paint Wetness (W)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_WETNESS,
-		"sub_text":"Remove Wetness (W)", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Paint Wetness (%s)" % get_shortcut_key("Paint Wetness"),
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_WETNESS,
+		"sub_text":"Remove Wetness (%s)" % get_shortcut_key("Remove Wetness"),
+		"sub_op":Terrain3DEditor.SUBTRACT })
 
 	add_child(HSeparator.new())
 
 	add_tool_button({ "tool":Terrain3DEditor.HOLES,
-		"add_text":"Add Holes (X)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HOLES,
-		"sub_text":"Remove Holes (X)", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Add Holes (%s)" % get_shortcut_key("Add Holes"),
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_HOLES,
+		"sub_text":"Remove Holes (%s)" % get_shortcut_key("Add Holes"),
+		"sub_op":Terrain3DEditor.SUBTRACT })
 
 	add_tool_button({ "tool":Terrain3DEditor.NAVIGATION,
-		"add_text":"Paint Navigable Area (N)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_NAVIGATION,
-		"sub_text":"Remove Navigable Area (N)", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Paint Navigable Area (%s)" % get_shortcut_key("Paint Navigable Area"),
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_NAVIGATION,
+		"sub_text":"Remove Navigable Area (%s)" % get_shortcut_key("Remove Navigable Area"),
+		"sub_op":Terrain3DEditor.SUBTRACT })
 
 	add_tool_button({ "tool":Terrain3DEditor.INSTANCER,
-		"add_text":"Instance Meshes (I)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_INSTANCER,
-		"sub_text":"Remove Meshes (I)", "sub_op":Terrain3DEditor.SUBTRACT })
+		"add_text":"Instance Meshes (%s)" % get_shortcut_key("Instance Meshes"), 
+		"add_op":Terrain3DEditor.ADD, "add_icon":ICON_INSTANCER,
+		"sub_text":"Remove Meshes (%s)" % get_shortcut_key("Remove Meshes"), 
+		"sub_op":Terrain3DEditor.SUBTRACT })
 
 	# Select first button
 	var buttons: Array[BaseButton] = add_tool_group.get_buttons()
@@ -131,7 +190,7 @@ func add_tool_button(p_params: Dictionary) -> void:
 		button2 = button.duplicate()
 	button2.set_button_group(p_params.get("group", sub_tool_group))
 	add_child(button2, true)
-	buttons[button2.get_name()] = button
+	buttons[button2.get_name()] = button2
 
 
 func get_button(p_name: String) -> Button:
@@ -143,6 +202,43 @@ func show_add_buttons(p_enable: bool) -> void:
 		button.visible = p_enable
 	for button in sub_tool_group.get_buttons():
 		button.visible = !p_enable
+
+
+func update_tooltips() -> void:
+	buttons["AddRegion"].tooltip_text = "Add Region (%s)" % get_shortcut_key("Add or Remove Region")
+	buttons["RemoveRegion"].tooltip_text = "Remove Region (%s)" % get_shortcut_key("Add or Remove Region")
+	buttons["Raise"].tooltip_text = "Raise (%s)" % get_shortcut_key("Sculpt Raise or Lower")
+	buttons["Lower"].tooltip_text = "Lower (%s)" % get_shortcut_key("Sculpt Raise or Lower")
+	buttons["Height"].tooltip_text = "Height (%s)" % get_shortcut_key("Sculpt Height")
+	buttons["Slope"].tooltip_text = "Slope (%s)" % get_shortcut_key("Sculpt Slope")
+	buttons["PaintTexture"].tooltip_text = "Paint Texture (%s)" % get_shortcut_key("Paint Texture")
+	buttons["SprayTexture"].tooltip_text = "Spray Texture (%s)" % get_shortcut_key("Spray Texture")
+	buttons["PaintAutoshader"].tooltip_text = "Paint Autoshader (%s)" % get_shortcut_key("Paint Autoshader")
+	buttons["DisableAutoshader"].tooltip_text = "Disable Autoshader (%s)" % get_shortcut_key("Paint Autoshader")
+	buttons["PaintColor"].tooltip_text = "Paint Color (%s)"  % get_shortcut_key("Paint Color")
+	buttons["RemoveColor"].tooltip_text = "Remove Color (%s)"  % get_shortcut_key("Paint Color")
+	buttons["PaintWetness"].tooltip_text = "Paint Wetness (%s)" % get_shortcut_key("Paint Wetness")
+	buttons["RemoveWetness"].tooltip_text = "Remove Wetness (%s)" % get_shortcut_key("Paint Wetness")
+	buttons["AddHoles"].tooltip_text = "Add Holes (%s)" % get_shortcut_key("Add Holes")
+	buttons["RemoveHoles"].tooltip_text = "Remove Holes (%s)" % get_shortcut_key("Add Holes")
+	buttons["PaintNavigableArea"].tooltip_text = "Paint Navigable Area (%s)" % get_shortcut_key("Paint Navigable Area")
+	buttons["RemoveNavigableArea"].tooltip_text = "Remove Navigable Area (%s)" % get_shortcut_key("Paint Navigable Area")
+	buttons["InstanceMeshes"].tooltip_text = "Instance Meshes (%s)" % get_shortcut_key("Instance Meshes")
+	buttons["RemoveMeshes"].tooltip_text = "Remove Meshes (%s)" % get_shortcut_key("Instance Meshes")
+
+
+func get_shortcut_key(shortcut_name: String) -> String:
+	if version >= 0x040600:
+		var shortcut:Shortcut = editor_settings.get_shortcut("terrain_3d/" + shortcut_name)
+		if shortcut:
+			var event:InputEvent = shortcut.events[0]
+			var key:String = event.as_text()
+			key = key.rstrip(" - Physical")
+			return key
+		else:
+			return ""
+	else: # < 4.6 compatiblility
+		return default_keybinds[shortcut_name]
 
 
 func _on_tool_selected(p_button: BaseButton) -> void:
