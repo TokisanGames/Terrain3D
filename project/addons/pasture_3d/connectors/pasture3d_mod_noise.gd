@@ -47,6 +47,6 @@ func modifier_warnings(_p_host) -> PackedStringArray:
 	# The one failure mode that looks exactly like a broken modifier: the slot is filled, the inspector
 	# looks configured, and the ground is flat. Same complaint the Mound already makes about Relief.
 	if noise != null and is_zero_approx(strength) and enabled:
-		w.append("Noise modifier: a noise field is assigned but Strength is 0 m, so it stamps nothing. "
+		w.append("%s: a noise field is assigned but Strength is 0 m, so it stamps nothing. " % display_name()
 			+ "Set Strength to the metres of jitter you want.")
 	return w

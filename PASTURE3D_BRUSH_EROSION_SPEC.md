@@ -376,6 +376,27 @@ criterion is in `bench/BrushStackGate.tscn`: the native and GDScript implementat
 to within the dome's own pre-existing divergence (it **adds −0.000004 m**), every shipped preset still
 stamps, and re-baking is bitwise stable.
 
+#### Two things the first build got wrong in the editor, reported from use
+
+- **Every value edit collapsed the modifier.** The brush's `changed` handler called
+  `notify_property_list_changed()` unconditionally; a rebuild folds every expanded sub-resource shut, so
+  dragging one slider inside a modifier closed the modifier under the cursor once per step. Only two
+  things the inspector shows are DERIVED from the stack — the modifier row labels and the Mask Preview
+  Source list — so the handler now compares those and rebuilds only when one of them actually moves.
+- **`label` on `Pasture3DBrushModifier`**, because a stack of three `Pasture3DModRelief` rows is
+  unreadable. It is a view onto `resource_name`, which is what Godot's resource picker already draws in
+  preference to the class name — so the storage and the wiring both existed, buried at the bottom of the
+  built-in Resource section. `PROPERTY_USAGE_EDITOR` only, so there is no second string to drift.
+
+Both are measured on the node's own `property_list_changed` signal (0 emissions for value edits, ≥1 for a
+rename and for a material swap), because "the inspector collapsed" regresses without anyone noticing
+until they are editing.
+
+**A pre-existing bug surfaced on the way**, because the collapse fix put `_preview_selector_sources` in
+the hot path: it duck-typed on `"layers" in relief` to find a `Pasture3DReliefStack`, and
+`Pasture3DReliefStrata.layers` is an **int** — the band count. Any brush carrying a Strata material threw
+on every inspector rebuild. Now tested by class.
+
 **One finding about the gate itself, recorded because the spec proposed the wrong control.** The reorder
 control was written as `Relief → Noise → Smooth`. That does not discriminate: Noise and Relief are both
 POINT operators, they land in the same run, and both only ADD metres — swapping them changes nothing but

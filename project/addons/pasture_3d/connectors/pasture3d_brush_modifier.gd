@@ -29,6 +29,24 @@
 class_name Pasture3DBrushModifier
 extends Resource
 
+## The name on this modifier's ROW in the brush's Modifiers list. Without it a stack of three Relief
+## steps reads as three identical `Pasture3DModRelief` rows and the only way to find the one you want is
+## to open each in turn.
+##
+## It is a VIEW ONTO `resource_name`, not a second field. Godot's resource picker already prefers
+## `resource_name` over the class name when it draws the row, so the storage and the wiring both exist —
+## it is just buried at the bottom of the built-in Resource section where nobody looks. Declaring a
+## second string would only give the two a way to disagree, so this one is EDITOR-usage only: it is not
+## saved, because `resource_name` already is.
+@export_custom(PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR) var label: String:
+	set(v):
+		# `Resource.set_name` emits `changed` itself, which is what relabels the row: the host brush
+		# rebuilds its property list when — and only when — a modifier's name or the mask-preview list
+		# moves (see Pasture3DTerrainBrush._on_modifier_changed).
+		resource_name = v
+	get:
+		return resource_name
+
 ## Off leaves the modifier in the list, and in the inspector, without applying it. The point is A/B
 ## comparison: the alternative is deleting a configured modifier to see what it was doing, and then
 ## rebuilding it.
@@ -75,8 +93,10 @@ func modifier_warnings(_p_host) -> PackedStringArray:
 	return PackedStringArray()
 
 
-## Human-readable name for warnings and the inspector, e.g. "Noise". Defaults to the class name with the
-## Pasture3DMod prefix stripped.
+## Human-readable name for warnings: the label the user gave this modifier, or the class name with the
+## Pasture3DMod prefix stripped. Warnings say which modifier they are about, and in a stack with three
+## Relief steps "Relief modifier" on its own does not.
 func display_name() -> String:
-	var n := String(get_script().get_global_name())
-	return n.trim_prefix("Pasture3DMod")
+	if not resource_name.is_empty():
+		return resource_name
+	return String(get_script().get_global_name()).trim_prefix("Pasture3DMod")

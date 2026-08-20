@@ -63,7 +63,7 @@ func to_params() -> Dictionary:
 func modifier_warnings(p_host) -> PackedStringArray:
 	var w := PackedStringArray()
 	if material != null and is_zero_approx(strength) and enabled:
-		w.append("Relief modifier: a Relief Material is assigned but Strength is 0 m, so it stamps "
+		w.append("%s: a Relief Material is assigned but Strength is 0 m, so it stamps " % display_name()
 			+ "nothing. Set Strength to the depth of detail you want, in metres.")
 	# The material's own complaint plus the shared sim-selector and periodic-resolution diagnostics. The
 	# host owns those because two of the three need the terrain and the splines to answer.

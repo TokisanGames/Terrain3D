@@ -30,6 +30,7 @@ const SITE_BW := Vector3(180.0, 0.0, 120.0)
 const SITE_BW_CTRL := Vector3(420.0, 0.0, 120.0)
 const SITE_BW_ORACLE := Vector3(660.0, 0.0, 120.0)
 const SITE_BZ := Vector3(180.0, 0.0, 360.0)
+const SITE_BW_EDITOR := Vector3(420.0, 0.0, 360.0)
 
 ## The A/B tolerance every relief path in this plugin is held to (PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC §10).
 const PARITY_TOL := 1.0e-4
@@ -60,6 +61,7 @@ func _ready() -> void:
 	_gate_bw_stack_reproduces_the_pipeline()
 	_gate_bw_oracle()
 	_gate_bw_controls()
+	_gate_bw_editor()
 	_gate_bz_converted_suites()
 
 	print("\n=== %s (%d failures) ===\n" % ["BRUSH STACK PASS" if _fail == 0 else "BRUSH STACK FAIL", _fail])
@@ -287,6 +289,88 @@ func _gate_bw_controls() -> void:
 	if d_kept < 0.05:
 		_fail += 1
 		print("    !! disabling the Relief modifier changed nothing, so the flag is not read at all")
+
+
+# --- BW editor arm: what the inspector is told, and when --------------------------------------------
+#
+# Two behaviours that are invisible to a height probe and were both reported from real use.
+#
+# 1. THE COLLAPSE. `notify_property_list_changed()` rebuilds the node's whole inspector, and a rebuild
+#    folds every expanded sub-resource shut. The first build called it from the brush's `changed`
+#    handler, so dragging one slider inside a modifier closed the modifier under the cursor once per
+#    step. Only the modifier ROW LABELS and the Mask Preview Source list are derived from the stack, so
+#    only those are worth a rebuild.
+#
+# 2. THE LABEL. A stack of three `Pasture3DModRelief` rows is unreadable; `label` names them. It is a
+#    view onto `resource_name`, which is what Godot's resource picker actually draws.
+#
+# Measured on the node's own `property_list_changed` signal rather than by eye, because "the inspector
+# collapsed" is exactly the kind of thing that regresses without anyone noticing until they are editing.
+func _gate_bw_editor() -> void:
+	print("\n[BW-editor] a value edit inside a modifier does not rebuild the brush's inspector:")
+	var mound = _make_mound("BWE", SITE_BW_EDITOR)
+	if mound == null:
+		return
+	var mat := Pasture3DReliefTerraces.new()
+	mat.steps = 6
+	var mr := Pasture3DModRelief.new()
+	mr.material = mat
+	mr.strength = 5.0
+	var mods: Array[Pasture3DBrushModifier] = [mr]
+	mound.modifiers = mods
+
+	var rebuilds := [0]
+	mound.property_list_changed.connect(func() -> void: rebuilds[0] += 1)
+
+	# THE CRITERION: change a value deep inside the modifier's material, the way dragging a slider does.
+	rebuilds[0] = 0
+	mat.steps = 9
+	mat.hardness = 0.6
+	mr.strength = 7.0
+	var on_edit: int = rebuilds[0]
+
+	# CONTROL 1 — renaming must rebuild, or the row would keep its old text forever.
+	rebuilds[0] = 0
+	mr.label = "Ridge benches"
+	var on_rename: int = rebuilds[0]
+
+	# CONTROL 2 — swapping the material must rebuild, because the Mask Preview Source list is built from
+	# it and would otherwise offer the previous material's selectors.
+	rebuilds[0] = 0
+	var stack := Pasture3DReliefStack.new()
+	stack.layers = [Pasture3DReliefFractal.new(), Pasture3DReliefTerraces.new()]
+	mr.material = stack
+	var on_swap: int = rebuilds[0]
+
+	print("    inspector rebuilds — value edits: %d (want 0) | rename: %d (want >0) | material swap: %d (want >0)"
+		% [on_edit, on_rename, on_swap])
+	if on_edit > 0:
+		_fail += 1
+		print("    !! editing a value still rebuilds the property list, so every expanded modifier "
+			+ "collapses mid-drag")
+	if on_rename < 1 or on_swap < 1:
+		_fail += 1
+		print("    !! a rename or a material swap does NOT rebuild either — the check above is passing "
+			+ "because nothing ever rebuilds, not because the right things do")
+
+	# The label is a view onto `resource_name`, not a second stored string. If they ever came apart, the
+	# row would show one name and the resource would carry another.
+	mr.resource_name = "Set from the other end"
+	var proxied: bool = mr.label == "Set from the other end"
+	var stored := false
+	for pr in mr.get_property_list():
+		if pr.name == "label" and (pr.usage & PROPERTY_USAGE_STORAGE):
+			stored = true
+	print("    label mirrors resource_name: %s | separately serialised: %s (want true, false)"
+		% [proxied, stored])
+	if not proxied:
+		_fail += 1
+		print("    !! `label` and `resource_name` are two different strings, so the row can disagree "
+			+ "with the resource")
+	if stored:
+		_fail += 1
+		print("    !! `label` is being saved as well as `resource_name`; the two can now drift on load")
+	mound.queue_free()
 
 
 # --- BZ: the legacy properties are gone, and old scenes still bake what they baked ------------------

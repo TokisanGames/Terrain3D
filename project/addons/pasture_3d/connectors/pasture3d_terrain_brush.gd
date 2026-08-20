@@ -1133,11 +1133,14 @@ func _mask_preview_warnings() -> PackedStringArray:
 			% [sources[idx][0], (" These do: %s." % ", ".join(others)) if not others.is_empty() else ""])
 	# One level deep (§18.6): a layer that is itself a stack contributes its own selector, not its
 	# children's, and a nested selector is not reachable from this dropdown at all.
-	if "layers" in relief:
+	# TESTED BY CLASS, NOT BY PROPERTY NAME. `Pasture3DReliefStrata.layers` is an INT — the number of
+	# bands — and duck-typing on the name read it as a stack's Array, which threw on every inspector
+	# rebuild for any brush carrying a Strata material.
+	if relief is Pasture3DReliefStack:
 		var nested := PackedStringArray()
-		for i in range((relief.layers as Array).size()):
-			var m = relief.layers[i]
-			if m != null and ("layers" in m) and not (m.layers as Array).is_empty():
+		for i in range((relief as Pasture3DReliefStack).layers.size()):
+			var m = (relief as Pasture3DReliefStack).layers[i]
+			if m is Pasture3DReliefStack and not (m as Pasture3DReliefStack).layers.is_empty():
 				nested.append("Layer %d" % i)
 		if not nested.is_empty():
 			out.append(("Mask Preview lists one level of this stack. %s %s nested stack(s), whose own "
@@ -1160,9 +1163,11 @@ func _preview_relief_material():
 ## warning says so rather than letting a nested selector look reachable.
 func _preview_selector_sources(p_relief) -> Array:
 	var out: Array = [["Material Selector", p_relief.selector if p_relief != null else null]]
-	if p_relief == null or not ("layers" in p_relief):
+	# See the note in `_mask_preview_warnings`: only a Stack has an ARRAY called `layers`, and a Strata
+	# material's `layers` is the band count.
+	if not (p_relief is Pasture3DReliefStack):
 		return out
-	var layers: Array = p_relief.layers
+	var layers: Array = (p_relief as Pasture3DReliefStack).layers
 	for i in range(layers.size()):
 		var m = layers[i]
 		# NO COLON in the label. `,` and `:` are both structural in a PROPERTY_HINT_ENUM hint string —
@@ -2665,10 +2670,17 @@ var modifiers: Array[Pasture3DBrushModifier] = []:
 		_bind_modifiers(modifiers, false)
 		modifiers = v
 		_bind_modifiers(modifiers, true)
-		notify_property_list_changed() # the Mask Preview Source list can be built from a modifier
+		# Unconditional here, unlike `_on_modifier_changed`: the list itself changed length or contents,
+		# so the rows and the Mask Preview Source dropdown both have to be rebuilt anyway.
+		_stack_ui_signature = _stack_ui_labels()
+		notify_property_list_changed()
 		_queue_mask_preview()
 		_schedule_refresh()
 		update_configuration_warnings()
+
+## Last inspector-facing description of the stack (see `_stack_ui_labels`). Not exported — it is a
+## comparison cache, and a stale one after a scene load costs at most one extra rebuild.
+var _stack_ui_signature: PackedStringArray = PackedStringArray()
 
 
 ## True when this brush's rasteriser actually RUNS the stack. False hides the property entirely rather
@@ -2697,10 +2709,35 @@ func _bind_modifiers(p_list: Array, p_connect: bool) -> void:
 
 
 func _on_modifier_changed() -> void:
-	notify_property_list_changed()
+	# NOT an unconditional notify_property_list_changed(). That rebuilds the node's whole inspector, and
+	# a rebuild COLLAPSES every expanded sub-resource — so dragging one slider inside a modifier folded
+	# the modifier shut under the cursor, once per step.
+	#
+	# Only two things the inspector shows are DERIVED from the stack rather than stored in it: the row
+	# label of each modifier, and the Mask Preview Source dropdown's entries. Rebuild when one of those
+	# actually moves, which renaming a modifier or swapping a material does and editing a slider does not.
+	var now := _stack_ui_labels()
+	if now != _stack_ui_signature:
+		_stack_ui_signature = now
+		notify_property_list_changed()
 	_queue_mask_preview()
 	_schedule_refresh()
 	update_configuration_warnings()
+
+
+## What the inspector says ABOUT the stack, as opposed to what is in it: one entry per modifier row
+## label, then the Mask Preview Source list. Compared against `_stack_ui_signature` to decide whether a
+## `changed` from somewhere inside a modifier is worth a rebuild.
+func _stack_ui_labels() -> PackedStringArray:
+	var out := PackedStringArray()
+	for m in modifiers:
+		out.append("" if m == null else m.resource_name)
+	out.append("--- mask preview ---") # separator: a rename must not be able to spell a preview entry
+	var relief = _preview_relief_material()
+	if relief != null:
+		for e in _preview_selector_sources(relief):
+			out.append(String(e[0]))
+	return out
 
 
 ## Every active modifier's complaint, plus the one the stack itself can make.
