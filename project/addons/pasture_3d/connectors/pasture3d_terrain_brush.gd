@@ -2882,6 +2882,7 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 		p_basey: PackedFloat32Array, p_ctx: Dictionary) -> PackedFloat32Array:
 	var n: int = int(p_ctx["gw"]) * int(p_ctx["gh"])
 	var add: bool = p_ctx["add"]
+	p_ctx["basey"] = p_basey # a field modifier may need the absolute surface, not the delta
 	var vals := PackedFloat32Array()
 	vals.resize(n)
 	var in_vals := false
@@ -3007,7 +3008,91 @@ func _apply_field_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		p_ctx: Dictionary) -> PackedFloat32Array:
 	if p_step["kind"] == &"smooth":
 		return _blur_grid(p_vals, p_ctx["gw"], p_ctx["gh"], p_step["mod"].passes)
+	if p_step["kind"] == &"erosion":
+		return _apply_erosion_step(p_step, p_vals, p_ctx)
 	return p_vals
+
+
+## The erosion FIELD step: solve over the brush's own surface, and optionally publish the four channels
+## the modifiers after it can gate on.
+##
+## The GDScript oracle and the native rasteriser call the SAME `erosion_solve` — GDScript through the
+## `erode_heightfield` binding, C++ directly — so there is no second implementation of the solver to keep
+## in step, and the A/B question here is only about the grids handed to it.
+func _apply_erosion_step(p_step: Dictionary, p_vals: PackedFloat32Array,
+		p_ctx: Dictionary) -> PackedFloat32Array:
+	var m: Pasture3DModErosion = p_step["mod"]
+	var gw: int = p_ctx["gw"]
+	var gh: int = p_ctx["gh"]
+	var n := gw * gh
+	var add: bool = p_ctx["add"]
+	var basey: PackedFloat32Array = p_ctx["basey"]
+
+	# §6.8 fact 1: the solver needs an ABSOLUTE surface and the working grid holds a delta under ADD.
+	# §6.8 fact 2: NaN outside the loop passes straight through and becomes the boundary condition —
+	# `erosion_solve` turns non-finite input into a fixed outlet at the field minimum, which for a mound
+	# is exactly right: the ground off the loop is where the mountain's water goes.
+	var z := PackedFloat32Array()
+	z.resize(n)
+	for i in range(n):
+		var v: float = p_vals[i]
+		z[i] = (basey[i] + v) if add else v
+
+	var params: Dictionary = m.to_params()
+	params["gw"] = gw
+	params["gh"] = gh
+	params["cell_size"] = p_ctx["vs"]
+	params["time_step"] = 1.0
+	# The four channels come out of the solver's diagnostics, so they cost nothing unless asked for.
+	params["want_diagnostics"] = m.publish_fields
+	var res: Dictionary = terrain.data.erode_heightfield(z, params,
+			params.get("erodability_lut", PackedFloat32Array()))
+	if not bool(res.get("ok", false)):
+		push_warning(("%s '%s': the erosion solver rejected the %dx%d grid, so this modifier did "
+			+ "nothing. Nothing was silently eroded.") % [get_class(), name, gw, gh])
+		return p_vals
+	var zo: PackedFloat32Array = res["z"]
+
+	if m.publish_fields:
+		_publish_erosion_fields(z, zo, res, p_ctx)
+
+	# Write back only where the brush actually contributes. Every no-data cell came back as a real
+	# number (the outlet level), and copying those in would paint the brush's footprint over the whole
+	# bounding box.
+	for i in range(n):
+		if not is_finite(p_vals[i]):
+			continue
+		p_vals[i] = (zo[i] - basey[i]) if add else zo[i]
+	return p_vals
+
+
+## Put this solve's flow / erosion / deposition / wetness into the stack's field context, in the units
+## and signs a Pasture3DReliefSelector expects — the same conversions `relief_fields_add_sim` makes on
+## the way out of a Pasture3DSimResult, so a FLOW band means here exactly what it means there.
+##
+## POSITIONAL BY CONSTRUCTION (§6.4): this runs at the erosion modifier's own place in the list, so a
+## modifier ABOVE it has already been evaluated against the defined zero and a modifier below it reads
+## the real numbers. Nothing has to enforce the invariant because nothing can violate it.
+func _publish_erosion_fields(p_before: PackedFloat32Array, p_after: PackedFloat32Array,
+		p_res: Dictionary, p_ctx: Dictionary) -> void:
+	var n := p_after.size()
+	var flow: PackedFloat32Array = p_res.get("flow", PackedFloat32Array())
+	var wet: PackedFloat32Array = p_res.get("lake_depth", PackedFloat32Array())
+	if flow.size() != n or wet.size() != n:
+		return # want_diagnostics was off, or the solver returned a short grid: publish nothing
+	var ero := PackedFloat32Array()
+	var dep := PackedFloat32Array()
+	ero.resize(n)
+	dep.resize(n)
+	for i in range(n):
+		# Erosion is reported POSITIVE metres removed and deposition positive metres gained, which is
+		# what a band reads as "5 to 50 m stripped" rather than "-50 to -5".
+		var d: float = p_after[i] - p_before[i]
+		if not is_finite(d):
+			d = 0.0
+		ero[i] = maxf(-d, 0.0)
+		dep[i] = maxf(d, 0.0)
+	p_ctx["sim_fields"] = [flow, ero, dep, wet]
 
 
 ## True when the material emits at least one CRATER op. Radial ops read the loop-normalised nu,nv, which

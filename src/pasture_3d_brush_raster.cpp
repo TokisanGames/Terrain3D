@@ -5,6 +5,7 @@
 // are kept as a fallback / A-B reference. See PASTURE3D_BRUSH_PERF_ROUND2_SPEC.md.
 
 #include "pasture_3d_data.h"
+#include "pasture_3d_erosion.h"
 #include "pasture_3d_gpu_raster.h"
 #include "pasture_3d_raster_util.h"
 #include "pasture_3d_relief_ops.h"
@@ -316,11 +317,11 @@ float raster_polyline_field(const PackedVector3Array &pts, double min_x, double 
 //
 // POINT steps (noise, relief) contribute metres at one cell and are folded into the rasteriser's own
 // loop in double precision, exactly where the hard-coded `+ noise` / `+ relief` used to sit. FIELD steps
-// (smoothing today, erosion in phase 3b) need the whole grid and force the working values to be
-// materialised at their position in the list. See the header of connectors/pasture3d_brush_modifier.gd
-// for why that split is structural rather than an optimisation.
+// (smoothing, erosion) need the whole grid and force the working values to be materialised at their
+// position in the list. See the header of connectors/pasture3d_brush_modifier.gd for why that split is
+// structural rather than an optimisation.
 struct BrushModStep {
-	enum Kind { NOISE = 0, RELIEF = 1, SMOOTH = 2 };
+	enum Kind { NOISE = 0, RELIEF = 1, SMOOTH = 2, EROSION = 3 };
 	int kind = NOISE;
 	bool field = false;
 	Ref<FastNoiseLite> noise; // NOISE
@@ -328,6 +329,9 @@ struct BrushModStep {
 	ReliefProgram prog; // RELIEF
 	double mat_strength = 1.0; // RELIEF: the material's own Strength multiplier
 	int passes = 0; // SMOOTH
+	ErosionParams erosion; // EROSION
+	PackedFloat32Array erodability; // EROSION: the hardness LUT, empty for uniform rock
+	bool publish_fields = false; // EROSION: write the four channels into the stack's field context
 };
 
 // Read the "modifiers" array out of the brush's params. Steps that would contribute nothing are dropped
@@ -382,12 +386,82 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			if (st.passes <= 0) {
 				continue;
 			}
+		} else if (kind == "erosion") {
+			st.kind = BrushModStep::EROSION;
+			st.field = true;
+			// Same reader the Pasture3DSim node's params go through, so a value tuned on a standalone
+			// Sim means the same thing here — which is the whole reason the property names match.
+			st.erosion = erosion_params_from_dict(d);
+			st.publish_fields = d.get("publish_fields", false);
+			st.erosion.want_diagnostics = st.publish_fields;
+			st.erodability = d.get("erodability_lut", PackedFloat32Array());
+			if (st.erosion.iterations < 1 || (st.erosion.erosion_rate == 0.0 && st.erosion.diffusion == 0.0)) {
+				continue; // would route water and subtract nothing
+			}
 		} else {
 			continue; // an unknown kind is a newer plugin's modifier; skipping beats guessing
 		}
 		r_steps.push_back(st);
 	}
 	return !r_steps.empty();
+}
+
+// Run one EROSION step over the working grid, in place.
+//
+// Two mechanical facts, both from §6.8 and both checked against the solver rather than assumed:
+//
+//  1. THE SOLVER NEEDS AN ABSOLUTE SURFACE, and `vals` under an ADD blend holds a delta. The input is
+//     `basey + vals`, and what goes back is `eroded - basey`.
+//  2. NaN OUTSIDE THE LOOP IS THE RIGHT BOUNDARY CONDITION, for free. `erosion_solve` turns non-finite
+//     input into a fixed outlet at the field minimum, which for a mound is exactly right: the ground off
+//     the loop is where the mountain's water goes. It comes back as a real number, so only the cells the
+//     brush actually writes are copied out — otherwise the outlet level would be painted across the
+//     whole bounding box.
+//
+// A mountain IS the drainage divide, so nothing upstream feeds it and the Sim's `catchment_margin` —
+// quadratic, and much of why a standalone Sim is expensive over a big area — does not apply here.
+void brush_mod_erode(const BrushModStep &p_step, std::vector<float> &r_vals,
+		const std::vector<float> &p_basey, bool p_add, int p_gw, int p_gh, double p_vs,
+		ReliefFields &r_fields) {
+	const size_t n = (size_t)p_gw * p_gh;
+	std::vector<float> z(n);
+	for (size_t i = 0; i < n; i++) {
+		z[i] = p_add ? (float)((double)p_basey[i] + (double)r_vals[i]) : r_vals[i];
+	}
+	ErosionParams ep = p_step.erosion;
+	ep.gw = p_gw;
+	ep.gh = p_gh;
+	ep.cell_size = p_vs;
+	const ErosionResult res = erosion_solve(z, ep, p_step.erodability);
+	if (!res.ok) {
+		return; // the surface is left exactly as it was; nothing is silently half-eroded
+	}
+	if (p_step.publish_fields && r_fields.ready && res.flow.size() == n && res.lake_depth.size() == n) {
+		// The four channels a later modifier's selectors read, in the units and signs a
+		// Pasture3DReliefSelector expects — the same conversions relief_fields_add_sim makes on the way
+		// out of a Pasture3DSimResult, so a FLOW band means here exactly what it means there.
+		//
+		// POSITIONAL BY CONSTRUCTION (§6.4): this happens at the erosion step's own place in the list, so
+		// a modifier above it has already run against the defined zero and one below it reads the real
+		// numbers. Nothing has to enforce the invariant because nothing can violate it.
+		r_fields.sim_flow.assign(res.flow.begin(), res.flow.end());
+		r_fields.sim_wetness.assign(res.lake_depth.begin(), res.lake_depth.end());
+		r_fields.sim_erosion.resize(n);
+		r_fields.sim_deposition.resize(n);
+		for (size_t i = 0; i < n; i++) {
+			const double d = (double)res.z[i] - (double)z[i];
+			const double fd = std::isfinite(d) ? d : 0.0;
+			r_fields.sim_erosion[i] = (float)MAX(-fd, 0.0); // POSITIVE metres removed
+			r_fields.sim_deposition[i] = (float)MAX(fd, 0.0);
+		}
+		r_fields.has_sim = true;
+	}
+	for (size_t i = 0; i < n; i++) {
+		if (std::isnan(r_vals[i])) {
+			continue;
+		}
+		r_vals[i] = p_add ? (float)((double)res.z[i] - (double)p_basey[i]) : res.z[i];
+	}
 }
 
 
@@ -937,6 +1011,8 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 		}
 		if (steps[si].kind == BrushModStep::SMOOTH) {
 			nan_blur(vals, gw, gh, steps[si].passes);
+		} else if (steps[si].kind == BrushModStep::EROSION) {
+			brush_mod_erode(steps[si], vals, basey, add, gw, gh, vs, fields);
 		}
 		si++;
 	}

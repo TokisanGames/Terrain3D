@@ -40,9 +40,6 @@ extends Pasture3DSimBase
 ## cancellable. The network reorganises between iterations (§4.5), so chunking changes nothing about
 ## the result — chunk boundaries are just where we let go of the CPU.
 const CHUNK_ITERATIONS: int = 5
-## Resolution cap for the erodability map, mirroring Pasture3DPlow's height LUT. Rock hardness is a
-## broad spatial field; more than this per axis buys nothing and costs a bigger per-bake image read.
-const ERODABILITY_LUT_MAX: int = 256
 ## Smallest sim grid worth solving. Below this the boundary IS the domain and nothing routes.
 const MIN_SIM_CELLS: int = 8
 ## Ceiling on the merged Pasture3DSimResult grid when a Sim has SEVERAL loops (§8.2). One loop always
@@ -1179,35 +1176,13 @@ func _write_result(p_states: Array, p_is_preview: bool, p_scale: int) -> String:
 ## The erodability map as a [0,1] LUT: [PackedFloat32Array data, w, h]. [empty, 0, 0] when no map is
 ## assigned, which the solver reads as uniform 1.0. Capped in resolution like Plow's height LUT.
 func _erodability_lut() -> Array:
-	var empty: Array = [PackedFloat32Array(), 0, 0]
-	if erodability_map == null:
-		return empty
-	var img := erodability_map.get_image()
-	if img == null:
-		push_warning("Pasture3DSim '%s': the Erodability Map has no image data; using uniform erodability." % name)
-		return empty
-	img = img.duplicate() # never mutate the shared resource image
-	if img.is_compressed() and img.decompress() != OK:
-		push_warning("Pasture3DSim '%s': could not decompress the Erodability Map; using uniform erodability." % name)
-		return empty
-	if img.has_mipmaps():
-		img.clear_mipmaps()
-	var w := img.get_width()
-	var h := img.get_height()
-	if maxi(w, h) > ERODABILITY_LUT_MAX:
-		var s := float(ERODABILITY_LUT_MAX) / float(maxi(w, h))
-		w = maxi(1, int(round(w * s)))
-		h = maxi(1, int(round(h * s)))
-		img.resize(w, h, Image.INTERPOLATE_BILINEAR)
-	if w < 2 or h < 2:
-		return empty
-	var data := PackedFloat32Array()
-	data.resize(w * h)
-	for y in range(h):
-		var row := y * w
-		for x in range(w):
-			data[row + x] = img.get_pixel(x, y).get_luminance()
-	return [data, w, h]
+	# The LUT itself is Pasture3DSimBase.erodability_lut (shared with Pasture3DModErosion); only the
+	# wording of the complaint belongs to this node.
+	var r := Pasture3DSimBase.erodability_lut(erodability_map)
+	if r[3] != "":
+		push_warning("Pasture3DSim '%s': the Erodability Map was ignored because %s; using uniform erodability."
+			% [name, r[3]])
+	return [r[0], r[1], r[2]]
 
 
 ## §18: Sim's area mask is EXACT, because the bake's own masker is reachable. `sim_mask_deltas` fed a
