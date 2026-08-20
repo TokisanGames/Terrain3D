@@ -92,18 +92,17 @@ func _gate_bm_field_excludes_relief() -> void:
 	mat.selector = sel
 
 	# The plain dome, with the relief switched off, is what "carries relief" is measured against.
-	mound.relief = mat
-	mound.relief_strength = 0.0
+	_stack(mound, mat, 0.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var plain := _snapshot(probes)
 
-	mound.relief_strength = 3.0
+	_relief_strength(mound, 3.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var at_1x := _snapshot(probes)
 	var edge_1x := _relief_edge(plain, at_1x)
 	var amp_1x := _mean_relief(plain, at_1x, 0, edge_1x)
 
-	mound.relief_strength = 9.0
+	_relief_strength(mound, 9.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var at_3x := _snapshot(probes)
 	var edge_3x := _relief_edge(plain, at_3x)
@@ -170,11 +169,10 @@ func _gate_bn_flanks_against_crown() -> void:
 	sel.strength = 1.0
 	mat.selector = sel
 
-	mound.relief = mat
-	mound.relief_strength = 0.0
+	_stack(mound, mat, 0.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var plain := _snapshot(probes)
-	mound.relief_strength = 4.0
+	_relief_strength(mound, 4.0)
 
 	sel.field_source = Pasture3DReliefSelector.FieldSource.HOST_PROFILE
 	mound._refresh_owner(mound._layer_owner, false, [])
@@ -259,7 +257,7 @@ func _gate_bo_banding_follows_the_hill() -> void:
 	terr.step_jitter = 0.0
 	terr.base_amount = 0.0 # the hill IS the base under Host Profile
 	terr.band_source = Pasture3DReliefMaterial.BandSource.HOST_PROFILE
-	mound.relief = terr
+	_stack(mound, terr, 0.0)
 
 	# EVERY comparison below is on the RELIEF DELTA, never on the baked height. `relative_to_terrain` is
 	# on, so a baked height carries the demo ground underneath it — which at these sites is hilly enough
@@ -267,11 +265,11 @@ func _gate_bo_banding_follows_the_hill() -> void:
 	# symmetric". Subtracting a plain-dome bake removes the terrain and the dome together, leaving the
 	# material's own output, which is the only thing the band source can be blamed for.
 	var virgin := _snapshot(probes)
-	mound.relief_strength = 0.0
+	_relief_strength(mound, 0.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var plain := _snapshot(probes)
 
-	mound.relief_strength = 6.0
+	_relief_strength(mound, 6.0)
 
 	# DIAGNOSTIC FIRST, because it decides what the headline number below means.
 	#
@@ -290,7 +288,7 @@ func _gate_bo_banding_follows_the_hill() -> void:
 	terr.hardness = 0.0
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var linear_sym := _mirror_spread(_deltas(plain, _snapshot(probes)))
-	var scale: float = 2.0 * mound.relief_strength / maxf(mound.height, 0.001)
+	var scale: float = 2.0 * _strength_of(mound) / maxf(mound.height, 0.001)
 	var predicted := dome_asym * scale
 	print("    the dome's own asymmetry (the SDF's, not this phase's): %.4f m over a %.0f m dome"
 			% [dome_asym, mound.height])
@@ -312,7 +310,7 @@ func _gate_bo_banding_follows_the_hill() -> void:
 	var host_levels := _distinct_levels(host_vals, 0.35)
 	# A riser is (2 / steps) x relief_strength metres tall, because the band output spans -1..1. Landing
 	# on the SAME BENCH is the claim; half a riser is the widest disagreement that can still mean that.
-	var riser: float = (2.0 / float(terr.steps)) * mound.relief_strength
+	var riser: float = (2.0 / float(terr.steps)) * _strength_of(mound)
 	print("    Host Profile: worst mirrored-pair disagreement %.4f m over %d pairs, %d distinct benches"
 			% [host_sym, pairs.size(), host_levels])
 	print("    a riser is %.2f m; mirrored points must land on the same bench (< %.2f m)"
@@ -397,8 +395,7 @@ func _gate_bp_accumulator_is_unchanged() -> void:
 	var terr := Pasture3DReliefTerraces.new()
 	terr.hardness = 1.0
 	terr.step_jitter = 0.0
-	mound.relief = terr
-	mound.relief_strength = 6.0
+	_stack(mound, terr, 6.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var before := _snapshot(probes)
 	terr.band_source = Pasture3DReliefMaterial.BandSource.HOST_PROFILE
@@ -464,8 +461,7 @@ func _gate_bq_parity() -> void:
 
 	var stack := Pasture3DReliefStack.new()
 	stack.layers = [shape, terr, strata]
-	mound.relief = stack
-	mound.relief_strength = 7.0
+	_stack(mound, stack, 7.0)
 
 	var base := _snapshot(probes)
 
@@ -474,11 +470,11 @@ func _gate_bq_parity() -> void:
 	# GDScript's `_ramp`, in float against double — which scales with the amplitude, so a 38 m fixture
 	# starts several 1e-4 above zero before this phase's code runs at all. Measuring the dome alone first
 	# is what separates a divergence THIS PHASE introduced from one it merely made visible.
-	mound.relief_strength = 0.0
+	_relief_strength(mound, 0.0)
 	var dome_only := _parity_gap(mound, probes)
 	print("    dome only, no relief:                worst |native - gdscript| = %.8f m" % dome_only)
 
-	mound.relief_strength = 7.0
+	_relief_strength(mound, 7.0)
 	var full := _parity_gap(mound, probes)
 	print("    dome + the three host-profile paths: worst |native - gdscript| = %.8f m" % full)
 
@@ -641,3 +637,47 @@ func _snapshot(p_points: Array[Vector3]) -> Array[float]:
 
 func _height(p_at: Vector3) -> float:
 	return _terrain.data.get_height(Vector3(p_at.x, 0.0, p_at.z))
+
+
+# ---- Modifier-stack shims (PASTURE3D_BRUSH_EROSION_SPEC.md §6.6) -----------------------------------
+#
+# Phase 3a deleted Pasture3DMound's `noise` / `noise_strength` / `relief` / `relief_strength` /
+# `smooth_passes` properties; an ordered `modifiers` list replaced them. These two helpers keep the gates
+# below reading the way they always did — assign a material, then move its amplitude — without each of
+# them having to build a stack by hand.
+func _stack(p_mound, p_mat, p_strength: float, p_noise: FastNoiseLite = null,
+		p_noise_strength: float = 0.0, p_passes: int = 0) -> void:
+	var mods: Array[Pasture3DBrushModifier] = []
+	if p_noise != null:
+		var mn := Pasture3DModNoise.new()
+		mn.noise = p_noise
+		mn.strength = p_noise_strength
+		mods.append(mn)
+	if p_mat != null:
+		# Kept in the list even at strength 0, so `_relief_strength` below always has something to move.
+		# An inactive modifier is dropped at compile time, which is exactly what `relief_strength = 0`
+		# used to do.
+		var mr := Pasture3DModRelief.new()
+		mr.material = p_mat
+		mr.strength = p_strength
+		mods.append(mr)
+	if p_passes > 0:
+		var ms := Pasture3DModSmooth.new()
+		ms.passes = p_passes
+		mods.append(ms)
+	p_mound.modifiers = mods
+
+
+## The Relief modifier's current amplitude, for the two gates that predict a height from it.
+func _strength_of(p_mound) -> float:
+	for m in p_mound.modifiers:
+		if m is Pasture3DModRelief:
+			return m.strength
+	return 0.0
+
+
+## The `relief_strength = x` idiom: move the Relief modifier's amplitude, leaving the stack alone.
+func _relief_strength(p_mound, p_strength: float) -> void:
+	for m in p_mound.modifiers:
+		if m is Pasture3DModRelief:
+			m.strength = p_strength

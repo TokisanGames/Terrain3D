@@ -309,6 +309,88 @@ float raster_polyline_field(const PackedVector3Array &pts, double min_x, double 
 }
 
 
+// ---- The brush modifier stack (PASTURE3D_BRUSH_EROSION_SPEC.md §6) ----
+//
+// One compiled step of a brush's modifier list. Built ONCE per bake from the array of dictionaries
+// `Pasture3DTerrainBrush._compile_modifiers` hands over, never per cell.
+//
+// POINT steps (noise, relief) contribute metres at one cell and are folded into the rasteriser's own
+// loop in double precision, exactly where the hard-coded `+ noise` / `+ relief` used to sit. FIELD steps
+// (smoothing today, erosion in phase 3b) need the whole grid and force the working values to be
+// materialised at their position in the list. See the header of connectors/pasture3d_brush_modifier.gd
+// for why that split is structural rather than an optimisation.
+struct BrushModStep {
+	enum Kind { NOISE = 0, RELIEF = 1, SMOOTH = 2 };
+	int kind = NOISE;
+	bool field = false;
+	Ref<FastNoiseLite> noise; // NOISE
+	double strength = 0.0; // NOISE / RELIEF: metres at full output
+	ReliefProgram prog; // RELIEF
+	double mat_strength = 1.0; // RELIEF: the material's own Strength multiplier
+	int passes = 0; // SMOOTH
+};
+
+// Read the "modifiers" array out of the brush's params. Steps that would contribute nothing are dropped
+// here rather than tested per cell — an unassigned noise field, a material that compiled to no ops, a
+// zero strength, zero blur passes. GDScript already drops the obvious ones (`is_active`); this repeats
+// the test because the wire format is a plain dictionary and the rasteriser must not trust it.
+//
+// Every RELIEF step is built against the ONE stack-wide selector block in `op_selectors`: each material's
+// ops had their selector ids rebased into it at compile time, so `ReliefFields::sel_slot` — which is
+// keyed by selector id — stays a single flat array however many materials the stack carries.
+//
+// False when nothing survived, which puts the caller back on the legacy path.
+bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_steps) {
+	const Array mods = p_params.get("modifiers", Array());
+	if (mods.is_empty()) {
+		return false;
+	}
+	const PackedFloat32Array selectors = p_params.get("op_selectors", PackedFloat32Array());
+	for (int i = 0; i < mods.size(); i++) {
+		const Dictionary d = mods[i];
+		const String kind = d.get("kind", String());
+		BrushModStep st;
+		if (kind == "noise") {
+			st.kind = BrushModStep::NOISE;
+			Object *obj = d.get("noise", Variant());
+			st.noise = Object::cast_to<FastNoiseLite>(obj);
+			st.strength = d.get("strength", 0.0);
+			if (st.noise.is_null() || st.strength == 0.0) {
+				continue;
+			}
+		} else if (kind == "relief") {
+			st.kind = BrushModStep::RELIEF;
+			st.strength = d.get("strength", 0.0);
+			st.mat_strength = d.get("mat_strength", 1.0);
+			if (st.strength == 0.0) {
+				continue;
+			}
+			// relief_build reads its four keys off a dictionary; hand it this modifier's own program
+			// paired with the stack-wide selector block.
+			Dictionary sub;
+			sub["ops"] = d.get("ops", PackedInt32Array());
+			sub["op_params"] = d.get("op_params", PackedFloat32Array());
+			sub["op_luts"] = d.get("op_luts", PackedFloat32Array());
+			sub["op_selectors"] = selectors;
+			if (!relief_build(sub, st.prog)) {
+				continue;
+			}
+		} else if (kind == "smooth") {
+			st.kind = BrushModStep::SMOOTH;
+			st.field = true;
+			st.passes = (int)d.get("passes", 0);
+			if (st.passes <= 0) {
+				continue;
+			}
+		} else {
+			continue; // an unknown kind is a newer plugin's modifier; skipping beats guessing
+		}
+		r_steps.push_back(st);
+	}
+	return !r_steps.empty();
+}
+
+
 } // namespace
 
 // Re-export the two primitives Pasture3DSim's loop mask needs (pasture_3d_raster_util.h). Thin
@@ -609,18 +691,21 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	const double plane_y = p_params.get("plane_y", 0.0);
 	const int blend = (int)p_params.get("blend", 0);
 	const bool composite = p_params.get("composite", true);
-	const double noise_strength = p_params.get("noise_strength", 0.0);
-	Object *noise_obj = p_params.get("noise", Variant());
-	Ref<FastNoiseLite> noise = Object::cast_to<FastNoiseLite>(noise_obj);
+	// The MODIFIER STACK (PASTURE3D_BRUSH_EROSION_SPEC.md §6), which is the whole of what this brush
+	// applies to its own output. It replaced a hard-coded `+ noise -> + relief -> blur` in phase 3a;
+	// gate BW compared the two over every shipped preset and found them bitwise identical before the
+	// old path was deleted.
+	//
+	// Mapping is always TILE here: a relief modifier's ops read world XZ, and only the normalised nu,nv
+	// that radial ops use come from the loop's oriented frame.
+	// An EMPTY stack is not a special case: the loop below simply runs no steps and the brush stamps its
+	// bare profile, which is exactly what a Mound with nothing configured should do.
+	std::vector<BrushModStep> steps;
+	brush_mod_build(p_params, steps);
+	// The ONE selector block every relief modifier indexes into: each material's own block concatenated,
+	// with its ops' selector ids rebased. `ReliefFields::sel_slot` is keyed by id, so it has to be flat.
+	const PackedFloat32Array all_selectors = p_params.get("op_selectors", PackedFloat32Array());
 
-	// Relief material (PASTURE3D_MOUND_RELIEF_SPEC.md). Sits ALONGSIDE the noise field above — both are
-	// added — so a mound carrying only `noise` takes byte-for-byte the path it always did. Mapping is
-	// always TILE here: the ops read world XZ, and only the normalised nu,nv that radial ops use come from
-	// the loop's oriented frame. An empty program or a zero strength skips the whole thing.
-	const double relief_strength = p_params.get("relief_strength", 0.0);
-	const double relief_mat_strength = p_params.get("relief_mat_strength", 1.0);
-	ReliefProgram prog;
-	const bool has_relief = relief_strength != 0.0 && relief_build(p_params, prog);
 	const double fit_cx = p_params.get("fit_cx", 0.0);
 	const double fit_cz = p_params.get("fit_cz", 0.0);
 	const double fit_cos = p_params.get("fit_cos", 1.0);
@@ -674,7 +759,7 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	// already stamps against, so a mound never gates itself on its own output and the bake does not creep
 	// on every refresh. Built only when the compiled program asks for them.
 	ReliefFields fields;
-	if (has_relief && (bool)p_params.get("need_fields", false)) {
+	if ((bool)p_params.get("need_fields", false)) {
 		relief_fields_build(base_below, min_x, min_z, vs, gw, gh,
 				[this](double x, double z) { return (float)get_height(Vector3(x, 0.0, z)); }, fields);
 		const Dictionary sim = p_params.get("sim_result", Dictionary());
@@ -683,7 +768,7 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 		}
 		// The wider slope / curvature grids a selector's `measure_radius` asks for (§21.6). A no-op when
 		// every selector leaves it at 0, which is the default.
-		relief_fields_add_measured(prog.selectors, fields, RELIEF_FIELD_BELOW);
+		relief_fields_add_measured(all_selectors, fields, RELIEF_FIELD_BELOW);
 	}
 
 	// HOST PROFILE fields: the same five measurements over the brush's OWN generated shape, for selectors
@@ -694,7 +779,7 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	// The pre-pass deliberately ignores the clip box. Clipping decides which cells get WRITTEN; the field
 	// must be continuous across a clip edge, or a selector reads a cliff that is an artefact of tiling.
 	ReliefFields host_fields;
-	if (has_relief && (bool)p_params.get("need_host_fields", false)) {
+	if ((bool)p_params.get("need_host_fields", false)) {
 		PackedFloat32Array host_grid;
 		host_grid.resize(gw * gh);
 		float *hp = host_grid.ptrw();
@@ -724,12 +809,12 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 		// The peak is a deterministic function of the loop and the shape properties — the same property
 		// that makes this whole field non-drifting — so it is reproducible, not merely measured.
 		host_fields.norm_divisor = peak > 0.0 ? peak : 1.0;
-		relief_fields_add_measured(prog.selectors, host_fields, RELIEF_FIELD_HOST);
+		relief_fields_add_measured(all_selectors, host_fields, RELIEF_FIELD_HOST);
 	}
 	ReliefSample ground;
 
-	// Always buffer per-cell values into a box (NaN = no write) so the optional smoothing pass can run
-	// before any write. Batched raw-tile apply path (Phase 1b) then commits the buffer one tile at a time
+	// Always buffer per-cell values into a box (NaN = no write) so a field modifier can run before any
+	// write. Batched raw-tile apply path (Phase 1b) then commits the buffer one tile at a time
 	// (no per-cell dict lookup / set_pixelv) for the common deferred non-base overlay; otherwise a per-cell
 	// _stamp_write loop handles full-refresh composite, no layer, or a dense Base target.
 	const bool batched = wlayer && !composite && !wlayer->is_base();
@@ -741,6 +826,17 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	const double cz0 = p_clip.position.z;
 	const double cz1 = p_clip.position.z + p_clip.size.z;
 
+	// Rasterise the brush's own profile into its own grids first, then run the modifier list over them.
+	// The split is not a tidier spelling of one fused loop: a FIELD modifier reads the whole grid, so the
+	// profile has to be finished before any modifier can look at it.
+	//
+	// `amp` is the contribution in METRES (NaN where the brush writes nothing) and `basey` the
+	// surface it is measured from. `profile`, the 0..1 interior mask, is NOT stored: it is a pure
+	// function of the signed distance, so recomputing it inside the point run costs one LUT lookup
+	// and keeps it a double — storing it as float would round every product it appears in, and cost
+	// gate BW its "bitwise" claim.
+	std::vector<double> amp((size_t)gw * gh, NAN);
+	std::vector<float> basey((size_t)gw * gh, 0.f);
 	for (int iz = 0; iz < gh; iz++) {
 		const double z = min_z + iz * vs;
 		if (has_clip && (z < cz0 || z >= cz1)) {
@@ -752,46 +848,103 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 			if (signed_d <= 0.0) {
 				continue;
 			}
-			double amp = 0.0;
-			double profile = 0.0;
-			if (!host_profile_at(signed_d, amp, profile)) {
+			double a = 0.0;
+			double pr = 0.0;
+			if (!host_profile_at(signed_d, a, pr)) {
 				continue;
 			}
 			const double x = min_x + ix * vs;
 			if (has_clip && (x < cx0 || x >= cx1)) {
 				continue;
 			}
-			const Vector3 pos(x, 0.0, z);
-			double base_y;
 			if (relative) {
 				const float bb = has_below ? base_below[row + ix] : (float)NAN;
-				base_y = std::isnan(bb) ? (double)get_height(pos) : (double)bb;
+				basey[row + ix] = std::isnan(bb) ? (float)get_height(Vector3(x, 0.0, z)) : bb;
 			} else {
-				base_y = plane_y;
+				basey[row + ix] = (float)plane_y;
 			}
-			if (noise.is_valid()) {
-				amp += noise_strength * noise->get_noise_2d(x, z) * profile;
-			}
-			if (has_relief) {
-				// Loop-local metres, then the same point normalised to the frame's half-extents. TILE
-				// evaluates the ops in world XZ, so only nu,nv are taken from the frame.
-				const double dx = x - fit_cx;
-				const double dz = z - fit_cz;
-				const double lx = dx * fit_cos + dz * fit_sin;
-				const double lz = -dx * fit_sin + dz * fit_cos;
-				// Below-layer first, host second: `sample` blank-slates the whole struct when it is out of
-				// range or not ready, so filling the host half before it would silently discard it.
-				fields.sample(row + ix, ground);
-				host_fields.sample_host(row + ix, ground);
-				const double rv = relief_eval(prog, x, z, lx * inv_ex, lz * inv_ez, inv_ex, inv_ez, ground);
-				amp += relief_strength * rv * profile * relief_mat_strength;
-			}
-			vals[row + ix] = (float)(add ? amp : (base_y + amp));
+			amp[row + ix] = a;
 		}
 	}
 
-	// Optional NaN-aware post-smoothing (default 0 = no-op, no allocation).
-	nan_blur(vals, gw, gh, (int)p_params.get("smooth_passes", 0));
+	// WHY THERE ARE TWO REPRESENTATIONS. A point modifier adds metres to `amp`; a field modifier
+	// transforms the grid that will be written. Under a non-ADD blend those are different quantities
+	// (`vals = basey + amp`), so the runner tracks which one currently holds the truth and converts
+	// only when the next step needs the other. A stack of Noise -> Relief -> Smooth converts exactly
+	// once, at the same point the hard-coded pipeline did — which is what makes gate BW's bitwise
+	// comparison a fair question rather than a tolerance dressed up as one.
+	const size_t n = (size_t)gw * gh;
+	bool in_vals = false;
+	size_t si = 0;
+	while (si < steps.size()) {
+		if (!steps[si].field) {
+			// Fold the maximal RUN of point modifiers into one pass over the grid.
+			size_t sj = si;
+			while (sj < steps.size() && !steps[sj].field) {
+				sj++;
+			}
+			if (in_vals) {
+				for (size_t k = 0; k < n; k++) {
+					amp[k] = std::isnan(vals[k]) ? NAN : (add ? (double)vals[k] : (double)vals[k] - (double)basey[k]);
+				}
+				in_vals = false;
+			}
+			for (int iz = 0; iz < gh; iz++) {
+				const double z = min_z + iz * vs;
+				const int row = iz * gw;
+				for (int ix = 0; ix < gw; ix++) {
+					const int i = row + ix;
+					if (std::isnan(amp[i])) {
+						continue;
+					}
+					const double x = min_x + ix * vs;
+					double pr = 0.0;
+					double unused = 0.0;
+					host_profile_at((double)field[i] + edge_offset, unused, pr);
+					double a = amp[i];
+					for (size_t k = si; k < sj; k++) {
+						const BrushModStep &st = steps[k];
+						if (st.kind == BrushModStep::NOISE) {
+							a += st.strength * st.noise->get_noise_2d(x, z) * pr;
+						} else {
+							// Loop-local metres, then the same point normalised to the frame's
+							// half-extents — TILE evaluates the ops in world XZ, so only nu,nv come
+							// from the frame.
+							const double dx = x - fit_cx;
+							const double dz = z - fit_cz;
+							const double lx = dx * fit_cos + dz * fit_sin;
+							const double lz = -dx * fit_sin + dz * fit_cos;
+							// Below-layer first, host second: `sample` blank-slates the whole struct,
+							// so filling the host half before it would silently discard it.
+							fields.sample(i, ground);
+							host_fields.sample_host(i, ground);
+							const double rv = relief_eval(st.prog, x, z, lx * inv_ex, lz * inv_ez,
+									inv_ex, inv_ez, ground);
+							a += st.strength * rv * pr * st.mat_strength;
+						}
+					}
+					amp[i] = a;
+				}
+			}
+			si = sj;
+			continue;
+		}
+		if (!in_vals) {
+			for (size_t k = 0; k < n; k++) {
+				vals[k] = std::isnan(amp[k]) ? (float)NAN : (float)(add ? amp[k] : (double)basey[k] + amp[k]);
+			}
+			in_vals = true;
+		}
+		if (steps[si].kind == BrushModStep::SMOOTH) {
+			nan_blur(vals, gw, gh, steps[si].passes);
+		}
+		si++;
+	}
+	if (!in_vals) {
+		for (size_t k = 0; k < n; k++) {
+			vals[k] = std::isnan(amp[k]) ? (float)NAN : (float)(add ? amp[k] : (double)basey[k] + amp[k]);
+		}
+	}
 
 	if (batched) {
 		const int min_px = (int)std::lround(min_x / vs);

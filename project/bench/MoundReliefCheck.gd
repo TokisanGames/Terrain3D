@@ -64,11 +64,10 @@ func _ready() -> void:
 func _gate_a_legacy_mound_unchanged() -> void:
 	print("[A] a Mound with no relief assigned bakes unchanged:")
 	var fresh := Pasture3DMound.new()
-	print("    fresh Mound: relief = %s, relief_strength = %.1f (want <null>, 0.0)" % [
-			fresh.relief, fresh.relief_strength])
-	if fresh.relief != null or not is_zero_approx(fresh.relief_strength):
+	print("    fresh Mound: %d modifiers (want 0)" % fresh.modifiers.size())
+	if not fresh.modifiers.is_empty():
 		_fail += 1
-		print("    !! the relief slot is on by default; every legacy scene's Mound just changed shape")
+		print("    !! the modifier stack is populated by default; every scene's Mound just changed shape")
 	fresh.free()
 
 	var probes: Array[Vector3] = [SITE_LEGACY]
@@ -97,8 +96,7 @@ func _gate_a_legacy_mound_unchanged() -> void:
 	var mat := Pasture3DReliefFractal.new()
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 18.0
-	mound.relief = mat
-	mound.relief_strength = 4.0
+	_stack(mound, mat, 4.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var with_relief := _height(SITE_LEGACY)
 	print("    CONTROL with relief assigned: %+.4f m from the plain dome" % (with_relief - plain))
@@ -125,8 +123,7 @@ func _gate_b_relief_stamps() -> void:
 	# material carves -- measuring half a signed material and calling it a pass.
 	mound.height = 0.0
 	mound.blend_mode = Pasture3DMound.BlendMode.ADD
-	mound.relief = mat
-	mound.relief_strength = 6.0
+	_stack(mound, mat, 6.0)
 
 	var base := _snapshot(probes)
 	mound._refresh_owner(mound._layer_owner, false, [])
@@ -154,7 +151,7 @@ func _gate_b_relief_stamps() -> void:
 
 	# CONTROL -- strength 0 must return the ground to its baseline. Without this, a gate that measured
 	# nothing at all would be indistinguishable from one that measured correctly.
-	mound.relief_strength = 0.0
+	_relief_strength(mound, 0.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var d_zero := _height(inside) - base[0]
 	print("    CONTROL relief_strength=0 delta: %+.5f m (want ~0)" % d_zero)
@@ -192,20 +189,15 @@ func _gate_c_coexists_with_noise() -> void:
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var dome := _snapshot(probes)
 
-	mound.noise = n
-	mound.noise_strength = 3.0
+	_stack(mound, null, 0.0, n, 3.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var with_noise := _snapshot(probes)
 
-	mound.noise = null
-	mound.noise_strength = 0.0
-	mound.relief = mat
-	mound.relief_strength = 5.0
+	_stack(mound, mat, 5.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var with_relief := _snapshot(probes)
 
-	mound.noise = n
-	mound.noise_strength = 3.0
+	_stack(mound, mat, 5.0, n, 3.0)
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var with_both := _snapshot(probes)
 
@@ -283,10 +275,7 @@ func _gate_d_parity() -> void:
 	var dome_only := _parity_delta(mound, probes)
 	print("    dome + falloff only, no relief:  worst |native - gdscript| = %.8f m" % dome_only)
 
-	mound.noise = n
-	mound.noise_strength = 2.0
-	mound.relief = stack
-	mound.relief_strength = 7.0
+	_stack(mound, stack, 7.0, n, 2.0)
 	var full := _parity_delta(mound, probes)
 	print("    dome + noise + relief:           worst |native - gdscript| = %.8f m" % full)
 
@@ -374,8 +363,7 @@ func _gate_e_slope_selector() -> void:
 	mat.selector = sel
 	mound.height = 0.0
 	mound.blend_mode = Pasture3DMound.BlendMode.ADD # MAX would discard the material's carving half
-	mound.relief = mat
-	mound.relief_strength = 8.0
+	_stack(mound, mat, 8.0)
 
 	var base := _snapshot(probes)
 	mound._refresh_owner(mound._layer_owner, false, [])
@@ -445,8 +433,7 @@ func _gate_f_crater_follows_the_loop() -> void:
 	# Without this the gate measures only the crater's rim and reports "the crater did not dig".
 	mound.blend_mode = Pasture3DMound.BlendMode.ADD
 	mound.falloff_width = 6.0
-	mound.relief = mat
-	mound.relief_strength = 10.0
+	_stack(mound, mat, 10.0)
 
 	var base := _snapshot(probes)
 	mound._refresh_owner(mound._layer_owner, false, [])
@@ -547,3 +534,39 @@ func _snapshot(p_points: Array[Vector3]) -> Array[float]:
 
 func _height(p_at: Vector3) -> float:
 	return _terrain.data.get_height(Vector3(p_at.x, 0.0, p_at.z))
+
+
+# ---- Modifier-stack shims (PASTURE3D_BRUSH_EROSION_SPEC.md §6.6) -----------------------------------
+#
+# Phase 3a deleted Pasture3DMound's `noise` / `noise_strength` / `relief` / `relief_strength` /
+# `smooth_passes` properties; an ordered `modifiers` list replaced them. These two helpers keep the gates
+# below reading the way they always did — assign a material, then move its amplitude — without each of
+# them having to build a stack by hand.
+func _stack(p_mound, p_mat, p_strength: float, p_noise: FastNoiseLite = null,
+		p_noise_strength: float = 0.0, p_passes: int = 0) -> void:
+	var mods: Array[Pasture3DBrushModifier] = []
+	if p_noise != null:
+		var mn := Pasture3DModNoise.new()
+		mn.noise = p_noise
+		mn.strength = p_noise_strength
+		mods.append(mn)
+	if p_mat != null:
+		# Kept in the list even at strength 0, so `_relief_strength` below always has something to move.
+		# An inactive modifier is dropped at compile time, which is exactly what `relief_strength = 0`
+		# used to do.
+		var mr := Pasture3DModRelief.new()
+		mr.material = p_mat
+		mr.strength = p_strength
+		mods.append(mr)
+	if p_passes > 0:
+		var ms := Pasture3DModSmooth.new()
+		ms.passes = p_passes
+		mods.append(ms)
+	p_mound.modifiers = mods
+
+
+## The `relief_strength = x` idiom: move the Relief modifier's amplitude, leaving the stack alone.
+func _relief_strength(p_mound, p_strength: float) -> void:
+	for m in p_mound.modifiers:
+		if m is Pasture3DModRelief:
+			m.strength = p_strength

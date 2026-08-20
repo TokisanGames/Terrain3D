@@ -268,6 +268,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 	if _get_splines().is_empty() and _wants_own_splines():
 		warnings.append("Add at least one spline (press Add Spline, or add a Path3D child).")
 	warnings.append_array(_mask_preview_warnings())
+	warnings.append_array(_modifier_warnings())
 	var shared := _shared_curve_spline_names()
 	if not shared.is_empty():
 		warnings.append(("These splines share a Curve3D with another spline, so editing one edits "
@@ -412,6 +413,20 @@ func _get_property_list() -> Array[Dictionary]:
 		"hint_string": ",".join(names),
 		"usage": PROPERTY_USAGE_EDITOR,
 	})
+	# The modifier stack (PASTURE3D_BRUSH_EROSION_SPEC.md §6), on the hosts whose rasteriser runs it.
+	# Declared here rather than as an @export for the reason in the comment above: a dynamic property lands
+	# AFTER the script's own exports, which is where a pipeline belongs — below the shape properties it
+	# consumes, not above them.
+	if _supports_modifiers():
+		props.append({"name": "Modifiers", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP,
+				"hint_string": ""})
+		props.append({
+			"name": "modifiers",
+			"type": TYPE_ARRAY,
+			"hint": PROPERTY_HINT_TYPE_STRING,
+			"hint_string": "%d/%d:Pasture3DBrushModifier" % [TYPE_OBJECT, PROPERTY_HINT_RESOURCE_TYPE],
+			"usage": PROPERTY_USAGE_DEFAULT,
+		})
 	# §18.6: the mask overlay and the selector it shows. Both are declared HERE rather than as plain
 	# @export on the subclasses so they sit together under one group — a dynamic property appended by
 	# `_get_property_list` always lands after the script's own exports, so a toggle declared beside
@@ -2629,6 +2644,294 @@ func _needs_host_fields(ops: PackedInt32Array, op_selectors: PackedFloat32Array)
 		if _band_source_of(ops, i) == Pasture3DReliefMaterial.BandSource.HOST_PROFILE:
 			return true
 	return false
+
+
+
+# ---------------------------------------------------------------------------------------------------
+# The modifier stack (PASTURE3D_BRUSH_EROSION_SPEC.md §6). An ordered, saveable list of operations
+# applied to this brush's OWN output grid, after its profile is rasterised and before that grid is
+# composited into the terrain layer.
+#
+# See Pasture3DBrushModifier's header for the POINT / FIELD split the whole thing rests on. This half is
+# the host side: compile the list once per bake, and — on the GDScript oracle path — run it.
+# ---------------------------------------------------------------------------------------------------
+
+## The stack. Declared as a plain var and surfaced through `_get_property_list` rather than as an
+## `@export`, so it lands at the BOTTOM of the inspector, after the subclass's own shape properties. A
+## pipeline reads in order, and the order it reads in should be the order it runs in — a base-class
+## `@export` would have put it above every property it consumes.
+var modifiers: Array[Pasture3DBrushModifier] = []:
+	set(v):
+		_bind_modifiers(modifiers, false)
+		modifiers = v
+		_bind_modifiers(modifiers, true)
+		notify_property_list_changed() # the Mask Preview Source list can be built from a modifier
+		_queue_mask_preview()
+		_schedule_refresh()
+		update_configuration_warnings()
+
+
+## True when this brush's rasteriser actually RUNS the stack. False hides the property entirely rather
+## than shipping a slot that silently does nothing — the same reason `_offers_host_profile` is an
+## opt-in override and not a class sniff.
+##
+## Phase 3a wires exactly one host: Pasture3DMound. The others keep their own noise / relief / smoothing
+## properties until their rasterisers are converted, which is a separate piece of work with its own gates
+## (§6.6 — Pasture3DPlow in particular cannot lose `relief` without losing its Source enum).
+func _supports_modifiers() -> bool:
+	return false
+
+
+## Connect or disconnect every modifier's `changed`, so editing one re-bakes. Nested resources do not
+## propagate `changed` on their own; each modifier forwards its own children's (a Relief modifier's
+## material, a Noise modifier's FastNoiseLite) through `_touch`.
+func _bind_modifiers(p_list: Array, p_connect: bool) -> void:
+	for m in p_list:
+		if m == null:
+			continue
+		var live: bool = m.changed.is_connected(_on_modifier_changed)
+		if p_connect and not live:
+			m.changed.connect(_on_modifier_changed)
+		elif not p_connect and live:
+			m.changed.disconnect(_on_modifier_changed)
+
+
+func _on_modifier_changed() -> void:
+	notify_property_list_changed()
+	_queue_mask_preview()
+	_schedule_refresh()
+	update_configuration_warnings()
+
+
+## Every active modifier's complaint, plus the one the stack itself can make.
+func _modifier_warnings() -> PackedStringArray:
+	var w := PackedStringArray()
+	if not _supports_modifiers() or modifiers.is_empty():
+		return w
+	var sims := {}
+	for m in modifiers:
+		if m == null:
+			continue
+		w.append_array(m.modifier_warnings(self))
+		if m is Pasture3DModRelief and m.is_active():
+			var r := _relief_sim_result(m.material)
+			if r != null:
+				sims[r] = true
+	# One bake resamples ONE Pasture3DSimResult onto its grid, so two relief modifiers pointing at
+	# different results is not a thing this can honour. Say so rather than silently using the first: a
+	# selector reading the wrong sim looks exactly like a selector whose band is mis-set.
+	if sims.size() > 1:
+		w.append(("Two Relief modifiers read different Sim Results. One bake can resample only one, "
+			+ "so the first is used and the rest are ignored. Point them at the same result, or split "
+			+ "them across two brushes."))
+	return w
+
+
+## Compile the stack once per bake — never per cell. Returns:
+##   `list`         per-modifier param blocks for the native rasteriser, in stack order
+##   `gd`           the same steps for the GDScript oracle, each carrying the modifier and its slice of
+##                  the selector block
+##   `op_selectors` the STACK-WIDE selector block: every relief modifier's block concatenated, with its
+##                  ops' selector ids rebased into it
+##   `need_fields` / `need_host` / `sim`
+##
+## The rebasing is the one piece of bookkeeping the stack adds. Selector ids are indices into a single
+## flat block, and two materials each numbering their selectors from 0 would collide in the measured-field
+## slots (`ReliefFields::sel_slot`) that are keyed by id. Concatenating and offsetting keeps ONE block, so
+## the native evaluator, the measured-radius grids and the mask preview all keep indexing it the way they
+## already do.
+func _compile_modifiers() -> Dictionary:
+	var out := {
+		"list": [], "gd": [], "op_selectors": PackedFloat32Array(),
+		"need_fields": false, "need_host": false, "sim": null, "count": 0,
+	}
+	if not _supports_modifiers():
+		return out
+	var stride := Pasture3DReliefMaterial.SELECTOR_STRIDE
+	var sel := PackedFloat32Array()
+	for m in modifiers:
+		if m == null or not m.is_active():
+			continue
+		var blk: Dictionary = m.to_params()
+		blk["kind"] = m.kind()
+		var step := {"mod": m, "kind": m.kind(), "field": m.is_field_operator()}
+		if m is Pasture3DModRelief:
+			var prog: Array = m.material.compile()
+			var ops: PackedInt32Array = prog[0]
+			var mat_sel: PackedFloat32Array = prog[3]
+			if ops.is_empty():
+				continue # a material that compiles to nothing is not a step, it is a no-op
+			# Ask the predicates BEFORE rebasing: both index the material's own selector block by the
+			# ids its own ops carry, and after the rebase those ids point into the combined block.
+			out["need_fields"] = bool(out["need_fields"]) or _needs_terrain_fields(ops)
+			out["need_host"] = bool(out["need_host"]) or _needs_host_fields(ops, mat_sel)
+			var base := int(sel.size() / stride)
+			var rebased := ops.duplicate()
+			for i in range(rebased.size() / Pasture3DReliefMaterial.OP_STRIDE):
+				var o := i * Pasture3DReliefMaterial.OP_STRIDE
+				if rebased[o + 2] >= 0:
+					rebased[o + 2] += base
+			sel.append_array(mat_sel)
+			blk["ops"] = rebased
+			blk["op_params"] = prog[1]
+			blk["op_luts"] = prog[2]
+			step["sel_base"] = base
+			step["sel_count"] = int(mat_sel.size() / stride)
+			if out["sim"] == null:
+				out["sim"] = _relief_sim_result(m.material)
+		out["list"].append(blk)
+		out["gd"].append(step)
+	out["op_selectors"] = sel
+	out["count"] = out["list"].size()
+	return out
+
+
+## Run the compiled stack over the GDScript-side grids. The oracle for the native path in
+## `Pasture3DData::stamp_mound_loop`, and the fallback on builds without the extension.
+##
+## `p_amp` is the brush's contribution in metres, NaN where it contributes nothing; `p_profile` its 0..1
+## interior mask; `p_basey` the surface each cell is measured from. The first two are DOUBLE grids because
+## the hard-coded pipeline kept both in double locals and only rounded once, at the store into `vals` —
+## rounding either earlier would change every product they appear in and cost gate BW its claim.
+## `p_basey` is float32 because it already is one: every source of it returns a C++ `float`. Returns the finished `vals` grid in
+## the layer's own units — a delta under BLEND_ADD, an absolute target otherwise.
+##
+## WHY THERE ARE TWO REPRESENTATIONS. A point modifier adds metres to `p_amp`; a field modifier transforms
+## the grid that will be written. Under a non-ADD blend those are different quantities (`vals = basey +
+## amp`), so the runner tracks which one currently holds the truth and converts only when the next step
+## needs the other. A stack of `Noise -> Relief -> Smooth` therefore converts exactly once, at the same
+## point the hard-coded pipeline did — which is what lets gate BW ask for a BITWISE match rather than a
+## tolerance.
+func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: PackedFloat64Array,
+		p_basey: PackedFloat32Array, p_ctx: Dictionary) -> PackedFloat32Array:
+	var n: int = int(p_ctx["gw"]) * int(p_ctx["gh"])
+	var add: bool = p_ctx["add"]
+	var vals := PackedFloat32Array()
+	vals.resize(n)
+	var in_vals := false
+	var i := 0
+	while i < p_steps.size():
+		var step: Dictionary = p_steps[i]
+		if not step["field"]:
+			# Fold the maximal RUN of point modifiers into one pass over the grid, which is what makes
+			# the common stack cost exactly one cell loop.
+			var j := i
+			while j < p_steps.size() and not p_steps[j]["field"]:
+				j += 1
+			if in_vals:
+				for k in range(n):
+					var v: float = vals[k]
+					p_amp[k] = NAN if not is_finite(v) else (v if add else v - p_basey[k])
+				in_vals = false
+			_apply_point_run(p_steps.slice(i, j), p_amp, p_profile, p_ctx)
+			i = j
+			continue
+		if not in_vals:
+			for k in range(n):
+				var a: float = p_amp[k]
+				vals[k] = NAN if not is_finite(a) else (a if add else p_basey[k] + a)
+			in_vals = true
+		vals = _apply_field_step(step, vals, p_ctx)
+		i += 1
+	if not in_vals:
+		for k in range(n):
+			var a: float = p_amp[k]
+			vals[k] = NAN if not is_finite(a) else (a if add else p_basey[k] + a)
+	return vals
+
+
+## One run of point modifiers, evaluated cell by cell so each cell pays one pass over the run rather than
+## the grid paying one pass per modifier.
+func _apply_point_run(p_run: Array, p_amp: PackedFloat64Array, p_profile: PackedFloat64Array,
+		p_ctx: Dictionary) -> void:
+	var gw: int = p_ctx["gw"]
+	var gh: int = p_ctx["gh"]
+	var min_x: float = p_ctx["min_x"]
+	var min_z: float = p_ctx["min_z"]
+	var vs: float = p_ctx["vs"]
+	for iz in range(gh):
+		var z := min_z + iz * vs
+		var row := iz * gw
+		for ix in range(gw):
+			var fi := row + ix
+			if not is_finite(p_amp[fi]):
+				continue
+			var x := min_x + ix * vs
+			var profile: float = p_profile[fi]
+			var acc: float = p_amp[fi]
+			for step in p_run:
+				var m = step["mod"]
+				if step["kind"] == &"noise":
+					acc += m.strength * m.noise.get_noise_2d(x, z) * profile
+				elif step["kind"] == &"relief":
+					acc += (m.strength * _eval_relief_step(step, x, z, fi, p_ctx)
+							* profile * m.material.strength)
+			p_amp[fi] = acc
+
+
+## One relief modifier's material evaluated at one cell, with the field context the host built.
+func _eval_relief_step(p_step: Dictionary, p_x: float, p_z: float, p_fi: int, p_ctx: Dictionary) -> float:
+	var m: Pasture3DModRelief = p_step["mod"]
+	var dx: float = p_x - float(p_ctx["fit_cx"])
+	var dz: float = p_z - float(p_ctx["fit_cz"])
+	var lx: float = dx * float(p_ctx["fit_cos"]) + dz * float(p_ctx["fit_sin"])
+	var lz: float = -dx * float(p_ctx["fit_sin"]) + dz * float(p_ctx["fit_cos"])
+	var inv_ex: float = p_ctx["inv_ex"]
+	var inv_ez: float = p_ctx["inv_ez"]
+	var f: Array = p_ctx["fields"]
+	var s: Array = p_ctx["sim_fields"]
+	var h: Array = p_ctx["host_fields"]
+	var use_fields := not f.is_empty()
+	var use_host := not h.is_empty()
+	var f_alt := 0.0
+	var f_slope := 0.0
+	var f_curv := 0.0
+	var f_gx := 0.0
+	var f_gz := 0.0
+	var f_flow := 0.0
+	var f_ero := 0.0
+	var f_dep := 0.0
+	var f_wet := 0.0
+	if use_fields:
+		f_alt = f[0][p_fi]
+		f_slope = f[1][p_fi]
+		f_curv = f[2][p_fi]
+		f_gx = f[3][p_fi]
+		f_gz = f[4][p_fi]
+		if not s.is_empty():
+			f_flow = s[0][p_fi]
+			f_ero = s[1][p_fi]
+			f_dep = s[2][p_fi]
+			f_wet = s[3][p_fi]
+	var h_alt := 0.0
+	var h_slope := 0.0
+	var h_curv := 0.0
+	var h_norm := 0.0
+	if use_host:
+		h_alt = h[0][p_fi]
+		h_slope = h[1][p_fi]
+		h_curv = h[2][p_fi]
+		h_norm = h_alt / float(p_ctx["host_div"])
+	# The measured grids are keyed by STACK-WIDE selector id; the material's own eval numbers its
+	# selectors from 0, so hand it its own slice.
+	var lo: int = p_step["sel_base"]
+	var hi: int = lo + int(p_step["sel_count"])
+	var measured: Array = p_ctx["measured"]
+	var host_measured: Array = p_ctx["host_measured"]
+	return m.material.eval(p_x, p_z, lx * inv_ex, lz * inv_ez, inv_ex, inv_ez,
+			f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet,
+			measured.slice(lo, hi) if not measured.is_empty() else [],
+			p_fi if (use_fields or use_host) else -1,
+			h_alt, h_slope, h_curv, h_norm, use_host,
+			host_measured.slice(lo, hi) if not host_measured.is_empty() else [])
+
+
+## One field modifier over the whole grid.
+func _apply_field_step(p_step: Dictionary, p_vals: PackedFloat32Array,
+		p_ctx: Dictionary) -> PackedFloat32Array:
+	if p_step["kind"] == &"smooth":
+		return _blur_grid(p_vals, p_ctx["gw"], p_ctx["gh"], p_step["mod"].passes)
+	return p_vals
 
 
 ## True when the material emits at least one CRATER op. Radial ops read the loop-normalised nu,nv, which

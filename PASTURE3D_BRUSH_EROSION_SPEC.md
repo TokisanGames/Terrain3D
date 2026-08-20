@@ -244,6 +244,23 @@ That settles the long-term division of labour, which is worth stating because it
 future feature goes: **relief materials are the point-operator language; the modifier stack is where
 field operators compose.**
 
+**BUILT 2026-08-20, and the split turned out to be load-bearing in a second way.** The rasteriser
+exploits it: a maximal RUN of point modifiers is folded into one cell loop in **double precision**, and
+only a field modifier materialises the float grid. `Noise → Relief → Smooth` therefore executes as one
+cell loop plus one blur — the same instructions, in the same order, rounding in the same place as the
+pipeline it replaced. That is what made gate BW's *bitwise* claim reachable rather than aspirational; a
+naive implementation that ran each modifier as its own pass over a float grid would have rounded three
+times and could only ever have claimed a tolerance.
+
+Two consequences worth writing down, because both are easy to undo by accident:
+
+- **The interior mask stays a double, and is never stored.** `profile` is a pure function of the signed
+  distance, so the point run recomputes it (one LUT lookup) rather than keeping a float grid of it.
+  Rounding it would change every product it appears in.
+- **Interleaving costs one conversion, and only when it happens.** The runner tracks whether the truth
+  currently lives in the delta grid or the write grid and converts only when the next step needs the
+  other. A stack that alternates point and field steps pays per boundary; the common stack pays once.
+
 ### 6.2 Node surface
 
 ```gdscript
@@ -260,8 +277,28 @@ The base resource:
 ```gdscript
 @tool class_name Pasture3DBrushModifier extends Resource
 @export var enabled: bool = true
-@export_enum("Live", "Frozen") var evaluation: int = 0
 ```
+
+**`evaluation` (Live / Frozen) was NOT built in 3a — it moved to 3b with the modifier that needs it.**
+The freeze machinery is a cached output grid plus a staleness hash, and its only client is erosion; a
+frozen blur is a cache for something that costs microseconds. Building it against that client would have
+meant shipping the surface ungated, which is what §11's own discipline forbids. §6.3 stands as written,
+as 3b's design.
+
+**Two things the build settled that the sketch above does not show:**
+
+- **`modifiers` is surfaced through `_get_property_list`, not as an `@export`.** A base-class `@export`
+  appears ABOVE every subclass property; a dynamically declared one lands after them. A pipeline should
+  read in the order it runs, which is below the shape properties it consumes. It is also what lets
+  `_supports_modifiers()` hide the slot entirely on the brushes whose rasterisers do not run it yet —
+  shipping a control that silently does nothing is worse than not shipping it. Gate BZ measures that the
+  array still round-trips through a saved scene, because a non-`@export` var that stops persisting would
+  take every modifier the artist authored with it.
+- **Selector ids are rebased into ONE stack-wide block.** `ReliefFields::sel_slot`, which carries the
+  measured-radius grids, is keyed by selector id — and two materials each numbering their selectors from
+  0 would collide in it. So the host concatenates every relief modifier's selector block and offsets its
+  ops' ids into the result. One block, indexed exactly as it always was, however many materials the stack
+  carries.
 
 Phase 3a ships three, each reproducing one step the pipeline already hard-codes:
 
@@ -271,7 +308,7 @@ Phase 3a ships three, each reproducing one step the pipeline already hard-codes:
 | `Pasture3DModRelief` | `relief` / `relief_strength` | Holds a `Pasture3DReliefMaterial` and a metres scale. **The relief system is untouched** — this is a host for it, the same way the Mound became a second host in PASTURE3D_MOUND_RELIEF_SPEC.md |
 | `Pasture3DModSmooth` | `smooth_passes` | The existing NaN-aware blur |
 
-### 6.3 Live and Frozen — the thing that makes expensive modifiers usable
+### 6.3 Live and Frozen — the thing that makes expensive modifiers usable *(3b)*
 
 `auto_refresh` defaults to on, and every spline drag re-bakes the brush. An erosion solve per drag is
 unusable, and the first draft's answer to that (shape the mound, bake, then stop editing) was weak.
@@ -318,6 +355,33 @@ against otherwise. So deprecation is the *last* step of 3a, not the first:
 3. Convert the demo scenes and the Mound-driven gate suites to the stack.
 4. Delete the legacy properties.
 
+**DONE 2026-08-20, and here is the measurement, because after step 4 it cannot be taken again.**
+
+> `Noise(3 m) → Relief(4 m) → Smooth(2)` against `noise` + `relief` + `smooth_passes` set identically, on
+> a 100 m loop at height 40, over **2401 probes on the terrain's own vertex lattice**, comparing baked
+> floats with `==` and not with a tolerance:
+>
+> **12 of 12 cases bitwise identical** — the eleven shipped presets in `demo/data/relief/`, plus a bare
+> noise-and-smoothing configuration carrying no relief at all.
+>
+> Floor: two identical bakes agreed bitwise over all 2401 probes first, so the probe could answer a
+> bitwise question. Controls: reordering to `Noise → Smooth → Relief` moved the bake 2.41 m, and
+> disabling the Relief modifier moved it 3.27 m while reading bitwise identical to removing it.
+
+Then step 4 deleted the pipeline — both cell loops and the five properties. **Keeping both alive to
+re-prove a finished migration would have been the wrong trade**: the legacy arm is a whole cell loop, not
+a thirty-line switch like `ErosionParams::legacy_flood`, and every future change to the profile or relief
+evaluation would have had to be mirrored into code nothing calls. What replaced it as the standing
+criterion is in `bench/BrushStackGate.tscn`: the native and GDScript implementations of the stack agree
+to within the dome's own pre-existing divergence (it **adds −0.000004 m**), every shipped preset still
+stamps, and re-baking is bitwise stable.
+
+**One finding about the gate itself, recorded because the spec proposed the wrong control.** The reorder
+control was written as `Relief → Noise → Smooth`. That does not discriminate: Noise and Relief are both
+POINT operators, they land in the same run, and both only ADD metres — swapping them changes nothing but
+the order of two double additions. The reorder that tests the claim moves the **field** operator, because
+where the blur sits relative to the relief is a genuinely different surface.
+
 ### 6.6 Deprecating the legacy properties — Mound only, this round
 
 **DECIDED (user, 2026-08-20): deprecate outright rather than keep them alongside.** No shipped level uses
@@ -342,10 +406,34 @@ own phase.
 | Suite | Drives | Needs converting |
 |---|---|---|
 | `MoundReliefCheck`, `HostProfileGate` | Mound | **yes** |
-| `BakeIdentityProbe` | both | **partly** |
+| `BakeIdentityProbe` | both | **no** — its only relief case drives a Plow |
 | `PlowReliefCheck` + `PreviewSimDiag` + `SimPhase3Gate` + `SimPhase55Gate` + `SimPhase65SelectorGate` + `SimPreviewGate` | Plow | no |
 
-Two and a half suites, not nine. That is the whole reason Mound-only is the right cut.
+Two suites, not nine — `BakeIdentityProbe`'s relief case turned out to be a Plow, so the "partly" in the
+first estimate was wrong in the safe direction. That is the whole reason Mound-only is the right cut.
+
+**DONE 2026-08-20. Both suites converted (0 failures each), and all six Plow-driven suites re-run
+UNTOUCHED at 0 failures** — plus the seven other Sim suites and `SedimentGate`, which the cut said should
+not be affected and were not.
+
+#### The migration shim, which was not in the plan and had to be
+
+"No shipped level uses them" is true of the user's levels and false of the repo: `sculpting_2.tscn` and
+`big_regions.tscn` both carry Mounds with `relief` / `relief_strength` / `smooth_passes`. Deleting the
+properties without more would have dropped their relief on load without a word — the exact failure mode
+that makes a deprecation feel like a bug.
+
+So `Pasture3DMound` carries a **one-way load-time migration**: `_set` stashes the removed keys during
+scene load and `_ready` turns them into the `Noise → Relief → Smooth` stack they describe, warning that
+the scene should be saved. It is deliberately not a second spelling of the same thing —
+
+- there is no getter, and the names are absent from `_get_property_list`, so nothing re-saves them;
+- assigning one **after** the node is in the tree is a `push_error`, not a quiet no-op, because a script
+  still writing to a property that no longer exists is exactly the silence this exists to prevent;
+- a node that already declares `modifiers` keeps it and warns, rather than being overwritten by stale keys.
+
+Gate BZ measures it through a bake: the migrated stack is **bitwise identical** to the hand-built one.
+Delete the block once the repo's scenes have been opened and saved.
 
 ### 6.7 Phase 3b — `Pasture3DModErosion`
 
@@ -587,8 +675,8 @@ DLA is sized by the loop, exactly like `CRATER`, so:
 |---|---|---|---|
 | **1 — BUILT** | Host profile field; `field_source` on the selector; band source on `TERRACE`/`STRATIFY`; the measured divisor | BM–BQ ✅ | nothing |
 | **2 — BUILT** | Yuan 2019 deposition in `erosion_solve`; `deposition` on the node; the sweep cap, its report and its warning | BR–BU ✅, BV deferred | nothing |
-| **3a** | The modifier stack; `Pasture3DModNoise` / `ModRelief` / `ModSmooth`; Live-vs-Frozen; then the Mound legacy properties deleted | BW–BZ | nothing |
-| **3b** | `Pasture3DModErosion`; the field context later selectors read; frozen-cache staleness | CA–CE | 1 (for masks worth writing), 2 (so the constants are set once), 3a |
+| **3a — BUILT** | The modifier stack; `Pasture3DModNoise` / `ModRelief` / `ModSmooth`; the Mound legacy properties deleted and migrated | BW ✅, BZ ✅ | nothing |
+| **3b** | `Pasture3DModErosion`; the field context later selectors read; **Live/Frozen and frozen-cache staleness** | BX, BY, CA–CE | 1 (for masks worth writing), 2 (so the constants are set once), 3a |
 | **4** | The manager registry; `Bake All Brushes`; `Register Eroding Brushes`; stale-path warnings | CF–CH | 3b |
 | **5** | The resolution-calibration measurement, **then** coarse→fine amplification | CJ–CN | 2, 3b |
 | **6** | `Pasture3DReliefDLA` as a baked field op | CP–CS | 1 (to multiply by the host profile) |
@@ -626,10 +714,10 @@ the Sim spec already established.
 | BT ✅ | *(2)* **G puts material back, and never more than it took.** Across a sweep `G = 0 … 0.75`, net erosion falls monotonically **by 38 %** and net deposition rises monotonically **0 → 1238 m**, with deposition never exceeding erosion. **The measurement is on net erosion, not on the retained fraction**, and that is the point: §8.2 decision 3 defines the two channels as the two signs of one *net* field, so a channel cell that gains 0.3 m and loses 0.5 m in the same step reports as erosion — net deposition comes out near 1 % while the material actually moving is tens of per cent. That is §15.8's open question, not a defect here. | `G = 0` must deposit exactly zero, and the sweep must span a real range — **38 %** — or "monotonic" is four near-equal numbers in a row. |
 | BU ✅ | *(2)* **The sweep count tracks `G`, is reported, and is bounded.** **4 sweeps at `G = 0.1`, 7 at 0.4, 10 at 0.7, 12 at 0.95** — the published 1-to-20 shape — and never above the ceiling of 50. | A moderate `G = 0.3` must converge **under** the ceiling and report `capped = false`, which it does. A cap that is always hit is not a cap, and a flag that is always true tells nobody anything. |
 | BV ⏸ | *(2)* **Cost stays close to linear in cell count.** Solve time across 64²/128²/256² at fixed `G`. **Written but NOT RUN — perf gates need the user's go-ahead on this machine**, so `_gate_bv_cost(false)` skips it and prints what it would do. | `G` raised toward the transport-limited end, where the published behaviour is that convergence degrades. If that does *not* show up, the gate is not measuring convergence. |
-| BW | *(3a)* **The stack bakes bitwise what the hard-coded pipeline bakes.** A Mound whose stack is `Noise → Relief → Smooth` reproduces the legacy `noise` + `relief` + `smooth_passes` bake to the BYTE, across every shipped preset in `demo/data/relief/` and the fixtures the Mound suites already use. This is the whole of 3a's claim. | Reorder the stack to `Relief → Noise → Smooth`, which must **differ** — otherwise the order is not being honoured and "bitwise identical" is measuring a stack that ignores its own contents. Plus a disabled modifier, which must equal removing it and must NOT equal leaving it in. |
-| BX | *(3a)* **A modifier reads only what precedes it.** A Relief modifier at position 2, gated on a field the stack does not produce until position 3, reads that field's **defined zero** — not the value, and not a stale one from the previous bake. | The same two modifiers with their order swapped, which must read the real value. If both orders agree, the field context is not positional and §6.4's invariant is unenforced. |
-| BY | *(3a)* **Frozen is a cache, not a different answer.** A Frozen modifier, freshly baked, produces bitwise what the same modifier produces Live. | Change something upstream of it: Live must follow, Frozen must **not**, and the brush must report the frozen modifier as stale. A freeze that silently keeps up is not a freeze. |
-| BZ | *(3a)* **The legacy properties are gone from `Pasture3DMound`,** and every converted scene and suite still bakes what it did — `MoundReliefCheck` and `HostProfileGate` re-run at 0 failures against stacks instead of properties. | `PlowReliefCheck` and the five Plow-driven Sim suites, which must pass **untouched** — they are the control on the blast radius being Mound-only (§6.6). If they need editing, the cut was wrong. |
+| BW ✅ | *(3a)* **The stack bakes bitwise what the hard-coded pipeline bakes.** A Mound whose stack is `Noise → Relief → Smooth` reproduces the legacy `noise` + `relief` + `smooth_passes` bake to the BYTE, across every shipped preset in `demo/data/relief/`. This is the whole of 3a's claim. **Measured 2026-08-20: 12 of 12 cases identical over 2401 probes** (§6.5), then the legacy path was deleted, so the criterion is historical and the suite now asserts what outlives it — native vs GDScript parity (the stack adds −0.000004 m), every preset still stamps, and re-baking is bitwise stable. | Reorder the stack, which must **differ** — otherwise the order is not being honoured and "bitwise identical" is measuring a stack that ignores its own contents. **The proposed `Relief → Noise → Smooth` does not discriminate** (both are additive point operators in one run); the reorder that does is `Noise → Smooth → Relief`, moving the FIELD operator — it moved the bake 2.41 m. Plus a disabled modifier, which read bitwise identical to removing it and 3.27 m away from leaving it in. |
+| BX | *(3b — **moved**)* **A modifier reads only what precedes it.** A Relief modifier at position 2, gated on a field the stack does not produce until position 3, reads that field's **defined zero** — not the value, and not a stale one from the previous bake. *Moved out of 3a because it needs a modifier that PRODUCES a field, and the only one is `Pasture3DModErosion`. Faking one to satisfy the gate would have tested the harness.* | The same two modifiers with their order swapped, which must read the real value. If both orders agree, the field context is not positional and §6.4's invariant is unenforced. |
+| BY | *(3b — **moved**)* **Frozen is a cache, not a different answer.** A Frozen modifier, freshly baked, produces bitwise what the same modifier produces Live. *Moved with `evaluation` itself (§6.2): the freeze machinery's only client is erosion, and building a cache for a blur that costs microseconds would have shipped the surface ungated.* | Change something upstream of it: Live must follow, Frozen must **not**, and the brush must report the frozen modifier as stale. A freeze that silently keeps up is not a freeze. |
+| BZ ✅ | *(3a)* **The legacy properties are gone from `Pasture3DMound`,** and every converted scene and suite still bakes what it did — `MoundReliefCheck` and `HostProfileGate` re-ran at 0 failures against stacks instead of properties. Extended during the build with the two things deletion actually risks: a pre-3a scene's properties **migrate** into a stack that bakes bitwise what a hand-built one bakes (§6.6), and the stack **round-trips through a saved scene** — `modifiers` is not an `@export`, and one that stopped persisting would take every modifier the artist authored with it. | `PlowReliefCheck` and the five Plow-driven Sim suites, which passed **untouched** — they are the control on the blast radius being Mound-only (§6.6). If they had needed editing, the cut was wrong. Plus a node that already declares `modifiers`, which must keep it rather than be overwritten by stale legacy keys. |
 | CA | *(3b)* **A brush-hosted erosion modifier erodes.** The eroded Mound differs from the un-eroded one by a measurable delta, concentrated in channels rather than spread uniformly (drainage area is heavy-tailed, as gate E measures). | The modifier disabled, which must reproduce the 3a bake **bitwise**. |
 | CB | *(3b)* **The delta written is `eroded − base_below`.** The layer's contribution, read back through `get_height`, equals the eroded absolute surface minus the ground beneath the layer, on every cell inside the loop. | The same comparison against `eroded − 0`, i.e. forgetting the base — which must be wrong by the ground height. On flat ground at y=0 it would not be, so the fixture sits on sloped, non-zero terrain. |
 | CC | *(3b)* **A later modifier reads the erosion modifier's fields with no `SimResult` anywhere.** A Relief modifier gated on `FLOW` above 2 000 m² appears in the channels the modifier above it just cut, with `sim_result` null on every selector. **This is the workflow the phase exists for.** | `publish_fields = false` on the erosion modifier, which must make the same gate read its defined zero and stamp nothing. Plus the selector's `strength = 0`, which must cover everything — so "nothing appeared" and "the field is missing" cannot be confused. |
