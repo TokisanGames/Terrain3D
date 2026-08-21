@@ -46,6 +46,11 @@ bench/PlowReliefCheck.tscn
 bench/MoundReliefCheck.tscn
 bench/PondBrushCheck.tscn
 
+# --- Brush erosion spec (PASTURE3D_BRUSH_EROSION_SPEC.md §11) ---
+# Only the DLA suite so far. The other gates from that spec — HostProfile, BrushStack, BrushErosion,
+# BrushRegistry, Sediment — pass locally but have not been watched green HERE, which is this file's bar.
+bench/DLAGate.tscn
+
 # --- Water bodies: the two that load connectors BY PATH, so a rename breaks them loudly ---
 bench/WaterBodySplitCheck.tscn
 bench/StreamRippleCheck.tscn
