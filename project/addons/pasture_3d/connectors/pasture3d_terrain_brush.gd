@@ -2827,6 +2827,36 @@ func _inspector_rebuild_signature() -> PackedStringArray:
 	return out
 
 
+## The erosion modifiers in this brush's stack, in stack order. Empty on a brush whose rasteriser does
+## not run the stack, and empty for a stack that has none — both of which are the same answer to the only
+## question the registry asks: "is there a solve here worth re-running?"
+##
+## `enabled` rather than `is_active()`, deliberately. `is_active()` is false at a zero erosion rate, which
+## is a modifier being tuned, not a modifier that is not there — and a registry that quietly dropped a
+## brush when its rate passed through 0 would be the same class of bug as a property list that follows a
+## slider (see `_inspector_rebuild_signature`).
+func erosion_modifiers() -> Array:
+	var out: Array = []
+	if not _supports_modifiers():
+		return out
+	for m in modifiers:
+		if m is Pasture3DModErosion and m.enabled:
+			out.append(m)
+	return out
+
+
+## Drop every erosion modifier's cached solve, so the next bake re-solves against the current surface.
+## This is what "Bake All Brushes" does before it bakes: erosion defaults to FROZEN (§6.3), so a bake that
+## did not clear first would serve the cached answer and the button would appear to do nothing on exactly
+## the brushes it exists for. Returns how many were cleared.
+func clear_erosion_caches() -> int:
+	var n := 0
+	for m in erosion_modifiers():
+		m.clear_cache()
+		n += 1
+	return n
+
+
 ## Every active modifier's complaint, plus the one the stack itself can make.
 func _modifier_warnings() -> PackedStringArray:
 	var w := PackedStringArray()

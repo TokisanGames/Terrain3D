@@ -109,6 +109,25 @@ const RESULT_MAX_CELLS: int = 4194304
 @export_range(0.5, 100.0, 0.5, "or_greater") var river_width_min: float = 3.0
 @export_range(0.0, 20.0, 0.05, "or_greater") var river_carve_depth: float = 0.25
 
+@export_group("Eroding Brushes")
+## Brushes carrying a `Pasture3DModErosion` (§6.7) that Bake All Brushes re-solves, in this order.
+##
+## EXPLICIT AND DIFFABLE, rather than a scan at bake time. The list is serialised into the scene, so what
+## will bake is readable without running anything, and the manager stays the single place that knows the
+## order. Press Register Eroding Brushes to fill it in, then reorder or delete by hand.
+##
+## A path that no longer resolves is reported as a configuration warning and skipped — never dropped.
+## Dropping it quietly is how a build silently stops including something.
+@export var eroding_brushes: Array[NodePath] = []:
+	set(v):
+		eroding_brushes = v
+		update_configuration_warnings()
+## Re-solve every registered brush's erosion and re-bake its layer, as ONE undo action. A loop, not a
+## chain: each brush erodes its own surface independently.
+@export_tool_button("Bake All Brushes") var _bake_all_btn = bake_all_brushes
+## Find brushes on this terrain carrying an enabled erosion modifier and append the ones not listed.
+@export_tool_button("Register Eroding Brushes") var _scan_btn = scan_for_eroding_brushes
+
 @export_group("Bake")
 ## Solve the whole chain at Preview Resolution and write. Same layer as the build, so it is visible in
 ## the viewport and directly comparable — just coarser.
@@ -152,6 +171,11 @@ var _dep_capped: bool = false
 var capture_chain: bool = false
 ## [{cluster, pass, name, z_in, z_out, mask_field}] in execution order, from the last solve.
 var last_chain: Array = []
+
+## The last Bake All Brushes run's report (§7). Not stored in the scene — it describes a run, not a
+## configuration. Read by the configuration warning, so a CANCELLED run says so on the node rather than
+## only in the Output log, which is where a partial bake would otherwise be forgotten.
+var last_bake_report: Dictionary = {}
 
 
 # ---- Pasture3DSimBase hooks -----------------------------------------------------------------------
@@ -237,11 +261,15 @@ func _validate_property(p_property: Dictionary) -> void:
 
 func _get_configuration_warnings() -> PackedStringArray:
 	var warnings := super()
+	warnings.append_array(_registry_warnings())
 	var ps := passes()
 	if ps.is_empty():
-		warnings.append(("This manager has no passes. Add Pasture3DSim children — each one is a pass — or "
-			+ "Pasture3DSimPass children for a pass of several Sims. The order they appear in here is the "
-			+ "order they run in."))
+		# A manager with a registry and no passes is a legitimate configuration — the registry is the
+		# whole reason §7 exists — so this stops being a fault when Eroding Brushes has something in it.
+		if eroding_brushes.is_empty():
+			warnings.append(("This manager has no passes. Add Pasture3DSim children — each one is a pass "
+				+ "— or Pasture3DSimPass children for a pass of several Sims. The order they appear in "
+				+ "here is the order they run in."))
 		return warnings
 	if _baked_hash == "":
 		warnings.append("No simulation in the layer — press Simulate.")
@@ -1401,3 +1429,287 @@ func _bake_signature(p_up_to: int) -> String:
 ## The bake signature a pass's stored masks should carry, for the staleness check §21.3 asks for.
 func pass_bake_hash() -> String:
 	return _baked_hash
+
+# ---- Phase 4: the eroding-brush registry (spec §7) -------------------------------------------------
+#
+# The complaint this answers: *"the user doesn't have to track down all the brushes to resim them."*
+#
+# `passes()` collects direct CHILDREN. An eroding brush cannot join that way without being dragged under
+# the manager, which is the editor-clutter complaint from the other direction — so the registry is a list
+# of NodePaths instead, and a brush stays wherever it belongs in the scene.
+#
+# BAKE ALL IS A LOOP, NOT A CHAIN, and that is the honest description rather than a simplification. Each
+# brush erodes its own surface independently: there is no shared grid, no clustering and no pass
+# semantics. The manager's existing chain exists because pass 2 reads pass 1's output, and two mountains
+# on opposite sides of a map do not.
+#
+# TWO THINGS THE BUILD SETTLED THAT §7 DOES NOT SAY:
+#
+# 1. **Bake All CLEARS THE EROSION CACHES FIRST.** Erosion defaults to FROZEN (§6.3), so a bake that did
+#    not clear would serve the cached solve and the button would do visibly nothing on exactly the
+#    brushes it exists for. Clearing is what makes "Bake All" mean "re-solve", and it is done per layer
+#    inside the loop rather than up front, so cancelling leaves the brushes it never reached exactly as
+#    they were — stale warnings included.
+# 2. **The unit of work is a LAYER OWNER, not a brush.** `_refresh_owner` clears a tool layer and
+#    repaints every tool bound to it, so baking two registered brushes that share a layer one after the
+#    other would do the same work twice. List order is preserved in the only sense that survives the
+#    grouping: owners run in the order their first registered brush appears in the list.
+#
+#    The visible consequence, which gate CF measures rather than assumes: an UNREGISTERED brush sharing a
+#    layer with a registered one IS re-stamped, because clearing the layer would otherwise wipe it. Its
+#    erosion is not re-solved, so what it contributes comes back bitwise unchanged — which is the sense
+#    of "untouched" that matters.
+
+
+## Resolve `eroding_brushes` into nodes, keeping what went wrong instead of dropping it. This is the one
+## place that turns paths into brushes; the warnings, the bake and the scan all read it.
+##
+## Returns `{brushes, stale, foreign, unarmed}`:
+##   `brushes`  the `Pasture3DTerrainBrush` nodes this manager can bake, in list order
+##   `stale`    paths that resolve to nothing, or to something that is not a brush — REPORTED, NOT DROPPED
+##   `foreign`  registered brushes painting a different `Pasture3D` than this manager
+##   `unarmed`  registered brushes carrying no enabled erosion modifier
+##
+## An `unarmed` brush is still baked. It is listed, and baking it costs a repaint and changes nothing;
+## refusing it would be a silent drop of something the artist explicitly asked for.
+func resolved_eroding_brushes() -> Dictionary:
+	var out := {"brushes": [], "stale": PackedStringArray(), "foreign": PackedStringArray(),
+			"unarmed": PackedStringArray()}
+	for path in eroding_brushes:
+		if String(path).is_empty():
+			continue
+		var n: Node = get_node_or_null(path)
+		if n == null or not (n is Pasture3DTerrainBrush):
+			out["stale"].append(String(path))
+			continue
+		var b := n as Pasture3DTerrainBrush
+		if b.terrain != terrain:
+			# The snapshots this manager takes for undo resolve layers through ITS terrain, so a brush on
+			# another one cannot be baked here correctly. Named rather than attempted.
+			out["foreign"].append(String(b.name))
+			continue
+		if b.erosion_modifiers().is_empty():
+			out["unarmed"].append(String(b.name))
+		out["brushes"].append(b)
+	return out
+
+
+## The registered brushes grouped by layer owner, in first-appearance order. See note 2 in this section's
+## header for why the loop runs over layers rather than over brushes.
+func _eroding_owner_plan(p_brushes: Array) -> Array:
+	var order: Array = []
+	var seen := {}
+	for b in p_brushes:
+		var owner: String = b._layer_owner
+		if not seen.has(owner):
+			seen[owner] = {"owner": owner, "brushes": []}
+			order.append(seen[owner])
+		(seen[owner]["brushes"] as Array).append(b)
+	return order
+
+
+## Bake All Brushes: re-solve every registered brush's erosion and re-bake its layer, as ONE undo action.
+func bake_all_brushes() -> void:
+	var ctx := _bake_all_begin(true)
+	if not bool(ctx["ok"]):
+		return
+	_running = true
+	_cancel = false
+	var plan: Array = ctx["plan"]
+	for i in range(plan.size()):
+		# Checked BEFORE the layer is touched, so a cancel never lands between the cache clear and the
+		# bake that is supposed to follow it.
+		if _cancel:
+			ctx["cancelled"] = true
+			break
+		_bake_all_step(ctx, i)
+		print("%s: baked %d of %d brush(es)" % [_sim_label(), int(ctx["baked"]), int(ctx["total"])])
+		# One frame between layers: this is where Cancel gets a chance to run, and where the editor gets
+		# to draw the layer that was just baked.
+		if is_inside_tree():
+			await get_tree().process_frame
+	_running = false
+	_cancel = false
+	var report := _bake_all_finish(ctx)
+	print("%s: Bake All Brushes %s — %d of %d brush(es) across %d layer(s), %d frozen solve(s) cleared."
+		% [_sim_label(), "CANCELLED" if bool(report["cancelled"]) else "done", int(report["baked"]),
+			int(report["total"]), int(report["owners"]), int(report["cleared"])])
+
+
+## The scripted entry point, so gates and tools get a report back and no frames are yielded.
+##
+## `{ok, reason, total, baked, owners, cleared, cancelled, stale, foreign, unarmed, undo}`. `undo` carries
+## `{before, after}` — a layer-owner-keyed tile snapshot each — which is the same pair the editor action
+## registers. It is returned rather than kept private because `EditorUndoRedoManager` does not exist in a
+## headless run, and an untestable undo is an undo that is wrong the first time someone presses Ctrl+Z.
+func bake_all_brushes_now(p_record_undo: bool = false) -> Dictionary:
+	var ctx := _bake_all_begin(p_record_undo)
+	if not bool(ctx["ok"]):
+		return ctx["report"]
+	for i in range(int(ctx["plan"].size())):
+		_bake_all_step(ctx, i)
+	return _bake_all_finish(ctx)
+
+
+## Validate and plan. `ok` false means nothing was done and `report.reason` says why.
+func _bake_all_begin(p_record_undo: bool) -> Dictionary:
+	var reg := resolved_eroding_brushes()
+	var report := {"ok": false, "reason": "", "total": 0, "baked": 0, "owners": 0, "cleared": 0,
+			"cancelled": false, "stale": reg["stale"], "foreign": reg["foreign"],
+			"unarmed": reg["unarmed"], "undo": {"before": {}, "after": {}}, "actions": []}
+	var fail := {"ok": false, "report": report}
+	if _running:
+		report["reason"] = "a solve is already running"
+		return fail
+	if not is_configured():
+		report["reason"] = "no Pasture3D terrain assigned"
+		push_warning("%s: %s." % [_sim_label(), report["reason"]])
+		return fail
+	var brushes: Array = reg["brushes"]
+	if brushes.is_empty():
+		report["reason"] = ("Eroding Brushes is empty — press Register Eroding Brushes, or add the paths "
+			+ "by hand") if reg["stale"].is_empty() and reg["foreign"].is_empty() \
+			else "every path in Eroding Brushes is stale or points at another terrain"
+		push_warning("%s: %s." % [_sim_label(), report["reason"]])
+		return fail
+	report["total"] = brushes.size()
+	return {"ok": true, "report": report, "plan": _eroding_owner_plan(brushes),
+			"record_undo": p_record_undo, "before": {}, "after": {},
+			"baked": 0, "total": brushes.size(), "cleared": 0, "cancelled": false}
+
+
+## Bake one layer owner: snapshot it, drop its registered brushes' frozen solves, repaint it, snapshot it
+## again. The snapshot pair is what the undo action is built from.
+func _bake_all_step(p_ctx: Dictionary, p_index: int) -> void:
+	var entry: Dictionary = p_ctx["plan"][p_index]
+	var owner: String = entry["owner"]
+	var brushes: Array = entry["brushes"]
+	if brushes.is_empty():
+		return
+	if not p_ctx["before"].has(owner):
+		p_ctx["before"][owner] = _snapshot_owner(owner)
+	for b in brushes:
+		p_ctx["cleared"] = int(p_ctx["cleared"]) + b.clear_erosion_caches()
+	# `_refresh_owner` is the brush's own layer bake — clear the layer, repaint every tool bound to it,
+	# one GPU push. Called with record_undo FALSE: this run is one action, not one per layer.
+	(brushes[0] as Pasture3DTerrainBrush)._refresh_owner(owner, false, [])
+	p_ctx["after"][owner] = _snapshot_owner(owner)
+	p_ctx["baked"] = int(p_ctx["baked"]) + brushes.size()
+
+
+## Commit the undo action over every layer actually baked, and fill in the report.
+func _bake_all_finish(p_ctx: Dictionary) -> Dictionary:
+	var report: Dictionary = p_ctx["report"]
+	report["ok"] = true
+	report["baked"] = p_ctx["baked"]
+	report["owners"] = p_ctx["after"].size()
+	report["cleared"] = p_ctx["cleared"]
+	report["cancelled"] = p_ctx["cancelled"]
+	report["undo"] = {"before": p_ctx["before"], "after": p_ctx["after"]}
+	last_bake_report = report
+
+	# ONE action over N layers. `_restore_owner` re-resolves its layer by owner name on each call, so a
+	# multi-layer run is a list of do/undo pairs in a single action rather than something that needs a
+	# purpose-built inverse — and a cancelled run commits exactly the layers it reached.
+	var actions := _bake_all_undo_actions(p_ctx)
+	report["actions"] = actions
+	var ur: EditorUndoRedoManager = _editor_undo() if bool(p_ctx["record_undo"]) else null
+	if ur != null:
+		for act: Dictionary in actions:
+			ur.create_action(act["name"], UndoRedo.MERGE_DISABLE, self)
+			for owner in act["owners"]:
+				ur.add_do_method(self, "_restore_owner", owner, p_ctx["after"][owner])
+				ur.add_undo_method(self, "_restore_owner", owner, p_ctx["before"][owner])
+			ur.commit_action(false) # already applied; do NOT re-run the do-methods
+	update_configuration_warnings()
+	return report
+
+
+## The undo actions this run registers: exactly ONE, carrying every layer it touched.
+##
+## Split out rather than written inline so the SHAPE of the undo is measurable. `EditorUndoRedoManager`
+## does not exist headless, so a gate cannot count `create_action` calls — but it can read this, and this
+## is the list `_bake_all_finish` actually iterates. N actions instead of one would be N presses of Ctrl+Z
+## to undo one button, which is an undo of the button's pieces rather than of the button.
+func _bake_all_undo_actions(p_ctx: Dictionary) -> Array:
+	if p_ctx["after"].is_empty():
+		return []
+	return [{"name": "Pasture3D Bake All Brushes", "owners": p_ctx["after"].keys()}]
+
+
+## Register Eroding Brushes: append every brush on this terrain that carries an enabled erosion modifier
+## and is not already listed. Returns how many were added.
+##
+## DISCOVERY WITHOUT IMPLICIT MEMBERSHIP. It appends rather than replacing, prints what it added, and
+## leaves the order editable — press it, see what arrived, reorder or delete. A manager that rescanned on
+## every bake would make the registered set unreadable without running it, which is the property §7 asks
+## the list to have.
+func scan_for_eroding_brushes() -> int:
+	if not is_inside_tree() or terrain == null:
+		push_warning("%s: assign a terrain before scanning for eroding brushes." % _sim_label())
+		return 0
+	var listed := {}
+	for path in eroding_brushes:
+		var n: Node = get_node_or_null(path)
+		if n != null:
+			listed[n] = true
+	var found: Array = []
+	_collect_brushes(_scan_root(), found)
+	var fresh := eroding_brushes.duplicate()
+	var added := PackedStringArray()
+	for b: Pasture3DTerrainBrush in found:
+		if listed.has(b) or b.erosion_modifiers().is_empty():
+			continue
+		listed[b] = true
+		fresh.append(get_path_to(b))
+		added.append(String(b.name))
+	if added.is_empty():
+		print("%s: no unregistered brushes with an enabled erosion modifier were found." % _sim_label())
+		return 0
+	eroding_brushes = fresh
+	print("%s: registered %d eroding brush(es): %s." % [_sim_label(), added.size(), ", ".join(added)])
+	return added.size()
+
+
+## Where the scan starts. The saved scene's root when there is one, so the list comes out in the order the
+## Scene dock shows — a list meant to be read and reordered by hand should not arrive in group order,
+## which is neither stable nor meaningful.
+func _scan_root() -> Node:
+	if owner != null:
+		return owner
+	if is_inside_tree() and get_tree().current_scene != null:
+		return get_tree().current_scene
+	return get_tree().get_root() if is_inside_tree() else self
+
+
+## Depth-first, so the result is in Scene-dock order. Filtered to this manager's terrain.
+func _collect_brushes(p_from: Node, r_out: Array) -> void:
+	if p_from == null:
+		return
+	for c in p_from.get_children():
+		if c is Pasture3DTerrainBrush and (c as Pasture3DTerrainBrush).terrain == terrain:
+			r_out.append(c)
+		_collect_brushes(c, r_out)
+
+
+## The registry's own complaints. Kept separate from `_get_configuration_warnings` and called BEFORE its
+## "no passes" early return: a manager used purely as a brush registry has no passes, and a stale path
+## that only reports itself once you also happen to have a Sim child is a stale path that does not report.
+func _registry_warnings() -> PackedStringArray:
+	var w := PackedStringArray()
+	var reg := resolved_eroding_brushes()
+	if bool(last_bake_report.get("cancelled", false)):
+		w.append(("Bake All Brushes was CANCELLED after %d of %d brush(es) — the ones it reached are "
+			+ "baked and the rest still hold their previous erosion. Press it again to finish.")
+			% [int(last_bake_report.get("baked", 0)), int(last_bake_report.get("total", 0))])
+	for path in reg["stale"]:
+		w.append(("Eroding Brushes lists '%s', which no longer resolves to a brush. It is still in the "
+			+ "list and Bake All Brushes will skip it — remove it, or point it at the brush it meant.")
+			% path)
+	if not reg["foreign"].is_empty():
+		w.append(("These registered brushes paint a different Pasture3D and are skipped: %s. Bake them "
+			+ "from a manager on their own terrain.") % ", ".join(reg["foreign"]))
+	if not reg["unarmed"].is_empty():
+		w.append(("These registered brushes carry no enabled erosion modifier, so baking them re-stamps "
+			+ "them and re-solves nothing: %s.") % ", ".join(reg["unarmed"]))
+	return w
