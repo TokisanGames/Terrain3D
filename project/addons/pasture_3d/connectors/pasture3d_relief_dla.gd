@@ -16,6 +16,17 @@
 class_name Pasture3DReliefDLA
 extends Pasture3DReliefMaterial
 
+## How much of the loop the finished mountain fills, as a fraction of the loop's half-extent. 1.0 reaches
+## the edge of the fitted rectangle; 0.5 is a mountain sitting in the middle of its loop with clear ground
+## around it. This is the SIZE control - `particles` and `hierarchy_levels` change how the massif is built,
+## not how big it is, and reaching for them to make it bigger is a fight you lose slowly.
+##
+## Capped just under 1 so the field still reads exactly 0 at its border: a DLA that does not fade out
+## inside its own loop puts a step at the boundary on every FIT-mapped brush.
+@export_range(0.2, 0.98, 0.01) var coverage: float = 0.9:
+	set(v):
+		coverage = clampf(v, 0.2, 0.98)
+		_touch()
 ## Widest working grid the cluster is grown on, in cells. The final blur dominates how this reads, so
 ## resolution beyond the vertex spacing buys detail the mesh cannot carry — 512² is 1.0 MB of float field
 ## and about 2 s to grow, and is the sensible ceiling for a single mountain; 256² is a quarter of both.
@@ -33,13 +44,19 @@ extends Pasture3DReliefMaterial
 	set(v):
 		hierarchy_levels = clampi(v, 1, 6)
 		_touch()
-## Particles walked at the FINAL grid; coarser rounds get proportionally fewer, in the ratio of their
-## grid sizes. A cluster's cell count scales as roughly r^1.7 while an upscale only doubles its node
-## count, so every round has to ADD about as many nodes as it inherited -- a flat budget starves the
-## fine rounds and the massif never reaches its loop. Higher is bushier and slower, linearly.
-@export_range(64, 8192, 1) var particles: int = 2000:
+## How coarse the branching is: the spacing between ridges, as a fraction of the mountain's own radius.
+## Small is a finely divided massif of many thin spurs; large is a few broad arms.
+##
+## This and `coverage` are the two controls that answer "bigger" and "chunkier", and they are DELIBERATELY
+## INDEPENDENT. The particle count and the blur radii are both derived from them, because the raw particle
+## count does not survive a change of size: measured, the same 2000 particles gave a saturated blob with no
+## visible branching at coverage 0.5 and a spindly wireframe at 0.98. Sizing the mountain should not
+## restyle it, so the density is held and the count follows.
+##
+## Cost follows the count, which rises steeply as this falls — roughly (1 / detail_size)^1.7.
+@export_range(0.04, 0.35, 0.005) var detail_size: float = 0.12:
 	set(v):
-		particles = clampi(v, 64, 8192)
+		detail_size = clampf(v, 0.04, 0.35)
 		_touch()
 ## How far a branch's inserted midpoint is thrown sideways when the grid doubles, as a fraction of the
 ## branch's length, and how far every existing node is jittered at the same time. 0 keeps the cluster on
@@ -82,13 +99,64 @@ var _dla_key := ""
 var _dla_field := PackedFloat32Array()
 var _dla_n := 0
 
-## Fraction of the grid half-width the cluster is allowed to reach. The remaining margin has to be at
-## least the total blur support (see _blur_radii), or the massif would be clipped by the field's edge
-## instead of fading to zero inside it — and a DLA that does not read 0 at nu,nv = ±1 puts a step at the
-## loop boundary on every FIT-mapped brush.
-const GROW_EXTENT := 0.30
-## Total blur support as a fraction of the grid width, so GROW_EXTENT + this stays inside 0.5.
-const BLUR_SUPPORT := 0.18
+# The reference point the derived quantities are calibrated at. Everything below is expressed as a ratio
+# to it, so the shipped defaults reproduce a geometry that was tuned by looking at the result, and moving
+# either control scales away from that rather than away from an abstraction.
+const REF_DETAIL := 0.12
+const REF_COVERAGE := 0.9
+const REF_PARTICLES := 3000
+const REF_RESOLUTION := 512
+## The blur's reserved share of the mountain's radius. Ridge WIDTH still tracks ridge SPACING -- a fixed
+## blur under a coarse setting leaves gaps between the arms, and under a fine one it merges every spur the
+## detail control just asked for -- but it does so INSIDE this reservation rather than by eating into the
+## cluster's reach, so the two controls stay independent.
+const BLUR_SHARE := 0.38
+
+
+## The finished massif's outer radius, in cells. Everything beyond this is untouched zero, which is the
+## invariant that keeps a FIT-mapped DLA from stepping at its loop boundary.
+func _outer(n: int) -> float:
+	return coverage * 0.5 * float(n)
+
+
+## The cluster's own allowed reach: a FIXED share of the outer radius, and so a function of `coverage`
+## alone. That is what makes `coverage` the size control and nothing else -- an earlier version took the
+## blur's share out of this, and because the mass sits where the CLUSTER is (the blur redistributes it, it
+## does not carry it far), a coarse Detail Size shrank the mountain by 26 %.
+func _grow_extent(n: int) -> float:
+	return maxf(4.0, _outer(n) * (1.0 - BLUR_SHARE))
+
+
+## How wide the ridges are, in cells: the blur is sized from the branch SPACING, so a coarse cluster gets
+## broad ridges and a fine one keeps its spurs separate. `BLUR_SHARE` of the outer radius is a CAP, not a
+## target -- it is what reserves the margin that keeps the border exactly zero, and the detail term is
+## almost always the smaller of the two.
+func _blur_budget(n: int) -> int:
+	var o := _outer(n)
+	# Four times the spacing, because the radii DOUBLE: the widest level ends up about half the total, so
+	# 4x spacing puts the broadest massing scale at roughly twice the gap between ridges, which is what
+	# makes the massif read as solid ground with ridges on it rather than as a wireframe on black.
+	return clampi(int(detail_size * _grow_extent(n) * 4.0), 1, maxi(1, int(o * BLUR_SHARE)))
+
+
+## Particles walked at the FINAL grid; coarser rounds get proportionally fewer, in the ratio of their grid
+## sizes. A cluster's cell count scales as roughly r^1.7 while an upscale only doubles its node count, so
+## every round has to ADD about as many nodes as it inherited -- a flat budget starves the fine rounds and
+## the massif never reaches its loop.
+##
+## Derived rather than authored, so that changing either control holds the DENSITY and only changes the
+## thing it names. The scaling is not a guess: box-counting a cluster of radius R at the branch spacing s
+## gives (R/s)^1.7 occupied boxes carrying about s cells of branch each, so the cell count goes as
+## R^1.7 * s^-0.7, and with s = detail_size * R that is LINEAR IN R and detail_size^-0.7.
+##
+## The first version used ^1.7 on both, which is the exponent for the cluster's MASS rather than for the
+## budget that builds it, and it starved the coarse end badly enough to be visible: at detail 0.30 the
+## cluster reached 71 % of its allowed radius and the mountain came out small when only its texture was
+## supposed to change.
+func _particles() -> int:
+	var r := _grow_extent(_grid_size())
+	var ref_r := REF_COVERAGE * 0.5 * float(REF_RESOLUTION) * (1.0 - BLUR_SHARE)
+	return clampi(int(float(REF_PARTICLES) * (r / ref_r) * pow(REF_DETAIL / detail_size, 0.7)), 64, 24000)
 
 
 func _build() -> void:
@@ -100,8 +168,8 @@ func _build() -> void:
 
 ## The normalised 0..1 field, grown on demand and cached on the growth inputs.
 func _field() -> PackedFloat32Array:
-	var key := "%d|%d|%d|%d|%.4f|%d|%.4f|%.4f" % [seed, resolution, hierarchy_levels, particles,
-			wander, blur_levels, blur_growth, profile_power]
+	var key := "%d|%d|%d|%.4f|%.4f|%d|%.4f|%.4f|%.4f" % [seed, resolution, hierarchy_levels, detail_size,
+			wander, blur_levels, blur_growth, profile_power, coverage]
 	if key == _dla_key and not _dla_field.is_empty():
 		return _dla_field
 	var rng := RandomNumberGenerator.new()
@@ -158,7 +226,7 @@ func _grow(rng: RandomNumberGenerator, p_n0: int, p_res: int) -> Array:
 		# 33 nodes at level 0 and then nothing at all for five rounds. Coarse levels decide the trunk
 		# inside a smaller disc; the last level is the one that reaches GROW_EXTENT.
 		_grow_level(rng, n, lerpf(0.7, 1.0, float(level) / float(maxi(rounds, 1))),
-				maxi(24, particles * n / p_res), xs, ys, parents, owner)
+				maxi(24, _particles() * n / p_res), xs, ys, parents, owner)
 		if n >= p_res:
 			break
 		n *= 2
@@ -176,7 +244,7 @@ func _grow_level(rng: RandomNumberGenerator, n: int, p_frac: float, p_particles:
 		xs: PackedFloat32Array, ys: PackedFloat32Array, parents: PackedInt32Array,
 		owner: PackedInt32Array) -> void:
 	var c := float(n) * 0.5
-	var limit := float(n) * GROW_EXTENT * p_frac
+	var limit := _grow_extent(n) * p_frac
 	var reach := 1.0
 	for i in range(xs.size()):
 		reach = maxf(reach, sqrt(pow(xs[i] - c, 2.0) + pow(ys[i] - c, 2.0)))
@@ -190,7 +258,19 @@ func _grow_level(rng: RandomNumberGenerator, n: int, p_frac: float, p_particles:
 		# HOLLOW - a ring of ridges round an empty middle, which is a crater, not a mountain. All-interior
 		# is the opposite failure: the cluster stops reaching outward and never fills its loop. The split
 		# is deterministic (alternating, not sampled) so the mix does not itself vary with the seed.
-		var launch: float = minf(reach + 3.0, limit) * (1.0 if (pi & 1) == 0 else rng.randf())
+		#
+		# The interior draw is `sqrt(u)`, which is uniform over the DISC. Drawing the radius uniformly
+		# instead over-weights the middle by 1/r, and measured, that is what kept the massif at 0.67 of a
+		# loop it was allowed 0.96 of: the mass piled into the centre, the mean node sat at 0.23 of the
+		# half-extent, and raising `particles` fourfold bought 0.05.
+		# Reaching the limit comes FIRST and the fill takes what is left. A flat 50/50 ties the cluster's
+		# reach to its particle count, and that count now follows `detail_size` -- so a coarse setting spent
+		# its whole budget without ever arriving, and the mountain came out small when only its texture was
+		# supposed to change. Capped at 70% of the budget so a limit that cannot be reached at all still
+		# leaves something to fill the middle with, rather than starving it into a hollow ring.
+		var growing := reach < limit and pi * 10 < p_particles * 7
+		var launch: float = minf(reach + 3.0, limit) * (
+				1.0 if (growing or (pi & 1) == 0) else sqrt(rng.randf()))
 		var ang := rng.randf() * TAU
 		var px := int(round(c + cos(ang) * launch))
 		var py := int(round(c + sin(ang) * launch))
@@ -393,17 +473,17 @@ func _mass(p_raster: PackedFloat32Array, n: int) -> PackedFloat32Array:
 	return out
 
 
-## Doubling radii whose TOTAL is capped at BLUR_SUPPORT of the grid. The cap is the invariant that keeps
-## the massif inside the field: growth reaches GROW_EXTENT (0.35) and the blur can push material at most
-## BLUR_SUPPORT further, so the outer 5% of the field is still exactly zero and the material fades
-## out inside its own loop rather than being cut off at the edge.
+## Doubling radii whose TOTAL is capped at the blur's share of `coverage`. The cap is the invariant that
+## keeps the massif inside the field: the cluster reaches `_grow_extent` and the blur can push material at
+## most `_blur_budget` further, so everything outside `coverage` of the half-extent is still exactly zero
+## and the material fades out inside its own loop rather than being cut off at the edge.
 ##
 ## Levels are DROPPED, not shrunk, when the budget runs out: the smallest useful radius is 1 cell, so on a
 ## small grid the widest levels are simply not affordable. Keeping them by clamping r0 to 1 would break the
 ## invariant instead of the level count, which is the wrong thing to give up - a mountain with one fewer
 ## scale of massing still fades out inside its loop.
 func _blur_radii(n: int) -> PackedInt32Array:
-	var budget := maxi(1, int(float(n) * BLUR_SUPPORT))
+	var budget := _blur_budget(n)
 	var span := (1 << blur_levels) - 1 # 1 + 2 + 4 + ... = 2^levels - 1
 	var r0 := maxi(1, budget / span)
 	var out := PackedInt32Array()
@@ -443,7 +523,10 @@ func _box_blur(p_src: PackedFloat32Array, n: int, r: int) -> PackedFloat32Array:
 
 
 func _configuration_warning() -> String:
-	if particles < 32 and hierarchy_levels < 2:
-		return ("Relief DLA has too few particles and no hierarchy to subdivide them — the cluster will be "
-			+ "a handful of spikes. Raise Particles, or Hierarchy Levels.")
+	# Branch spacing measured in CELLS, not in fractions: below about two cells apart the grid cannot hold
+	# the branches separately and the detail control silently stops doing anything.
+	var spacing := detail_size * _grow_extent(_grid_size())
+	if spacing < 2.0:
+		return (("Relief DLA's ridges would be %.1f cells apart at this Resolution, which the working grid "
+			+ "cannot resolve. Raise Resolution, raise Detail Size, or raise Coverage.") % spacing)
 	return ""

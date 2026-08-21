@@ -61,8 +61,16 @@ const SCREE_TOE_FULL_M := 0.25
 	set(v):
 		strength = maxf(v, 0.0)
 		_touch()
-## How this material combines when it is a layer of a Pasture3DReliefStack. Ignored when the material is
-## assigned directly on a brush (the accumulator starts at 0, so ADD and REPLACE are equivalent there).
+## How this material combines into the accumulator when it is a LAYER OF A Pasture3DReliefStack.
+##
+## HIDDEN WHEN THE MATERIAL IS NOT IN A STACK, because there it does nothing at all: a host — a
+## Pasture3DModRelief, a Mound's relief, a Plow's — evaluates one material into an accumulator that
+## starts at 0 and adds the result to the brush's amplitude, and no setting of this changes a single byte
+## of that. Measured across all six modes on a directly-assigned material: identical output every time.
+## The rule is Pasture3DBrushModifier's, and it is the same rule that hides Evaluation on the modifiers
+## that cannot freeze — shipping a control that silently does nothing is worse than not shipping it.
+##
+## Whether it is in a stack is STRUCTURE, not a value, so flipping it may rebuild the inspector.
 @export var blend: Blend = Blend.ADD:
 	set(v):
 		blend = v
@@ -102,6 +110,27 @@ var _selectors := PackedFloat32Array() # stride-8 blocks, indexed by an op's sel
 var _noise: Array = []
 var _dirty := true
 var _building := false # cycle guard: a stack that (transitively) contains itself must not recurse forever
+
+
+# Set by Pasture3DReliefStack as it connects and disconnects its layers. A Resource cannot see who holds
+# it, so the holder has to say — and the stack is already walking its layers to wire up `changed`, so
+# there is no new traversal here, only one more thing done in it. A material held by two stacks, or by a
+# stack AND a brush, counts as in a stack: `blend` can act somewhere, which is the question being asked.
+var _in_stack := 0
+
+
+## Called by a Pasture3DReliefStack when this material joins or leaves its layer list.
+func _set_stacked(p_yes: bool) -> void:
+	var was := _in_stack > 0
+	_in_stack = maxi(0, _in_stack + (1 if p_yes else -1))
+	if was != (_in_stack > 0):
+		notify_property_list_changed()
+
+
+## Hide `blend` where it cannot act. See the property's own note for why this is not merely tidiness.
+func _validate_property(property: Dictionary) -> void:
+	if property.name == "blend" and _in_stack <= 0:
+		property.usage = PROPERTY_USAGE_NO_EDITOR
 
 
 ## Invalidate the compiled program and notify the brush to re-bake. Every exported setter must call this.

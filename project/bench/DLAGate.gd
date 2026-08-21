@@ -11,6 +11,7 @@
 #   CQ  the field is dendritic, not a smooth blob and not noise
 #   CR  the C++ op and the GDScript oracle read the same field
 #   CS  a loop-sized material warns under Mapping = Tile
+#   CX  Coverage sizes it, Detail Size styles it, and neither does the other's job
 #
 # CQ IS THE ONE THAT NEEDED THINKING ABOUT, so its design is written out at the gate. In short: no single
 # scalar separates a DLA from both nulls, so it uses two, each with the null it is there to exclude.
@@ -34,7 +35,7 @@ const RELIEF_M := 8.0
 ## House rule (bench/OceanBench.gd): a GDScript runtime error abandons the function WITHOUT incrementing
 ## the failure count, so a suite that only counts failures can report a clean pass having measured
 ## nothing. Each gate increments `_completed` as its last statement and the verdict requires all of them.
-const GATES := 4
+const GATES := 5
 
 var _fail := 0
 var _completed := 0
@@ -56,6 +57,7 @@ func _ready() -> void:
 	_gate_cq_dendritic()
 	_gate_cr_parity()
 	_gate_cs_tile_warns()
+	_gate_cx_size_and_detail()
 
 	if _completed != GATES:
 		_fail += 1
@@ -346,11 +348,157 @@ func _gate_cs_tile_warns() -> void:
 	_completed += 1
 
 
+# --- CX: Coverage sizes it, Detail Size styles it ---------------------------------------------------
+#
+# Reported from the editor: the mountain did not fill its brush, and there was no way to tune the size of
+# the detail. Both were true, and the second was the cause of the first — the only lever that moved the
+# footprint was the particle count, and moving it changed the texture at the same time. Measured before
+# the fix: the massif reached 0.67 of a loop it was allowed 0.96 of, and quadrupling the particles bought
+# 0.05.
+#
+# So the two controls now name the two things, and this gate is what holds them apart:
+#
+#   CX.1  the massif ARRIVES — the cluster reaches the radius `coverage` allows it, at every setting.
+#         Before, the budget decided the radius; now the radius is reached first and the rest of the
+#         budget fills in behind it.
+#   CX.2  `coverage` RESIZES — the finished field's radius tracks it proportionally.
+#   CX.3  `detail_size` RESTYLES WITHOUT RESIZING — across its whole range the radius barely moves
+#         while the branch count moves a lot. That is the property the old particle knob did not have.
+#
+# CONTROL. The border ring must be EXACTLY zero at every one of these settings. That invariant is the
+# reason the geometry is derived from one property instead of set by two constants, and it is the thing
+# that breaks first if the derivation drifts: a massif clipped by the field's edge puts a step at the loop
+# boundary on every FIT-mapped brush. Plus the usual "measured nothing" guard — a flat field would sail
+# through CX.3 by never changing size.
+func _gate_cx_size_and_detail() -> void:
+	print("\n[CX] Coverage sizes the massif, Detail Size styles it:")
+	var n := 256
+	print("    %-22s %8s %8s %9s %9s" % ["", "reached", "r98", "branches", "border"])
+	var by_cover := {}
+	var by_detail := {}
+	var worst_border := 0.0
+	var worst_arrival := 1.0
+	var flat := false
+	for e in [[0.5, 0.12], [0.9, 0.12], [0.98, 0.12], [0.9, 0.05], [0.9, 0.30]]:
+		var m := _dla(3, n)
+		m.coverage = e[0]
+		m.detail_size = e[1]
+		var f := _field(m)
+		if f.is_empty():
+			_fail += 1
+			print("    !! compiled to no field; nothing was measured")
+			return
+		if _span(f) < 0.9:
+			flat = true
+		var arrival: float = _reach(m, n) / maxf(m._grow_extent(n), 1.0)
+		var r98 := _r_mass(f, n, 0.98) / (0.5 * float(n))
+		var branches := _max_components(f, n)
+		var border := _border(f, n)
+		print("    coverage %.2f detail %.2f %7.0f%% %8.3f %9d %9.6f"
+				% [e[0], e[1], 100.0 * arrival, r98, branches, border])
+		worst_border = maxf(worst_border, border)
+		worst_arrival = minf(worst_arrival, arrival)
+		if is_equal_approx(e[1], 0.12):
+			by_cover[e[0]] = r98
+		if is_equal_approx(e[0], 0.9):
+			by_detail[e[1]] = [r98, branches]
+
+	print("    CX.1 worst arrival at its allowed radius: %.0f%%" % [100.0 * worst_arrival])
+	if worst_arrival < 0.90:
+		_fail += 1
+		print("    !! the cluster stops short of the radius Coverage allows; the budget is deciding the size")
+
+	# CX.2 -- r98 must track coverage. Compared as a RATIO against the coverage ratio, so the criterion is
+	# "it scales" rather than "it hit a number somebody wrote down".
+	var small: float = by_cover[0.5]
+	var big: float = by_cover[0.98]
+	var got := big / maxf(small, 0.0001)
+	var want := 0.98 / 0.5
+	print("    CX.2 coverage 0.50 -> 0.98 grows the field %.2fx (coverage itself grows %.2fx)" % [got, want])
+	if got < want * 0.7 or got > want * 1.3:
+		_fail += 1
+		print("    !! the field's size does not track Coverage; it is not the size control it claims to be")
+
+	# CX.3 -- detail must NOT resize.
+	var fine: Array = by_detail[0.05]
+	var coarse: Array = by_detail[0.30]
+	var drift: float = absf(float(coarse[0]) - float(fine[0])) / maxf(float(fine[0]), 0.0001)
+	var style: float = float(fine[1]) / maxf(float(coarse[1]), 1.0)
+	print("    CX.3 detail 0.05 -> 0.30 moves the size %.0f%% while the branch count changes %.1fx"
+			% [100.0 * drift, style])
+	if drift > 0.25:
+		_fail += 1
+		print("    !! Detail Size is resizing the mountain; the two controls are still coupled")
+	if style < 1.5:
+		_fail += 1
+		print("    !! Detail Size barely changed the branching, so CX.3's other half is about nothing")
+
+	# CONTROL
+	print("    CONTROL worst value anywhere in the border ring, over all five: %.8f" % worst_border)
+	if worst_border > 0.0:
+		_fail += 1
+		print("    !! the massif reaches the field's edge; a FIT-mapped brush would step at its loop")
+	if flat:
+		_fail += 1
+		print("    !! one of these fields is flat; a flat field never changes size and passes CX.3 for free")
+	_completed += 1
+
+
 # --- helpers ----------------------------------------------------------------------------------------
 
 
 ## A shipped, point-evaluated op at the same amplitude: CR's reference for what the modifier-relief
 ## path's float32 residual looks like when no baked field is involved at all.
+## How far the cluster itself got, in cells. Grown a second time with the material's own seed, which is
+## exact: the growth is a pure function of it, which is what gate CP establishes.
+func _reach(p_mat: Pasture3DReliefDLA, n: int) -> float:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = p_mat.seed
+	var cl: Array = p_mat._grow(rng, maxi(n >> (p_mat.hierarchy_levels - 1), 16), n)
+	var xs: PackedFloat32Array = cl[0]
+	var ys: PackedFloat32Array = cl[1]
+	var c := float(n) * 0.5
+	var r := 0.0
+	for i in range(xs.size()):
+		r = maxf(r, sqrt(pow(xs[i] - c, 2.0) + pow(ys[i] - c, 2.0)))
+	return r
+
+
+## Radius, in cells, inside which `q` of the field's mass sits. Used instead of a threshold because the
+## fringe of a blurred dendrite is faint and a threshold reads whatever level you picked.
+func _r_mass(g: PackedFloat32Array, n: int, q: float) -> float:
+	var c := float(n) * 0.5
+	var bins := PackedFloat32Array()
+	bins.resize(n)
+	var total := 0.0
+	for y in range(n):
+		for x in range(n):
+			var v := g[y * n + x]
+			if v <= 0.0:
+				continue
+			var d := int(sqrt(pow(float(x) - c, 2.0) + pow(float(y) - c, 2.0)))
+			if d < n:
+				bins[d] += v
+				total += v
+	var acc := 0.0
+	for d in range(n):
+		acc += bins[d]
+		if acc >= total * q:
+			return float(d)
+	return float(n)
+
+
+## The largest value anywhere in the outermost 2 % ring. Must be exactly 0.
+func _border(g: PackedFloat32Array, n: int) -> float:
+	var band := maxi(1, int(float(n) * 0.02))
+	var w := 0.0
+	for y in range(n):
+		for x in range(n):
+			if x < band or y < band or x >= n - band or y >= n - band:
+				w = maxf(w, g[y * n + x])
+	return w
+
+
 func _fractal() -> Pasture3DReliefFractal:
 	var f := Pasture3DReliefFractal.new()
 	f.style = Pasture3DReliefFractal.Style.CRAGGY

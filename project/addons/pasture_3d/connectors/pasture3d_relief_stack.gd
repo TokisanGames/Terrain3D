@@ -27,12 +27,17 @@ func _disconnect_layers() -> void:
 	for m in layers:
 		if m != null and m.changed.is_connected(_touch):
 			m.changed.disconnect(_touch)
+			m._set_stacked(false)
 
 
+## Wire up each layer's `changed`, and tell it that it IS a layer — which is what un-hides its Blend.
+## The two are done together, and gated on the same test, so a material can never end up marked as stacked
+## by a stack that is not listening to it.
 func _connect_layers() -> void:
 	for m in layers:
 		if m != null and not m.changed.is_connected(_touch):
 			m.changed.connect(_touch)
+			m._set_stacked(true)
 
 
 ## Our own selector's result, plus every child's. Duplicates are left in — the brush dedupes, and it is
@@ -144,9 +149,22 @@ func _raises() -> bool:
 
 func _configuration_warning() -> String:
 	var live := 0
+	var first = null
 	for m in layers:
 		if m != null:
 			live += 1
+			if first == null:
+				first = m
 	if live == 0:
 		return "Relief Stack has no layers assigned — the material will not deform anything."
+	# The accumulator starts at 0, so the FIRST layer's blend is arithmetic against zero. ADD, SUB and
+	# REPLACE are all sensible there; MUL multiplies the layer away entirely and MIN keeps only the half of
+	# it that is below ground. Both look exactly like "blend does nothing", which is the complaint this
+	# warning exists to pre-empt — it is the same trap in the other direction from a hidden Blend.
+	if first != null and (first.blend == Blend.MUL or first.blend == Blend.MIN):
+		return (("The first layer's Blend is %s, but a stack's accumulator starts at 0: %s. Put this layer "
+			+ "lower in the list, or set its Blend to Add.")
+			% ["Mul" if first.blend == Blend.MUL else "Min",
+			"multiplying by it discards the layer completely" if first.blend == Blend.MUL
+			else "only the parts of it below ground survive"])
 	return ""

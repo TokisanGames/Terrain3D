@@ -900,6 +900,48 @@ positional round-off nor the field's gradient. A shipped point-evaluated FBM mea
 at 5e-6, within a factor of 1.67. The consequence for the plugin's 1e-4 m tolerance is that it holds to
 roughly **10 m of relief on the modifier path**, on every op, and the DLA is not what breaks it.
 
+### 9.5 What the editor found, and the two controls it produced
+
+Reported after the first day of use: *the DLA does not cover the whole brush, and I was struggling to
+increase the area or the size of detail when tuning.* Both true, and the second was the cause of the
+first.
+
+**Measured before the fix**: the design ALLOWED an outer radius of 0.96 of the loop's half-extent; the
+massif actually reached **0.67**, with 95 % of its mass inside 0.48. The only lever that moved it was
+`particles`, and it barely did — **4× the particles bought 0.67 → 0.72** — while changing the texture at
+the same time. Two causes, both found by measuring rather than by reading:
+
+1. Half the particles launch inside the cluster to stop it coming out hollow, and that radius was drawn
+   **uniformly**, which over-weights the middle by 1/r. Drawing it uniformly over the DISC instead moved
+   the mean node radius from 0.23 to 0.30 of the half-extent.
+2. The reach was decided by the BUDGET rather than by the design. Growth now runs outward until it
+   arrives (capped at 70 % of the level's particles, so an unreachable limit still leaves something to
+   fill the middle with) and only then alternates with the interior fill.
+
+**The controls are now `coverage` and `detail_size`, and they are deliberately independent.** The raw
+particle count could not be either of them: at a fixed 2 000 it gave a saturated featureless blob at
+coverage 0.5 and a spindly wireframe at 0.98. Sizing a mountain must not restyle it. So the count is
+DERIVED, and the exponent is not a guess — box-counting a cluster of radius R at branch spacing s gives
+(R/s)^1.7 occupied boxes carrying about s cells of branch each, so the cell count goes as R^1.7 × s^-0.7,
+and with s = detail_size × R that is **linear in R and detail_size^-0.7**. The first attempt used ^1.7 on
+both — the exponent for the cluster's MASS, not for the budget that builds it — and starved the coarse
+end visibly: at detail 0.30 the cluster arrived at 71 % of its allowed radius.
+
+**The blur is reserved, not deducted.** Taking the blur's share out of the cluster's reach coupled the
+two controls straight back together: mass sits where the CLUSTER is (a blur redistributes it, it does not
+carry it far), so a coarse Detail Size shrank the mountain by 26 %. The cluster's reach is now a function
+of `coverage` alone and the blur spends its width INSIDE a reserved margin — which is also what keeps the
+border exactly zero. Gate CX holds all three claims.
+
+**And one control that did nothing at all.** `Pasture3DReliefMaterial.blend` was reported as having no
+effect. Measured across all six modes: it works on a non-first layer of a `Pasture3DReliefStack`, and is
+**byte-identical output** everywhere else — on a material assigned to a `Pasture3DModRelief`, a Mound or a
+Plow, and on a stack's own top-level blend. A host evaluates one material into an accumulator that starts
+at 0 and adds the result; nothing reads the property. It is now hidden where it cannot act, under
+`Pasture3DBrushModifier`'s existing rule for `Evaluation` — *shipping a control that silently does nothing
+is worse than not shipping it* — and a stack now warns about the mirror-image trap, a first layer set to
+Mul or Min blending against a zero accumulator.
+
 ---
 
 ## 10. Build order
@@ -912,7 +954,7 @@ roughly **10 m of relief on the modifier path**, on every op, and the DLA is not
 | **3b — BUILT** | `Pasture3DModErosion`; the field context later selectors read; Live/Frozen and frozen-cache staleness | BX ✅, BY ✅, CA–CE ✅ | 1, 2, 3a |
 | **4 — BUILT** | The manager registry; `Bake All Brushes`; `Register Eroding Brushes`; stale-path warnings | CF ✅, CG ✅, CH ✅, CW ✅ | 3b |
 | **5 — BLOCKED** | Both measurements are done and both came back negative: CK rejected the planned depth correction, CJ showed the uncorrected pipeline mis-routes. The pipeline itself is built and cheap; what remains is §8.1's slope-baseline correction to the coarse stage, which is a solver change | CK ✅, CJ ✅ | 2, 3b |
-| **6 — BUILT** | `Pasture3DReliefDLA` as a baked field op; the `op_fields` / `op_field_meta` wire block and its stack splicing; the Plow's Tile warning generalised from a CRATER test to a loop-sized-op test | CP ✅, CQ ✅, CR ✅, CS ✅ | 1 (to multiply by the host profile) |
+| **6 — BUILT** | `Pasture3DReliefDLA` as a baked field op; the `op_fields` / `op_field_meta` wire block and its stack splicing; the Plow's Tile warning generalised from a CRATER test to a loop-sized-op test | CP ✅, CQ ✅, CR ✅, CS ✅, CX ✅ | 1 (to multiply by the host profile) |
 
 **Phases 1 and 6 were independent of the erosion chain**, and both were taken before it was finished:
 phase 6 landed while phase 5 sat blocked on a solver change, and needed nothing from it. **Phase 5 is
@@ -973,6 +1015,7 @@ the Sim spec already established.
 | CU ✅ | *(3a fix)* **Renaming never rebuilds the inspector, at either level.** Typed one character at a time, which is the only way to catch a guard that holds for a whole string: naming a modifier and naming a relief stack LAYER both cost **0 rebuilds over 7 keystrokes**. | The names must land, or the guard is being credited for a no-op — the modifier reads `Hardpan` and the dropdown reads `Layer 0 (Hardpan)`. Plus structure, which must still rebuild: swapping a layer's class **1**, giving it a Selector **1**. Against the pre-fix code the layer rename reads **7 rebuilds, the first after 'H'** — and the label-based trigger it replaced also missed the Selector control entirely. |
 | CV ✅ | *(3a fix)* **The same rule, in the one other place the plugin broke it.** `Pasture3DWaterBody` re-hinted its wave-profile dropdown on `profiles_changed`, which the manager emits for every knob on every profile. Three amplitude edits now cost **0 rebuilds**. Lives in this suite because the water suites need a real rendering device and cannot run headless at all. | Two counters, not one: the manager's **3 emissions** are what separate "did not rebuild" from "was never asked". Plus the edits that MUST re-hint — renaming a profile **1**, adding one **1** — and the dropdown itself, which must still list every live profile. The stronger observable also caught a **cold-start rebuild**: the name cache is now primed where the signal is connected. Against the pre-fix code: **3 rebuilds**. |
 | CS ✅ | *(6)* **RUN.** A DLA material under `Mapping = TILE` raises the loop-sized warning, in the same words `CRATER` already used. The predicate generalised from a CRATER test to a loop-sized-op test, so the gate holds BOTH halves of that change: the new material must warn and the old one must still warn. Matched on the sentence an artist reads, not on the predicate. | The spec's `FIT`, which must not warn — a predicate returning true unconditionally would pass every positive assertion here. Plus a FRACTAL, which tiles correctly and must not be warned about under either mapping. |
+| CX ✅ | *(6)* **From the editor, not from the spec.** The massif reached 0.67 of a loop it was allowed 0.96 of, and `particles` — the only lever that moved it — bought 0.05 for 4× the cost while restyling the mountain on the way. Three claims now: it **ARRIVES** (99–100 % of its allowed radius at every setting), `coverage` **RESIZES** (0.50 → 0.98 grows the field **1.93×** against coverage's own 1.96×), and `detail_size` **RESTYLES WITHOUT RESIZING** (**8 %** of size drift while the branch count moves **4.8×**). Radius measured as the r98 of the mass, not as a threshold — the fringe of a blurred dendrite is faint and a threshold reads back whatever level you picked. | The border ring must be **EXACTLY zero** at all five settings. That is the invariant the whole derivation exists to protect and the first thing to break if it drifts — a massif clipped by the field's edge steps at the loop boundary on every FIT-mapped brush. Plus the "measured nothing" guard: a FLAT field would sail through the no-resize claim by never changing size at all. |
 
 ---
 
