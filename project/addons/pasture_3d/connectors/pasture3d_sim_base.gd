@@ -927,3 +927,64 @@ func _make_pond(p_lake: Dictionary) -> Pasture3DPond:
 	path.curve = c
 	p.add_child(path)
 	return p
+
+
+## Dark blue for the whole erosion family (§: reported from use). The default neon purple washes out
+## against the pale blue-grey a wet or checkered terrain renders as, which is exactly the terrain a sim
+## is usually being aimed at. Dark blue survives that AND a dry ochre hillside, and it separates the
+## erosion passes from every stamping brush in a crowded scene at a glance.
+const EROSION_COLOR := Color(0.13, 0.30, 0.80)
+
+
+func _gizmo_color() -> Color:
+	return EROSION_COLOR
+
+
+## Nameplate: the same blue, but outlined in near-white rather than black — a dark fill on a black
+## outline is a smudge at distance, which is the readability half of the complaint.
+func _label_colors() -> Array:
+	return [EROSION_COLOR, Color(0.96, 0.97, 1.0, 0.9)]
+
+
+# ---- The erodability LUT, shared by every host that erodes -----------------------------------------
+
+## Resolution cap for an erodability map. Rock hardness is a broad spatial field; more than this per axis
+## buys nothing and costs a bigger per-bake image read. Mirrors Pasture3DPlow's height LUT cap.
+const ERODABILITY_LUT_MAX: int = 256
+
+
+## A hardness texture as the `[0,1]` LUT `erosion_solve` reads: `[data, w, h, reason]`, where a non-empty
+## `reason` explains why the map could not be used and the LUT is empty (uniform erodability).
+##
+## Static and living HERE — on the base of the erosion family — because two unrelated hosts now need it:
+## `Pasture3DSim` and `Pasture3DModErosion`. The callers keep their own warning wording, because a node
+## and a modifier name themselves differently; what must not be duplicated is the LUT itself, since the
+## solver's remap depends on how the luminance was sampled and downscaled.
+static func erodability_lut(p_map: Texture2D) -> Array:
+	var empty: Array = [PackedFloat32Array(), 0, 0, ""]
+	if p_map == null:
+		return empty
+	var img := p_map.get_image()
+	if img == null:
+		return [PackedFloat32Array(), 0, 0, "it has no image data"]
+	img = img.duplicate() # never mutate the shared resource image
+	if img.is_compressed() and img.decompress() != OK:
+		return [PackedFloat32Array(), 0, 0, "it could not be decompressed"]
+	if img.has_mipmaps():
+		img.clear_mipmaps()
+	var w := img.get_width()
+	var h := img.get_height()
+	if maxi(w, h) > ERODABILITY_LUT_MAX:
+		var sc := float(ERODABILITY_LUT_MAX) / float(maxi(w, h))
+		w = maxi(1, int(round(w * sc)))
+		h = maxi(1, int(round(h * sc)))
+		img.resize(w, h, Image.INTERPOLATE_BILINEAR)
+	if w < 2 or h < 2:
+		return [PackedFloat32Array(), 0, 0, "it is smaller than 2x2 after downscaling"]
+	var data := PackedFloat32Array()
+	data.resize(w * h)
+	for y in range(h):
+		var row := y * w
+		for x in range(w):
+			data[row + x] = img.get_pixel(x, y).get_luminance()
+	return [data, w, h, ""]

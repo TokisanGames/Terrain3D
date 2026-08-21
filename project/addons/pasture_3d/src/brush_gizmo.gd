@@ -15,7 +15,9 @@ extends EditorNode3DGizmoPlugin
 const MARKER_R: float = 4.0
 ## Metres the marker floats above the terrain surface so it sits clear of the ground, not buried in it.
 const SURFACE_LIFT: float = 3.0
-## Light neon purple — stands out against terrain greens / browns / yellows / ochres.
+## Fallback origin-marker colour, for a node that does not declare one. The colour is the BRUSH'S
+## decision (`Pasture3DTerrainBrush._gizmo_color`), not this plugin's — otherwise adding a family that
+## needs its own colour would mean teaching the gizmo a list of class names.
 const MARKER_COLOR := Color(0.74, 0.42, 1.0)
 ## World half-size of the per-point marker drawn at each loop control point.
 const POINT_R: float = 1.1
@@ -49,12 +51,28 @@ var _sel_gpi: int = -1
 ## first mutation. When true, dragging one tangent mirrors the other (Shift breaks the symmetry).
 var _smooth_drag: Dictionary = {}
 
+## Marker materials created on demand, one per distinct colour a brush asked for (html colour -> the
+## name it was registered under). `create_material` is per-plugin and by name, so the set has to be
+## interned somewhere; doing it lazily means a new brush family declares a colour and nothing else.
+var _marker_materials: Dictionary = {}
+
 
 func _init() -> void:
 	# on_top so the markers show through the terrain (a brush sunk below the surface stays findable).
 	create_material("marker", MARKER_COLOR, false, true)
 	create_material("points", POINT_COLOR, false, true)
 	create_material("tangents", TANGENT_COLOR, false, true)
+
+
+## The marker material for one colour, registering it the first time it is asked for.
+func _marker_material(p_gizmo: EditorNode3DGizmo, p_color: Color) -> Material:
+	var key := p_color.to_html(false)
+	if not _marker_materials.has(key):
+		var mname := "marker_%s" % key
+		# on_top, as the default marker is: a brush sunk below the surface stays findable.
+		create_material(mname, p_color, false, true)
+		_marker_materials[key] = mname
+	return get_material(_marker_materials[key], p_gizmo)
 
 
 func _get_gizmo_name() -> String:
@@ -75,7 +93,8 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	# Float the marker above the terrain surface under the brush origin (not the node's own Y, which may
 	# be buried after a height change). Computed in node-local space so transforms/scale are respected.
 	var centre := _marker_centre(node)
-	var mat := get_material("marker", p_gizmo)
+	var mat: Material = _marker_material(p_gizmo, node._gizmo_color() if node.has_method("_gizmo_color")
+			else MARKER_COLOR)
 	p_gizmo.add_lines(octa(centre, MARKER_R), mat)
 	# A solid box of collision triangles round the marker makes it pickable from any angle → clicking
 	# selects the brush node. Built offset to the same floating centre as the visible marker

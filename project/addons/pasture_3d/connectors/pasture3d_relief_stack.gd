@@ -27,12 +27,17 @@ func _disconnect_layers() -> void:
 	for m in layers:
 		if m != null and m.changed.is_connected(_touch):
 			m.changed.disconnect(_touch)
+			m._set_stacked(false)
 
 
+## Wire up each layer's `changed`, and tell it that it IS a layer — which is what un-hides its Blend.
+## The two are done together, and gated on the same test, so a material can never end up marked as stacked
+## by a stack that is not listening to it.
 func _connect_layers() -> void:
 	for m in layers:
 		if m != null and not m.changed.is_connected(_touch):
 			m.changed.connect(_touch)
+			m._set_stacked(true)
 
 
 ## Our own selector's result, plus every child's. Duplicates are left in — the brush dedupes, and it is
@@ -63,6 +68,32 @@ func wants_sim_result() -> bool:
 	return false
 
 
+func wants_host_profile() -> bool:
+	if super():
+		return true
+	for m in layers:
+		if m != null and m.wants_host_profile():
+			return true
+	return false
+
+
+## Forward the loop's proportions down, so a baked-field layer (a DLA) grows its field to the shape of
+## the loop it is going to be stretched over. Not conditional on anything: the base is a no-op, and a
+## stack that asked its layers first would need one more virtual to ask WITH — which is the same forward,
+## twice.
+func set_host_frame(p_ex: float, p_ez: float) -> bool:
+	var moved := false
+	for m in layers:
+		if m != null and m.set_host_frame(p_ex, p_ez):
+			moved = true
+	# A layer that regrew invalidated THIS program too: the splice copied the child's field bytes into
+	# `_fields`, so a memoised stack would keep serving the mountain the loop used to be. Set directly
+	# rather than through _touch() for the same reason the child does — see Pasture3DReliefDLA.
+	if moved:
+		_dirty = true
+	return moved
+
+
 func _build() -> void:
 	for m in layers:
 		if m == null:
@@ -72,13 +103,26 @@ func _build() -> void:
 		var c_params: PackedFloat32Array = prog[1]
 		var c_luts: PackedFloat32Array = prog[2]
 		var c_sel: PackedFloat32Array = prog[3]
-		var c_noise: Array = prog[4]
+		var c_fields: PackedFloat32Array = prog[4]
+		var c_field_meta: PackedInt32Array = prog[5]
+		var c_noise: Array = prog[6]
 		var count := c_ops.size() / OP_STRIDE
-		# CURVE ops store a slot index into their OWN material's LUT table, and gated ops store an index
-		# into their own selector table. Splicing the child's tables after ours shifts every one of those
-		# indices, so both offsets have to be applied as we copy.
+		# CURVE ops store a slot index into their OWN material's LUT table, DLA ops one into its FIELD
+		# table, and gated ops one into its selector table. Splicing the child's tables after ours shifts
+		# every one of those indices, so all three offsets have to be applied as we copy.
+		#
+		# The field table needs one more step than the other two: its blocks are variably sized, so the
+		# child's HEADERS carry element offsets into the child's own buffer and must be rebased too.
 		var lut_offset := _luts.size() / CURVE_LUT_N
 		var sel_offset := _selectors.size() / SELECTOR_STRIDE
+		var field_offset := _field_meta.size() / FIELD_META_STRIDE
+		var field_base := _fields.size()
+		for k in range(c_field_meta.size() / FIELD_META_STRIDE):
+			var fm := k * FIELD_META_STRIDE
+			_field_meta.append(c_field_meta[fm] + field_base)
+			_field_meta.append(c_field_meta[fm + 1])
+			_field_meta.append(c_field_meta[fm + 2])
+		_fields.append_array(c_fields)
 		_luts.append_array(c_luts)
 		_selectors.append_array(c_sel)
 		# The layer's Blend applies to its first GENERATOR op — a leading WARP is a DOMAIN op that ignores
@@ -102,8 +146,13 @@ func _build() -> void:
 			# is applied by the brush, so a nested layer's would otherwise be silently ignored.
 			if m.strength != 1.0 and _is_generator(c_ops[o]):
 				_params[base] *= m.strength
-			elif c_ops[o] == Op.CURVE:
+			if c_ops[o] == Op.CURVE:
 				_params[base] += lut_offset
+			elif c_ops[o] == Op.DLA:
+				# NOT an `elif` off the strength branch: DLA is a generator, so a layer strength of 1.5 must
+				# scale its amplitude AND its slot must still be rebased. CURVE is safe either way (it is not
+				# a generator, so the first branch can never have run) and is left reading as it always did.
+				_params[base + DLA_FIELD_SLOT] += field_offset
 			_noise.append(c_noise[i])
 
 
@@ -117,9 +166,22 @@ func _raises() -> bool:
 
 func _configuration_warning() -> String:
 	var live := 0
+	var first = null
 	for m in layers:
 		if m != null:
 			live += 1
+			if first == null:
+				first = m
 	if live == 0:
 		return "Relief Stack has no layers assigned — the material will not deform anything."
+	# The accumulator starts at 0, so the FIRST layer's blend is arithmetic against zero. ADD, SUB and
+	# REPLACE are all sensible there; MUL multiplies the layer away entirely and MIN keeps only the half of
+	# it that is below ground. Both look exactly like "blend does nothing", which is the complaint this
+	# warning exists to pre-empt — it is the same trap in the other direction from a hidden Blend.
+	if first != null and (first.blend == Blend.MUL or first.blend == Blend.MIN):
+		return (("The first layer's Blend is %s, but a stack's accumulator starts at 0: %s. Put this layer "
+			+ "lower in the list, or set its Blend to Add.")
+			% ["Mul" if first.blend == Blend.MUL else "Min",
+			"multiplying by it discards the layer completely" if first.blend == Blend.MUL
+			else "only the parts of it below ground survive"])
 	return ""

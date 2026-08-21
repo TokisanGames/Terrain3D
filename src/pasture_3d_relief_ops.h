@@ -33,6 +33,7 @@ enum ReliefOpType {
 	RELIEF_OP_STRATIFY = 10,
 	RELIEF_OP_CLAMP = 11,
 	RELIEF_OP_CURVE = 12,
+	RELIEF_OP_DLA = 13,
 };
 
 // Blend ids — sync with Pasture3DReliefMaterial.Blend. Prefixed because MAX/MIN are godot-cpp macros.
@@ -49,14 +50,71 @@ constexpr int RELIEF_OP_STRIDE = 4; // [op_type, blend, selector_id, flags]
 constexpr int RELIEF_PARAM_STRIDE = 12;
 constexpr int RELIEF_FLAG_NEGATE = 1; // bit0
 constexpr int RELIEF_FLAG_CLAMP = 2; // bit1
+// bits 2-3: which coordinate a PROFILE band op quantises (BM phase §4.2). Packed into the existing flags
+// word rather than spending a param slot, because TERRACE and STRATIFY do not agree on which slots are
+// free and one rule that holds for both is worth more than two rules that each fit.
+constexpr int RELIEF_FLAG_BAND_SHIFT = 2;
+constexpr int RELIEF_FLAG_BAND_MASK = 3 << RELIEF_FLAG_BAND_SHIFT;
 constexpr int RELIEF_CURVE_LUT_N = 256; // samples per baked Curve, one contiguous block per CURVE op
+// Baked 2D FIELDS (PASTURE3D_BRUSH_EROSION_SPEC.md 9.1). The Curve LUT idea one dimension up, for ops
+// that CANNOT be point-evaluated: GDScript grows the grid once per compile, writes it into `op_fields`,
+// and both evaluators bilinear-sample the identical bytes. That is why DLA has no C++ implementation to
+// keep in step with the oracle -- there is one implementation and two readers.
+//
+// Unlike a LUT the blocks vary in size, so `op_field_meta` carries a stride-3 header per slot:
+// [offset into op_fields, width, height].
+constexpr int RELIEF_FIELD_META_STRIDE = 3;
+constexpr int RELIEF_DLA_FIELD_SLOT = 1; // param slot of a DLA op's field index (slot 0 is amplitude)
 // Hollow depth, in metres over one cell, at which SCREE's toe deposition reaches full strength. Sync with
 // Pasture3DReliefMaterial.SCREE_TOE_FULL_M — see the note on relief_scree.
 constexpr double RELIEF_SCREE_TOE_FULL_M = 0.25;
-// [filter_type, min, max, falloff_lo, falloff_hi, invert, strength, measure_radius]. The eighth float was
-// the reserved slot until §21.6 spent it on the measurement radius; the stride is unchanged.
-constexpr int RELIEF_SELECTOR_STRIDE = 8;
+// [filter_type, min, max, falloff_lo, falloff_hi, invert, strength, measure_radius, field_source].
+//
+// The stride was 8 until the host-profile phase added `field_source`. Widening it is safe and needs no
+// migration BECAUSE THE BLOCK IS NEVER SERIALISED — it is rebuilt from the selector resources on every
+// compile, so nothing on disk carries the old width. (Contrast the `kind` -> `filter_type` rename, which
+// touched a stored property and therefore needed the `_set` shim in pasture3d_relief_selector.gd.)
+constexpr int RELIEF_SELECTOR_STRIDE = 9;
 constexpr int RELIEF_SELECTOR_RADIUS = 7; // slot of `measure_radius`, in METRES; 0 = one cell
+constexpr int RELIEF_SELECTOR_FIELD_SOURCE = 8; // slot of `field_source`, a ReliefFieldSource
+
+// Which surface a selector's SLOPE / ALTITUDE / CURVATURE reads. Sync with
+// Pasture3DReliefSelector.FieldSource. The four sim filter types ignore this — a Sim Result is one field
+// with one meaning, and there is no host-profile version of "how much land drains through here".
+//
+// BELOW is the historical behaviour and the default: the composite of the layers UNDER this brush's own,
+// which is what stops a brush gating on its own output and drifting.
+//
+// HOST is the brush's own generated shape, before any relief is added to it — a Mound's dome, a Ridge's
+// crest section. It cannot drift either, and for the same structural reason: the profile is a function of
+// the loop and the shape properties ONLY, so relief keyed on it can never feed itself. It exists because
+// on a Mound placed on flat ground BELOW is constant, every filter type returns one weight, and "craggy
+// on the flanks, smooth on top" is not expressible at all.
+enum ReliefFieldSource {
+	RELIEF_FIELD_BELOW = 0,
+	RELIEF_FIELD_HOST = 1,
+};
+
+// Which coordinate TERRACE / STRATIFY quantise into bands. Sync with Pasture3DReliefMaterial.BandSource.
+//
+// ACCUMULATOR is the historical behaviour and the default: band whatever relief is already in `acc`.
+// Standalone that is the material's own built-in fractal, which is why a Terraces material on a Mound
+// banded NOISE rather than the hill.
+//
+// HOST_PROFILE bands the host brush's own shape, normalised by the divisor the brush stores
+// (ReliefFields::norm_divisor). Benches then lie on the hill's contours, which is what terracing a hill
+// means. GROUND_ALTITUDE bands world height out of the below-layer composite, over the material's own
+// authored range — strata that hold one geological elevation across several brushes.
+enum ReliefBandSource {
+	RELIEF_BAND_ACCUMULATOR = 0,
+	RELIEF_BAND_HOST_PROFILE = 1,
+	RELIEF_BAND_GROUND_ALTITUDE = 2,
+};
+
+// Param slots carrying a GROUND_ALTITUDE band's world-metre range. 7 and 8 are the lowest pair free in
+// BOTH TERRACE (uses 0-4) and STRATIFY (uses 0-6), so one rule covers both ops.
+constexpr int RELIEF_BAND_RANGE_LO = 7;
+constexpr int RELIEF_BAND_RANGE_HI = 8;
 
 // Selector filter types — sync with Pasture3DReliefSelector.FilterType. (The GDScript property was
 // called `kind` until it was renamed for legibility; the ids and the wire slot are unchanged.)
@@ -99,12 +157,30 @@ struct ReliefSample {
 	double sim_erosion = 0.0; // metres removed, positive
 	double sim_deposition = 0.0; // metres gained
 	double sim_wetness = 0.0; // metres of standing water
+	// --- The HOST PROFILE set: the same three measurements over the brush's OWN generated shape, in the
+	// same units, for a selector whose `field_source` is RELIEF_FIELD_HOST. Zero and `has_host == false`
+	// when the caller built no host fields, and a host-source selector then reads a defined zero rather
+	// than silently falling back to the below-layer numbers — falling back would make a mis-set
+	// `field_source` invisible, which is the one failure this split must not have.
+	//
+	// `host_altitude` is the brush's own contribution in METRES, i.e. the delta it adds, NOT the absolute
+	// world height. That is deliberate: it answers "how far up this hill am I" independently of what the
+	// hill was placed on, which is the property that makes a host-keyed selector non-drifting.
+	double host_altitude = 0.0;
+	double host_slope_deg = 0.0;
+	double host_curvature = 0.0;
+	// `host_altitude` over the divisor the host brush stored (a Mound's `height`), so a band op reads
+	// 0 at the rim and 1 at the crest whatever the brush's scale. Pre-divided here rather than in the
+	// evaluator so the divisor lives in exactly one place — on the fields object the brush filled.
+	double host_norm = 0.0;
+	bool has_host = false;
 	// Where this sample came from, so a selector with a `measure_radius` can reach the wider grids its own
-	// id owns (§21.6). Both are set by ReliefFields::sample and are only read while that ReliefFields is
-	// alive — every caller fills the sample from a fields object on the same stack frame as the cell loop.
-	// Null/-1 means "no wider fields available", and the selector then falls back to the one-cell value,
-	// which is what an unmeasured caller wants anyway.
-	const struct ReliefFields *fields = nullptr;
+	// id owns (§21.6). Set by ReliefFields::sample / sample_host and only read while those ReliefFields
+	// are alive — every caller fills the sample from fields objects on the same stack frame as the cell
+	// loop. Null/-1 means "no wider fields available", and the selector then falls back to the one-cell
+	// value, which is what an unmeasured caller wants anyway.
+	const struct ReliefFields *fields = nullptr; // below-layer
+	const struct ReliefFields *host_fields = nullptr; // host profile
 	int index = -1;
 };
 
@@ -114,6 +190,8 @@ struct ReliefProgram {
 	PackedInt32Array ops;
 	PackedFloat32Array params;
 	PackedFloat32Array luts; // concatenated RELIEF_CURVE_LUT_N blocks, indexed by a CURVE op's slot
+	PackedFloat32Array fields; // concatenated 2D field blocks, indexed through field_meta
+	PackedInt32Array field_meta; // stride-3 [offset, w, h], indexed by a field op's slot
 	PackedFloat32Array selectors; // stride-8 blocks, indexed by an op's selector_id
 	std::vector<Ref<FastNoiseLite>> noise_a;
 	std::vector<Ref<FastNoiseLite>> noise_b;
@@ -135,10 +213,18 @@ struct ReliefFields {
 	std::vector<std::vector<float>> measured_slope, measured_curvature;
 	std::vector<int> sel_slot;
 	double vs = 1.0; // the grid's own spacing, kept so a radius in metres can be turned into cells
+	// What a HOST-PROFILE fields object divides its altitude by to reach 0..1 — the host brush's own
+	// height. Set by the caller that built the grid, because the brush is the only thing that knows it.
+	// Meaningless on a below-layer fields object, where it stays 1.0 and nothing reads it.
+	double norm_divisor = 1.0;
 	int gw = 0, gh = 0;
 	bool ready = false;
 	bool has_sim = false;
 	void sample(int p_index, ReliefSample &r_out) const;
+	// Fill the host half of a sample already filled by a below-layer `sample`. Separate call rather than
+	// a second argument to `sample` so the common path — no host fields at all — costs nothing and reads
+	// as costing nothing.
+	void sample_host(int p_index, ReliefSample &r_out) const;
 	// Slope in degrees / curvature in metres at `p_index`, over the radius selector `p_sid` asked for.
 	// Both fall back to the one-cell field, so an unmeasured selector costs one bounds test.
 	double slope_for(int p_sid, int p_index) const;
@@ -172,7 +258,7 @@ struct ReliefScatter {
 	bool is_empty() const { return count == 0; }
 };
 
-// Read "ops"/"op_params"/"op_luts"/"op_selectors" out of the brush's params dict and construct the per-op
+// Read "ops"/"op_params"/"op_luts"/"op_fields"/"op_field_meta"/"op_selectors" out of the brush's params dict and construct the per-op
 // noise. False when the program is empty or malformed — the caller must then skip the cell loop entirely.
 bool relief_build(const Dictionary &p_params, ReliefProgram &r_prog);
 
@@ -199,7 +285,13 @@ void relief_fields_add_sim(const Dictionary &p_sim, double p_min_x, double p_min
 //
 // MUST be called with the same selector block the evaluation will use: the slots are indexed by selector
 // id. Radii are deduplicated, so N selectors sharing one radius build one pair of grids.
-void relief_fields_add_measured(const PackedFloat32Array &p_selectors, ReliefFields &r_fields);
+//
+// `p_field_source` names which fields object this is, so a set only builds the radii ITS OWN selectors
+// asked for: a host-source selector with a 20 m radius must not make the below-layer set build a 20 m
+// pair it will never read. Selectors naming the other source get slot -1 here and fall back to that set's
+// one-cell field, which they never reach anyway.
+void relief_fields_add_measured(const PackedFloat32Array &p_selectors, ReliefFields &r_fields,
+		int p_field_source = RELIEF_FIELD_BELOW);
 
 // One selector's 0..1 weight at one cell, for callers outside the relief evaluator — Sim's §17 mask field
 // is the only one today. A thin wrapper over the internal evaluator rather than a second copy of it: the

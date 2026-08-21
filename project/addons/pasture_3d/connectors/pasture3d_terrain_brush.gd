@@ -268,6 +268,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 	if _get_splines().is_empty() and _wants_own_splines():
 		warnings.append("Add at least one spline (press Add Spline, or add a Path3D child).")
 	warnings.append_array(_mask_preview_warnings())
+	warnings.append_array(_modifier_warnings())
 	var shared := _shared_curve_spline_names()
 	if not shared.is_empty():
 		warnings.append(("These splines share a Curve3D with another spline, so editing one edits "
@@ -412,6 +413,20 @@ func _get_property_list() -> Array[Dictionary]:
 		"hint_string": ",".join(names),
 		"usage": PROPERTY_USAGE_EDITOR,
 	})
+	# The modifier stack (PASTURE3D_BRUSH_EROSION_SPEC.md §6), on the hosts whose rasteriser runs it.
+	# Declared here rather than as an @export for the reason in the comment above: a dynamic property lands
+	# AFTER the script's own exports, which is where a pipeline belongs — below the shape properties it
+	# consumes, not above them.
+	if _supports_modifiers():
+		props.append({"name": "Modifiers", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP,
+				"hint_string": ""})
+		props.append({
+			"name": "modifiers",
+			"type": TYPE_ARRAY,
+			"hint": PROPERTY_HINT_TYPE_STRING,
+			"hint_string": "%d/%d:Pasture3DBrushModifier" % [TYPE_OBJECT, PROPERTY_HINT_RESOURCE_TYPE],
+			"usage": PROPERTY_USAGE_DEFAULT,
+		})
 	# §18.6: the mask overlay and the selector it shows. Both are declared HERE rather than as plain
 	# @export on the subclasses so they sit together under one group — a dynamic property appended by
 	# `_get_property_list` always lands after the script's own exports, so a toggle declared beside
@@ -1109,6 +1124,16 @@ func _mask_preview_warnings() -> PackedStringArray:
 		out.append(("Mask Preview is on but Mask Preview Source points at a layer that no longer exists. "
 			+ "Pick another source."))
 		return out
+	# The dropdown deliberately follows the first Relief modifier that HAS a material, not the first
+	# active one, so that the property list does not move when a slider does (see `_preview_relief_material`
+	# on Pasture3DMound). The cost is that the overlay can be showing a modifier that stamps nothing, and
+	# an overlay whose relief is invisible on the terrain is exactly the confusion this warning family
+	# exists to prevent.
+	var previewed = _preview_relief_modifier()
+	if previewed != null and not previewed.is_active():
+		out.append(("Mask Preview is showing '%s', which is not stamping right now — %s. The overlay is "
+			+ "where its selector WOULD put relief.") % [previewed.display_name(),
+			"it is disabled" if not previewed.enabled else "its Strength is 0 m"])
 	if sources[idx][1] == null:
 		var others := PackedStringArray()
 		for i in range(sources.size()):
@@ -1118,11 +1143,14 @@ func _mask_preview_warnings() -> PackedStringArray:
 			% [sources[idx][0], (" These do: %s." % ", ".join(others)) if not others.is_empty() else ""])
 	# One level deep (§18.6): a layer that is itself a stack contributes its own selector, not its
 	# children's, and a nested selector is not reachable from this dropdown at all.
-	if "layers" in relief:
+	# TESTED BY CLASS, NOT BY PROPERTY NAME. `Pasture3DReliefStrata.layers` is an INT — the number of
+	# bands — and duck-typing on the name read it as a stack's Array, which threw on every inspector
+	# rebuild for any brush carrying a Strata material.
+	if relief is Pasture3DReliefStack:
 		var nested := PackedStringArray()
-		for i in range((relief.layers as Array).size()):
-			var m = relief.layers[i]
-			if m != null and ("layers" in m) and not (m.layers as Array).is_empty():
+		for i in range((relief as Pasture3DReliefStack).layers.size()):
+			var m = (relief as Pasture3DReliefStack).layers[i]
+			if m is Pasture3DReliefStack and not (m as Pasture3DReliefStack).layers.is_empty():
 				nested.append("Layer %d" % i)
 		if not nested.is_empty():
 			out.append(("Mask Preview lists one level of this stack. %s %s nested stack(s), whose own "
@@ -1137,24 +1165,50 @@ func _preview_relief_material():
 	return null
 
 
+## The modifier `_preview_relief_material` took its material from, on hosts that keep relief in a stack.
+## Null on hosts whose relief is a plain property — there is nothing there that can be switched off
+## independently of the material being assigned.
+func _preview_relief_modifier():
+	return null
+
+
 ## Selectors a relief material offers for preview: the material's own first, then one per stack layer.
 ## Returns an Array of [label, Pasture3DReliefSelector-or-null], index 0 being the material's own.
 ##
 ## ONE level deep. A layer that is itself a `Pasture3DReliefStack` contributes its own selector and not
 ## its children's — listing a whole tree would need a path rather than an index, and the configuration
 ## warning says so rather than letting a nested selector look reachable.
+## Each entry is `[label, selector-or-null, structural tag]`. The LABEL is cosmetic and may carry a
+## `resource_name`; the TAG deliberately may not — see `_inspector_rebuild_signature`.
 func _preview_selector_sources(p_relief) -> Array:
-	var out: Array = [["Material Selector", p_relief.selector if p_relief != null else null]]
-	if p_relief == null or not ("layers" in p_relief):
+	var out: Array = [["Material Selector", p_relief.selector if p_relief != null else null,
+			_relief_class_tag(p_relief)]]
+	# See the note in `_mask_preview_warnings`: only a Stack has an ARRAY called `layers`, and a Strata
+	# material's `layers` is the band count.
+	if not (p_relief is Pasture3DReliefStack):
 		return out
-	var layers: Array = p_relief.layers
+	var layers: Array = (p_relief as Pasture3DReliefStack).layers
 	for i in range(layers.size()):
 		var m = layers[i]
 		# NO COLON in the label. `,` and `:` are both structural in a PROPERTY_HINT_ENUM hint string —
 		# `:` assigns an explicit integer value — so "Layer 0: Fractal" made Godot read the whole list as
 		# one broken entry and the dropdown offered nothing to choose between.
-		out.append(["Layer %d (%s)" % [i, _relief_type_name(m)], m.selector if m != null else null])
+		out.append(["Layer %d (%s)" % [i, _relief_type_name(m)], m.selector if m != null else null,
+				_relief_class_tag(m)])
 	return out
+
+
+## A layer's class alone, with no `resource_name` in it. The structural half of `_relief_type_name`,
+## split out because the inspector-rebuild signature must not move when someone types a name.
+func _relief_class_tag(p_material) -> String:
+	if p_material == null:
+		return "(empty)"
+	var scr: Script = p_material.get_script()
+	if scr != null and scr.has_method("get_global_name"):
+		var n := String(scr.get_global_name())
+		if n != "":
+			return n.trim_prefix("Pasture3DRelief")
+	return "Layer"
 
 
 ## A layer's class name for the dropdown ("Pasture3DReliefFractal" → "Fractal"), falling back to its
@@ -1368,8 +1422,9 @@ func _ensure_label() -> void:
 	_name_label.pixel_size = 0.0007
 	_name_label.font_size = 64
 	_name_label.outline_size = 16
-	_name_label.modulate = Color(1.0, 0.96, 0.85)
-	_name_label.outline_modulate = Color(0.0, 0.0, 0.0, 0.85)
+	var lc := _label_colors()
+	_name_label.modulate = lc[0]
+	_name_label.outline_modulate = lc[1]
 	_name_label.render_priority = 20
 	_name_label.outline_render_priority = 19
 	_name_label.position = Vector3(0.0, 2.0, 0.0) # float just above the origin marker
@@ -1382,6 +1437,24 @@ func _update_label_text() -> void:
 	if not is_instance_valid(_name_label):
 		return
 	_name_label.text = "%s — %s" % [name, _layer_display_name()]
+
+
+## Colour of this brush's ORIGIN MARKER in the viewport. Light neon purple by default — it stands out
+## against terrain greens, browns, yellows and ochres. A family of brushes that has to be told apart at a
+## glance overrides it; `Pasture3DSimBase` does, because an erosion pass is the one thing in a scene you
+## want to find without reading nameplates.
+##
+## Declared on the brush rather than in the gizmo plugin so the node owns the decision, and so the plugin
+## does not have to carry a list of which class gets which colour.
+func _gizmo_color() -> Color:
+	return Color(0.74, 0.42, 1.0)
+
+
+## Nameplate `[fill, outline]`. Warm white on black by default: the label sits over terrain of every
+## brightness, so the pair matters more than either colour alone — a dark fill needs a light outline to
+## survive a dark hillside, and vice versa.
+func _label_colors() -> Array:
+	return [Color(1.0, 0.96, 0.85), Color(0.0, 0.0, 0.0, 0.85)]
 
 
 ## Editor selection changed: update the nameplate, and redraw the gizmo so the loop-point handles
@@ -2581,20 +2654,691 @@ func _needs_terrain_fields(ops: PackedInt32Array) -> bool:
 		var o := i * Pasture3DReliefMaterial.OP_STRIDE
 		if ops[o + 2] >= 0 or ops[o] == Pasture3DReliefMaterial.Op.SCREE:
 			return true
+		# A GROUND_ALTITUDE band reads `alt` out of the below-layer set, so it needs the fields even
+		# though it carries no selector.
+		if _band_source_of(ops, i) == Pasture3DReliefMaterial.BandSource.GROUND_ALTITUDE:
+			return true
 	return false
 
 
-## True when the material emits at least one CRATER op. Radial ops read the loop-normalised nu,nv, which
-## every mapping mode derives from the same oriented frame, so this is only a warning hook for hosts whose
-## mapping actually changes what a crater does.
-func _relief_has_crater_op(mat: Pasture3DReliefMaterial) -> bool:
+## True when this brush generates a shape of its own that a selector or a band op can read — a Mound's
+## dome, and later a Ridge's crest section. False on the hosts whose output IS their shape (Plow, Splat)
+## and on Sim, which is a transform over a surface rather than a landform.
+##
+## Overridden rather than sniffed from the class so a new landform host opts in deliberately: the field
+## has to be BUILT by that host's rasteriser, and a host that answers yes without building it would gate
+## everything to zero with no warning at all — the exact failure this method exists to report.
+func _offers_host_profile() -> bool:
+	return false
+
+
+## The BandSource a PROFILE band op carries, or ACCUMULATOR for every op that is not one. One place that
+## knows the flag packing, so the two predicates below and any future reader cannot disagree about it.
+func _band_source_of(ops: PackedInt32Array, i: int) -> int:
+	var o := i * Pasture3DReliefMaterial.OP_STRIDE
+	if (ops[o] != Pasture3DReliefMaterial.Op.TERRACE
+			and ops[o] != Pasture3DReliefMaterial.Op.STRATIFY):
+		return Pasture3DReliefMaterial.BandSource.ACCUMULATOR
+	return ((ops[o + 3] & Pasture3DReliefMaterial.FLAG_BAND_MASK)
+			>> Pasture3DReliefMaterial.FLAG_BAND_SHIFT)
+
+
+## True when the compiled program reads the HOST BRUSH'S OWN generated profile — either through a selector
+## whose Field Source is Host Profile, or through a TERRACE / STRATIFY banding it.
+##
+## Only landform brushes can answer yes; a Pasture3DPlow never builds the field, so a program asking for it
+## there reads a defined zero and the brush warns. Kept beside _needs_terrain_fields because the two are
+## the same kind of question over the same program, and a caller almost always asks both.
+func _needs_host_fields(ops: PackedInt32Array, op_selectors: PackedFloat32Array) -> bool:
+	var stride := Pasture3DReliefMaterial.SELECTOR_STRIDE
+	for i in range(ops.size() / Pasture3DReliefMaterial.OP_STRIDE):
+		var o := i * Pasture3DReliefMaterial.OP_STRIDE
+		var sid := ops[o + 2]
+		if sid >= 0:
+			var b := sid * stride + Pasture3DReliefMaterial.SELECTOR_FIELD_SOURCE
+			if (b < op_selectors.size()
+					and int(op_selectors[b]) == Pasture3DReliefSelector.FieldSource.HOST_PROFILE):
+				return true
+		if _band_source_of(ops, i) == Pasture3DReliefMaterial.BandSource.HOST_PROFILE:
+			return true
+	return false
+
+
+
+# ---------------------------------------------------------------------------------------------------
+# The modifier stack (PASTURE3D_BRUSH_EROSION_SPEC.md §6). An ordered, saveable list of operations
+# applied to this brush's OWN output grid, after its profile is rasterised and before that grid is
+# composited into the terrain layer.
+#
+# See Pasture3DBrushModifier's header for the POINT / FIELD split the whole thing rests on. This half is
+# the host side: compile the list once per bake, and — on the GDScript oracle path — run it.
+# ---------------------------------------------------------------------------------------------------
+
+## The stack. Declared as a plain var and surfaced through `_get_property_list` rather than as an
+## `@export`, so it lands at the BOTTOM of the inspector, after the subclass's own shape properties. A
+## pipeline reads in order, and the order it reads in should be the order it runs in — a base-class
+## `@export` would have put it above every property it consumes.
+var modifiers: Array[Pasture3DBrushModifier] = []:
+	set(v):
+		_bind_modifiers(modifiers, false)
+		modifiers = v
+		_bind_modifiers(modifiers, true)
+		# Unconditional here, unlike `_on_modifier_changed`: the list itself changed length or contents,
+		# so the rows and the Mask Preview Source dropdown both have to be rebuilt anyway.
+		_stack_names_cache = _stack_names()
+		_stack_ui_signature = _inspector_rebuild_signature()
+		notify_property_list_changed()
+		_queue_mask_preview()
+		_schedule_refresh()
+		update_configuration_warnings()
+
+## Last Mask Preview Source list, and last set of modifier names. Not exported — they are comparison
+## caches, and a stale one after a scene load costs at most one extra rebuild.
+var _stack_ui_signature: PackedStringArray = PackedStringArray()
+var _stack_names_cache: PackedStringArray = PackedStringArray()
+
+
+## True when this brush's rasteriser actually RUNS the stack. False hides the property entirely rather
+## than shipping a slot that silently does nothing — the same reason `_offers_host_profile` is an
+## opt-in override and not a class sniff.
+##
+## Phase 3a wires exactly one host: Pasture3DMound. The others keep their own noise / relief / smoothing
+## properties until their rasterisers are converted, which is a separate piece of work with its own gates
+## (§6.6 — Pasture3DPlow in particular cannot lose `relief` without losing its Source enum).
+func _supports_modifiers() -> bool:
+	return false
+
+
+## Connect or disconnect every modifier's `changed`, so editing one re-bakes. Nested resources do not
+## propagate `changed` on their own; each modifier forwards its own children's (a Relief modifier's
+## material, a Noise modifier's FastNoiseLite) through `_touch`.
+func _bind_modifiers(p_list: Array, p_connect: bool) -> void:
+	for m in p_list:
+		if m == null:
+			continue
+		var live: bool = m.changed.is_connected(_on_modifier_changed)
+		if p_connect and not live:
+			m.changed.connect(_on_modifier_changed)
+		elif not p_connect and live:
+			m.changed.disconnect(_on_modifier_changed)
+
+
+func _on_modifier_changed() -> void:
+	# A RENAME IS NOT A CHANGE TO THE BRUSH, and it arrives one keystroke at a time.
+	#
+	# `Resource.set_name` emits `changed` like every other setter, so typing into a modifier's `label`
+	# fires this handler once per character. Two things must not happen then. A re-bake would raster the
+	# whole brush per keystroke; and `notify_property_list_changed()` would tear down the very text field
+	# being typed into, so the field closed after the first character. Both are answered by leaving early.
+	var names := _stack_names()
+	if names != _stack_names_cache:
+		_stack_names_cache = names
+		update_configuration_warnings() # warnings name the modifier they are about
+		return
+
+	# NOT an unconditional notify_property_list_changed() either. A rebuild COLLAPSES every expanded
+	# sub-resource, so dragging one slider inside a modifier folded the modifier shut under the cursor,
+	# once per step. Only ONE thing the inspector shows is derived from the stack rather than stored in
+	# it — the Mask Preview Source dropdown, whose entries come from the first Relief modifier's material
+	# — so only a change to THAT is worth a rebuild.
+	#
+	# And only to its STRUCTURE. See `_inspector_rebuild_signature`: the signature deliberately excludes
+	# every value and every name, because both are edited continuously and a rebuild mid-edit is the bug
+	# this guard exists for. The row labels are derived too and are deliberately not on the list either —
+	# the inspector re-reads `resource_name` on its own refresh, and forcing it would cost the text field
+	# its focus.
+	var now := _inspector_rebuild_signature()
+	if now != _stack_ui_signature:
+		_stack_ui_signature = now
+		notify_property_list_changed()
+	_queue_mask_preview()
+	_schedule_refresh()
+	update_configuration_warnings()
+
+
+## Each modifier's row name, in order. Compared against `_stack_names_cache` to recognise a `changed`
+## that carried nothing but a rename.
+func _stack_names() -> PackedStringArray:
+	var out := PackedStringArray()
+	for m in modifiers:
+		out.append("" if m == null else m.resource_name)
+	return out
+
+
+## What the derived half of `_get_property_list` actually depends on — STRUCTURE ONLY. Compared before
+## and after a modifier's `changed` to decide whether the inspector has to be rebuilt.
+##
+## THE RULE THIS ENFORCES: a property list must never be a function of a value or of a name. Both are
+## edited CONTINUOUSLY — a slider sweeps, a text field arrives one character at a time — and every
+## rebuild collapses every expanded sub-resource under the cursor. So this holds only discrete facts:
+## whether there is a preview material at all, what class each dropdown entry is, and whether that entry
+## carries a selector. Strengths, `enabled`, and every `resource_name` are excluded by construction.
+##
+## The cost is that a RENAMED relief layer keeps its old text in the Mask Preview Source dropdown until
+## something else rebuilds the inspector. The dropdown resolves BY INDEX, so nothing reads the wrong
+## selector — the label is stale, not wrong. Gates CT and CU (bench/InspectorStabilityGate.tscn).
+func _inspector_rebuild_signature() -> PackedStringArray:
+	var out := PackedStringArray()
+	var relief = _preview_relief_material()
+	if relief == null:
+		return out
+	for e in _preview_selector_sources(relief):
+		out.append("%s%s" % [e[2], "+" if e[1] != null else "-"])
+	return out
+
+
+## The erosion modifiers in this brush's stack, in stack order. Empty on a brush whose rasteriser does
+## not run the stack, and empty for a stack that has none — both of which are the same answer to the only
+## question the registry asks: "is there a solve here worth re-running?"
+##
+## `enabled` rather than `is_active()`, deliberately. `is_active()` is false at a zero erosion rate, which
+## is a modifier being tuned, not a modifier that is not there — and a registry that quietly dropped a
+## brush when its rate passed through 0 would be the same class of bug as a property list that follows a
+## slider (see `_inspector_rebuild_signature`).
+func erosion_modifiers() -> Array:
+	var out: Array = []
+	if not _supports_modifiers():
+		return out
+	for m in modifiers:
+		if m is Pasture3DModErosion and m.enabled:
+			out.append(m)
+	return out
+
+
+## Drop every erosion modifier's cached solve, so the next bake re-solves against the current surface.
+## This is what "Bake All Brushes" does before it bakes: erosion defaults to FROZEN (§6.3), so a bake that
+## did not clear first would serve the cached answer and the button would appear to do nothing on exactly
+## the brushes it exists for. Returns how many were cleared.
+func clear_erosion_caches() -> int:
+	var n := 0
+	for m in erosion_modifiers():
+		m.clear_cache()
+		n += 1
+	return n
+
+
+## Every active modifier's complaint, plus the one the stack itself can make.
+func _modifier_warnings() -> PackedStringArray:
+	var w := PackedStringArray()
+	if not _supports_modifiers() or modifiers.is_empty():
+		return w
+	var sims := {}
+	for m in modifiers:
+		if m == null:
+			continue
+		w.append_array(m.modifier_warnings(self))
+		if m is Pasture3DModRelief and m.is_active():
+			var r := _relief_sim_result(m.material)
+			if r != null:
+				sims[r] = true
+	# One bake resamples ONE Pasture3DSimResult onto its grid, so two relief modifiers pointing at
+	# different results is not a thing this can honour. Say so rather than silently using the first: a
+	# selector reading the wrong sim looks exactly like a selector whose band is mis-set.
+	if sims.size() > 1:
+		w.append(("Two Relief modifiers read different Sim Results. One bake can resample only one, "
+			+ "so the first is used and the rest are ignored. Point them at the same result, or split "
+			+ "them across two brushes."))
+	return w
+
+
+## Compile the stack once per bake — never per cell. Returns:
+##   `list`         per-modifier param blocks for the native rasteriser, in stack order
+##   `gd`           the same steps for the GDScript oracle, each carrying the modifier and its slice of
+##                  the selector block
+##   `op_selectors` the STACK-WIDE selector block: every relief modifier's block concatenated, with its
+##                  ops' selector ids rebased into it
+##   `need_fields` / `need_host` / `sim`
+##
+## The rebasing is the one piece of bookkeeping the stack adds. Selector ids are indices into a single
+## flat block, and two materials each numbering their selectors from 0 would collide in the measured-field
+## slots (`ReliefFields::sel_slot`) that are keyed by id. Concatenating and offsetting keeps ONE block, so
+## the native evaluator, the measured-radius grids and the mask preview all keep indexing it the way they
+## already do.
+## `p_ex` / `p_ez` are the LOOP'S ORIENTED HALF-EXTENTS, in metres, and they are an input to the compile
+## rather than something read off it: a relief material with a baked field (a DLA) grows that field to the
+## loop's proportions, inside compile(). Hosts that have no oriented frame — or whose frame is a disc —
+## leave them at 1.0, which reads as "isotropic". See Pasture3DReliefMaterial.set_host_frame.
+func _compile_modifiers(p_extent: String = "", p_ex: float = 1.0, p_ez: float = 1.0) -> Dictionary:
+	var out := {
+		"list": [], "gd": [], "op_selectors": PackedFloat32Array(),
+		"need_fields": false, "need_host": false, "sim": null, "count": 0,
+	}
+	if not _supports_modifiers():
+		return out
+	var stride := Pasture3DReliefMaterial.SELECTOR_STRIDE
+	var sel := PackedFloat32Array()
+	for m in modifiers:
+		if m == null or not m.is_active():
+			continue
+		var blk: Dictionary = m.to_params()
+		blk["kind"] = m.kind()
+		var step := {"mod": m, "kind": m.kind(), "field": m.is_field_operator()}
+		if m._supports_freezing():
+			# `out` is a plain Dictionary handed BOTH ways: the rasteriser writes the solve into it and
+			# `_commit_modifier_caches` reads it back after the bake. Dictionaries are reference types,
+			# which is the whole reason a void rasteriser call can return a grid.
+			var slot := {}
+			var entry: Dictionary = m.cache_for(p_extent) if p_extent != "" else {}
+			blk["frozen"] = m.evaluation == Pasture3DBrushModifier.Evaluation.FROZEN
+			blk["cache_key"] = int(entry.get("key", 0))
+			blk["cache"] = entry.get("grid", PackedFloat32Array())
+			blk["cache_flow"] = entry.get("flow", PackedFloat32Array())
+			blk["cache_ero"] = entry.get("ero", PackedFloat32Array())
+			blk["cache_dep"] = entry.get("dep", PackedFloat32Array())
+			blk["cache_wet"] = entry.get("wet", PackedFloat32Array())
+			blk["out"] = slot
+			step["out"] = slot
+		if m is Pasture3DModRelief:
+			m.material.set_host_frame(p_ex, p_ez)
+			var prog: Array = m.material.compile()
+			var ops: PackedInt32Array = prog[0]
+			var mat_sel: PackedFloat32Array = prog[3]
+			# A material still WAITING for its seed surface compiles to nothing, and that is exactly the
+			# bake on which it has to be in the list: the capture is what gives it one. So an empty program
+			# is only a no-op when nobody is listening for the surface.
+			var wants_seed: bool = (m.material.has_method("wants_seed_surface")
+					and m.material.wants_seed_surface())
+			if ops.is_empty() and not wants_seed:
+				continue # a material that compiles to nothing is not a step, it is a no-op
+			# Ask the predicates BEFORE rebasing: both index the material's own selector block by the
+			# ids its own ops carry, and after the rebase those ids point into the combined block.
+			out["need_fields"] = bool(out["need_fields"]) or _needs_terrain_fields(ops)
+			out["need_host"] = bool(out["need_host"]) or _needs_host_fields(ops, mat_sel)
+			var base := int(sel.size() / stride)
+			var rebased := ops.duplicate()
+			for i in range(rebased.size() / Pasture3DReliefMaterial.OP_STRIDE):
+				var o := i * Pasture3DReliefMaterial.OP_STRIDE
+				if rebased[o + 2] >= 0:
+					rebased[o + 2] += base
+			sel.append_array(mat_sel)
+			blk["ops"] = rebased
+			blk["op_params"] = prog[1]
+			blk["op_luts"] = prog[2]
+			blk["op_fields"] = prog[4]
+			blk["op_field_meta"] = prog[5]
+			# A material that has to be BUILT from the stack above it asks for the working surface at its own
+			# position in the list. `capture` splits the point run there, which costs one grid conversion --
+			# only for a stack that has one, and only while it is switched on.
+			if wants_seed:
+				var slot := {}
+				blk["capture"] = true
+				blk["out"] = slot
+				step["capture"] = true
+				step["out"] = slot
+			step["sel_base"] = base
+			step["sel_count"] = int(mat_sel.size() / stride)
+			if out["sim"] == null:
+				out["sim"] = _relief_sim_result(m.material)
+		out["list"].append(blk)
+		out["gd"].append(step)
+	out["op_selectors"] = sel
+	out["count"] = out["list"].size()
+	return out
+
+
+## Identifies one bake grid, so a brush with several loops caches one frozen solve PER LOOP rather than
+## thrashing a single slot between them.
+func _extent_key(p_min_x: float, p_min_z: float, p_vs: float, p_gw: int, p_gh: int) -> String:
+	return "%d,%d,%d,%d" % [roundi(p_min_x / p_vs), roundi(p_min_z / p_vs), p_gw, p_gh]
+
+
+## Store what the bake solved, and record which modifiers served stale data. Called after BOTH paths,
+## because both fill the same `out` dictionaries.
+func _commit_modifier_caches(p_stack: Dictionary, p_extent: String, p_frame: Array = []) -> void:
+	var reseeded := false
+	for step in p_stack["gd"]:
+		if not step.has("out"):
+			continue
+		var out: Dictionary = step["out"]
+		var m = step["mod"]
+		if out.has("surface") and not p_frame.is_empty():
+			# The frame travels with the grid because the two are different rectangles: the grid is the
+			# spline's axis-aligned bounding box, the field is the loop's ORIENTED rect, and on a rotated
+			# loop a plain rescale between them would shear the ridges off their own crest lines.
+			var surf := {"surface": out["surface"], "gw": out.get("gw", 0), "gh": out.get("gh", 0),
+					"frame": p_frame}
+			reseeded = m.material.set_seed_surface(surf) or reseeded
+		if out.has("grid"):
+			m.store_cache(p_extent, {
+				"key": out["key"], "grid": out["grid"],
+				"flow": out.get("flow", PackedFloat32Array()),
+				"ero": out.get("ero", PackedFloat32Array()),
+				"dep": out.get("dep", PackedFloat32Array()),
+				"wet": out.get("wet", PackedFloat32Array()),
+			})
+		# Only an EROSION modifier has a staleness flag. Relief steps reach this loop too now that one of
+		# them can ask for a surface, and asking them about staleness would be a crash rather than a
+		# question with an answer.
+		if m.has_method("set_stale"):
+			m.set_stale(bool(out.get("stale", false)))
+	# A material that had never seen a surface stamped NOTHING on this bake, and one whose surface moved
+	# stamped the previous shape. Either way the answer is one more bake, which converges because the
+	# captured surface EXCLUDES the material that reads it -- the second pass captures the same grid, the
+	# hash matches, and nothing more is scheduled.
+	if reseeded:
+		_schedule_refresh()
+
+
+## Run the compiled stack over the GDScript-side grids. The oracle for the native path in
+## `Pasture3DData::stamp_mound_loop`, and the fallback on builds without the extension.
+##
+## `p_amp` is the brush's contribution in metres, NaN where it contributes nothing; `p_profile` its 0..1
+## interior mask; `p_basey` the surface each cell is measured from. The first two are DOUBLE grids because
+## the hard-coded pipeline kept both in double locals and only rounded once, at the store into `vals` —
+## rounding either earlier would change every product they appear in and cost gate BW its claim.
+## `p_basey` is float32 because it already is one: every source of it returns a C++ `float`. Returns the finished `vals` grid in
+## the layer's own units — a delta under BLEND_ADD, an absolute target otherwise.
+##
+## WHY THERE ARE TWO REPRESENTATIONS. A point modifier adds metres to `p_amp`; a field modifier transforms
+## the grid that will be written. Under a non-ADD blend those are different quantities (`vals = basey +
+## amp`), so the runner tracks which one currently holds the truth and converts only when the next step
+## needs the other. A stack of `Noise -> Relief -> Smooth` therefore converts exactly once, at the same
+## point the hard-coded pipeline did — which is what lets gate BW ask for a BITWISE match rather than a
+## tolerance.
+func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: PackedFloat64Array,
+		p_basey: PackedFloat32Array, p_ctx: Dictionary) -> PackedFloat32Array:
+	var n: int = int(p_ctx["gw"]) * int(p_ctx["gh"])
+	var add: bool = p_ctx["add"]
+	p_ctx["basey"] = p_basey # a field modifier may need the absolute surface, not the delta
+	var vals := PackedFloat32Array()
+	vals.resize(n)
+	var in_vals := false
+	var i := 0
+	while i < p_steps.size():
+		var step: Dictionary = p_steps[i]
+		if step.get("capture", false):
+			# Mirrors the native path exactly: the brush's own contribution in metres, at THIS step's
+			# position, handed back before the step runs.
+			if in_vals:
+				for k in range(n):
+					var cv: float = vals[k]
+					p_amp[k] = NAN if not is_finite(cv) else (cv if add else cv - p_basey[k])
+				in_vals = false
+			var surf := PackedFloat32Array()
+			surf.resize(n)
+			for k in range(n):
+				surf[k] = p_amp[k]
+			var slot: Dictionary = step["out"]
+			slot["surface"] = surf
+			slot["gw"] = p_ctx["gw"]
+			slot["gh"] = p_ctx["gh"]
+			step["capture"] = false
+			continue
+		if not step["field"]:
+			# Fold the maximal RUN of point modifiers into one pass over the grid, which is what makes
+			# the common stack cost exactly one cell loop.
+			# The run stops in front of a CAPTURE as well as in front of a field step. Without that the
+			# capture of a step sitting mid-run is never examined at all: the fold jumps straight past it,
+			# and the material it was meant to feed waits for a surface that is never taken.
+			var j := i + 1
+			while (j < p_steps.size() and not p_steps[j]["field"]
+					and not p_steps[j].get("capture", false)):
+				j += 1
+			if in_vals:
+				for k in range(n):
+					var v: float = vals[k]
+					p_amp[k] = NAN if not is_finite(v) else (v if add else v - p_basey[k])
+				in_vals = false
+			_apply_point_run(p_steps.slice(i, j), p_amp, p_profile, p_ctx)
+			i = j
+			continue
+		if not in_vals:
+			for k in range(n):
+				var a: float = p_amp[k]
+				vals[k] = NAN if not is_finite(a) else (a if add else p_basey[k] + a)
+			in_vals = true
+		vals = _apply_field_step(step, vals, p_ctx)
+		i += 1
+	if not in_vals:
+		for k in range(n):
+			var a: float = p_amp[k]
+			vals[k] = NAN if not is_finite(a) else (a if add else p_basey[k] + a)
+	return vals
+
+
+## One run of point modifiers, evaluated cell by cell so each cell pays one pass over the run rather than
+## the grid paying one pass per modifier.
+func _apply_point_run(p_run: Array, p_amp: PackedFloat64Array, p_profile: PackedFloat64Array,
+		p_ctx: Dictionary) -> void:
+	var gw: int = p_ctx["gw"]
+	var gh: int = p_ctx["gh"]
+	var min_x: float = p_ctx["min_x"]
+	var min_z: float = p_ctx["min_z"]
+	var vs: float = p_ctx["vs"]
+	for iz in range(gh):
+		var z := min_z + iz * vs
+		var row := iz * gw
+		for ix in range(gw):
+			var fi := row + ix
+			if not is_finite(p_amp[fi]):
+				continue
+			var x := min_x + ix * vs
+			var profile: float = p_profile[fi]
+			var acc: float = p_amp[fi]
+			for step in p_run:
+				var m = step["mod"]
+				if step["kind"] == &"noise":
+					acc += m.strength * m.noise.get_noise_2d(x, z) * profile
+				elif step["kind"] == &"relief":
+					acc += (m.strength * _eval_relief_step(step, x, z, fi, p_ctx)
+							* profile * m.material.strength)
+			p_amp[fi] = acc
+
+
+## One relief modifier's material evaluated at one cell, with the field context the host built.
+func _eval_relief_step(p_step: Dictionary, p_x: float, p_z: float, p_fi: int, p_ctx: Dictionary) -> float:
+	var m: Pasture3DModRelief = p_step["mod"]
+	var dx: float = p_x - float(p_ctx["fit_cx"])
+	var dz: float = p_z - float(p_ctx["fit_cz"])
+	var lx: float = dx * float(p_ctx["fit_cos"]) + dz * float(p_ctx["fit_sin"])
+	var lz: float = -dx * float(p_ctx["fit_sin"]) + dz * float(p_ctx["fit_cos"])
+	var inv_ex: float = p_ctx["inv_ex"]
+	var inv_ez: float = p_ctx["inv_ez"]
+	var f: Array = p_ctx["fields"]
+	var s: Array = p_ctx["sim_fields"]
+	var h: Array = p_ctx["host_fields"]
+	var use_fields := not f.is_empty()
+	var use_host := not h.is_empty()
+	var f_alt := 0.0
+	var f_slope := 0.0
+	var f_curv := 0.0
+	var f_gx := 0.0
+	var f_gz := 0.0
+	var f_flow := 0.0
+	var f_ero := 0.0
+	var f_dep := 0.0
+	var f_wet := 0.0
+	if use_fields:
+		f_alt = f[0][p_fi]
+		f_slope = f[1][p_fi]
+		f_curv = f[2][p_fi]
+		f_gx = f[3][p_fi]
+		f_gz = f[4][p_fi]
+		if not s.is_empty():
+			f_flow = s[0][p_fi]
+			f_ero = s[1][p_fi]
+			f_dep = s[2][p_fi]
+			f_wet = s[3][p_fi]
+	var h_alt := 0.0
+	var h_slope := 0.0
+	var h_curv := 0.0
+	var h_norm := 0.0
+	if use_host:
+		h_alt = h[0][p_fi]
+		h_slope = h[1][p_fi]
+		h_curv = h[2][p_fi]
+		h_norm = h_alt / float(p_ctx["host_div"])
+	# The measured grids are keyed by STACK-WIDE selector id; the material's own eval numbers its
+	# selectors from 0, so hand it its own slice.
+	var lo: int = p_step["sel_base"]
+	var hi: int = lo + int(p_step["sel_count"])
+	var measured: Array = p_ctx["measured"]
+	var host_measured: Array = p_ctx["host_measured"]
+	return m.material.eval(p_x, p_z, lx * inv_ex, lz * inv_ez, inv_ex, inv_ez,
+			f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet,
+			measured.slice(lo, hi) if not measured.is_empty() else [],
+			p_fi if (use_fields or use_host) else -1,
+			h_alt, h_slope, h_curv, h_norm, use_host,
+			host_measured.slice(lo, hi) if not host_measured.is_empty() else [])
+
+
+## One field modifier over the whole grid.
+func _apply_field_step(p_step: Dictionary, p_vals: PackedFloat32Array,
+		p_ctx: Dictionary) -> PackedFloat32Array:
+	if p_step["kind"] == &"smooth":
+		return _blur_grid(p_vals, p_ctx["gw"], p_ctx["gh"], p_step["mod"].passes)
+	if p_step["kind"] == &"erosion":
+		return _apply_erosion_step(p_step, p_vals, p_ctx)
+	return p_vals
+
+
+## The erosion FIELD step: solve over the brush's own surface, and optionally publish the four channels
+## the modifiers after it can gate on.
+##
+## The GDScript oracle and the native rasteriser call the SAME `erosion_solve` — GDScript through the
+## `erode_heightfield` binding, C++ directly — so there is no second implementation of the solver to keep
+## in step, and the A/B question here is only about the grids handed to it.
+func _apply_erosion_step(p_step: Dictionary, p_vals: PackedFloat32Array,
+		p_ctx: Dictionary) -> PackedFloat32Array:
+	var m: Pasture3DModErosion = p_step["mod"]
+	var gw: int = p_ctx["gw"]
+	var gh: int = p_ctx["gh"]
+	var n := gw * gh
+	var add: bool = p_ctx["add"]
+	var basey: PackedFloat32Array = p_ctx["basey"]
+
+	# §6.8 fact 1: the solver needs an ABSOLUTE surface and the working grid holds a delta under ADD.
+	# §6.8 fact 2: NaN outside the loop passes straight through and becomes the boundary condition —
+	# `erosion_solve` turns non-finite input into a fixed outlet at the field minimum, which for a mound
+	# is exactly right: the ground off the loop is where the mountain's water goes.
+	var z := PackedFloat32Array()
+	z.resize(n)
+	for i in range(n):
+		var v: float = p_vals[i]
+		z[i] = (basey[i] + v) if add else v
+
+	# ---- FROZEN (§6.3), the same three-way split the rasteriser makes ----
+	#
+	# A MISSING cache solves (reopening a scene must not lose the erosion), a MATCHING one is served, and
+	# a cache for a DIFFERENT surface is served AND reported stale — clearing on edit would throw away a
+	# multi-second solve at the moment you were mid-comparison.
+	#
+	# The key is `hash()` of the exact surface handed to the solver, folded with the settings that
+	# surface does not capture. Hashing the input rather than enumerating what fed it makes staleness
+	# detection complete: the spline, the shape properties and every modifier above are all in there.
+	# It deliberately does NOT match the native path's key — each path only compares keys it wrote
+	# itself, and switching rasterisers costs one extra solve.
+	var out: Dictionary = p_step.get("out", {})
+	var frozen: bool = m.evaluation == Pasture3DBrushModifier.Evaluation.FROZEN
+	var extent: String = p_ctx.get("extent", "")
+	var key := hash([z, m.iterations, m.erosion_rate, m.area_exponent, m.hillslope_diffusion,
+			m.deposition, m.erodability_range, m.publish_fields])
+	var entry: Dictionary = m.cache_for(extent) if frozen and extent != "" else {}
+	var cached: PackedFloat32Array = entry.get("grid", PackedFloat32Array())
+	# A cached surface is not enough on its own: if a modifier BELOW this one now reads the published
+	# channels and the entry does not carry them, the cache is unusable however well its key matches.
+	# Adding a flow-gated modifier does not change the surface handed to the solver, so the key WOULD
+	# still match and the new modifier would quietly read zeros.
+	var want_channels: bool = m.publish_fields and not (p_ctx["fields"] as Array).is_empty()
+	if want_channels and (entry.get("flow", PackedFloat32Array()) as PackedFloat32Array).size() != n:
+		cached = PackedFloat32Array()
+	if cached.size() == n:
+		if m.publish_fields and entry.has("flow"):
+			p_ctx["sim_fields"] = [entry["flow"], entry["ero"], entry["dep"], entry["wet"]]
+		for i in range(n):
+			if not is_finite(p_vals[i]):
+				continue
+			p_vals[i] = (cached[i] - basey[i]) if add else cached[i]
+		out["stale"] = int(entry.get("key", 0)) != key
+		out["served"] = true
+		return p_vals
+
+	var params: Dictionary = m.to_params()
+	params["gw"] = gw
+	params["gh"] = gh
+	params["cell_size"] = p_ctx["vs"]
+	params["time_step"] = 1.0
+	# The four channels come out of the solver's diagnostics, so they cost nothing unless asked for.
+	params["want_diagnostics"] = m.publish_fields
+	var res: Dictionary = terrain.data.erode_heightfield(z, params,
+			params.get("erodability_lut", PackedFloat32Array()))
+	if not bool(res.get("ok", false)):
+		push_warning(("%s '%s': the erosion solver rejected the %dx%d grid, so this modifier did "
+			+ "nothing. Nothing was silently eroded.") % [get_class(), name, gw, gh])
+		return p_vals
+	var zo: PackedFloat32Array = res["z"]
+
+	if m.publish_fields:
+		_publish_erosion_fields(z, zo, res, p_ctx)
+
+	# Write back only where the brush actually contributes. Every no-data cell came back as a real
+	# number (the outlet level), and copying those in would paint the brush's footprint over the whole
+	# bounding box.
+	for i in range(n):
+		if not is_finite(p_vals[i]):
+			continue
+		p_vals[i] = (zo[i] - basey[i]) if add else zo[i]
+
+	if not out.is_empty():
+		out["key"] = key
+		out["grid"] = zo
+		out["stale"] = false
+		out["served"] = false
+		var pub: Array = p_ctx["sim_fields"]
+		if m.publish_fields and pub.size() == 4:
+			out["flow"] = pub[0]
+			out["ero"] = pub[1]
+			out["dep"] = pub[2]
+			out["wet"] = pub[3]
+	return p_vals
+
+
+## Put this solve's flow / erosion / deposition / wetness into the stack's field context, in the units
+## and signs a Pasture3DReliefSelector expects — the same conversions `relief_fields_add_sim` makes on
+## the way out of a Pasture3DSimResult, so a FLOW band means here exactly what it means there.
+##
+## POSITIONAL BY CONSTRUCTION (§6.4): this runs at the erosion modifier's own place in the list, so a
+## modifier ABOVE it has already been evaluated against the defined zero and a modifier below it reads
+## the real numbers. Nothing has to enforce the invariant because nothing can violate it.
+func _publish_erosion_fields(p_before: PackedFloat32Array, p_after: PackedFloat32Array,
+		p_res: Dictionary, p_ctx: Dictionary) -> void:
+	var n := p_after.size()
+	var flow: PackedFloat32Array = p_res.get("flow", PackedFloat32Array())
+	var wet: PackedFloat32Array = p_res.get("lake_depth", PackedFloat32Array())
+	if flow.size() != n or wet.size() != n:
+		return # want_diagnostics was off, or the solver returned a short grid: publish nothing
+	var ero := PackedFloat32Array()
+	var dep := PackedFloat32Array()
+	ero.resize(n)
+	dep.resize(n)
+	for i in range(n):
+		# Erosion is reported POSITIVE metres removed and deposition positive metres gained, which is
+		# what a band reads as "5 to 50 m stripped" rather than "-50 to -5".
+		var d: float = p_after[i] - p_before[i]
+		if not is_finite(d):
+			d = 0.0
+		ero[i] = maxf(-d, 0.0)
+		dep[i] = maxf(d, 0.0)
+	p_ctx["sim_fields"] = [flow, ero, dep, wet]
+
+
+## The name of the first LOOP-SIZED op the material emits, or "" if it has none. These are the ops that
+## map ONCE onto the loop's oriented rectangle instead of tiling through world XZ: CRATER, which reads the
+## normalised radius, and DLA, which bilinear-samples its baked field across the same rectangle.
+##
+## Every mapping mode derives nu,nv from that one oriented frame, so this is purely a warning hook for
+## hosts whose mapping can actually repeat the loop -- the Plow. The modifier stack always evaluates at
+## loop-normalised coordinates and so has nothing to warn about.
+func _relief_loop_sized_op(mat: Pasture3DReliefMaterial) -> String:
 	if mat == null:
-		return false
+		return ""
 	var ops: PackedInt32Array = mat.compile()[0]
 	for i in range(0, ops.size(), Pasture3DReliefMaterial.OP_STRIDE):
 		if ops[i] == Pasture3DReliefMaterial.Op.CRATER:
-			return true
-	return false
+			return "Crater"
+		if ops[i] == Pasture3DReliefMaterial.Op.DLA:
+			return "DLA"
+	return ""
 
 
 ## Shortest repeat distance, in metres, over the ops that have one (DUNES wavelength, FURROWS spacing —
@@ -2659,6 +3403,14 @@ func _relief_warnings(mat: Pasture3DReliefMaterial) -> PackedStringArray:
 	var w := mat._configuration_warning()
 	if not w.is_empty():
 		warnings.append(w)
+	# Host Profile on a host that has none. Said out loud for the same reason the missing sim result is:
+	# the field reads a defined 0, which produces relief that is uniformly gated out or a single unbroken
+	# band, and "gated to nothing" is indistinguishable from "material is broken" by looking at it.
+	if mat.wants_host_profile() and not _offers_host_profile():
+		warnings.append(("A relief selector or Band Source reads the Host Profile, but a %s has no "
+			+ "generated profile of its own — its shape IS its output. That field reads zero everywhere, "
+			+ "so the gate excludes everything (or the bands collapse onto one). Use Below Layer here, or "
+			+ "move the material to a Pasture3DMound.") % get_class())
 	if mat.wants_sim_result():
 		var distinct: Array = []
 		for r in mat.sim_results():
@@ -2769,7 +3521,17 @@ func _terrain_fields(min_x: float, min_z: float, vs: float, gw: int, gh: int) ->
 			if not is_finite(h):
 				h = terrain.data.get_height(Vector3(min_x + ix * vs, 0.0, min_z + iz * vs))
 			alt[row + ix] = h if is_finite(h) else 0.0
+	return _derive_fields(alt, vs, gw, gh)
 
+
+## Slope / curvature / gradients from ANY altitude grid, in that grid's own units. Split out of
+## _terrain_fields so the host-profile set (_host_profile_fields) is derived by the same arithmetic as the
+## below-layer one — two copies of this would be a silent way for the two field sets to stop being
+## comparable, and a selector's whole job is to compare them.
+##
+## Mirrors relief_fields_build in C++, which is the path an actual bake takes; this one is the oracle.
+func _derive_fields(alt: PackedFloat32Array, vs: float, gw: int, gh: int) -> Array:
+	var n := gw * gh
 	var slope := PackedFloat32Array()
 	slope.resize(n)
 	var curv := PackedFloat32Array()
@@ -2807,7 +3569,8 @@ func _terrain_fields(min_x: float, min_z: float, vs: float, gw: int, gh: int) ->
 ## MUST agree with relief_fields_add_measured in C++, which is the path an actual bake takes; this one is
 ## the oracle. `alt` is _terrain_fields' first return, so the two measurements are of the same ground.
 func _measured_fields(alt: PackedFloat32Array, curv_base: PackedFloat32Array,
-		op_selectors: PackedFloat32Array, vs: float, gw: int, gh: int) -> Array:
+		op_selectors: PackedFloat32Array, vs: float, gw: int, gh: int,
+		field_source: int = Pasture3DReliefSelector.FieldSource.BELOW_LAYER) -> Array:
 	var stride := Pasture3DReliefMaterial.SELECTOR_STRIDE
 	var n_sel := op_selectors.size() / stride
 	var out: Array = []
@@ -2817,9 +3580,14 @@ func _measured_fields(alt: PackedFloat32Array, curv_base: PackedFloat32Array,
 		return out
 	var by_radius := {}
 	for s in range(n_sel):
-		var r := op_selectors[s * stride + Pasture3DReliefMaterial.SELECTOR_RADIUS]
+		var b := s * stride
+		var r := op_selectors[b + Pasture3DReliefMaterial.SELECTOR_RADIUS]
 		if not (r > 0.0):
 			continue # 0 = one cell = the base fields; NaN lands here too
+		# This radius belongs to the OTHER field set — a host-source selector must not make the
+		# below-layer set build a pair it will never read, and vice versa.
+		if int(op_selectors[b + Pasture3DReliefMaterial.SELECTOR_FIELD_SOURCE]) != field_source:
+			continue
 		if not by_radius.has(r):
 			by_radius[r] = _measure_at(alt, curv_base, r, vs, gw, gh)
 		out[s] = by_radius[r]

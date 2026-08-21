@@ -14,7 +14,7 @@ extends Resource
 ## Op ids — MUST stay in sync with ReliefOpType in src/pasture_3d_relief_ops.h.
 enum Op {
 	CONST = 0, FBM = 1, RIDGED = 2, BILLOW = 3, DUNES = 4, FURROWS = 5, CRATER = 6, SCREE = 7,
-	WARP = 8, TERRACE = 9, STRATIFY = 10, CLAMP = 11, CURVE = 12,
+	WARP = 8, TERRACE = 9, STRATIFY = 10, CLAMP = 11, CURVE = 12, DLA = 13,
 }
 ## How an op's value combines into the accumulator. PROFILE ops ignore this.
 enum Blend { ADD = 0, SUB = 1, MUL = 2, MAX = 3, MIN = 4, REPLACE = 5 }
@@ -24,10 +24,34 @@ const OP_STRIDE := 4     # [op_type, blend, selector_id, flags]
 const PARAM_STRIDE := 12 # per-op float block
 const FLAG_NEGATE := 1   # bit0 — negate the op's value before blending
 const FLAG_CLAMP := 2    # bit1 — clamp the accumulator to [-1,1] after blending
+const FLAG_BAND_SHIFT := 2 # bits 2-3 — which coordinate a PROFILE band op quantises (BandSource)
+const FLAG_BAND_MASK := 3 << FLAG_BAND_SHIFT
 const NO_SELECTOR := -1  # op is ungated
-const SELECTOR_STRIDE := 8 # [filter_type, min, max, falloff_lo, falloff_hi, invert, strength, radius]
+## [filter_type, min, max, falloff_lo, falloff_hi, invert, strength, radius, field_source]. The stride was
+## 8 until the host-profile phase added the last slot; widening it needs no migration because the block is
+## never serialised — it is rebuilt from the selector resources on every compile.
+const SELECTOR_STRIDE := 9
 const SELECTOR_RADIUS := 7 # slot of measure_radius, in METRES; 0 = one cell (spec §21.6)
+const SELECTOR_FIELD_SOURCE := 8 # slot of field_source, a Pasture3DReliefSelector.FieldSource
+
+## Which coordinate TERRACE / STRATIFY quantise into bands. Ids MUST stay in sync with ReliefBandSource
+## in src/pasture_3d_relief_ops.h.
+enum BandSource {
+	ACCUMULATOR,      ## band the relief already in the accumulator — the historical behaviour
+	HOST_PROFILE,     ## band the host brush's own shape, normalised by the divisor the brush measured
+	GROUND_ALTITUDE,  ## band world height out of the below-layer composite, over BAND_RANGE
+}
+## Param slots carrying a GROUND_ALTITUDE band's world-metre range. 7 and 8 are the lowest pair free in
+## BOTH TERRACE (uses 0-4) and STRATIFY (uses 0-6), so one rule covers both ops.
+const BAND_RANGE_LO := 7
+const BAND_RANGE_HI := 8
 const CURVE_LUT_N := 256 # samples per baked Curve, one contiguous block per CURVE op
+## Baked 2D FIELDS (spec section 9.1). The Curve LUT idea one dimension up: an op that cannot be
+## point-evaluated grows its grid ONCE per compile in GDScript and stores a slot index, and both
+## evaluators bilinear-sample the identical bytes. Unlike a LUT the blocks vary in size, so each slot
+## carries a header: [offset into _fields, width, height].
+const FIELD_META_STRIDE := 3
+const DLA_FIELD_SLOT := 1 # param slot of a DLA op's field index (slot 0 is its amplitude)
 ## Depth of hollow, in metres over one cell, at which SCREE's toe deposition reaches full strength.
 ## Sync with RELIEF_SCREE_TOE_FULL_M in src/pasture_3d_relief_ops.h — see _scree.
 const SCREE_TOE_FULL_M := 0.25
@@ -37,8 +61,16 @@ const SCREE_TOE_FULL_M := 0.25
 	set(v):
 		strength = maxf(v, 0.0)
 		_touch()
-## How this material combines when it is a layer of a Pasture3DReliefStack. Ignored when the material is
-## assigned directly on a brush (the accumulator starts at 0, so ADD and REPLACE are equivalent there).
+## How this material combines into the accumulator when it is a LAYER OF A Pasture3DReliefStack.
+##
+## HIDDEN WHEN THE MATERIAL IS NOT IN A STACK, because there it does nothing at all: a host — a
+## Pasture3DModRelief, a Mound's relief, a Plow's — evaluates one material into an accumulator that
+## starts at 0 and adds the result to the brush's amplitude, and no setting of this changes a single byte
+## of that. Measured across all six modes on a directly-assigned material: identical output every time.
+## The rule is Pasture3DBrushModifier's, and it is the same rule that hides Evaluation on the modifiers
+## that cannot freeze — shipping a control that silently does nothing is worse than not shipping it.
+##
+## Whether it is in a stack is STRUCTURE, not a value, so flipping it may rebuild the inspector.
 @export var blend: Blend = Blend.ADD:
 	set(v):
 		blend = v
@@ -72,10 +104,33 @@ const SCREE_TOE_FULL_M := 0.25
 var _ops := PackedInt32Array()
 var _params := PackedFloat32Array()
 var _luts := PackedFloat32Array() # concatenated CURVE_LUT_N blocks, indexed by a CURVE op's slot
+var _fields := PackedFloat32Array() # concatenated 2D field blocks, indexed through _field_meta
+var _field_meta := PackedInt32Array() # stride-3 [offset, w, h], indexed by a field op's slot
 var _selectors := PackedFloat32Array() # stride-8 blocks, indexed by an op's selector_id
 var _noise: Array = []
 var _dirty := true
 var _building := false # cycle guard: a stack that (transitively) contains itself must not recurse forever
+
+
+# Set by Pasture3DReliefStack as it connects and disconnects its layers. A Resource cannot see who holds
+# it, so the holder has to say — and the stack is already walking its layers to wire up `changed`, so
+# there is no new traversal here, only one more thing done in it. A material held by two stacks, or by a
+# stack AND a brush, counts as in a stack: `blend` can act somewhere, which is the question being asked.
+var _in_stack := 0
+
+
+## Called by a Pasture3DReliefStack when this material joins or leaves its layer list.
+func _set_stacked(p_yes: bool) -> void:
+	var was := _in_stack > 0
+	_in_stack = maxi(0, _in_stack + (1 if p_yes else -1))
+	if was != (_in_stack > 0):
+		notify_property_list_changed()
+
+
+## Hide `blend` where it cannot act. See the property's own note for why this is not merely tidiness.
+func _validate_property(property: Dictionary) -> void:
+	if property.name == "blend" and _in_stack <= 0:
+		property.usage = PROPERTY_USAGE_NO_EDITOR
 
 
 ## Invalidate the compiled program and notify the brush to re-bake. Every exported setter must call this.
@@ -84,16 +139,20 @@ func _touch() -> void:
 	emit_changed()
 
 
-## Compile to the flat op program, memoised until _touch(). Returns [ops, params, luts, selectors].
-## Called ONCE per bake by the plow, never per cell.
+## Compile to the flat op program, memoised until _touch().
+## Returns [ops, params, luts, selectors, fields, field_meta]. Called ONCE per bake by the plow, never
+## per cell - which is what lets a field op (DLA) grow a whole grid in here.
 func compile() -> Array:
 	if _dirty:
 		if _building:
 			push_warning("Pasture3DReliefMaterial: cycle detected in a relief stack; skipping '%s'." % resource_path)
-			return [PackedInt32Array(), PackedFloat32Array(), PackedFloat32Array(), PackedFloat32Array()]
+			return [PackedInt32Array(), PackedFloat32Array(), PackedFloat32Array(), PackedFloat32Array(),
+					PackedFloat32Array(), PackedInt32Array()]
 		_ops.clear()
 		_params.clear()
 		_luts.clear()
+		_fields.clear()
+		_field_meta.clear()
 		_selectors.clear()
 		_noise.clear()
 		_building = true
@@ -113,14 +172,14 @@ func compile() -> Array:
 			_emit(Op.CURVE, Blend.ADD, [_bake_curve(output_curve)])
 		_building = false
 		_dirty = false
-	return [_ops, _params, _luts, _selectors]
+	return [_ops, _params, _luts, _selectors, _fields, _field_meta]
 
 
-## Compiled program plus the parallel noise table. Only Pasture3DReliefStack needs the noise table (to
-## splice a child's program into its own); the plow uses compile() and lets C++ rebuild the noise.
+## Compiled program plus the parallel noise table, APPENDED so every index compile() defines still
+## holds. Only Pasture3DReliefStack needs the noise table (to splice a child's program into its own);
+## the plow uses compile() and lets C++ rebuild the noise.
 func _program() -> Array:
-	compile()
-	return [_ops, _params, _luts, _selectors, _noise]
+	return compile() + [_noise]
 
 
 ## Every Pasture3DSimResult this material's selectors read, in compile order and possibly with repeats.
@@ -148,6 +207,37 @@ func selectors() -> Array:
 ## the reference is MISSING — so this cannot be `not sim_results().is_empty()`.
 func wants_sim_result() -> bool:
 	return selector != null and selector.is_sim_filter_type()
+
+
+## True when anything here reads the HOST BRUSH'S OWN generated profile: a selector whose Field Source is
+## Host Profile, or — on Terraces and Strata, which override this — a Band Source of the same name.
+##
+## Only a landform brush has a profile to offer. Every other host turns this into a configuration warning
+## rather than silently substituting the below-layer fields, so a Field Source set on the wrong kind of
+## brush is visible instead of merely disappointing.
+func wants_host_profile() -> bool:
+	return selector != null and selector.uses_host_profile()
+
+
+## Hand this material the LOOP'S ORIENTED HALF-EXTENTS, in metres, before compile() is called. A no-op
+## for every point-evaluated material, and it has to be: those read `nu,nv` and the host has already
+## divided by these two numbers by the time they arrive, so the shape of the loop is not theirs to know.
+##
+## A material with a BAKED FIELD is the exception, and the reason this hook exists. Its field is a grid
+## stretched once over the whole rectangle, so a square grid on a 3:1 loop is a mountain whose every ridge
+## is three times wider one way than the other. The field has to be GROWN to the loop's proportions, the
+## growth happens inside compile(), and so the proportions have to arrive before it. Only
+## Pasture3DReliefDLA overrides this; Pasture3DReliefStack forwards it to its layers.
+##
+## Handing over `1.0, 1.0` means "isotropic", which is what a host whose frame is a disc (Plow's SCATTER
+## mapping, where every instance is radius-normalised) must do.
+##
+## RETURNS true when the frame actually invalidated something, the way set_seed_surface does. A composite
+## needs that answer: its own compiled program is memoised, and a child quietly regrowing its field
+## underneath it would leave the composite handing out the bytes it spliced last time. The base is a
+## no-op and returns false.
+func set_host_frame(_p_ex: float, _p_ez: float) -> bool:
+	return false
 
 
 ## Append a selector to the table and return its index (the value an op stores in its selector slot).
@@ -186,10 +276,26 @@ func _bake_curve(c: Curve) -> int:
 	return slot
 
 
-## GENERATOR ops (ids 0..7) compute a value and blend it into the accumulator, and by invariant carry
+## Append a baked 2D field and return its slot index (the value a field op stores in DLA_FIELD_SLOT).
+## `p_data` is row-major, w*h, and is expected to be normalised by its producer - nothing here rescales
+## it, because a field whose meaning depended on where it was spliced would be untestable.
+func _bake_field(p_data: PackedFloat32Array, w: int, h: int) -> int:
+	var slot := _field_meta.size() / FIELD_META_STRIDE
+	_field_meta.append(_fields.size())
+	_field_meta.append(w)
+	_field_meta.append(h)
+	_fields.append_array(p_data)
+	return slot
+
+
+## GENERATOR ops compute a value and blend it into the accumulator, and by invariant carry
 ## their amplitude in param slot 0. DOMAIN (WARP) and PROFILE ops do neither. Mirrored in C++.
+##
+## DLA is listed separately rather than folded into the range: the ids are a WIRE FORMAT shared with
+## src/pasture_3d_relief_ops.h, so a new generator appends at the end and the predicate widens, rather
+## than every id shifting to keep one comparison tidy.
 static func _is_generator(op: int) -> bool:
-	return op >= Op.CONST and op <= Op.SCREE
+	return (op >= Op.CONST and op <= Op.SCREE) or op == Op.DLA
 
 
 ## Does this material predominantly RAISE the ground? Drives the plow's Add Water raise check
@@ -275,11 +381,20 @@ static func _configure_noise(freq: float, octaves: int, lacunarity: float, gain:
 ## rather than two more floats because the radius is per SELECTOR, not per cell, and a program can hold
 ## several — the same shape ReliefFields uses in C++. Defaulted, so every caller that has no radius in play
 ## passes nothing and behaves exactly as before.
+## `host_*` are the same three measurements over the HOST BRUSH'S OWN generated shape, for selectors whose
+## `field_source` is Host Profile and for a TERRACE / STRATIFY band source of the same name.
+## `host_alt` is the brush's own contribution in METRES (the delta it adds, not the absolute world
+## height); `host_norm` is that already divided by the divisor the brush measured, so 0 is the rim and 1
+## the crest. `host_measured` mirrors `measured` for host-source radius selectors. Defaulted, and
+## `has_host` stays false for every caller that passes nothing — a host-source selector then reads a
+## defined zero rather than falling back to the below-layer numbers, which would hide a mis-set source.
 func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float,
 		alt: float = 0.0, slope_deg: float = 0.0, curv: float = 0.0,
 		gx: float = 0.0, gz: float = 0.0,
 		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0,
-		measured: Array = [], fi: int = -1) -> float:
+		measured: Array = [], fi: int = -1,
+		host_alt: float = 0.0, host_slope_deg: float = 0.0, host_curv: float = 0.0,
+		host_norm: float = 0.0, has_host: bool = false, host_measured: Array = []) -> float:
 	# Compile on demand. Callers in the bake path always compile first, but an uncompiled material used
 	# to evaluate to a silent 0 — which reads exactly like "correctly gated out" and cost a gate its
 	# meaning once already. One bool test per cell is not worth that trap.
@@ -300,7 +415,9 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		var sid := _ops[o + 2]
 		var sel := 1.0
 		if sid >= 0:
-			sel = _selector_value(sid, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi)
+			sel = _selector_value(sid, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi,
+					host_alt, host_slope_deg, host_curv, has_host, host_measured)
+		var band_source := (flags & FLAG_BAND_MASK) >> FLAG_BAND_SHIFT
 
 		# --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
 		if op == Op.WARP:
@@ -316,19 +433,28 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 
 		# --- PROFILE: remaps acc in place; ignores blend.
 		if op == Op.TERRACE:
-			var tx := clampf(acc * 0.5 + 0.5, 0.0, 1.0)
+			var tx := _band_coord(band_source, acc, host_norm, alt, p)
 			var jit := _params[p + 2]
 			if jit != 0.0:
 				tx = clampf(tx + _noise[i].get_noise_2d(u, v) * jit, 0.0, 1.0)
 			acc = lerpf(acc, _band(tx, _params[p], _params[p + 1]) * 2.0 - 1.0, sel)
 			continue
 		if op == Op.STRATIFY:
-			# Bands are horizontal in the accumulator, then tilted by a linear ramp across the ground
-			# (dip, in normalised units per 100 m) and broken up laterally so they are not dead straight.
+			# Bands are horizontal in the banded coordinate, then tilted by a linear ramp across the
+			# ground (dip, in normalised units per 100 m) and broken up laterally so they are not dead
+			# straight.
 			var dipdir := _params[p + 3]
-			var w := acc + _params[p + 2] * (u * cos(dipdir) + v * sin(dipdir)) * 0.01
-			w += _noise[i].get_noise_2d(u, v) * _params[p + 5]
-			acc = lerpf(acc, _band(clampf(w * 0.5 + 0.5, 0.0, 1.0), _params[p], _params[p + 1]) * 2.0 - 1.0, sel)
+			var tilt := _params[p + 2] * (u * cos(dipdir) + v * sin(dipdir)) * 0.01
+			tilt += _noise[i].get_noise_2d(u, v) * _params[p + 5]
+			# The ACCUMULATOR path folds dip and break-up in BEFORE the -1..1 -> 0..1 remap, exactly as it
+			# always did — that expression is what gate BP holds to the byte. The other band sources are
+			# already in 0..1, so the same tilt is halved to land at the same visual magnitude, not twice it.
+			var w := 0.0
+			if band_source == BandSource.ACCUMULATOR:
+				w = clampf((acc + tilt) * 0.5 + 0.5, 0.0, 1.0)
+			else:
+				w = clampf(_band_coord(band_source, acc, host_norm, alt, p) + tilt * 0.5, 0.0, 1.0)
+			acc = lerpf(acc, _band(w, _params[p], _params[p + 1]) * 2.0 - 1.0, sel)
 			continue
 		if op == Op.CLAMP:
 			acc = lerpf(acc, clampf(acc, _params[p], _params[p + 1]), sel)
@@ -357,6 +483,9 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 				val = _furrows(u, v, _params, p, _noise[i])
 			Op.CRATER:
 				val = _crater(nu, nv, _params, p)
+			Op.DLA:
+				# Loop-normalised, exactly like CRATER: the cluster maps once onto the oriented rectangle.
+				val = _sample_field(int(_params[p + DLA_FIELD_SLOT]), nu, nv) * _params[p]
 			Op.SCREE:
 				val = _scree(u, v, curv, gx, gz, _params, p, _noise[i])
 			_:
@@ -378,26 +507,54 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 	return acc
 
 
+## The 0..1 coordinate a PROFILE band op quantises. Mirrors relief_band_coord in C++.
+##
+## ACCUMULATOR is deliberately spelled as the exact expression it always was, not as a special case of a
+## more general one: it is the default on every material authored so far, and gate BP compares it to the
+## byte.
+func _band_coord(band_source: int, acc: float, host_norm: float, alt: float, p: int) -> float:
+	if band_source == BandSource.HOST_PROFILE:
+		# Already divided by the host's measured divisor, so 0 is the rim and 1 the crest. Reads a flat 0
+		# when the caller built no host fields, which is what makes a Host Profile band on a Plow do
+		# visibly nothing rather than something arbitrary.
+		return clampf(host_norm, 0.0, 1.0)
+	if band_source == BandSource.GROUND_ALTITUDE:
+		var lo := _params[p + BAND_RANGE_LO]
+		var hi := _params[p + BAND_RANGE_HI]
+		var d := hi - lo
+		return clampf((alt - lo) / d, 0.0, 1.0) if absf(d) > 1.0e-9 else 0.0
+	return clampf(acc * 0.5 + 0.5, 0.0, 1.0)
+
+
 ## Evaluate one selector against this cell's terrain, returning the multiplier to apply to a gated op.
 ## Strength lerps between "ungated" (1.0) and the band value, so a selector fades a material out rather
 ## than deleting it unless you ask for the full gate.
 func _selector_value(sid: int, alt: float, slope_deg: float, curv: float,
 		flow: float = 0.0, ero: float = 0.0, dep: float = 0.0, wet: float = 0.0,
-		measured: Array = [], fi: int = -1) -> float:
+		measured: Array = [], fi: int = -1,
+		host_alt: float = 0.0, host_slope_deg: float = 0.0, host_curv: float = 0.0,
+		has_host: bool = false, host_measured: Array = []) -> float:
 	var b := sid * SELECTOR_STRIDE
 	if b < 0 or b + SELECTOR_STRIDE > _selectors.size():
 		return 1.0
+	# Which of the two parallel field sets the three SHAPE filter types read. Decided before anything is
+	# measured, because it picks the grids every read below comes out of. A host-source selector on a host
+	# that built no host fields reads zeros — not the below-layer values under another name.
+	var host := int(_selectors[b + SELECTOR_FIELD_SOURCE]) == Pasture3DReliefSelector.FieldSource.HOST_PROFILE
+	var src_measured: Array = host_measured if host else measured
 	# SLOPE and CURVATURE are the two filter types a measure_radius applies to (§21.6) — the same
 	# measurement over a wider stencil. Everything else reads the one value it always did.
 	var wide: Array = []
-	if _selectors[b + SELECTOR_RADIUS] > 0.0 and fi >= 0 and sid < measured.size():
-		wide = measured[sid]
-	var x := float(wide[0][fi]) if not wide.is_empty() else slope_deg
+	if _selectors[b + SELECTOR_RADIUS] > 0.0 and fi >= 0 and sid < src_measured.size():
+		wide = src_measured[sid]
+	var base_slope := (host_slope_deg if has_host else 0.0) if host else slope_deg
+	var x := float(wide[0][fi]) if not wide.is_empty() else base_slope
 	var ft := int(_selectors[b])
 	if ft == 1: # ALTITUDE
-		x = alt
+		x = ((host_alt if has_host else 0.0) if host else alt)
 	elif ft == 2: # CURVATURE
-		x = float(wide[1][fi]) if not wide.is_empty() else curv
+		var base_curv := (host_curv if has_host else 0.0) if host else curv
+		x = float(wide[1][fi]) if not wide.is_empty() else base_curv
 	elif ft == 3: # FLOW — m² of catchment, already un-logged by the brush
 		x = flow
 	elif ft == 4: # EROSION — metres removed, already positive
@@ -455,6 +612,37 @@ func _sample_lut(slot: int, x: float) -> float:
 		return _luts[base + CURVE_LUT_N - 1]
 	var frac := f - float(i0)
 	return _luts[base + i0] * (1.0 - frac) + _luts[base + i0 + 1] * frac
+
+
+## Bilinear read out of a baked 2D field block, in LOOP-NORMALISED coordinates: nu,nv are +/-1 at the
+## fitted rect's edge, so they map onto the field's [0,1]x[0,1] extent. Outside that, and for a slot
+## that does not exist, the field reads 0 - a defined nothing, so a mis-spliced slot shows up as the op
+## contributing nothing rather than as garbage.
+## Mirrors relief_sample_field in C++; gate CR holds the two to 1e-4.
+func _sample_field(slot: int, nu: float, nv: float) -> float:
+	var m := slot * FIELD_META_STRIDE
+	if slot < 0 or m + FIELD_META_STRIDE > _field_meta.size():
+		return 0.0
+	var base := _field_meta[m]
+	var w := _field_meta[m + 1]
+	var h := _field_meta[m + 2]
+	if w < 2 or h < 2 or base < 0 or base + w * h > _fields.size():
+		return 0.0
+	var fx := (nu * 0.5 + 0.5) * float(w - 1)
+	var fy := (nv * 0.5 + 0.5) * float(h - 1)
+	if fx < 0.0 or fy < 0.0 or fx > float(w - 1) or fy > float(h - 1):
+		return 0.0
+	var x0 := int(fx)
+	var y0 := int(fy)
+	var x1 := mini(x0 + 1, w - 1)
+	var y1 := mini(y0 + 1, h - 1)
+	var tx := fx - float(x0)
+	var ty := fy - float(y0)
+	var a := _fields[base + y0 * w + x0]
+	var b := _fields[base + y0 * w + x1]
+	var c := _fields[base + y1 * w + x0]
+	var d := _fields[base + y1 * w + x1]
+	return (a * (1.0 - tx) + b * tx) * (1.0 - ty) + (c * (1.0 - tx) + d * tx) * ty
 
 
 ## Quantise x in [0,1] into `steps` bands. `hardness` 0 = untouched (identity), 1 = flat benches with

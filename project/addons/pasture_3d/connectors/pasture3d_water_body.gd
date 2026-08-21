@@ -507,6 +507,11 @@ func _resolve_manager() -> Node:
 	return _manager_cache
 
 
+## Manager profile names the `wave_profile` hint was last built from. A comparison cache only —
+## a stale one after a scene load costs at most one extra re-hint.
+var _profile_names_cache: PackedStringArray = PackedStringArray()
+
+
 ## Join the manager's registry and its profiles_changed signal, if there is a manager yet.
 ##
 ## RETRIED from _physics_process, not attempted once. This used to run only in _ready and
@@ -531,6 +536,10 @@ func _register() -> void:
 	m.register_body(self)
 	if m.has_signal("profiles_changed") and not m.profiles_changed.is_connected(_on_profiles_changed):
 		m.profiles_changed.connect(_on_profiles_changed)
+		# Prime the name cache HERE, where the hint this node is carrying was in fact built from the
+		# list the manager holds right now. Left cold, the very first `profiles_changed` — whatever
+		# caused it — would read as "the names moved" and rebuild the inspector once for nothing.
+		_profile_names_moved()
 	_manager_registered = true
 	# A body that built before the manager existed chose its vertex spacing from the 1.0
 	# fallback and its cull box from an assumed amplitude, because both read the profile
@@ -552,12 +561,32 @@ func _unregister() -> void:
 func _on_profiles_changed() -> void:
 	# The dropdown is built from the manager's live names (see _validate_property), so a
 	# profile added or renamed has to re-hint the property or the list goes stale.
-	notify_property_list_changed()
+	#
+	# ONLY THEN, though. `profiles_changed` also fires for every knob on every profile, and
+	# re-hinting is an inspector rebuild, which collapses every expanded sub-resource on this
+	# node — so dragging an amplitude slider on the manager folded up whatever a selected
+	# water body had open. Same rule as the brush stack's `_inspector_rebuild_signature`: the
+	# property list may depend on structure, never on a value.
+	if _profile_names_moved():
+		notify_property_list_changed()
 	# A profile knob moved. The table is re-uploaded by the manager into the shared
 	# material, but the wavelength may have changed, and vertex spacing is derived
 	# from it — so the MESH may now be too coarse for the waves it carries.
 	if vertex_spacing <= 0.0:
 		_schedule_rebuild()
+
+
+## True when the manager's profile NAME list differs from the one the current hint was built from,
+## and latches the new list. Shared with Pasture3DStream, which overrides `_on_profiles_changed`.
+func _profile_names_moved() -> bool:
+	var names := PackedStringArray()
+	var m := _resolve_manager()
+	if m and m.has_method("get_profile_names"):
+		names = m.get_profile_names()
+	if names == _profile_names_cache:
+		return false
+	_profile_names_cache = names
+	return true
 
 
 # ---- building ----------------------------------------------------------------

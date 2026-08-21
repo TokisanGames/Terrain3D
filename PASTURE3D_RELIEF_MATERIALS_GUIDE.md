@@ -2,7 +2,7 @@
 title: Relief Materials & Selectors — Setup and Tuning Guide
 aliases: [Relief Guide, Plow Materials, ReliefSelector]
 tags: [pasture3d, terrain, plow, relief, authoring-guide]
-updated: 2026-08-08
+updated: 2026-08-20
 ---
 
 # Relief Materials & Selectors
@@ -145,6 +145,26 @@ A `Pasture3DReliefSelector` gates a material by what the ground is **already** d
 | **Invert** | — | Pass everything *outside* the band. |
 | **Strength** | `0 … 1` | How hard the gate bites. `1` = material only inside the band. `0` = **no gating at all**. |
 | **Measure Radius** | metres | Over what distance `Slope` and `Curvature` are measured. `0` = one cell, which is fine for texture-scale detail. Raise it to ask about **landform**: "steep over 20 m" rather than "steep between two adjacent vertices", which is what you want on noisy or eroded ground. Ignored by the other Filter Types. |
+| **Field Source** | — | **Which surface** Slope / Altitude / Curvature measure. `Below Layer` (the default) reads the layers *under* this brush. `Host Profile` reads the **host brush's own generated shape** — see below. Ignored by the four sim Filter Types. |
+
+> [!tip] Field Source — the setting that makes a Mound gateable
+> On a **Plow** laid over existing terrain, `Below Layer` is right: you are gating on the ground you are
+> stamping onto.
+>
+> On a **Mound**, the ground below is whatever you placed the hill on — usually flat. Slope is then `0`
+> everywhere, curvature is `0`, altitude is one constant, and **every Filter Type returns the same weight
+> over the whole brush**. Relief that looked "oddly uniform" on a Mound was this.
+>
+> Set **Field Source = Host Profile** and the selector reads the Mound's own dome instead. *"Craggy on the
+> flanks, smooth on top"* is then a Slope band of `Min 25`, and it works on flat ground, on a slope, and
+> at any scale — because the field is the hill, not what the hill sits on.
+>
+> It cannot cause the bake to creep, for the same structural reason `Below Layer` cannot: the profile is a
+> function of the loop and the brush's shape settings only, so relief keyed on it can never feed itself.
+>
+> Only landform brushes have a profile. On a Plow or a Sim this reads `0` everywhere and the node raises a
+> warning — it does **not** quietly fall back, because a silent fallback would make a mis-set Field Source
+> invisible.
 
 > [!tip] Changing the Filter Type re-defaults the band — unless you have edited it
 > The units change completely between Filter Types (degrees, metres, square metres of catchment), so a
@@ -232,6 +252,8 @@ Rolling hills, craggy rock, lumpy ground.
 | Dip Direction Degrees | `45` | Compass direction the beds tilt towards. |
 | Break Amount | `0.12` | **The one that matters.** Wanders the boundaries so beds become local plates. Without it you get corduroy, not rock. |
 | Break Size | `45 m` | Size of those plates. |
+| **Band Source** | `Accumulator` | **What the beds are cut across.** See the callout below. |
+| **Band Range** | `0 … 100 m` | World-height window, `Ground Altitude` only. |
 | Base Relief → Base Amount | `1.0` | See the callout below. |
 
 ### Pasture3DReliefTerraces — *stepped benches*
@@ -242,6 +264,8 @@ Rolling hills, craggy rock, lumpy ground.
 | Hardness | `0.8` | `0` = untouched, `1` = flat benches with vertical risers. |
 | Step Jitter | `0.08` | Uneven bench spacing. This is what separates "eroded" from "staircase". |
 | Jitter Size | `80 m` | Length scale of that unevenness. |
+| **Band Source** | `Accumulator` | **What the benches are cut across.** See the callout below. |
+| **Band Range** | `0 … 100 m` | World-height window, `Ground Altitude` only. |
 | Base Relief → Base Amount | `1.0` | See below. |
 
 > [!important] Base Relief on Strata and Terraces
@@ -252,6 +276,21 @@ Rolling hills, craggy rock, lumpy ground.
 > **Set `Base Amount = 0` when the material sits above another layer in a Stack.** Then it stratifies or
 > terraces *that layer's* output instead of adding a competing shape of its own. This is the single most
 > common mistake with these two.
+
+> [!tip] Band Source — terracing the *hill* instead of the noise
+> `Accumulator` (the default) bands whatever relief is already in the accumulator. Used alone that is the
+> built-in Base Relief, i.e. **a fractal** — which is why terraces on a Mound came out floating over the
+> hill in a pattern that had nothing to do with it. The accumulator never contains the host's shape.
+>
+> **`Host Profile` bands the brush's own shape.** On a Mound the benches then lie on the hill's contours
+> and step up it, which is what terracing a hill means. **Set `Base Amount = 0` with it** — the hill *is*
+> the base, and a fractal underneath just fights it. The brush warns if you forget.
+>
+> **`Ground Altitude`** bands world height over `Band Range`, for beds that hold one geological elevation
+> across several brushes. There is no useful default for the range: read it off your terrain.
+>
+> On a host with no profile of its own (a Plow) `Host Profile` reads a flat `0`, so every bench collapses
+> into one and the brush says so.
 
 ### Pasture3DReliefDunes
 
@@ -343,6 +382,8 @@ In `demo/data/relief/`. Load one, then tune — they are meant as starting point
 | **Craters in a repeating grid** | `Mapping = Tile`. Set it to `Fit`. |
 | **A crater ignores the loop's rotation** | You are on `Tile`. Only `Fit` and `Scatter` use the loop's oriented frame. |
 | **Strata / Terraces look like a flat staircase** | `Break Amount` (Strata) or `Step Jitter` (Terraces) is `0`. |
+| **Terraces / Strata on a Mound ignore the hill** | `Band Source` is `Accumulator`, so they are banding their own fractal. Set it to `Host Profile` and `Base Amount` to `0`. |
+| **A Selector on a Mound gates everything or nothing** | It is reading `Below Layer` — flat ground under the hill. Set `Field Source` to `Host Profile`. |
 | **Strata / Terraces add a shape you didn't want in a Stack** | `Base Amount` is still `1.0`. Set it to `0`. |
 | **Selector does nothing** | Wrong units (Slope is **degrees**); the ground below genuinely is not in that band; the Mound/shape you want to gate against is **not on a lower layer**. |
 | **Selector excludes everything** | `Range Min` too high for the actual terrain. Drop it to `0` and raise it until relief starts disappearing. |

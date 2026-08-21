@@ -53,52 +53,77 @@ enum FlankMode { FIXED_WIDTH, SLOPE_ANGLE }
 ## Expand (+) or contract (−) the effective boundary off the spline, in metres.
 @export var edge_offset: float = 0.0
 
-@export_group("Noise")
-## Optional vertical jitter to break up the silhouette (UE curl-noise analogue).
-@export var noise: FastNoiseLite
-## Metres of jitter, masked by the interior profile so the rim stays clean.
-@export var noise_strength: float = 0.0
+# ---- Legacy property migration (PASTURE3D_BRUSH_EROSION_SPEC.md §6.6) ------------------------------
+#
+# `noise`, `noise_strength`, `relief`, `relief_strength` and `smooth_passes` were deleted at the end of
+# phase 3a; the Modifiers stack replaces them. Scenes saved before that still carry the old keys, so
+# loading one would otherwise drop a mound's relief on the floor without a word.
+#
+# This is a ONE-WAY MIGRATION, not a second spelling of the same thing. There is no getter, the
+# properties are absent from `_get_property_list` so nothing re-saves them, and a `set()` after the node
+# is in the tree is an error rather than a quiet no-op. Delete this block once the scenes in the repo
+# have been opened and saved.
+const _LEGACY_PROPS := ["noise", "noise_strength", "relief", "relief_strength", "smooth_passes"]
 
-@export_group("Relief")
-## Optional Pasture3DReliefMaterial — the same landform materials the Plow stamps (craggy fractal, strata,
-## terraces, dunes, scree, craters), applied to this mound's own surface. Sits ALONGSIDE the noise field
-## above rather than replacing it: both are added, so an existing `noise` keeps doing exactly what it did.
-##
-## Mapping is always TILE — the ops are evaluated in world XZ, so relief stays continuous where two mounds
-## meet. Radial ops (Crater) read the loop-normalised coordinates and so are still sized and oriented to
-## this loop, exactly as they are under the Plow. See PASTURE3D_MOUND_RELIEF_SPEC.md.
-@export var relief: Pasture3DReliefMaterial:
-	set(v):
-		# Live re-bake: the material emits `changed` on every property setter.
-		if relief != null and relief.changed.is_connected(_schedule_refresh):
-			relief.changed.disconnect(_schedule_refresh)
-		relief = v
-		if relief != null and not relief.changed.is_connected(_schedule_refresh):
-			relief.changed.connect(_schedule_refresh)
-		# Separate from the re-bake: a material emits `changed` when its Selector's band moves, and the
-		# overlay has to follow that as you drag it, not only when the toggle is flipped.
-		if relief != null and not relief.changed.is_connected(_queue_mask_preview):
-			relief.changed.connect(_queue_mask_preview)
-		notify_property_list_changed() # the Mask Preview Source list is built from this material
-		_queue_mask_preview()
-		_schedule_refresh()
-		update_configuration_warnings()
-## Metres of relief at the material's full output, masked by the interior profile so the rim stays clean.
-## Deliberately separate from `height`: relief describes the surface texture of the landform, and tying its
-## amplitude to the peak would rescale every detail whenever the mound was made taller.
-@export var relief_strength: float = 0.0:
-	set(v):
-		relief_strength = v
-		_schedule_refresh()
-		update_configuration_warnings()
+## Legacy values seen during scene load, flushed into `modifiers` by `_ready`. Not exported, so nothing
+## about it survives a save.
+var _legacy: Dictionary = {}
 
-@export_group("Smoothing")
-## Passes of NaN-aware separable Gaussian blur applied after rasterisation, to soften the dome/plateau
-## surface and any chamfer-DT faceting. 0 = off (no cost), 1-2 = subtle, 3+ = heavy rounding.
-@export_range(0, 5) var smooth_passes: int = 0:
-	set(v):
-		smooth_passes = v
-		_schedule_refresh()
+
+func _set(property: StringName, value: Variant) -> bool:
+	if _LEGACY_PROPS.has(String(property)):
+		if _ready_done:
+			# Not silent: a script still assigning these is assigning to nothing, and the failure mode
+			# that hides is "my relief stopped appearing and no one said why".
+			push_error(("Pasture3DMound.%s was removed in phase 3a. Build a Pasture3DModRelief / "
+				+ "Pasture3DModNoise / Pasture3DModSmooth and put it in `modifiers` instead.") % property)
+			return true
+		_legacy[String(property)] = value
+		return true
+	return super(property, value)
+
+
+func _ready() -> void:
+	super()
+	_migrate_legacy()
+
+
+## Turn the stashed legacy values into the stack they describe, in the order the old pipeline ran them:
+## noise, then relief, then smoothing. A value that would have contributed nothing (no material, zero
+## strength, zero passes) becomes no modifier at all rather than a disabled one — an empty step in the
+## list would be a worse description of the old behaviour than its absence.
+func _migrate_legacy() -> void:
+	if _legacy.is_empty():
+		return
+	var old := _legacy
+	_legacy = {}
+	if not modifiers.is_empty():
+		push_warning(("Pasture3DMound '%s' carries BOTH a Modifiers stack and the removed noise / relief "
+			+ "properties. The stack wins; the old values were dropped.") % name)
+		return
+	var out: Array[Pasture3DBrushModifier] = []
+	var n_strength := float(old.get("noise_strength", 0.0))
+	if old.get("noise", null) != null and not is_zero_approx(n_strength):
+		var mn := Pasture3DModNoise.new()
+		mn.noise = old["noise"]
+		mn.strength = n_strength
+		out.append(mn)
+	var r_strength := float(old.get("relief_strength", 0.0))
+	if old.get("relief", null) != null and not is_zero_approx(r_strength):
+		var mr := Pasture3DModRelief.new()
+		mr.material = old["relief"]
+		mr.strength = r_strength
+		out.append(mr)
+	var passes := int(old.get("smooth_passes", 0))
+	if passes > 0:
+		var ms := Pasture3DModSmooth.new()
+		ms.passes = passes
+		out.append(ms)
+	if out.is_empty():
+		return
+	modifiers = out
+	push_warning(("Pasture3DMound '%s': the removed noise / relief / smoothing properties were migrated "
+		+ "into a %d-step Modifiers stack. Save the scene to make that permanent.") % [name, out.size()])
 
 
 func _validate_property(property: Dictionary) -> void:
@@ -109,16 +134,16 @@ func _validate_property(property: Dictionary) -> void:
 		property.usage &= ~PROPERTY_USAGE_EDITOR
 
 
+## A Mound generates a dome, so its own shape is a field a selector or a band op can read. This is what
+## makes "craggy on the flanks, smooth on top" expressible here and not on a Plow.
+func _offers_host_profile() -> bool:
+	return true
+
+
 func _get_configuration_warnings() -> PackedStringArray:
-	var warnings := super()
-	# The material's own complaint plus the shared sim-selector and periodic-resolution diagnostics.
-	warnings.append_array(_relief_warnings(relief))
-	# A material with no amplitude is the one failure mode that looks exactly like a broken material:
-	# the slot is filled, the inspector looks configured, and the ground is flat.
-	if relief != null and is_zero_approx(relief_strength):
-		warnings.append(("A Relief Material is assigned but Relief Strength is 0 m, so it stamps nothing. "
-			+ "Set Relief Strength to the depth of detail you want, in metres."))
-	return warnings
+	# Every relief complaint now comes from the Relief modifier that owns the material — the base folds
+	# `_modifier_warnings()` in, and Pasture3DModRelief calls `_relief_warnings` from there.
+	return super()
 
 
 ## Safety ceiling for the uncapped slope-angle cone: the region's world size (verts × spacing). A steep
@@ -183,25 +208,25 @@ func _paint_spline(path: Path3D) -> void:
 	if gw < 1 or gh < 1:
 		return
 
-	# Relief material: compile the op program ONCE per bake (never per cell). An unassigned material or a
-	# zero strength leaves the arrays empty, which is what both paths test to skip the relief work entirely.
-	var ops := PackedInt32Array()
-	var op_params := PackedFloat32Array()
-	var op_luts := PackedFloat32Array()
-	var op_selectors := PackedFloat32Array()
-	var mat_strength := 1.0
-	if relief != null and not is_zero_approx(relief_strength):
-		var prog: Array = relief.compile()
-		ops = prog[0]
-		op_params = prog[1]
-		op_luts = prog[2]
-		op_selectors = prog[3]
-		mat_strength = relief.strength
-	var has_relief := not ops.is_empty()
+	# ---- What this bake needs, compiled from the MODIFIER STACK once (never per cell). An empty stack
+	# leaves every field below empty or false, and the brush stamps its bare profile — which is exactly
+	# what a Mound with nothing configured should do.
+	var extent := _extent_key(min_x, min_z, vs, gw, gh)
 
 	# Oriented loop frame. Mapping is always TILE here — the ops read world XZ — but the normalised
 	# coordinates radial ops use come from this frame, so a Crater is still sized and turned by the loop.
-	var frame: Array = _loop_frame(poly) if has_relief else [0.0, 0.0, 1.0, 0.0, 1.0, 1.0]
+	#
+	# Computed BEFORE the stack compiles, and asked of the modifier list rather than of the compiled stack,
+	# because a material with a BAKED FIELD (a DLA) grows that field to the loop's proportions and does it
+	# inside compile(). Handing the frame over afterwards is handing it over one bake late — which for a
+	# material that only regrows when the shape changes means never.
+	var wants_frame := _has_relief_modifier()
+	var frame: Array = _loop_frame(poly) if wants_frame else [0.0, 0.0, 1.0, 0.0, 1.0, 1.0]
+	var stack := _compile_modifiers(extent, frame[4], frame[5])
+	var op_selectors: PackedFloat32Array = stack["op_selectors"]
+	var use_fields := bool(stack["need_fields"])
+	var use_host := bool(stack["need_host"])
+	var sim_res: Pasture3DSimResult = stack["sim"]
 	var fcx: float = frame[0]
 	var fcz: float = frame[1]
 	var fcos: float = frame[2]
@@ -209,16 +234,11 @@ func _paint_spline(path: Path3D) -> void:
 	var inv_ex := 1.0 / maxf(frame[4], 0.001)
 	var inv_ez := 1.0 / maxf(frame[5], 0.001)
 
-	# Terrain-aware selectors and SCREE read the ground below this brush's layer. Built once per bake, and
-	# only when the compiled program actually reads them — the field grids are O(cells).
-	var use_fields := has_relief and _needs_terrain_fields(ops)
 	var fields: Array = _terrain_fields(min_x, min_z, vs, gw, gh) if use_fields else []
 	# §21.6: the wider grids any selector's `measure_radius` asks for, indexed by selector id. Empty when
 	# every selector left it at 0, which is the default.
-	var measured: Array = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh) if use_fields else []
-	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Filter Types read, resampled from the
-	# Pasture3DSimResult's own extent (which shares no grid with this bake). Only when a selector asks.
-	var sim_res: Pasture3DSimResult = _relief_sim_result(relief) if use_fields else null
+	var measured: Array = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh,
+			Pasture3DReliefSelector.FieldSource.BELOW_LAYER) if use_fields else []
 	var sim_fields: Array = []
 	var sim_dict := {}
 	if sim_res != null and sim_res.is_valid():
@@ -236,13 +256,12 @@ func _paint_spline(path: Path3D) -> void:
 				"slope_safety": _region_safety_height(),
 				"relative_to_terrain": relative_to_terrain, "plane_y": global_position.y,
 			"blend": _blend, "composite": not _defer_composite,
-			"noise": noise, "noise_strength": noise_strength,
-				"smooth_passes": smooth_passes,
-			"ops": ops, "op_params": op_params, "op_luts": op_luts, "op_selectors": op_selectors,
-			"relief_strength": relief_strength, "relief_mat_strength": mat_strength,
+			# The stack, and the ONE selector block every relief modifier in it indexes into.
+			"modifiers": stack["list"], "op_selectors": op_selectors,
 			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
 			"fit_ex": frame[4], "fit_ez": frame[5],
 			"need_fields": use_fields, "sim_result": sim_dict,
+			"need_host_fields": use_host,
 		}
 		# C++ derives the slope/curvature/gradient grids itself (same formula, same input, so the two paths
 		# agree) — but only if it is handed the below-layer heights, which otherwise travel only when the
@@ -250,6 +269,10 @@ func _paint_spline(path: Path3D) -> void:
 		if relative_to_terrain or use_fields:
 			params["base_below"] = _base_below_grid(min_x, min_z, vs, gw, gh)
 		terrain.data.stamp_mound_loop(_layer_id, poly, _clip_aabb, params, _ramp_lut(falloff_curve))
+		# The rasteriser writes each frozen modifier's solve into the `out` dictionary it was handed, so
+		# there is something to collect the moment it returns.
+		_commit_modifier_caches(stack, extent,
+				[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
 		return
 
 	# One O(cells) signed distance field replaces the old per-pixel O(edges) polygon distance (×2 for
@@ -272,72 +295,86 @@ func _paint_spline(path: Path3D) -> void:
 	if use_angle and capped:
 		ramp_denom = maxf(absf(height) / slope_tan, 0.001)
 
-	# Buffer per-cell write values (NaN = no write) so the optional smoothing pass can run before writing.
-	# value = delta (ADD) or absolute target (else), matching _paint_height + the C++ path for A/B parity.
+	# What gets written per cell (NaN = no write): a delta under ADD, an absolute target otherwise,
+	# matching _paint_height and the C++ path for A/B parity. The stack produces it.
 	var add := _blend == BLEND_ADD
-	var vals := PackedFloat32Array()
-	vals.resize(gw * gh)
-	vals.fill(NAN)
 
+	# This brush's OWN generated shape at one cell, before noise and before relief: `[amp_metres, profile]`,
+	# or `[]` where it contributes nothing. Written once and called from both the host-profile pre-pass and
+	# the cell loop, for the same reason the C++ path extracts it: a second copy of this arithmetic is how
+	# the field a selector reads would quietly stop being the shape the brush stamps.
+	var host_profile_at := func(signed_d: float) -> Array:
+		if signed_d <= 0.0:
+			return []
+		if cone:
+			return [sign * minf(slope_tan * signed_d, safety_max),
+					clampf(signed_d / dome_denom, 0.0, 1.0)]
+		var pr := _ramp(falloff_curve, signed_d / (ramp_denom if capped else dome_denom))
+		if pr <= 0.0:
+			return []
+		return [sign * height * pr, pr]
+
+	# The HOST PROFILE fields. A pre-pass over the WHOLE grid, because slope and curvature need
+	# neighbours and so cannot be derived inside the loop that is producing the values. Mirrors the
+	# pre-pass in stamp_mound_loop; gate BQ compares the two.
+	var host_fields: Array = []
+	var host_measured: Array = []
+	var host_div := 1.0
+	if use_host:
+		var host_alt := PackedFloat32Array()
+		host_alt.resize(gw * gh)
+		var peak := 0.0
+		for iz in range(gh):
+			var row := iz * gw
+			for ix in range(gw):
+				# Outside the loop the brush contributes nothing, and 0 is the honest value there — it is
+				# what makes the rim read as the foot of the slope rather than as a hole.
+				var hp: Array = host_profile_at.call(field[row + ix] + edge_offset)
+				var a: float = hp[0] if not hp.is_empty() else 0.0
+				host_alt[row + ix] = a
+				peak = maxf(peak, absf(a))
+		host_fields = _derive_fields(host_alt, vs, gw, gh)
+		# The divisor is the MEASURED peak, not the `height` property: an uncapped slope derives its height
+		# from geometry and never reads `height`, and a capped mound whose falloff_width exceeds its
+		# half-width never reaches full profile. See the same note in stamp_mound_loop.
+		host_div = peak if peak > 0.0 else 1.0
+		host_measured = _measured_fields(host_fields[0], host_fields[2], op_selectors, vs, gw, gh,
+				Pasture3DReliefSelector.FieldSource.HOST_PROFILE)
+
+	# Rasterise the profile into its own grids, then let the modifier stack run over them. The split is
+	# not a tidier spelling of one fused loop: a FIELD modifier reads the whole grid, so the profile has
+	# to be finished before any modifier can look at it.
+	var amp := PackedFloat64Array()
+	amp.resize(gw * gh)
+	var profile := PackedFloat64Array()
+	profile.resize(gw * gh)
+	var basey := PackedFloat32Array()
+	basey.resize(gw * gh)
 	for iz in range(gh):
 		var z := min_z + iz * vs
 		var row := iz * gw
 		for ix in range(gw):
+			amp[row + ix] = NAN
 			var signed_d := field[row + ix] + edge_offset
 			if signed_d <= 0.0:
 				continue
-			var x := min_x + ix * vs
-			var pos := Vector3(x, 0.0, z)
-			var base_y := _base_height_below(pos) if relative_to_terrain else global_position.y
-			var amp: float
-			var profile: float
-			if cone:
-				# Free-rising cone: tan × distance, capped by the region safety height. profile is the
-				# 0→1 interior mask used only to keep noise / relief off the rim.
-				profile = clampf(signed_d / dome_denom, 0.0, 1.0)
-				amp = sign * minf(slope_tan * signed_d, safety_max)
-			else:
-				profile = _ramp(falloff_curve, signed_d / (ramp_denom if capped else dome_denom))
-				if profile <= 0.0:
-					continue
-				amp = sign * height * profile
-			if noise:
-				amp += noise_strength * noise.get_noise_2d(x, z) * profile
-			if has_relief:
-				# Loop-local metres → the normalised coordinates radial ops read. TILE evaluates the ops
-				# in world XZ, so only nu,nv come from the frame.
-				var dx := x - fcx
-				var dz := z - fcz
-				var lx := dx * fcos + dz * fsin
-				var lz := -dx * fsin + dz * fcos
-				var f_alt := 0.0
-				var f_slope := 0.0
-				var f_curv := 0.0
-				var f_gx := 0.0
-				var f_gz := 0.0
-				var f_flow := 0.0
-				var f_ero := 0.0
-				var f_dep := 0.0
-				var f_wet := 0.0
-				if use_fields:
-					var fi := row + ix
-					f_alt = fields[0][fi]
-					f_slope = fields[1][fi]
-					f_curv = fields[2][fi]
-					f_gx = fields[3][fi]
-					f_gz = fields[4][fi]
-					if not sim_fields.is_empty():
-						f_flow = sim_fields[0][fi]
-						f_ero = sim_fields[1][fi]
-						f_dep = sim_fields[2][fi]
-						f_wet = sim_fields[3][fi]
-				var rv := relief.eval(x, z, lx * inv_ex, lz * inv_ez, inv_ex, inv_ez,
-						f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet,
-						measured, row + ix if use_fields else -1)
-				amp += relief_strength * rv * profile * mat_strength
-			vals[row + ix] = amp if add else base_y + amp
-
-	vals = _blur_grid(vals, gw, gh, smooth_passes)
+			var hp: Array = host_profile_at.call(signed_d)
+			if hp.is_empty():
+				continue
+			var pos := Vector3(min_x + ix * vs, 0.0, z)
+			amp[row + ix] = hp[0]
+			profile[row + ix] = hp[1]
+			basey[row + ix] = _base_height_below(pos) if relative_to_terrain else global_position.y
+	var vals := _run_modifier_stack(stack["gd"], amp, profile, basey, {
+		"gw": gw, "gh": gh, "min_x": min_x, "min_z": min_z, "vs": vs, "add": add,
+		"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
+		"inv_ex": inv_ex, "inv_ez": inv_ez,
+		"fields": fields, "sim_fields": sim_fields, "measured": measured,
+		"host_fields": host_fields, "host_measured": host_measured, "host_div": host_div,
+		"extent": extent,
+	})
+	_commit_modifier_caches(stack, extent,
+			[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
 
 	for iz in range(gh):
 		var z := min_z + iz * vs
@@ -353,10 +390,53 @@ func _paint_spline(path: Path3D) -> void:
 				_paint_height(pos, v, 0.0)
 
 
+## True when the stack holds at least one active Relief modifier, i.e. when the oriented loop frame is
+## worth computing. A stack of noise and smoothing alone never reads it.
+##
+## Asks the MODIFIER LIST and not the compiled stack, because the frame is now an input to the compile
+## (see the bake) — and `is_active()` is the same test `_compile_modifiers` skips on, so the two agree.
+## A relief step that compiles to nothing but is waiting for a seed surface still counts, and should:
+## it is about to be handed one, and it will grow its field against this frame when it is.
+func _has_relief_modifier() -> bool:
+	for m in modifiers:
+		if m is Pasture3DModRelief and m.is_active():
+			return true
+	return false
+
+
+## Phase 3a wires the modifier stack into this rasteriser and no other (§6.6).
+func _supports_modifiers() -> bool:
+	return true
+
+
 func _update_mask_preview() -> void:
-	_update_relief_mask_preview(relief if _mask_preview_on else null)
+	_update_relief_mask_preview(_preview_relief_material() if _mask_preview_on else null)
 
 
-## §18.6: the material whose selectors the Mask Preview Source dropdown lists.
+## §18.6: the material whose selectors the Mask Preview Source dropdown lists — the first Relief modifier
+## in the stack WITH A MATERIAL ASSIGNED. The overlay shows one material's selectors, and a stack with two
+## of them has to pick; first is the honest pick, because it is the one whose gating decides what
+## everything after it lands on.
+##
+## NOT `is_active()`, which was the first build and was wrong twice over. `is_active()` is false at
+## `strength == 0`, so this dropdown — and therefore the node's whole property list — was A FUNCTION OF A
+## SLIDER: dragging Strength up from 0 made the Mask Preview group appear, which rebuilt the inspector,
+## which collapsed the modifier being edited, under the cursor. Toggling `enabled` did the same. See
+## `_inspector_rebuild_signature`.
+##
+## It is also the better rule on its own terms: the preview exists to show WHERE a selector would put
+## things, which is exactly what you want to look at before you decide how many metres to ask for.
+## `_mask_preview_warnings` says so when the previewed modifier is not currently stamping.
 func _preview_relief_material():
-	return relief
+	for m in modifiers:
+		if m is Pasture3DModRelief and m.material != null:
+			return m.material
+	return null
+
+
+## The Relief modifier `_preview_relief_material` picked, so the warnings can talk about it by name.
+func _preview_relief_modifier():
+	for m in modifiers:
+		if m is Pasture3DModRelief and m.material != null:
+			return m
+	return null

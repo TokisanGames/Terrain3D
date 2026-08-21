@@ -33,6 +33,15 @@ struct ErosionParams {
 	double erosion_rate = 0.0; // K in §4.3
 	double area_exponent = 0.45; // m in §4.3
 	double diffusion = 0.0; // D in §4.4, m²/Δt
+	// G, the dimensionless sediment deposition coefficient (Yuan et al. 2019). 0 = detachment-limited,
+	// i.e. exactly the solver this one replaced: material is removed and never redeposited. Toward 1 the
+	// model becomes transport-limited and rivers lay their load back down — alluvial fans, valley fill.
+	//
+	// It is NOT free: the deposition term makes each cell's update depend on how much its whole upstream
+	// catchment eroded this step, which is only solvable by iterating. Convergence degrades sharply as G
+	// rises (§5 of PASTURE3D_BRUSH_EROSION_SPEC.md), so the sweep count is capped and reported rather
+	// than allowed to run away.
+	double deposition = 0.0;
 	double erodability_min = 1.0; // erodability LUT remap (§7); min==max==1 => uniform
 	double erodability_max = 1.0;
 	int erodability_w = 0; // LUT dimensions; 0 => no map, erodability is uniform 1.0
@@ -56,6 +65,12 @@ struct ErosionResult {
 	std::vector<int> stack; // Braun & Willett topological order, roots first
 	std::vector<uint8_t> boundary; // 1 = domain edge or no-data, i.e. fixed base level
 	int diffusion_substeps = 0; // explicit-diffusion sub-stepping actually used (see §4.4 note)
+	// Worst Gauss-Seidel sweep count any one iteration needed for the deposition term, and whether the
+	// cap was reached. 0 when `deposition` is 0, which is the whole of the detachment-limited path.
+	// Reported for the same reason `diffusion_substeps` is: an artist who asked for something the solver
+	// could not deliver in bounded time has to be told, not silently given something else.
+	int deposition_sweeps = 0;
+	bool deposition_capped = false;
 	bool ok = false;
 };
 

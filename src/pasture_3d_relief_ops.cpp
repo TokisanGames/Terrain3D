@@ -82,6 +82,28 @@ inline double relief_band(double p_x, double p_steps, double p_hardness) {
 	return (q + std::pow(f, 1.0 + CLAMP(p_hardness, 0.0, 1.0) * 15.0)) / s;
 }
 
+// The 0..1 coordinate a PROFILE band op quantises — mirrors Pasture3DReliefMaterial._band_coord.
+//
+// ACCUMULATOR is the historical path and is deliberately spelled as the exact expression it always was,
+// not as a special case of a more general one: it is the default on every material authored so far, and
+// gate BP compares it to the byte.
+inline double relief_band_coord(int p_band_source, double p_acc, const ReliefSample &p_ground,
+		const PackedFloat32Array &p_params, int p) {
+	if (p_band_source == RELIEF_BAND_HOST_PROFILE) {
+		// Already divided by the host's stored height in ReliefFields::sample_host, so 0 is the rim and
+		// 1 the crest. Reads a flat 0 when no host fields were built, which is what makes a `Host Profile`
+		// band on a Plow do visibly nothing rather than something arbitrary.
+		return CLAMP(p_ground.host_norm, 0.0, 1.0);
+	}
+	if (p_band_source == RELIEF_BAND_GROUND_ALTITUDE) {
+		const double lo = (double)p_params[p + RELIEF_BAND_RANGE_LO];
+		const double hi = (double)p_params[p + RELIEF_BAND_RANGE_HI];
+		const double d = hi - lo;
+		return std::fabs(d) > 1.0e-9 ? CLAMP((p_ground.altitude - lo) / d, 0.0, 1.0) : 0.0;
+	}
+	return CLAMP(p_acc * 0.5 + 0.5, 0.0, 1.0);
+}
+
 // Linear read out of a baked Curve LUT block — mirrors Pasture3DReliefMaterial._sample_lut.
 inline double relief_sample_lut(const PackedFloat32Array &p_luts, int p_slot, double p_x) {
 	const int base = p_slot * RELIEF_CURVE_LUT_N;
@@ -95,6 +117,41 @@ inline double relief_sample_lut(const PackedFloat32Array &p_luts, int p_slot, do
 	}
 	const double frac = f - (double)i0;
 	return (double)p_luts[base + i0] * (1.0 - frac) + (double)p_luts[base + i0 + 1] * frac;
+}
+
+// Bilinear read out of a baked 2D field block, in LOOP-NORMALISED coordinates: nu,nv are +/-1 at the
+// fitted rect's edge, so they map onto the field's [0,1]x[0,1] extent. Outside that, and for a slot that
+// does not exist, the field reads 0 -- a defined nothing, so a mis-spliced slot shows up as the op
+// contributing nothing rather than as garbage.
+// Mirrors Pasture3DReliefMaterial._sample_field, which is the ONLY producer of these bytes.
+inline double relief_sample_field(const PackedFloat32Array &p_fields, const PackedInt32Array &p_meta,
+		int p_slot, double p_nu, double p_nv) {
+	const int m = p_slot * RELIEF_FIELD_META_STRIDE;
+	if (p_slot < 0 || m + RELIEF_FIELD_META_STRIDE > p_meta.size()) {
+		return 0.0;
+	}
+	const int base = p_meta[m];
+	const int w = p_meta[m + 1];
+	const int h = p_meta[m + 2];
+	if (w < 2 || h < 2 || base < 0 || base + w * h > p_fields.size()) {
+		return 0.0;
+	}
+	const double fx = (p_nu * 0.5 + 0.5) * (double)(w - 1);
+	const double fy = (p_nv * 0.5 + 0.5) * (double)(h - 1);
+	if (fx < 0.0 || fy < 0.0 || fx > (double)(w - 1) || fy > (double)(h - 1)) {
+		return 0.0;
+	}
+	const int x0 = (int)fx;
+	const int y0 = (int)fy;
+	const int x1 = MIN(x0 + 1, w - 1);
+	const int y1 = MIN(y0 + 1, h - 1);
+	const double tx = fx - (double)x0;
+	const double ty = fy - (double)y0;
+	const double a = (double)p_fields[base + y0 * w + x0];
+	const double b = (double)p_fields[base + y0 * w + x1];
+	const double c = (double)p_fields[base + y1 * w + x0];
+	const double d = (double)p_fields[base + y1 * w + x1];
+	return (a * (1.0 - tx) + b * tx) * (1.0 - ty) + (c * (1.0 - tx) + d * tx) * ty;
 }
 
 // Asymmetric dune ridges — mirrors Pasture3DReliefMaterial._dunes.
@@ -142,16 +199,23 @@ inline double relief_selector_value(const PackedFloat32Array &p_sel, int p_sid,
 		return 1.0;
 	}
 	const int filter_type = (int)p_sel[b];
+	// Which surface the three SHAPE filter types read: the layers below this brush, or the brush's own
+	// generated profile. Chosen before anything is measured, because it decides which of two parallel
+	// field sets every read below comes out of. The four sim filter types ignore it entirely.
+	const bool host = (int)p_sel[b + RELIEF_SELECTOR_FIELD_SOURCE] == RELIEF_FIELD_HOST;
+	const ReliefFields *fl = host ? p_ground.host_fields : p_ground.fields;
 	// SLOPE and CURVATURE are the two filter types a `measure_radius` applies to (§21.6): the same
 	// measurement over a wider stencil. The radius lives on the fields, not the sample, because it is a whole
 	// extra grid; the sample only carries where it came from.
-	const bool measured = (double)p_sel[b + RELIEF_SELECTOR_RADIUS] > 0.0 && p_ground.fields != nullptr &&
+	const bool measured = (double)p_sel[b + RELIEF_SELECTOR_RADIUS] > 0.0 && fl != nullptr &&
 			p_ground.index >= 0;
-	double x = measured ? p_ground.fields->slope_for(p_sid, p_ground.index) : p_ground.slope_deg;
+	double x = measured ? fl->slope_for(p_sid, p_ground.index)
+						: (host ? p_ground.host_slope_deg : p_ground.slope_deg);
 	if (filter_type == RELIEF_SELECT_ALTITUDE) {
-		x = p_ground.altitude;
+		x = host ? p_ground.host_altitude : p_ground.altitude;
 	} else if (filter_type == RELIEF_SELECT_CURVATURE) {
-		x = measured ? p_ground.fields->curvature_for(p_sid, p_ground.index) : p_ground.curvature;
+		x = measured ? fl->curvature_for(p_sid, p_ground.index)
+					 : (host ? p_ground.host_curvature : p_ground.curvature);
 	} else if (filter_type == RELIEF_SELECT_FLOW) {
 		x = p_ground.sim_flow; // already m², un-logged in relief_fields_add_sim
 	} else if (filter_type == RELIEF_SELECT_EROSION) {
@@ -235,6 +299,8 @@ bool godot::relief_build(const Dictionary &p_params, ReliefProgram &r_prog) {
 	r_prog.ops = p_params.get("ops", PackedInt32Array());
 	r_prog.params = p_params.get("op_params", PackedFloat32Array());
 	r_prog.luts = p_params.get("op_luts", PackedFloat32Array());
+	r_prog.fields = p_params.get("op_fields", PackedFloat32Array());
+	r_prog.field_meta = p_params.get("op_field_meta", PackedInt32Array());
 	r_prog.selectors = p_params.get("op_selectors", PackedFloat32Array());
 	r_prog.count = r_prog.ops.size() / RELIEF_OP_STRIDE;
 	if (r_prog.count < 1 || r_prog.params.size() < r_prog.count * RELIEF_PARAM_STRIDE) {
@@ -315,6 +381,21 @@ void godot::ReliefFields::sample(int p_index, ReliefSample &r_out) const {
 		r_out.sim_deposition = 0.0;
 		r_out.sim_wetness = 0.0;
 	}
+}
+
+void godot::ReliefFields::sample_host(int p_index, ReliefSample &r_out) const {
+	if (!ready || p_index < 0 || p_index >= (int)altitude.size()) {
+		return; // leaves has_host false: a host-source selector then reads a defined zero, not the below set
+	}
+	r_out.host_fields = this;
+	r_out.index = p_index;
+	r_out.host_altitude = (double)altitude[p_index];
+	r_out.host_slope_deg = (double)slope_deg[p_index];
+	r_out.host_curvature = (double)curvature[p_index];
+	// The stored divisor, applied once. Guarded because a zero-height Mound is a legal (if pointless)
+	// brush and a band op dividing by it would put NaN into the height map.
+	r_out.host_norm = std::fabs(norm_divisor) > 1.0e-9 ? r_out.host_altitude / norm_divisor : 0.0;
+	r_out.has_host = true;
 }
 
 double godot::ReliefFields::slope_for(int p_sid, int p_index) const {
@@ -399,7 +480,8 @@ void godot::relief_fields_build(const PackedFloat32Array &p_below, double p_min_
 	r_out.ready = true;
 }
 
-void godot::relief_fields_add_measured(const PackedFloat32Array &p_selectors, ReliefFields &r_fields) {
+void godot::relief_fields_add_measured(const PackedFloat32Array &p_selectors, ReliefFields &r_fields,
+		int p_field_source) {
 	const int n_sel = p_selectors.size() / RELIEF_SELECTOR_STRIDE;
 	if (!r_fields.ready || n_sel < 1) {
 		return;
@@ -414,9 +496,13 @@ void godot::relief_fields_add_measured(const PackedFloat32Array &p_selectors, Re
 	std::vector<double> radii;
 	r_fields.sel_slot.assign((size_t)n_sel, -1);
 	for (int s = 0; s < n_sel; s++) {
-		const double r = (double)p_selectors[s * RELIEF_SELECTOR_STRIDE + RELIEF_SELECTOR_RADIUS];
+		const int base = s * RELIEF_SELECTOR_STRIDE;
+		const double r = (double)p_selectors[base + RELIEF_SELECTOR_RADIUS];
 		if (!(r > 0.0)) {
 			continue; // 0 = one cell = the base fields, and NaN lands here too
+		}
+		if ((int)p_selectors[base + RELIEF_SELECTOR_FIELD_SOURCE] != p_field_source) {
+			continue; // this radius belongs to the other field set; slot stays -1 here
 		}
 		int slot = -1;
 		for (int i = 0; i < (int)radii.size(); i++) {
@@ -676,11 +762,13 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 		}
 
 		// --- PROFILE: remaps acc in place; ignores blend.
+		const int band_source = (flags & RELIEF_FLAG_BAND_MASK) >> RELIEF_FLAG_BAND_SHIFT;
+
 		if (op == RELIEF_OP_TERRACE) {
 			if (p_prog.noise_a[i].is_null()) {
 				continue;
 			}
-			double tx = CLAMP(acc * 0.5 + 0.5, 0.0, 1.0);
+			double tx = relief_band_coord(band_source, acc, p_ground, p_prog.params, p);
 			const double jit = (double)p_prog.params[p + 2];
 			if (jit != 0.0) {
 				tx = CLAMP(tx + (double)p_prog.noise_a[i]->get_noise_2d(u, v) * jit, 0.0, 1.0);
@@ -694,17 +782,26 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 			if (p_prog.noise_a[i].is_null()) {
 				continue;
 			}
-			// Bands are horizontal in the accumulator, then tilted by a linear ramp across the ground
-			// (dip, in normalised units per 100 m) and broken up laterally so they are not dead straight.
+			// Bands are horizontal in the banded coordinate, then tilted by a linear ramp across the
+			// ground (dip, in normalised units per 100 m) and broken up laterally so they are not dead
+			// straight.
 			const double dipdir = (double)p_prog.params[p + 3];
-			double w = acc + (double)p_prog.params[p + 2] *
-							(u * std::cos(dipdir) + v * std::sin(dipdir)) * 0.01;
-			w += (double)p_prog.noise_a[i]->get_noise_2d(u, v) * (double)p_prog.params[p + 5];
+			const double tilt = (double)p_prog.params[p + 2] *
+							(u * std::cos(dipdir) + v * std::sin(dipdir)) * 0.01 +
+					(double)p_prog.noise_a[i]->get_noise_2d(u, v) * (double)p_prog.params[p + 5];
+			// The ACCUMULATOR path folds dip and break-up in BEFORE the -1..1 -> 0..1 remap, exactly as it
+			// always did — that expression is what gate BP holds to the byte. The other band sources are
+			// already in 0..1, so the same tilt is halved to land at the same visual magnitude rather
+			// than twice it.
+			double w;
+			if (band_source == RELIEF_BAND_ACCUMULATOR) {
+				w = CLAMP((acc + tilt) * 0.5 + 0.5, 0.0, 1.0);
+			} else {
+				w = CLAMP(relief_band_coord(band_source, acc, p_ground, p_prog.params, p) + tilt * 0.5,
+						0.0, 1.0);
+			}
 			acc = relief_lerp(acc,
-					relief_band(CLAMP(w * 0.5 + 0.5, 0.0, 1.0), (double)p_prog.params[p],
-							(double)p_prog.params[p + 1]) *
-									2.0 -
-							1.0,
+					relief_band(w, (double)p_prog.params[p], (double)p_prog.params[p + 1]) * 2.0 - 1.0,
 					sel);
 			continue;
 		}
@@ -759,6 +856,12 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 				break;
 			case RELIEF_OP_CRATER:
 				val = relief_crater(nu, nv, p_prog.params, p);
+				break;
+			case RELIEF_OP_DLA:
+				// Loop-normalised, exactly like CRATER: the cluster maps once onto the oriented rectangle.
+				val = relief_sample_field(p_prog.fields, p_prog.field_meta,
+							   (int)p_prog.params[p + RELIEF_DLA_FIELD_SLOT], nu, nv) *
+						(double)p_prog.params[p];
 				break;
 			case RELIEF_OP_SCREE:
 				if (p_prog.noise_a[i].is_null()) {

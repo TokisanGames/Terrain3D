@@ -257,9 +257,10 @@ func _get_configuration_warnings() -> PackedStringArray:
 			# The material's own complaint, the sim-selector diagnostics (PASTURE3D_SIM_NODE_SPEC.md §9)
 			# and the periodic-resolution guard — all shared with the other relief hosts.
 			warnings.append_array(_relief_warnings(relief))
-			if mapping == Mapping.TILE and _relief_has_crater_op(relief):
-				warnings.append(("This Relief Material contains a Crater, which is sized by the loop. "
-					+ "With Mapping = Tile it repeats once per tile; set Mapping = Fit for a single crater."))
+			var loop_sized := _relief_loop_sized_op(relief)
+			if mapping == Mapping.TILE and loop_sized != "":
+				warnings.append(("This Relief Material contains a %s, which is sized by the loop. " % loop_sized
+					+ "With Mapping = Tile it repeats once per tile; set Mapping = Fit for a single one."))
 	elif mapping == Mapping.SCATTER:
 		warnings.append(("Mapping = Scatter only applies to Source = Relief; this source will tile "
 			+ "instead. Switch the source, or pick Tile / Fit."))
@@ -403,6 +404,20 @@ func _paint_spline(path: Path3D) -> void:
 	if gw < 1 or gh < 1:
 		return
 
+	# Oriented loop frame — FIT maps the source onto it, and every mapping mode uses it for the
+	# normalised coordinates that radial ops (craters) read.
+	#
+	# Computed before the source is resolved, because a relief material with a BAKED FIELD (a DLA) grows
+	# that field to the loop's proportions inside compile() and so has to be told them first.
+	var frame := _loop_frame(poly)
+	var fcx: float = frame[0]
+	var fcz: float = frame[1]
+	var fcos: float = frame[2]
+	var fsin: float = frame[3]
+	var inv_ex := 1.0 / maxf(frame[4], 0.001)
+	var inv_ez := 1.0 / maxf(frame[5], 0.001)
+	var fit := mapping == Mapping.FIT
+
 	# Resolve the height source ONCE (decompress + cache the LUT for TEXTURE/MATERIAL, compile the op
 	# program for RELIEF). Bail if the active source has nothing to read — nothing to stamp. Shared by the
 	# native path and the fallback.
@@ -413,6 +428,8 @@ func _paint_spline(path: Path3D) -> void:
 	var ops := PackedInt32Array()
 	var op_params := PackedFloat32Array()
 	var op_luts := PackedFloat32Array()
+	var op_fields := PackedFloat32Array()
+	var op_field_meta := PackedInt32Array()
 	var op_selectors := PackedFloat32Array()
 	if source == Source.NOISE:
 		if noise == null:
@@ -420,11 +437,20 @@ func _paint_spline(path: Path3D) -> void:
 	elif source == Source.RELIEF:
 		if relief == null:
 			return
+		# SCATTER evaluates each instance in its OWN radius-normalised frame — a disc, whatever shape the
+		# loop is — so a baked field there must be grown round. Under TILE and FIT the loop's rectangle is
+		# the frame, and its proportions are what the field has to match.
+		if mapping == Mapping.SCATTER:
+			relief.set_host_frame(1.0, 1.0)
+		else:
+			relief.set_host_frame(frame[4], frame[5])
 		var prog: Array = relief.compile()
 		ops = prog[0]
 		op_params = prog[1]
 		op_luts = prog[2]
 		op_selectors = prog[3]
+		op_fields = prog[4]
+		op_field_meta = prog[5]
 		if ops.is_empty():
 			return
 	elif data.is_empty():
@@ -436,17 +462,6 @@ func _paint_spline(path: Path3D) -> void:
 		src_strength = plow_material.strength
 	elif source == Source.RELIEF:
 		src_strength = relief.strength
-
-	# Oriented loop frame — FIT maps the source onto it, and every mapping mode uses it for the
-	# normalised coordinates that radial ops (craters) read.
-	var frame := _loop_frame(poly)
-	var fcx: float = frame[0]
-	var fcz: float = frame[1]
-	var fcos: float = frame[2]
-	var fsin: float = frame[3]
-	var inv_ex := 1.0 / maxf(frame[4], 0.001)
-	var inv_ez := 1.0 / maxf(frame[5], 0.001)
-	var fit := mapping == Mapping.FIT
 
 	# Terrain-aware selectors and SCREE read the ground below this brush's layer. Built once per bake,
 	# and only when the compiled program actually reads them.
@@ -491,6 +506,7 @@ func _paint_spline(path: Path3D) -> void:
 			"data_w": lut_w, "data_h": lut_h, "noise": noise,
 			"smooth_passes": smooth_passes,
 			"ops": ops, "op_params": op_params, "op_luts": op_luts,
+			"op_fields": op_fields, "op_field_meta": op_field_meta,
 			"op_selectors": op_selectors, "mapping": int(mapping),
 			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
 			"fit_ex": frame[4], "fit_ez": frame[5],

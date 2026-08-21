@@ -40,9 +40,6 @@ extends Pasture3DSimBase
 ## cancellable. The network reorganises between iterations (§4.5), so chunking changes nothing about
 ## the result — chunk boundaries are just where we let go of the CPU.
 const CHUNK_ITERATIONS: int = 5
-## Resolution cap for the erodability map, mirroring Pasture3DPlow's height LUT. Rock hardness is a
-## broad spatial field; more than this per axis buys nothing and costs a bigger per-bake image read.
-const ERODABILITY_LUT_MAX: int = 256
 ## Smallest sim grid worth solving. Below this the boundary IS the domain and nothing routes.
 const MIN_SIM_CELLS: int = 8
 ## Ceiling on the merged Pasture3DSimResult grid when a Sim has SEVERAL loops (§8.2). One loop always
@@ -92,6 +89,21 @@ const RESULT_MAX_CELLS: int = 4194304
 ## iterations smooths below about 16 m. The ratio against Erosion Rate is what sets how far apart the
 ## gullies end up.
 @export_range(0.0, 10.0, 0.01, "or_greater") var hillslope_diffusion: float = 0.15
+
+## How much of what the rivers strip out gets laid back DOWN, instead of leaving the map (Yuan et al.
+## 2019's G). This is the difference between a landscape that reads as weathered and one that reads as
+## cut: at 0 the solver only removes material -- no alluvial fans, no valley fill, and the Deposition
+## mask stays nearly empty.
+##
+## 0 = detachment-limited, exactly the solver Pasture3D shipped before this existed. Toward 1 the rivers
+## carry an increasing share of their load only as far as the next place it can settle -- fans where a
+## channel leaves the steep ground, silt in the basins, aprons at the foot of a slope. 0.3-0.6 is the
+## useful range for landscape work; 1 is the transport-limited end member.
+##
+## [b]It is not free.[/b] A cell's new height now depends on how much its whole upstream catchment eroded
+## in the same step, which can only be solved by iterating -- and the iteration count climbs steeply as
+## this approaches 1 (about 1 sweep near 0, 20 near 1, capped at 50). The node warns if it hits the cap.
+@export_range(0.0, 1.0, 0.01) var deposition: float = 0.0
 
 @export_group("Erodability")
 ## Rock softness across the area (§7): white erodes at Erodability Range's max, black at its min.
@@ -258,6 +270,9 @@ const RESULT_MAX_CELLS: int = 4194304
 ## Diffusion sub-steps the last solve actually used (§4.4). Reported when it hit the ceiling, which is
 ## the only way an over-large diffusion setting is visible rather than silently clamped.
 var _last_substeps: int = 0
+## Worst Gauss-Seidel sweep count the deposition term needed, and whether it hit the ceiling.
+var _last_dep_sweeps: int = 0
+var _dep_capped: bool = false
 
 
 # ---- Pasture3DSimBase hooks (spec §19.7) ----------------------------------------------------------
@@ -394,7 +409,7 @@ func pass_spec() -> Dictionary:
 		"node": self, "name": name,
 		"iterations": maxi(iterations, 1),
 		"erosion_rate": erosion_rate, "area_exponent": area_exponent,
-		"diffusion": hillslope_diffusion,
+		"diffusion": hillslope_diffusion, "deposition": deposition,
 		"erodability_map": erodability_map, "erodability_range": erodability_range,
 		"erosion_mask": erosion_mask, "write_mask": write_mask,
 		"falloff_width": maxf(falloff_width, 0.001), "falloff_curve": falloff_curve,
@@ -466,6 +481,11 @@ func _get_configuration_warnings() -> PackedStringArray:
 		warnings.append(("Hillslope Diffusion is large enough that the explicit diffusion pass hit its "
 			+ "sub-step ceiling, so less smoothing was applied than asked for. Lower it, or simulate at "
 			+ "a coarser resolution."))
+	if _dep_capped:
+		warnings.append(("Deposition is high enough that the solver hit its sweep ceiling before "
+			+ "converging, so the surface is an unconverged estimate rather than what was asked for. "
+			+ "Lower Deposition (it converges much faster below about 0.7), or raise Iterations so each "
+			+ "step moves less."))
 	warnings.append_array(_result_warnings(_baked_hash))
 	# §15 open question 7: two Sims sharing a layer wipe each other, because baking one clears the shared
 	# layer's tiles under its box and a Sim cannot be repainted from its spline (§12). The check needs the
@@ -850,6 +870,8 @@ func _finish(p_ctx: Dictionary) -> Dictionary:
 	report["cells"] = cells
 	report["msec"] = Time.get_ticks_msec() - int(p_ctx["t0"])
 	report["substeps"] = _last_substeps
+	report["dep_sweeps"] = _last_dep_sweeps
+	report["dep_capped"] = _dep_capped
 	print("Pasture3DSim '%s': %s %d area(s), %d sim cells, %d ms.%s" % [
 			name, "previewed" if is_preview else "simulated", solved.size(), cells, report["msec"],
 			"\n  " + str(report["masks"]) if report["masks"] != "" else ""])
@@ -947,6 +969,7 @@ func _prepare_solve(p_path: Path3D, p_layer_id: int, p_scale: int) -> Dictionary
 			"erosion_rate": erosion_rate,
 			"area_exponent": area_exponent,
 			"diffusion": hillslope_diffusion,
+			"deposition": deposition,
 			"erodability_min": e_lo,
 			"erodability_max": e_hi,
 			"erodability_w": e_w, "erodability_h": e_h,
@@ -976,6 +999,8 @@ func _solve_chunk(p_state: Dictionary) -> bool:
 		return true
 	p_state["z"] = res["z"]
 	_last_substeps = int(res.get("diffusion_substeps", 0))
+	_last_dep_sweeps = maxi(_last_dep_sweeps, int(res.get("deposition_sweeps", 0)))
+	_dep_capped = _dep_capped or bool(res.get("deposition_capped", false))
 	p_state["done"] = done + chunk
 	return p_state["done"] >= iterations
 
@@ -1151,35 +1176,13 @@ func _write_result(p_states: Array, p_is_preview: bool, p_scale: int) -> String:
 ## The erodability map as a [0,1] LUT: [PackedFloat32Array data, w, h]. [empty, 0, 0] when no map is
 ## assigned, which the solver reads as uniform 1.0. Capped in resolution like Plow's height LUT.
 func _erodability_lut() -> Array:
-	var empty: Array = [PackedFloat32Array(), 0, 0]
-	if erodability_map == null:
-		return empty
-	var img := erodability_map.get_image()
-	if img == null:
-		push_warning("Pasture3DSim '%s': the Erodability Map has no image data; using uniform erodability." % name)
-		return empty
-	img = img.duplicate() # never mutate the shared resource image
-	if img.is_compressed() and img.decompress() != OK:
-		push_warning("Pasture3DSim '%s': could not decompress the Erodability Map; using uniform erodability." % name)
-		return empty
-	if img.has_mipmaps():
-		img.clear_mipmaps()
-	var w := img.get_width()
-	var h := img.get_height()
-	if maxi(w, h) > ERODABILITY_LUT_MAX:
-		var s := float(ERODABILITY_LUT_MAX) / float(maxi(w, h))
-		w = maxi(1, int(round(w * s)))
-		h = maxi(1, int(round(h * s)))
-		img.resize(w, h, Image.INTERPOLATE_BILINEAR)
-	if w < 2 or h < 2:
-		return empty
-	var data := PackedFloat32Array()
-	data.resize(w * h)
-	for y in range(h):
-		var row := y * w
-		for x in range(w):
-			data[row + x] = img.get_pixel(x, y).get_luminance()
-	return [data, w, h]
+	# The LUT itself is Pasture3DSimBase.erodability_lut (shared with Pasture3DModErosion); only the
+	# wording of the complaint belongs to this node.
+	var r := Pasture3DSimBase.erodability_lut(erodability_map)
+	if r[3] != "":
+		push_warning("Pasture3DSim '%s': the Erodability Map was ignored because %s; using uniform erodability."
+			% [name, r[3]])
+	return [r[0], r[1], r[2]]
 
 
 ## §18: Sim's area mask is EXACT, because the bake's own masker is reachable. `sim_mask_deltas` fed a
