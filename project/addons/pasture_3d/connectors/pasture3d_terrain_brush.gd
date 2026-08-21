@@ -2928,7 +2928,12 @@ func _compile_modifiers(p_extent: String = "") -> Dictionary:
 			var prog: Array = m.material.compile()
 			var ops: PackedInt32Array = prog[0]
 			var mat_sel: PackedFloat32Array = prog[3]
-			if ops.is_empty():
+			# A material still WAITING for its seed surface compiles to nothing, and that is exactly the
+			# bake on which it has to be in the list: the capture is what gives it one. So an empty program
+			# is only a no-op when nobody is listening for the surface.
+			var wants_seed: bool = (m.material.has_method("wants_seed_surface")
+					and m.material.wants_seed_surface())
+			if ops.is_empty() and not wants_seed:
 				continue # a material that compiles to nothing is not a step, it is a no-op
 			# Ask the predicates BEFORE rebasing: both index the material's own selector block by the
 			# ids its own ops carry, and after the rebase those ids point into the combined block.
@@ -2946,6 +2951,15 @@ func _compile_modifiers(p_extent: String = "") -> Dictionary:
 			blk["op_luts"] = prog[2]
 			blk["op_fields"] = prog[4]
 			blk["op_field_meta"] = prog[5]
+			# A material that has to be BUILT from the stack above it asks for the working surface at its own
+			# position in the list. `capture` splits the point run there, which costs one grid conversion --
+			# only for a stack that has one, and only while it is switched on.
+			if wants_seed:
+				var slot := {}
+				blk["capture"] = true
+				blk["out"] = slot
+				step["capture"] = true
+				step["out"] = slot
 			step["sel_base"] = base
 			step["sel_count"] = int(mat_sel.size() / stride)
 			if out["sim"] == null:
@@ -2965,12 +2979,20 @@ func _extent_key(p_min_x: float, p_min_z: float, p_vs: float, p_gw: int, p_gh: i
 
 ## Store what the bake solved, and record which modifiers served stale data. Called after BOTH paths,
 ## because both fill the same `out` dictionaries.
-func _commit_modifier_caches(p_stack: Dictionary, p_extent: String) -> void:
+func _commit_modifier_caches(p_stack: Dictionary, p_extent: String, p_frame: Array = []) -> void:
+	var reseeded := false
 	for step in p_stack["gd"]:
 		if not step.has("out"):
 			continue
 		var out: Dictionary = step["out"]
 		var m = step["mod"]
+		if out.has("surface") and not p_frame.is_empty():
+			# The frame travels with the grid because the two are different rectangles: the grid is the
+			# spline's axis-aligned bounding box, the field is the loop's ORIENTED rect, and on a rotated
+			# loop a plain rescale between them would shear the ridges off their own crest lines.
+			var surf := {"surface": out["surface"], "gw": out.get("gw", 0), "gh": out.get("gh", 0),
+					"frame": p_frame}
+			reseeded = m.material.set_seed_surface(surf) or reseeded
 		if out.has("grid"):
 			m.store_cache(p_extent, {
 				"key": out["key"], "grid": out["grid"],
@@ -2979,7 +3001,17 @@ func _commit_modifier_caches(p_stack: Dictionary, p_extent: String) -> void:
 				"dep": out.get("dep", PackedFloat32Array()),
 				"wet": out.get("wet", PackedFloat32Array()),
 			})
-		m.set_stale(bool(out.get("stale", false)))
+		# Only an EROSION modifier has a staleness flag. Relief steps reach this loop too now that one of
+		# them can ask for a surface, and asking them about staleness would be a crash rather than a
+		# question with an answer.
+		if m.has_method("set_stale"):
+			m.set_stale(bool(out.get("stale", false)))
+	# A material that had never seen a surface stamped NOTHING on this bake, and one whose surface moved
+	# stamped the previous shape. Either way the answer is one more bake, which converges because the
+	# captured surface EXCLUDES the material that reads it -- the second pass captures the same grid, the
+	# hash matches, and nothing more is scheduled.
+	if reseeded:
+		_schedule_refresh()
 
 
 ## Run the compiled stack over the GDScript-side grids. The oracle for the native path in
@@ -3009,11 +3041,33 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 	var i := 0
 	while i < p_steps.size():
 		var step: Dictionary = p_steps[i]
+		if step.get("capture", false):
+			# Mirrors the native path exactly: the brush's own contribution in metres, at THIS step's
+			# position, handed back before the step runs.
+			if in_vals:
+				for k in range(n):
+					var cv: float = vals[k]
+					p_amp[k] = NAN if not is_finite(cv) else (cv if add else cv - p_basey[k])
+				in_vals = false
+			var surf := PackedFloat32Array()
+			surf.resize(n)
+			for k in range(n):
+				surf[k] = p_amp[k]
+			var slot: Dictionary = step["out"]
+			slot["surface"] = surf
+			slot["gw"] = p_ctx["gw"]
+			slot["gh"] = p_ctx["gh"]
+			step["capture"] = false
+			continue
 		if not step["field"]:
 			# Fold the maximal RUN of point modifiers into one pass over the grid, which is what makes
 			# the common stack cost exactly one cell loop.
-			var j := i
-			while j < p_steps.size() and not p_steps[j]["field"]:
+			# The run stops in front of a CAPTURE as well as in front of a field step. Without that the
+			# capture of a step sitting mid-run is never examined at all: the fold jumps straight past it,
+			# and the material it was meant to feed waits for a surface that is never taken.
+			var j := i + 1
+			while (j < p_steps.size() and not p_steps[j]["field"]
+					and not p_steps[j].get("capture", false)):
 				j += 1
 			if in_vals:
 				for k in range(n):

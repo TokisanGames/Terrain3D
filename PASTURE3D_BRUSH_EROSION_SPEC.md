@@ -942,6 +942,53 @@ at 0 and adds the result; nothing reads the property. It is now hidden where it 
 is worse than not shipping it* — and a stack now warns about the mirror-image trap, a first layer set to
 Mul or Min blending against a zero accumulator.
 
+### 9.6 Ridge seeding: growing the cluster out of the ridges the brush already has
+
+Asked for from the editor: *a toggleable ridge pre-pass that edge-detects the ridges of the mound and
+scatters points along them, so the details grow along the existing ridges.*
+
+§9.3 already claimed DLA and erosion "agree structurally", but unseeded that is a claim about STATISTICS
+— both produce branching networks, in unrelated places. Seeded it becomes a claim about the same lines:
+rough in a landform, let erosion carve the drainage, and grow the ridge network onto what erosion
+actually cut. `Pasture3DReliefDLA.ridge_seeding`, off by default.
+
+**The obstacle was that the field is grown inside `compile()`,** which is a pure function of the
+material's own properties — which is what buys free oracle parity (§9.1) and what gate CP asserts. A
+pre-pass needs the surface, and the surface only exists mid-bake, inside the rasteriser.
+
+**Solution: the rasteriser hands it back, at the material's own position in the modifier list.** A relief
+step can now set `capture`, and the runner writes the working surface into the step's `out` dictionary
+BEFORE that step runs — the same reference-type Dictionary a frozen erosion solve already travels through.
+The material grows from it on the NEXT bake, which the brush schedules itself.
+
+Three properties of that position do all the work:
+
+- **It cannot feed itself.** The capture is taken above this material, so its own output is never in its
+  own input. Every other design here would drift — which is the failure the selector's Below Layer source
+  and the host profile's "cannot feed itself" are both already shaped around.
+- **It converges in two bakes.** The second bake captures the same surface, the hash matches, and nothing
+  more is scheduled. Gate CZ asserts the two captures are bitwise identical, which is that claim and the
+  no-drift claim in one measurement.
+- **It costs nothing when off.** `capture` also ENDS a fused point run, so a stack that asks for one pays
+  one extra grid conversion and a stack that does not pays nothing.
+
+**Two bugs worth keeping written down**, because both produced a system that looked wired up and did
+nothing:
+
+1. **A material waiting for its surface compiles to no ops, and an empty program was dropped from the
+   stack** — taking the capture with it, so it waited forever. An empty program is only a no-op when
+   nobody is listening for the surface.
+2. **The capture was tested on the first step of a fused point run.** The runner folds a maximal run of
+   point modifiers into one cell loop and jumps the whole run, so a capture on a step in the MIDDLE of
+   one was never examined. Both evaluators had the bug, identically, because the oracle mirrors the
+   scheduler.
+
+**And one about the growth itself.** Seeding only the coarsest level does nothing: at 32 cells a
+five-armed star is a few pixels wide, and three upscales plus a few thousand particles bury it. Measured,
+a star-seeded field and an unseeded one correlated with the star to **0.53 and 0.51** — the seed was
+inert. Re-reading the surface at EVERY level is what makes the finest branches follow the finest ridges,
+and takes the same measurement to **0.64**.
+
 ---
 
 ## 10. Build order
@@ -954,7 +1001,7 @@ Mul or Min blending against a zero accumulator.
 | **3b — BUILT** | `Pasture3DModErosion`; the field context later selectors read; Live/Frozen and frozen-cache staleness | BX ✅, BY ✅, CA–CE ✅ | 1, 2, 3a |
 | **4 — BUILT** | The manager registry; `Bake All Brushes`; `Register Eroding Brushes`; stale-path warnings | CF ✅, CG ✅, CH ✅, CW ✅ | 3b |
 | **5 — BLOCKED** | Both measurements are done and both came back negative: CK rejected the planned depth correction, CJ showed the uncorrected pipeline mis-routes. The pipeline itself is built and cheap; what remains is §8.1's slope-baseline correction to the coarse stage, which is a solver change | CK ✅, CJ ✅ | 2, 3b |
-| **6 — BUILT** | `Pasture3DReliefDLA` as a baked field op; the `op_fields` / `op_field_meta` wire block and its stack splicing; the Plow's Tile warning generalised from a CRATER test to a loop-sized-op test | CP ✅, CQ ✅, CR ✅, CS ✅, CX ✅ | 1 (to multiply by the host profile) |
+| **6 — BUILT** | `Pasture3DReliefDLA` as a baked field op; the `op_fields` / `op_field_meta` wire block and its stack splicing; the Plow's Tile warning generalised from a CRATER test to a loop-sized-op test; `coverage` / `detail_size`; ridge seeding and the modifier-step `capture` it rides on | CP ✅, CQ ✅, CR ✅, CS ✅, CX ✅, CY ✅, CZ ✅ | 1 (to multiply by the host profile) |
 
 **Phases 1 and 6 were independent of the erosion chain**, and both were taken before it was finished:
 phase 6 landed while phase 5 sat blocked on a solver change, and needed nothing from it. **Phase 5 is
@@ -1016,6 +1063,8 @@ the Sim spec already established.
 | CV ✅ | *(3a fix)* **The same rule, in the one other place the plugin broke it.** `Pasture3DWaterBody` re-hinted its wave-profile dropdown on `profiles_changed`, which the manager emits for every knob on every profile. Three amplitude edits now cost **0 rebuilds**. Lives in this suite because the water suites need a real rendering device and cannot run headless at all. | Two counters, not one: the manager's **3 emissions** are what separate "did not rebuild" from "was never asked". Plus the edits that MUST re-hint — renaming a profile **1**, adding one **1** — and the dropdown itself, which must still list every live profile. The stronger observable also caught a **cold-start rebuild**: the name cache is now primed where the signal is connected. Against the pre-fix code: **3 rebuilds**. |
 | CS ✅ | *(6)* **RUN.** A DLA material under `Mapping = TILE` raises the loop-sized warning, in the same words `CRATER` already used. The predicate generalised from a CRATER test to a loop-sized-op test, so the gate holds BOTH halves of that change: the new material must warn and the old one must still warn. Matched on the sentence an artist reads, not on the predicate. | The spec's `FIT`, which must not warn — a predicate returning true unconditionally would pass every positive assertion here. Plus a FRACTAL, which tiles correctly and must not be warned about under either mapping. |
 | CX ✅ | *(6)* **From the editor, not from the spec.** The massif reached 0.67 of a loop it was allowed 0.96 of, and `particles` — the only lever that moved it — bought 0.05 for 4× the cost while restyling the mountain on the way. Three claims now: it **ARRIVES** (99–100 % of its allowed radius at every setting), `coverage` **RESIZES** (0.50 → 0.98 grows the field **1.93×** against coverage's own 1.96×), and `detail_size` **RESTYLES WITHOUT RESIZING** (**8 %** of size drift while the branch count moves **4.8×**). Radius measured as the r98 of the mass, not as a threshold — the fringe of a blurred dendrite is faint and a threshold reads back whatever level you picked. | The border ring must be **EXACTLY zero** at all five settings. That is the invariant the whole derivation exists to protect and the first thing to break if it drifts — a massif clipped by the field's edge steps at the loop boundary on every FIT-mapped brush. Plus the "measured nothing" guard: a FLAT field would sail through the no-resize claim by never changing size at all. |
+| CY ✅ | *(6)* **A seeded cluster grows along the ridges it was handed.** Fixture is a synthetic five-armed star ridge, because a synthetic pattern is the only kind whose answer is known before the material runs; statistic is the correlation between the finished field and the seed surface. Seeded **0.640** against unseeded **0.513**, a margin of **+0.127**. Determinism restated for the input CP does not cover: two instances, one seed, one surface, bitwise identical. | Two. UNSEEDED, which does NOT score zero and must not be expected to — a blob correlates with a star at 0.51 for free, and only the margin over that is seeding's doing. And a **FLAT** seed surface, which must land on EXACTLY the unseeded number: it does, to the bit. Without that second one the gate would pass on an implementation that merely perturbed the RNG and called the perturbation an effect. |
+| CZ ✅ | *(6)* **The captured surface is the stack ABOVE the material, so it cannot feed itself.** Measured on the GROUND, not by asking the material — by the time a gate can ask, the bake has already handed it a surface. Bake 1 is bitwise the same brush with the material switched off (**0.0000 m**): it stamped nothing while it waited. Bake 2 moves **7.12 m**. The two captures are **bitwise identical**, which is the no-drift claim and the convergence claim in one measurement — the second bake stamps a mountain the first did not, so a capture that included the material's own output would have moved. | Seeding OFF: nothing is captured at all, and that brush's FIRST bake already moves **5.71 m**. Without it a capture that ran unconditionally would pass every assertion above while charging every stack a grid conversion it never asked for. NaN counts as equal to NaN here, because a captured surface is NaN wherever the brush contributes nothing and `NAN != NAN` would report two copies of one grid as different. |
 
 ---
 

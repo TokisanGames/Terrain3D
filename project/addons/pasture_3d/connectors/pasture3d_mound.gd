@@ -266,7 +266,8 @@ func _paint_spline(path: Path3D) -> void:
 		terrain.data.stamp_mound_loop(_layer_id, poly, _clip_aabb, params, _ramp_lut(falloff_curve))
 		# The rasteriser writes each frozen modifier's solve into the `out` dictionary it was handed, so
 		# there is something to collect the moment it returns.
-		_commit_modifier_caches(stack, extent)
+		_commit_modifier_caches(stack, extent,
+				[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
 		return
 
 	# One O(cells) signed distance field replaces the old per-pixel O(edges) polygon distance (×2 for
@@ -367,7 +368,8 @@ func _paint_spline(path: Path3D) -> void:
 		"host_fields": host_fields, "host_measured": host_measured, "host_div": host_div,
 		"extent": extent,
 	})
-	_commit_modifier_caches(stack, extent)
+	_commit_modifier_caches(stack, extent,
+			[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
 
 	for iz in range(gh):
 		var z := min_z + iz * vs

@@ -337,6 +337,11 @@ struct BrushModStep {
 	// THIS grid extent, and `cache_key` the surface it was solved for. `out` is the modifier's own
 	// Dictionary — a reference type, so writing into it here is how the result gets back to GDScript.
 	bool frozen = false;
+	// RELIEF: hand the working surface back BEFORE this step runs, so a material that has to be built
+	// from the stack above it (a ridge-seeded DLA) can see what that stack produced. Deliberately the
+	// surface at THIS step's position and not the finished one -- a material seeded on its own output
+	// would drift, and here it structurally cannot.
+	bool capture = false;
 	// Whether GDScript handed over an `out` slot at all. NOT `out.is_empty()`: the slot arrives EMPTY —
 	// it is what this function fills — so emptiness says nothing about whether anyone is listening.
 	bool has_out = false;
@@ -439,7 +444,15 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			sub["op_fields"] = d.get("op_fields", PackedFloat32Array());
 			sub["op_field_meta"] = d.get("op_field_meta", PackedInt32Array());
 			sub["op_selectors"] = selectors;
-			if (!relief_build(sub, st.prog)) {
+			st.capture = d.get("capture", false);
+			if (st.capture) {
+				st.out = d.get("out", Dictionary());
+			}
+			// An empty program is normally not a step at all. It IS one when the step is also a capture:
+			// a material waiting for the surface this capture will hand it compiles to nothing until it
+			// has one, so dropping it here is what would make it wait forever. Evaluating a zero-op
+			// program costs nothing and contributes nothing, which is the correct behaviour meanwhile.
+			if (!relief_build(sub, st.prog) && !st.capture) {
 				continue;
 			}
 		} else if (kind == "smooth") {
@@ -1091,10 +1104,36 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	bool in_vals = false;
 	size_t si = 0;
 	while (si < steps.size()) {
+		if (steps[si].capture) {
+			// The brush's own contribution in metres, which is what a seeded material wants: it is the
+			// SHAPE, independent of whatever ground the brush was dropped on, so the ridges it finds are
+			// the ones this brush built. Taken from `amp` rather than `vals` for exactly that reason.
+			if (in_vals) {
+				for (size_t k = 0; k < n; k++) {
+					amp[k] = std::isnan(vals[k]) ? NAN
+												 : (add ? (double)vals[k] : (double)vals[k] - (double)basey[k]);
+				}
+				in_vals = false;
+			}
+			PackedFloat32Array surf;
+			surf.resize((int)n);
+			float *sw = surf.ptrw();
+			for (size_t k = 0; k < n; k++) {
+				sw[k] = (float)amp[k];
+			}
+			steps[si].out["surface"] = surf;
+			steps[si].out["gw"] = gw;
+			steps[si].out["gh"] = gh;
+			steps[si].capture = false; // consumed; fall through and run the step normally
+			continue;
+		}
 		if (!steps[si].field) {
 			// Fold the maximal RUN of point modifiers into one pass over the grid.
-			size_t sj = si;
-			while (sj < steps.size() && !steps[sj].field) {
+			// The run stops in front of a CAPTURE as well as in front of a field step: a capture on a
+			// step in the MIDDLE of a run would otherwise never be examined, because the fold jumps the
+			// whole run in one go and only the first step is ever tested.
+			size_t sj = si + 1;
+			while (sj < steps.size() && !steps[sj].field && !steps[sj].capture) {
 				sj++;
 			}
 			if (in_vals) {

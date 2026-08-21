@@ -12,6 +12,8 @@
 #   CR  the C++ op and the GDScript oracle read the same field
 #   CS  a loop-sized material warns under Mapping = Tile
 #   CX  Coverage sizes it, Detail Size styles it, and neither does the other's job
+#   CY  a seeded cluster grows along the ridges it was handed
+#   CZ  the surface it is handed is the stack ABOVE it, so it cannot feed itself
 #
 # CQ IS THE ONE THAT NEEDED THINKING ABOUT, so its design is written out at the gate. In short: no single
 # scalar separates a DLA from both nulls, so it uses two, each with the null it is there to exclude.
@@ -23,6 +25,10 @@ extends Node
 
 const DEMO_DATA := "res://demo/data"
 const SITE_CR := Vector3(300.0, 0.0, 300.0)
+const SITE_CZ := Vector3(600.0, 0.0, 300.0)
+const SITE_CZ_OFF := Vector3(300.0, 0.0, 600.0)
+## Working grid for CY's synthetic seed surface.
+const SEED_G := 129
 const HALF := 60.0
 
 ## The A/B tolerance every relief path in this plugin is held to (PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC §10).
@@ -35,7 +41,7 @@ const RELIEF_M := 8.0
 ## House rule (bench/OceanBench.gd): a GDScript runtime error abandons the function WITHOUT incrementing
 ## the failure count, so a suite that only counts failures can report a clean pass having measured
 ## nothing. Each gate increments `_completed` as its last statement and the verdict requires all of them.
-const GATES := 5
+const GATES := 7
 
 var _fail := 0
 var _completed := 0
@@ -58,6 +64,8 @@ func _ready() -> void:
 	_gate_cr_parity()
 	_gate_cs_tile_warns()
 	_gate_cx_size_and_detail()
+	_gate_cy_seeded_growth()
+	_gate_cz_capture_excludes_itself()
 
 	if _completed != GATES:
 		_fail += 1
@@ -444,6 +452,152 @@ func _gate_cx_size_and_detail() -> void:
 	_completed += 1
 
 
+# --- CY: a seeded cluster grows along the ridges it was handed --------------------------------------
+#
+# Unseeded, DLA invents a trunk wherever its RNG puts one. The point of seeding is that a brush which
+# already HAS ridges — a roughed-in landform, or the drainage an erosion step just carved — gets its
+# branching grown onto those instead of somewhere else. §9.3 claims DLA and erosion "agree structurally";
+# unseeded that is a claim about statistics, and seeded it is a claim about the same lines.
+#
+# The fixture is a five-armed star ridge, because a synthetic pattern is the only kind whose answer is
+# known in advance. The statistic is the correlation between the finished field and the seed surface.
+#
+# CONTROLS, two, and the second is the one that matters:
+#   - UNSEEDED against the same star. It does not score zero and must not be expected to: both are
+#     centre-heavy, so a blob correlates with a star at 0.51 for free. What the gate asserts is the
+#     MARGIN over that, which is the only part seeding is responsible for.
+#   - A FLAT seed surface, which has no ridges in it. It must land on EXACTLY the unseeded number —
+#     bitwise, not approximately. That is what proves the fallback is real and that switching seeding on
+#     changes nothing by itself; a gate without it would pass on an implementation that perturbed the
+#     RNG and called the perturbation an effect.
+func _gate_cy_seeded_growth() -> void:
+	print("\n[CY] a seeded cluster grows along the ridges it was handed:")
+	var star := _star_ridges()
+	var flat := PackedFloat32Array()
+	flat.resize(SEED_G * SEED_G)
+	flat.fill(12.0)
+
+	var plain := _field(_seeded(4, null))
+	var grown := _field(_seeded(4, star))
+	var onflat := _field(_seeded(4, flat))
+	if plain.is_empty() or grown.is_empty() or onflat.is_empty():
+		_fail += 1
+		print("    !! one of the arms compiled to no field; nothing was measured")
+		return
+
+	var base := _agreement(plain, star)
+	var got := _agreement(grown, star)
+	var ctrl := _agreement(onflat, star)
+	print("    seeded on the star ridges : %.3f" % got)
+	print("    CONTROL unseeded          : %.3f  (a blob correlates with a star for free)" % base)
+	print("    CONTROL seeded on a FLAT surface: %.3f" % ctrl)
+	print("    margin seeding is responsible for: %+.3f" % (got - base))
+	if got - base < 0.05:
+		_fail += 1
+		print("    !! the seed is not steering the growth; it is being buried by it")
+	if absf(ctrl - base) > 0.0001:
+		_fail += 1
+		print("    !! a surface with no ridges in it still changed the result, so CY is reading the RNG")
+
+	# Determinism survives seeding — CP's claim, restated for the input CP does not cover.
+	var a := _field(_seeded(4, star))
+	print("    two instances, one seed, one surface: %s"
+			% ["BITWISE IDENTICAL" if _identical(a, grown) else "DIFFER"])
+	if not _identical(a, grown):
+		_fail += 1
+		print("    !! seeding made the growth non-deterministic")
+	_completed += 1
+
+
+# --- CZ: the captured surface is the stack ABOVE it -------------------------------------------------
+#
+# The seed surface arrives from a real bake, captured at the material's own position in the modifier
+# list. Everything rests on WHERE that position is: a material seeded on the finished brush would read
+# its own output and drift a little further every bake, which is the failure the spec keeps designing
+# against everywhere else (a selector's Below Layer source, the host profile's "cannot feed itself").
+#
+# The claim is testable without inspecting any plumbing: bake TWICE. On the first the material has never
+# seen a surface and stamps nothing; on the second it has one and stamps. If the capture included the
+# material's own contribution the two captures would differ — so asserting they are BITWISE IDENTICAL is
+# exactly the no-drift claim, and it is also the convergence claim, because an unchanged hash is what
+# stops the brush scheduling a third bake.
+#
+# CONTROL. Seeding OFF: nothing is captured at all and the material stamps on the FIRST bake. Without it
+# a capture that ran unconditionally would pass every assertion above while costing every stack a grid
+# conversion it never asked for.
+func _gate_cz_capture_excludes_itself() -> void:
+	print("\n[CZ] the captured surface is the stack above, not the finished brush:")
+	var mound = _make_seeded_mound("CZ", SITE_CZ, true)
+	if mound == null:
+		return
+	var probes := _lattice(SITE_CZ)
+	var grow := mound.modifiers[1] as Pasture3DModRelief
+	var dla: Pasture3DReliefDLA = grow.material
+
+	# The reference: the same brush with the seeded material switched OFF, which is what "it stamped
+	# nothing" has to be measured against. Measured on the ground rather than by asking the material,
+	# because by the time the gate can ask, the bake has already handed it a surface.
+	grow.enabled = false
+	mound._refresh_owner(mound._layer_owner, false, [])
+	var rough_only := _snapshot(probes)
+	grow.enabled = true
+
+	mound._refresh_owner(mound._layer_owner, false, [])
+	var after_1 := _snapshot(probes)
+	var cap_1: PackedFloat32Array = dla._seed.get("surface", PackedFloat32Array())
+
+	mound._refresh_owner(mound._layer_owner, false, [])
+	var after_2 := _snapshot(probes)
+	var cap_2: PackedFloat32Array = dla._seed.get("surface", PackedFloat32Array())
+
+	print("    bake 1 captured %d cells; it differs from the rough-only brush by %.4f m"
+			% [cap_1.size(), _max_diff_arr(after_1, rough_only)])
+	print("    bake 2 differs from bake 1 by %.4f m" % _max_diff_arr(after_2, after_1))
+	if cap_1.is_empty():
+		_fail += 1
+		print("    !! nothing was captured; the material can never be seeded")
+		_completed += 1
+		return
+	if _max_diff_arr(after_1, rough_only) > 0.001:
+		_fail += 1
+		print("    !! it stamped a mountain before it had a surface, which the next bake would replace")
+	if _max_diff_arr(after_2, after_1) < 0.5:
+		_fail += 1
+		print("    !! the second bake changed nothing; the seeded material contributed no relief")
+
+	# THE NO-DRIFT CLAIM. The second bake stamps a mountain the first one did not, so if the capture
+	# included this material's own contribution the two captures would differ. They must not.
+	print("    the two captures are %s"
+			% ["BITWISE IDENTICAL" if _identical(cap_1, cap_2) else "DIFFERENT"])
+	if not _identical(cap_1, cap_2):
+		_fail += 1
+		print("    !! the capture moved once the material started stamping, so it is reading its own\n"
+			+ "       output " + "\u2014" + " that drifts, and it never converges")
+
+	# CONTROL
+	var off = _make_seeded_mound("CZoff", SITE_CZ_OFF, false)
+	if off == null:
+		return
+	var off_dla: Pasture3DReliefDLA = (off.modifiers[1] as Pasture3DModRelief).material
+	var off_probes := _lattice(SITE_CZ_OFF)
+	(off.modifiers[1] as Pasture3DModRelief).enabled = false
+	off._refresh_owner(off._layer_owner, false, [])
+	var off_rough := _snapshot(off_probes)
+	(off.modifiers[1] as Pasture3DModRelief).enabled = true
+	off._refresh_owner(off._layer_owner, false, [])
+	var off_first := _snapshot(off_probes)
+	print("    CONTROL seeding off: captured %d cells, and its FIRST bake already moves %.4f m"
+			% [off_dla._seed.get("surface", PackedFloat32Array()).size(),
+			_max_diff_arr(off_first, off_rough)])
+	if not off_dla._seed.is_empty():
+		_fail += 1
+		print("    !! a stack that never asked for a surface was charged for one")
+	if _max_diff_arr(off_first, off_rough) < 0.5:
+		_fail += 1
+		print("    !! an unseeded material stamped nothing either, so CZ's first-bake test is vacuous")
+	_completed += 1
+
+
 # --- helpers ----------------------------------------------------------------------------------------
 
 
@@ -507,6 +661,92 @@ func _fractal() -> Pasture3DReliefFractal:
 	return f
 
 
+## A DLA at CY's working size, optionally handed a seed surface. `null` leaves seeding off entirely,
+## which is the unseeded control rather than "seeding on with nothing supplied".
+func _seeded(p_seed: int, p_surface) -> Pasture3DReliefDLA:
+	var m := _dla(p_seed, 256)
+	if p_surface == null:
+		return m
+	m.ridge_seeding = true
+	m.set_seed_surface({"surface": p_surface, "gw": SEED_G, "gh": SEED_G,
+			"frame": [0.0, 0.0, 1.0, 0.0, 64.0, 64.0, -64.0, -64.0, 1.0]})
+	return m
+
+
+## A five-armed star ridge: a synthetic stand-in for "the ridges the brush already has", and the only
+## kind of fixture whose right answer is known before the material runs.
+func _star_ridges() -> PackedFloat32Array:
+	var g := PackedFloat32Array()
+	g.resize(SEED_G * SEED_G)
+	var c := float(SEED_G - 1) * 0.5
+	for y in range(SEED_G):
+		for x in range(SEED_G):
+			var dx := float(x) - c
+			var dy := float(y) - c
+			var r := sqrt(dx * dx + dy * dy) / c
+			var arm := pow(maxf(cos(atan2(dy, dx) * 5.0), 0.0), 6.0)
+			g[y * SEED_G + x] = 40.0 * arm * maxf(0.0, 1.0 - r) + 8.0 * maxf(0.0, 1.0 - r * 1.4)
+	return g
+
+
+## Correlation between a finished field and the surface it was seeded from, both read on the field's own
+## square. Nearest-neighbour on purpose: an interpolated read would blur the star's arms and flatter the
+## agreement for a reason that has nothing to do with the growth.
+func _agreement(p_field: PackedFloat32Array, p_seed: PackedFloat32Array) -> float:
+	var n := 256
+	var a := PackedFloat32Array()
+	var b := PackedFloat32Array()
+	for y in range(n):
+		var sy := int(float(y) / float(n - 1) * float(SEED_G - 1))
+		for x in range(n):
+			var sx := int(float(x) / float(n - 1) * float(SEED_G - 1))
+			a.append(p_field[y * n + x])
+			b.append(p_seed[sy * SEED_G + sx])
+	return _pearson(a, b)
+
+
+func _pearson(a: PackedFloat32Array, b: PackedFloat32Array) -> float:
+	var n := float(a.size())
+	var ma := 0.0
+	var mb := 0.0
+	for i in range(a.size()):
+		ma += a[i]
+		mb += b[i]
+	ma /= n
+	mb /= n
+	var num := 0.0
+	var da := 0.0
+	var db := 0.0
+	for i in range(a.size()):
+		var u := a[i] - ma
+		var v := b[i] - mb
+		num += u * v
+		da += u * u
+		db += v * v
+	return num / maxf(sqrt(da * db), 1.0e-9)
+
+
+## A Mound running `fractal -> DLA`, which is the stack ridge seeding exists for: the fractal puts ridges
+## on the brush and the DLA grows its branching onto them.
+func _make_seeded_mound(p_name: String, p_at: Vector3, p_seeding: bool):
+	var mound = _make_mound(p_name, p_at)
+	if mound == null:
+		return null
+	var rough := Pasture3DModRelief.new()
+	rough.label = "Rough"
+	rough.material = _fractal()
+	rough.strength = RELIEF_M
+	var dla := _dla(5, 256)
+	dla.ridge_seeding = p_seeding
+	var grow := Pasture3DModRelief.new()
+	grow.label = "DLA"
+	grow.material = dla
+	grow.strength = RELIEF_M
+	var stack: Array[Pasture3DBrushModifier] = [rough, grow]
+	mound.modifiers = stack
+	return mound
+
+
 func _dla(p_seed: int, p_res: int) -> Pasture3DReliefDLA:
 	var m := Pasture3DReliefDLA.new()
 	m.resolution = p_res
@@ -529,11 +769,16 @@ func _clock_grown(p_res: int) -> PackedFloat32Array:
 	return m._mass(m._rasterise(m._grow(rng, n0, p_res), p_res), p_res)
 
 
+## Bitwise-equal, with NaN counted as equal to NaN. A captured brush surface is NaN wherever the brush
+## contributes nothing, and `NAN != NAN` is true — so the plain comparison reports two copies of the
+## same grid as different, which is a gate that fails on a working implementation.
 func _identical(a: PackedFloat32Array, b: PackedFloat32Array) -> bool:
 	if a.size() != b.size():
 		return false
 	for i in range(a.size()):
-		if a[i] != b[i]:
+		if a[i] == b[i]:
+			continue
+		if is_finite(a[i]) or is_finite(b[i]):
 			return false
 	return true
 

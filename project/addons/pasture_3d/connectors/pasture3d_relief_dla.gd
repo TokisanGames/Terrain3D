@@ -70,6 +70,32 @@ extends Pasture3DReliefMaterial
 		seed = v
 		_touch()
 
+@export_group("Ridge Seeding")
+## Grow the cluster OUT OF the ridges already on the brush instead of out of a single point in the
+## middle. The host hands this material the surface the modifiers ABOVE it produced, the convex ridge
+## lines in it become the cluster's starting skeleton, and the walk decorates those rather than inventing
+## its own trunk somewhere else.
+##
+## The workflow it exists for is `Relief → Erosion → DLA`: rough in a landform, let erosion carve the
+## drainage, then grow the ridge network along what erosion actually cut. A ridge network is the dual of
+## a drainage network, so the two agree structurally — but only if the DLA is told where the drainage
+## went, which unseeded it never is.
+##
+## NOTE the surface arrives from the PREVIOUS bake, exactly as a frozen erosion solve does, so turning
+## this on takes two bakes to settle. The brush schedules the second one itself. It reads the modifiers
+## above this one and never this material's own output, so it cannot feed itself.
+@export var ridge_seeding: bool = false:
+	set(v):
+		ridge_seeding = v
+		_touch()
+## How much of the seeded surface counts as ridge, as a fraction of the cells inside the mountain. Small
+## picks out only the sharpest crest lines; large seeds broad shoulders too and leaves the walk less to
+## invent.
+@export_range(0.01, 0.30, 0.005) var ridge_amount: float = 0.05:
+	set(v):
+		ridge_amount = clampf(v, 0.01, 0.30)
+		_touch()
+
 @export_group("Massing")
 ## How many times the skeleton is blurred and summed. Each level roughly doubles the radius, so this is
 ## the number of scales the massif is built from, not a quality slider.
@@ -95,6 +121,12 @@ extends Pasture3DReliefMaterial
 # `output_curve` all call _touch() and so invalidate the compiled program, but none of them changes a
 # single cell of the cluster — and regrowing a 512² DLA because someone dragged a strength slider is the
 # difference between an editable material and an unusable one.
+# The surface the host captured from the modifiers ABOVE this one, in the brush's own metres, plus the
+# frame needed to map it onto the field's loop-normalised square. Empty until a bake has handed one over.
+# NOT saved: it is derived from the rest of the stack, and storing it would let a stale copy travel with
+# the .tres and quietly seed the wrong mountain.
+var _seed: Dictionary = {}
+var _seed_hash := 0
 var _dla_key := ""
 var _dla_field := PackedFloat32Array()
 var _dla_n := 0
@@ -160,16 +192,46 @@ func _particles() -> int:
 
 
 func _build() -> void:
+	# Seeding on and nothing handed over yet: emit NOTHING rather than grow an unseeded mountain the next
+	# bake would throw away. The brush warns, captures the surface on this bake, and comes straight back.
+	if ridge_seeding and _seed.is_empty():
+		return
 	var f := _field()
 	if f.is_empty():
 		return
 	_emit(Op.DLA, Blend.ADD, [1.0, _bake_field(f, _dla_n, _dla_n)])
 
 
+## True when this material is waiting on the host to hand it a surface to seed from. The host asks before
+## every bake, and captures only when something says yes — so an unseeded DLA costs nothing.
+func wants_seed_surface() -> bool:
+	return ridge_seeding
+
+
+## Hand over the surface the modifiers above this one produced. Returns true when it DIFFERS from the one
+## already held, which is the host's signal that the field has to be regrown and the bake repeated.
+##
+## Hashing the grid rather than tracking what fed it is the same decision `brush_mod_erosion_key` makes
+## for a frozen solve, for the same reason: the spline, the shape properties and every modifier above are
+## all in the grid, and none of them can move without moving this.
+func set_seed_surface(p_surface: Dictionary) -> bool:
+	var g: PackedFloat32Array = p_surface.get("surface", PackedFloat32Array())
+	var h := 0
+	if not g.is_empty():
+		h = hash(g) ^ (hash(p_surface.get("gw", 0)) * 31) ^ (hash(p_surface.get("frame", [])) * 131)
+	if h == _seed_hash:
+		return false
+	_seed = p_surface
+	_seed_hash = h
+	_touch()
+	return true
+
+
 ## The normalised 0..1 field, grown on demand and cached on the growth inputs.
 func _field() -> PackedFloat32Array:
-	var key := "%d|%d|%d|%.4f|%.4f|%d|%.4f|%.4f|%.4f" % [seed, resolution, hierarchy_levels, detail_size,
-			wander, blur_levels, blur_growth, profile_power, coverage]
+	var key := "%d|%d|%d|%.4f|%.4f|%d|%.4f|%.4f|%.4f|%d|%.4f|%d" % [seed, resolution, hierarchy_levels,
+			detail_size, wander, blur_levels, blur_growth, profile_power, coverage,
+			1 if ridge_seeding else 0, ridge_amount, _seed_hash]
 	if key == _dla_key and not _dla_field.is_empty():
 		return _dla_field
 	var rng := RandomNumberGenerator.new()
@@ -208,15 +270,24 @@ func _grow(rng: RandomNumberGenerator, p_n0: int, p_res: int) -> Array:
 	while probe < p_res:
 		probe *= 2
 		rounds += 1
-	var xs := PackedFloat32Array([float(n) * 0.5])
-	var ys := PackedFloat32Array([float(n) * 0.5])
-	var parents := PackedInt32Array([-1])
+	var xs := PackedFloat32Array()
+	var ys := PackedFloat32Array()
+	var parents := PackedInt32Array()
 	# `owner[cell]` is the node index that put material in that cell, which is how a stuck particle finds
 	# out what it stuck TO. -1 is empty.
 	var owner := PackedInt32Array()
 	owner.resize(n * n)
 	owner.fill(-1)
-	owner[int(n * 0.5) * n + int(n * 0.5)] = 0
+	# The starting skeleton: the ridges the host handed over, or a single point in the middle. Seeded, the
+	# cluster is a FOREST rather than a tree -- separate crest lines have no reason to be connected, and
+	# nothing downstream needs them to be (a parentless node rasterises as a point and is skipped by the
+	# upscale's midpoint pass).
+	var seeded := _seed_ridges(n, xs, ys, parents, owner)
+	if not seeded:
+		xs.append(float(n) * 0.5)
+		ys.append(float(n) * 0.5)
+		parents.append(-1)
+		owner[int(n * 0.5) * n + int(n * 0.5)] = 0
 
 	var level := 0
 	while true:
@@ -232,7 +303,133 @@ func _grow(rng: RandomNumberGenerator, p_n0: int, p_res: int) -> Array:
 		n *= 2
 		level += 1
 		owner = _upscale(rng, n, xs, ys, parents)
+		# Re-seed at every scale, not only the coarsest. Seeding once at level 0 puts the ridge lines on a
+		# 32-cell grid where five arms are a few pixels wide, and three upscales plus a few thousand
+		# particles bury them: measured, a star-shaped seed and no seed at all produced fields that
+		# correlated with the star to 0.53 and 0.51 -- the seed was doing nothing. Re-reading the surface at
+		# each level is what makes the finest branches follow the finest ridges.
+		if seeded:
+			_seed_ridges(n, xs, ys, parents, owner)
 	return [xs, ys, parents]
+
+
+## Place the starting cluster on the ridge lines of the captured surface. False when there is no surface,
+## or nothing in it reads as a ridge, and the caller falls back to a single central seed.
+##
+## The measure is the negative Laplacian — how far a cell stands above the mean of its four neighbours —
+## which is positive on a crest and negative in a valley. Thresholded by QUANTILE rather than by a height,
+## because the surfaces this runs on differ by orders of magnitude in relief (a roughed-in fractal, an
+## eroded landform, a bare dome) and a fixed threshold would seed everything on one and nothing on the
+## next.
+func _seed_ridges(n: int, xs: PackedFloat32Array, ys: PackedFloat32Array, parents: PackedInt32Array,
+		owner: PackedInt32Array) -> bool:
+	if not ridge_seeding or _seed.is_empty():
+		return false
+	var h := _sample_seed(n)
+	if h.is_empty():
+		return false
+	var c := float(n) * 0.5
+	var limit := _grow_extent(n)
+	var ridge := PackedFloat32Array()
+	ridge.resize(n * n)
+	ridge.fill(-INF)
+	var live := PackedFloat32Array()
+	for y in range(1, n - 1):
+		for x in range(1, n - 1):
+			if sqrt(pow(float(x) - c, 2.0) + pow(float(y) - c, 2.0)) > limit:
+				continue
+			var i := y * n + x
+			var v := h[i]
+			if not is_finite(v):
+				continue
+			var ring := 0.0
+			var k := 0
+			for d in [-1, 1, -n, n]:
+				var nv := h[i + d]
+				if is_finite(nv):
+					ring += nv
+					k += 1
+			if k == 0:
+				continue
+			ridge[i] = v - ring / float(k)
+			live.append(ridge[i])
+	if live.size() < 16:
+		return false
+	live.sort()
+	# A crest has to actually STAND UP. On a surface with no relief at all the quantile still returns a
+	# number, and without this the material would seed a ring of numerical noise and call it a ridge.
+	var cut: float = live[clampi(int(float(live.size()) * (1.0 - ridge_amount)), 0, live.size() - 1)]
+	if cut <= 0.0:
+		return false
+	for y in range(1, n - 1):
+		for x in range(1, n - 1):
+			var i := y * n + x
+			if ridge[i] < cut:
+				continue
+			if owner[i] >= 0:
+				continue # already cluster, from the upscale of a coarser level
+			owner[i] = xs.size()
+			xs.append(float(x))
+			ys.append(float(y))
+			parents.append(-1)
+	return not xs.is_empty()
+
+
+## The captured surface resampled onto the level-0 grid, through the LOOP FRAME rather than by a plain
+## rescale: the bake grid is the spline's axis-aligned bounding box while the field is the loop's ORIENTED
+## rectangle, and on a rotated loop those are different squares. NaN outside the brush, which the ridge
+## measure skips.
+func _sample_seed(n: int) -> PackedFloat32Array:
+	var g: PackedFloat32Array = _seed.get("surface", PackedFloat32Array())
+	var gw: int = _seed.get("gw", 0)
+	var gh: int = _seed.get("gh", 0)
+	var frame: Array = _seed.get("frame", [])
+	if g.size() != gw * gh or gw < 2 or gh < 2 or frame.size() < 9:
+		return PackedFloat32Array()
+	var cx: float = frame[0]
+	var cz: float = frame[1]
+	var fcos: float = frame[2]
+	var fsin: float = frame[3]
+	var ex: float = frame[4]
+	var ez: float = frame[5]
+	var min_x: float = frame[6]
+	var min_z: float = frame[7]
+	var vs: float = frame[8]
+	if vs <= 0.0:
+		return PackedFloat32Array()
+	var out := PackedFloat32Array()
+	out.resize(n * n)
+	for y in range(n):
+		var nv := (float(y) / float(n - 1)) * 2.0 - 1.0
+		for x in range(n):
+			var nu := (float(x) / float(n - 1)) * 2.0 - 1.0
+			# loop-local metres, then back out to world through the frame's rotation
+			var lx := nu * ex
+			var lz := nv * ez
+			var wx := cx + lx * fcos - lz * fsin
+			var wz := cz + lx * fsin + lz * fcos
+			out[y * n + x] = _bilinear(g, gw, gh, (wx - min_x) / vs, (wz - min_z) / vs)
+	return out
+
+
+## Bilinear read with NaN propagation: a cell whose neighbourhood is partly outside the brush must read
+## NaN, not a value averaged against nothing.
+func _bilinear(g: PackedFloat32Array, gw: int, gh: int, fx: float, fy: float) -> float:
+	if fx < 0.0 or fy < 0.0 or fx > float(gw - 1) or fy > float(gh - 1):
+		return NAN
+	var x0 := int(fx)
+	var y0 := int(fy)
+	var x1 := mini(x0 + 1, gw - 1)
+	var y1 := mini(y0 + 1, gh - 1)
+	var tx := fx - float(x0)
+	var ty := fy - float(y0)
+	var a := g[y0 * gw + x0]
+	var b := g[y0 * gw + x1]
+	var cc := g[y1 * gw + x0]
+	var d := g[y1 * gw + x1]
+	if not (is_finite(a) and is_finite(b) and is_finite(cc) and is_finite(d)):
+		return NAN
+	return (a * (1.0 - tx) + b * tx) * (1.0 - ty) + (cc * (1.0 - tx) + d * tx) * ty
 
 
 ## One round of aggregation on an n x n grid, capped at `p_frac` of the level's allowed reach.
@@ -523,6 +720,9 @@ func _box_blur(p_src: PackedFloat32Array, n: int, r: int) -> PackedFloat32Array:
 
 
 func _configuration_warning() -> String:
+	if ridge_seeding and _seed.is_empty():
+		return ("Relief DLA is seeding from the brush's ridges but has not been handed a surface yet. "
+			+ "It stamps nothing until the next bake, which the brush schedules itself.")
 	# Branch spacing measured in CELLS, not in fractions: below about two cells apart the grid cannot hold
 	# the branches separately and the detail control silently stops doing anything.
 	var spacing := detail_size * _grow_extent(_grid_size())
