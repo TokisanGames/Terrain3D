@@ -2944,6 +2944,8 @@ func _compile_modifiers(p_extent: String = "") -> Dictionary:
 			blk["ops"] = rebased
 			blk["op_params"] = prog[1]
 			blk["op_luts"] = prog[2]
+			blk["op_fields"] = prog[4]
+			blk["op_field_meta"] = prog[5]
 			step["sel_base"] = base
 			step["sel_count"] = int(mat_sel.size() / stride)
 			if out["sim"] == null:
@@ -3261,17 +3263,23 @@ func _publish_erosion_fields(p_before: PackedFloat32Array, p_after: PackedFloat3
 	p_ctx["sim_fields"] = [flow, ero, dep, wet]
 
 
-## True when the material emits at least one CRATER op. Radial ops read the loop-normalised nu,nv, which
-## every mapping mode derives from the same oriented frame, so this is only a warning hook for hosts whose
-## mapping actually changes what a crater does.
-func _relief_has_crater_op(mat: Pasture3DReliefMaterial) -> bool:
+## The name of the first LOOP-SIZED op the material emits, or "" if it has none. These are the ops that
+## map ONCE onto the loop's oriented rectangle instead of tiling through world XZ: CRATER, which reads the
+## normalised radius, and DLA, which bilinear-samples its baked field across the same rectangle.
+##
+## Every mapping mode derives nu,nv from that one oriented frame, so this is purely a warning hook for
+## hosts whose mapping can actually repeat the loop -- the Plow. The modifier stack always evaluates at
+## loop-normalised coordinates and so has nothing to warn about.
+func _relief_loop_sized_op(mat: Pasture3DReliefMaterial) -> String:
 	if mat == null:
-		return false
+		return ""
 	var ops: PackedInt32Array = mat.compile()[0]
 	for i in range(0, ops.size(), Pasture3DReliefMaterial.OP_STRIDE):
 		if ops[i] == Pasture3DReliefMaterial.Op.CRATER:
-			return true
-	return false
+			return "Crater"
+		if ops[i] == Pasture3DReliefMaterial.Op.DLA:
+			return "DLA"
+	return ""
 
 
 ## Shortest repeat distance, in metres, over the ops that have one (DUNES wavelength, FURROWS spacing —

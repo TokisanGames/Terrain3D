@@ -14,7 +14,7 @@ extends Resource
 ## Op ids — MUST stay in sync with ReliefOpType in src/pasture_3d_relief_ops.h.
 enum Op {
 	CONST = 0, FBM = 1, RIDGED = 2, BILLOW = 3, DUNES = 4, FURROWS = 5, CRATER = 6, SCREE = 7,
-	WARP = 8, TERRACE = 9, STRATIFY = 10, CLAMP = 11, CURVE = 12,
+	WARP = 8, TERRACE = 9, STRATIFY = 10, CLAMP = 11, CURVE = 12, DLA = 13,
 }
 ## How an op's value combines into the accumulator. PROFILE ops ignore this.
 enum Blend { ADD = 0, SUB = 1, MUL = 2, MAX = 3, MIN = 4, REPLACE = 5 }
@@ -46,6 +46,12 @@ enum BandSource {
 const BAND_RANGE_LO := 7
 const BAND_RANGE_HI := 8
 const CURVE_LUT_N := 256 # samples per baked Curve, one contiguous block per CURVE op
+## Baked 2D FIELDS (spec section 9.1). The Curve LUT idea one dimension up: an op that cannot be
+## point-evaluated grows its grid ONCE per compile in GDScript and stores a slot index, and both
+## evaluators bilinear-sample the identical bytes. Unlike a LUT the blocks vary in size, so each slot
+## carries a header: [offset into _fields, width, height].
+const FIELD_META_STRIDE := 3
+const DLA_FIELD_SLOT := 1 # param slot of a DLA op's field index (slot 0 is its amplitude)
 ## Depth of hollow, in metres over one cell, at which SCREE's toe deposition reaches full strength.
 ## Sync with RELIEF_SCREE_TOE_FULL_M in src/pasture_3d_relief_ops.h — see _scree.
 const SCREE_TOE_FULL_M := 0.25
@@ -90,6 +96,8 @@ const SCREE_TOE_FULL_M := 0.25
 var _ops := PackedInt32Array()
 var _params := PackedFloat32Array()
 var _luts := PackedFloat32Array() # concatenated CURVE_LUT_N blocks, indexed by a CURVE op's slot
+var _fields := PackedFloat32Array() # concatenated 2D field blocks, indexed through _field_meta
+var _field_meta := PackedInt32Array() # stride-3 [offset, w, h], indexed by a field op's slot
 var _selectors := PackedFloat32Array() # stride-8 blocks, indexed by an op's selector_id
 var _noise: Array = []
 var _dirty := true
@@ -102,16 +110,20 @@ func _touch() -> void:
 	emit_changed()
 
 
-## Compile to the flat op program, memoised until _touch(). Returns [ops, params, luts, selectors].
-## Called ONCE per bake by the plow, never per cell.
+## Compile to the flat op program, memoised until _touch().
+## Returns [ops, params, luts, selectors, fields, field_meta]. Called ONCE per bake by the plow, never
+## per cell - which is what lets a field op (DLA) grow a whole grid in here.
 func compile() -> Array:
 	if _dirty:
 		if _building:
 			push_warning("Pasture3DReliefMaterial: cycle detected in a relief stack; skipping '%s'." % resource_path)
-			return [PackedInt32Array(), PackedFloat32Array(), PackedFloat32Array(), PackedFloat32Array()]
+			return [PackedInt32Array(), PackedFloat32Array(), PackedFloat32Array(), PackedFloat32Array(),
+					PackedFloat32Array(), PackedInt32Array()]
 		_ops.clear()
 		_params.clear()
 		_luts.clear()
+		_fields.clear()
+		_field_meta.clear()
 		_selectors.clear()
 		_noise.clear()
 		_building = true
@@ -131,14 +143,14 @@ func compile() -> Array:
 			_emit(Op.CURVE, Blend.ADD, [_bake_curve(output_curve)])
 		_building = false
 		_dirty = false
-	return [_ops, _params, _luts, _selectors]
+	return [_ops, _params, _luts, _selectors, _fields, _field_meta]
 
 
-## Compiled program plus the parallel noise table. Only Pasture3DReliefStack needs the noise table (to
-## splice a child's program into its own); the plow uses compile() and lets C++ rebuild the noise.
+## Compiled program plus the parallel noise table, APPENDED so every index compile() defines still
+## holds. Only Pasture3DReliefStack needs the noise table (to splice a child's program into its own);
+## the plow uses compile() and lets C++ rebuild the noise.
 func _program() -> Array:
-	compile()
-	return [_ops, _params, _luts, _selectors, _noise]
+	return compile() + [_noise]
 
 
 ## Every Pasture3DSimResult this material's selectors read, in compile order and possibly with repeats.
@@ -214,10 +226,26 @@ func _bake_curve(c: Curve) -> int:
 	return slot
 
 
-## GENERATOR ops (ids 0..7) compute a value and blend it into the accumulator, and by invariant carry
+## Append a baked 2D field and return its slot index (the value a field op stores in DLA_FIELD_SLOT).
+## `p_data` is row-major, w*h, and is expected to be normalised by its producer - nothing here rescales
+## it, because a field whose meaning depended on where it was spliced would be untestable.
+func _bake_field(p_data: PackedFloat32Array, w: int, h: int) -> int:
+	var slot := _field_meta.size() / FIELD_META_STRIDE
+	_field_meta.append(_fields.size())
+	_field_meta.append(w)
+	_field_meta.append(h)
+	_fields.append_array(p_data)
+	return slot
+
+
+## GENERATOR ops compute a value and blend it into the accumulator, and by invariant carry
 ## their amplitude in param slot 0. DOMAIN (WARP) and PROFILE ops do neither. Mirrored in C++.
+##
+## DLA is listed separately rather than folded into the range: the ids are a WIRE FORMAT shared with
+## src/pasture_3d_relief_ops.h, so a new generator appends at the end and the predicate widens, rather
+## than every id shifting to keep one comparison tidy.
 static func _is_generator(op: int) -> bool:
-	return op >= Op.CONST and op <= Op.SCREE
+	return (op >= Op.CONST and op <= Op.SCREE) or op == Op.DLA
 
 
 ## Does this material predominantly RAISE the ground? Drives the plow's Add Water raise check
@@ -405,6 +433,9 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 				val = _furrows(u, v, _params, p, _noise[i])
 			Op.CRATER:
 				val = _crater(nu, nv, _params, p)
+			Op.DLA:
+				# Loop-normalised, exactly like CRATER: the cluster maps once onto the oriented rectangle.
+				val = _sample_field(int(_params[p + DLA_FIELD_SLOT]), nu, nv) * _params[p]
 			Op.SCREE:
 				val = _scree(u, v, curv, gx, gz, _params, p, _noise[i])
 			_:
@@ -531,6 +562,37 @@ func _sample_lut(slot: int, x: float) -> float:
 		return _luts[base + CURVE_LUT_N - 1]
 	var frac := f - float(i0)
 	return _luts[base + i0] * (1.0 - frac) + _luts[base + i0 + 1] * frac
+
+
+## Bilinear read out of a baked 2D field block, in LOOP-NORMALISED coordinates: nu,nv are +/-1 at the
+## fitted rect's edge, so they map onto the field's [0,1]x[0,1] extent. Outside that, and for a slot
+## that does not exist, the field reads 0 - a defined nothing, so a mis-spliced slot shows up as the op
+## contributing nothing rather than as garbage.
+## Mirrors relief_sample_field in C++; gate CR holds the two to 1e-4.
+func _sample_field(slot: int, nu: float, nv: float) -> float:
+	var m := slot * FIELD_META_STRIDE
+	if slot < 0 or m + FIELD_META_STRIDE > _field_meta.size():
+		return 0.0
+	var base := _field_meta[m]
+	var w := _field_meta[m + 1]
+	var h := _field_meta[m + 2]
+	if w < 2 or h < 2 or base < 0 or base + w * h > _fields.size():
+		return 0.0
+	var fx := (nu * 0.5 + 0.5) * float(w - 1)
+	var fy := (nv * 0.5 + 0.5) * float(h - 1)
+	if fx < 0.0 or fy < 0.0 or fx > float(w - 1) or fy > float(h - 1):
+		return 0.0
+	var x0 := int(fx)
+	var y0 := int(fy)
+	var x1 := mini(x0 + 1, w - 1)
+	var y1 := mini(y0 + 1, h - 1)
+	var tx := fx - float(x0)
+	var ty := fy - float(y0)
+	var a := _fields[base + y0 * w + x0]
+	var b := _fields[base + y0 * w + x1]
+	var c := _fields[base + y1 * w + x0]
+	var d := _fields[base + y1 * w + x1]
+	return (a * (1.0 - tx) + b * tx) * (1.0 - ty) + (c * (1.0 - tx) + d * tx) * ty
 
 
 ## Quantise x in [0,1] into `steps` bands. `hardness` 0 = untouched (identity), 1 = flat benches with

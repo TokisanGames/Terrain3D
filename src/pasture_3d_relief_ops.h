@@ -33,6 +33,7 @@ enum ReliefOpType {
 	RELIEF_OP_STRATIFY = 10,
 	RELIEF_OP_CLAMP = 11,
 	RELIEF_OP_CURVE = 12,
+	RELIEF_OP_DLA = 13,
 };
 
 // Blend ids — sync with Pasture3DReliefMaterial.Blend. Prefixed because MAX/MIN are godot-cpp macros.
@@ -55,6 +56,15 @@ constexpr int RELIEF_FLAG_CLAMP = 2; // bit1
 constexpr int RELIEF_FLAG_BAND_SHIFT = 2;
 constexpr int RELIEF_FLAG_BAND_MASK = 3 << RELIEF_FLAG_BAND_SHIFT;
 constexpr int RELIEF_CURVE_LUT_N = 256; // samples per baked Curve, one contiguous block per CURVE op
+// Baked 2D FIELDS (PASTURE3D_BRUSH_EROSION_SPEC.md 9.1). The Curve LUT idea one dimension up, for ops
+// that CANNOT be point-evaluated: GDScript grows the grid once per compile, writes it into `op_fields`,
+// and both evaluators bilinear-sample the identical bytes. That is why DLA has no C++ implementation to
+// keep in step with the oracle -- there is one implementation and two readers.
+//
+// Unlike a LUT the blocks vary in size, so `op_field_meta` carries a stride-3 header per slot:
+// [offset into op_fields, width, height].
+constexpr int RELIEF_FIELD_META_STRIDE = 3;
+constexpr int RELIEF_DLA_FIELD_SLOT = 1; // param slot of a DLA op's field index (slot 0 is amplitude)
 // Hollow depth, in metres over one cell, at which SCREE's toe deposition reaches full strength. Sync with
 // Pasture3DReliefMaterial.SCREE_TOE_FULL_M — see the note on relief_scree.
 constexpr double RELIEF_SCREE_TOE_FULL_M = 0.25;
@@ -180,6 +190,8 @@ struct ReliefProgram {
 	PackedInt32Array ops;
 	PackedFloat32Array params;
 	PackedFloat32Array luts; // concatenated RELIEF_CURVE_LUT_N blocks, indexed by a CURVE op's slot
+	PackedFloat32Array fields; // concatenated 2D field blocks, indexed through field_meta
+	PackedInt32Array field_meta; // stride-3 [offset, w, h], indexed by a field op's slot
 	PackedFloat32Array selectors; // stride-8 blocks, indexed by an op's selector_id
 	std::vector<Ref<FastNoiseLite>> noise_a;
 	std::vector<Ref<FastNoiseLite>> noise_b;
@@ -246,7 +258,7 @@ struct ReliefScatter {
 	bool is_empty() const { return count == 0; }
 };
 
-// Read "ops"/"op_params"/"op_luts"/"op_selectors" out of the brush's params dict and construct the per-op
+// Read "ops"/"op_params"/"op_luts"/"op_fields"/"op_field_meta"/"op_selectors" out of the brush's params dict and construct the per-op
 // noise. False when the program is empty or malformed — the caller must then skip the cell loop entirely.
 bool relief_build(const Dictionary &p_params, ReliefProgram &r_prog);
 

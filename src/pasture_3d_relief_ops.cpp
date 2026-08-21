@@ -119,6 +119,41 @@ inline double relief_sample_lut(const PackedFloat32Array &p_luts, int p_slot, do
 	return (double)p_luts[base + i0] * (1.0 - frac) + (double)p_luts[base + i0 + 1] * frac;
 }
 
+// Bilinear read out of a baked 2D field block, in LOOP-NORMALISED coordinates: nu,nv are +/-1 at the
+// fitted rect's edge, so they map onto the field's [0,1]x[0,1] extent. Outside that, and for a slot that
+// does not exist, the field reads 0 -- a defined nothing, so a mis-spliced slot shows up as the op
+// contributing nothing rather than as garbage.
+// Mirrors Pasture3DReliefMaterial._sample_field, which is the ONLY producer of these bytes.
+inline double relief_sample_field(const PackedFloat32Array &p_fields, const PackedInt32Array &p_meta,
+		int p_slot, double p_nu, double p_nv) {
+	const int m = p_slot * RELIEF_FIELD_META_STRIDE;
+	if (p_slot < 0 || m + RELIEF_FIELD_META_STRIDE > p_meta.size()) {
+		return 0.0;
+	}
+	const int base = p_meta[m];
+	const int w = p_meta[m + 1];
+	const int h = p_meta[m + 2];
+	if (w < 2 || h < 2 || base < 0 || base + w * h > p_fields.size()) {
+		return 0.0;
+	}
+	const double fx = (p_nu * 0.5 + 0.5) * (double)(w - 1);
+	const double fy = (p_nv * 0.5 + 0.5) * (double)(h - 1);
+	if (fx < 0.0 || fy < 0.0 || fx > (double)(w - 1) || fy > (double)(h - 1)) {
+		return 0.0;
+	}
+	const int x0 = (int)fx;
+	const int y0 = (int)fy;
+	const int x1 = MIN(x0 + 1, w - 1);
+	const int y1 = MIN(y0 + 1, h - 1);
+	const double tx = fx - (double)x0;
+	const double ty = fy - (double)y0;
+	const double a = (double)p_fields[base + y0 * w + x0];
+	const double b = (double)p_fields[base + y0 * w + x1];
+	const double c = (double)p_fields[base + y1 * w + x0];
+	const double d = (double)p_fields[base + y1 * w + x1];
+	return (a * (1.0 - tx) + b * tx) * (1.0 - ty) + (c * (1.0 - tx) + d * tx) * ty;
+}
+
 // Asymmetric dune ridges — mirrors Pasture3DReliefMaterial._dunes.
 // p: [0]=amplitude [1]=wavelength [2]=direction [3]=asymmetry [4]=crest sharpness [5]=wander frequency
 //    [6]=wander amount [7]=seed
@@ -264,6 +299,8 @@ bool godot::relief_build(const Dictionary &p_params, ReliefProgram &r_prog) {
 	r_prog.ops = p_params.get("ops", PackedInt32Array());
 	r_prog.params = p_params.get("op_params", PackedFloat32Array());
 	r_prog.luts = p_params.get("op_luts", PackedFloat32Array());
+	r_prog.fields = p_params.get("op_fields", PackedFloat32Array());
+	r_prog.field_meta = p_params.get("op_field_meta", PackedInt32Array());
 	r_prog.selectors = p_params.get("op_selectors", PackedFloat32Array());
 	r_prog.count = r_prog.ops.size() / RELIEF_OP_STRIDE;
 	if (r_prog.count < 1 || r_prog.params.size() < r_prog.count * RELIEF_PARAM_STRIDE) {
@@ -819,6 +856,12 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 				break;
 			case RELIEF_OP_CRATER:
 				val = relief_crater(nu, nv, p_prog.params, p);
+				break;
+			case RELIEF_OP_DLA:
+				// Loop-normalised, exactly like CRATER: the cluster maps once onto the oriented rectangle.
+				val = relief_sample_field(p_prog.fields, p_prog.field_meta,
+							   (int)p_prog.params[p + RELIEF_DLA_FIELD_SLOT], nu, nv) *
+						(double)p_prog.params[p];
 				break;
 			case RELIEF_OP_SCREE:
 				if (p_prog.noise_a[i].is_null()) {

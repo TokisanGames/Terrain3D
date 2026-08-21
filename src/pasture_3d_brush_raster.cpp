@@ -428,12 +428,16 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			if (st.strength == 0.0) {
 				continue;
 			}
-			// relief_build reads its four keys off a dictionary; hand it this modifier's own program
-			// paired with the stack-wide selector block.
+			// relief_build reads its program keys off a dictionary; hand it this modifier's own
+			// program paired with the stack-wide selector block. The FIELD table stays per-modifier
+			// (unlike the selectors): a field op's slot is an index into the material's own compiled
+			// table, and a stack already rebased its children's slots into that.
 			Dictionary sub;
 			sub["ops"] = d.get("ops", PackedInt32Array());
 			sub["op_params"] = d.get("op_params", PackedFloat32Array());
 			sub["op_luts"] = d.get("op_luts", PackedFloat32Array());
+			sub["op_fields"] = d.get("op_fields", PackedFloat32Array());
+			sub["op_field_meta"] = d.get("op_field_meta", PackedInt32Array());
 			sub["op_selectors"] = selectors;
 			if (!relief_build(sub, st.prog)) {
 				continue;

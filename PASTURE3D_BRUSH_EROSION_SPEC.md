@@ -860,6 +860,46 @@ DLA is sized by the loop, exactly like `CRATER`, so:
 | DLA, then erosion (phase 3) | Erosion cuts drainage into the valleys DLA's ridges already imply, instead of into a smooth surface. The two agree structurally, which is why they reinforce rather than fight |
 | DLA as an erodability map | Hard ridges, soft valleys, driven by the same field. Free once §7's *"accept a selector as an erodability source"* note is generalised to accept a field |
 
+### 9.4 BUILT (2026-08-20), and what measuring it changed
+
+`connectors/pasture3d_relief_dla.gd`, op id 13, gates CP ✅ CQ ✅ CR ✅ CS ✅
+(`bench/DLAGate.tscn`). The `op_fields` mechanism landed as designed: a `PackedFloat32Array` of
+concatenated blocks plus an `op_field_meta` stride-3 header `[offset, w, h]` per slot, `_bake_field` /
+`_sample_field` on the base material, `relief_sample_field` in C++, and a stack that rebases BOTH the
+slot in the op's params and the offsets inside the child's headers. `compile()` went from four elements
+to six; `_program()` appends the noise table at the end so every index it already defined still holds.
+
+**Six things about the GROWTH were wrong on the first attempt and only measurement found them.** They
+are recorded because each produced a plausible-looking field, and four of the six produced a picture
+that would have shipped:
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| 1 057 nodes at 512², five rounds of nothing | An upscale doubles the cluster AND the grid, so a fixed extent fraction leaves the cluster already at its limit the moment the grid doubles | Ramp the allowed reach per level (0.7 → 1.0); coarse levels decide the trunk inside a smaller disc |
+| Growth stopped dead at every level | Hitting the limit broke the particle loop, and a displaced midpoint can push the reach past the ramp's headroom on its own | Reject the one out-of-limit particle instead, and keep filling in behind the envelope |
+| The massif never reached its loop | A FLAT particle budget per level. A cluster's cell count scales as r^1.7 while an upscale only doubles its node count, so every round must ADD about what it inherited | `particles` is the count at the FINAL grid; coarser rounds scale by n/res |
+| A HOLLOW massif — a ring of ridges round an empty middle, which is a crater | Pure DLA is tip-dominated: a particle launched on the envelope meets the outside first, so once the cluster touches its limit all remaining mass piles into a shell | Alternate: half the particles launch on the envelope, half anywhere inside it |
+| One spike, with the branches invisible | Weighting each branch by its SUBTREE MASS. That range spans four decades, so under any remapping the trunk swamps everything | Binary raster. The massing is what the blur stack already does for free — a cell surrounded by dense cluster gets a high value from the wide blurs without being told to |
+| Glowing thin lines on black, no massing at all | Summing raw blurred copies. A box blur of a one-cell skeleton divides its amplitude by roughly the radius, far faster than any weight ramp can lift it, so the sum is the NARROWEST blur every time | Renormalise each level to its own peak before weighting, which is also what makes `blur_growth` mean anything |
+
+**The border invariant is exact, not approximate.** Growth reaches `GROW_EXTENT` (0.30) and the blur can
+carry material at most `BLUR_SUPPORT` (0.18) further, so the outer 5 % of the field is still zero and a
+FIT-mapped DLA fades out inside its own loop instead of stepping at the boundary. When the budget cannot
+afford the widest blur level the LEVEL is dropped rather than the radius shrunk — giving up one scale
+of massing is better than giving up the invariant.
+
+**Cost**: about 2 s at 512² and 0.5 s at 256², paid once per change to a GROWTH property, not once per
+bake. `strength`, `blend`, `selector` and `output_curve` all invalidate the compiled program without
+touching a cell of the cluster, so the field is memoised on the growth inputs alone and dragging a
+strength slider does not regrow a mountain.
+
+**One finding about A/B parity that is not about DLA.** CR measured the modifier-relief path's residual
+as a fixed RELATIVE quantity: ~1e-5 of the relief amplitude, unchanged by the amplitude, by where the
+brush sits (x=180 against x=780), or by the field's resolution (512 against 128) — so it is neither
+positional round-off nor the field's gradient. A shipped point-evaluated FBM measured the same way sits
+at 5e-6, within a factor of 1.67. The consequence for the plugin's 1e-4 m tolerance is that it holds to
+roughly **10 m of relief on the modifier path**, on every op, and the DLA is not what breaks it.
+
 ---
 
 ## 10. Build order
@@ -872,10 +912,11 @@ DLA is sized by the loop, exactly like `CRATER`, so:
 | **3b — BUILT** | `Pasture3DModErosion`; the field context later selectors read; Live/Frozen and frozen-cache staleness | BX ✅, BY ✅, CA–CE ✅ | 1, 2, 3a |
 | **4 — BUILT** | The manager registry; `Bake All Brushes`; `Register Eroding Brushes`; stale-path warnings | CF ✅, CG ✅, CH ✅, CW ✅ | 3b |
 | **5 — BLOCKED** | Both measurements are done and both came back negative: CK rejected the planned depth correction, CJ showed the uncorrected pipeline mis-routes. The pipeline itself is built and cheap; what remains is §8.1's slope-baseline correction to the coarse stage, which is a solver change | CK ✅, CJ ✅ | 2, 3b |
-| **6** | `Pasture3DReliefDLA` as a baked field op | CP–CS | 1 (to multiply by the host profile) |
+| **6 — BUILT** | `Pasture3DReliefDLA` as a baked field op; the `op_fields` / `op_field_meta` wire block and its stack splicing; the Plow's Tile warning generalised from a CRATER test to a loop-sized-op test | CP ✅, CQ ✅, CR ✅, CS ✅ | 1 (to multiply by the host profile) |
 
-**Phases 1 and 6 are independent of the erosion chain** and can be pulled forward if a visible win is
-wanted sooner — phase 1 in particular is the cheapest item here and fixes a complaint on its own.
+**Phases 1 and 6 were independent of the erosion chain**, and both were taken before it was finished:
+phase 6 landed while phase 5 sat blocked on a solver change, and needed nothing from it. **Phase 5 is
+now the only outstanding work in this spec.**
 
 **Phase 3 does not reach the km case without phase 5.** It is testable and useful at a few hundred metres,
 and phase 5 is what lifts it to the stated 2–3 km target. Anyone reading this order as "phase 3 ships the
@@ -925,13 +966,13 @@ the Sim spec already established.
 | CL | *(5)* **The constant is stored, not printed.** The factor used is serialised on the brush and on any result written, and a bake reloaded from disk reproduces its surface without re-deriving it. | Clear the stored value and re-bake, which must produce a *different* surface — otherwise nothing is reading it and storing it is theatre. |
 | CM | *(5)* **The km case completes in budget.** A 3 km × 2 km mound at the terrain's spacing bakes within a stated wall-clock target. **Perf gate — needs the user's go-ahead before running.** | The same case with `coarse_iterations = 0`, which must be dramatically slower — the number this phase exists to move. |
 | CN | *(5)* **Amplified output is still hydrologically coherent.** The router on the amplified surface is a valid forest with no pits — gate A's criterion, re-run on the new path. | The upsample without the fine iterations, which must leave interpolation artefacts the forest test detects. |
-| CP | *(6)* **The DLA field is deterministic from its seed.** Two bakes at one seed are bitwise identical; two seeds differ. | A fixed seed with the RNG reseeded from time, which must differ between runs. |
-| CQ | *(6)* **It is dendritic, not noise.** Branch-count and mass distribution against the heavy-tailed statistic gate E already uses for drainage networks. | White noise blurred through the same blur stack, which must fail the statistic — a blur stack alone produces something smooth and plausible, and that is precisely the null hypothesis. |
-| CR | *(6)* **Both evaluators sample the same bytes.** The C++ op and the GDScript oracle agree to 1e-4 by construction; the gate asserts it rather than trusting the argument. | The oracle sampling a field grown at a different resolution, which must disagree. |
+| CP ✅ | *(6)* **RUN.** Two separate instances at seed 7 grow **bitwise identical** fields; seed 8 moves the surface by 0.30 of full height. Measured on separate INSTANCES on purpose — the material memoises its field on the growth inputs, so compiling one instance twice would compare a cache against itself and pass whatever the growth code did. | The spec's, and it runs through `_grow` / `_rasterise` / `_mass` rather than through some other path that happens to differ: the same growth code on a clock-seeded RNG, twice, which differs by 0.36. Plus the field must not be FLAT — two empty grids are bitwise identical too. |
+| CQ ✅ | *(6)* **RUN, and it needed TWO statistics.** No single scalar separates a DLA from both plausible nulls, and finding that out is most of this gate's history. **Network share** (the largest connected component's share of a fixed-AREA superlevel set) reads **1.00**; **branch count** (the most pieces the superlevel set ever breaks into as the threshold sweeps down — one per crest, before the flanks join them up) reads **9**. Dendritic is the CONJUNCTION. Thresholding by quantile rather than by height is what makes the arms comparable: both sets then have the same area by construction, so a difference in pieces is a difference in shape. | Two, each REQUIRED TO FAIL THE HALF IT EXISTS FOR. The spec's null — white noise through the identical blur stack — scores **0.070** on share (fails) but **856** branches, so it cannot police the branch count. A smooth CONE scores **1.00** on share but **1** branch (fails), so it cannot police the share. Neither null passes both, which is the point. |
+| CR ✅ | *(6)* **RUN.** There is only ONE implementation, so the claim under test is not "the two agree" but "the two READERS index the same block the same way" — a rebased slot, a transposed row order, an off-by-one in the bilinear weights all live entirely in the sampling and would survive the argument that makes parity free. At an ordinary 8 m relief the DLA's own contribution to the C++/GDScript gap is **9.2e-5 m**, inside the 1e-4 tolerance. Baseline-first, as gate BQ does it, because the Mound's dome term carries a pre-existing divergence. | Three. The spec's: the oracle pointed at a **128²** field against a **512²** native bake, which reads **5.85 m** apart — two readers that both silently returned zero would otherwise pass. The fixture must MOVE the ground (7.87 m). And a **reference op**: at 32 m, where the absolute tolerance no longer discriminates, the DLA's residual is 9.5e-6 of amplitude against a shipped FBM's 5.7e-6 — **1.67×**, the same order, which is what says the residual is shared float32 rounding rather than the sampling. See §9.4. |
 | CT ✅ | *(3a fix)* **Editing a value never rebuilds the inspector.** Ten value edits across three modifier kinds — including Strength swept across 0, which is where the defect lived — caused **0 rebuilds**, counted on `property_list_changed` itself rather than on a proxy for it. | Structural edits, which must rebuild or "0" is a dead measurement: clearing the Relief Material rebuilt **1**, reassigning **1**, adding a stack layer **1**. Plus a HEIGHT delta, because decoupling the preview dropdown from `is_active()` could plausibly have reached the bake: a zero-strength Relief modifier bakes **bitwise** what no Relief modifier bakes, while the same modifier at 8 m moves the same probes **45.6 m**. Against the pre-fix code the criterion reads **5 rebuilds**. |
 | CU ✅ | *(3a fix)* **Renaming never rebuilds the inspector, at either level.** Typed one character at a time, which is the only way to catch a guard that holds for a whole string: naming a modifier and naming a relief stack LAYER both cost **0 rebuilds over 7 keystrokes**. | The names must land, or the guard is being credited for a no-op — the modifier reads `Hardpan` and the dropdown reads `Layer 0 (Hardpan)`. Plus structure, which must still rebuild: swapping a layer's class **1**, giving it a Selector **1**. Against the pre-fix code the layer rename reads **7 rebuilds, the first after 'H'** — and the label-based trigger it replaced also missed the Selector control entirely. |
 | CV ✅ | *(3a fix)* **The same rule, in the one other place the plugin broke it.** `Pasture3DWaterBody` re-hinted its wave-profile dropdown on `profiles_changed`, which the manager emits for every knob on every profile. Three amplitude edits now cost **0 rebuilds**. Lives in this suite because the water suites need a real rendering device and cannot run headless at all. | Two counters, not one: the manager's **3 emissions** are what separate "did not rebuild" from "was never asked". Plus the edits that MUST re-hint — renaming a profile **1**, adding one **1** — and the dropdown itself, which must still list every live profile. The stronger observable also caught a **cold-start rebuild**: the name cache is now primed where the signal is connected. Against the pre-fix code: **3 rebuilds**. |
-| CS | *(6)* **`TILE` warns.** A DLA material under `Mapping = TILE` raises the configuration warning, as `CRATER` does. | `FIT`, which must not warn. |
+| CS ✅ | *(6)* **RUN.** A DLA material under `Mapping = TILE` raises the loop-sized warning, in the same words `CRATER` already used. The predicate generalised from a CRATER test to a loop-sized-op test, so the gate holds BOTH halves of that change: the new material must warn and the old one must still warn. Matched on the sentence an artist reads, not on the predicate. | The spec's `FIT`, which must not warn — a predicate returning true unconditionally would pass every positive assertion here. Plus a FRACTAL, which tiles correctly and must not be warned about under either mapping. |
 
 ---
 

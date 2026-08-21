@@ -54,8 +54,8 @@ func is_active() -> bool:
 	return enabled and material != null and not is_zero_approx(strength)
 
 
-## `ops` / `op_params` / `op_luts` are added by the host, which compiles the material once per bake and
-## rebases the selector ids into the stack-wide selector block.
+## `ops` / `op_params` / `op_luts` / `op_fields` are added by the host, which compiles the material once
+## per bake and rebases the selector ids into the stack-wide selector block.
 func to_params() -> Dictionary:
 	return {"strength": strength, "mat_strength": material.strength if material != null else 1.0}
 

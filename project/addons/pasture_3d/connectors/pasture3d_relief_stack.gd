@@ -81,13 +81,26 @@ func _build() -> void:
 		var c_params: PackedFloat32Array = prog[1]
 		var c_luts: PackedFloat32Array = prog[2]
 		var c_sel: PackedFloat32Array = prog[3]
-		var c_noise: Array = prog[4]
+		var c_fields: PackedFloat32Array = prog[4]
+		var c_field_meta: PackedInt32Array = prog[5]
+		var c_noise: Array = prog[6]
 		var count := c_ops.size() / OP_STRIDE
-		# CURVE ops store a slot index into their OWN material's LUT table, and gated ops store an index
-		# into their own selector table. Splicing the child's tables after ours shifts every one of those
-		# indices, so both offsets have to be applied as we copy.
+		# CURVE ops store a slot index into their OWN material's LUT table, DLA ops one into its FIELD
+		# table, and gated ops one into its selector table. Splicing the child's tables after ours shifts
+		# every one of those indices, so all three offsets have to be applied as we copy.
+		#
+		# The field table needs one more step than the other two: its blocks are variably sized, so the
+		# child's HEADERS carry element offsets into the child's own buffer and must be rebased too.
 		var lut_offset := _luts.size() / CURVE_LUT_N
 		var sel_offset := _selectors.size() / SELECTOR_STRIDE
+		var field_offset := _field_meta.size() / FIELD_META_STRIDE
+		var field_base := _fields.size()
+		for k in range(c_field_meta.size() / FIELD_META_STRIDE):
+			var fm := k * FIELD_META_STRIDE
+			_field_meta.append(c_field_meta[fm] + field_base)
+			_field_meta.append(c_field_meta[fm + 1])
+			_field_meta.append(c_field_meta[fm + 2])
+		_fields.append_array(c_fields)
 		_luts.append_array(c_luts)
 		_selectors.append_array(c_sel)
 		# The layer's Blend applies to its first GENERATOR op — a leading WARP is a DOMAIN op that ignores
@@ -111,8 +124,13 @@ func _build() -> void:
 			# is applied by the brush, so a nested layer's would otherwise be silently ignored.
 			if m.strength != 1.0 and _is_generator(c_ops[o]):
 				_params[base] *= m.strength
-			elif c_ops[o] == Op.CURVE:
+			if c_ops[o] == Op.CURVE:
 				_params[base] += lut_offset
+			elif c_ops[o] == Op.DLA:
+				# NOT an `elif` off the strength branch: DLA is a generator, so a layer strength of 1.5 must
+				# scale its amplitude AND its slot must still be rebased. CURVE is safe either way (it is not
+				# a generator, so the first branch can never have run) and is left reading as it always did.
+				_params[base + DLA_FIELD_SLOT] += field_offset
 			_noise.append(c_noise[i])
 
 
