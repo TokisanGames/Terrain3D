@@ -989,6 +989,40 @@ a star-seeded field and an unseeded one correlated with the star to **0.53 and 0
 inert. Re-reading the surface at EVERY level is what makes the finest branches follow the finest ridges,
 and takes the same measurement to **0.64**.
 
+### 9.7 The parameter audit, and the ranges that were dead
+
+Second report from the editor: *the influence only goes half way down the mesh, some values are getting
+clamped too low, why is Hierarchy Levels limited to 6, Detail Size cannot go over 0.35.* Every one was a
+real defect, and `bench/DlaParamAudit.tscn` — which sweeps each property across its whole authored range
+and prints what the material derives from it — is what found them and what will find the next one.
+
+| Property | What was wrong | Measured |
+|---|---|---|
+| `coverage` | A fixed 38 % of the radius was **reserved** for the blur whether the blur wanted it or not, so the cluster's reach topped out at 0.61 of the half-extent however high coverage went | On a 240 m loop the relief was **exactly 0.00 m for the first 24 m** in from the edge, and 40 m at the coarse end |
+| `detail_size` | Ridge width was capped at a share of the radius and the cap bound at **0.16** — over half the slider was inert | blur 0.086 → 0.336 over 0.04→0.16, then 0.336 flat all the way to 0.35 |
+| `resolution` | A 64-step slider on a value rounded DOWN to a power of two | 192 behaved exactly as 128, 384 as 256, 768 as 512: fifteen choices, five of them real |
+| `hierarchy_levels` | A fixed ceiling of 6, when the useful maximum is set by the resolution | 5 at 256, 6 at 512, 7 at 1024 — wrong at both ends |
+
+**The fix is one equation solved rather than a split guessed.** The blur asks for about four times the
+branch spacing, the spacing is `detail_size` of the cluster's reach, and the two must sum to `coverage`:
+`blur = outer × 4d/(1+4d)`, `grow = outer — blur`. Nothing is reserved and left unspent. `coverage` is
+now the massif's OUTER RADIUS exactly, `detail_size` is live across 0.03→0.50, `resolution` is a list of
+the five values that do anything, and `hierarchy_levels` reaches 8 with a warning naming what this
+resolution can actually run.
+
+**What that trades, said out loud.** With the blur no longer reserved it takes what it asks for and the
+cluster takes the rest, so a coarse `detail_size` genuinely pulls the ridge STRUCTURE inward: r98 of the
+mass moves **34 %** across the range while the massif's support does not move at all (**0.8 %**). That is
+what "coarser" physically means, and gate CX reports both numbers rather than gating the one that
+flatters.
+
+**And one lesson about reading an invariant.** CX's border control asserted the field was EXACTLY zero
+outside `coverage`, and it failed at 16.5 % drift — on a denormal tail. A cumulative box blur has finite
+support in exact arithmetic and a float32 tail in practice, so the PRESENCE of a non-zero cell is not a
+usable test: 1e-30 of full height is 30 femtometres on a 30 m brush. Restated as a magnitude — a
+millionth of full height, sub-micron on anything authorable — the same measurement reads 0.8 % drift and
+a border of zero. The invariant was right; the way it was being read was not.
+
 ---
 
 ## 10. Build order
@@ -1062,7 +1096,7 @@ the Sim spec already established.
 | CU ✅ | *(3a fix)* **Renaming never rebuilds the inspector, at either level.** Typed one character at a time, which is the only way to catch a guard that holds for a whole string: naming a modifier and naming a relief stack LAYER both cost **0 rebuilds over 7 keystrokes**. | The names must land, or the guard is being credited for a no-op — the modifier reads `Hardpan` and the dropdown reads `Layer 0 (Hardpan)`. Plus structure, which must still rebuild: swapping a layer's class **1**, giving it a Selector **1**. Against the pre-fix code the layer rename reads **7 rebuilds, the first after 'H'** — and the label-based trigger it replaced also missed the Selector control entirely. |
 | CV ✅ | *(3a fix)* **The same rule, in the one other place the plugin broke it.** `Pasture3DWaterBody` re-hinted its wave-profile dropdown on `profiles_changed`, which the manager emits for every knob on every profile. Three amplitude edits now cost **0 rebuilds**. Lives in this suite because the water suites need a real rendering device and cannot run headless at all. | Two counters, not one: the manager's **3 emissions** are what separate "did not rebuild" from "was never asked". Plus the edits that MUST re-hint — renaming a profile **1**, adding one **1** — and the dropdown itself, which must still list every live profile. The stronger observable also caught a **cold-start rebuild**: the name cache is now primed where the signal is connected. Against the pre-fix code: **3 rebuilds**. |
 | CS ✅ | *(6)* **RUN.** A DLA material under `Mapping = TILE` raises the loop-sized warning, in the same words `CRATER` already used. The predicate generalised from a CRATER test to a loop-sized-op test, so the gate holds BOTH halves of that change: the new material must warn and the old one must still warn. Matched on the sentence an artist reads, not on the predicate. | The spec's `FIT`, which must not warn — a predicate returning true unconditionally would pass every positive assertion here. Plus a FRACTAL, which tiles correctly and must not be warned about under either mapping. |
-| CX ✅ | *(6)* **From the editor, not from the spec.** The massif reached 0.67 of a loop it was allowed 0.96 of, and `particles` — the only lever that moved it — bought 0.05 for 4× the cost while restyling the mountain on the way. Three claims now: it **ARRIVES** (99–100 % of its allowed radius at every setting), `coverage` **RESIZES** (0.50 → 0.98 grows the field **1.93×** against coverage's own 1.96×), and `detail_size` **RESTYLES WITHOUT RESIZING** (**8 %** of size drift while the branch count moves **4.8×**). Radius measured as the r98 of the mass, not as a threshold — the fringe of a blurred dendrite is faint and a threshold reads back whatever level you picked. | The border ring must be **EXACTLY zero** at all five settings. That is the invariant the whole derivation exists to protect and the first thing to break if it drifts — a massif clipped by the field's edge steps at the loop boundary on every FIT-mapped brush. Plus the "measured nothing" guard: a FLAT field would sail through the no-resize claim by never changing size at all. |
+| CX ✅ | *(6)* **From the editor, twice.** First: the massif reached 0.67 of a loop it was allowed 0.96 of, and the only lever that moved it restyled the mountain on the way. Then: `coverage` still topped out at 0.61 of the half-extent because a fixed share of the radius was reserved for a blur that did not want it, and `detail_size` was inert over half its range. Three claims now: it **ARRIVES** (100 % of its allowed radius at every setting), `coverage` **RESIZES** (0.50 → 1.00 grows the field **1.96×** against coverage's own 2.00×), and `detail_size` **RESTYLES WITHOUT RESIZING** — **0.8 %** of support drift while the branch count moves **95×**. Measured on the SUPPORT radius, not on r98 of the mass: r98 moves 34 %, because with the blur no longer reserved a coarse setting really does pull the ridge structure inward, and that is what coarser means. Both numbers are printed. | The field outside the radius `coverage` promises must be below a millionth of full height — a magnitude, not a presence, because a box blur's float32 tail makes "is any cell non-zero" unusable (see §9.7). Plus the "measured nothing" guard: a FLAT field would sail through the no-resize claim by never changing size at all. |
 | CY ✅ | *(6)* **A seeded cluster grows along the ridges it was handed.** Fixture is a synthetic five-armed star ridge, because a synthetic pattern is the only kind whose answer is known before the material runs; statistic is the correlation between the finished field and the seed surface. Seeded **0.640** against unseeded **0.513**, a margin of **+0.127**. Determinism restated for the input CP does not cover: two instances, one seed, one surface, bitwise identical. | Two. UNSEEDED, which does NOT score zero and must not be expected to — a blob correlates with a star at 0.51 for free, and only the margin over that is seeding's doing. And a **FLAT** seed surface, which must land on EXACTLY the unseeded number: it does, to the bit. Without that second one the gate would pass on an implementation that merely perturbed the RNG and called the perturbation an effect. |
 | CZ ✅ | *(6)* **The captured surface is the stack ABOVE the material, so it cannot feed itself.** Measured on the GROUND, not by asking the material — by the time a gate can ask, the bake has already handed it a surface. Bake 1 is bitwise the same brush with the material switched off (**0.0000 m**): it stamped nothing while it waited. Bake 2 moves **7.12 m**. The two captures are **bitwise identical**, which is the no-drift claim and the convergence claim in one measurement — the second bake stamps a mountain the first did not, so a capture that included the material's own output would have moved. | Seeding OFF: nothing is captured at all, and that brush's FIRST bake already moves **5.71 m**. Without it a capture that ran unconditionally would pass every assertion above while charging every stack a grid conversion it never asked for. NaN counts as equal to NaN here, because a captured surface is NaN wherever the brush contributes nothing and `NAN != NAN` would report two copies of one grid as different. |
 

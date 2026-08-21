@@ -16,23 +16,28 @@
 class_name Pasture3DReliefDLA
 extends Pasture3DReliefMaterial
 
-## How much of the loop the finished mountain fills, as a fraction of the loop's half-extent. 1.0 reaches
-## the edge of the fitted rectangle; 0.5 is a mountain sitting in the middle of its loop with clear ground
-## around it. This is the SIZE control - `particles` and `hierarchy_levels` change how the massif is built,
-## not how big it is, and reaching for them to make it bigger is a fight you lose slowly.
+## The finished mountain's OUTER RADIUS, as a fraction of the loop's half-extent. 1.0 reaches the edge of
+## the fitted rectangle; 0.5 is a mountain sitting in the middle of its loop with clear ground round it.
+## This is the SIZE control, and it is exact: the cluster and the blur that widens it are BOTH derived
+## from this, and together they spend all of it.
 ##
-## Capped just under 1 so the field still reads exactly 0 at its border: a DLA that does not fade out
-## inside its own loop puts a step at the boundary on every FIT-mapped brush.
-@export_range(0.2, 0.98, 0.01) var coverage: float = 0.9:
+## They did not always. An earlier version reserved a fixed share of the radius for the blur whether the
+## blur wanted it or not, and measured on a 240 m loop that left the relief at exactly 0.00 m for the
+## first 24 m in from the edge — reported from the editor as "the influence only goes half way down the
+## mesh", which is precisely what it was.
+@export_range(0.2, 1.0, 0.01) var coverage: float = 0.95:
 	set(v):
-		coverage = clampf(v, 0.2, 0.98)
+		coverage = clampf(v, 0.2, 1.0)
 		_touch()
 ## Widest working grid the cluster is grown on, in cells. The final blur dominates how this reads, so
 ## resolution beyond the vertex spacing buys detail the mesh cannot carry — 512² is 1.0 MB of float field
-## and about 2 s to grow, and is the sensible ceiling for a single mountain; 256² is a quarter of both.
-## Paid once per change to a growth property, not once per bake. Rounded DOWN to a power of two so the
-## hierarchy's halving is exact.
-@export_range(64, 1024, 64) var resolution: int = 512:
+## and about 2 s to grow; 256² is a quarter of both. Paid once per change to a GROWTH property, not once
+## per bake.
+##
+## A LIST rather than a slider, because only powers of two do anything: the hierarchy halves the grid and
+## the material rounds down to make that exact, so a slider offering 64-step values was offering 15
+## choices of which 5 were real and 192 behaved exactly as 128.
+@export_enum("64:64", "128:128", "256:256", "512:512", "1024:1024") var resolution: int = 512:
 	set(v):
 		resolution = clampi(v, 64, 1024)
 		_touch()
@@ -40,9 +45,13 @@ extends Pasture3DReliefMaterial
 ## displaced midpoint, and grows again — which is what produces a HIERARCHY of major ridges and minor
 ## spurs rather than one scale of branching. 1 means "grow once, at full resolution", which is both much
 ## slower and much less interesting.
-@export_range(1, 6) var hierarchy_levels: int = 4:
+## The useful maximum is set by `resolution`, not by a number chosen here: the coarsest grid is floored at
+## 16 cells, so 512 supports 6 rounds and 1024 supports 7, and anything past that halves nothing. The
+## range goes to 8 for the largest grid and the material warns when the setting outruns its resolution
+## rather than silently doing less than the number says.
+@export_range(1, 8) var hierarchy_levels: int = 4:
 	set(v):
-		hierarchy_levels = clampi(v, 1, 6)
+		hierarchy_levels = clampi(v, 1, 8)
 		_touch()
 ## How coarse the branching is: the spacing between ridges, as a fraction of the mountain's own radius.
 ## Small is a finely divided massif of many thin spurs; large is a few broad arms.
@@ -53,10 +62,14 @@ extends Pasture3DReliefMaterial
 ## visible branching at coverage 0.5 and a spindly wireframe at 0.98. Sizing the mountain should not
 ## restyle it, so the density is held and the count follows.
 ##
-## Cost follows the count, which rises steeply as this falls — roughly (1 / detail_size)^1.7.
-@export_range(0.04, 0.35, 0.005) var detail_size: float = 0.12:
+## Cost follows the count, which rises as this falls — roughly (1 / detail_size)^0.7.
+##
+## The whole range does something, which took fixing: the blur used to be capped at a fixed share of the
+## radius, and everything past 0.16 hit that cap and stopped widening the ridges at all. Over half the
+## slider was inert.
+@export_range(0.03, 0.50, 0.005) var detail_size: float = 0.12:
 	set(v):
-		detail_size = clampf(v, 0.04, 0.35)
+		detail_size = clampf(v, 0.03, 0.50)
 		_touch()
 ## How far a branch's inserted midpoint is thrown sideways when the grid doubles, as a fraction of the
 ## branch's length, and how far every existing node is jittered at the same time. 0 keeps the cluster on
@@ -138,11 +151,18 @@ const REF_DETAIL := 0.12
 const REF_COVERAGE := 0.9
 const REF_PARTICLES := 3000
 const REF_RESOLUTION := 512
-## The blur's reserved share of the mountain's radius. Ridge WIDTH still tracks ridge SPACING -- a fixed
-## blur under a coarse setting leaves gaps between the arms, and under a fine one it merges every spur the
-## detail control just asked for -- but it does so INSIDE this reservation rather than by eating into the
-## cluster's reach, so the two controls stay independent.
-const BLUR_SHARE := 0.38
+## The blur's share at REF_DETAIL, i.e. 4d/(1+4d) at d = 0.12. Written out so the particle calibration
+## stays pinned to the reference geometry even when the split formula moves.
+const REF_BLUR_SHARE := 0.3243
+## The most of the mountain's radius the blur may take. Not a reservation — a CEILING. The blur asks for
+## about four times the branch spacing (the radii double, so the widest level lands at roughly twice the
+## gap between ridges, which is what makes the massif read as ground with ridges on it rather than as a
+## wireframe) and gets it, and the cluster takes everything left over.
+##
+## 0.70 is chosen so the ceiling does not bind anywhere inside the authored `detail_size` range: the ask
+## is 4d/(1+4d) of the radius, which reaches 0.70 only at d = 0.58. A ceiling that binds mid-range is a
+## slider that stops working half way along, which is exactly what the previous 0.38 did.
+const BLUR_CEILING := 0.70
 
 
 ## The finished massif's outer radius, in cells. Everything beyond this is untouched zero, which is the
@@ -151,24 +171,22 @@ func _outer(n: int) -> float:
 	return coverage * 0.5 * float(n)
 
 
-## The cluster's own allowed reach: a FIXED share of the outer radius, and so a function of `coverage`
-## alone. That is what makes `coverage` the size control and nothing else -- an earlier version took the
-## blur's share out of this, and because the mass sits where the CLUSTER is (the blur redistributes it, it
-## does not carry it far), a coarse Detail Size shrank the mountain by 26 %.
-func _grow_extent(n: int) -> float:
-	return maxf(4.0, _outer(n) * (1.0 - BLUR_SHARE))
-
-
-## How wide the ridges are, in cells: the blur is sized from the branch SPACING, so a coarse cluster gets
-## broad ridges and a fine one keeps its spurs separate. `BLUR_SHARE` of the outer radius is a CAP, not a
-## target -- it is what reserves the margin that keeps the border exactly zero, and the detail term is
-## almost always the smaller of the two.
+## How wide the ridges are, in cells. The blur asks for four times the branch spacing and the spacing is
+## `detail_size` of the cluster's reach, so this and `_grow_extent` are one equation solved together:
+## blur = 4d * grow and grow = outer - blur gives blur = outer * 4d/(1+4d), which is what this returns.
+##
+## THE TWO SUM TO `coverage` EXACTLY. Nothing is reserved and left unspent, which is the whole point: the
+## previous version fixed the split at 62/38 whatever the blur actually wanted, and the difference was
+## empty ground between the mountain and its loop.
 func _blur_budget(n: int) -> int:
 	var o := _outer(n)
-	# Four times the spacing, because the radii DOUBLE: the widest level ends up about half the total, so
-	# 4x spacing puts the broadest massing scale at roughly twice the gap between ridges, which is what
-	# makes the massif read as solid ground with ridges on it rather than as a wireframe on black.
-	return clampi(int(detail_size * _grow_extent(n) * 4.0), 1, maxi(1, int(o * BLUR_SHARE)))
+	var ask := 4.0 * detail_size
+	return clampi(int(o * minf(ask / (1.0 + ask), BLUR_CEILING)), 1, maxi(1, int(o * BLUR_CEILING)))
+
+
+## The cluster's own reach: everything the blur did not take.
+func _grow_extent(n: int) -> float:
+	return maxf(4.0, _outer(n) - float(_blur_budget(n)))
 
 
 ## Particles walked at the FINAL grid; coarser rounds get proportionally fewer, in the ratio of their grid
@@ -187,7 +205,7 @@ func _blur_budget(n: int) -> int:
 ## supposed to change.
 func _particles() -> int:
 	var r := _grow_extent(_grid_size())
-	var ref_r := REF_COVERAGE * 0.5 * float(REF_RESOLUTION) * (1.0 - BLUR_SHARE)
+	var ref_r := REF_COVERAGE * 0.5 * float(REF_RESOLUTION) * (1.0 - REF_BLUR_SHARE)
 	return clampi(int(float(REF_PARTICLES) * (r / ref_r) * pow(REF_DETAIL / detail_size, 0.7)), 64, 24000)
 
 
@@ -719,7 +737,21 @@ func _box_blur(p_src: PackedFloat32Array, n: int, r: int) -> PackedFloat32Array:
 	return out
 
 
+## How many grow-then-upscale rounds this resolution can actually run: the coarsest grid is floored at 16
+## cells, so past that a further round halves nothing.
+func _effective_levels() -> int:
+	var n := _grid_size()
+	var rounds := 1
+	while (n >> rounds) >= 16 and rounds < hierarchy_levels:
+		rounds += 1
+	return rounds
+
+
 func _configuration_warning() -> String:
+	if hierarchy_levels > _effective_levels():
+		return (("Relief DLA is set to %d hierarchy levels but a %d² grid can only run %d — the coarsest "
+			+ "grid bottoms out at 16 cells. Raise Resolution, or lower Hierarchy Levels to %d.")
+			% [hierarchy_levels, _grid_size(), _effective_levels(), _effective_levels()])
 	if ridge_seeding and _seed.is_empty():
 		return ("Relief DLA is seeding from the brush's ridges but has not been handed a surface yet. "
 			+ "It stamps nothing until the next bake, which the brush schedules itself.")

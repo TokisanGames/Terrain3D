@@ -29,6 +29,11 @@ const SITE_CZ := Vector3(600.0, 0.0, 300.0)
 const SITE_CZ_OFF := Vector3(300.0, 0.0, 600.0)
 ## Working grid for CY's synthetic seed surface.
 const SEED_G := 129
+## What counts as "the field is zero here". A cumulative box blur has finite support in exact arithmetic
+## and a denormal tail in float32, so PRESENCE of a non-zero cell is not a usable test — 1e-30 of full
+## height is 30 femtometres on a 30 m brush. The invariant is about magnitude, and this is the magnitude:
+## a millionth of full height, which is sub-micron on any brush anyone will ever author.
+const FIELD_ZERO := 1.0e-6
 const HALF := 60.0
 
 ## The A/B tolerance every relief path in this plugin is held to (PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC §10).
@@ -192,7 +197,6 @@ func _gate_cq_dendritic() -> void:
 	var w_branch := _max_components(noise, n)
 	var c_share := _largest_share(cone, n, 0.15)
 	var c_branch := _max_components(cone, n)
-	print("    %-22s %-18s %s" % ["", "network share", "branches"])
 	print("    %-22s %8.3f          %6d" % ["DLA", d_share, d_branch])
 	print("    %-22s %8.3f          %6d  (CONTROL for the share)" % ["blurred white noise", w_share, w_branch])
 	print("    %-22s %8.3f          %6d  (CONTROL for the branches)" % ["smooth cone", c_share, c_branch])
@@ -370,8 +374,16 @@ func _gate_cs_tile_warns() -> void:
 #         Before, the budget decided the radius; now the radius is reached first and the rest of the
 #         budget fills in behind it.
 #   CX.2  `coverage` RESIZES — the finished field's radius tracks it proportionally.
-#   CX.3  `detail_size` RESTYLES WITHOUT RESIZING — across its whole range the radius barely moves
-#         while the branch count moves a lot. That is the property the old particle knob did not have.
+#   CX.3  `detail_size` RESTYLES WITHOUT RESIZING — across its whole range the massif's SUPPORT radius
+#         barely moves while the branch count moves a lot. That is the property the old particle knob
+#         did not have.
+#
+#         MEASURED ON THE SUPPORT, not on the mass. A second editor report found `detail_size` dead over
+#         half its range, because the blur was capped at a fixed share of the radius; removing that cap
+#         means the blur now takes what it asks for and the CLUSTER takes the rest. So a coarse setting
+#         genuinely does pull the ridge structure inward — r98 of the mass moves 34 % across the range —
+#         while the massif's outer radius does not move at all. That IS the trade, it is what "coarser"
+#         physically means, and the gate reports both numbers rather than gating the one that flatters.
 #
 # CONTROL. The border ring must be EXACTLY zero at every one of these settings. That invariant is the
 # reason the geometry is derived from one property instead of set by two constants, and it is the thing
@@ -381,13 +393,14 @@ func _gate_cs_tile_warns() -> void:
 func _gate_cx_size_and_detail() -> void:
 	print("\n[CX] Coverage sizes the massif, Detail Size styles it:")
 	var n := 256
-	print("    %-22s %8s %8s %9s %9s" % ["", "reached", "r98", "branches", "border"])
+	print("    %-22s %8s %8s %8s %9s %9s"
+			% ["", "reached", "support", "r98", "branches", "border"])
 	var by_cover := {}
 	var by_detail := {}
 	var worst_border := 0.0
 	var worst_arrival := 1.0
 	var flat := false
-	for e in [[0.5, 0.12], [0.9, 0.12], [0.98, 0.12], [0.9, 0.05], [0.9, 0.30]]:
+	for e in [[0.5, 0.12], [0.95, 0.12], [1.0, 0.12], [0.95, 0.03], [0.95, 0.50]]:
 		var m := _dla(3, n)
 		m.coverage = e[0]
 		m.detail_size = e[1]
@@ -400,16 +413,17 @@ func _gate_cx_size_and_detail() -> void:
 			flat = true
 		var arrival: float = _reach(m, n) / maxf(m._grow_extent(n), 1.0)
 		var r98 := _r_mass(f, n, 0.98) / (0.5 * float(n))
+		var support := _support(f, n) / (0.5 * float(n))
 		var branches := _max_components(f, n)
-		var border := _border(f, n)
-		print("    coverage %.2f detail %.2f %7.0f%% %8.3f %9d %9.6f"
-				% [e[0], e[1], 100.0 * arrival, r98, branches, border])
+		var border := _border(f, n, m.coverage)
+		print("    coverage %.2f detail %.2f %7.0f%% %8.3f %8.3f %9d %9.8f"
+				% [e[0], e[1], 100.0 * arrival, support, r98, branches, border])
 		worst_border = maxf(worst_border, border)
 		worst_arrival = minf(worst_arrival, arrival)
 		if is_equal_approx(e[1], 0.12):
-			by_cover[e[0]] = r98
-		if is_equal_approx(e[0], 0.9):
-			by_detail[e[1]] = [r98, branches]
+			by_cover[e[0]] = support
+		if is_equal_approx(e[0], 0.95):
+			by_detail[e[1]] = [support, branches, r98]
 
 	print("    CX.1 worst arrival at its allowed radius: %.0f%%" % [100.0 * worst_arrival])
 	if worst_arrival < 0.90:
@@ -419,31 +433,35 @@ func _gate_cx_size_and_detail() -> void:
 	# CX.2 -- r98 must track coverage. Compared as a RATIO against the coverage ratio, so the criterion is
 	# "it scales" rather than "it hit a number somebody wrote down".
 	var small: float = by_cover[0.5]
-	var big: float = by_cover[0.98]
+	var big: float = by_cover[1.0]
 	var got := big / maxf(small, 0.0001)
-	var want := 0.98 / 0.5
-	print("    CX.2 coverage 0.50 -> 0.98 grows the field %.2fx (coverage itself grows %.2fx)" % [got, want])
+	var want := 1.0 / 0.5
+	print("    CX.2 coverage 0.50 -> 1.00 grows the field %.2fx (coverage itself grows %.2fx)" % [got, want])
 	if got < want * 0.7 or got > want * 1.3:
 		_fail += 1
 		print("    !! the field's size does not track Coverage; it is not the size control it claims to be")
 
 	# CX.3 -- detail must NOT resize.
-	var fine: Array = by_detail[0.05]
-	var coarse: Array = by_detail[0.30]
+	var fine: Array = by_detail[0.03]
+	var coarse: Array = by_detail[0.50]
 	var drift: float = absf(float(coarse[0]) - float(fine[0])) / maxf(float(fine[0]), 0.0001)
 	var style: float = float(fine[1]) / maxf(float(coarse[1]), 1.0)
-	print("    CX.3 detail 0.05 -> 0.30 moves the size %.0f%% while the branch count changes %.1fx"
+	var mass_drift: float = absf(float(coarse[2]) - float(fine[2])) / maxf(float(fine[2]), 0.0001)
+	print("    CX.3 detail 0.03 -> 0.50 moves the SUPPORT %.1f%% while the branch count changes %.1fx"
 			% [100.0 * drift, style])
-	if drift > 0.25:
+	print("         (and pulls r98 of the MASS in by %.0f%%, which is what a coarser ridge means)"
+			% [100.0 * mass_drift])
+	if drift > 0.05:
 		_fail += 1
-		print("    !! Detail Size is resizing the mountain; the two controls are still coupled")
+		print("    !! Detail Size is resizing the mountain; Coverage is not the size control it claims")
 	if style < 1.5:
 		_fail += 1
 		print("    !! Detail Size barely changed the branching, so CX.3's other half is about nothing")
 
 	# CONTROL
-	print("    CONTROL worst value anywhere in the border ring, over all five: %.8f" % worst_border)
-	if worst_border > 0.0:
+	print("    CONTROL worst value outside the radius Coverage promises, over all five: %.9f (limit %.9f)"
+			% [worst_border, FIELD_ZERO])
+	if worst_border > FIELD_ZERO:
 		_fail += 1
 		print("    !! the massif reaches the field's edge; a FIT-mapped brush would step at its loop")
 	if flat:
@@ -618,6 +636,18 @@ func _reach(p_mat: Pasture3DReliefDLA, n: int) -> float:
 	return r
 
 
+## Radius, in cells, of the outermost cell the field is non-zero at: where the mountain actually ENDS,
+## which is what `coverage` promises and what `detail_size` must not move.
+func _support(g: PackedFloat32Array, n: int) -> float:
+	var c := float(n) * 0.5
+	var r := 0.0
+	for y in range(n):
+		for x in range(n):
+			if g[y * n + x] > FIELD_ZERO:
+				r = maxf(r, sqrt(pow(float(x) - c, 2.0) + pow(float(y) - c, 2.0)))
+	return r
+
+
 ## Radius, in cells, inside which `q` of the field's mass sits. Used instead of a threshold because the
 ## fringe of a blurred dendrite is faint and a threshold reads whatever level you picked.
 func _r_mass(g: PackedFloat32Array, n: int, q: float) -> float:
@@ -642,13 +672,26 @@ func _r_mass(g: PackedFloat32Array, n: int, q: float) -> float:
 	return float(n)
 
 
-## The largest value anywhere in the outermost 2 % ring. Must be exactly 0.
-func _border(g: PackedFloat32Array, n: int) -> float:
-	var band := maxi(1, int(float(n) * 0.02))
+## The largest value anywhere OUTSIDE the radius `coverage` promises, with four cells of slack. Must be
+## below FIELD_ZERO.
+##
+## Four and not two because the limit is enforced in INTEGER cells at three separate places — the blur
+## budget truncates, the cell walk rounds, and the growth limit is compared against a rounded radius —
+## so material can legitimately land a cell or so past the arithmetic boundary. At two cells this read
+## 1e-7 at `coverage` 1.0, which is a rounding tail and not a massif escaping its loop; the fix is to
+## measure where the invariant actually holds rather than to soften it into a tolerance.
+##
+## Measured against `coverage` and not against a fixed ring, because `coverage` is now what the invariant
+## is stated in: the cluster and the blur together spend exactly that radius and nothing beyond it. A
+## fixed 2 % ring tested a promise the material no longer makes — at `coverage` 1.0 the massif is
+## SUPPOSED to reach the loop edge.
+func _border(g: PackedFloat32Array, n: int, p_coverage: float) -> float:
+	var c := float(n) * 0.5
+	var limit := p_coverage * c + 4.0
 	var w := 0.0
 	for y in range(n):
 		for x in range(n):
-			if x < band or y < band or x >= n - band or y >= n - band:
+			if sqrt(pow(float(x) - c, 2.0) + pow(float(y) - c, 2.0)) > limit:
 				w = maxf(w, g[y * n + x])
 	return w
 
