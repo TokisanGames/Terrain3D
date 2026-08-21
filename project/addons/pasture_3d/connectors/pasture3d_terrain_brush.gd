@@ -2894,7 +2894,11 @@ func _modifier_warnings() -> PackedStringArray:
 ## slots (`ReliefFields::sel_slot`) that are keyed by id. Concatenating and offsetting keeps ONE block, so
 ## the native evaluator, the measured-radius grids and the mask preview all keep indexing it the way they
 ## already do.
-func _compile_modifiers(p_extent: String = "") -> Dictionary:
+## `p_ex` / `p_ez` are the LOOP'S ORIENTED HALF-EXTENTS, in metres, and they are an input to the compile
+## rather than something read off it: a relief material with a baked field (a DLA) grows that field to the
+## loop's proportions, inside compile(). Hosts that have no oriented frame — or whose frame is a disc —
+## leave them at 1.0, which reads as "isotropic". See Pasture3DReliefMaterial.set_host_frame.
+func _compile_modifiers(p_extent: String = "", p_ex: float = 1.0, p_ez: float = 1.0) -> Dictionary:
 	var out := {
 		"list": [], "gd": [], "op_selectors": PackedFloat32Array(),
 		"need_fields": false, "need_host": false, "sim": null, "count": 0,
@@ -2925,6 +2929,7 @@ func _compile_modifiers(p_extent: String = "") -> Dictionary:
 			blk["out"] = slot
 			step["out"] = slot
 		if m is Pasture3DModRelief:
+			m.material.set_host_frame(p_ex, p_ez)
 			var prog: Array = m.material.compile()
 			var ops: PackedInt32Array = prog[0]
 			var mat_sel: PackedFloat32Array = prog[3]

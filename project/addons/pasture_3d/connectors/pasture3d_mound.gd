@@ -212,16 +212,21 @@ func _paint_spline(path: Path3D) -> void:
 	# leaves every field below empty or false, and the brush stamps its bare profile — which is exactly
 	# what a Mound with nothing configured should do.
 	var extent := _extent_key(min_x, min_z, vs, gw, gh)
-	var stack := _compile_modifiers(extent)
+
+	# Oriented loop frame. Mapping is always TILE here — the ops read world XZ — but the normalised
+	# coordinates radial ops use come from this frame, so a Crater is still sized and turned by the loop.
+	#
+	# Computed BEFORE the stack compiles, and asked of the modifier list rather than of the compiled stack,
+	# because a material with a BAKED FIELD (a DLA) grows that field to the loop's proportions and does it
+	# inside compile(). Handing the frame over afterwards is handing it over one bake late — which for a
+	# material that only regrows when the shape changes means never.
+	var wants_frame := _has_relief_modifier()
+	var frame: Array = _loop_frame(poly) if wants_frame else [0.0, 0.0, 1.0, 0.0, 1.0, 1.0]
+	var stack := _compile_modifiers(extent, frame[4], frame[5])
 	var op_selectors: PackedFloat32Array = stack["op_selectors"]
 	var use_fields := bool(stack["need_fields"])
 	var use_host := bool(stack["need_host"])
 	var sim_res: Pasture3DSimResult = stack["sim"]
-	var wants_frame := _stack_has_relief(stack)
-
-	# Oriented loop frame. Mapping is always TILE here — the ops read world XZ — but the normalised
-	# coordinates radial ops use come from this frame, so a Crater is still sized and turned by the loop.
-	var frame: Array = _loop_frame(poly) if wants_frame else [0.0, 0.0, 1.0, 0.0, 1.0, 1.0]
 	var fcx: float = frame[0]
 	var fcz: float = frame[1]
 	var fcos: float = frame[2]
@@ -385,11 +390,16 @@ func _paint_spline(path: Path3D) -> void:
 				_paint_height(pos, v, 0.0)
 
 
-## True when the compiled stack holds at least one Relief modifier, i.e. when the oriented loop frame is
+## True when the stack holds at least one active Relief modifier, i.e. when the oriented loop frame is
 ## worth computing. A stack of noise and smoothing alone never reads it.
-func _stack_has_relief(p_stack: Dictionary) -> bool:
-	for step in p_stack["gd"]:
-		if step["kind"] == &"relief":
+##
+## Asks the MODIFIER LIST and not the compiled stack, because the frame is now an input to the compile
+## (see the bake) — and `is_active()` is the same test `_compile_modifiers` skips on, so the two agree.
+## A relief step that compiles to nothing but is waiting for a seed surface still counts, and should:
+## it is about to be handed one, and it will grow its field against this frame when it is.
+func _has_relief_modifier() -> bool:
+	for m in modifiers:
+		if m is Pasture3DModRelief and m.is_active():
 			return true
 	return false
 

@@ -14,6 +14,7 @@
 #   CX  Coverage sizes it, Detail Size styles it, and neither does the other's job
 #   CY  a seeded cluster grows along the ridges it was handed
 #   CZ  the surface it is handed is the stack ABOVE it, so it cannot feed itself
+#   DA  the ridges are the same size in both directions on a loop that is not square
 #
 # CQ IS THE ONE THAT NEEDED THINKING ABOUT, so its design is written out at the gate. In short: no single
 # scalar separates a DLA from both nulls, so it uses two, each with the null it is there to exclude.
@@ -46,7 +47,20 @@ const RELIEF_M := 8.0
 ## House rule (bench/OceanBench.gd): a GDScript runtime error abandons the function WITHOUT incrementing
 ## the failure count, so a suite that only counts failures can report a clean pass having measured
 ## nothing. Each gate increments `_completed` as its last statement and the verdict requires all of them.
-const GATES := 7
+const GATES := 8
+## DA's loop: 180 m by 60 m, i.e. 3:1. Enough that a stretched field is unmistakable, and not so much
+## that the massif runs out of short axis to carry a ridge-spacing statistic (see bench/DlaAspectProbe.gd,
+## where 9:1 at this resolution is dominated by that and not by any stretch).
+const DA_EX := 90.0
+const DA_EZ := 30.0
+## Metres between DA's samples, and the fraction of the peak below which a sample is off the massif.
+const DA_STEP := 0.5
+const DA_FLOOR := 0.05
+## The isotropy band. Wide on purpose: measured, this metric reads 0.908 on a genuinely isotropic SQUARE
+## loop, so its own floor is nine points off 1.000 and a tight band would be reporting the metric. The
+## defect it has to catch is 0.38 at this aspect and falls as 1/aspect, so there is a decade of daylight.
+const DA_BAND_LO := 0.80
+const DA_BAND_HI := 1.25
 
 var _fail := 0
 var _completed := 0
@@ -71,6 +85,7 @@ func _ready() -> void:
 	_gate_cx_size_and_detail()
 	_gate_cy_seeded_growth()
 	_gate_cz_capture_excludes_itself()
+	_gate_da_isotropic()
 
 	if _completed != GATES:
 		_fail += 1
@@ -411,7 +426,13 @@ func _gate_cx_size_and_detail() -> void:
 			return
 		if _span(f) < 0.9:
 			flat = true
-		var arrival: float = _reach(m, n) / maxf(m._grow_extent(n), 1.0)
+		# The envelope is a Vector2 since the material learned about non-square loops; these fixtures are
+		# all square, and the gate asserts that rather than assuming it.
+		var env: Vector2 = m._grow_extent(n)
+		if not is_equal_approx(env.x, env.y):
+			_fail += 1
+			print("    !! a square fixture grew a non-square envelope %s; CX is measuring the wrong thing" % env)
+		var arrival: float = _reach(m, n) / maxf(env.x, 1.0)
 		var r98 := _r_mass(f, n, 0.98) / (0.5 * float(n))
 		var support := _support(f, n) / (0.5 * float(n))
 		var branches := _max_components(f, n)
@@ -971,6 +992,162 @@ func _warned(p_brush) -> bool:
 		if w.contains("sized by the loop"):
 			return true
 	return false
+
+
+# --- DA: the ridges are the same size in both directions --------------------------------------------
+#
+# The field is stretched ONCE over the loop's oriented rectangle -- nu,nv are +/-1 at its edges -- so a
+# field grown square and handed to a 3:1 loop arrives with every ridge width, branch spacing and blur
+# radius multiplied by 3 along one axis. That is invisible on the square test loops this material was
+# built on and is the first thing anyone sees on a hand-drawn one.
+#
+# MEASURED AS RIDGE DENSITY: local maxima per metre travelled across the massif, scanned along each of the
+# loop's own axes, in world metres and not in cells. It is self-normalising -- maxima over the metres
+# actually spent above the noise floor -- so a massif being LONGER one way does not move it. Only the
+# ridges being WIDER one way does, which is the defect.
+#
+# CONTROL, and it is the whole gate: the same material with the frame withheld. That is not a mock-up of
+# the old behaviour, it IS the old behaviour, because withholding the frame is what every host did before
+# this material was given somewhere to put it. It must fail the isotropy band, and at about 1/aspect.
+#
+# SECOND CONTROL, against the opposite error: on a SQUARE loop, told and not told must produce bitwise
+# identical fields. Without it the criterion would also pass an implementation that simply made every
+# field different, and it is what pins "the crop is a no-op when there is nothing to crop".
+func _gate_da_isotropic() -> void:
+	print("\n[DA] the ridges are the same size in both directions:")
+	var told := _dla(7, 256)
+	told.set_host_frame(DA_EX, DA_EZ)
+	var raw := _dla(7, 256)
+	var meta: PackedInt32Array = told.compile()[5]
+	if meta.size() < 3 or _field(told).is_empty():
+		_fail += 1
+		print("    !! the material compiled to no field at all; nothing was measured")
+		return
+
+	# 1. the grid follows the loop, and its cells stay square IN METRES -- which is the mechanism, and the
+	#    thing a ratio of ridge counts could otherwise be talked into agreeing with by accident.
+	var mx := DA_EX * 2.0 / float(meta[1] - 1)
+	var mz := DA_EZ * 2.0 / float(meta[2] - 1)
+	print("    field %d x %d cells over a %.0f x %.0f m loop -> %.3f x %.3f m per cell"
+			% [meta[1], meta[2], DA_EX * 2.0, DA_EZ * 2.0, mx, mz])
+	if absf(mx / mz - 1.0) > 0.05:
+		_fail += 1
+		print("    !! the field's cells are not square in world metres, so its ridges cannot be either")
+
+	var a := _ridge_scan(told, DA_EX, DA_EZ)
+	var b := _ridge_scan(raw, DA_EX, DA_EZ)
+	if a[0] <= 0.0 or a[1] <= 0.0 or b[0] <= 0.0 or b[1] <= 0.0:
+		_fail += 1
+		print("    !! a scan found no ridges at all; the ratio below is about nothing")
+		return
+	var ratio: float = a[0] / a[1]
+	var ctl: float = b[0] / b[1]
+	print("    ridges per metre: %.4f along u, %.4f along v -> ratio %.3f" % [a[0], a[1], ratio])
+	if ratio < DA_BAND_LO or ratio > DA_BAND_HI:
+		_fail += 1
+		print("    !! the ridges are %.1fx the size one way; the field is being stretched onto the loop"
+				% (1.0 / ratio if ratio < 1.0 else ratio))
+
+	# 2. and it still fills its loop. Un-squashing by INSCRIBING a round massif would pass everything
+	#    above and leave the ends of the loop bare, which is the other way to get this wrong.
+	print("    massif reaches %.2f of the half-extent along u, %.2f along v" % [a[2], a[3]])
+	if minf(a[2], a[3]) < 0.5:
+		_fail += 1
+		print("    !! the massif does not reach its loop on one axis; it has been inscribed, not fitted")
+
+	# CONTROL
+	print("    CONTROL the same material, frame withheld (the old behaviour): ratio %.3f" % ctl)
+	if ctl >= DA_BAND_LO:
+		_fail += 1
+		print("    !! the control passes the isotropy band, so the band is not measuring the stretch")
+
+	# 3. THROUGH A STACK. A relief stack memoises its own spliced program, so a layer that regrows its
+	#    field underneath it is invisible unless the layer says so and the stack listens -- and the first
+	#    version of this change did neither, which made a stacked DLA silently keep the square field it
+	#    was compiled with. Compared against the bare material rather than against a number, so the claim
+	#    is "a layer is told what a material is told" and not "84 is the right answer".
+	var inner := _dla(7, 256)
+	var stack := Pasture3DReliefStack.new()
+	stack.layers = [inner] as Array[Pasture3DReliefMaterial]
+	# DUPLICATED, not just assigned: compile() hands back its own arrays, and the second compile clears
+	# and refills them in place. Without the copy this reads the same array twice and the "it changed"
+	# control below reports no change on a working implementation -- which is exactly what it did.
+	var before: PackedInt32Array = stack.compile()[5].duplicate()
+	stack.set_host_frame(DA_EX, DA_EZ)
+	var after: PackedInt32Array = stack.compile()[5].duplicate()
+	var bare := "%dx%d" % [meta[1], meta[2]]
+	var was := "%dx%d" % [before[1], before[2]] if before.size() >= 3 else "none"
+	var now := "%dx%d" % [after[1], after[2]] if after.size() >= 3 else "none"
+	print("    in a Relief Stack: %s before the frame, %s after (the bare material: %s)"
+			% [was, now, bare])
+	if now != bare:
+		_fail += 1
+		print("    !! a stacked layer did not get the loop's shape; the stack is serving a stale splice")
+	if was == now:
+		_fail += 1
+		print("    !! the stack's field never changed, so the comparison above proves nothing")
+
+	# SECOND CONTROL
+	var sq_told := _dla(7, 256)
+	sq_told.set_host_frame(DA_EX, DA_EX)
+	var sq_raw := _dla(7, 256)
+	var same := _identical(_field(sq_told), _field(sq_raw))
+	print("    CONTROL a SQUARE loop, told vs withheld: %s" % ["bitwise identical" if same else "DIFFER"])
+	if not same:
+		_fail += 1
+		print("    !! a square loop regrows a different mountain; the crop is not a no-op where it should be")
+	_completed += 1
+
+
+## Local maxima per metre along u and along v, plus how far the massif reaches on each axis as a fraction
+## of the half-extent. Sampled through the material's own oracle at the SAME loop-normalised coordinates
+## the brush feeds it, so the scan sees exactly what the ground will.
+func _ridge_scan(p_mat: Pasture3DReliefDLA, p_ex: float, p_ez: float) -> Array:
+	var nx := int(2.0 * p_ex / DA_STEP) + 1
+	var nz := int(2.0 * p_ez / DA_STEP) + 1
+	var h := PackedFloat32Array()
+	h.resize(nx * nz)
+	var peak := 0.0
+	for iz in range(nz):
+		var lz := -p_ez + float(iz) * DA_STEP
+		for ix in range(nx):
+			var lx := -p_ex + float(ix) * DA_STEP
+			var v: float = p_mat.eval(lx, lz, lx / p_ex, lz / p_ez, 1.0 / p_ex, 1.0 / p_ez)
+			h[iz * nx + ix] = v
+			peak = maxf(peak, v)
+	if peak <= 0.0:
+		return [0.0, 0.0, 0.0, 0.0]
+	var cut := peak * DA_FLOOR
+	var ru := 0.0
+	var rv := 0.0
+	for iz in range(nz):
+		for ix in range(nx):
+			if h[iz * nx + ix] <= cut:
+				continue
+			ru = maxf(ru, absf(-p_ex + float(ix) * DA_STEP) / p_ex)
+			rv = maxf(rv, absf(-p_ez + float(iz) * DA_STEP) / p_ez)
+	return [_ridge_density(h, nx, nz, cut, true), _ridge_density(h, nx, nz, cut, false), ru, rv]
+
+
+## Maxima per metre along rows (u) or columns (v), with the identical rule both ways so the two numbers
+## are comparable. Divided by the metres spent ABOVE the floor rather than by the loop's own width, so an
+## elongated massif does not read as a stretched one.
+func _ridge_density(h: PackedFloat32Array, nx: int, nz: int, cut: float, p_rows: bool) -> float:
+	var n_outer := nz if p_rows else nx
+	var n_inner := nx if p_rows else nz
+	var maxima := 0
+	var live := 0
+	for o in range(n_outer):
+		for i in range(1, n_inner - 1):
+			var a: float = h[o * nx + (i - 1)] if p_rows else h[(i - 1) * nx + o]
+			var b: float = h[o * nx + i] if p_rows else h[i * nx + o]
+			var c: float = h[o * nx + (i + 1)] if p_rows else h[(i + 1) * nx + o]
+			if b <= cut:
+				continue
+			live += 1
+			if b > a and b >= c:
+				maxima += 1
+	return float(maxima) / maxf(float(live) * DA_STEP, 0.001)
 
 
 func _lattice(p_centre: Vector3) -> Array[Vector3]:

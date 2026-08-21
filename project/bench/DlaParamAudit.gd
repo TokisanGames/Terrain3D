@@ -21,7 +21,10 @@ const N := 256
 
 func _init() -> void:
 	print("\n=== Pasture3DReliefDLA: where does each range stop doing anything? ===")
-	print("  reach/blur/outer are fractions of the field's HALF-extent (1.00 = the loop edge)\n")
+	print("  reach/blur/outer are fractions of the field's HALF-extent (1.00 = the loop edge)")
+	# The material grows to the shape of the loop it is handed, and no loop is handed over here, so every
+	# envelope below is the square one. Reading .x off it is that fact, not a discarded number.
+	print("  measured on a SQUARE loop, so the envelope's two axes are equal\n")
 
 	_sweep("coverage", [0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 1.0])
 	_sweep("detail_size", [0.03, 0.08, 0.12, 0.16, 0.20, 0.28, 0.35, 0.42, 0.50])
@@ -44,5 +47,5 @@ func _sweep(p_name: String, p_values: Array) -> void:
 		var levels: int = m.hierarchy_levels
 		var n0: int = maxi(n >> (levels - 1), 16)
 		print("    %-10s %8.3f %8.3f %8.3f %10d %8d %s"
-				% [str(v), m._grow_extent(n) / half, float(m._blur_budget(n)) / half,
-				m._outer(n) / half, m._particles(), n0, str(m._blur_radii(n))])
+				% [str(v), m._grow_extent(n).x / half, float(m._blur_budget(n)) / half,
+				m._outer(n).x / half, m._particles(), n0, str(m._blur_radii(n))])

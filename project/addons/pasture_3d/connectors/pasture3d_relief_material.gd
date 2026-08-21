@@ -219,6 +219,27 @@ func wants_host_profile() -> bool:
 	return selector != null and selector.uses_host_profile()
 
 
+## Hand this material the LOOP'S ORIENTED HALF-EXTENTS, in metres, before compile() is called. A no-op
+## for every point-evaluated material, and it has to be: those read `nu,nv` and the host has already
+## divided by these two numbers by the time they arrive, so the shape of the loop is not theirs to know.
+##
+## A material with a BAKED FIELD is the exception, and the reason this hook exists. Its field is a grid
+## stretched once over the whole rectangle, so a square grid on a 3:1 loop is a mountain whose every ridge
+## is three times wider one way than the other. The field has to be GROWN to the loop's proportions, the
+## growth happens inside compile(), and so the proportions have to arrive before it. Only
+## Pasture3DReliefDLA overrides this; Pasture3DReliefStack forwards it to its layers.
+##
+## Handing over `1.0, 1.0` means "isotropic", which is what a host whose frame is a disc (Plow's SCATTER
+## mapping, where every instance is radius-normalised) must do.
+##
+## RETURNS true when the frame actually invalidated something, the way set_seed_surface does. A composite
+## needs that answer: its own compiled program is memoised, and a child quietly regrowing its field
+## underneath it would leave the composite handing out the bytes it spliced last time. The base is a
+## no-op and returns false.
+func set_host_frame(_p_ex: float, _p_ez: float) -> bool:
+	return false
+
+
 ## Append a selector to the table and return its index (the value an op stores in its selector slot).
 func _emit_selector(s: Pasture3DReliefSelector) -> int:
 	var id := _selectors.size() / SELECTOR_STRIDE

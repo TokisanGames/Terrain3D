@@ -77,6 +77,23 @@ func wants_host_profile() -> bool:
 	return false
 
 
+## Forward the loop's proportions down, so a baked-field layer (a DLA) grows its field to the shape of
+## the loop it is going to be stretched over. Not conditional on anything: the base is a no-op, and a
+## stack that asked its layers first would need one more virtual to ask WITH — which is the same forward,
+## twice.
+func set_host_frame(p_ex: float, p_ez: float) -> bool:
+	var moved := false
+	for m in layers:
+		if m != null and m.set_host_frame(p_ex, p_ez):
+			moved = true
+	# A layer that regrew invalidated THIS program too: the splice copied the child's field bytes into
+	# `_fields`, so a memoised stack would keep serving the mountain the loop used to be. Set directly
+	# rather than through _touch() for the same reason the child does — see Pasture3DReliefDLA.
+	if moved:
+		_dirty = true
+	return moved
+
+
 func _build() -> void:
 	for m in layers:
 		if m == null:
