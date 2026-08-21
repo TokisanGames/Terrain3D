@@ -60,20 +60,23 @@ lod0_range = 128.0
 [sub_resource type="Pasture3DAssets" id="Pasture3DAssets_whwrs"]
 mesh_list = Array[Pasture3DMeshAsset]([SubResource("Pasture3DMeshAsset_60doo")])
 
-[sub_resource type="Resource" id="Resource_gxfyo"]
+[sub_resource type="Resource" id="Resource_j23hy"]
 script = ExtResource("3_qex3v")
-strength = 10.0
+seed = 34586
+ridge_seeding = true
+blur_growth = 2.6
+profile_power = 4.0
+strength = 15.0
 metadata/_custom_type_script = "uid://b76lupc5lsgrt"
 
 [sub_resource type="Resource" id="Resource_48j6u"]
 script = ExtResource("4_ce53t")
-material = SubResource("Resource_gxfyo")
+material = SubResource("Resource_j23hy")
 strength = 1.0
 metadata/_custom_type_script = "uid://5aqm0epy240i"
 
 [sub_resource type="Resource" id="Resource_ce53t"]
 script = ExtResource("24_ce53t")
-enabled = false
 evaluation = 1
 metadata/_custom_type_script = "uid://btghvibxcxh6p"
 
@@ -83,7 +86,7 @@ metadata/_custom_type_script = "uid://c7gvbwvest2s"
 
 [sub_resource type="Resource" id="Resource_qex3v"]
 script = ExtResource("11_13rgy")
-filter_type = 3
+filter_type = 4
 range_min = 5000.0
 range_max = 1000000000.0
 falloff_low = 2500.0
@@ -104,13 +107,12 @@ metadata/_custom_type_script = "uid://b4reut2qigpsv"
 script = ExtResource("4_ce53t")
 material = SubResource("Resource_tqyh8")
 strength = 1.0
-enabled = false
 metadata/_custom_type_script = "uid://5aqm0epy240i"
 
 [sub_resource type="Curve3D" id="Curve3D_xmus7"]
 closed = true
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -129.57329, 1, -48.337097, 0, 0, 0, 0, 0, 0, -72.29167, 1, -30.168243, 0, 0, 0, 0, 0, 0, -3.6876068, 1, -51.349335, 0, 0, 0, 0, 0, 0, 16.413895, 1, -24.648407, 0, 0, 0, 0, 0, 0, 62.916466, 1, -15.964813, 0, 0, 0, 0, 0, 0, 114.14018, 1, 46.31021, 0, 0, 0, 0, 0, 0, 64.831276, 1, 78.15329, 0, 0, 0, 0, 0, 0, 10.381378, 1, 51.645325, 0, 0, 0, 0, 0, 0, -53.32933, 1, 88.5253, 0, 0, 0, 0, 0, 0, -115.09923, 1, 81.37219, 0, 0, 0, 0, 0, 0, -205.59303, 1, 14.438416, 0, 0, 0, 0, 0, 0, -138.64499, 1, -13.474213),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -129.5733, 1.0000153, -48.337097, 0, 0, 0, 0, 0, 0, -62.651, 1.0000153, -26.272781, 0, 0, 0, 0, 0, 0, -3.687622, 1.0000153, -51.34935, 0, 0, 0, 0, 0, 0, 16.41388, 1.0000153, -24.648407, 0, 0, 0, 0, 0, 0, 62.916443, 1.0000153, -15.964813, 0, 0, 0, 0, 0, 0, 114.14018, 1.0000153, 46.310196, 0, 0, 0, 0, 0, 0, 64.83127, 1.0000153, 78.15329, 0, 0, 0, 0, 0, 0, 10.381348, 1.0000153, 51.64531, 0, 0, 0, 0, 0, 0, -53.329315, 1.0000153, 88.5253, 0, 0, 0, 0, 0, 0, -115.09924, 1.0000153, 81.37219, 0, 0, 0, 0, 0, 0, -205.59308, 1.0000153, 14.438431, 0, 0, 0, 0, 0, 0, -138.64502, 1.0000153, -13.474228),
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 }
 point_count = 12
@@ -556,7 +558,7 @@ top_level = true
 metadata/_edit_lock_ = true
 
 [node name="Mound" type="Node3D" parent="Pasture3D" unique_id=739364567 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -103.224594, 0, 368.9254)
+transform = Transform3D(0.80486745, 0, 0.5934546, 0, 1, 0, -0.5934546, 0, 0.80486745, -122.8946, -1.5258789e-05, 340.0349)
 script = ExtResource("1_fwsd8")
 flank_mode = 1
 terrain = NodePath("..")
