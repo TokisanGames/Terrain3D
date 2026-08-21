@@ -681,6 +681,55 @@ its shape. Running the choosing cheap and the deepening expensive is the trade.
 
 ### 8.1 The blocker, and it must be fixed first
 
+> **MEASURED 2026-08-20. The answer to step 2 is NO, and the phase changes shape as §8.1 provided for.**
+> `bench/ResolutionCalibrationProbe.tscn` is the sweep — four fixtures (a smooth bowl, a Y-catchment, the
+> demo terrain, a km-scale dome) crossed with two relief amplitudes, three erosion rates and two base cell
+> sizes, at divisors 1/2/4/8: 144 points. `bench/ResolutionCalibrationGate.tscn` is gate CK, the standing
+> subset.
+>
+> **1. The ratio is NOT a function of the divisor alone.** Across the sweep the divisor explains **10.2 %**
+> of the variance in ln(ratio) against **3.4 %** for the same statistic with the labels shuffled — 22.0 %
+> against 5.3 % once flattened fixtures are excluded. Put as two spreads: the mean ratio moves **1.26×**
+> from divisor 2 to divisor 8, while **changing only `erosion_rate` at a fixed divisor moves it 2.07×**.
+> The confound is bigger than the signal.
+>
+> **2. Relief is exactly neutral — and that is the harness's positive control.** The ratio is invariant to
+> relief amplitude to **1.0037×** across three fixtures and three divisors. This is not luck: linear
+> stream power is homogeneous in z, so scaling a surface scales every slope, every incision rate and the
+> whole solution with it, and the ratio must cancel *exactly*. It is an analytic property of the equation
+> being solved, which makes it the one number here that a broken measurement could not produce — a
+> misaligned upsample, a boundary a cell out, or an RMS over the wrong cells all destroy it. Gate CK checks
+> it first for that reason. It also settles one of §8.1's own worries: relief is not a confound.
+>
+> **3. The obvious recast — that the governing parameter is the incision budget `K·N` — was tested and
+> does not rescue it.** K and the iteration count are not independent (each iteration incises in
+> proportion to K), so the first sweep, which varied K at a fixed N = 60, could not tell K from K·N. That
+> was tested properly, by varying N and asking whether one budget spent three ways gives one ratio — a
+> prediction on data the hypothesis was not formed from, rather than a curve fitted to the data that
+> suggested it. It looked convincing at first: 1.068× median within a budget against 1.421× between.
+>
+> **It does not survive its own saturation check.** Most of that separation came from arms in which the
+> solve had *flattened the fixture*. At `K·N = 16.2` the bowl's ratio is **1.000 with 0 % of its relief
+> still standing**; at `K·N = 1.8` it is **2.625 with 92 % standing**. A solve that has removed the
+> landscape has no structure left for a resolution to disagree about, so its ratio is 1.000 by
+> construction — an agreement between two ruins. Restricted to budgets that leave a landscape standing,
+> within-budget spread (**1.040×** median) and between-budget spread (**1.138×** median) are comparable
+> and the recast explains little.
+>
+> **What this means for the phase.** §8.1's own fallback is the route: **match the coarse solve's slope
+> baseline rather than scale its output.** That is a change to how the coarse stage *measures slope* — over
+> a fixed physical distance rather than to its D8 receiver, whose distance is a cell size — and not a
+> factor applied to what it produces. It is a bigger change than a stored constant, and it is the one the
+> measurement supports.
+>
+> **What is NOT yet known, and decides whether any of this matters.** Amplification does not need the
+> coarse *depth* to be right; it needs the coarse *structure* to be right, because the fine stage then
+> re-deepens it. That is gate CJ's correlation criterion, and it has not been run. It is possible that a
+> coarse stage with a wrong depth still amplifies correctly — in which case the slope-baseline work is
+> unnecessary and the phase gets simpler. **Run CJ before building the correction**, on a coarse stage with
+> no correction at all: the result decides which of the two shapes phase 5 takes, and it is cheap relative
+> to either.
+
 §6 of the Sim spec measured and honestly recorded the thing that stops this working today:
 
 > *the preview erodes **DEEPER** than the build — 1.28× the delta RMS on the synthetic fixture, and 2.5× at
@@ -707,10 +756,16 @@ the coarse solve as a *preview* — something looked at and discarded — where 
    sources and the same one the Sim spec's §15.9 blocked a whole feature on.
 
 If step 2 says the ratio is not a clean function of the divisor, **that is a real result and the phase
-changes shape** — it does not become a fudge factor fitted to the demo terrain. Gate CG is written to fail
-in exactly that case.
+changes shape** — it does not become a fudge factor fitted to the demo terrain. **Gate CK** is written
+to fail in exactly that case. (Earlier drafts of this section said "gate CG" and "gate CF"; those letters
+belong to phase 4 — the phase-5 gates are CJ–CN.)
 
 ### 8.2 Node surface
+
+> **PROVISIONAL pending gate CJ** (see §8.1's measurement). These three knobs stand; what does not yet
+> stand is whether a fourth is needed to correct the coarse stage's depth. Run CJ against an uncorrected
+> coarse stage first — if the amplified result already correlates with a full-resolution solve on
+> large-scale structure, there is nothing to correct and no constant to store.
 
 ```gdscript
 @export_range(1, 16) var coarse_divisor: int = 8
@@ -719,7 +774,7 @@ in exactly that case.
 ```
 
 `coarse_iterations = 0` runs the single-resolution solve that exists today, which is both the migration
-path and gate CF's control.
+path and gate CJ's control.
 
 ---
 
@@ -791,7 +846,7 @@ DLA is sized by the loop, exactly like `CRATER`, so:
 | **3a — BUILT** | The modifier stack; `Pasture3DModNoise` / `ModRelief` / `ModSmooth`; the Mound legacy properties deleted and migrated | BW ✅, BZ ✅ | nothing |
 | **3b — BUILT** | `Pasture3DModErosion`; the field context later selectors read; Live/Frozen and frozen-cache staleness | BX ✅, BY ✅, CA–CE ✅ | 1, 2, 3a |
 | **4 — BUILT** | The manager registry; `Bake All Brushes`; `Register Eroding Brushes`; stale-path warnings | CF ✅, CG ✅, CH ✅, CW ✅ | 3b |
-| **5** | The resolution-calibration measurement, **then** coarse→fine amplification | CJ–CN | 2, 3b |
+| **5 - MEASURED** | The resolution-calibration measurement is DONE (CK) and rejected the planned correction; the shape of the rest now depends on CJ | CK ✅, CJ next | 2, 3b |
 | **6** | `Pasture3DReliefDLA` as a baked field op | CP–CS | 1 (to multiply by the host profile) |
 
 **Phases 1 and 6 are independent of the erosion chain** and can be pulled forward if a visible win is
@@ -840,8 +895,8 @@ the Sim spec already established.
 | CG ✅ | *(4)* **A stale path warns, names itself, and costs exactly itself.** After deleting a registered brush, the registry raises **1 warning containing the path**, and the run still bakes **1 of 1** with the survivor moving **50.0 m** — the dead entry is not counted as a brush to bake. | The same list with every path valid, which warns **0 times**. Silently dropping the stale entry fails only CG. |
 | CH ✅ | *(4)* **One undo restores everything.** A run over two layers registers **1 action carrying 2 layers**, and applying that action's own inverse restored both **bitwise**. Exercised through the inverse rather than the editor: `EditorUndoRedoManager` does not exist headless, and the action is built from a list of `_restore_owner(owner, snapshot)` pairs that the report hands back, so the gate calls exactly what Ctrl+Z would. The action list is returned as data so its SHAPE is measurable — one action per layer would still restore correctly and is still wrong. | Cancel mid-run, driven through the interactive path: **cancelled after 1 of 2**, the layer it reached moved **60.0 m**, the layer it never reached moved **0.000 m**, and the node carries the partial count as a configuration warning rather than only in the Output log. Ignoring the cancel flag fails 3 criteria; one action per layer fails only the shape criterion. |
 | CW ✅ | *(4)* **Register Eroding Brushes discovers without making membership implicit.** Scanning an empty list registered **6 of the 6** brushes in the scene carrying an enabled erosion modifier. The expected set is computed by the gate's own walk over its own fixtures — a gate that asked `erosion_modifiers()` which brushes were eroding would agree with a broken one as readily as a working one. | The two ways a brush must fail to qualify, both present: no erosion modifier, and one whose modifier is **disabled**. Plus the manager itself, which must not register itself. Pressing it twice must add **0**. And starting from a hand-made list of 1, the scan must **grow it to 6 leaving entry 0 where it was** — a scan that replaced would silently discard an order the artist chose, which is the whole difference between discovery and implicit membership. Replacing instead of appending fails 1 criterion; ignoring `enabled` fails 4. |
-| CJ | *(5)* **Amplification matches a full-resolution solve on large-scale structure**, at the correlation §6 already established as the honest claim (≥0.86 on the low-frequency delta), and is measurably faster. | `coarse_iterations = 0` — today's single-resolution solve — which must be slower and must correlate at 1.00 with itself. |
-| CK | *(5)* **The depth-calibration constant is a function of the divisor alone.** The measured RMS ratio across fixtures spanning terrain relief and `erosion_rate` collapses onto one curve within tolerance. | The **same sweep across relief and rate**, which is the control *and* the criterion: if the ratios do not collapse, this gate **fails and phase 5 changes shape** (§8.1). It is written to be capable of rejecting the approach, not of confirming it. |
+| CJ | *(5)* **NOW THE DECIDING GATE, and it should be run BEFORE any correction is built.** Amplification does not need the coarse stage's DEPTH to be right, only its STRUCTURE, because the fine stage re-deepens what the coarse stage chose. So: does the amplified result match a full-resolution solve on large-scale structure at the correlation §6 established as the honest claim (>= 0.86 on the low-frequency delta), and is it measurably faster — with the coarse stage UNCORRECTED? If yes, CK's rejected correction was never needed and phase 5 gets simpler; if no, §8.1's slope-baseline fallback is the work. | `coarse_iterations = 0` — today's single-resolution solve — which must be slower and must correlate at 1.00 with itself. |
+| CK ✅ | *(5)* **The planned correction is REJECTED, and this gate is where that is recorded.** 8.1 asked whether the depth ratio is a function of the divisor alone; it is not. The divisor explains **10.2 %** of the variance in ln(ratio) against **3.4 %** for shuffled labels (22.0 % vs 5.3 % excluding flattened fixtures), and as two spreads: the mean ratio moves **1.26x** across divisors while **`erosion_rate` alone moves it 2.07x at a fixed divisor**. The incision-budget recast `K·N` was tested as a prediction on new data and does not rescue it: its apparent collapse came from arms the solve had FLATTENED, and at `K·N = 16.2` the bowl reads **ratio 1.000 with 0 % of its relief standing** against **2.625 with 92 % standing** at 1.8. Restricted to live budgets, within (1.040x) and between (1.138x) are comparable. `bench/ResolutionCalibrationProbe.tscn` is the 144-point sweep. | **Relief invariance is the harness's positive control, and it is analytic rather than empirical**: linear stream power is homogeneous in z, so the ratio must cancel exactly under a relief rescale — measured **1.0037x**, which no misaligned upsample or mis-set boundary could produce, so it is checked first. Plus a floor: the divisor must move the ratio by at least 1.15x, or rate-beats-divisor is a comparison between two nothings. Plus the flattened arm's relief-left condition, without which its ratio of 1.000 would be genuine agreement and the recast would still be alive. Neutering the divisor so every ratio is 1.000 fires two of the three. |
 | CL | *(5)* **The constant is stored, not printed.** The factor used is serialised on the brush and on any result written, and a bake reloaded from disk reproduces its surface without re-deriving it. | Clear the stored value and re-bake, which must produce a *different* surface — otherwise nothing is reading it and storing it is theatre. |
 | CM | *(5)* **The km case completes in budget.** A 3 km × 2 km mound at the terrain's spacing bakes within a stated wall-clock target. **Perf gate — needs the user's go-ahead before running.** | The same case with `coarse_iterations = 0`, which must be dramatically slower — the number this phase exists to move. |
 | CN | *(5)* **Amplified output is still hydrologically coherent.** The router on the amplified surface is a valid forest with no pits — gate A's criterion, re-run on the new path. | The upsample without the fine iterations, which must leave interpolation artefacts the forest test detects. |
