@@ -20,7 +20,18 @@ enum Op {
 enum Blend { ADD = 0, SUB = 1, MUL = 2, MAX = 3, MIN = 4, REPLACE = 5 }
 
 ## Wire format (spec §4.1). Mirrored by the C++ evaluator.
-const OP_STRIDE := 4     # [op_type, blend, selector_id, flags]
+const OP_STRIDE := 5     # [op_type, blend, selector_id, flags, selector_id_2]
+## Slot of an op's SECOND gate. An op is gated by the product of the two, so a material's own `selector`
+## can narrow an op that already carries one of its own — which, before this slot existed, it could not:
+## compile() assigned the material's selector only to ops holding NO_SELECTOR, and SCREE holds a real id.
+## The property was therefore inert on a Pasture3DReliefScree, with no way round it (a stack's selector
+## reaches the same test and skips the same op). See spec §16.3.
+##
+## TWO SLOTS AND NOT A CHAIN INSIDE THE SELECTOR TABLE. The stack already walks the ops rebasing slot 2,
+## so a second slot rebases in the loop that exists; a chain field would need a new walk over a table the
+## stack copies wholesale today. And "this op is gated by its own band AND by its material's" is what is
+## actually true, which is worth more than one fewer int per op.
+const OP_GATE_2 := 4
 const PARAM_STRIDE := 12 # per-op float block
 const FLAG_NEGATE := 1   # bit0 — negate the op's value before blending
 const FLAG_CLAMP := 2    # bit1 — clamp the accumulator to [-1,1] after blending
@@ -160,13 +171,20 @@ func compile() -> Array:
 		# This material's own selector gates EVERY op it emitted, not just the generators. An earlier
 		# version gated only generators, which left PROFILE ops (TERRACE / STRATIFY) remapping a
 		# gated-to-zero accumulator into a non-zero constant — so a fully excluded area still got stepped
-		# relief. Ops that already carry a selector (Scree gates its own) keep theirs.
+		# relief.
+		#
+		# An op that already carries a gate of its own KEEPS IT AND TAKES THIS ONE TOO, in the second
+		# slot, so the two multiply. It used to keep its own and drop this one, which made `selector`
+		# silently inert on the one material that gates itself — see OP_GATE_2 and spec §16.3. The second
+		# slot is free by construction: nothing but this line ever writes it.
 		if selector != null:
 			var sid := _emit_selector(selector)
 			for i in range(_ops.size() / OP_STRIDE):
 				var o := i * OP_STRIDE
 				if _ops[o + 2] == NO_SELECTOR:
 					_ops[o + 2] = sid
+				else:
+					_ops[o + OP_GATE_2] = sid
 		# The output curve is emitted last so it shapes the finished relief.
 		if output_curve != null:
 			_emit(Op.CURVE, Blend.ADD, [_bake_curve(output_curve)])
@@ -283,6 +301,7 @@ func _emit(op: int, blend_mode: int, p: Array, flags: int = 0, selector: int = N
 	_ops.append(blend_mode)
 	_ops.append(selector)
 	_ops.append(flags)
+	_ops.append(NO_SELECTOR) # the second gate; only compile() ever fills it
 	var base := _params.size()
 	_params.resize(base + PARAM_STRIDE)
 	for i in range(mini(p.size(), PARAM_STRIDE)):
@@ -436,10 +455,16 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		# Terrain-aware gate for this op, if any. A GENERATOR scales its contribution by it, a DOMAIN op
 		# scales its displacement, and a PROFILE op lerps between the un-remapped and remapped
 		# accumulator — so `sel == 0` always means "this op did nothing", smoothly, whatever its category.
+		# TWO gates, multiplied: the op's own (SCREE's slope band) and the material's `selector`. Both
+		# read the same cell, so the product is "in the band AND on the slope" — see OP_GATE_2.
 		var sid := _ops[o + 2]
 		var sel := 1.0
 		if sid >= 0:
 			sel = _selector_value(sid, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi,
+					host_alt, host_slope_deg, host_curv, has_host, host_measured)
+		var sid2 := _ops[o + OP_GATE_2]
+		if sid2 >= 0:
+			sel *= _selector_value(sid2, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi,
 					host_alt, host_slope_deg, host_curv, has_host, host_measured)
 		var band_source := (flags & FLAG_BAND_MASK) >> FLAG_BAND_SHIFT
 

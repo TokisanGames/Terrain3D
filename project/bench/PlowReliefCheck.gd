@@ -50,7 +50,7 @@ var _fail := 0
 ## house rule from bench/OceanBench.gd. Gates A-N predate it and are not retrofitted here; bringing them
 ## up is its own change, and a counter that covers half a suite must say which half or it is worse than
 ## none. O and P below are the half it covers.
-const COUNTED_GATES := 2
+const COUNTED_GATES := 3
 var _completed := 0
 var _root: Node3D
 var _terrain
@@ -80,6 +80,7 @@ func _ready() -> void:
 	_gate_n_profile_ops_are_gated()
 	_gate_o_blend_is_hidden()
 	_gate_p_stack_forwards_warnings()
+	_gate_q_second_gate()
 
 	if _completed != COUNTED_GATES:
 		_fail += 1
@@ -1111,3 +1112,112 @@ func _gate_p_stack_forwards_warnings() -> void:
 ## Warnings are multi-line now; the log stays one line per fact.
 func _oneline(s: String) -> String:
 	return "(nothing)" if s.is_empty() else "\"%s\"" % s.replace("\n", " | ")
+
+
+# --- Q: a material's own selector reaches an op that gates itself ---------------------------------
+#
+# Spec §16.3. SCREE emits its op already carrying a slope band, so the material works out of the box.
+# compile() used to assign the material's `selector` only to ops holding NO_SELECTOR, and SCREE's is never
+# empty -- so the property was inert on the one material that gates itself, with no way round it: a
+# stack's selector reaches the same test and skips the same op. The op now carries TWO gate slots and is
+# scaled by their product.
+#
+# MEASURED ON THE OP'S OUTPUT, at a cell the assigned band must exclude and the built-in band must pass.
+# That combination is the whole point -- a cell excluded by BOTH would go to zero under any wiring at all,
+# including the broken one, and would prove nothing.
+#
+# THREE CONTROLS, because "the output went to zero" has three uninteresting causes.
+#   1. The same band on a material whose op carries NO gate of its own (Fractal), which must also gate out
+#      -- that is what says the band itself works and the fixture is not simply misconfigured.
+#   2. The same Scree with NO selector assigned, which must be non-zero at that cell -- otherwise the
+#      built-in slope gate was closing it and the assigned band is irrelevant.
+#   3. The built-in gate must still act: a cell the assigned band PASSES and the slope band rejects must
+#      still be zero. Without it, "the two multiply" would also be satisfied by an implementation that
+#      threw the op's own gate away and kept the material's, which is the previous bug inverted.
+func _gate_q_second_gate() -> void:
+	print("\n[Q] an assigned selector narrows an op that gates itself (spec 16.3):")
+	# A steep cell (60 deg) at 0 m, and an ALTITUDE band of 500-600 m that must exclude it.
+	var steep_low := func(m: Pasture3DReliefMaterial) -> float:
+		return m.eval(30.0, 30.0, 0.2, 0.2, 1.0, 1.0, 0.0, 60.0)
+	# A steep cell at 550 m, which the same band PASSES.
+	var steep_high := func(m: Pasture3DReliefMaterial) -> float:
+		return m.eval(30.0, 30.0, 0.2, 0.2, 1.0, 1.0, 550.0, 60.0)
+	# A FLAT cell at 550 m: the band passes, Scree's own slope gate must not.
+	var flat_high := func(m: Pasture3DReliefMaterial) -> float:
+		return m.eval(30.0, 30.0, 0.2, 0.2, 1.0, 1.0, 550.0, 2.0)
+
+	var bare := Pasture3DReliefScree.new()
+	var gated := Pasture3DReliefScree.new()
+	gated.selector = _altitude_band(500.0, 600.0)
+
+	var ungated_v: float = steep_low.call(bare)
+	var gated_v: float = steep_low.call(gated)
+	print("    steep, 0 m (band EXCLUDES): ungated %.6f -> with a 500-600 m band %.6f"
+			% [ungated_v, gated_v])
+	if is_zero_approx(ungated_v):
+		_fail += 1
+		print("    !! the ungated Scree is already zero here; Q measured nothing")
+	elif not is_zero_approx(gated_v):
+		_fail += 1
+		print("    !! the assigned selector did not reach the op, so `selector` is still inert on Scree")
+
+	var pass_v: float = steep_high.call(gated)
+	print("    steep, 550 m (band PASSES): %.6f" % pass_v)
+	if is_zero_approx(pass_v):
+		_fail += 1
+		print("    !! the band excludes everywhere, so the zero above is not evidence of anything")
+
+	# CONTROL 3: the op's OWN gate must survive. Flat ground, inside the altitude band.
+	var own_v: float = flat_high.call(gated)
+	print("    CONTROL flat, 550 m (band passes, SLOPE gate rejects): %.6f" % own_v)
+	if not is_zero_approx(own_v):
+		_fail += 1
+		print("    !! the op's own slope gate was dropped; the two must MULTIPLY, not replace")
+
+	# CONTROL 1: the same band on an op that carries no gate of its own.
+	var f_bare := Pasture3DReliefFractal.new()
+	var f_gated := Pasture3DReliefFractal.new()
+	f_gated.selector = _altitude_band(500.0, 600.0)
+	var fb: float = steep_low.call(f_bare)
+	var fg: float = steep_low.call(f_gated)
+	print("    CONTROL the same band on a Fractal (no gate of its own): %.6f -> %.6f" % [fb, fg])
+	if is_zero_approx(fb) or not is_zero_approx(fg):
+		_fail += 1
+		print("    !! the band does not work on an ungated op either, so the fixture is wrong")
+
+	# And the stack path, since that is where the ids get rebased and a wrong offset reads another
+	# material's band. One layer either side, so the Scree's ids are not at 0.
+	var stacked := Pasture3DReliefStack.new()
+	var inner := Pasture3DReliefScree.new()
+	inner.selector = _altitude_band(500.0, 600.0)
+	var l: Array[Pasture3DReliefMaterial] = [_screen_layer(), inner]
+	stacked.layers = l
+	var s_low: float = steep_low.call(stacked)
+	var s_high: float = steep_high.call(stacked)
+	print("    in a stack behind another gated layer: excluded %.6f, passed %.6f" % [s_low, s_high])
+	if not is_equal_approx(s_low, s_high):
+		print("    (the Scree layer contributes %.6f of the difference)" % absf(s_high - s_low))
+	if is_equal_approx(s_low, s_high):
+		_fail += 1
+		print("    !! the band does nothing inside a stack, so the second slot is not being rebased")
+	_completed += 1
+
+
+## A gated layer to sit in front of the Scree in Q's stack, so the Scree's selector ids are not 0 and a
+## missing rebase shows up as reading the WRONG band rather than as reading none.
+func _screen_layer() -> Pasture3DReliefFractal:
+	var f := Pasture3DReliefFractal.new()
+	f.seed = 91
+	f.selector = _altitude_band(-10000.0, 10000.0) # passes everywhere; it is here to consume ids
+	return f
+
+
+func _altitude_band(p_lo: float, p_hi: float) -> Pasture3DReliefSelector:
+	var s := Pasture3DReliefSelector.new()
+	s.filter_type = Pasture3DReliefSelector.FilterType.ALTITUDE
+	s.range_min = p_lo
+	s.range_max = p_hi
+	s.falloff_low = 0.0
+	s.falloff_high = 0.0
+	s.strength = 1.0
+	return s

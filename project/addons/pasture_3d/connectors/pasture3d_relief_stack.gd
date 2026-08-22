@@ -162,6 +162,9 @@ func _build() -> void:
 			_ops.append(m.blend if i == entry else c_ops[o + 1])
 			_ops.append(c_ops[o + 2] if c_ops[o + 2] < 0 else c_ops[o + 2] + sel_offset)
 			_ops.append(c_ops[o + 3])
+			# The second gate indexes the same table as the first, so it rebases the same way.
+			var g2 := c_ops[o + OP_GATE_2]
+			_ops.append(g2 if g2 < 0 else g2 + sel_offset)
 			var base := _params.size()
 			_params.resize(base + PARAM_STRIDE)
 			for k in range(PARAM_STRIDE):

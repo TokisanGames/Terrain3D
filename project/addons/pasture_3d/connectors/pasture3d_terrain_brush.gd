@@ -2693,8 +2693,14 @@ func _needs_host_fields(ops: PackedInt32Array, op_selectors: PackedFloat32Array)
 	var stride := Pasture3DReliefMaterial.SELECTOR_STRIDE
 	for i in range(ops.size() / Pasture3DReliefMaterial.OP_STRIDE):
 		var o := i * Pasture3DReliefMaterial.OP_STRIDE
-		var sid := ops[o + 2]
-		if sid >= 0:
+		# BOTH gate slots. A material selector landing in the second one (spec §16.3) reads the host
+		# profile exactly as it would in the first, and a predicate that only looked at the first would
+		# leave the field unbuilt — which gates everything to zero with no warning, the failure
+		# _offers_host_profile exists to make loud.
+		for slot in [2, Pasture3DReliefMaterial.OP_GATE_2]:
+			var sid := ops[o + slot]
+			if sid < 0:
+				continue
 			var b := sid * stride + Pasture3DReliefMaterial.SELECTOR_FIELD_SOURCE
 			if (b < op_selectors.size()
 					and int(op_selectors[b]) == Pasture3DReliefSelector.FieldSource.HOST_PROFILE):

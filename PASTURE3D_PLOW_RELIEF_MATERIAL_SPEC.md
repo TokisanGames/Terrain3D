@@ -117,11 +117,15 @@ Each entry is one op with a fixed-size parameter block, evaluated in order.
 ### 4.1 Encoding
 
 ```
-ops    : PackedInt32Array,   stride 4,  entry i at i*4
+ops    : PackedInt32Array,   stride 5,  entry i at i*5
   [0] op_type      see §5
   [1] blend        0=ADD 1=SUB 2=MUL 3=MAX 4=MIN 5=REPLACE
-  [2] selector_id  index into the selector table, or -1 for none   (RESERVED — phase 3)
+  [2] selector_id  index into the selector table, or -1 for none
   [3] flags        bit0 = negate output, bit1 = clamp acc to [-1,1] after blend
+                   bits 2-3 = which coordinate a PROFILE band op quantises (BandSource)
+  [4] selector_id2 a SECOND gate; the op is scaled by the PRODUCT of the two. Filled only by
+                   compile(), and only when slot [2] is already taken by an op that gates
+                   itself (SCREE) — which is how a material's own `selector` reaches it. §16.3
 
 params : PackedFloat32Array, stride 12, entry i at i*12
   meaning is per-op, documented in §5. Unused slots are 0.
@@ -680,7 +684,7 @@ changed nothing" and "nothing here changes anything" are the same output.
 |---|---|---|
 | 16.1 | `blend` is visible on three materials where it cannot act | **FIXED 2026-08-22** — gate O |
 | 16.2 | A stack silences every layer's configuration warning | **FIXED 2026-08-22** — gate P |
-| 16.3 | `selector` is inert on a `Pasture3DReliefScree` | open |
+| 16.3 | `selector` is inert on a `Pasture3DReliefScree` | **FIXED 2026-08-22** — gate Q |
 | 16.4 | A layer's Domain Warp displaces the layers below it | open — needs a decision, not a fix |
 | 16.5 | A layer's `strength` is not the operation a host applies | open |
 | 16.6 | `CONST`, `CLAMP`, `FLAG_NEGATE`, `FLAG_CLAMP` are emitted by nothing | open, and cosmetic |
@@ -736,28 +740,44 @@ the stack's own first. **All of them and not the first**, because the failure be
 complaint and a fix that hides all but one is the same failure with a smaller radius. Nested stacks
 prefix again, which is how you find the layer.
 
-### 16.3 `selector` is inert on a `Pasture3DReliefScree` — OPEN
+### 16.3 `selector` was inert on a `Pasture3DReliefScree` — FIXED
 
 Scree emits its op already carrying a slope gate, so the material works out of the box (§7.1). `compile()`
-assigns the material's own `selector` only to ops holding `NO_SELECTOR`, and Scree's op holds a real id —
-so **the `selector` property on a Scree does nothing whatsoever.** It is not even inert-but-harmless: the
-selector is still compiled into the wire block, so the table carries two entries and one op references
-one of them.
+assigned the material's own `selector` only to ops holding `NO_SELECTOR`, and Scree's op holds a real id —
+so **the `selector` property on a Scree did nothing whatsoever**, and not even harmlessly: the selector was
+still compiled into the wire block, so the table carried two entries and one op referenced one of them.
 
-Measured, at 0 m altitude on a 60° slope, with an ALTITUDE band of 500–600 m assigned that must exclude
-the cell: ungated **0.033207**, gated **0.033207**. The control is the same band on a Fractal, whose op
-carries no gate of its own: **0.186857 → 0.000000**, gated out exactly. So the band works and the wiring
-does not.
+Measured before, at 0 m altitude on a 60° slope with an ALTITUDE band of 500–600 m assigned that must
+exclude the cell: ungated **0.033207**, gated **0.033207**. The control is the same band on a Fractal,
+whose op carries no gate of its own: **0.186857 → 0.000000**. So the band worked and the wiring did not.
 
-Two comments disagree about this and the base class is the one telling the truth. Scree's says *"Assigning
-a selector on top still works — it gates the op further"*; the base's says *"Ops that already carry a
-selector (Scree gates its own) keep theirs"*.
+**There was no way round it.** A stack's own `selector` reaches the same test in the same `compile()` and
+skips the same op, so wrapping the Scree did not help either. Two comments disagreed about this and the
+base class was the one telling the truth.
 
-**There are two fixes and they mean different things.** Multiply the two gates, so an assigned selector
-narrows the built-in slope band — which is what Scree's comment promises and what an artist reaching for
-the property expects. Or hide `selector` on a Scree the way §16.1 hides `blend`, and correct the comment.
-The first needs the evaluator to carry two selector ids per op, in both languages and in the wire format;
-the second is three lines. Deciding which is not a code-review call.
+**The fix restores the capability rather than hiding the control.** Hiding `selector` on a Scree the way
+§16.1 hides `blend` was the three-line option, and it was wrong: confining scree to an altitude band, to a
+flow channel or to a curvature is not expressible through the built-in slope band, so hiding the property
+would have removed something genuinely unreachable from a material whose entire premise is being
+terrain-aware.
+
+**`OP_STRIDE` therefore went from 4 to 5**, and an op is now scaled by the PRODUCT of two gate slots. Slot
+4 is filled only by `compile()`, and only when slot 2 is already taken — so it is free by construction and
+every existing program is byte-identical apart from the appended `-1`. Two slots rather than a chain field
+inside the selector table, because the stack already walks the ops rebasing slot 2 and a second slot
+rebases in the loop that exists, while a chain would need a new walk over a table the stack copies
+wholesale. Nothing serialises the op program — it is rebuilt from `_build` on every compile — so there is
+no migration.
+
+**Gate D is what made this safe to do.** A stride disagreement between the two evaluators is exactly the
+failure the A/B oracle exists to catch, and it stayed at **0.00000000 m over 25 probes carrying 3.8956 m
+of relief**, with gate M at 0.00000000 over 49 probes with selectors and SCREE both live.
+
+Gate Q measures the op's output at a cell the assigned band excludes and the built-in band passes — a
+cell excluded by both would go to zero under the broken wiring too and would prove nothing. Its third
+control is the one worth naming: a cell the assigned band PASSES and the slope band rejects must still be
+zero, or "the two multiply" would also be satisfied by an implementation that kept the material's gate and
+threw the op's own away, which is this bug inverted.
 
 ### 16.4 A layer's Domain Warp displaces the layers below it — OPEN, and may be correct
 

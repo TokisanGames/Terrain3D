@@ -743,8 +743,14 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 		// Terrain-aware gate for this op, if any. A GENERATOR scales its contribution by it, a DOMAIN op
 		// scales its displacement, and a PROFILE op lerps between the un-remapped and remapped
 		// accumulator — so `sel == 0` always means "this op did nothing", smoothly, whatever its category.
+		// TWO gates, multiplied: the op's own (SCREE's slope band) and its material's `selector`. Both
+		// read the same cell, so the product is "in the band AND on the slope". See RELIEF_OP_GATE_2.
 		const int sid = p_prog.ops[o + 2];
-		const double sel = sid >= 0 ? relief_selector_value(p_prog.selectors, sid, p_ground) : 1.0;
+		const int sid2 = p_prog.ops[o + RELIEF_OP_GATE_2];
+		double sel = sid >= 0 ? relief_selector_value(p_prog.selectors, sid, p_ground) : 1.0;
+		if (sid2 >= 0) {
+			sel *= relief_selector_value(p_prog.selectors, sid2, p_ground);
+		}
 
 		// --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
 		if (op == RELIEF_OP_WARP) {

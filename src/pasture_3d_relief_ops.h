@@ -46,7 +46,11 @@ enum ReliefBlendMode {
 	RELIEF_BLEND_REPLACE = 5,
 };
 
-constexpr int RELIEF_OP_STRIDE = 4; // [op_type, blend, selector_id, flags]
+constexpr int RELIEF_OP_STRIDE = 5; // [op_type, blend, selector_id, flags, selector_id_2]
+// Slot of an op's SECOND gate; an op is gated by the PRODUCT of the two. Mirrors
+// Pasture3DReliefMaterial.OP_GATE_2 — a material's own `selector` lands here when the op already carries
+// one of its own (SCREE), which before this slot existed meant the property was silently dropped.
+constexpr int RELIEF_OP_GATE_2 = 4;
 constexpr int RELIEF_PARAM_STRIDE = 12;
 constexpr int RELIEF_FLAG_NEGATE = 1; // bit0
 constexpr int RELIEF_FLAG_CLAMP = 2; // bit1
