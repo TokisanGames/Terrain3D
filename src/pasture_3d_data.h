@@ -307,6 +307,7 @@ public:
 	// `params` carries the ErosionParams keys (see pasture_3d_erosion.h). Returns a Dictionary with "z"
 	// (and, when params.want_diagnostics, "flow" / "lake_depth" / "receiver" / "stack" / "boundary").
 	Dictionary erode_heightfield(const PackedFloat32Array &p_z, const Dictionary &p_params, const PackedFloat32Array &p_erodability);
+	Vector2i erosion_progress() const;
 	// NaN-aware corner-aligned grid resample: box-averages when shrinking a dimension, bilinear when
 	// growing. Both grids span the same world rect, so sample (0,0) and (w-1,h-1) coincide. This is the
 	// §6 preview/build bridge — heights DOWN onto the sim grid, deltas back UP onto the terrain grid.

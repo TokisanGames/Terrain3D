@@ -25,6 +25,10 @@ const SITE_CC := Vector3(180.0, 0.0, 360.0)
 const SITE_BX := Vector3(420.0, 0.0, 360.0)
 const SITE_CE := Vector3(660.0, 0.0, 360.0)
 const SITE_BY := Vector3(180.0, 0.0, 600.0)
+## §10's three sites: the deferred solve, its published channels, and the suppressed bake.
+const SITE_DC := Vector3(420.0, 0.0, 600.0)
+const SITE_DD := Vector3(660.0, 0.0, 600.0)
+const SITE_DE := Vector3(900.0, 0.0, 120.0)
 
 ## Half-extent of the test loop, metres. Large enough that a drainage network has room to organise.
 const HALF := 60.0
@@ -39,7 +43,7 @@ var _vs := 1.0
 
 
 func _ready() -> void:
-	print("\n=== Brush-hosted erosion (gates CA, CB, CC, BX, CE) ===\n")
+	print("\n=== Brush-hosted erosion (gates CA, CB, CC, BX, CE, DC, DD, DE) ===\n")
 	_root = Node3D.new()
 	add_child(_root)
 	_terrain = ClassDB.instantiate("Pasture3D")
@@ -54,6 +58,9 @@ func _ready() -> void:
 	_gate_by_frozen_is_a_cache()
 	_gate_cd_no_catchment_margin()
 	_gate_ce_idempotent()
+	await _gate_dc_deferred_matches()
+	await _gate_dd_deferred_publishes()
+	_gate_de_suppressed_is_unerooded()
 
 	print("\n=== %s (%d failures) ===\n" % ["BRUSH EROSION PASS" if _fail == 0 else "BRUSH EROSION FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
@@ -783,3 +790,208 @@ func _height(p_at: Vector3) -> float:
 ## the gate and the bake reading the same surface.
 func _below(p_mound, p_at: Vector3) -> float:
 	return p_mound._base_height_below(Vector3(p_at.x, 0.0, p_at.z))
+
+
+# --- DC: solving on a worker gives the same terrain as solving on the main thread -------------------
+#
+# Spec §14. The erosion solve moved off the main thread so the editor stops freezing for the length of
+# it, and the ONLY thing that must not change is the answer. The driver bakes three times — once with the
+# erosion suppressed to capture the surface, once on a worker to solve it, once more to serve the
+# result — and every one of those steps is a place the answer could quietly drift.
+#
+# TWO INDEPENDENT THINGS ARE UNDER TEST HERE, and they fail differently:
+#
+#   1. THE SPLICE. Pass 3 must hand the solver the same surface pass 1 did, or the cache misses and the
+#      whole driver degenerates into "bake un-eroded, then bake eroded" — twice the work for the same
+#      answer, silently. It is checked by the answer matching AND by the cache being warm afterwards.
+#   2. THE SOLVE ITSELF. This is where the first draft chunked the call, the way a Pasture3DSim does, so
+#      progress and cancel would have somewhere to land. THIS GATE CAUGHT IT: twelve chunks of five
+#      iterations against one call of sixty read 9.59 m of disagreement here, on a fixture whose mean cut
+#      is 59 m. §4.5's "N chunks of k is one call of N·k" is true of the SOLVER and false of the round
+#      trip, which rounds the working surface through float32 at every boundary and lets the routing
+#      amplify it. The brush now solves in one call; the tolerance below is 1e-5 m and it measures 0.
+#
+# CONTROL 1: the erosion has to have MOVED the ground. Two identical un-eroded surfaces agree perfectly,
+# and that is exactly what this gate would report if the modifier had quietly stopped working.
+#
+# CONTROL 2: pass 1 on its own must NOT match. Without it, a `defer` flag that was never read — so every
+# pass solved synchronously and the driver was decoration — passes the headline claim by doing nothing.
+func _gate_dc_deferred_matches() -> void:
+	print("\n[DC] the deferred solve gives the same terrain as the synchronous one (spec 14):")
+	var mound = _make_mound("DC", SITE_DC)
+	if mound == null:
+		return
+	var probes := _lattice(SITE_DC)
+	var shape := _craggy(8.0)
+	var ero := _erosion(60, 0.09)
+	# FROZEN, because the cache is how a deferred answer is delivered and Live has none. This is also the
+	# shipped default, so it is the configuration the editor actually runs.
+	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
+	var stack: Array[Pasture3DBrushModifier] = [shape, ero]
+
+	ero.enabled = false
+	mound.modifiers = stack
+	var unerooded := _bake(mound, probes)
+
+	ero.enabled = true
+	mound.modifiers = stack
+	ero.clear_cache()
+	var sync := _bake(mound, probes)
+
+	ero.clear_cache()
+	mound.force_deferred_erosion = true
+	await mound._bake_deferred(mound._refresh_owner.bind(mound._layer_owner, false, []),
+			mound._layer_owner, false)
+	mound.force_deferred_erosion = false
+	var deferred := _snapshot(probes)
+
+	var worst := 0.0
+	for i in range(probes.size()):
+		worst = maxf(worst, absf(sync[i] - deferred[i]))
+	var cut := _mean_cut(unerooded, sync)
+	print("    worst |deferred - synchronous| = %.8f m over %d probes" % [worst, probes.size()])
+	print("    CONTROL the erosion moved the ground: mean cut %.4f m" % cut)
+	if worst > 1.0e-5:
+		_fail += 1
+		print("    !! the worker and the main thread disagree about the same solve")
+	if cut < 1.0:
+		_fail += 1
+		print("    !! the erosion barely moved the ground, so agreeing about it means nothing")
+
+	# The splice, asked directly: pass 3 must have SERVED a cache rather than solved a second time.
+	# Asked HERE, before the control below clears it.
+	print("    the frozen cache is warm after the run: %d bytes" % ero.cache_bytes())
+	if ero.cache_bytes() <= 0:
+		_fail += 1
+		print("    !! nothing was cached, so pass 3 re-solved on the main thread — the freeze is back")
+
+	# CONTROL 2. Pass 1 in isolation: the bake the driver does BEFORE it solves.
+	ero.clear_cache()
+	mound._erosion_suppress = true
+	mound._refresh_owner(mound._layer_owner, false, [])
+	mound._erosion_suppress = false
+	mound._pending_erosion = []
+	var pass1 := _snapshot(probes)
+	var gap := _mean_cut(pass1, deferred)
+	print("    CONTROL pass 1 alone differs from the finished bake by %.4f m" % absf(gap))
+	if absf(gap) < 1.0:
+		_fail += 1
+		print("    !! pass 1 already carries the erosion, so `defer` is not being read and the driver\n"
+			+ "       is decoration around an ordinary synchronous solve")
+
+
+
+# --- DD: the four published channels survive the deferral ------------------------------------------
+#
+# Spec §6.4 and §14. The solve's flow / erosion / deposition / wetness are read by the modifiers AFTER
+# it, and on the deferred path they do not come out of the rasteriser at all: the worker computes them,
+# GDScript folds them into the cache entry, and pass 3 publishes them from there. Two of the four are not
+# even the solver's to give — erosion and deposition are the difference between the surface that went in
+# and the one that came out, over the WHOLE solve rather than the last chunk, and getting that wrong
+# would leave a flow-gated modifier reading a plausible fraction of the right answer.
+#
+# The statistic is the FLOW-GATED LAYER'S OWN CONTRIBUTION, not the finished height: gating on flow is
+# what reads the channels, and a modifier that reads zeros stamps nothing.
+#
+# CONTROL: that contribution must be non-zero on the synchronous arm. A gate comparing two modifiers
+# that both stamped nothing reports perfect agreement.
+func _gate_dd_deferred_publishes() -> void:
+	print("\n[DD] the published channels survive the deferral (spec 6.4, 14):")
+	var mound = _make_mound("DD", SITE_DD)
+	if mound == null:
+		return
+	var probes := _lattice(SITE_DD)
+	var shape := _craggy(8.0)
+	var ero := _erosion(60, 0.09)
+	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
+	var detail := _flow_gated(6.0, 1.0)
+	var stack: Array[Pasture3DBrushModifier] = [shape, ero, detail]
+
+	detail.enabled = false
+	mound.modifiers = stack
+	ero.clear_cache()
+	var no_detail := _bake(mound, probes)
+
+	detail.enabled = true
+	mound.modifiers = stack
+	ero.clear_cache()
+	var sync := _bake(mound, probes)
+
+	ero.clear_cache()
+	mound.force_deferred_erosion = true
+	await mound._bake_deferred(mound._refresh_owner.bind(mound._layer_owner, false, []),
+			mound._layer_owner, false)
+	mound.force_deferred_erosion = false
+	var deferred := _snapshot(probes)
+
+	var stamped := 0.0
+	var worst := 0.0
+	for i in range(probes.size()):
+		stamped = maxf(stamped, absf(sync[i] - no_detail[i]))
+		worst = maxf(worst, absf(sync[i] - deferred[i]))
+	print("    worst |deferred - synchronous| = %.8f m with a flow-gated layer below the erosion" % worst)
+	print("    CONTROL that layer stamps something on the synchronous arm: %.4f m" % stamped)
+	if worst > 1.0e-5:
+		_fail += 1
+		print("    !! the channels a deferred solve publishes are not the ones it would have published")
+	if stamped < 0.5:
+		_fail += 1
+		print("    !! the flow gate let nothing through, so both arms stamped nothing and agreed")
+
+
+# --- DE: a suppressed bake is the un-eroded shape, and it drops the caches --------------------------
+#
+# Spec §14. `bake_without_erosion` is the whole of the manager's Clear Simulation On All Brushes, and it
+# is pass 1 of the deferred driver with the captured surface thrown away instead of solved. Both halves
+# are claims and neither is enough alone: dropping the caches without re-baking leaves the eroded heights
+# in the layer, and re-baking without dropping them serves the erosion straight back.
+#
+# The claim is BITWISE against the same stack with the modifier unchecked. That is a stronger statement
+# than "close to": suppression keeps the step in the list and returns early from it, where unchecking
+# drops the step before the list is built, and the two take different routes through the rasteriser's
+# point/field conversion. Anything but zero would mean the un-eroded shape depends on HOW it was made
+# un-eroded, which is a rounding difference the button should not be able to introduce.
+func _gate_de_suppressed_is_unerooded() -> void:
+	print("\n[DE] a suppressed bake is the un-eroded shape, and drops the frozen solves (spec 14):")
+	var mound = _make_mound("DE", SITE_DE)
+	if mound == null:
+		return
+	var probes := _lattice(SITE_DE)
+	var shape := _craggy(8.0)
+	var ero := _erosion(60, 0.09)
+	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
+	var stack: Array[Pasture3DBrushModifier] = [shape, ero]
+
+	ero.enabled = false
+	mound.modifiers = stack
+	var unchecked := _bake(mound, probes)
+
+	ero.enabled = true
+	mound.modifiers = stack
+	ero.clear_cache()
+	var eroded := _bake(mound, probes)
+	var warm := ero.cache_bytes()
+
+	var dropped: int = mound.bake_without_erosion(mound._layer_owner)
+	var cleared := _snapshot(probes)
+
+	var worst := 0.0
+	for i in range(probes.size()):
+		worst = maxf(worst, absf(cleared[i] - unchecked[i]))
+	var removed := _mean_cut(cleared, eroded)
+	print("    worst |suppressed - unchecked| = %.8f m over %d probes" % [worst, probes.size()])
+	print("    frozen solves dropped: %d, cache %.1f MB -> %.1f MB"
+			% [dropped, warm / 1048576.0, ero.cache_bytes() / 1048576.0])
+	print("    CONTROL it took a real erosion off: mean %.4f m back" % absf(removed))
+	if worst > 1.0e-5:
+		_fail += 1
+		print("    !! a suppressed bake is not the same shape as one with the modifier unchecked")
+	if dropped < 1 or ero.cache_bytes() != 0:
+		_fail += 1
+		print("    !! the frozen solve is still held, so the next bake serves the erosion straight back")
+	if absf(removed) < 1.0:
+		_fail += 1
+		print("    !! there was no erosion on the ground to clear, so clearing it proves nothing")
+	if warm <= 0:
+		_fail += 1
+		print("    !! the cache was never warm, so the drop had nothing to do")

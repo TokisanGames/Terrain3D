@@ -84,4 +84,24 @@ ErosionParams erosion_params_from_dict(const Dictionary &p_params);
 ErosionResult erosion_solve(const std::vector<float> &p_z, const ErosionParams &p_params,
 		const PackedFloat32Array &p_erodability_lut);
 
+// How far the solve currently running has got: `r_done` iterations of `r_total`.
+//
+// WHY THIS EXISTS. A long solve is one C++ call with no way to say anything until it returns, and
+// PASTURE3D_BRUSH_EROSION_SPEC.md §14 runs exactly that call on a worker thread while the editor keeps
+// drawing. Progress cannot come from chunking the call: measured, twelve chunks of five iterations
+// disagreed with one call of sixty by 9.59 m on a fixture whose mean cut is 59 m, because every chunk
+// boundary rounds the working surface through float32 and the routing amplifies it. So the counter comes
+// from INSIDE the loop, and the answer is untouched.
+//
+// (0, 0) means nothing is in flight: before the first solve of the session, and again on the way out of
+// every solve. Deliberately not left at (total, total) — the next caller's first poll happens before its
+// worker has entered the function, and a stale 100% for work that has not begun is the worst reading of
+// the three.
+//
+// ONE SOLVE AT A TIME. The counter is process-wide, so a second concurrent solve overwrites it and both
+// readers see one blended number. That is the honest limit of a progress readout that costs two relaxed
+// stores per iteration; the callers are a Sim button and a brush bake, and neither runs two at once.
+// Nothing but a printed percentage depends on it.
+void erosion_progress(int &r_done, int &r_total);
+
 } // namespace godot
