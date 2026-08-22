@@ -68,6 +68,28 @@ enum Style { HILLS, CRAGGY, LUMPY }
 	set(v):
 		warp_octaves = clampi(v, 1, 4)
 		_touch()
+## Also displace the layers UNDER this one, when this material is a layer of a Pasture3DReliefStack.
+##
+## A warp is a DOMAIN operation: it moves the point every later op is sampled at, and a stack is one flat
+## op stream, so until §16.4 a layer's warp always displaced everything below it — measured at 1.99 on a
+## material whose output spans ±1, which is not a perturbation but a decorrelation. Off by default now,
+## because a control that reaches past its own layer should be asked for rather than discovered.
+##
+## Worth turning ON deliberately: a shared displacement is what makes two layers of one massif read as a
+## single landform rather than two textures stacked on each other. It is the same relationship
+## `output_curve` has with the layers below it, which that property documents and this one did not.
+##
+## Does nothing outside a stack — a material standing alone has no layers beneath it to displace.
+@export var warp_below: bool = false:
+	set(v):
+		warp_below = v
+		_touch()
+
+
+## Scoped unless the artist asked for the leak, and only when there is a displacement to scope: a bracket
+## around a layer whose Warp Amount is 0 would cost two ops per cell to save and restore an unmoved point.
+func wants_domain_scope() -> bool:
+	return warp_amount > 0.0 and not warp_below
 
 
 ## `super` FIRST, and it is not optional: GDScript resolves a virtual to the most-derived implementation

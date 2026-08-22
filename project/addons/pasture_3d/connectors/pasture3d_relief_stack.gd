@@ -122,6 +122,12 @@ func _build() -> void:
 	for m in layers:
 		if m == null:
 			continue
+		# §16.4. A layer whose Domain Warp is scoped gets bracketed, so its displacement dies with it and
+		# the layers below are sampled where they would have been. Asked of the LAYER, not decided here:
+		# the toggle lives on the material that owns the warp.
+		var scoped: bool = m.wants_domain_scope()
+		if scoped:
+			_emit(Op.DOMAIN_PUSH, Blend.ADD, [])
 		var prog: Array = m._program()
 		var c_ops: PackedInt32Array = prog[0]
 		var c_params: PackedFloat32Array = prog[1]
@@ -185,6 +191,8 @@ func _build() -> void:
 				# a generator, so the first branch can never have run) and is left reading as it always did.
 				_params[base + DLA_FIELD_SLOT] += field_offset
 			_noise.append(c_noise[i])
+		if scoped:
+			_emit(Op.DOMAIN_POP, Blend.ADD, [])
 
 
 ## The stack raises if any layer that is not purely subtractive raises. A stack of only craters digs.

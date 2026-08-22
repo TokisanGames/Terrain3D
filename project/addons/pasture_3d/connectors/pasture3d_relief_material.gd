@@ -20,7 +20,18 @@ extends Resource
 enum Op {
 	FBM = 1, RIDGED = 2, BILLOW = 3, DUNES = 4, FURROWS = 5, CRATER = 6, SCREE = 7,
 	WARP = 8, TERRACE = 9, STRATIFY = 10, CURVE = 12, DLA = 13,
+	## §16.4's bracket. A Pasture3DReliefStack wraps a layer whose Domain Warp is SCOPED in these two, and
+	## the evaluator saves and restores `u,v,nu,nv` across them — which is the only way to undo a warp,
+	## since a second WARP would sample its noise at the already-displaced point and land somewhere else.
+	## Neither carries a value, a blend or a gate; they move the sample point and nothing else.
+	DOMAIN_PUSH = 14, DOMAIN_POP = 15,
 }
+## How deep the domain save stack goes: one level per NESTED stack that scopes a warp. Realistically 1 —
+## a stack of materials, each with at most one warp — so 8 is four doublings of headroom. A push past it
+## is dropped and its pop is a no-op, which keeps the two balanced rather than restoring to the wrong
+## depth; the alternative (an unbounded per-cell allocation in the oracle) costs every cell to insure
+## against a nesting nobody has ever authored.
+const DOMAIN_MAX_DEPTH := 8
 ## How an op's value combines into the accumulator. PROFILE ops ignore this.
 enum Blend { ADD = 0, SUB = 1, MUL = 2, MAX = 3, MIN = 4, REPLACE = 5 }
 
@@ -202,6 +213,11 @@ func compile() -> Array:
 			var sid := _emit_selector(selector)
 			for i in range(_ops.size() / OP_STRIDE):
 				var o := i * OP_STRIDE
+				# The domain bracket carries no value to gate, and gating it would also make
+				# _needs_terrain_fields read this program as one that reads the ground — an O(cells)
+				# grid built for a pair of ops that only move the sample point.
+				if _ops[o] == Op.DOMAIN_PUSH or _ops[o] == Op.DOMAIN_POP:
+					continue
 				if _ops[o + 2] == NO_SELECTOR:
 					_ops[o + 2] = sid
 				else:
@@ -365,6 +381,16 @@ static func _is_generator(op: int) -> bool:
 	return (op >= Op.FBM and op <= Op.SCREE) or op == Op.DLA
 
 
+## True when this material's DOMAIN WARP should stop at the end of its own layer, so a stack brackets it.
+##
+## The displacement is not the material's business to scope — a material standing alone has no layers
+## below it to displace, so this is only ever read by Pasture3DReliefStack, about one of its layers.
+## False here and on a stack itself: a stack has no warp of its own, and a layer inside it that asked NOT
+## to be scoped should leak out through the stack that holds it, which is what the toggle means.
+func wants_domain_scope() -> bool:
+	return false
+
+
 ## Does this material predominantly RAISE the ground? Drives the plow's Add Water raise check
 ## (PASTURE3D_WATER_BODIES_SPEC.md §7.8). Craters override to false.
 func _raises() -> bool:
@@ -468,6 +494,10 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 	if _dirty:
 		compile()
 	var acc := 0.0
+	# The domain save stack, four floats per level (u, v, nu, nv). Empty and untouched on every program
+	# that has no scoped warp in it, which is all of them until a stack puts one there.
+	var dom := PackedFloat32Array()
+	var dom_depth := 0
 	var count := _ops.size() / OP_STRIDE
 	for i in range(count):
 		var o := i * OP_STRIDE
@@ -494,6 +524,26 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		# rather than only its generators. 1.0 on everything a material emits directly.
 		sel *= _params[p + OP_GAIN]
 		var band_source := (flags & FLAG_BAND_MASK) >> FLAG_BAND_SHIFT
+
+		# --- DOMAIN BRACKET: saves and restores the sample point around one stack layer (§16.4).
+		if op == Op.DOMAIN_PUSH:
+			# The DEPTH counts past the cap while the array does not, so a dropped push and its pop stay
+			# paired and an outer bracket is never restored by an inner one. Mirrors the C++ exactly.
+			if dom_depth < DOMAIN_MAX_DEPTH:
+				dom.append_array([u, v, nu, nv])
+			dom_depth += 1
+			continue
+		if op == Op.DOMAIN_POP:
+			if dom_depth > 0:
+				dom_depth -= 1
+				if dom_depth < DOMAIN_MAX_DEPTH:
+					var b := dom.size() - 4
+					u = dom[b]
+					v = dom[b + 1]
+					nu = dom[b + 2]
+					nv = dom[b + 3]
+					dom.resize(b)
+			continue
 
 		# --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
 		if op == Op.WARP:

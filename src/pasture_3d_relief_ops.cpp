@@ -751,6 +751,10 @@ double godot::relief_scatter_eval(const ReliefProgram &p_prog, const ReliefScatt
 double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, double nu, double nv,
 		double inv_ex, double inv_ez, const ReliefSample &p_ground) {
 	double acc = 0.0;
+	// The domain save stack, four doubles per level (u, v, nu, nv). Untouched by every program that has
+	// no scoped warp in it. See RELIEF_DOMAIN_MAX_DEPTH.
+	double dom[RELIEF_DOMAIN_MAX_DEPTH * 4];
+	int dom_depth = 0;
 	for (int i = 0; i < p_prog.count; i++) {
 		const int o = i * RELIEF_OP_STRIDE;
 		const int op = p_prog.ops[o];
@@ -772,6 +776,32 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 		// ...and the op's own gain, which is how a stack layer's `strength` reaches every category of op
 		// rather than only its generators. See RELIEF_OP_GAIN.
 		sel *= (double)p_prog.params[p + RELIEF_OP_GAIN];
+
+		// --- DOMAIN BRACKET: saves and restores the sample point around one stack layer (§16.4).
+		if (op == RELIEF_OP_DOMAIN_PUSH) {
+			if (dom_depth < RELIEF_DOMAIN_MAX_DEPTH) {
+				double *d = &dom[dom_depth * 4];
+				d[0] = u;
+				d[1] = v;
+				d[2] = nu;
+				d[3] = nv;
+			}
+			dom_depth++;
+			continue;
+		}
+		if (op == RELIEF_OP_DOMAIN_POP) {
+			if (dom_depth > 0) {
+				dom_depth--;
+				if (dom_depth < RELIEF_DOMAIN_MAX_DEPTH) {
+					const double *d = &dom[dom_depth * 4];
+					u = d[0];
+					v = d[1];
+					nu = d[2];
+					nv = d[3];
+				}
+			}
+			continue;
+		}
 
 		// --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
 		if (op == RELIEF_OP_WARP) {

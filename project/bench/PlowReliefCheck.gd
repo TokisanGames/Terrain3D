@@ -41,6 +41,8 @@ const SITE_PROFILE_GATE := Vector3(960.0, 0.0, 700.0)
 ## loop is 60x22 but never A/B'd — so a crater on a non-square loop had no parity coverage at all, in
 ## either gate, until the rim's metric width made that a live risk.
 const SITE_CRATER_PARITY := Vector3(380.0, 0.0, 500.0)
+## §16.4's parity site.
+const SITE_WARP_SCOPE := Vector3(580.0, 0.0, 500.0)
 ## A probe counts as steep / flat for the binned selector gates at these slopes, in degrees.
 const STEEP_DEG := 30.0
 const FLAT_DEG := 10.0
@@ -54,7 +56,7 @@ var _fail := 0
 ## house rule from bench/OceanBench.gd. Gates A-N predate it and are not retrofitted here; bringing them
 ## up is its own change, and a counter that covers half a suite must say which half or it is worse than
 ## none. O and P below are the half it covers.
-const COUNTED_GATES := 5
+const COUNTED_GATES := 6
 var _completed := 0
 var _root: Node3D
 var _terrain
@@ -87,6 +89,7 @@ func _ready() -> void:
 	_gate_q_second_gate()
 	_gate_r_layer_strength()
 	_gate_s_crater_rim_is_metric()
+	_gate_t_warp_scope()
 
 	if _completed != COUNTED_GATES:
 		_fail += 1
@@ -1478,3 +1481,138 @@ func _crater_scan(p_mat: Pasture3DReliefMaterial, p_ex: float, p_ez: float, p_al
 	if crest < 0.0 or best <= 0.0 or reach <= 0.0:
 		return {}
 	return {"crest": crest, "peak": best, "reach": reach}
+
+
+# --- T: a layer's Domain Warp stops at its own layer, unless told otherwise -----------------------
+#
+# Spec §16.4. WARP is a DOMAIN op -- it rewrites u,v for every op that FOLLOWS it -- and a stack is one
+# flat op stream with no per-layer scoping, so a layer's warp used to displace every layer under it.
+# Measured before: a Dunes layer under a warped Fractal differed from the same Dunes alone by 1.99 on a
+# material whose output spans +/-1. Not a perturbation, a decorrelation.
+#
+# THE STATISTIC ISOLATES THE LOWER LAYER. Evaluate the two-layer stack, subtract the upper layer standing
+# alone in a stack of its own, and what remains is the Dunes layer as the stack actually saw it. Compare
+# that against Dunes alone. Anything but zero is displacement leaking down.
+#
+# CONTROL, and it is simply the toggle in its other position: `warp_below = true` must put the leak back,
+# large. A gate that only checked the scoped case would pass just as well on an implementation that had
+# quietly stopped warping anything at all -- and a warp that does nothing is a much worse bug than a warp
+# that does too much, because it looks like a slider with a bad range rather than like a defect.
+#
+# SECOND CONTROL: the upper layer must still be warped BY ITS OWN warp in both cases. The bracket restores
+# the sample point AFTER the layer, so scoping must not cost the layer its own displacement -- which is
+# what a push/pop emitted in the wrong order would do, and it would be invisible to the claim above.
+#
+# THIRD: parity. The bracket is two new op ids, and a native evaluator that skipped them would produce a
+# perfectly self-consistent wrong answer. Baked down both rasterisers.
+func _gate_t_warp_scope() -> void:
+	print("\n[T] a layer's Domain Warp stops at its own layer (spec 16.4):")
+	var below := Pasture3DReliefDunes.new()
+	below.seed = 3
+	var alone := _one_layer(below)
+
+	var scoped_leak := _leak_below(false)
+	var open_leak := _leak_below(true)
+	print("    warp scoped to its layer : the layer below moves %.6f" % scoped_leak)
+	print("    CONTROL warp_below = true: the layer below moves %.6f" % open_leak)
+	if scoped_leak > 1.0e-6:
+		_fail += 1
+		print("    !! displacement is still leaking past the layer that owns it")
+	if open_leak < 0.5:
+		_fail += 1
+		print("    !! the toggle does not restore the old behaviour, so T cannot tell a scoped warp\n"
+			+ "       from a warp that stopped working")
+
+	# SECOND CONTROL. The upper layer keeps its own warp either way.
+	var warped := _warper(false)
+	var flat := Pasture3DReliefFractal.new()
+	flat.seed = 11
+	flat.warp_amount = 0.0
+	var own := 0.0
+	for k in range(400):
+		var u := float(k % 20) * 7.0
+		var v := float(k / 20) * 7.0
+		own = maxf(own, absf(_one_layer(warped).eval(u, v, 0.0, 0.0, 1.0, 1.0)
+				- _one_layer(flat).eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+	print("    CONTROL the scoped layer still warps ITSELF: %.6f from an unwarped twin" % own)
+	if own < 0.1:
+		_fail += 1
+		print("    !! scoping cost the layer its own displacement; the bracket is in the wrong order")
+
+	# THIRD. Both rasterisers, because the bracket is two op ids the native side has to know.
+	var plow = _make_plow("WarpScope", SITE_WARP_SCOPE, 40.0, 40.0)
+	if plow == null:
+		_completed += 1
+		return
+	var probes: Array[Vector3] = []
+	for i in range(-2, 3):
+		for j in range(-2, 3):
+			probes.append(SITE_WARP_SCOPE + Vector3(i * 8.0, 0.0, j * 8.0))
+	plow.source = Pasture3DPlow.Source.RELIEF
+	plow.relief = _stack(_warper(false), below)
+	plow.height_scale = 9.0
+	var base := _snapshot(probes)
+	plow.force_gdscript_raster = false
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var native := _snapshot(probes)
+	plow.force_gdscript_raster = true
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var worst := 0.0
+	var spread := 0.0
+	for i in range(probes.size()):
+		var g := _height(probes[i])
+		worst = maxf(worst, absf(g - native[i]))
+		spread = maxf(spread, absf(g - base[i]))
+	print("    PARITY across the bracket: %d probes, worst %.8f m (relief %.4f m)"
+			% [probes.size(), worst, spread])
+	if worst > PARITY_TOL:
+		_fail += 1
+		print("    !! the two paths disagree across the domain bracket")
+	if spread < 0.1:
+		_fail += 1
+		print("    !! the parity probes sat on flat ground")
+	# The alone-arm is referenced so the fixture cannot be optimised into nothing by a future edit.
+	if alone == null:
+		_fail += 1
+	_completed += 1
+
+
+## How far the LOWER layer of a two-layer stack moves, compared with that layer standing on its own. The
+## upper layer's own contribution is subtracted by evaluating it alone in a stack of its own, so what is
+## left is the lower layer as the stack saw it.
+func _leak_below(p_warp_below: bool) -> float:
+	var below := Pasture3DReliefDunes.new()
+	below.seed = 3
+	var top := _warper(p_warp_below)
+	var both := _stack(top, below)
+	var solo_top := _one_layer(_warper(p_warp_below))
+	var solo_below := _one_layer(below)
+	var worst := 0.0
+	for k in range(400):
+		var u := float(k % 20) * 7.0
+		var v := float(k / 20) * 7.0
+		var seen: float = both.eval(u, v, 0.0, 0.0, 1.0, 1.0) - solo_top.eval(u, v, 0.0, 0.0, 1.0, 1.0)
+		worst = maxf(worst, absf(seen - solo_below.eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+	return worst
+
+
+func _warper(p_warp_below: bool) -> Pasture3DReliefFractal:
+	var f := Pasture3DReliefFractal.new()
+	f.seed = 11
+	f.warp_amount = 40.0
+	f.warp_below = p_warp_below
+	return f
+
+
+func _one_layer(p_mat: Pasture3DReliefMaterial) -> Pasture3DReliefStack:
+	var st := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [p_mat]
+	st.layers = l
+	return st
+
+
+func _stack(p_a: Pasture3DReliefMaterial, p_b: Pasture3DReliefMaterial) -> Pasture3DReliefStack:
+	var st := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [p_a, p_b]
+	st.layers = l
+	return st

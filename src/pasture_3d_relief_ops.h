@@ -34,7 +34,14 @@ enum ReliefOpType {
 	RELIEF_OP_STRATIFY = 10,
 	RELIEF_OP_CURVE = 12,
 	RELIEF_OP_DLA = 13,
+	// §16.4's bracket: a stack wraps a layer whose Domain Warp is scoped in these two, and the evaluator
+	// saves and restores u,v,nu,nv across them. Neither carries a value, a blend or a gate.
+	RELIEF_OP_DOMAIN_PUSH = 14,
+	RELIEF_OP_DOMAIN_POP = 15,
 };
+// One level per nested stack that scopes a warp; realistically 1. A push past it is dropped and its pop
+// is a no-op, so the two stay balanced. Mirrors Pasture3DReliefMaterial.DOMAIN_MAX_DEPTH.
+constexpr int RELIEF_DOMAIN_MAX_DEPTH = 8;
 
 // Blend ids — sync with Pasture3DReliefMaterial.Blend. Prefixed because MAX/MIN are godot-cpp macros.
 enum ReliefBlendMode {

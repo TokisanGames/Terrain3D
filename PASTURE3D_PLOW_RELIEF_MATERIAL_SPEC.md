@@ -685,7 +685,7 @@ changed nothing" and "nothing here changes anything" are the same output.
 | 16.1 | `blend` is visible on three materials where it cannot act | **FIXED 2026-08-22** — gate O |
 | 16.2 | A stack silences every layer's configuration warning | **FIXED 2026-08-22** — gate P |
 | 16.3 | `selector` is inert on a `Pasture3DReliefScree` | **FIXED 2026-08-22** — gate Q |
-| 16.4 | A layer's Domain Warp displaces the layers below it | **decided 2026-08-22, not built** |
+| 16.4 | A layer's Domain Warp displaces the layers below it | **FIXED 2026-08-22** — gate T |
 | 16.5 | A layer's `strength` is not the operation a host applies | **FIXED 2026-08-22** — gate R |
 | 16.6 | `CONST`, `CLAMP`, `FLAG_NEGATE`, `FLAG_CLAMP` are emitted by nothing | **FIXED 2026-08-22** — deleted |
 | 16.7 | CRATER carries the anisotropy §9.8 of the erosion spec removed from DLA | **FIXED 2026-08-22** — gate S |
@@ -779,35 +779,64 @@ control is the one worth naming: a cell the assigned band PASSES and the slope b
 zero, or "the two multiply" would also be satisfied by an implementation that kept the material's gate and
 threw the op's own away, which is this bug inverted.
 
-### 16.4 A layer's Domain Warp displaces the layers below it — DECIDED, NOT BUILT
+### 16.4 A layer's Domain Warp displaced the layers below it — FIXED
 
 WARP is a DOMAIN op: it rewrites `u,v` for every op that FOLLOWS it, and a stack is one flat op stream
-with no per-layer scoping. So a Fractal layer's Domain Warp displaces every layer under it.
+with no per-layer scoping. So a Fractal layer's Domain Warp displaced every layer under it.
 
 Measured on a Dunes layer, comparing it inside a stack against the same Dunes alone with the upper layer's
 own contribution subtracted: **worst difference 1.99 on a material whose output spans ±1** — not a
-perturbation, a decorrelation. The control is the identical stack with Warp Amount 0: **0.000000**.
+perturbation, a decorrelation.
 
-**DECIDED 2026-08-22: scoped to its own layer by default, with a toggle that restores today's behaviour.**
-The shared displacement is worth keeping reachable — it is what makes two layers of a massif read as one
-landform rather than two textures stacked on each other — but it is a surprising default, and
-`output_curve` documents the same property ON the property while `warp_amount` says nothing at all.
+**Scoped to its own layer by default, with `warp_below` to put it back.** The shared displacement is worth
+keeping reachable — it is what makes two layers of a massif read as one landform rather than two textures
+stacked on each other — but a control that reaches past its own layer should be asked for rather than
+discovered, and `output_curve` documents the same relationship ON the property while `warp_amount` said
+nothing at all.
 
-**The migration is nothing, which is what makes flipping the default safe.** Both shipped stacks
+**The migration is nothing, which is what made flipping the default safe.** Both shipped stacks
 (`cratered_badlands`, `weathered_cliff`) carry `warp_amount = 0.0` on every layer, and the two presets
 that do warp (`craggy_rock` at 9.0, `rolling_hills` at 22.0) are standalone materials with no layer
-beneath them to displace. No authored material changes appearance either way.
+beneath them to displace. No authored material changed appearance either way.
 
-**What it costs, and why it was not built with the rest.** Un-warping means restoring `u,v,nu,nv` at the
-end of the layer, which the evaluator cannot do today because it keeps no history — and the inverse
-cannot be computed by a second WARP, because that one would sample its noise at the ALREADY-DISPLACED
-point. The build is: a scope flag on the WARP op; a new `RESTORE` op (id 14) that the STACK emits after a
-scoped layer's ops; and a small fixed-depth save array in both evaluators, indexed by a nesting depth the
-stack assigns at compile time so that a stack of stacks unwinds in the right order. Plus the export on
-`Pasture3DReliefFractal` and a gate whose control is the toggle in its other position.
+**A BRACKET, NOT A FLAG ON WARP.** `DOMAIN_PUSH` (14) and `DOMAIN_POP` (15) save and restore `u,v,nu,nv`,
+and the STACK emits them around a layer that asked to be scoped. The inverse cannot be computed by a
+second WARP — that one would sample its noise at the ALREADY-DISPLACED point and land somewhere else
+entirely — so the evaluator has to remember, and a bracket is the cheapest thing that remembers. It is
+also symmetric, and it covers any future domain op without touching this again.
 
-This is the one item in §16 that is a FEATURE rather than a repair, and the only one that adds an op to
-the wire format. Written down here rather than built alongside the others so it can be scheduled as one.
+The save stack is capped at 8 levels, one per NESTED stack that scopes a warp, realistically 1. **The
+depth counter counts past the cap while the array does not**, so a dropped push and its pop stay paired
+and an outer bracket is never restored by an inner one — both evaluators do it the same way, because the
+alternative is a parity bug that only appears nine stacks deep.
+
+Which material scopes is asked of the LAYER (`wants_domain_scope`), never decided by the stack: the toggle
+belongs to the material that owns the warp. A stack answers false for itself, so a layer inside it that
+asked NOT to be scoped leaks out through the stack that holds it, which is what the toggle means. And the
+bracket is skipped entirely when `warp_amount` is 0 — two ops per cell to save and restore an unmoved
+point is a real cost for no effect.
+
+The bracket ops are also EXCLUDED from the material's own selector assignment. They carry no value to
+gate, and `_needs_terrain_fields` reads "any op carries a selector" as "this program reads the ground",
+which would have built an O(cells) grid for a pair of ops that only move the sample point.
+
+Measured after:
+
+| | |
+|---|---|
+| the layer below a SCOPED warp moves | **0.000000** |
+| CONTROL, `warp_below = true` | **1.986425** |
+| CONTROL, the scoped layer still warps ITSELF | 1.003589 |
+| PARITY across the bracket, 25 probes on 10.27 m of relief | **0.00000000 m** |
+
+The first control is the toggle in its other position, and it is the one that matters: a gate checking
+only the scoped case passes just as well on an implementation that quietly stopped warping anything at
+all — and a warp that does nothing is the worse bug, because it reads as a slider with a bad range rather
+than as a defect. The second exists because a push and pop emitted in the wrong order would strip the
+layer of its OWN displacement while satisfying the headline claim perfectly. The third is there because
+two new op ids are exactly the sort of thing a native evaluator can skip while producing a perfectly
+self-consistent wrong answer: verified by disabling `RELIEF_OP_DOMAIN_POP` in C++ alone, which moved it to
+**14.54 m**.
 
 ### 16.5 A layer's `strength` did not turn a layer off — FIXED
 
@@ -870,8 +899,8 @@ hot loop with them.
 
 **Op ids 0 and 11, and flag bits 0-1, are BURNED rather than freed.** Renumbering to close the gaps would
 silently reinterpret every op in a program compiled by the other side of a mismatched build, which is the
-one failure a wire format exists to prevent. A future op appends at 14 — or at 15, if §16.4's `RESTORE`
-takes 14 first.
+one failure a wire format exists to prevent. §16.4 duly took 14 and 15 for its domain bracket; a future op
+appends at 16.
 
 ### 16.7 CRATER's rim stretched with the loop — FIXED
 
