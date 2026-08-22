@@ -94,6 +94,30 @@ func set_host_frame(p_ex: float, p_ez: float) -> bool:
 	return moved
 
 
+## Ask every layer, at any depth. A stack implements no seeding of its own; what it has to get right is
+## that a DLA inside it is not invisible to the host's capture — the host asks the material it was handed,
+## and what it was handed is this.
+func wants_seed_surface() -> bool:
+	for m in layers:
+		if m != null and m.wants_seed_surface():
+			return true
+	return false
+
+
+## Hand the captured surface to every layer, and DO NOT stop at the first taker: two seeded layers in one
+## stack both need it, and `or` short-circuits.
+##
+## No `_dirty` of our own here, unlike set_host_frame — a layer that accepted a new surface calls _touch(),
+## which emits `changed`, which _connect_layers has already wired to ours. The frame hook cannot use that
+## path because it runs during a bake; this one runs after.
+func set_seed_surface(p_surface: Dictionary) -> bool:
+	var moved := false
+	for m in layers:
+		if m != null and m.set_seed_surface(p_surface):
+			moved = true
+	return moved
+
+
 func _build() -> void:
 	for m in layers:
 		if m == null:

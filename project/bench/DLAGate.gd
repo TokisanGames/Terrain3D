@@ -28,6 +28,7 @@ const DEMO_DATA := "res://demo/data"
 const SITE_CR := Vector3(300.0, 0.0, 300.0)
 const SITE_CZ := Vector3(600.0, 0.0, 300.0)
 const SITE_CZ_OFF := Vector3(300.0, 0.0, 600.0)
+const SITE_DB := Vector3(600.0, 0.0, 600.0)
 ## Working grid for CY's synthetic seed surface.
 const SEED_G := 129
 ## What counts as "the field is zero here". A cumulative box blur has finite support in exact arithmetic
@@ -47,7 +48,7 @@ const RELIEF_M := 8.0
 ## House rule (bench/OceanBench.gd): a GDScript runtime error abandons the function WITHOUT incrementing
 ## the failure count, so a suite that only counts failures can report a clean pass having measured
 ## nothing. Each gate increments `_completed` as its last statement and the verdict requires all of them.
-const GATES := 8
+const GATES := 9
 ## DA's loop: 180 m by 60 m, i.e. 3:1. Enough that a stretched field is unmistakable, and not so much
 ## that the massif runs out of short axis to carry a ridge-spacing statistic (see bench/DlaAspectProbe.gd,
 ## where 9:1 at this resolution is dominated by that and not by any stretch).
@@ -86,6 +87,7 @@ func _ready() -> void:
 	_gate_cy_seeded_growth()
 	_gate_cz_capture_excludes_itself()
 	_gate_da_isotropic()
+	_gate_db_stacked_seeding()
 
 	if _completed != GATES:
 		_fail += 1
@@ -732,9 +734,16 @@ func _seeded(p_seed: int, p_surface) -> Pasture3DReliefDLA:
 	if p_surface == null:
 		return m
 	m.ridge_seeding = true
-	m.set_seed_surface({"surface": p_surface, "gw": SEED_G, "gh": SEED_G,
-			"frame": [0.0, 0.0, 1.0, 0.0, 64.0, 64.0, -64.0, -64.0, 1.0]})
+	m.set_seed_surface(_seed_dict(p_surface))
 	return m
+
+
+## The surface dictionary the host hands over, in one place. DB compares a stacked material's field
+## against a bare one BITWISE, so the two arms must be handed the same bytes AND the same frame — a
+## second literal here would let that comparison drift into being a comparison of two frames.
+func _seed_dict(p_surface: PackedFloat32Array) -> Dictionary:
+	return {"surface": p_surface, "gw": SEED_G, "gh": SEED_G,
+			"frame": [0.0, 0.0, 1.0, 0.0, 64.0, 64.0, -64.0, -64.0, 1.0]}
 
 
 ## A five-armed star ridge: a synthetic stand-in for "the ridges the brush already has", and the only
@@ -1181,3 +1190,140 @@ func _max_diff_arr(a: Array[float], b: Array[float]) -> float:
 
 func _height(p_at: Vector3) -> float:
 	return _terrain.data.get_height(Vector3(p_at.x, 0.0, p_at.z))
+
+
+# --- DB: ridge seeding survives being wrapped in a stack ---------------------------------------------
+#
+# CY and CZ both put the DLA on a Relief modifier DIRECTLY, and every claim they make held. Wrap the same
+# material in a Pasture3DReliefStack and none of it happened: the host asked `has_method`, a stack
+# implements no seeding of its own, so it answered no, nothing was captured, and the material sat waiting
+# for a surface that was never coming. It compiles to NOTHING while it waits, so the symptom is a DLA
+# that stamps no mountain at all, forever — and it fails CLOSED, which is why nothing caught it.
+#
+# The gate is in two halves because the bug has two halves.
+#
+# THE FORWARDING, measured on the compiled bytes. A DLA alone and the same DLA as a stack's only layer,
+# handed the same surface, must produce the SAME FIELD. Bitwise, because there is no reason for a splice
+# to change a single byte of it and a tolerance here would hide exactly the kind of resampling this
+# material spent §9.8 removing.
+#
+# THE ROUTE, measured on the ground through a real bake, because "the stack answers the question" and
+# "the host asks the stack" are different claims and only the second one is what an artist sees. Bake
+# twice, exactly as CZ does: nothing on the first, a mountain on the second. Under the bug the second
+# bake stamps 0.0000 m as well.
+#
+# CONTROL, and it is the one that matters: the same stack handed a FLAT surface must produce a DIFFERENT
+# field. Two materials that both ignore what they are handed also agree bitwise, so without this the
+# forwarding half passes just as well on the broken code path that started this — where both arms would
+# be empty and `_identical` on two empty arrays is true.
+#
+# SECOND CONTROL, CZ's, restated for the composite: a stack with no seeded layer in it must answer NO, or
+# every stack in the project pays for a grid conversion it never asked for.
+func _gate_db_stacked_seeding() -> void:
+	print("\n[DB] ridge seeding survives being wrapped in a stack:")
+	var star := _star_ridges()
+	var flat := PackedFloat32Array()
+	flat.resize(SEED_G * SEED_G)
+	flat.fill(12.0)
+
+	var bare := _field(_seeded(4, star))
+	if bare.is_empty():
+		_fail += 1
+		print("    !! the BARE arm compiled to no field; DB has no reference and measured nothing")
+		return
+
+	var stacked := _stacked_dla(4, star)
+	var wants: bool = stacked.wants_seed_surface()
+	var field := _field(stacked)
+	print("    stack.wants_seed_surface() = %s, and it compiled %d field cells against the bare %d"
+			% [wants, field.size(), bare.size()])
+	if not wants:
+		_fail += 1
+		print("    !! the stack does not pass the question on, so the host never captures a surface")
+	if field.is_empty():
+		_fail += 1
+		print("    !! the stacked material is still waiting for a surface, so it stamps nothing at all")
+	elif not _identical(field, bare):
+		_fail += 1
+		print("    !! the stack changed the field on its way through; a splice must copy it, not resample it")
+	else:
+		print("    the stacked field is BITWISE IDENTICAL to the bare one")
+
+	# CONTROL. Two materials that both ignore their surface also agree bitwise.
+	var other := _field(_stacked_dla(4, flat))
+	print("    CONTROL a FLAT surface through the same stack: %s"
+			% ["DIFFERENT field" if not _identical(other, bare) else "the same field"])
+	if _identical(other, bare):
+		_fail += 1
+		print("    !! the surface is not reaching the layer; the equality above is two arms ignoring it")
+
+	# CONTROL, CZ's, for the composite: a stack nobody asked to seed must not ask for a capture.
+	var quiet := Pasture3DReliefStack.new()
+	var quiet_layers: Array[Pasture3DReliefMaterial] = [_fractal(), _dla(4, 256)]
+	quiet.layers = quiet_layers
+	print("    CONTROL a stack with no seeded layer wants a surface: %s" % quiet.wants_seed_surface())
+	if quiet.wants_seed_surface():
+		_fail += 1
+		print("    !! every stack in the project is now charged for a capture it never asked for")
+
+	# THE ROUTE. Everything above is the stack answering correctly; this is the host asking it.
+	var mound = _make_stacked_mound("DB", SITE_DB)
+	if mound == null:
+		_completed += 1
+		return
+	var probes := _lattice(SITE_DB)
+	var grow := mound.modifiers[1] as Pasture3DModRelief
+	grow.enabled = false
+	mound._refresh_owner(mound._layer_owner, false, [])
+	var rough_only := _snapshot(probes)
+	grow.enabled = true
+	mound._refresh_owner(mound._layer_owner, false, [])
+	var after_1 := _snapshot(probes)
+	mound._refresh_owner(mound._layer_owner, false, [])
+	var after_2 := _snapshot(probes)
+	print("    through a real bake: first %.4f m, second %.4f m"
+			% [_max_diff_arr(after_1, rough_only), _max_diff_arr(after_2, after_1)])
+	if _max_diff_arr(after_1, rough_only) > 0.001:
+		_fail += 1
+		print("    !! it stamped before it had a surface, which the next bake would replace")
+	if _max_diff_arr(after_2, after_1) < 0.5:
+		_fail += 1
+		print("    !! the second bake stamped nothing: the host is not routing the surface into the stack")
+	_completed += 1
+
+
+## The same DLA CY seeds bare, as the only layer of a stack, seeded THROUGH the stack rather than by
+## reaching past it. One layer and not two on purpose: the claim is bitwise equality with the bare arm,
+## and a second layer would add ops of its own to compare around.
+func _stacked_dla(p_seed: int, p_surface: PackedFloat32Array) -> Pasture3DReliefStack:
+	var inner := _dla(p_seed, 256)
+	inner.ridge_seeding = true
+	var stack := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [inner]
+	stack.layers = l
+	stack.set_seed_surface(_seed_dict(p_surface))
+	return stack
+
+
+## CZ's fixture with the DLA wrapped in a stack: fractal -> [stack: DLA]. The modifier list is otherwise
+## identical, so a difference between the two gates' ground measurements is the wrapping and nothing else.
+func _make_stacked_mound(p_name: String, p_at: Vector3):
+	var mound = _make_mound(p_name, p_at)
+	if mound == null:
+		return null
+	var rough := Pasture3DModRelief.new()
+	rough.label = "Rough"
+	rough.material = _fractal()
+	rough.strength = RELIEF_M
+	var dla := _dla(5, 256)
+	dla.ridge_seeding = true
+	var stack := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [dla]
+	stack.layers = l
+	var grow := Pasture3DModRelief.new()
+	grow.label = "DLA in a stack"
+	grow.material = stack
+	grow.strength = RELIEF_M
+	var mods: Array[Pasture3DBrushModifier] = [rough, grow]
+	mound.modifiers = mods
+	return mound

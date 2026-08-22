@@ -2936,8 +2936,10 @@ func _compile_modifiers(p_extent: String = "", p_ex: float = 1.0, p_ez: float = 
 			# A material still WAITING for its seed surface compiles to nothing, and that is exactly the
 			# bake on which it has to be in the list: the capture is what gives it one. So an empty program
 			# is only a no-op when nobody is listening for the surface.
-			var wants_seed: bool = (m.material.has_method("wants_seed_surface")
-					and m.material.wants_seed_surface())
+			# Asked through the base-class virtual, not through has_method. The duck-typed version answered
+			# "did this class implement it", which is false for a STACK holding a seeded DLA — so a stacked
+			# DLA's Ridge Seeding compiled to nothing, was dropped here as a no-op, and never got a capture.
+			var wants_seed: bool = m.material.wants_seed_surface()
 			if ops.is_empty() and not wants_seed:
 				continue # a material that compiles to nothing is not a step, it is a no-op
 			# Ask the predicates BEFORE rebasing: both index the material's own selector block by the

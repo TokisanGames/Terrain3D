@@ -240,6 +240,30 @@ func set_host_frame(_p_ex: float, _p_ez: float) -> bool:
 	return false
 
 
+## True when this material needs the working surface the modifiers ABOVE it produced, before it can
+## compile to anything. The host asks before every bake and captures only when something says yes, so a
+## material that does not want one costs nothing to ask.
+##
+## Declared on the base rather than left to `has_method`, which is what the host used to do. A duck-typed
+## check answers "did anyone implement this" and the question actually being asked is "does anything in
+## this material, at any depth, want a surface" — and those two differ exactly at a composite, which
+## implements nothing itself and holds a layer that wants one. That gap is why a stacked DLA's Ridge
+## Seeding did nothing. Pasture3DReliefStack overrides both of these to ask its layers.
+func wants_seed_surface() -> bool:
+	return false
+
+
+## Hand over the captured surface. RETURNS true when it differs from the one already held, which is the
+## host's signal to regrow and bake again — see Pasture3DTerrainBrush._commit_modifier_caches, which
+## schedules exactly one more pass on a true and converges because the capture EXCLUDES the material
+## reading it.
+##
+## Unlike set_host_frame this one may call _touch(): the host calls it AFTER the bake, not during, so the
+## `changed` it emits is a re-bake request rather than reentrancy.
+func set_seed_surface(_p_surface: Dictionary) -> bool:
+	return false
+
+
 ## Append a selector to the table and return its index (the value an op stores in its selector slot).
 func _emit_selector(s: Pasture3DReliefSelector) -> int:
 	var id := _selectors.size() / SELECTOR_STRIDE
