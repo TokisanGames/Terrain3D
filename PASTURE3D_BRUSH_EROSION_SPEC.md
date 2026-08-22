@@ -1023,6 +1023,67 @@ usable test: 1e-30 of full height is 30 femtometres on a 30 m brush. Restated as
 millionth of full height, sub-micron on anything authorable — the same measurement reads 0.8 % drift and
 a border of zero. The invariant was right; the way it was being read was not.
 
+### 9.8 The loop is not square, and the field was grown as though it were
+
+Third report from the editor, and the one that had been true since the material shipped: *the DLA relief
+is getting stretched when the brush is not square.*
+
+It was, and by exactly the loop's aspect ratio. The field is stretched **once** over the loop's oriented
+rectangle — `nu,nv` are ±1 at its edges, the same mapping `CRATER` uses — and it was baked square. A
+square grid pulled across a 3:1 rectangle multiplies every ridge width, every branch spacing and every
+blur radius along one axis by 3. Nothing about the growth was wrong; it was being asked the wrong
+question, and the square test loops the material was built and gated on could not ask it.
+
+Measured as ridge density — local maxima per metre travelled across the massif, along each of the loop's
+own axes, in world metres and normalised by the metres actually spent above the noise floor, so that a
+massif being LONGER one way does not move the number and only its ridges being WIDER one way does:
+
+| Loop | Before | After |
+|---|---|---|
+| 1.0:1 | 0.908 | 0.908 |
+| 3.0:1 | 0.408 | 1.031 |
+| 6.0:1 | 0.235 | 1.017 |
+| 9.0:1 | 0.211 | 1.147 |
+
+**0.908 on a square loop is the metric's own floor**, not an anisotropy — judge the rest against that
+rather than against 1.000. The "before" column tracks 1/aspect, which is the stretch itself.
+
+**The fix is to grow the field to the rectangle rather than stretch it onto one.** The host hands the
+loop's oriented half-extents down before `compile()` (`set_host_frame`, a no-op on every point-evaluated
+material — those read `nu,nv`, and the host has already divided by these two numbers by the time they
+arrive). The square working grid covers a square of side `2·max(ex,ez)`, the loop's rectangle is the
+**centred crop** of it, and the cluster is confined to the ellipse inscribed in that crop. Cropping
+rather than resampling is the point: it keeps the field's cells the same square METRES the cluster was
+grown on. Both crop dimensions are kept even so the crop is exactly centred — `n` is a power of two, so
+`n−w` is even exactly when `w` is, and half a cell would slide the massif off the middle of its loop.
+
+No C++ was touched. `relief_sample_field` already carried `[offset, w, h]` and both readers already
+handled `w ≠ h`, so §9.1's one-implementation-two-readers argument covers the rectangular case unchanged
+and gate CR still holds at 5e-4 m.
+
+**What it trades, said out loud** — the same way §9.7 says it. **The ridge texture now follows the SHORT
+axis**, because the blur budget must. The blur is one isotropic radius in cells; a blur with two radii is
+precisely the squashing being fixed, so the axis that can afford the least is the axis that sets it. It
+is also the axis on which §9.7's "everything outside `coverage` is exactly zero" would break first. At
+3:1 the ridges come out about three times finer in metres than the same material on a square loop of the
+same length — and they have to, since a ridge as wide as the square loop's would be wider than the
+elongated loop is deep. `detail_size` still styles it: 0.12 → 0.30 moved the density 0.19 → 0.13 per
+metre with the isotropy intact. **Existing DLA mountains on non-square loops all regrow; square ones are
+bitwise unchanged**, and gate DA asserts the second half.
+
+**One trap, and it is not about DLA.** A `Pasture3DReliefStack` copies its layers' bytes into its own
+program and memoises the result, so a layer that regrows underneath it is invisible — the first version
+of this change left a stacked DLA serving the square field it was compiled with. `set_host_frame`
+therefore RETURNS whether it invalidated anything, and the stack sets its own `_dirty` from that. It
+cannot use `_touch()`: that emits `changed`, the brush re-bakes on `changed`, and the host calls this
+setter DURING a bake. Any future "the host tells the material something before compile" hook has the same
+shape, and the same two obligations.
+
+**Still open, found while doing this.** The stack does not forward `wants_seed_surface` /
+`set_seed_surface` either, so §9.6's Ridge Seeding is inert — and fails *closed*, stamping nothing —
+whenever the DLA sits inside a stack rather than on a Relief modifier directly. Pre-existing, unrelated
+to the aspect work, not fixed here.
+
 ---
 
 ## 10. Build order
