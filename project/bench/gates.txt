@@ -51,6 +51,11 @@ bench/PondBrushCheck.tscn
 # BrushRegistry, Sediment — pass locally but have not been watched green HERE, which is this file's bar.
 bench/DLAGate.tscn
 
+# --- The editor gizmo's markers and its handle pick order ---
+# Headless can say the icons resolve per class, that the two dot textures differ, and that clicking a
+# hidden handle selects its point. It cannot say any of it LOOKS right — that needs the editor.
+bench/GizmoMarkerGate.tscn
+
 # --- Water bodies: the two that load connectors BY PATH, so a rename breaks them loudly ---
 bench/WaterBodySplitCheck.tscn
 bench/StreamRippleCheck.tscn

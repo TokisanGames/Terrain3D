@@ -27,11 +27,32 @@ const POINT_COLOR := Color(0.55, 0.95, 1.0)
 const TANGENT_R: float = 0.8
 ## Orange tangent handles, distinct from cyan points and purple origin.
 const TANGENT_COLOR := Color(1.0, 0.66, 0.2)
-## Outward length (m) at which a zero-length tangent's grab handle is drawn/picked, so it can be pulled
-## out from a straight point. Clamped to a fraction of the adjacent segment for short loops.
-const TANGENT_STUB: float = 3.0
-## Screen-space pick radius (px) for clicking a loop point or tangent handle.
-const PICK_RADIUS: float = 13.0
+
+# ---- Constant-size sprite markers -----------------------------------------------------------------
+#
+# The wireframe octahedra were a single pixel thick and vanished into a checkered terrain the moment
+# more than a couple of brushes were on screen — and they said nothing about WHICH brush you were
+# looking at. The origin marker is now the node's own scene-tree icon and the loop handles are the
+# filled/hollow dots a vector drawing program uses, all drawn at a CONSTANT SCREEN SIZE so they read the
+# same whether the camera is on the mountain or a kilometre off it.
+#
+# `fixed_size` on a billboarded StandardMaterial3D is what makes them screen-constant. It is used rather
+# than `add_unscaled_billboard`, which is the API for exactly this, because that one draws at the gizmo
+# NODE'S ORIGIN and takes no transform — fine for the one origin marker, useless for the fifty loop
+# points that are the bigger half of the problem. One mechanism for both beats two.
+#
+# THESE THREE ARE THE SIZE KNOBS. They are in `fixed_size` units, whose mapping to pixels depends on the
+# viewport height and the camera's vertical FOV, so they are tuned by looking rather than derived.
+
+## The brush's scene-tree icon at its origin.
+const ICON_SIZE: float = 0.055
+## A loop control point.
+const POINT_SIZE: float = 0.030
+## A bezier tangent handle — smaller than a point, so the point stays the thing you aim at.
+const TANGENT_SIZE: float = 0.023
+## Resolution of the generated dot textures. 64 is comfortably above the pixel size they are drawn at,
+## so the mipmapped edge stays clean when the camera is close enough to make them large.
+const DOT_PX: int = 64
 
 ## Per-drag capture of the true pre-drag value of each touched subgizmo (id -> Vector3): position for a
 ## point handle, in/out offset for a tangent. Lets undo restore exactly (esp. a stubbed zero tangent
@@ -41,11 +62,10 @@ var _orig: Dictionary = {}
 ## the live drag delta is measured from.
 var _start: Dictionary = {}
 
-## The brush + loop point whose tangents are currently shown (instance id, and running point index gpi).
-## Updated when a point/tangent is clicked; tangents for other points stay hidden to keep loops readable.
-## Overridden by the "Toggle Tangents" button (Pasture3DTerrainBrush._show_all_tangents).
-var _sel_node_id: int = 0
-var _sel_gpi: int = -1
+## Where the handles are and which one is selected. A plain RefCounted so a headless gate can drive it —
+## see the header of brush_handles.gd for why that could not be done in place.
+const Handles: Script = preload("res://addons/pasture_3d/src/brush_handles.gd")
+var _h: Handles = Handles.new()
 
 ## Per-drag note of whether the point being dragged started "smooth" (gpi -> bool), captured before the
 ## first mutation. When true, dragging one tangent mirrors the other (Shift breaks the symmetry).
@@ -55,6 +75,21 @@ var _smooth_drag: Dictionary = {}
 ## name it was registered under). `create_material` is per-plugin and by name, so the set has to be
 ## interned somewhere; doing it lazily means a new brush family declares a colour and nothing else.
 var _marker_materials: Dictionary = {}
+
+## Sprite materials by key, one per (shape, colour) pair actually asked for. Same lazy interning as
+## `_marker_materials` and for the same reason.
+var _sprite_materials: Dictionary = {}
+
+## The two dot textures and the unit quad, generated once for the whole editor session. `static` because
+## nothing about them varies per plugin instance, and a gizmo plugin is re-instantiated on every @tool
+## script reload — which is often.
+static var _dot_hollow: ImageTexture
+static var _dot_filled: ImageTexture
+static var _quad: QuadMesh
+## Script resource path -> the icon path its class (or the nearest ancestor that declares one) uses.
+static var _icon_paths: Dictionary = {}
+## Icon path -> the loaded texture.
+static var _icon_cache: Dictionary = {}
 
 
 func _init() -> void:
@@ -75,6 +110,132 @@ func _marker_material(p_gizmo: EditorNode3DGizmo, p_color: Color) -> Material:
 	return get_material(_marker_materials[key], p_gizmo)
 
 
+## The shared unit quad every sprite is an instance of. Sized 1x1 and scaled by the transform, so the
+## three size constants are the only place a size is written down.
+static func _quad_mesh() -> QuadMesh:
+	if _quad == null:
+		_quad = QuadMesh.new()
+		_quad.size = Vector2.ONE
+	return _quad
+
+
+## A dot texture: WHITE body with a BLACK rim, on transparent. Filled is a disc, unfilled a ring.
+##
+## The body is white so the material's albedo can tint it — cyan for a point, orange for a handle — and
+## the rim is black so it survives being tinted, which is what keeps the marker readable against pale
+## terrain AND against a dark sky. A single-colour dot loses one of those two.
+static func _dot_texture(p_filled: bool) -> ImageTexture:
+	var img := Image.create_empty(DOT_PX, DOT_PX, true, Image.FORMAT_RGBA8)
+	var c := (DOT_PX - 1) * 0.5
+	var r_out := DOT_PX * 0.5 - 1.0
+	var rim := DOT_PX * 0.10          # black outline thickness
+	var r_in := r_out - DOT_PX * 0.30 # inner edge of the ring's white band
+	var aa := 1.2                     # antialias width, pixels
+	for y in DOT_PX:
+		for x in DOT_PX:
+			var d := Vector2(x - c, y - c).length()
+			var alpha: float
+			var white: float
+			if p_filled:
+				alpha = clampf((r_out - d) / aa, 0.0, 1.0)
+				white = clampf((r_out - rim - d) / aa, 0.0, 1.0)
+			else:
+				alpha = minf(clampf((r_out - d) / aa, 0.0, 1.0),
+						clampf((d - (r_in - rim)) / aa, 0.0, 1.0))
+				white = minf(clampf((r_out - rim - d) / aa, 0.0, 1.0),
+						clampf((d - r_in) / aa, 0.0, 1.0))
+			img.set_pixel(x, y, Color(white, white, white, alpha))
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
+
+
+static func _dot(p_filled: bool) -> ImageTexture:
+	if p_filled:
+		if _dot_filled == null:
+			_dot_filled = _dot_texture(true)
+		return _dot_filled
+	if _dot_hollow == null:
+		_dot_hollow = _dot_texture(false)
+	return _dot_hollow
+
+
+## A billboarded, screen-constant, always-on-top material for one texture and tint.
+##
+## `no_depth_test` mirrors what the wireframes did (`create_material(..., on_top = true)`): a brush sunk
+## below the surface stays findable, which on a terrain plugin is the common case rather than the odd one.
+func _sprite_material(p_key: String, p_tex: Texture2D, p_color: Color) -> StandardMaterial3D:
+	if _sprite_materials.has(p_key):
+		return _sprite_materials[p_key]
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_texture = p_tex
+	m.albedo_color = p_color
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	# Without this the billboard code throws the model scale away and every sprite comes out the same
+	# size, which would make the three size constants above do nothing at all.
+	m.billboard_keep_scale = true
+	m.fixed_size = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.no_depth_test = true
+	m.disable_receive_shadows = true
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	m.render_priority = 10
+	_sprite_materials[p_key] = m
+	return m
+
+
+## Draw one dot at `p_at` (node-local).
+func _dot_sprite(p_gizmo: EditorNode3DGizmo, p_at: Vector3, p_size: float, p_color: Color,
+		p_filled: bool) -> void:
+	var key := "%s:%s" % ["filled" if p_filled else "hollow", p_color.to_html(false)]
+	p_gizmo.add_mesh(_quad_mesh(), _sprite_material(key, _dot(p_filled), p_color),
+			Transform3D(Basis().scaled(Vector3.ONE * p_size), p_at))
+
+
+## The node's SCENE-TREE icon, or null for a class that declares none.
+##
+## Read out of the project's global class list rather than from the node, because `@icon` is not exposed
+## on Script and the editor theme only knows built-in classes. Walking `base` upward is what makes every
+## brush family work without a list here: `Pasture3DTerrainBrush` declares `brush_terrain.svg`, so a new
+## subclass that never declares one still gets a sensible icon instead of nothing.
+static func icon_for(p_node: Node3D) -> Texture2D:
+	var scr: Script = p_node.get_script()
+	if scr == null or scr.resource_path.is_empty():
+		return null
+	if _icon_paths.is_empty():
+		_build_icon_paths()
+	var path: String = _icon_paths.get(scr.resource_path, "")
+	if path.is_empty():
+		return null
+	if not _icon_cache.has(path):
+		_icon_cache[path] = load(path) if ResourceLoader.exists(path) else null
+	return _icon_cache[path]
+
+
+static func _build_icon_paths() -> void:
+	var list: Array = ProjectSettings.get_global_class_list()
+	var by_name := {}
+	for e in list:
+		by_name[String(e.get("class", ""))] = e
+	for e in list:
+		var path := String(e.get("path", ""))
+		if path.is_empty():
+			continue
+		var cur: Variant = e
+		var icon := ""
+		# Bounded, because a malformed class list could describe a cycle and this runs in an editor.
+		for _step in 32:
+			if cur == null:
+				break
+			icon = String((cur as Dictionary).get("icon", ""))
+			if not icon.is_empty():
+				break
+			cur = by_name.get(String((cur as Dictionary).get("base", "")))
+		if not icon.is_empty():
+			_icon_paths[path] = icon
+
+
 func _get_gizmo_name() -> String:
 	return "Pasture3D Brush"
 
@@ -93,9 +254,18 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	# Float the marker above the terrain surface under the brush origin (not the node's own Y, which may
 	# be buried after a height change). Computed in node-local space so transforms/scale are respected.
 	var centre := _marker_centre(node)
-	var mat: Material = _marker_material(p_gizmo, node._gizmo_color() if node.has_method("_gizmo_color")
-			else MARKER_COLOR)
-	p_gizmo.add_lines(octa(centre, MARKER_R), mat)
+	var icon := icon_for(node)
+	if icon != null:
+		# The scene-tree icon, at a constant screen size: what kind of brush this is, answerable at a
+		# glance and from any distance. The wireframe octahedron it replaced was a pixel thick and told
+		# you only that SOMETHING was there.
+		p_gizmo.add_mesh(_quad_mesh(), _sprite_material("icon:" + icon.resource_path, icon, Color.WHITE),
+				Transform3D(Basis().scaled(Vector3.ONE * ICON_SIZE), centre))
+	else:
+		# A class that declares no icon anywhere up its chain keeps the old marker rather than nothing.
+		var mat: Material = _marker_material(p_gizmo,
+				node._gizmo_color() if node.has_method("_gizmo_color") else MARKER_COLOR)
+		p_gizmo.add_lines(octa(centre, MARKER_R), mat)
 	# A solid box of collision triangles round the marker makes it pickable from any angle → clicking
 	# selects the brush node. Built offset to the same floating centre as the visible marker
 	# (add_collision_triangles has no transform arg, so move the vertices).
@@ -117,19 +287,23 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	# Godot's native Path3D handles. Points and tangents are SUBGIZMOS (below): clicking one shows the
 	# standard move gizmo while the brush keeps its own selection.
 	if _brush_selected(node):
-		var pmat := get_material("points", p_gizmo)
 		var gmat := get_material("tangents", p_gizmo)
+		var is_sel_node := node.get_instance_id() == _h.sel_node_id
 		var gpi := 0
-		for path in _loop_paths(node):
+		for path in _h.loop_paths(node):
 			for i in path.curve.point_count:
 				var c := node.to_local(path.to_global(path.curve.get_point_position(i)))
-				p_gizmo.add_lines(octa(c, POINT_R), pmat)
+				_dot_sprite(p_gizmo, c, POINT_SIZE, POINT_COLOR,
+						is_sel_node and gpi == _h.sel_gpi and _h.sel_kind == 0)
 				# Tangents only for the selected point (or all, when the toggle is on) — declutter.
-				if _show_tangents(node, gpi):
+				if _h.show_tangents(node, gpi):
 					for kind in [1, 2]:
-						var hc := _handle_display_local(node, path, i, kind)
+						var hc := _h.handle_display_local(node, path, i, kind)
+						# The stem stays a line: it is what says which point a handle belongs to, and
+						# two dots with nothing between them do not say it.
 						p_gizmo.add_lines(PackedVector3Array([c, hc]), gmat)
-						p_gizmo.add_lines(octa(hc, TANGENT_R), gmat)
+						_dot_sprite(p_gizmo, hc, TANGENT_SIZE, TANGENT_COLOR,
+								is_sel_node and gpi == _h.sel_gpi and _h.sel_kind == kind)
 				gpi += 1
 
 
@@ -145,42 +319,18 @@ func _subgizmos_intersect_ray(p_gizmo: EditorNode3DGizmo, p_camera: Camera3D, p_
 	var node := p_gizmo.get_node_3d()
 	if not _brush_selected(node):
 		return -1
-	var best := -1
-	var best_d := PICK_RADIUS
-	var gpi := 0
-	for path in _loop_paths(node):
-		for i in path.curve.point_count:
-			for kind in 3:
-				var world: Vector3 = node.to_global(_handle_display_local(node, path, i, kind))
-				if not p_camera.is_position_behind(world):
-					var d := p_camera.unproject_position(world).distance_to(p_point)
-					if d < best_d:
-						best_d = d
-						best = gpi * 3 + kind
-			gpi += 1
-	_update_selected_point(node, best / 3 if best >= 0 else -1)
-	return best
+	return _h.pick_handle(node, p_camera, p_point)
 
 
-## Track which point's tangents to show. A hit selects that point; a miss (click in empty space) clears
-## it, hiding the tangents again. Redraw only when it actually changes.
-func _update_selected_point(p_node: Node3D, p_gpi: int) -> void:
-	var id := p_node.get_instance_id()
-	if p_gpi >= 0:
-		if _sel_node_id != id or _sel_gpi != p_gpi:
-			_sel_node_id = id
-			_sel_gpi = p_gpi
-			p_node.update_gizmos.call_deferred()
-	elif _sel_node_id == id and _sel_gpi != -1:
-		_sel_gpi = -1
-		p_node.update_gizmos.call_deferred()
+## [Path3D, point index] of the currently-selected loop point on `p_brush`, or [null, -1]. Lets the
+## plugin remove it on the Delete key (see editor_plugin.gd).
+func selected_point(p_brush: Node3D) -> Array:
+	return _h.selected_point(p_brush)
 
 
-## Whether to draw point `p_gpi`'s tangent handles: only the selected point, or all when the toggle is on.
-func _show_tangents(p_node: Node3D, p_gpi: int) -> bool:
-	if Pasture3DTerrainBrush._show_all_tangents:
-		return true
-	return p_node.get_instance_id() == _sel_node_id and p_gpi == _sel_gpi
+## Forget the selected point (e.g. after it was deleted) so its now-stale index isn't reused.
+func clear_point_selection() -> void:
+	_h.clear_point_selection()
 
 
 ## A point is "smooth" when both tangents are non-trivial and roughly mirror images (collinear, equal
@@ -191,20 +341,6 @@ func _is_smooth(p_in: Vector3, p_out: Vector3) -> bool:
 	return (p_in + p_out).length() < 0.1 * maxf(p_in.length(), p_out.length())
 
 
-## [Path3D, point index] of the currently-selected loop point on `p_brush`, or [null, -1]. Lets the
-## plugin remove it on the Delete key (see editor_plugin.gd).
-func selected_point(p_brush: Node3D) -> Array:
-	if p_brush == null or _sel_node_id != p_brush.get_instance_id() or _sel_gpi < 0:
-		return [null, -1]
-	var res := _resolve_handle(p_brush, _sel_gpi * 3)
-	return [res[0], res[1]]
-
-
-## Forget the selected point (e.g. after it was deleted) so its now-stale index isn't reused.
-func clear_point_selection() -> void:
-	_sel_gpi = -1
-
-
 ## Box-select: every loop POSITION inside the selection frustum (group move). Tangents are excluded so
 ## a box drag never drags curvature handles by surprise.
 func _subgizmos_intersect_frustum(p_gizmo: EditorNode3DGizmo, _camera: Camera3D, p_frustum: Array[Plane]) -> PackedInt32Array:
@@ -213,7 +349,7 @@ func _subgizmos_intersect_frustum(p_gizmo: EditorNode3DGizmo, _camera: Camera3D,
 	if not _brush_selected(node):
 		return out
 	var gpi := 0
-	for path in _loop_paths(node):
+	for path in _h.loop_paths(node):
 		for i in path.curve.point_count:
 			var world: Vector3 = path.to_global(path.curve.get_point_position(i))
 			if _inside_frustum(p_frustum, world):
@@ -225,11 +361,11 @@ func _subgizmos_intersect_frustum(p_gizmo: EditorNode3DGizmo, _camera: Camera3D,
 ## The handle's transform (translation only) in the gizmo node's local space — where the gizmo appears.
 func _get_subgizmo_transform(p_gizmo: EditorNode3DGizmo, p_id: int) -> Transform3D:
 	var node := p_gizmo.get_node_3d()
-	var res := _resolve_handle(node, p_id)
+	var res := _h.resolve_handle(node, p_id)
 	var path: Path3D = res[0]
 	if path == null:
 		return Transform3D()
-	return Transform3D(Basis(), _handle_display_local(node, path, res[1], res[2]))
+	return Transform3D(Basis(), _h.handle_display_local(node, path, res[1], res[2]))
 
 
 ## Live drag from the transform gizmo.
@@ -239,7 +375,7 @@ func _get_subgizmo_transform(p_gizmo: EditorNode3DGizmo, p_id: int) -> Transform
 ##   level (offset Y = 0) while Snap to Surface is on, so the loop stays planar with the surface.
 func _set_subgizmo_transform(p_gizmo: EditorNode3DGizmo, p_id: int, p_transform: Transform3D) -> void:
 	var node := p_gizmo.get_node_3d()
-	var res := _resolve_handle(node, p_id)
+	var res := _h.resolve_handle(node, p_id)
 	var path: Path3D = res[0]
 	if path == null:
 		return
@@ -260,7 +396,7 @@ func _set_subgizmo_transform(p_gizmo: EditorNode3DGizmo, p_id: int, p_transform:
 	var gpi: int = p_id / 3
 	if not _orig.has(p_id):
 		_orig[p_id] = path.curve.get_point_in(idx) if kind == 1 else path.curve.get_point_out(idx)
-		_start[p_id] = _handle_display_local(node, path, idx, kind)
+		_start[p_id] = _h.handle_display_local(node, path, idx, kind)
 		if not _smooth_drag.has(gpi):
 			_smooth_drag[gpi] = _is_smooth(path.curve.get_point_in(idx), path.curve.get_point_out(idx))
 	var delta_node: Vector3 = p_transform.origin - (_start[p_id] as Vector3)
@@ -310,7 +446,7 @@ func _commit_subgizmos(p_gizmo: EditorNode3DGizmo, p_ids: PackedInt32Array, p_re
 	var ur := EditorInterface.get_editor_undo_redo()
 	ur.create_action(name)
 	for i in p_ids.size():
-		var res := _resolve_handle(node, p_ids[i])
+		var res := _h.resolve_handle(node, p_ids[i])
 		var path: Path3D = res[0]
 		if path == null:
 			continue
@@ -334,7 +470,7 @@ func _commit_subgizmos(p_gizmo: EditorNode3DGizmo, p_ids: PackedInt32Array, p_re
 	for key in _orig.keys():
 		if key % 3 == 0 or key in p_ids:
 			continue
-		var pres := _resolve_handle(node, key)
+		var pres := _h.resolve_handle(node, key)
 		var ppath: Path3D = pres[0]
 		if ppath == null:
 			continue
@@ -355,7 +491,7 @@ func _commit_subgizmos(p_gizmo: EditorNode3DGizmo, p_ids: PackedInt32Array, p_re
 
 ## Put one handle back to a transform (used on drag-cancel), preferring the captured pre-drag value.
 func _restore_handle(p_node: Node3D, p_id: int, p_restore: Transform3D) -> void:
-	var res := _resolve_handle(p_node, p_id)
+	var res := _h.resolve_handle(p_node, p_id)
 	var path: Path3D = res[0]
 	if path == null:
 		return
@@ -371,86 +507,12 @@ func _restore_handle(p_node: Node3D, p_id: int, p_restore: Transform3D) -> void:
 			path.curve.set_point_out(idx, _orig.get(p_id, path.curve.get_point_out(idx)))
 
 
-## Map a flat subgizmo id back to [child Path3D, point index, kind], in the same order _redraw drew them.
-func _resolve_handle(p_node: Node3D, p_id: int) -> Array:
-	var gpi: int = p_id / 3
-	var kind: int = p_id % 3
-	var base := 0
-	for path in _loop_paths(p_node):
-		var n: int = path.curve.point_count
-		if gpi < base + n:
-			return [path, gpi - base, kind]
-		base += n
-	return [null, -1, -1]
-
-
-## Node-local position where a handle is shown/picked. Position = the point; a tangent = the point plus
-## its in/out offset, or a short outward stub when that offset is ~zero (so it can be grabbed).
-func _handle_display_local(p_node: Node3D, p_path: Path3D, p_idx: int, p_kind: int) -> Vector3:
-	var c := p_path.curve
-	var p: Vector3 = c.get_point_position(p_idx)
-	if p_kind != 0:
-		p += _display_offset(p_node, p_path, p_idx, p_kind)
-	return p_node.to_local(p_path.to_global(p))
-
-
-## A tangent's display offset (path-local): the real in/out offset, or a stub when it is ~zero.
-func _display_offset(p_node: Node3D, p_path: Path3D, p_idx: int, p_kind: int) -> Vector3:
-	var c := p_path.curve
-	var real: Vector3 = c.get_point_in(p_idx) if p_kind == 1 else c.get_point_out(p_idx)
-	if real.length() > 0.02:
-		return real
-	return _stub_offset(p_node, p_path, p_idx, p_kind)
-
-
-## Short outward offset for a zero-length tangent, pointing toward the adjacent point (prev for in, next
-## for out), clamped to a fraction of that segment so it never overshoots on short loops.
-func _stub_offset(p_node: Node3D, p_path: Path3D, p_idx: int, p_kind: int) -> Vector3:
-	var c := p_path.curve
-	var n: int = c.point_count
-	var p: Vector3 = c.get_point_position(p_idx)
-	var closed := _is_closed(p_node, p_path)
-	var j: int
-	if p_kind == 1:
-		j = p_idx - 1
-		if j < 0:
-			j = (n - 1) if closed else p_idx + 1
-	else:
-		j = p_idx + 1
-		if j >= n:
-			j = 0 if closed else p_idx - 1
-	if j < 0 or j >= n or j == p_idx:
-		return Vector3.ZERO
-	var dir: Vector3 = c.get_point_position(j) - p
-	var l := dir.length()
-	if l < 0.001:
-		return Vector3.ZERO
-	return dir / l * minf(TANGENT_STUB, l * 0.4)
-
-
-## Whether this loop is a closed polygon (Mound/Plow: min ≥ 3 points) vs an open spline (Ridge/Trough).
-func _is_closed(p_node: Node3D, p_path: Path3D) -> bool:
-	var brush := p_node as Pasture3DTerrainBrush
-	if brush != null:
-		return brush._is_closed()
-	return p_path.curve.point_count >= 3
-
-
 ## A point is inside the selection frustum when it is on the inner side of every plane.
 func _inside_frustum(p_planes: Array[Plane], p_point: Vector3) -> bool:
 	for pl in p_planes:
 		if pl.is_point_over(p_point):
 			return false
 	return true
-
-
-## This brush's child loops that have a curve (the editable splines), in child order.
-func _loop_paths(p_node: Node3D) -> Array:
-	var out: Array = []
-	for c in p_node.get_children():
-		if c is Path3D and c.curve != null:
-			out.append(c)
-	return out
 
 
 ## The brush node itself (not a child loop) is the current editor selection.
