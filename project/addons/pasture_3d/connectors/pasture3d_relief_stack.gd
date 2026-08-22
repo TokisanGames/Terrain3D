@@ -188,7 +188,49 @@ func _raises() -> bool:
 	return false
 
 
+## Our own complaint, plus every layer's — the last accessor that did not ask its layers, and the same
+## defect shape as the seeding one (spec §16.2). A material that knows how to say "Base Amount fights the
+## Host Profile" or "I am still waiting for a surface" fell silent the moment it became a layer, which is
+## how a broken stack came to look exactly like a working one.
+##
+## EVERY complaint and not just the first: the failure being fixed is a hidden complaint, and returning
+## one of several is that failure with a smaller radius. They are joined with newlines because the host
+## appends this as a single warning entry (Pasture3DTerrainBrush._relief_warnings) and the signature is
+## one String — widening it would touch every material in the catalogue for no gain here.
+##
+## Each layer's line names the layer, because "hardness is 0" is not actionable in a stack of four. A
+## nested stack prefixes again, which is what makes the path readable rather than just the leaf.
 func _configuration_warning() -> String:
+	var own := _own_warning()
+	var out := PackedStringArray()
+	if not own.is_empty():
+		out.append(own)
+	for i in range(layers.size()):
+		var m: Pasture3DReliefMaterial = layers[i]
+		if m == null:
+			continue
+		var w := m._configuration_warning()
+		if w.is_empty():
+			continue
+		# Prefix EVERY line, not the string. A nested stack hands back one line per complaint, and
+		# prefixing only the first leaves its second complaint reading as though it came from this level.
+		for line in w.split("
+"):
+			out.append("Layer %d (%s): %s" % [i + 1, _layer_name(m), line])
+	return "\n".join(out)
+
+
+## The name to call a layer in a warning: what the user typed, or the class with the prefix stripped —
+## the same rule Pasture3DBrushModifier.display_name uses, for the same reason.
+func _layer_name(m: Pasture3DReliefMaterial) -> String:
+	if not m.resource_name.is_empty():
+		return m.resource_name
+	var s: Script = m.get_script()
+	return String(s.get_global_name()).trim_prefix("Pasture3DRelief") if s != null else "Relief"
+
+
+## The stack's OWN complaint, split out so _configuration_warning can put it first and still forward.
+func _own_warning() -> String:
 	var live := 0
 	var first = null
 	for m in layers:

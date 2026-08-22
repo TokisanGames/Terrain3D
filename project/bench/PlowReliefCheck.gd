@@ -45,6 +45,13 @@ const PRESET_DIR := "res://demo/data/relief"
 const PARITY_TOL := 1.0e-4
 
 var _fail := 0
+## Counts ONLY the gates that carry it. A GDScript runtime error abandons a function without incrementing
+## `_fail`, so a suite that counts failures alone can report a clean pass having measured nothing — the
+## house rule from bench/OceanBench.gd. Gates A-N predate it and are not retrofitted here; bringing them
+## up is its own change, and a counter that covers half a suite must say which half or it is worse than
+## none. O and P below are the half it covers.
+const COUNTED_GATES := 2
+var _completed := 0
 var _root: Node3D
 var _terrain
 
@@ -71,7 +78,13 @@ func _ready() -> void:
 	_gate_l_scree()
 	_gate_m_phase3_parity()
 	_gate_n_profile_ops_are_gated()
+	_gate_o_blend_is_hidden()
+	_gate_p_stack_forwards_warnings()
 
+	if _completed != COUNTED_GATES:
+		_fail += 1
+		print("\n!! only %d of the %d counted gates ran to completion; the rest hit a runtime error"
+				% [_completed, COUNTED_GATES])
 	print("\n=== %s (%d failures) ===\n" % ["PLOW RELIEF PASS" if _fail == 0 else "PLOW RELIEF FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -959,3 +972,142 @@ func _snapshot(p_points: Array[Vector3]) -> Array[float]:
 
 func _height(p_at: Vector3) -> float:
 	return _terrain.data.get_height(Vector3(p_at.x, 0.0, p_at.z))
+
+
+# --- O: `blend` is hidden on a material that cannot use it ----------------------------------------
+#
+# Spec §16.1. Outside a Pasture3DReliefStack, `blend` does nothing at all: a host evaluates one material
+# into an accumulator that starts at 0 and adds the result, and no setting of it changes a byte. The base
+# hides it for that reason, and three subclasses overrode `_validate_property` without calling `super`,
+# which repealed the rule on exactly those three -- GDScript resolves a virtual to the most-derived
+# implementation and stops.
+#
+# MEASURED AS INSPECTOR VISIBILITY, not by reading the source for `super`. A grep-shaped gate passes on
+# code that calls super and then undoes it, and fails on a subclass that solves the problem some other
+# way. What has to be true is what the artist sees.
+#
+# The catalogue is enumerated rather than sampled, so a NEW material that forgets is caught the day it is
+# added rather than the day someone wonders why the control is there.
+#
+# CONTROL. The same instances, put into a stack, must show it. Without that "hidden everywhere" is also
+# what a gate reports when `blend` has been renamed out of the property list entirely, or when the
+# visibility bit is read the wrong way round -- both of which pass the criterion while measuring nothing.
+func _gate_o_blend_is_hidden() -> void:
+	print("\n[O] `blend` is hidden on a material that is not in a stack (spec 16.1):")
+	var cases: Array[Pasture3DReliefMaterial] = [
+		Pasture3DReliefFractal.new(), Pasture3DReliefTerraces.new(), Pasture3DReliefStrata.new(),
+		Pasture3DReliefDunes.new(), Pasture3DReliefFurrows.new(), Pasture3DReliefCrater.new(),
+		Pasture3DReliefScree.new(), Pasture3DReliefDLA.new(), Pasture3DReliefStack.new(),
+	]
+	var loose := 0
+	for m in cases:
+		if _blend_visible(m):
+			loose += 1
+			_fail += 1
+			print("    !! %s shows Blend while not in a stack, where it cannot act" % _cls(m))
+	print("    %d of %d materials hide it outside a stack" % [cases.size() - loose, cases.size()])
+
+	# CONTROL: one stack holding every one of them, which must un-hide it on all of them.
+	var host := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = []
+	for m in cases:
+		l.append(m)
+	host.layers = l
+	var shown := 0
+	for m in cases:
+		if _blend_visible(m):
+			shown += 1
+	print("    CONTROL the same instances as layers of a stack: %d of %d show it" % [shown, cases.size()])
+	if shown != cases.size():
+		_fail += 1
+		print("    !! Blend does not appear even where it acts, so the criterion above measured nothing")
+	_completed += 1
+
+
+## Is `blend` in this material's EDITOR property list? Read from get_property_list, which is what the
+## inspector itself walks, rather than from _validate_property directly -- the bug being gated is that the
+## engine never calls the base implementation, and calling it by hand would step around exactly that.
+func _blend_visible(m: Pasture3DReliefMaterial) -> bool:
+	for prop in m.get_property_list():
+		if prop.get("name", "") == "blend":
+			return (int(prop.get("usage", 0)) & PROPERTY_USAGE_EDITOR) != 0
+	return false
+
+
+func _cls(m: Object) -> String:
+	var sc: Script = m.get_script()
+	return String(sc.get_global_name()) if sc != null else m.get_class()
+
+
+# --- P: a stack forwards its layers' configuration warnings ---------------------------------------
+#
+# Spec §16.2. `_configuration_warning()` was the last accessor Pasture3DReliefStack did not pass down, so
+# every complaint every material knows how to make vanished the moment it became a layer. The host reads
+# one string off the top-level material (Pasture3DTerrainBrush._relief_warnings) and never walks the tree
+# itself, so a silent stack is a silent inspector.
+#
+# THREE CLAIMS, because the fix has three parts. The complaint arrives; it NAMES the layer, which is what
+# makes it actionable in a stack of four; and ALL of them arrive, because returning the first would be the
+# same hidden-complaint failure with a smaller radius.
+#
+# CONTROL, and it is the one that matters: a stack of HEALTHY layers must say nothing. A stack that
+# concatenated its layers unconditionally, or one that warned about its own structure on every call, would
+# satisfy every claim above while telling the artist nothing they can act on.
+#
+# SECOND CONTROL: the same broken layer standing ALONE must say the same thing. If it does not, this gate
+# is measuring a sentence the stack invented rather than one it forwarded.
+func _gate_p_stack_forwards_warnings() -> void:
+	print("\n[P] a stack reports its layers' complaints (spec 16.2):")
+	var broken := Pasture3DReliefTerraces.new()
+	broken.hardness = 0.0
+	broken.resource_name = "Benches"
+	var also_broken := Pasture3DReliefFractal.new()
+	also_broken.amplitude = 0.0
+	var healthy := Pasture3DReliefDunes.new()
+
+	var alone := broken._configuration_warning()
+	print("    the layer standing alone says: %s" % _oneline(alone))
+	if alone.is_empty():
+		_fail += 1
+		print("    !! the fixture does not complain on its own, so P has nothing to forward")
+		_completed += 1
+		return
+
+	var stack := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [healthy, broken, also_broken]
+	stack.layers = l
+	var got := stack._configuration_warning()
+	print("    the stack says: %s" % _oneline(got))
+	if not got.contains(alone):
+		_fail += 1
+		print("    !! the layer's own complaint did not survive the forward")
+	if not got.contains("Benches"):
+		_fail += 1
+		print("    !! the complaint does not name the layer it is about")
+	if got.split("\n").size() < 2:
+		_fail += 1
+		print("    !! only one of the two broken layers was reported")
+
+	# The nesting claim: a stack inside a stack still reaches the leaf.
+	var outer := Pasture3DReliefStack.new()
+	var l2: Array[Pasture3DReliefMaterial] = [stack]
+	outer.layers = l2
+	print("    nested one level deeper: %s" % _oneline(outer._configuration_warning()))
+	if not outer._configuration_warning().contains(alone):
+		_fail += 1
+		print("    !! the forward stops at the first level, so a stack of stacks is still silent")
+
+	# CONTROL. A stack of healthy layers says nothing at all.
+	var quiet := Pasture3DReliefStack.new()
+	var l3: Array[Pasture3DReliefMaterial] = [healthy, Pasture3DReliefFurrows.new()]
+	quiet.layers = l3
+	print("    CONTROL a stack of healthy layers says: %s" % _oneline(quiet._configuration_warning()))
+	if not quiet._configuration_warning().is_empty():
+		_fail += 1
+		print("    !! a healthy stack complains too, so the criterion above passes on anything")
+	_completed += 1
+
+
+## Warnings are multi-line now; the log stays one line per fact.
+func _oneline(s: String) -> String:
+	return "(nothing)" if s.is_empty() else "\"%s\"" % s.replace("\n", " | ")

@@ -660,3 +660,169 @@ wrong for negative relief, so the default is `STRONGEST`, §6.2); stack recursio
 - [Red Blob Games — terrain from noise](https://www.redblobgames.com/maps/terrain-from-noise/) and
   [procedural noise for terrain](https://ithy.com/article/innovations-procedural-noise-terrain-35cvalyh)
   — ridged multifractal, billow, domain warping.
+
+---
+
+## 16. The composite audit (2026-08-22)
+
+A read of every relief material and every brush modifier, prompted by one of them: `Pasture3DReliefStack`
+did not forward `wants_seed_surface` / `set_seed_surface`, so a DLA's Ridge Seeding was inert inside a
+stack (PASTURE3D_BRUSH_EROSION_SPEC.md §9.6, gate DB). That bug had a shape — **a composite that does not
+pass a question on to its children** — and the point of the audit was to find out how many more of that
+shape were sitting there. Two were, and three unrelated things turned up on the way.
+
+**Every finding below was MEASURED, not read.** A reading says what the code appears to do; several of
+these look wrong and are fine, and one of them (§16.4) looks wrong, is real, and may still be the
+intended behaviour. Each measurement carries a control, for the usual reason: "the assigned selector
+changed nothing" and "nothing here changes anything" are the same output.
+
+| # | Finding | State |
+|---|---|---|
+| 16.1 | `blend` is visible on three materials where it cannot act | **FIXED 2026-08-22** — gate O |
+| 16.2 | A stack silences every layer's configuration warning | **FIXED 2026-08-22** — gate P |
+| 16.3 | `selector` is inert on a `Pasture3DReliefScree` | open |
+| 16.4 | A layer's Domain Warp displaces the layers below it | open — needs a decision, not a fix |
+| 16.5 | A layer's `strength` is not the operation a host applies | open |
+| 16.6 | `CONST`, `CLAMP`, `FLAG_NEGATE`, `FLAG_CLAMP` are emitted by nothing | open, and cosmetic |
+| 16.7 | CRATER carries the anisotropy §9.8 of the erosion spec removed from DLA | open — needs a decision |
+
+**What the audit found SOUND**, because a review that only lists defects says nothing about coverage. The
+stack's splice rebases all three index spaces correctly, including the variably-sized field headers, and
+composes under nesting. Every op's parameter layout agrees across `_build`, `_make_noise` and `eval` — all
+seven noise-carrying ops walked. The point/field run folding and the `capture` split agree between the
+GDScript and native paths, including the non-obvious rule that a run must stop in FRONT of a capture. The
+cycle guard, the null guards on `Pasture3DModRelief.is_active()` and the band-source flags surviving the
+splice all hold. There is not one TODO, FIXME or HACK marker in the 3,370 lines of scope.
+
+### 16.1 `blend` was visible on three materials where it cannot act — FIXED
+
+`Pasture3DReliefMaterial._validate_property` hides `blend` unless the material is a layer of a stack,
+because outside one it does nothing at all: a host evaluates one material into an accumulator that starts
+at 0, and no setting of `blend` changes a byte of that. Three subclasses — Fractal, Terraces and Strata —
+override `_validate_property` for reasons of their own and did not call `super`. **GDScript resolves a
+virtual to the most-derived implementation and stops**, so on those three the base's rule never ran.
+
+Measured, as inspector visibility of `blend` on a material that is not in a stack:
+
+| | Dunes | Crater | Stack | Fractal | Terraces | Strata |
+|---|---|---|---|---|---|---|
+| before | hidden | hidden | hidden | **VISIBLE** | **VISIBLE** | **VISIBLE** |
+| after | hidden | hidden | hidden | hidden | hidden | hidden |
+
+The first three are the control, and they are the reason this is a defect in three files rather than a
+change of policy: the rule works everywhere it is not overridden.
+
+**Shipping a control that silently does nothing is worse than not shipping it** — the rule this spec and
+`Pasture3DBrushModifier` both state, undone in exactly the three files that override the method enforcing
+it. Fixed by calling `super(property)` first in each. Gate O measures the visibility rather than
+inspecting the source, so the next override that forgets is caught by what it does and not by how it
+looks.
+
+### 16.2 A stack silenced every layer's configuration warning — FIXED
+
+`_configuration_warning()` was the last accessor `Pasture3DReliefStack` did not forward. `selectors()`,
+`sim_results()`, `wants_sim_result()`, `wants_host_profile()`, `set_host_frame()` and now
+`wants_seed_surface()` all ask the layers; `_relief_finest_period` gets it for free by reading the
+compiled op stream instead of the tree. This one asked nobody, so **every complaint every material knows
+how to make disappeared the moment it became a layer.**
+
+Measured: a `Pasture3DReliefTerraces` with `hardness = 0` states its complaint standing alone and states
+nothing inside a stack. The one that stings is the DLA's *"seeding from the brush's ridges but has not
+been handed a surface yet"* — the warning that would have made §16's own founding bug visible was
+suppressed by the same class of bug.
+
+Fixed by walking the layers and returning every complaint, each prefixed with the layer that raised it,
+the stack's own first. **All of them and not the first**, because the failure being fixed is a hidden
+complaint and a fix that hides all but one is the same failure with a smaller radius. Nested stacks
+prefix again, which is how you find the layer.
+
+### 16.3 `selector` is inert on a `Pasture3DReliefScree` — OPEN
+
+Scree emits its op already carrying a slope gate, so the material works out of the box (§7.1). `compile()`
+assigns the material's own `selector` only to ops holding `NO_SELECTOR`, and Scree's op holds a real id —
+so **the `selector` property on a Scree does nothing whatsoever.** It is not even inert-but-harmless: the
+selector is still compiled into the wire block, so the table carries two entries and one op references
+one of them.
+
+Measured, at 0 m altitude on a 60° slope, with an ALTITUDE band of 500–600 m assigned that must exclude
+the cell: ungated **0.033207**, gated **0.033207**. The control is the same band on a Fractal, whose op
+carries no gate of its own: **0.186857 → 0.000000**, gated out exactly. So the band works and the wiring
+does not.
+
+Two comments disagree about this and the base class is the one telling the truth. Scree's says *"Assigning
+a selector on top still works — it gates the op further"*; the base's says *"Ops that already carry a
+selector (Scree gates its own) keep theirs"*.
+
+**There are two fixes and they mean different things.** Multiply the two gates, so an assigned selector
+narrows the built-in slope band — which is what Scree's comment promises and what an artist reaching for
+the property expects. Or hide `selector` on a Scree the way §16.1 hides `blend`, and correct the comment.
+The first needs the evaluator to carry two selector ids per op, in both languages and in the wire format;
+the second is three lines. Deciding which is not a code-review call.
+
+### 16.4 A layer's Domain Warp displaces the layers below it — OPEN, and may be correct
+
+WARP is a DOMAIN op: it rewrites `u,v` for every op that FOLLOWS it, and a stack is one flat op stream
+with no per-layer scoping. So a Fractal layer's Domain Warp displaces every layer under it.
+
+Measured on a Dunes layer, comparing it inside a stack against the same Dunes alone, with the upper
+layer's own contribution subtracted: **worst difference 1.99 on a material whose output spans ±1** — not a
+perturbation, a decorrelation. The control is the identical stack with Warp Amount 0: **0.000000**.
+
+**This is probably right.** `output_curve` has exactly the same property — it is a PROFILE op, so inside a
+stack it shapes everything up to and including its own layer — and that IS documented, on the property,
+where someone setting it will read it. `warp_amount` says nothing. So the defect here may be entirely a
+documentation one, and the question to answer before touching any code is whether a warp that stops at
+its own layer is even desirable: the shared displacement is what keeps two layers of a massif reading as
+one landform rather than two textures on top of each other.
+
+### 16.5 A layer's `strength` is not the operation a host applies — OPEN
+
+A host multiplies the whole accumulator by `material.strength` (`Pasture3DModRelief` passes it as
+`mat_strength`). `Pasture3DReliefStack._build` instead folds a layer's `strength` into its GENERATOR op
+amplitudes, deliberately and with a comment saying why: only the top-level material's strength is applied
+by the brush, so a nested layer's would otherwise be silently ignored.
+
+The two are the same number in the same property and they are not the same operation. Measured at
+`strength = 0.5`, against what the host would have produced:
+
+| Material | worst \|as a layer − host × 0.5\| |
+|---|---|
+| Dunes (generators only) | **0.000000** |
+| Terraces (carries a PROFILE op) | **0.225220** |
+
+Dunes is the control and it agrees to the byte, which is what says the harness is measuring the right
+thing. Terraces does not, and the reason is mechanical: halving the accumulator before TERRACE changes
+which bands the values land in, and the remap re-spans [−1,1] regardless — so the output is not a scaled
+version of the unscaled one, it is a different shape.
+
+The mechanism is intended; this consequence reads like one nobody costed. Whether the fix is to scale the
+layer's whole contribution (which needs the splice to know where a layer's ops begin and end, and to
+insert something that scales an accumulator range) or to document that `strength` on a PROFILE-carrying
+layer scales its base relief only, is a design decision.
+
+### 16.6 Four wire-format features nothing can emit — OPEN, cosmetic
+
+`Op.CONST`, `Op.CLAMP`, `FLAG_NEGATE` and `FLAG_CLAMP` are implemented in both evaluators and emitted by
+no material. Established by enumeration of every `_emit` call site, not by measurement — there is nothing
+to measure, which is the point. **No gate can cover an op nothing produces**, so a C++/GDScript divergence
+in any of the four would be invisible in a wire format otherwise held to 1e-4 m by gate D.
+
+Not a bug and not urgent. It is worth knowing that the parity claim in §10 has four holes in it that no
+amount of running the gates will find, and worth deciding whether they are kept as scaffolding for a
+future op or deleted from both sides.
+
+### 16.7 CRATER carries the anisotropy the DLA fix removed — OPEN, needs a decision
+
+§9.8 of PASTURE3D_BRUSH_EROSION_SPEC.md grew the DLA's field to the loop's own proportions because a field
+stretched once over an oriented rectangle arrives with every feature on it multiplied along one axis by
+the aspect ratio. CRATER reads the same `nu,nv` and has the same property: on a 3:1 loop, `rim_width` and
+the ejecta blanket are three times wider one way than the other.
+
+Read, not measured — §16 stops at the boundary of what it verified, and this one was found by reading
+`_crater` immediately after `_sample_field`.
+
+Unlike the DLA it is not obviously wrong. **A crater filling an elongated loop is arguably what an
+elongated loop means**, and §5.2 already documents CRATER as loop-sized. What is harder to defend is the
+RIM: its width is a fraction of the radius in normalised space, so it stretches too, and a rim is a
+feature ON the crater rather than the crater's own outline — which is exactly the distinction §9.8 turned
+on. The fix, if it is one, is to measure the rim against a single scalar rather than against each axis.

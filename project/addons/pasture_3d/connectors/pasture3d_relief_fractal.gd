@@ -70,7 +70,11 @@ enum Style { HILLS, CRAGGY, LUMPY }
 		_touch()
 
 
+## `super` FIRST, and it is not optional: GDScript resolves a virtual to the most-derived implementation
+## and stops there, so an override that does not chain silently repeals the base's rule. The base hides
+## `blend` on a material that is not in a stack, and this override used to un-hide it — see spec §16.1.
 func _validate_property(property: Dictionary) -> void:
+	super(property)
 	if property.name == "sharpness" and style != Style.CRAGGY:
 		property.usage &= ~PROPERTY_USAGE_EDITOR
 
