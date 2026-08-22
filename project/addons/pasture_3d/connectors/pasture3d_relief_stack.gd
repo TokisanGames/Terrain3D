@@ -169,10 +169,14 @@ func _build() -> void:
 			_params.resize(base + PARAM_STRIDE)
 			for k in range(PARAM_STRIDE):
 				_params[base + k] = c_params[i * PARAM_STRIDE + k]
-			# Fold the layer's own strength into the op amplitude. Only the top-level material's strength
-			# is applied by the brush, so a nested layer's would otherwise be silently ignored.
-			if m.strength != 1.0 and _is_generator(c_ops[o]):
-				_params[base] *= m.strength
+			# The layer's own strength, as a gain on EVERY op it emitted. Only the top-level material's
+			# strength is applied by the brush, so a nested layer's would otherwise be ignored.
+			#
+			# MULTIPLIED, not assigned: a nested stack has already written its own layers' strengths into
+			# this slot, and the two compose. And applied to every op rather than to the generators, which
+			# is the §16.5 fix — folding into amplitudes left a PROFILE op acting at full force, so a
+			# layer at strength 0 still terraced the stack underneath it.
+			_params[base + OP_GAIN] *= m.strength
 			if c_ops[o] == Op.CURVE:
 				_params[base] += lut_offset
 			elif c_ops[o] == Op.DLA:

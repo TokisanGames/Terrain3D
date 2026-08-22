@@ -12,9 +12,14 @@ class_name Pasture3DReliefMaterial
 extends Resource
 
 ## Op ids — MUST stay in sync with ReliefOpType in src/pasture_3d_relief_ops.h.
+## Ids 0 and 11 are BURNED, not free. CONST (0) and CLAMP (11) were implemented in both evaluators and
+## emitted by no material, so nothing could reach them and no gate could cover them — four holes in the
+## 1e-4 m parity claim that no amount of running the gates would ever find (spec §16.6). Deleted 2026-08-22.
+## The ids stay spent because they are a WIRE FORMAT: renumbering to close the gap would silently
+## reinterpret every op in a program compiled by the other side of a mismatched build.
 enum Op {
-	CONST = 0, FBM = 1, RIDGED = 2, BILLOW = 3, DUNES = 4, FURROWS = 5, CRATER = 6, SCREE = 7,
-	WARP = 8, TERRACE = 9, STRATIFY = 10, CLAMP = 11, CURVE = 12, DLA = 13,
+	FBM = 1, RIDGED = 2, BILLOW = 3, DUNES = 4, FURROWS = 5, CRATER = 6, SCREE = 7,
+	WARP = 8, TERRACE = 9, STRATIFY = 10, CURVE = 12, DLA = 13,
 }
 ## How an op's value combines into the accumulator. PROFILE ops ignore this.
 enum Blend { ADD = 0, SUB = 1, MUL = 2, MAX = 3, MIN = 4, REPLACE = 5 }
@@ -33,8 +38,10 @@ const OP_STRIDE := 5     # [op_type, blend, selector_id, flags, selector_id_2]
 ## actually true, which is worth more than one fewer int per op.
 const OP_GATE_2 := 4
 const PARAM_STRIDE := 12 # per-op float block
-const FLAG_NEGATE := 1   # bit0 — negate the op's value before blending
-const FLAG_CLAMP := 2    # bit1 — clamp the accumulator to [-1,1] after blending
+# Bits 0-1 are BURNED. They were FLAG_NEGATE and FLAG_CLAMP, set by nothing and therefore covered by no
+# gate; see the note on Op above and spec §16.6. Deleted 2026-08-22, and left spent rather than reused,
+# because the flags word is a wire format and Blend.SUB already expresses the only one of the two anybody
+# reached for.
 const FLAG_BAND_SHIFT := 2 # bits 2-3 — which coordinate a PROFILE band op quantises (BandSource)
 const FLAG_BAND_MASK := 3 << FLAG_BAND_SHIFT
 const NO_SELECTOR := -1  # op is ungated
@@ -63,6 +70,20 @@ const CURVE_LUT_N := 256 # samples per baked Curve, one contiguous block per CUR
 ## carries a header: [offset into _fields, width, height].
 const FIELD_META_STRIDE := 3
 const DLA_FIELD_SLOT := 1 # param slot of a DLA op's field index (slot 0 is its amplitude)
+## Param slot of an op's GAIN — a plain multiplier on the op's gate, defaulting to 1.0. The LAST slot,
+## which is free in every op in the catalogue: the widest (STRATIFY) uses 9.
+##
+## It exists because a Pasture3DReliefStack layer's `strength` was not the operation a host applies. A
+## host multiplies the material's whole output; the stack used to fold `strength` into its layers'
+## GENERATOR amplitudes, which is exact for a layer of generators and wrong for one carrying a PROFILE op
+## — a TERRACE remaps whatever is in the accumulator whether its layer's amplitude was scaled or not, so
+## **a layer at `strength = 0` still terraced the stack.** Measured 0.225 apart at 0.5. Spec §16.5.
+##
+## GAIN MULTIPLIES THE GATE RATHER THAN THE VALUE, which is what makes one slot cover all three op
+## categories: `sel` already scales a generator's contribution, a domain op's displacement and a profile
+## op's lerp, so `sel == 0` already means "this op did nothing" whatever it is. Layer strength is exactly
+## that statement with a number in it, and needed no new mechanism — only a way to say it per op.
+const OP_GAIN := 11
 ## Depth of hollow, in metres over one cell, at which SCREE's toe deposition reaches full strength.
 ## Sync with RELIEF_SCREE_TOE_FULL_M in src/pasture_3d_relief_ops.h — see _scree.
 const SCREE_TOE_FULL_M := 0.25
@@ -306,6 +327,9 @@ func _emit(op: int, blend_mode: int, p: Array, flags: int = 0, selector: int = N
 	_params.resize(base + PARAM_STRIDE)
 	for i in range(mini(p.size(), PARAM_STRIDE)):
 		_params[base + i] = float(p[i])
+	# Written AFTER the copy, so slot OP_GAIN is reserved: an op may use at most PARAM_STRIDE - 1 params.
+	# The widest today uses 9 of 12. A material that needed the twelfth would have to take another slot.
+	_params[base + OP_GAIN] = 1.0
 	_noise.append(_make_noise(op, _params, base))
 
 
@@ -338,7 +362,7 @@ func _bake_field(p_data: PackedFloat32Array, w: int, h: int) -> int:
 ## src/pasture_3d_relief_ops.h, so a new generator appends at the end and the predicate widens, rather
 ## than every id shifting to keep one comparison tidy.
 static func _is_generator(op: int) -> bool:
-	return (op >= Op.CONST and op <= Op.SCREE) or op == Op.DLA
+	return (op >= Op.FBM and op <= Op.SCREE) or op == Op.DLA
 
 
 ## Does this material predominantly RAISE the ground? Drives the plow's Add Water raise check
@@ -466,6 +490,9 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		if sid2 >= 0:
 			sel *= _selector_value(sid2, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi,
 					host_alt, host_slope_deg, host_curv, has_host, host_measured)
+		# ...and the op's own gain, which is how a stack layer's `strength` reaches every category of op
+		# rather than only its generators. 1.0 on everything a material emits directly.
+		sel *= _params[p + OP_GAIN]
 		var band_source := (flags & FLAG_BAND_MASK) >> FLAG_BAND_SHIFT
 
 		# --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
@@ -505,9 +532,6 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 				w = clampf(_band_coord(band_source, acc, host_norm, alt, p) + tilt * 0.5, 0.0, 1.0)
 			acc = lerpf(acc, _band(w, _params[p], _params[p + 1]) * 2.0 - 1.0, sel)
 			continue
-		if op == Op.CLAMP:
-			acc = lerpf(acc, clampf(acc, _params[p], _params[p + 1]), sel)
-			continue
 		if op == Op.CURVE:
 			acc = lerpf(acc, _sample_lut(int(_params[p]), clampf(acc * 0.5 + 0.5, 0.0, 1.0)) * 2.0 - 1.0, sel)
 			continue
@@ -515,8 +539,6 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		# --- GENERATOR: computes a value and blends it in.
 		var val := 0.0
 		match op:
-			Op.CONST:
-				val = _params[p]
 			Op.FBM, Op.RIDGED, Op.BILLOW:
 				var raw: float = _noise[i].get_noise_2d(u, v)
 				if op == Op.BILLOW:
@@ -542,8 +564,6 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 
 		val *= sel
 
-		if flags & FLAG_NEGATE:
-			val = -val
 		match blend_mode:
 			Blend.ADD: acc += val
 			Blend.SUB: acc -= val
@@ -551,8 +571,6 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 			Blend.MAX: acc = maxf(acc, val)
 			Blend.MIN: acc = minf(acc, val)
 			Blend.REPLACE: acc = val
-		if flags & FLAG_CLAMP:
-			acc = clampf(acc, -1.0, 1.0)
 	return acc
 
 

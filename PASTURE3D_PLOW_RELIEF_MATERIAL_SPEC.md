@@ -685,9 +685,9 @@ changed nothing" and "nothing here changes anything" are the same output.
 | 16.1 | `blend` is visible on three materials where it cannot act | **FIXED 2026-08-22** — gate O |
 | 16.2 | A stack silences every layer's configuration warning | **FIXED 2026-08-22** — gate P |
 | 16.3 | `selector` is inert on a `Pasture3DReliefScree` | **FIXED 2026-08-22** — gate Q |
-| 16.4 | A layer's Domain Warp displaces the layers below it | open — needs a decision, not a fix |
-| 16.5 | A layer's `strength` is not the operation a host applies | open |
-| 16.6 | `CONST`, `CLAMP`, `FLAG_NEGATE`, `FLAG_CLAMP` are emitted by nothing | open, and cosmetic |
+| 16.4 | A layer's Domain Warp displaces the layers below it | **decided 2026-08-22, not built** |
+| 16.5 | A layer's `strength` is not the operation a host applies | **FIXED 2026-08-22** — gate R |
+| 16.6 | `CONST`, `CLAMP`, `FLAG_NEGATE`, `FLAG_CLAMP` are emitted by nothing | **FIXED 2026-08-22** — deleted |
 | 16.7 | CRATER carries the anisotropy §9.8 of the erosion spec removed from DLA | open — needs a decision |
 
 **What the audit found SOUND**, because a review that only lists defects says nothing about coverage. The
@@ -779,57 +779,99 @@ control is the one worth naming: a cell the assigned band PASSES and the slope b
 zero, or "the two multiply" would also be satisfied by an implementation that kept the material's gate and
 threw the op's own away, which is this bug inverted.
 
-### 16.4 A layer's Domain Warp displaces the layers below it — OPEN, and may be correct
+### 16.4 A layer's Domain Warp displaces the layers below it — DECIDED, NOT BUILT
 
 WARP is a DOMAIN op: it rewrites `u,v` for every op that FOLLOWS it, and a stack is one flat op stream
 with no per-layer scoping. So a Fractal layer's Domain Warp displaces every layer under it.
 
-Measured on a Dunes layer, comparing it inside a stack against the same Dunes alone, with the upper
-layer's own contribution subtracted: **worst difference 1.99 on a material whose output spans ±1** — not a
+Measured on a Dunes layer, comparing it inside a stack against the same Dunes alone with the upper layer's
+own contribution subtracted: **worst difference 1.99 on a material whose output spans ±1** — not a
 perturbation, a decorrelation. The control is the identical stack with Warp Amount 0: **0.000000**.
 
-**This is probably right.** `output_curve` has exactly the same property — it is a PROFILE op, so inside a
-stack it shapes everything up to and including its own layer — and that IS documented, on the property,
-where someone setting it will read it. `warp_amount` says nothing. So the defect here may be entirely a
-documentation one, and the question to answer before touching any code is whether a warp that stops at
-its own layer is even desirable: the shared displacement is what keeps two layers of a massif reading as
-one landform rather than two textures on top of each other.
+**DECIDED 2026-08-22: scoped to its own layer by default, with a toggle that restores today's behaviour.**
+The shared displacement is worth keeping reachable — it is what makes two layers of a massif read as one
+landform rather than two textures stacked on each other — but it is a surprising default, and
+`output_curve` documents the same property ON the property while `warp_amount` says nothing at all.
 
-### 16.5 A layer's `strength` is not the operation a host applies — OPEN
+**The migration is nothing, which is what makes flipping the default safe.** Both shipped stacks
+(`cratered_badlands`, `weathered_cliff`) carry `warp_amount = 0.0` on every layer, and the two presets
+that do warp (`craggy_rock` at 9.0, `rolling_hills` at 22.0) are standalone materials with no layer
+beneath them to displace. No authored material changes appearance either way.
+
+**What it costs, and why it was not built with the rest.** Un-warping means restoring `u,v,nu,nv` at the
+end of the layer, which the evaluator cannot do today because it keeps no history — and the inverse
+cannot be computed by a second WARP, because that one would sample its noise at the ALREADY-DISPLACED
+point. The build is: a scope flag on the WARP op; a new `RESTORE` op (id 14) that the STACK emits after a
+scoped layer's ops; and a small fixed-depth save array in both evaluators, indexed by a nesting depth the
+stack assigns at compile time so that a stack of stacks unwinds in the right order. Plus the export on
+`Pasture3DReliefFractal` and a gate whose control is the toggle in its other position.
+
+This is the one item in §16 that is a FEATURE rather than a repair, and the only one that adds an op to
+the wire format. Written down here rather than built alongside the others so it can be scheduled as one.
+
+### 16.5 A layer's `strength` did not turn a layer off — FIXED
 
 A host multiplies the whole accumulator by `material.strength` (`Pasture3DModRelief` passes it as
-`mat_strength`). `Pasture3DReliefStack._build` instead folds a layer's `strength` into its GENERATOR op
+`mat_strength`). `Pasture3DReliefStack._build` instead folded a layer's `strength` into its GENERATOR op
 amplitudes, deliberately and with a comment saying why: only the top-level material's strength is applied
 by the brush, so a nested layer's would otherwise be silently ignored.
 
-The two are the same number in the same property and they are not the same operation. Measured at
-`strength = 0.5`, against what the host would have produced:
+The two are the same number in the same property and they were not the same operation. Measured at
+`strength = 0.5` against what the host would have produced: Dunes (generators only) **0.000000**, Terraces
+(carries a PROFILE op) **0.225220**. Dunes is the control that says the harness measures the right thing.
 
-| Material | worst \|as a layer − host × 0.5\| |
-|---|---|
-| Dunes (generators only) | **0.000000** |
-| Terraces (carries a PROFILE op) | **0.225220** |
+**The sharp version is not the 0.225.** A PROFILE op remaps whatever is in the accumulator regardless of
+whether its layer's generator amplitudes were scaled — so **a layer at `strength = 0` still terraced the
+whole stack underneath it**, by 0.2499. That is not a semantics question about what a fraction ought to
+mean. It is a switch that does not switch off.
 
-Dunes is the control and it agrees to the byte, which is what says the harness is measuring the right
-thing. Terraces does not, and the reason is mechanical: halving the accumulator before TERRACE changes
-which bands the values land in, and the remap re-spans [−1,1] regardless — so the output is not a scaled
-version of the unscaled one, it is a different shape.
+**The fix is NOT isolation, and that is the interesting part.** "Scale the layer's contribution" sounds
+right until you notice that a profile layer has no separable contribution *by design*: terracing the layer
+BELOW is a documented workflow — `Pasture3DReliefTerraces.base_amount` tells you to set it to 0 for
+exactly that — so scoping each layer to its own sub-accumulator would have broken a feature to fix a bug.
 
-The mechanism is intended; this consequence reads like one nobody costed. Whether the fix is to scale the
-layer's whole contribution (which needs the splice to know where a layer's ops begin and end, and to
-insert something that scales an accumulator range) or to document that `strength` on a PROFILE-carrying
-layer scales its base relief only, is a design decision.
+So `strength` scales **how much each op ACTS**: a generator's amplitude, a domain op's displacement, a
+profile op's lerp. That needed no new mechanism, only a way to say it per op — because the op gate already
+means precisely that, in all three categories at once, which is what its own comment has said since phase
+3: *a generator scales its contribution by it, a domain op scales its displacement, and a profile op lerps
+between the un-remapped and remapped accumulator, so `sel == 0` always means "this op did nothing"*. Layer
+strength is that sentence with a number in it. One reserved param slot (`OP_GAIN`, the twelfth — free in
+every op, since the widest uses nine), multiplied into the gate, and the stack writes it instead of
+touching amplitudes. Nested stacks MULTIPLY into it, so strengths compose.
 
-### 16.6 Four wire-format features nothing can emit — OPEN, cosmetic
+**Half-terraced, not half of terraced**, and gate R reports that gap rather than asserting on it: **0.0926**
+on the shipped Terraces defaults. The first version of gate R asserted that a layer at 0.5 should equal the
+host at 0.5, and failed on exactly this — the gate caught this section's own original framing, which is
+what a criterion written before the measurement is for.
 
-`Op.CONST`, `Op.CLAMP`, `FLAG_NEGATE` and `FLAG_CLAMP` are implemented in both evaluators and emitted by
-no material. Established by enumeration of every `_emit` call site, not by measurement — there is nothing
-to measure, which is the point. **No gate can cover an op nothing produces**, so a C++/GDScript divergence
-in any of the four would be invisible in a wire format otherwise held to 1e-4 m by gate D.
+What IS exact, and asserted at 0.0 rather than at a tolerance because each one is an identity:
 
-Not a bug and not urgent. It is worth knowing that the parity claim in §10 has four holes in it that no
-amount of running the gates will find, and worth deciding whether they are kept as scaffolding for a
-future op or deleted from both sides.
+| Claim | Terraces | Dunes |
+|---|---|---|
+| `strength = 0` contributes nothing | **0.000000** (was 0.249903) | 0.000000 |
+| `strength = 1` is bitwise an authored stack | **0.000000** | 0.000000 |
+| a generator-only layer still matches the host exactly | — | **0.000000** |
+| 0.5 is live: differs from both 0 and 1 | 0.4187 / 0.5431 | — |
+
+**The migration is nothing.** The gain defaults to 1.0 and every layer of every shipped preset is at
+`strength = 1.0`, so no authored material moves — which the second row asserts rather than assumes.
+
+### 16.6 Four wire-format features nothing could emit — DELETED
+
+`Op.CONST`, `Op.CLAMP`, `FLAG_NEGATE` and `FLAG_CLAMP` were implemented in both evaluators and emitted by
+no material. Established by enumerating every `_emit` call site, not by measurement — there was nothing to
+measure, which is the point. **No gate can cover an op nothing produces**, so a C++/GDScript divergence in
+any of the four would have been invisible in a wire format otherwise held to 1e-4 m by gate D: four holes
+in §10's parity claim that no amount of running the gates would ever find.
+
+Deleted from both sides. `Blend.SUB` already expresses the only one of the four anybody reached for, and
+`Op.CLAMP` overlapped `FLAG_CLAMP` without either being reachable. Two branches per op per cell leave the
+hot loop with them.
+
+**Op ids 0 and 11, and flag bits 0-1, are BURNED rather than freed.** Renumbering to close the gaps would
+silently reinterpret every op in a program compiled by the other side of a mismatched build, which is the
+one failure a wire format exists to prevent. A future op appends at 14 — or at 15, if §16.4's `RESTORE`
+takes 14 first.
 
 ### 16.7 CRATER carries the anisotropy the DLA fix removed — OPEN, needs a decision
 

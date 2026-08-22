@@ -50,7 +50,7 @@ var _fail := 0
 ## house rule from bench/OceanBench.gd. Gates A-N predate it and are not retrofitted here; bringing them
 ## up is its own change, and a counter that covers half a suite must say which half or it is worse than
 ## none. O and P below are the half it covers.
-const COUNTED_GATES := 3
+const COUNTED_GATES := 4
 var _completed := 0
 var _root: Node3D
 var _terrain
@@ -81,6 +81,7 @@ func _ready() -> void:
 	_gate_o_blend_is_hidden()
 	_gate_p_stack_forwards_warnings()
 	_gate_q_second_gate()
+	_gate_r_layer_strength()
 
 	if _completed != COUNTED_GATES:
 		_fail += 1
@@ -1221,3 +1222,112 @@ func _altitude_band(p_lo: float, p_hi: float) -> Pasture3DReliefSelector:
 	s.falloff_high = 0.0
 	s.strength = 1.0
 	return s
+
+
+# --- R: a layer's Strength scales how much the layer acts ----------------------------------------
+#
+# Spec §16.5. A host multiplies a material's WHOLE output by `material.strength`; the stack used to fold a
+# layer's strength into its GENERATOR op amplitudes. Those agree exactly on a layer of generators and not
+# at all on one carrying a PROFILE op, because TERRACE and STRATIFY remap whatever is in the accumulator
+# whether their layer's amplitude was scaled or not -- so **a layer at strength 0 still terraced the stack
+# under it**, which is not a semantics question but a switch that does not switch off.
+#
+# WHAT THIS GATE DOES NOT CLAIM, and the first version of it wrongly did: that a fractional strength on a
+# PROFILE layer equals half the host's output. It does not, and it should not. The host's operation is
+# "scale the finished relief"; a profile op's contribution is not separable from the layers below it,
+# deliberately -- terracing the layer BELOW is a documented workflow (Pasture3DReliefTerraces.base_amount
+# says so in as many words), so scoping each layer to its own sub-accumulator would break a feature to fix
+# a bug. Strength therefore scales how much each op ACTS: a generator's amplitude, a domain op's
+# displacement, a profile op's lerp. Half-terraced, not half of terraced. Measured, those differ by 0.093
+# on the shipped Terraces defaults, and the number is reported below rather than asserted on.
+#
+# FOUR CLAIMS, three of them EXACT and asserted at 0.0 rather than at a tolerance, because each is an
+# identity rather than an approximation.
+#   1. strength 0 contributes exactly nothing. The one that was broken.
+#   2. strength 1 is bitwise what an authored stack already produced -- the gain defaults to 1.0, and
+#      every shipped preset is at 1.0, so this is the whole migration story in one assertion.
+#   3. on a GENERATOR-ONLY layer it still equals the host operation exactly, which is what says the fix
+#      generalised the old behaviour instead of replacing it.
+#   4. on a PROFILE layer the knob is live ACROSS its range: 0.5 differs from both 0 and 1. Without it,
+#      claims 1 and 2 are jointly satisfied by a switch with nothing in between.
+func _gate_r_layer_strength() -> void:
+	print("\n[R] a layer's Strength scales how much the layer acts (spec 16.5):")
+	for kind in ["Terraces", "Dunes"]:
+		var full := _fresh(kind)
+		var off := _stack_of(_fresh(kind), 0.0)
+		var half := _stack_of(_fresh(kind), 0.5)
+		var one := _stack_of(_fresh(kind), 1.0)
+		var profile: bool = (kind == "Terraces")
+		var worst_off := 0.0
+		var vs_host := 0.0
+		var worst_one := 0.0
+		var carried := 0.0
+		var live_lo := 0.0
+		var live_hi := 0.0
+		for k in range(400):
+			var u := float(k % 20) * 6.0
+			var v := float(k / 20) * 6.0
+			var solo: float = full.eval(u, v, 0.0, 0.0, 1.0, 1.0)
+			var h: float = half.eval(u, v, 0.0, 0.0, 1.0, 1.0)
+			carried = maxf(carried, absf(solo))
+			worst_off = maxf(worst_off, absf(off.eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+			vs_host = maxf(vs_host, absf(h - solo * 0.5))
+			worst_one = maxf(worst_one, absf(one.eval(u, v, 0.0, 0.0, 1.0, 1.0) - solo))
+			live_lo = maxf(live_lo, absf(h - off.eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+			live_hi = maxf(live_hi, absf(h - one.eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+		print("    %-8s carries %.4f | 0 leaves %.6f | 1.0 is %.6f off an authored stack | 0.5 vs host x0.5: %.6f"
+				% [kind, carried, worst_off, worst_one, vs_host])
+		if carried < 0.1:
+			_fail += 1
+			print("    !! the %s fixture produces almost nothing; R measured nothing on it" % kind)
+			continue
+		if worst_off > 0.0:
+			_fail += 1
+			print("    !! strength 0 does not turn the layer off; it still moves the accumulator")
+		if worst_one > 0.0:
+			_fail += 1
+			print("    !! strength 1.0 moved an authored stack, which is a migration nobody asked for")
+		if not profile:
+			# CLAIM 3: on generators the two operations coincide, and must still, exactly.
+			if vs_host > 0.0:
+				_fail += 1
+				print("    !! a generator-only layer no longer matches the host operation exactly")
+		else:
+			# CLAIM 4: the knob is live across its range. Reported, because "half-terraced" is a
+			# different operation from "half of terraced" BY DESIGN and the gap is not a defect.
+			print("             (a PROFILE layer is half-TERRACED, not half of terraced -- see the note)")
+			print("             0.5 differs from off by %.6f and from full by %.6f" % [live_lo, live_hi])
+			if live_lo <= 0.0 or live_hi <= 0.0:
+				_fail += 1
+				print("    !! 0.5 collapses onto 0 or 1; Strength is a switch, not a scale")
+
+	# CONTROL 3. The same comparison at FULL strength against the HALVED host must NOT agree, or the
+	# 0.5 claim above would also pass on a stack that ignored strength entirely.
+	var t := _fresh("Terraces")
+	var t_one := _stack_of(_fresh("Terraces"), 1.0)
+	var sep := 0.0
+	for k in range(400):
+		var u := float(k % 20) * 6.0
+		var v := float(k / 20) * 6.0
+		sep = maxf(sep, absf(t_one.eval(u, v, 0.0, 0.0, 1.0, 1.0) - t.eval(u, v, 0.0, 0.0, 1.0, 1.0) * 0.5))
+	print("    CONTROL Terraces at strength 1.0 against the HALVED host: %.6f apart" % sep)
+	if sep < 1.0e-6:
+		_fail += 1
+		print("    !! full and half strength are indistinguishable, so R's 0.5 claim is vacuous")
+	_completed += 1
+
+
+func _fresh(p_kind: String) -> Pasture3DReliefMaterial:
+	if p_kind == "Terraces":
+		return Pasture3DReliefTerraces.new()
+	return Pasture3DReliefDunes.new()
+
+
+## One material as the ONLY layer of a stack, at the given strength. One layer because the claim is about
+## what the layer contributes, and a second would add a shape to subtract before measuring it.
+func _stack_of(p_mat: Pasture3DReliefMaterial, p_strength: float) -> Pasture3DReliefStack:
+	p_mat.strength = p_strength
+	var st := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [p_mat]
+	st.layers = l
+	return st

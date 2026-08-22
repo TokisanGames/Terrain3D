@@ -751,6 +751,9 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 		if (sid2 >= 0) {
 			sel *= relief_selector_value(p_prog.selectors, sid2, p_ground);
 		}
+		// ...and the op's own gain, which is how a stack layer's `strength` reaches every category of op
+		// rather than only its generators. See RELIEF_OP_GAIN.
+		sel *= (double)p_prog.params[p + RELIEF_OP_GAIN];
 
 		// --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
 		if (op == RELIEF_OP_WARP) {
@@ -811,10 +814,6 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 					sel);
 			continue;
 		}
-		if (op == RELIEF_OP_CLAMP) {
-			acc = relief_lerp(acc, CLAMP(acc, (double)p_prog.params[p], (double)p_prog.params[p + 1]), sel);
-			continue;
-		}
 		if (op == RELIEF_OP_CURVE) {
 			acc = relief_lerp(acc,
 					relief_sample_lut(p_prog.luts, (int)p_prog.params[p],
@@ -828,9 +827,6 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 		// --- GENERATOR: computes a value and blends it in.
 		double val = 0.0;
 		switch (op) {
-			case RELIEF_OP_CONST:
-				val = (double)p_prog.params[p];
-				break;
 			case RELIEF_OP_FBM:
 			case RELIEF_OP_RIDGED:
 			case RELIEF_OP_BILLOW: {
@@ -881,9 +877,6 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 
 		val *= sel;
 
-		if (flags & RELIEF_FLAG_NEGATE) {
-			val = -val;
-		}
 		switch (blend) {
 			case RELIEF_BLEND_ADD: acc += val; break;
 			case RELIEF_BLEND_SUB: acc -= val; break;
@@ -892,9 +885,6 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 			case RELIEF_BLEND_MIN: acc = MIN(acc, val); break;
 			case RELIEF_BLEND_REPLACE: acc = val; break;
 			default: break;
-		}
-		if (flags & RELIEF_FLAG_CLAMP) {
-			acc = CLAMP(acc, -1.0, 1.0);
 		}
 	}
 	return acc;
