@@ -37,6 +37,10 @@ const SITE_P3PARITY := Vector3(780.0, 0.0, 540.0)
 ## Chosen for having genuinely flat ground (the other sites are almost all steep) while staying clear of
 ## the region edge at X = 1024, where get_height returns NaN.
 const SITE_PROFILE_GATE := Vector3(960.0, 0.0, 700.0)
+## §16.7's parity site. Gate D's fixture is a SQUARE loop carrying a fractal stack, and gate C's crater
+## loop is 60x22 but never A/B'd — so a crater on a non-square loop had no parity coverage at all, in
+## either gate, until the rim's metric width made that a live risk.
+const SITE_CRATER_PARITY := Vector3(380.0, 0.0, 500.0)
 ## A probe counts as steep / flat for the binned selector gates at these slopes, in degrees.
 const STEEP_DEG := 30.0
 const FLAT_DEG := 10.0
@@ -50,7 +54,7 @@ var _fail := 0
 ## house rule from bench/OceanBench.gd. Gates A-N predate it and are not retrofitted here; bringing them
 ## up is its own change, and a counter that covers half a suite must say which half or it is worse than
 ## none. O and P below are the half it covers.
-const COUNTED_GATES := 4
+const COUNTED_GATES := 5
 var _completed := 0
 var _root: Node3D
 var _terrain
@@ -82,6 +86,7 @@ func _ready() -> void:
 	_gate_p_stack_forwards_warnings()
 	_gate_q_second_gate()
 	_gate_r_layer_strength()
+	_gate_s_crater_rim_is_metric()
 
 	if _completed != COUNTED_GATES:
 		_fail += 1
@@ -1331,3 +1336,145 @@ func _stack_of(p_mat: Pasture3DReliefMaterial, p_strength: float) -> Pasture3DRe
 	var l: Array[Pasture3DReliefMaterial] = [p_mat]
 	st.layers = l
 	return st
+
+
+# --- S: a crater's rim and ejecta are the same width in METRES on both axes ------------------------
+#
+# Spec §16.7. `nu,nv` are ±1 at the loop's half-extents, so a crater fills the loop's own ellipse and an
+# elongated loop gets an elongated crater -- which is what an elongated loop asks for and is left alone.
+# `rim_width` was a fraction of that same normalised radius, so the rim band and the ejecta blanket came
+# out three times wider one way on a 3:1 loop. A rim is a feature ON the crater rather than its outline,
+# which is the distinction PASTURE3D_BRUSH_EROSION_SPEC.md §9.8 drew for the DLA's ridges.
+#
+# MEASURED BY SCANNING THE PROFILE, not by reading the formula back: step outward along each of the loop's
+# axes in WORLD METRES, find where the surface peaks (the rim crest) and where the ejecta reaches the
+# loop edge. The ejecta blanket is the distance between those two, and it is the number that has to match.
+#
+# CONTROL 1, and it is the one that gives the statistic teeth: the BOWL's own extent -- the crest radius
+# itself -- must come out 3:1 on the same scan, because the crater is still supposed to fill its loop.
+# Same machinery, a quantity that MUST be anisotropic. Without it, "the two widths agree" is also what a
+# scan reports when it is measuring nothing, or measuring the same ray twice.
+#
+# CONTROL 2: on a SQUARE loop the crest must sit at exactly (1 - rim_width) of the half-extent, which is
+# the expression this material used before §16.7. That pins the square case to the old behaviour
+# analytically rather than trusting that nothing moved.
+func _gate_s_crater_rim_is_metric() -> void:
+	print("\n[S] a crater's rim and ejecta are the same width in metres on both axes (spec 16.7):")
+	var mat := Pasture3DReliefCrater.new()
+	mat.rim_width = 0.25
+	mat.rim_height = 0.2
+	mat.floor_depth = 0.7
+	mat.terrace_steps = 0
+
+	var ex := 90.0
+	var ez := 30.0
+	var u_scan := _crater_scan(mat, ex, ez, true)
+	var v_scan := _crater_scan(mat, ex, ez, false)
+	if u_scan.is_empty() or v_scan.is_empty():
+		_fail += 1
+		print("    !! the crater profile has no rim on one axis; S measured nothing")
+		_completed += 1
+		return
+	var ej_u: float = ex - float(u_scan["crest"])
+	var ej_v: float = ez - float(v_scan["crest"])
+	print("    %.0f x %.0f m loop: crest at %.2f m along u, %.2f m along v"
+			% [ex, ez, u_scan["crest"], v_scan["crest"]])
+	print("    ejecta blanket: %.2f m along u, %.2f m along v -> ratio %.3f"
+			% [ej_u, ej_v, ej_u / maxf(ej_v, 1.0e-6)])
+	if absf(ej_u / maxf(ej_v, 1.0e-6) - 1.0) > 0.05:
+		_fail += 1
+		print("    !! the ejecta blanket still stretches with the loop")
+
+	# CONTROL 1. Measured at the OUTER EDGE, not at the crest. The crest is no longer proportional to the
+	# half-extent -- that is the fix -- so the "still fills its loop" claim lives where the crater ends:
+	# it must reach ex along u and ez along v, ratio 3.0 exactly. An isotropic crater inscribed in the
+	# loop (the option §16.7 did NOT take) reads 1.0 here, which is what gives the scan its teeth.
+	var reach := float(u_scan["reach"]) / maxf(float(v_scan["reach"]), 1.0e-6)
+	print("    CONTROL the bowl still fills the loop: reaches %.2f m along u, %.2f m along v -> %.3f (want %.1f)"
+			% [u_scan["reach"], v_scan["reach"], reach, ex / ez])
+	if absf(reach - ex / ez) > 0.05:
+		_fail += 1
+		print("    !! the crater no longer fills its loop, or the scan cannot see anisotropy at all")
+	print("    (the crest itself is at ratio %.3f, which is 1 - 7.5/L per axis rather than a constant)"
+			% [float(u_scan["crest"]) / maxf(float(v_scan["crest"]), 1.0e-6)])
+
+	# CONTROL 2. A square loop must land exactly where the pre-16.7 expression put it.
+	var sq := _crater_scan(mat, 60.0, 60.0, true)
+	var want := (1.0 - mat.rim_width) * 60.0
+	print("    CONTROL square loop: crest at %.2f m, the old formula gives %.2f m" % [sq.get("crest", -1.0), want])
+	if absf(float(sq.get("crest", -1.0)) - want) > 0.30:
+		_fail += 1
+		print("    !! a square loop moved; §16.7 was supposed to leave it exactly where it was")
+	_crater_parity()
+	_completed += 1
+
+
+## The A/B half, and it is not decoration: everything above reads `mat.eval`, which is the GDScript ORACLE
+## and never touches C++, so the native mirror of the rim scale could be wrong and every claim above would
+## still pass. Gate D would not have caught it either — its fixture is a SQUARE loop carrying a fractal
+## stack, and gate C's 60x22 crater is never baked down both paths. A crater on a non-square loop had no
+## parity coverage in this suite at all. Verified by reverting the C++ side alone: D stays at 0.00000000
+## and this arm is what moves.
+func _crater_parity() -> void:
+	var plow = _make_plow("CraterParity", SITE_CRATER_PARITY, 60.0, 20.0)
+	if plow == null:
+		return
+	var mat := Pasture3DReliefCrater.new()
+	mat.rim_width = 0.25
+	mat.rim_height = 0.25
+	mat.floor_depth = 0.6
+	plow.source = Pasture3DPlow.Source.RELIEF
+	plow.relief = mat
+	plow.mapping = Pasture3DPlow.Mapping.FIT
+	plow.height_scale = 9.0
+	# Probes strung along BOTH of the loop's axes, out where the rim and the ejecta live — the band that
+	# moved. A lattice would spend most of its points in the floor, where the two formulas agree anyway.
+	var probes: Array[Vector3] = []
+	for k in range(-6, 7):
+		probes.append(SITE_CRATER_PARITY + Vector3(float(k) * 9.0, 0.0, 0.0))
+		probes.append(SITE_CRATER_PARITY + Vector3(0.0, 0.0, float(k) * 3.0))
+	var base := _snapshot(probes)
+	plow.force_gdscript_raster = false
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var native := _snapshot(probes)
+	plow.force_gdscript_raster = true
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var worst := 0.0
+	var spread := 0.0
+	for i in range(probes.size()):
+		var g := _height(probes[i])
+		worst = maxf(worst, absf(g - native[i]))
+		spread = maxf(spread, absf(g - base[i]))
+	print("    PARITY on a 60x20 loop: %d probes, worst |native - gdscript| = %.8f m (relief %.4f m)"
+			% [probes.size(), worst, spread])
+	if worst > PARITY_TOL:
+		_fail += 1
+		print("    !! the two crater implementations disagree on a non-square loop")
+	if spread < 0.1:
+		_fail += 1
+		print("    !! the parity probes sat on flat ground, so that agreement means nothing")
+
+
+## Step outward from the crater's centre along ONE of the loop's axes, in world metres, and report where
+## the profile peaks. `nu,nv` are the metric offset divided by the half-extents, which is what the host
+## hands the evaluator; inv_ex / inv_ez travel with them so the op can recover the loop's shape.
+func _crater_scan(p_mat: Pasture3DReliefMaterial, p_ex: float, p_ez: float, p_along_u: bool) -> Dictionary:
+	var span := p_ex if p_along_u else p_ez
+	var step := span / 2000.0
+	var best := -INF
+	var crest := -1.0
+	var reach := 0.0
+	var d := 0.0
+	while d < span:
+		var nu := (d / p_ex) if p_along_u else 0.0
+		var nv := 0.0 if p_along_u else (d / p_ez)
+		var val := p_mat.eval(0.0, 0.0, nu, nv, 1.0 / p_ex, 1.0 / p_ez)
+		if val > best:
+			best = val
+			crest = d
+		if absf(val) > 1.0e-6:
+			reach = d
+		d += step
+	if crest < 0.0 or best <= 0.0 or reach <= 0.0:
+		return {}
+	return {"crest": crest, "peak": best, "reach": reach}

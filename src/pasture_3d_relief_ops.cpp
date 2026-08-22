@@ -265,17 +265,35 @@ inline double relief_scree(double u, double v, const ReliefSample &p_ground,
 	return val;
 }
 
-// Radial crater profile — mirrors Pasture3DReliefMaterial._crater.
+// The factor that turns a metric rim width into a normalised one, along the ray through (nu,nv).
+// Mirrors Pasture3DReliefMaterial._rim_scale — see there for the derivation. Exactly 1.0 on a square loop.
+inline double relief_rim_scale(double p_nu, double p_nv, double r, double p_inv_ex, double p_inv_ez) {
+	if (r <= 1.0e-9) {
+		return 1.0;
+	}
+	const double ex = 1.0 / MAX(p_inv_ex, 1.0e-9);
+	const double ez = 1.0 / MAX(p_inv_ez, 1.0e-9);
+	const double cu = (p_nu / r) * ex;
+	const double cv = (p_nv / r) * ez;
+	const double l = std::sqrt(cu * cu + cv * cv);
+	return MIN(ex, ez) / MAX(l, 1.0e-9);
+}
+
+// Radial crater profile — mirrors Pasture3DReliefMaterial._crater. The bowl fills the loop's ellipse; the
+// rim band and the ejecta are measured in METRES so they do not stretch with it (spec §16.7).
 // p: [0]=amplitude [1]=floor_depth [2]=rim_height [3]=rim_width [4]=ejecta_falloff [5]=floor_flatness
 //    [6]=terrace_steps  ([7] reserved for rim wobble in phase 2)
-inline double relief_crater(double p_nu, double p_nv, const PackedFloat32Array &p_params, int p) {
+inline double relief_crater(double p_nu, double p_nv, double p_inv_ex, double p_inv_ez,
+		const PackedFloat32Array &p_params, int p) {
 	const double r = std::sqrt(p_nu * p_nu + p_nv * p_nv);
 	if (r >= 1.0) {
 		return 0.0;
 	}
 	const double floor_depth = (double)p_params[p + 1];
 	const double rim_height = (double)p_params[p + 2];
-	const double rim_pos = CLAMP(1.0 - (double)p_params[p + 3], 0.05, 0.98);
+	const double rim_pos = CLAMP(
+			1.0 - (double)p_params[p + 3] * relief_rim_scale(p_nu, p_nv, r, p_inv_ex, p_inv_ez),
+			0.05, 0.98);
 	double val;
 	if (r <= rim_pos) {
 		const double t = r / rim_pos;
@@ -857,7 +875,7 @@ double godot::relief_eval(const ReliefProgram &p_prog, double u, double v, doubl
 				val = relief_furrows(u, v, p_prog.params, p, p_prog.noise_a[i]);
 				break;
 			case RELIEF_OP_CRATER:
-				val = relief_crater(nu, nv, p_prog.params, p);
+				val = relief_crater(nu, nv, inv_ex, inv_ez, p_prog.params, p);
 				break;
 			case RELIEF_OP_DLA:
 				// Loop-normalised, exactly like CRATER: the cluster maps once onto the oriented rectangle.

@@ -553,7 +553,7 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 			Op.FURROWS:
 				val = _furrows(u, v, _params, p, _noise[i])
 			Op.CRATER:
-				val = _crater(nu, nv, _params, p)
+				val = _crater(nu, nv, inv_ex, inv_ez, _params, p)
 			Op.DLA:
 				# Loop-normalised, exactly like CRATER: the cluster maps once onto the oriented rectangle.
 				val = _sample_field(int(_params[p + DLA_FIELD_SLOT]), nu, nv) * _params[p]
@@ -712,6 +712,23 @@ func _sample_field(slot: int, nu: float, nv: float) -> float:
 	return (a * (1.0 - tx) + b * tx) * (1.0 - ty) + (c * (1.0 - tx) + d * tx) * ty
 
 
+## The factor that turns a metric rim width into a normalised one, along the ray through (nu,nv).
+##
+## `w = rim_width * min(ex,ez)` metres of rim; the distance from the centre to the ellipse edge along this
+## ray is `L = |(ex*cos, ez*sin)|`; the rim therefore occupies `w / L` of the normalised radius. Returned
+## as `min(ex,ez) / L`, so the caller multiplies by `rim_width` and reads the same expression it always
+## did. Exactly 1.0 on a square loop, and at r = 0 (where the ray is undefined and the rim is irrelevant).
+static func _rim_scale(nu: float, nv: float, r: float, inv_ex: float, inv_ez: float) -> float:
+	if r <= 1.0e-9:
+		return 1.0
+	var ex := 1.0 / maxf(inv_ex, 1.0e-9)
+	var ez := 1.0 / maxf(inv_ez, 1.0e-9)
+	var cu := (nu / r) * ex
+	var cv := (nv / r) * ez
+	var l := sqrt(cu * cu + cv * cv)
+	return minf(ex, ez) / maxf(l, 1.0e-9)
+
+
 ## Quantise x in [0,1] into `steps` bands. `hardness` 0 = untouched (identity), 1 = flat benches with
 ## near-vertical risers. Shared by TERRACE and STRATIFY, which differ only in the coordinate they band.
 static func _band(x: float, steps: float, hardness: float) -> float:
@@ -753,17 +770,34 @@ static func _furrows(u: float, v: float, params: PackedFloat32Array, p: int, n: 
 	return (f * 2.0 - 1.0) * params[p]
 
 
-## Radial crater profile in normalised loop space: a flattenable bowl, a rim at `1 - rim_width`, and
-## ejecta decaying to zero at r = 1. The two branches meet continuously at the rim (both give rim_height).
+## Radial crater profile in normalised loop space: a flattenable bowl, a rim, and ejecta decaying to zero
+## at r = 1. The two branches meet continuously at the rim (both give rim_height).
 ## p: [0]=amplitude [1]=floor_depth [2]=rim_height [3]=rim_width [4]=ejecta_falloff [5]=floor_flatness
 ##    [6]=terrace_steps  ([7] reserved for rim wobble)
-static func _crater(nu: float, nv: float, params: PackedFloat32Array, p: int) -> float:
+##
+## THE BOWL FILLS THE LOOP; THE RIM DOES NOT STRETCH WITH IT (spec §16.7). `nu,nv` are ±1 at the loop's
+## half-extents, so r = 1 is the loop's own ellipse and an elongated loop gets an elongated crater — which
+## is what an elongated loop asks for, and is left alone. `rim_width` used to be a fraction of that
+## normalised radius too, which made the rim band and the ejecta blanket three times wider one way on a
+## 3:1 loop. A rim is a feature ON the crater rather than the crater's outline, and that is exactly the
+## distinction PASTURE3D_BRUSH_EROSION_SPEC.md §9.8 drew for the DLA's ridges.
+##
+## So the rim is measured in METRES: `rim_width` times the SHORT semi-axis, converted back into normalised
+## depth per direction by dividing by the distance to the ellipse edge along this ray. The short axis is
+## what makes a SQUARE loop bitwise what it always was — there `L == min(ex,ez) == ex` and the whole
+## expression collapses to `1 - rim_width`.
+##
+## The bowl's own inner wall (the smoothstep up to the crest) still scales with the bowl and is meant to:
+## it is the shape of the depression, not a band laid on top of it, and an elongated crater's long wall
+## IS longer.
+static func _crater(nu: float, nv: float, inv_ex: float, inv_ez: float,
+		params: PackedFloat32Array, p: int) -> float:
 	var r := sqrt(nu * nu + nv * nv)
 	if r >= 1.0:
 		return 0.0
 	var floor_depth := params[p + 1]
 	var rim_height := params[p + 2]
-	var rim_pos := clampf(1.0 - params[p + 3], 0.05, 0.98)
+	var rim_pos := clampf(1.0 - params[p + 3] * _rim_scale(nu, nv, r, inv_ex, inv_ez), 0.05, 0.98)
 	var val: float
 	if r <= rim_pos:
 		var t := r / rim_pos

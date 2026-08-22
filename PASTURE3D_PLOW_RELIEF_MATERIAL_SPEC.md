@@ -688,7 +688,7 @@ changed nothing" and "nothing here changes anything" are the same output.
 | 16.4 | A layer's Domain Warp displaces the layers below it | **decided 2026-08-22, not built** |
 | 16.5 | A layer's `strength` is not the operation a host applies | **FIXED 2026-08-22** — gate R |
 | 16.6 | `CONST`, `CLAMP`, `FLAG_NEGATE`, `FLAG_CLAMP` are emitted by nothing | **FIXED 2026-08-22** — deleted |
-| 16.7 | CRATER carries the anisotropy §9.8 of the erosion spec removed from DLA | open — needs a decision |
+| 16.7 | CRATER carries the anisotropy §9.8 of the erosion spec removed from DLA | **FIXED 2026-08-22** — gate S |
 
 **What the audit found SOUND**, because a review that only lists defects says nothing about coverage. The
 stack's splice rebases all three index spaces correctly, including the variably-sized field headers, and
@@ -873,18 +873,46 @@ silently reinterpret every op in a program compiled by the other side of a misma
 one failure a wire format exists to prevent. A future op appends at 14 — or at 15, if §16.4's `RESTORE`
 takes 14 first.
 
-### 16.7 CRATER carries the anisotropy the DLA fix removed — OPEN, needs a decision
+### 16.7 CRATER's rim stretched with the loop — FIXED
 
-§9.8 of PASTURE3D_BRUSH_EROSION_SPEC.md grew the DLA's field to the loop's own proportions because a field
-stretched once over an oriented rectangle arrives with every feature on it multiplied along one axis by
-the aspect ratio. CRATER reads the same `nu,nv` and has the same property: on a 3:1 loop, `rim_width` and
-the ejecta blanket are three times wider one way than the other.
+§9.8 of PASTURE3D_BRUSH_EROSION_SPEC.md grew the DLA's field to the loop's own proportions because a
+field stretched once over an oriented rectangle arrives with every feature on it multiplied along one axis
+by the aspect ratio. CRATER reads the same `nu,nv` and had the same property: on a 3:1 loop, `rim_width`
+and the ejecta blanket were three times wider one way than the other.
 
-Read, not measured — §16 stops at the boundary of what it verified, and this one was found by reading
-`_crater` immediately after `_sample_field`.
+**The bowl was never the problem, and is unchanged.** A crater filling an elongated loop is what an
+elongated loop asks for, and §5.2 already documents CRATER as loop-sized. The rim is different: it is a
+feature ON the crater rather than the crater's outline, which is exactly the distinction §9.8 turned on.
 
-Unlike the DLA it is not obviously wrong. **A crater filling an elongated loop is arguably what an
-elongated loop means**, and §5.2 already documents CRATER as loop-sized. What is harder to defend is the
-RIM: its width is a fraction of the radius in normalised space, so it stretches too, and a rim is a
-feature ON the crater rather than the crater's own outline — which is exactly the distinction §9.8 turned
-on. The fix, if it is one, is to measure the rim against a single scalar rather than against each axis.
+So the rim is now measured in METRES — `rim_width` times the SHORT semi-axis — and converted back to a
+normalised depth per direction by dividing by the distance to the ellipse edge along that ray. Taking the
+short axis is what keeps a SQUARE loop bitwise where it was: there the whole expression collapses to
+`1 - rim_width`.
+
+Measured on a 90 × 30 m loop, `rim_width = 0.25`, by scanning the profile outward along each of the loop's
+own axes in world metres:
+
+| | along u | along v |
+|---|---|---|
+| rim crest | 82.49 m | 22.50 m |
+| **ejecta blanket** | **7.51 m** | **7.50 m** (ratio 1.002) |
+| crater reaches | 89.96 m | 29.97 m (ratio 3.002) |
+
+The last row is the control, and it is the one that gives the statistic teeth: the crater must still FILL
+its loop, so measured at the outer edge it has to read 3:1 on the same scan. An isotropic crater inscribed
+in the loop — the option not taken — reads 1.0 there. Note the crest ratio is 3.666 and not 3.0: the crest
+is no longer a constant fraction of the half-extent, which is the fix rather than a defect, so the gate
+prints it and does not assert on it. Second control: on a square loop the crest lands at **45.00 m**
+against the pre-§16.7 formula's 45.00 m.
+
+**The bowl's inner wall still scales with the bowl, deliberately.** The smoothstep up to the crest is the
+shape of the depression rather than a band laid on top of it, and an elongated crater's long wall IS
+longer. Only the crest position and the ejecta are metric.
+
+**This exposed a hole that predates it.** Everything above reads `mat.eval`, which is the GDScript oracle
+and never touches C++, and gate D would not have covered the native mirror either — D's parity fixture is
+a SQUARE loop carrying a fractal stack, and gate C's 60 × 22 crater is never baked down both paths. **A
+crater on a non-square loop had no A/B coverage in this suite at all.** Gate S now bakes one on a 60 × 20
+loop through both rasterisers: **0.00001526 m** over 26 probes carrying 5.4 m of relief. Verified by
+reverting the C++ side alone — gate D stayed at 0.00000000 m and this arm went to **4.51 m**, which is
+what "the oracle protects the wire format" is supposed to look like and what it did not do here before.
