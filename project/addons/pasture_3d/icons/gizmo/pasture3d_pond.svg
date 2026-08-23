@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" version="1.1">
+  <g fill="none" stroke="#000000" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M8 44 H28"/>
+    <path d="M100 44 H120"/>
+    <path d="M28 44 C34 112 94 112 100 44 Z" fill="#ffffff"/>
+    <!-- waterline, black so it reads on the tinted body from any angle -->
+    <path d="M34 66 C46 56 58 76 70 66 C80 58 88 62 94 66" stroke-width="7"/>
+  </g>
+</svg>

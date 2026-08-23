@@ -50,6 +50,13 @@ const ICON_SIZE: float = 0.055
 const POINT_SIZE: float = 0.030
 ## A bezier tangent handle — smaller than a point, so the point stays the thing you aim at.
 const TANGENT_SIZE: float = 0.023
+## Where the gizmo sprites live. Carries a `.gdignore`, so Godot's importer never touches them — see
+## `sprite_for` for the reimport that made that necessary.
+const SPRITE_DIR := "res://addons/pasture_3d/icons/gizmo/"
+## Pixel size the 128-unit sprites are rasterised to. Four times the size they are usually drawn at, so
+## the mipmap chain has something to work with and a close camera does not find the edge of the raster.
+const SPRITE_PX: int = 256
+
 ## Resolution of the generated dot textures. 64 is comfortably above the pixel size they are drawn at,
 ## so the mipmapped edge stays clean when the camera is close enough to make them large.
 const DOT_PX: int = 64
@@ -86,10 +93,9 @@ var _sprite_materials: Dictionary = {}
 static var _dot_hollow: ImageTexture
 static var _dot_filled: ImageTexture
 static var _quad: QuadMesh
-## Script resource path -> the icon path its class (or the nearest ancestor that declares one) uses.
-static var _icon_paths: Dictionary = {}
-## Icon path -> the loaded texture.
-static var _icon_cache: Dictionary = {}
+## Sprite path -> the rasterised texture, or null when there is no file there. Cached across the whole
+## editor session; `static` because a gizmo plugin is re-instantiated on every @tool script reload.
+static var _sprite_cache: Dictionary = {}
 
 
 func _init() -> void:
@@ -193,47 +199,56 @@ func _dot_sprite(p_gizmo: EditorNode3DGizmo, p_at: Vector3, p_size: float, p_col
 			Transform3D(Basis().scaled(Vector3.ONE * p_size), p_at))
 
 
-## The node's SCENE-TREE icon, or null for a class that declares none.
+## The gizmo sprite for a node: `icons/gizmo/<script file name>.svg`, walking up the script's
+## inheritance chain until one exists. No list here and none anywhere else — adding a brush family means
+## dropping one file next to the others.
 ##
-## Read out of the project's global class list rather than from the node, because `@icon` is not exposed
-## on Script and the editor theme only knows built-in classes. Walking `base` upward is what makes every
-## brush family work without a list here: `Pasture3DTerrainBrush` declares `brush_terrain.svg`, so a new
-## subclass that never declares one still gets a sensible icon instead of nothing.
-static func icon_for(p_node: Node3D) -> Texture2D:
+## RASTERISED HERE RATHER THAN IMPORTED, and that is the whole point of the directory. The first version
+## of this drew the class's scene-tree `@icon` directly, and Godot's "detect 3D" saw a 16x16 editor icon
+## used in a 3D material and silently rewrote its import settings to VRAM-compressed with mipmaps — a
+## 16px glyph through S3TC, which is exactly the mush that got reported, and it degraded the icon
+## everywhere else it appears at the same time. `icons/gizmo/` carries a `.gdignore` so the importer
+## never sees these at all; `load_svg_from_string` renders them at whatever size is asked for, and
+## nothing can quietly decide otherwise.
+static func sprite_for(p_node: Node3D) -> Texture2D:
 	var scr: Script = p_node.get_script()
-	if scr == null or scr.resource_path.is_empty():
-		return null
-	if _icon_paths.is_empty():
-		_build_icon_paths()
-	var path: String = _icon_paths.get(scr.resource_path, "")
-	if path.is_empty():
-		return null
-	if not _icon_cache.has(path):
-		_icon_cache[path] = load(path) if ResourceLoader.exists(path) else null
-	return _icon_cache[path]
+	# Bounded: a script chain is short, and this runs inside a redraw.
+	for _step in 16:
+		if scr == null or scr.resource_path.is_empty():
+			break
+		var path := SPRITE_DIR + scr.resource_path.get_file().get_basename() + ".svg"
+		if not _sprite_cache.has(path):
+			_sprite_cache[path] = _rasterise(path)
+		var tex: Texture2D = _sprite_cache[path]
+		if tex != null:
+			return tex
+		scr = scr.get_base_script()
+	return null
 
 
-static func _build_icon_paths() -> void:
-	var list: Array = ProjectSettings.get_global_class_list()
-	var by_name := {}
-	for e in list:
-		by_name[String(e.get("class", ""))] = e
-	for e in list:
-		var path := String(e.get("path", ""))
-		if path.is_empty():
-			continue
-		var cur: Variant = e
-		var icon := ""
-		# Bounded, because a malformed class list could describe a cycle and this runs in an editor.
-		for _step in 32:
-			if cur == null:
-				break
-			icon = String((cur as Dictionary).get("icon", ""))
-			if not icon.is_empty():
-				break
-			cur = by_name.get(String((cur as Dictionary).get("base", "")))
-		if not icon.is_empty():
-			_icon_paths[path] = icon
+## One SVG at SPRITE_PX, mipmapped. Null when the file is not there, which is how the chain walk knows
+## to keep going.
+static func _rasterise(p_path: String) -> Texture2D:
+	if not FileAccess.file_exists(p_path):
+		return null
+	var src := FileAccess.get_file_as_string(p_path)
+	if src.is_empty():
+		return null
+	var img := Image.new()
+	# The sprites are authored on a 128 unit canvas; see icons/gizmo/_style.txt.
+	if img.load_svg_from_string(src, float(SPRITE_PX) / 128.0) != OK:
+		push_warning("Pasture3D: gizmo sprite '%s' could not be rasterised." % p_path)
+		return null
+	# Without these the marker crawls with aliasing whenever it is smaller than its source, which at a
+	# constant screen size is most of the time.
+	img.generate_mipmaps()
+	var tex := ImageTexture.create_from_image(img)
+	# A texture built from an Image has an EMPTY `resource_path`, and the material cache is keyed on the
+	# sprite's identity — so without this every brush family would share one cache entry and therefore
+	# one texture, and every marker in the scene would draw as whichever sprite was rasterised first.
+	# `resource_name` rather than `take_over_path`: this is a label, not a claim on the res:// path.
+	tex.resource_name = p_path
+	return tex
 
 
 func _get_gizmo_name() -> String:
@@ -254,18 +269,21 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	# Float the marker above the terrain surface under the brush origin (not the node's own Y, which may
 	# be buried after a height change). Computed in node-local space so transforms/scale are respected.
 	var centre := _marker_centre(node)
-	var icon := icon_for(node)
-	if icon != null:
-		# The scene-tree icon, at a constant screen size: what kind of brush this is, answerable at a
-		# glance and from any distance. The wireframe octahedron it replaced was a pixel thick and told
-		# you only that SOMETHING was there.
-		p_gizmo.add_mesh(_quad_mesh(), _sprite_material("icon:" + icon.resource_path, icon, Color.WHITE),
+	# The colour stays the BRUSH'S decision (`Pasture3DTerrainBrush._gizmo_color`) — light neon purple
+	# for a stamping brush, dark blue for the erosion family. The sprites are grayscale so the tint is
+	# the whole of it: white becomes the colour, the black outline stays black whatever it is.
+	var tint: Color = node._gizmo_color() if node.has_method("_gizmo_color") else MARKER_COLOR
+	var sprite := sprite_for(node)
+	if sprite != null:
+		# What kind of brush this is, answerable at a glance and from any distance. The wireframe
+		# octahedron it replaced was a pixel thick and told you only that SOMETHING was there.
+		p_gizmo.add_mesh(_quad_mesh(),
+				_sprite_material("sprite:%s:%s" % [sprite.resource_name, tint.to_html(false)],
+						sprite, tint),
 				Transform3D(Basis().scaled(Vector3.ONE * ICON_SIZE), centre))
 	else:
-		# A class that declares no icon anywhere up its chain keeps the old marker rather than nothing.
-		var mat: Material = _marker_material(p_gizmo,
-				node._gizmo_color() if node.has_method("_gizmo_color") else MARKER_COLOR)
-		p_gizmo.add_lines(octa(centre, MARKER_R), mat)
+		# A class with no sprite anywhere up its chain keeps the old marker rather than nothing.
+		p_gizmo.add_lines(octa(centre, MARKER_R), _marker_material(p_gizmo, tint))
 	# A solid box of collision triangles round the marker makes it pickable from any angle → clicking
 	# selects the brush node. Built offset to the same floating centre as the visible marker
 	# (add_collision_triangles has no transform arg, so move the vertices).

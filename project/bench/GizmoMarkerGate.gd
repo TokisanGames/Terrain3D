@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Gates DG, DH and DI for the BRUSH GIZMO's constant-size sprite markers and its handle pick order —
+# Gates DG, DH, DI and DJ for the BRUSH GIZMO's constant-size sprite markers and its handle pick order —
 # PASTURE3D_BRUSH_EROSION_SPEC.md is not where these live; see the header of
 # addons/pasture_3d/src/brush_gizmo.gd.
 #
@@ -27,19 +27,22 @@ const HANDLES := preload("res://addons/pasture_3d/src/brush_handles.gd")
 ## A gate suite that cannot tell "nothing ran" from "everything passed" is worse than no suite, so each
 ## gate now increments `_completed` on its way out and the verdict checks the total. That defect is the
 ## reason the pick logic was moved into a plain RefCounted in the first place.
-const COUNTED_GATES := 3
+const COUNTED_GATES := 4
 
-## Every brush family the plugin ships, with the icon each is expected to end up with. Written out
-## rather than derived, because "it resolved to something" is the failure this gate exists to catch.
+## Every brush family the plugin ships, with the gizmo sprite each is expected to end up with. Written
+## out rather than derived, because "it resolved to something" is the failure this gate exists to catch.
+##
+## Pasture3DSim has no sprite of its own and must inherit Pasture3DSimBase's through the script chain —
+## that fallback is the reason there is no list in the gizmo, so it is checked rather than assumed.
 const EXPECTED := {
-	"Pasture3DMound": "brush_mound.svg",
-	"Pasture3DPlow": "brush_plow.svg",
-	"Pasture3DRidge": "brush_ridge.svg",
-	"Pasture3DTrough": "brush_trough.svg",
-	"Pasture3DPond": "brush_mound.svg",
-	"Pasture3DSim": "brush_sim.svg",
-	"Pasture3DSplat": "brush_splat.svg",
-	"Pasture3DStream": "brush_terrain.svg",
+	"Pasture3DMound": "pasture3d_mound.svg",
+	"Pasture3DPlow": "pasture3d_plow.svg",
+	"Pasture3DRidge": "pasture3d_ridge.svg",
+	"Pasture3DTrough": "pasture3d_trough.svg",
+	"Pasture3DPond": "pasture3d_pond.svg",
+	"Pasture3DSplat": "pasture3d_splat.svg",
+	"Pasture3DSim": "pasture3d_sim_base.svg",
+	"Pasture3DSimManager": "pasture3d_sim_manager.svg",
 }
 
 var _fail := 0
@@ -49,7 +52,7 @@ var _handles: HANDLES
 
 
 func _ready() -> void:
-	print("\n=== Brush gizmo markers (gates DG, DH, DI) ===\n")
+	print("\n=== Brush gizmo markers (gates DG, DH, DI, DJ) ===\n")
 	_root = Node3D.new()
 	add_child(_root)
 	# The picker, NOT the gizmo plugin: see COUNTED_GATES.
@@ -58,6 +61,7 @@ func _ready() -> void:
 	_gate_dg_icons_are_per_class()
 	_gate_dh_dots_differ()
 	_gate_di_hidden_handle_selects_its_point()
+	_gate_dj_sprites_are_grayscale()
 
 	if _completed != COUNTED_GATES:
 		_fail += 1
@@ -68,18 +72,23 @@ func _ready() -> void:
 	get_tree().quit(0 if _fail == 0 else 1)
 
 
-# --- DG: every brush family resolves to its OWN scene-tree icon -------------------------------------
+# --- DG: every brush family resolves to its OWN gizmo sprite ----------------------------------------
 #
-# The origin marker is the node's `@icon`, read out of the project's global class list and walked up the
-# `base` chain until a class declares one. The walk is what makes a new brush family work without a list
-# in the gizmo — and it is also the thing that can silently make this feature pointless, because
-# `Pasture3DTerrainBrush` declares `brush_terrain.svg` and EVERY subclass would fall back to it if the
-# per-class lookup were broken. "The icon resolved" would still be true.
+# The marker is `icons/gizmo/<script file name>.svg`, found by walking the node's script inheritance
+# chain. The walk is what lets a new brush family work by dropping in one file — and it is also what can
+# silently make the whole feature pointless, because `pasture3d_terrain_brush.svg` exists as the base and
+# EVERY subclass would fall back to it if the per-class lookup broke. "A sprite resolved" stays true.
 #
-# So the criterion is per class AND on the variety: eight families must produce at least six DISTINCT
+# So the criterion is per class AND on the variety: eight families must produce at least seven DISTINCT
 # textures. The control is the count, not a flag.
+#
+# It also checks WHERE they came from. Drawing the scene-tree `@icon` instead is not a cosmetic
+# difference: Godot's "detect 3D" rewrites the import settings of any texture it sees in a 3D material,
+# and it did — five editor icons were converted to VRAM-compressed with mipmaps, which is a 16px glyph
+# through S3TC and is the low resolution that got reported. `icons/gizmo/` is `.gdignore`d and rasterised
+# at runtime so it cannot happen again, and this asserts nothing has drifted back.
 func _gate_dg_icons_are_per_class() -> void:
-	print("[DG] each brush family draws its own scene-tree icon:")
+	print("[DG] each brush family draws its own gizmo sprite:")
 	var seen := {}
 	var missed := PackedStringArray()
 	for cls in EXPECTED:
@@ -93,13 +102,16 @@ func _gate_dg_icons_are_per_class() -> void:
 			missed.append("%s (could not instantiate)" % cls)
 			continue
 		_root.add_child(node)
-		var tex: Texture2D = GIZMO.icon_for(node)
-		var got := tex.resource_path.get_file() if tex != null else "<none>"
+		var tex: Texture2D = GIZMO.sprite_for(node)
+		var got := tex.resource_name.get_file() if tex != null else "<none>"
 		var want: String = EXPECTED[cls]
 		if got != want:
 			missed.append("%s -> %s (wanted %s)" % [cls, got, want])
 		if tex != null:
-			seen[tex.resource_path] = true
+			seen[tex.resource_name] = true
+			if not tex.resource_name.begins_with(GIZMO.SPRITE_DIR):
+				missed.append("%s came from %s, outside the gizmo sprite directory"
+						% [cls, tex.resource_name])
 		node.queue_free()
 	print("    %d families, %d distinct icons" % [EXPECTED.size(), seen.size()])
 	if not missed.is_empty():
@@ -107,11 +119,11 @@ func _gate_dg_icons_are_per_class() -> void:
 		print("    !! wrong or missing: %s" % ", ".join(missed))
 	# THE CONTROL. All eight resolving to one texture is exactly what a broken per-class lookup looks
 	# like, and every assertion above would still pass if `EXPECTED` had been written from that run.
-	if seen.size() < 6:
+	if seen.size() < 7:
 		_fail += 1
-		print("    !! only %d distinct icons across %d families — the lookup is collapsing to the base "
+		print("    !! only %d distinct sprites across %d families — the lookup is collapsing to the base "
 			% [seen.size(), EXPECTED.size()]
-			+ "class's icon, so the marker says 'a brush' and not which one")
+			+ "class's sprite, so the marker says 'a brush' and not which one")
 	_completed += 1
 
 
@@ -267,3 +279,111 @@ func _instantiate_script_class(p_class: String) -> Node:
 		var scr: Script = load(String(e.get("path", "")))
 		return scr.new() if scr != null else null
 	return null
+
+
+# --- DJ: the sprites are grayscale, and carry both ends of the ramp ----------------------------------
+#
+# The marker's colour is the BRUSH'S (`_gizmo_color`) and the material applies it as a multiply, so a
+# sprite with any colour of its own would come out doubly tinted — a red glyph under the erosion
+# family's dark blue is near black. Grayscale is therefore a requirement and not a style note.
+#
+# TWO ENDS, and a sprite needs both. The WHITE body is what the tint acts on, and is what separates the
+# marker from a dark hillside. The BLACK outline survives the multiply unchanged, and is what separates
+# it from pale terrain. A sprite that is all white vanishes against the sky; one that is all outline
+# cannot be told from any other family's.
+#
+# THE CONTROL IS AN OLD EDITOR ICON. `brush_mound.svg` is the coloured 16px scene-tree icon the gizmo
+# used to draw, and it must FAIL the saturation test — without it "every sprite is grayscale" would also
+# be true of a test that could not measure saturation at all.
+func _gate_dj_sprites_are_grayscale() -> void:
+	print("\n[DJ] the gizmo sprites are grayscale, with both a white body and a black outline:")
+	var worst_sat := -1.0
+	var worst_name := ""
+	var min_white := 1.0
+	var min_black := 1.0
+	var thin := PackedStringArray()
+	var files := _sprite_files()
+	for path in files:
+		var img := _load_svg(path)
+		if img == null:
+			_fail += 1
+			print("    !! %s did not rasterise" % path)
+			continue
+		var stat := _ink(img)
+		if float(stat["sat"]) > worst_sat:
+			worst_sat = float(stat["sat"])
+			worst_name = path.get_file()
+		min_white = minf(min_white, float(stat["white"]))
+		min_black = minf(min_black, float(stat["black"]))
+		if float(stat["white"]) < 0.02 or float(stat["black"]) < 0.02:
+			thin.append("%s (white %.3f, black %.3f)"
+					% [path.get_file(), stat["white"], stat["black"]])
+	print("    %d sprites, worst saturation %.4f (%s)" % [files.size(), worst_sat, worst_name])
+	print("    thinnest body %.3f of frame, thinnest outline %.3f (both must clear 0.020)"
+			% [min_white, min_black])
+	if files.size() < 8:
+		_fail += 1
+		print("    !! only %d sprites found; the directory is not the one being drawn from" % files.size())
+	if worst_sat > 0.02:
+		_fail += 1
+		print("    !! %s carries colour of its own, which the brush's tint will multiply into "
+			% worst_name + "something nobody chose")
+	if not thin.is_empty():
+		_fail += 1
+		print("    !! missing one end of the ramp: %s" % ", ".join(thin))
+
+	# THE CONTROL. The coloured editor icon the gizmo used to draw must fail the same test.
+	var old := _load_svg("res://addons/pasture_3d/icons/brush_mound.svg")
+	var old_sat := float(_ink(old)["sat"]) if old != null else -1.0
+	print("    CONTROL the old coloured editor icon measures %.4f saturation" % old_sat)
+	if old_sat <= 0.02:
+		_fail += 1
+		print("    !! the control passed the grayscale test, so the test does not measure colour and "
+			+ "the assertions above are about nothing")
+	_completed += 1
+
+
+## Every sprite in the gizmo directory. Listed from disk rather than from EXPECTED, so a file added
+## without a class behind it is still held to the rules.
+func _sprite_files() -> PackedStringArray:
+	var out := PackedStringArray()
+	var dir := DirAccess.open(GIZMO.SPRITE_DIR)
+	if dir == null:
+		return out
+	for f in dir.get_files():
+		if f.get_extension() == "svg":
+			out.append(GIZMO.SPRITE_DIR + f)
+	out.sort()
+	return out
+
+
+func _load_svg(p_path: String) -> Image:
+	if not FileAccess.file_exists(p_path):
+		return null
+	var img := Image.new()
+	return img if img.load_svg_from_string(FileAccess.get_file_as_string(p_path), 1.0) == OK else null
+
+
+## `{sat, white, black}` over the OPAQUE pixels: peak saturation, and the fraction of the image that is
+## near-white body and near-black outline. Transparent pixels are skipped — most of a glyph is nothing,
+## and averaging that in would make every sprite look identical.
+func _ink(p_img: Image) -> Dictionary:
+	if p_img == null:
+		return {"sat": 0.0, "white": 0.0, "black": 0.0}
+	var sat := 0.0
+	var white := 0
+	var black := 0
+	var opaque := 0
+	for y in p_img.get_height():
+		for x in p_img.get_width():
+			var c := p_img.get_pixel(x, y)
+			if c.a < 0.5:
+				continue
+			opaque += 1
+			sat = maxf(sat, maxf(c.r, maxf(c.g, c.b)) - minf(c.r, minf(c.g, c.b)))
+			if c.r > 0.9 and c.g > 0.9 and c.b > 0.9:
+				white += 1
+			elif c.r < 0.2 and c.g < 0.2 and c.b < 0.2:
+				black += 1
+	var n := float(maxi(p_img.get_width() * p_img.get_height(), 1))
+	return {"sat": sat, "white": float(white) / n, "black": float(black) / n, "opaque": opaque}
