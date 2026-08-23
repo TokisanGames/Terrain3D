@@ -1086,6 +1086,84 @@ to the aspect work, not fixed here.
 
 ---
 
+### 9.9 BUILT (2026-08-23) — freezing the growth, because moving a brush froze the editor
+
+Fourth report from the editor, and the worst of them: *moving a brush with a DLA Relief on it freezes
+the editor.* It did, and the fix is the one `Pasture3DModErosion` already had.
+
+**Where the time went.** The cluster is grown inside `compile()`, which runs once per bake, and
+`auto_refresh` bakes on every frame of a drag. The growth was cached, but its key contains three things
+that move while a brush is being edited:
+
+* `_field_dims()`, from the loop's oriented half-extents — reshaping the loop moves it continuously;
+* every growth slider, all of which `_touch()`;
+* `_seed_hash`, and this is the one that was reported. **`set_seed_surface` returned `true` on every
+  bake of every drag** — the captured surface moves when the brush moves, including under a plain
+  translation that changes nothing else about the mountain — which regrew a 512² cluster *and* got a
+  second bake scheduled for its trouble. Two regrows per frame, about 1.8 s each.
+
+**It did not need to become a modifier.** The obvious reading of "make it work like the erosion
+modifier" is to make it *be* one. It is the wrong reading: what makes erosion safe is `evaluation`, a
+keyed cache, a Bake button and a stale warning, and none of those needs a `Pasture3DBrushModifier` to
+live on. Erosion has to be a modifier for a different reason — it routes water across the whole grid at
+SOLVE time, and `relief_eval(u, v)` has no grid. A DLA needs a grid at COMPILE time only, and that grid
+is already baked into the op program and bilinear-sampled per cell; it is a POINT operator where it
+counts. Moving it out of the relief system would have cost it selectors, `output_curve`, `blend`, stack
+layering and the free C++/GDScript oracle, needed a new `kind()` in `brush_mod_kind`, and migrated every
+scene and gate — to buy a cache that four virtuals on `Pasture3DReliefMaterial` provide in place.
+
+**The material surface.** `evaluation` (Live / Frozen, **Frozen by default**, the same two words and the
+same default as §6.3) and a **Bake Mountain** button. One rule, as with erosion: ANY change — a slider
+here, the loop's shape, the surface Ridge Seeding reads — leaves the grown mountain in place and raises
+a stale warning until the button is pressed. Nothing is saved with the resource, so reopening a scene
+regrows once, in the background; the alternative is a megabyte of float field inside every `.tres`, to
+avoid one growth of something the terrain's layer data already holds.
+
+**Two details that are not obvious and were not free.**
+
+1. **The field is emitted at the dims it was GROWN for, not the loop's current ones.** Cropping a field
+   grown for a square loop down to a newly-narrowed rectangle cuts the massif off at the crop edge —
+   the loop-boundary step §9.8's blur budget exists to prevent, reintroduced by the cache meant to be
+   harmless. A stale frozen mountain is stretched, and stretched is recoverable by pressing the button.
+2. **`set_seed_surface` keeps the surface and returns `false`.** Holding the field is not enough: the
+   `true` is what schedules the extra bake, and returning it while frozen would leave the drag costing
+   two bakes a frame with nothing to show for either. Taking the surface anyway is what makes Bake
+   Mountain grow from what is on the brush NOW rather than from whatever it last happened to see.
+
+**The growth runs on a worker**, through the §14 driver, which grew a phase for it. Pass 1 offers every
+relief material `set_growth_deferred(true)`; a material that needs building emits nothing, says so
+through `collect_growth`, and is grown on a pool thread while the main thread yields frames. `grow_into`
+writes into a state Dictionary and **never into the material** — the same discipline `_erosion_solve_one`
+keeps, because an inspector redraw or a mask preview can compile the material on any of the frames being
+yielded, and a half-replaced `_dla_field` read by a compile is a crash rather than a wrong mountain.
+
+The growth phase runs **before** the erosion pass, and loops until a pass asks for nothing new. Both are
+required. A DLA that deferred compiles to nothing, so an erosion pass 1 run alongside it would hash a
+mountainless surface, key the solve to it, and find that key stale the moment the mountain landed; and
+growing one material can produce another request, because a seeded DLA is handed its surface by the bake.
+
+There is **no percentage**, deliberately. A particle walk has no iteration counter to read, unlike the
+solver, which bumps one from inside its own loop (§14.4). The heartbeat says which field and how long,
+which is the truth; a bar that jumps from 0 to 100 would say less.
+
+**Bake All Brushes clears grown fields too**, for exactly the reason it clears frozen solves (§7, note
+1): without it the button serves the mountain it already had and does visibly nothing on the brushes it
+exists for. The registry scan counts a brush with a growing relief material as worth registering, so a
+mountain brush with no erosion on it is still reachable from the manager.
+
+**Gates DK and DL** (`bench/DLAGate.tscn`). DK measures the hold down both invalidation paths — the host
+frame, which arrives *during* a bake, and the seed surface, which arrives *after* one — each against the
+same material on LIVE, and requires Bake Mountain to land **bitwise** on what LIVE grew for the current
+frame. "It changed something" would pass an implementation that regrew from the inputs it was frozen at.
+DL is DC's claim for the growth: deferred equals synchronous, with pass 1 alone required to come out as
+the brush with no mountain — otherwise the driver is decoration around a synchronous growth.
+
+**Every existing DLA fixture now sets `evaluation = LIVE`.** They measure the growth, and FROZEN holds
+across exactly the changes they make; leaving them on the default would have them read "nothing moved"
+for the right reason. Same rule §6.3 states for a frozen solve.
+
+---
+
 ## 10. Build order
 
 | Phase | Contents | Gates | Depends on |
@@ -1165,6 +1243,8 @@ the Sim spec already established.
 | DD ✅ | *(7)* **The four published channels survive the deferral.** On the deferred path they do not come out of the rasteriser at all: the worker computes them, GDScript folds them into the cache entry, and pass 3 publishes from there. Two of the four are not the solver's to give — erosion and deposition are the difference between the surface that went in and the one that came out. Measured through a FLOW-gated Relief modifier below the erosion: **0.00000000 m**. | That gated layer must stamp something on the synchronous arm — **3.64 m**. A gate comparing two modifiers that both read zeros and stamped nothing reports perfect agreement. |
 | DE ✅ | *(7)* **A suppressed bake is the un-eroded shape, and drops the frozen solves.** Both halves, because neither is enough: dropping the caches without re-baking leaves the eroded heights in the layer and the button appears to do nothing; re-baking without dropping them serves the erosion straight back. **Bitwise** against the same stack with the modifier unchecked — a stronger claim than "close to", since suppression keeps the step in the list and returns early where unchecking drops it before the list is built, and the two take different routes through the rasteriser's point/field conversion. | The cache must have been WARM before (it was), and it must take a real erosion off (**49.10 m**). A fixture whose solve cut nothing passes the headline claim and says nothing. |
 | DF ✅ | *(7)* **Clear Simulation On All Brushes clears the registered set, and only it.** Two brushes on two layer owners, both **bitwise** back to their un-eroded shape, **2 frozen solves dropped**. | Three. An **UNREGISTERED** brush on its own layer must not move (**0.00000000 m**) — "clear everything" and "clear the registered set" read the same on a fixture where everything is registered, and the list is the point of the registry. There must have been an erosion to take off (**82.96 m**). And it must be **REVERSIBLE** by Bake All Brushes, bitwise — clearing is not disabling, and a clear that could not be re-baked would mean the button had edited the scene. **The first control read `nan` and passed**, because `nan > tolerance` is false; `_worst` now returns NAN loudly and every caller checks it. |
+| DK ✅ | *(6, §9.9)* **FROZEN holds the mountain it grew, and Bake Mountain regrows it against what is there NOW.** Both invalidation paths, because they arrive differently and the reported freeze came down the second: the loop's oriented frame, handed over *during* a bake, and the seeded surface, handed over *after* one. Frozen holds **bitwise** across each, and a new captured surface returns `false` rather than asking for the extra bake that made a plain translation cost two regrows a frame. Then **Bake Mountain lands bitwise on what the LIVE arm grew for the CURRENT frame** — the criterion with teeth, because "it changed something" also passes an implementation that regrew from the inputs it was frozen at. | **The same material on LIVE, down each path**, which must regrow and must ask (it does, both). Without it "the field did not change" is what a DLA welded shut reports too. Plus the warning in both directions: stale must say "Bake Mountain", freshly baked must not — a warning that is always on tracks nothing. |
+| DL ✅ | *(6, §9.9)* **Growing on a worker gives the same terrain as growing inside the bake.** DC's claim for the growth, and it needs making separately: a solve is delivered through the modifier's frozen cache, a grown field by recompiling a **memoised** material inside a stack that copies its layers' bytes. **0.00000000 m over 1521 probes**, with the field held (1 MB) after the run — so the last pass served it rather than regrowing on the main thread. | **Pass 1 alone, with the deferral honoured and the request discarded, must come out as the brush with no mountain — 0.00000000 m from it.** "Deferred equals synchronous" is also what a driver that quietly grew on the main thread reports, and what a `defer` flag nobody reads reports. Plus the mountain must move the ground at all (**7.04 m**), or the agreement is between two bare domes. |
 
 ---
 

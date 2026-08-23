@@ -300,6 +300,16 @@ var _erosion_defer: bool = false
 var _erosion_suppress: bool = false
 ## What pass 1 asked to have solved: one entry per erosion modifier per bake grid.
 var _pending_erosion: Array = []
+
+## §9.9, the growth half of the same driver. A Pasture3DReliefDLA grows a cluster on a 512² grid in
+## GDScript, which is seconds, and it grows it INSIDE compile() — so it has exactly the erosion
+## modifier's problem and takes exactly the erosion modifier's cure. Set for the duration of a growth
+## pass; read by `_compile_modifiers`, which offers it to every relief material it compiles.
+var _growth_defer: bool = false
+## Materials that took the offer up, deduplicated: one entry per MATERIAL, not per bake grid, because a
+## grown field belongs to the material and a brush with four loops must not grow the same mountain four
+## times.
+var _pending_growth: Array = []
 ## Guards the three-pass driver against re-entry — a refresh scheduled by pass 1 must not start a second
 ## driver on top of this one. `_running` is not enough: a Pasture3DSim uses that for its own solve.
 var _erosion_running: bool = false
@@ -773,7 +783,7 @@ func _on_refresh_timer() -> void:
 			else _refresh_owner_rect.bind(_layer_owner, splines, moved_node))
 	# §14. Both bake paths go through the same driver, because either can be the one that has no cache
 	# yet: dragging a spline on a freshly created Mound reaches the dirty-rect path first.
-	if _wants_deferred_erosion():
+	if _wants_deferred_bake():
 		await _bake_deferred(bake, _layer_owner, false)
 	else:
 		bake.call()
@@ -794,7 +804,7 @@ func _refresh_button() -> void:
 func refresh(record_undo: bool = false) -> void:
 	if not Engine.is_editor_hint() or not is_configured():
 		return
-	if _wants_deferred_erosion():
+	if _wants_deferred_bake():
 		await _bake_deferred(_refresh_owner.bind(_layer_owner, false, []), _layer_owner, record_undo)
 		return
 	_refresh_owner(_layer_owner, record_undo, [])
@@ -897,13 +907,15 @@ func _refresh_owner(owner: String, record_undo: bool, extra_clears: Array) -> vo
 		s._queue_mask_preview()
 
 
-## True when a bake from here would have to SOLVE an erosion modifier rather than serve one, and so
-## should go through the deferred driver instead of freezing the editor for the length of it.
+## True when a bake from here might have to BUILD something expensive rather than serve it — solve an
+## erosion modifier, or grow a DLA's cluster — and so should go through the deferred driver instead of
+## freezing the editor for the length of it.
 ##
 ## Deliberately optimistic: it does not try to predict whether the caches will hit, because the only
-## honest way to know is to hash the surface, which means baking. Pass 1 answers it for real — a bake
-## that finds every cache matching produces no pending work and the driver returns after one pass.
-func _wants_deferred_erosion() -> bool:
+## honest way to know is to hash the surface (or the growth inputs), which means baking. Pass 1 answers
+## it for real — a bake that finds everything already built produces no pending work and the driver
+## returns after one pass.
+func _wants_deferred_bake() -> bool:
 	if not (Engine.is_editor_hint() or force_deferred_erosion):
 		return false
 	if _erosion_running or _task_id != -1:
@@ -912,6 +924,20 @@ func _wants_deferred_erosion() -> bool:
 		return false # `_solve_on_worker` yields on the scene tree, and a detached node has none
 	for m in erosion_modifiers():
 		if m.evaluation == Pasture3DBrushModifier.Evaluation.FROZEN:
+			return true
+	# §9.9. Not gated on the material's own Evaluation, unlike erosion above: a LIVE DLA is the one that
+	# regrows most often, and the driver is what keeps even that off the main thread. FROZEN only narrows
+	# how often there is anything to do, which pass 1 discovers for free.
+	return _has_growing_relief()
+
+
+## True when any relief modifier here carries a material with an expensive build in it (a DLA, at any
+## depth in a stack). Asked before the bake, so it answers "could this need growing", not "does it now".
+func _has_growing_relief() -> bool:
+	if not _supports_modifiers():
+		return false
+	for m in modifiers:
+		if m is Pasture3DModRelief and m.enabled and m.material != null and m.material.has_growth():
 			return true
 	return false
 
@@ -930,12 +956,37 @@ func _bake_deferred(p_bake: Callable, p_owner: String, p_record_undo: bool) -> v
 	var can_undo := p_record_undo and _layers_api_available()
 	var before: Dictionary = _snapshot_owner(p_owner) if can_undo else {}
 
-	_pending_erosion = []
-	_erosion_defer = true
-	p_bake.call()
-	_erosion_defer = false
-	var pending := _pending_erosion
-	_pending_erosion = []
+	# ---- Phase A: grow every outstanding relief field, BEFORE the erosion pass 1 that will hash the
+	# surface. A DLA that deferred compiles to nothing, so a pass 1 run alongside it would hand the solver
+	# a mountainless surface, key it, and then find that key stale the moment the mountain arrived. Grow
+	# first, bake again, and the surface pass 1 hashes is the finished one.
+	#
+	# A LOOP rather than one pass, because growing one material can produce another request: a seeded DLA
+	# is handed its surface by the bake, and the layer below it is grown from what the layer above it just
+	# became. Bounded, because a pass that asks for nothing new ends it and each material can only be
+	# outstanding once — the cap is belt and braces against a material that never reports satisfied.
+	var pending: Array = []
+	for _round in range(GROWTH_ROUNDS):
+		_pending_erosion = []
+		_pending_growth = []
+		_erosion_defer = true
+		_growth_defer = true
+		p_bake.call()
+		_erosion_defer = false
+		_growth_defer = false
+		pending = _pending_erosion
+		_pending_erosion = []
+		var grows := _dedup_growth(_pending_growth)
+		_pending_growth = []
+		if grows.is_empty():
+			break
+		if not await _grow_pending(grows):
+			_erosion_running = false
+			_commit_deferred_undo(p_owner, before, can_undo)
+			print("%s: growth cancelled — the brush is showing the mountain it already had." % name)
+			return
+
+	# ---- Phase B: the erosion solve, against the surface phase A finished.
 	if pending.is_empty():
 		# Every erosion step served a cache, so pass 1 WAS the bake. This is the common case on any
 		# refresh that is not the first one after a change.
@@ -970,6 +1021,94 @@ func _commit_deferred_undo(p_owner: String, p_before: Dictionary, p_can_undo: bo
 	ur.add_do_method(self, "_restore_owner", p_owner, after)
 	ur.add_undo_method(self, "_restore_owner", p_owner, p_before)
 	ur.commit_action(false)
+
+
+## How many grow-then-bake rounds the driver's phase A will run before giving up on reaching a steady
+## state. Two is enough for everything that exists — one to grow, one to discover nothing more is asked —
+## and a seeded DLA under a second seeded DLA would want three. The cap is here so a material that never
+## reported itself satisfied would produce a slow bake rather than an editor that never comes back.
+const GROWTH_ROUNDS := 4
+
+
+## One entry per MATERIAL. `collect_growth` is called once per bake grid, so a brush with four loops asks
+## four times for the one mountain its material holds — and a grown field belongs to the material, not to
+## the grid it was asked for on.
+func _dedup_growth(p_requests: Array) -> Array:
+	var seen := {}
+	var out: Array = []
+	for m in p_requests:
+		if m == null or seen.has(m):
+			continue
+		seen[m] = true
+		out.append(m)
+	return out
+
+
+## Grow every outstanding relief field on a worker, yielding frames here. Returns false when it was
+## cancelled or the node stopped being a valid thing to write into.
+func _grow_pending(p_mats: Array) -> bool:
+	var states: Array = []
+	for m in p_mats:
+		states.append({"mat": m, "done": 0})
+	print("%s: growing %d relief field(s) — the mountain appears when it lands…" % [name, states.size()])
+	var t0 := Time.get_ticks_msec()
+	_cancel = false
+	_running = true
+	var last_bucket := -1
+	var ok: bool = await _solve_on_worker(states, "%s: growing relief" % name,
+			func() -> void:
+				# WHICH ONE and HOW LONG, on a five-second heartbeat. A percentage is not available and
+				# would have to be invented: a DLA's growth is a particle walk with no iteration counter
+				# to read, unlike the erosion solver, which bumps one from inside its own loop. A made-up
+				# bar that jumps from 0 to 100 tells the user less than the truth does.
+				var done := 0
+				for st: Dictionary in states:
+					done += int(st["done"])
+				var secs := (Time.get_ticks_msec() - t0) / 1000
+				if secs / 5 == last_bucket / 5:
+					return
+				last_bucket = secs
+				print("%s: growing relief field %d of %d (%ds)" % [name, mini(done + 1, states.size()),
+						states.size(), secs]),
+			_grow_one)
+	_running = false
+	if not ok:
+		return false
+	# MAIN THREAD, and the only place a grown field is written back. Skips a state the worker never
+	# reached, which cancellation above has already returned on — belt and braces against a partial run
+	# being filed as a complete one.
+	var grown := 0
+	for st: Dictionary in states:
+		if not st.has("field"):
+			continue
+		(st["mat"] as Pasture3DReliefMaterial).store_growth(st)
+		grown += 1
+	print("%s: grew %d relief field(s), %d ms." % [name, grown, Time.get_ticks_msec() - t0])
+	return true
+
+
+## Grow one material, in ONE call. RUNS ON A POOL THREAD: `grow_into` writes into the state dictionary
+## and never into the material, so nothing here races a compile on the main thread.
+func _grow_one(p_state: Dictionary) -> bool:
+	if int(p_state["done"]) > 0:
+		return true
+	(p_state["mat"] as Pasture3DReliefMaterial).grow_into(p_state)
+	p_state["done"] = 1
+	return true
+
+
+## Drop every relief material's grown field, so the next bake grows it again. The relief counterpart to
+## `clear_erosion_caches`, and what Bake All Brushes needs for the same reason: a DLA defaults to FROZEN,
+## so a bake that did not clear first would serve the mountain it already had and the button would appear
+## to do nothing. Returns how many were cleared.
+func clear_relief_growth() -> int:
+	var n := 0
+	if not _supports_modifiers():
+		return n
+	for m in modifiers:
+		if m is Pasture3DModRelief and m.material != null:
+			n += m.material.clear_growth()
+	return n
 
 
 ## Run every pending solve on a worker, yielding frames here. Returns false when it was cancelled or the
@@ -3338,6 +3477,10 @@ func _compile_modifiers(p_extent: String = "", p_ex: float = 1.0, p_ez: float = 
 			step["out"] = slot
 		if m is Pasture3DModRelief:
 			m.material.set_host_frame(p_ex, p_ez)
+			# §9.9. Offered on EVERY compile, never left set from a previous pass: the flag says what is
+			# true of the bake in flight, and a material that had to remember which pass it was in would
+			# be one cancelled driver away from refusing to grow for good.
+			m.material.set_growth_deferred(_growth_defer)
 			var prog: Array = m.material.compile()
 			var ops: PackedInt32Array = prog[0]
 			var mat_sel: PackedFloat32Array = prog[3]
@@ -3348,6 +3491,10 @@ func _compile_modifiers(p_extent: String = "", p_ex: float = 1.0, p_ez: float = 
 			# "did this class implement it", which is false for a STACK holding a seeded DLA — so a stacked
 			# DLA's Ridge Seeding compiled to nothing, was dropped here as a no-op, and never got a capture.
 			var wants_seed: bool = m.material.wants_seed_surface()
+			# Asked BEFORE the no-op test below, because a material that deferred its growth compiles to
+			# nothing and IS dropped from this bake — correctly, it contributes nothing — and dropping the
+			# request with it is how the driver would come to wait forever for a pass that never asks.
+			m.material.collect_growth(_pending_growth)
 			if ops.is_empty() and not wants_seed:
 				continue # a material that compiles to nothing is not a step, it is a no-op
 			# Ask the predicates BEFORE rebasing: both index the material's own selector block by the

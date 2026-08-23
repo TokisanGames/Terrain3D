@@ -15,6 +15,8 @@
 #   CY  a seeded cluster grows along the ridges it was handed
 #   CZ  the surface it is handed is the stack ABOVE it, so it cannot feed itself
 #   DA  the ridges are the same size in both directions on a loop that is not square
+#   DK  FROZEN holds the mountain it grew, and Bake Mountain regrows it against what is there NOW
+#   DL  the growth run on a worker gives the same terrain as the growth run inside the bake
 #
 # CQ IS THE ONE THAT NEEDED THINKING ABOUT, so its design is written out at the gate. In short: no single
 # scalar separates a DLA from both nulls, so it uses two, each with the null it is there to exclude.
@@ -29,6 +31,8 @@ const SITE_CR := Vector3(300.0, 0.0, 300.0)
 const SITE_CZ := Vector3(600.0, 0.0, 300.0)
 const SITE_CZ_OFF := Vector3(300.0, 0.0, 600.0)
 const SITE_DB := Vector3(600.0, 0.0, 600.0)
+const SITE_DL := Vector3(900.0, 0.0, 300.0)
+const SITE_DL2 := Vector3(900.0, 0.0, 600.0)
 ## Working grid for CY's synthetic seed surface.
 const SEED_G := 129
 ## What counts as "the field is zero here". A cumulative box blur has finite support in exact arithmetic
@@ -48,7 +52,7 @@ const RELIEF_M := 8.0
 ## House rule (bench/OceanBench.gd): a GDScript runtime error abandons the function WITHOUT incrementing
 ## the failure count, so a suite that only counts failures can report a clean pass having measured
 ## nothing. Each gate increments `_completed` as its last statement and the verdict requires all of them.
-const GATES := 9
+const GATES := 11
 ## DA's loop: 180 m by 60 m, i.e. 3:1. Enough that a stretched field is unmistakable, and not so much
 ## that the massif runs out of short axis to carry a ridge-spacing statistic (see bench/DlaAspectProbe.gd,
 ## where 9:1 at this resolution is dominated by that and not by any stretch).
@@ -88,6 +92,8 @@ func _ready() -> void:
 	_gate_cz_capture_excludes_itself()
 	_gate_da_isotropic()
 	_gate_db_stacked_seeding()
+	_gate_dk_frozen_holds()
+	await _gate_dl_deferred_growth()
 
 	if _completed != GATES:
 		_fail += 1
@@ -824,6 +830,11 @@ func _dla(p_seed: int, p_res: int) -> Pasture3DReliefDLA:
 	var m := Pasture3DReliefDLA.new()
 	m.resolution = p_res
 	m.seed = p_seed
+	# LIVE, because every criterion below MEASURES THE GROWTH. FROZEN is the shipped default and it holds
+	# the field it has across exactly the changes these fixtures make — a host frame, a seed surface, a
+	# slider — so a gate that left it there would read "nothing moved" for the right reason and prove
+	# nothing. The same rule BrushErosionGate follows for a frozen solve.
+	m.evaluation = Pasture3DReliefDLA.Evaluation.LIVE
 	return m
 
 
@@ -1327,3 +1338,229 @@ func _make_stacked_mound(p_name: String, p_at: Vector3):
 	var mods: Array[Pasture3DBrushModifier] = [rough, grow]
 	mound.modifiers = mods
 	return mound
+
+
+# --- DK: FROZEN holds the mountain it grew, and Bake Mountain regrows it ----------------------------
+#
+# §9.9. Growing a 512² cluster is seconds of GDScript and it happens inside compile(), so a material that
+# regrew whenever anything it reads moved froze the editor for the length of every drag. FROZEN is the
+# cure and it is one rule: EVERY growth input is held, because the key is a hash of all of them.
+#
+# TWO INPUTS ARE MEASURED, not one, because they arrive down different paths and the freeze that was
+# reported came down the second: the loop's oriented frame reaches the material through `set_host_frame`
+# DURING a bake, and the seeded surface through `set_seed_surface` AFTER one. The second is the one that
+# made merely TRANSLATING a brush regrow the mountain — the captured surface moves when the brush does,
+# so a seeded DLA answered "yes, and bake me again" on every frame of every drag.
+#
+# THE CONTROL IS THE SAME MATERIAL ON LIVE, down each path. Without it "the field did not change" is
+# what a material that ignores its inputs entirely also reports, and this whole criterion would pass on
+# a DLA that had been accidentally welded shut.
+#
+# DK.3 IS THE ONE WITH TEETH. "Bake Mountain changed something" would pass an implementation that
+# regrew from the inputs it was holding when it was frozen. The bake must land BITWISE on what the LIVE
+# arm grew for the CURRENT frame — same seed, same resolution, same everything, so the growth is
+# deterministic and the only way to miss is to have regrown against the wrong inputs.
+func _gate_dk_frozen_holds() -> void:
+	print("\n[DK] FROZEN holds the mountain it grew, and Bake Mountain regrows it:")
+
+	# ---- Path 1: the loop's shape, which arrives during a bake.
+	var frozen := _dla(9, 128)
+	frozen.evaluation = Pasture3DReliefDLA.Evaluation.FROZEN
+	frozen.set_host_frame(1.0, 1.0)
+	var square := _field(frozen).duplicate()
+	frozen.set_host_frame(DA_EX, DA_EZ)
+	var held := _field(frozen).duplicate()
+
+	var live := _dla(9, 128) # already LIVE — see _dla
+	live.set_host_frame(1.0, 1.0)
+	var live_square := _field(live).duplicate()
+	live.set_host_frame(DA_EX, DA_EZ)
+	var live_stretched := _field(live).duplicate()
+
+	if square.is_empty() or live_square.is_empty():
+		_fail += 1
+		print("    !! nothing grew on the first compile; the rest of this gate would compare two blanks")
+		return
+	print("    the loop is reshaped under it:  FROZEN %s   CONTROL LIVE %s"
+			% ["held (bitwise)" if _identical(square, held) else "REGREW",
+				"regrew" if not _identical(live_square, live_stretched) else "HELD"])
+	if not _identical(square, held):
+		_fail += 1
+		print("    !! FROZEN regrew on a shape change — this is the reshape-drag freeze, still there")
+	if _identical(live_square, live_stretched):
+		_fail += 1
+		print("    !! LIVE did not regrow either, so the comparison above proves nothing")
+
+	# ---- Path 2: the seeded surface, which arrives after a bake. The reported freeze.
+	var flat := PackedFloat32Array()
+	flat.resize(SEED_G * SEED_G)
+	flat.fill(12.0)
+	var fz := _dla(4, 128)
+	fz.evaluation = Pasture3DReliefDLA.Evaluation.FROZEN
+	fz.ridge_seeding = true
+	fz.set_seed_surface(_seed_dict(_star_ridges()))
+	var seeded := _field(fz).duplicate()
+	var fz_asked: bool = fz.set_seed_surface(_seed_dict(flat))
+	var seeded_held := _field(fz).duplicate()
+
+	var lv := _dla(4, 128)
+	lv.ridge_seeding = true
+	lv.set_seed_surface(_seed_dict(_star_ridges()))
+	var lv_seeded := _field(lv).duplicate()
+	var lv_asked: bool = lv.set_seed_surface(_seed_dict(flat))
+	var lv_held := _field(lv).duplicate()
+
+	print("    a new captured surface arrives: FROZEN %s and asks for a re-bake: %s"
+			% ["held (bitwise)" if _identical(seeded, seeded_held) else "REGREW", str(fz_asked)])
+	print("                                    CONTROL LIVE %s and asks: %s"
+			% ["regrew" if not _identical(lv_seeded, lv_held) else "HELD", str(lv_asked)])
+	if not _identical(seeded, seeded_held) or fz_asked:
+		_fail += 1
+		print("    !! a frozen seeded DLA still regrows and still asks for another bake — which is the\n"
+			+ "       reported freeze: the capture moves whenever the brush is dragged anywhere at all")
+	if _identical(lv_seeded, lv_held) or not lv_asked:
+		_fail += 1
+		print("    !! LIVE ignored the new surface too, so the frozen arm above is measuring nothing")
+
+	# ---- DK.3: the bake regrows against what is there NOW, not against what it was holding.
+	frozen.bake_mountain()
+	var rebaked := _field(frozen).duplicate()
+	var matches := _identical(rebaked, live_stretched)
+	print("    Bake Mountain: %s the LIVE field for the CURRENT frame (%.6f worst cell apart)"
+			% ["BITWISE identical to" if matches else "DIFFERS from", _max_diff(rebaked, live_stretched)])
+	if not matches:
+		_fail += 1
+		print("    !! Bake Mountain regrew the mountain for the frame it was frozen at, not the live one")
+	if _identical(rebaked, held):
+		_fail += 1
+		print("    !! Bake Mountain changed nothing at all, so 'it regrew' is unmeasured")
+
+	# ---- The warning: a held mountain that no longer matches its inputs has to SAY so.
+	var fresh_said := frozen._configuration_warning()
+	frozen.set_host_frame(1.0, 1.0)
+	var warned := frozen._configuration_warning().contains("Bake Mountain")
+	print("    it warns once stale: %s   CONTROL freshly baked, it warns: %s"
+			% [str(warned), str(fresh_said.contains("Bake Mountain"))])
+	if not warned:
+		_fail += 1
+		print("    !! a stale frozen mountain says nothing, which is serving old data silently")
+	if fresh_said.contains("Bake Mountain"):
+		_fail += 1
+		print("    !! it warns even when freshly baked, so the warning tracks nothing")
+	_completed += 1
+
+
+# --- DL: the growth run on a worker is the growth run inside the bake --------------------------------
+#
+# The same claim gate DC makes for the erosion solve, and it has to be made separately because the two
+# take different routes through the driver: an erosion solve is delivered through the modifier's frozen
+# CACHE, and a grown field is delivered by recompiling the material — which means the answer has to
+# survive a memoised program, and a stack that copies its layers' bytes.
+#
+# THE CONTROL THAT MATTERS IS THE LAST ONE. "Deferred equals synchronous" is what a driver that quietly
+# grew on the main thread would also report, and so is what a `defer` flag nobody reads would report.
+# Baking with the deferral ON and the request thrown away is the pass that separates them: it must come
+# out as the brush with no mountain at all.
+func _gate_dl_deferred_growth() -> void:
+	print("\n[DL] the deferred growth gives the same terrain as the synchronous one:")
+	var mound = _make_mound("DL", SITE_DL)
+	if mound == null:
+		return
+	var probes := _lattice(SITE_DL)
+	var step: Pasture3DModRelief = mound.modifiers[0]
+	var mat: Pasture3DReliefDLA = step.material
+	# FROZEN, the shipped default: the configuration the editor actually runs.
+	mat.evaluation = Pasture3DReliefDLA.Evaluation.FROZEN
+
+	step.enabled = false
+	mound._refresh_owner(mound._layer_owner, false, [])
+	var bare := _snapshot(probes)
+	step.enabled = true
+
+	mat.clear_growth()
+	mound._refresh_owner(mound._layer_owner, false, [])
+	var sync := _snapshot(probes)
+
+	mat.clear_growth()
+	mound.force_deferred_erosion = true
+	await mound._bake_deferred(mound._refresh_owner.bind(mound._layer_owner, false, []),
+			mound._layer_owner, false)
+	mound.force_deferred_erosion = false
+	var deferred := _snapshot(probes)
+
+	var worst := _max_diff_arr(sync, deferred)
+	var relief := _max_diff_arr(bare, sync)
+	print("    worst |deferred - synchronous| = %.8f m over %d probes" % [worst, probes.size()])
+	print("    CONTROL the mountain moves the ground: %.4f m" % relief)
+	if worst > 1.0e-5:
+		_fail += 1
+		print("    !! the worker and the main thread grew different mountains")
+	if relief < 1.0:
+		_fail += 1
+		print("    !! the DLA barely moved the ground, so agreeing about it means nothing")
+
+	print("    the grown field is held after the run: %d bytes" % mat.growth_bytes())
+	if mat.growth_bytes() <= 0:
+		_fail += 1
+		print("    !! nothing was stored, so the last pass regrew on the main thread — the freeze is back")
+
+	# CONTROL: the deferral honoured and the request dropped on the floor. This is pass 1 alone.
+	mat.clear_growth()
+	mound._growth_defer = true
+	mound._refresh_owner(mound._layer_owner, false, [])
+	mound._growth_defer = false
+	mound._pending_growth = []
+	var pass1 := _snapshot(probes)
+	var gap := _max_diff_arr(pass1, bare)
+	print("    CONTROL pass 1 alone, with the request discarded: %.8f m from the bare brush" % gap)
+	if gap > 1.0e-5:
+		_fail += 1
+		print("    !! pass 1 already carries the mountain, so `defer` is not being read and the driver\n"
+			+ "       is decoration around an ordinary synchronous growth")
+	# ---- The STACKED arm, which the bare one above cannot stand in for. A Pasture3DReliefStack copies
+	# its layers' bytes into its own program and memoises the splice, so a layer that grows underneath it
+	# is invisible unless the layer says so and the stack listens — the exact shape of two bugs this
+	# material has already had (§9.8, §9.6). On the deferred path the layer changes its program TWICE per
+	# bake: to nothing when the offer is taken up, and back again when the field lands.
+	var smound = _make_mound("DL2", SITE_DL2)
+	if smound == null:
+		_completed += 1
+		return
+	var sprobes := _lattice(SITE_DL2)
+	var sstep: Pasture3DModRelief = smound.modifiers[0]
+	var sdla := _dla(6, 256)
+	sdla.evaluation = Pasture3DReliefDLA.Evaluation.FROZEN
+	var sstack := Pasture3DReliefStack.new()
+	var slayers: Array[Pasture3DReliefMaterial] = [sdla]
+	sstack.layers = slayers
+	sstep.material = sstack
+
+	sstep.enabled = false
+	smound._refresh_owner(smound._layer_owner, false, [])
+	var sbare := _snapshot(sprobes)
+	sstep.enabled = true
+
+	sdla.clear_growth()
+	smound._refresh_owner(smound._layer_owner, false, [])
+	var ssync := _snapshot(sprobes)
+
+	sdla.clear_growth()
+	smound.force_deferred_erosion = true
+	await smound._bake_deferred(smound._refresh_owner.bind(smound._layer_owner, false, []),
+			smound._layer_owner, false)
+	smound.force_deferred_erosion = false
+	var sdef := _snapshot(sprobes)
+
+	var sworst := _max_diff_arr(ssync, sdef)
+	var srelief := _max_diff_arr(sbare, sdef)
+	print("    in a Relief Stack: worst |deferred - synchronous| = %.8f m, and the stacked mountain "
+			% sworst + "moves the ground %.4f m" % srelief)
+	if sworst > 1.0e-5:
+		_fail += 1
+		print("    !! the stack served the splice it made before the field landed")
+	if srelief < 1.0:
+		_fail += 1
+		print("    !! the stacked DLA stamps nothing on the deferred path, so it agrees with the\n"
+			+ "       synchronous arm by both stamping nothing")
+	_completed += 1
+
