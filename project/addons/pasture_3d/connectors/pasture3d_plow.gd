@@ -444,6 +444,11 @@ func _paint_spline(path: Path3D) -> void:
 			relief.set_host_frame(1.0, 1.0)
 		else:
 			relief.set_host_frame(frame[4], frame[5])
+		# §9.9. A Plow has no deferred driver, so it takes the synchronous growth — which is what this
+		# host always did. Said explicitly rather than left at whatever the flag happens to hold: a
+		# material shared with a Mound is offered deferral by the Mound's driver, and a Plow compiling one
+		# mid-flight would otherwise get the empty program the offer produces and stamp nothing.
+		relief.set_growth_deferred(false)
 		var prog: Array = relief.compile()
 		ops = prog[0]
 		op_params = prog[1]

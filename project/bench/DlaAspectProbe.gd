@@ -63,6 +63,8 @@ func _make(p_res: int, p_detail: float) -> Pasture3DReliefDLA:
 	m.coverage = 0.90
 	m.detail_size = p_detail
 	m.wander = 0.32
+	# LIVE: this probe measures the growth, and FROZEN would hold one field across every arm of the sweep.
+	m.evaluation = Pasture3DReliefDLA.Evaluation.LIVE
 	return m
 
 

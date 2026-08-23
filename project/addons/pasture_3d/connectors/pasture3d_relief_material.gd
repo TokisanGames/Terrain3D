@@ -319,6 +319,70 @@ func set_seed_surface(_p_surface: Dictionary) -> bool:
 	return false
 
 
+## ---- The growth protocol (§9.9) --------------------------------------------------------------------
+#
+# A material whose build costs SECONDS rather than microseconds cannot be rebuilt inside every bake an
+# `auto_refresh` drag fires, and Pasture3DReliefDLA is the only one: it grows a cluster on a 512 grid
+# in GDScript. The three hooks below are the relief-side half of the same bargain Pasture3DModErosion
+# makes with its frozen cache — hold what was built, rebuild on an explicit Bake, and say so meanwhile.
+#
+# WHY IT LIVES HERE AND NOT ON THE MODIFIER. What makes erosion safe is not that it is a
+# Pasture3DBrushModifier; it is `evaluation`, a keyed cache, a Bake button and a stale warning. None of
+# those needs a modifier to live on, and a DLA is a POINT operator at evaluation time — its grid is
+# baked into the op program and bilinear-sampled per cell — so moving it out of the relief system to buy
+# a cache would cost it selectors, output_curve, blend, stack layering and the shared C++/GDScript
+# oracle, and buy nothing the four hooks below do not.
+#
+# Every one is a no-op on the base and forwarded by Pasture3DReliefStack, which is not optional: a stack
+# COPIES its layers' bytes into its own program, so a layer that rebuilds without the stack hearing about
+# it leaves the stack serving the splice it made last time.
+
+
+## Tell this material whether the host can build it OFF THE MAIN THREAD this bake.
+##
+## True means "do not build inside compile(); emit nothing and put yourself on `collect_growth`, and I
+## will build you on a worker and bake again". False — the default, and what every host that has no
+## deferred driver leaves it at (the Plow, a headless gate) — means "build now, in here", which is what
+## this material did before there was a driver at all.
+##
+## Sets `_dirty` directly rather than calling _touch(), like set_host_frame: the host calls it DURING a
+## bake, and a `changed` from there is a re-bake inside a bake. RETURNS whether it invalidated anything,
+## so a stack can invalidate its own splice.
+func set_growth_deferred(_p_deferred: bool) -> bool:
+	return false
+
+
+## True when there is an expensive build ANYWHERE in this material — a Pasture3DReliefDLA, at any depth
+## in a stack. Asked BEFORE the bake, by a host deciding whether to route it through a deferred driver at
+## all, so it answers "could this ever need growing", not "does it need growing now". The second question
+## has no honest answer without compiling, which is the bake.
+func has_growth() -> bool:
+	return false
+
+
+## Append every material at any depth that has a build outstanding — one the host asked it to defer.
+## The host runs `grow_now()` on each, on a worker, and bakes again.
+func collect_growth(_p_out: Array) -> void:
+	pass
+
+
+## Build the outstanding field. RUNS ON A POOL THREAD: an implementation may touch nothing but its own
+## members — no tree, no servers, no push_warning (§20.4).
+func grow_now() -> void:
+	pass
+
+
+## Drop what was built so the next bake rebuilds it. This is the explicit Bake, and the count is what the
+## brush and Bake All Brushes report. A material that builds nothing expensive has nothing to drop.
+func clear_growth() -> int:
+	return 0
+
+
+## Bytes currently held by a built field, so the brush can report a budget nobody would otherwise see.
+func growth_bytes() -> int:
+	return 0
+
+
 ## Append a selector to the table and return its index (the value an op stores in its selector slot).
 func _emit_selector(s: Pasture3DReliefSelector) -> int:
 	var id := _selectors.size() / SELECTOR_STRIDE

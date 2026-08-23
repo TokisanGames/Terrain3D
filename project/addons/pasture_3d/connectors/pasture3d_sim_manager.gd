@@ -1501,7 +1501,7 @@ func resolved_eroding_brushes() -> Dictionary:
 			# another one cannot be baked here correctly. Named rather than attempted.
 			out["foreign"].append(String(b.name))
 			continue
-		if b.erosion_modifiers().is_empty():
+		if b.erosion_modifiers().is_empty() and not b._has_growing_relief():
 			out["unarmed"].append(String(b.name))
 		out["brushes"].append(b)
 	return out
@@ -1552,14 +1552,15 @@ func bake_all_brushes() -> void:
 	_running = false
 	_cancel = false
 	var report := _bake_all_finish(ctx)
-	print("%s: Bake All Brushes %s — %d of %d brush(es) across %d layer(s), %d frozen solve(s) cleared."
+	print(("%s: Bake All Brushes %s — %d of %d brush(es) across %d layer(s), %d frozen solve(s) and "
+		+ "%d grown relief field(s) cleared.")
 		% [_sim_label(), "CANCELLED" if bool(report["cancelled"]) else "done", int(report["baked"]),
-			int(report["total"]), int(report["owners"]), int(report["cleared"])])
+			int(report["total"]), int(report["owners"]), int(report["cleared"]), int(report["grown"])])
 
 
 ## The scripted entry point, so gates and tools get a report back and no frames are yielded.
 ##
-## `{ok, reason, total, baked, owners, cleared, cancelled, stale, foreign, unarmed, undo}`. `undo` carries
+## `{ok, reason, total, baked, owners, cleared, grown, cancelled, stale, foreign, unarmed, undo}`. `undo` carries
 ## `{before, after}` — a layer-owner-keyed tile snapshot each — which is the same pair the editor action
 ## registers. It is returned rather than kept private because `EditorUndoRedoManager` does not exist in a
 ## headless run, and an untestable undo is an undo that is wrong the first time someone presses Ctrl+Z.
@@ -1611,10 +1612,14 @@ func _bake_all_step(p_ctx: Dictionary, p_index: int) -> void:
 		p_ctx["before"][owner] = _snapshot_owner(owner)
 	for b in brushes:
 		p_ctx["cleared"] = int(p_ctx["cleared"]) + b.clear_erosion_caches()
+		# §9.9. A DLA's grown mountain is FROZEN for the same reason a solve is, so it needs the same
+		# clear for the same reason: without it Bake All serves the field it already had and does visibly
+		# nothing on a brush whose loop was reshaped under a frozen mountain.
+		p_ctx["grown"] = int(p_ctx.get("grown", 0)) + b.clear_relief_growth()
 	# `_refresh_owner` is the brush's own layer bake — clear the layer, repaint every tool bound to it,
 	# one GPU push. Called with record_undo FALSE: this run is one action, not one per layer.
 	var lead: Pasture3DTerrainBrush = brushes[0]
-	if bool(p_ctx.get("deferred", false)) and lead._wants_deferred_erosion():
+	if bool(p_ctx.get("deferred", false)) and lead._wants_deferred_bake():
 		# The caches were just dropped, so this layer WILL solve — which is the whole point of the
 		# button and, before §14, the whole reason it froze the editor for a minute at a time. Held here
 		# so Cancel can reach the brush that is actually solving.
@@ -1634,6 +1639,7 @@ func _bake_all_finish(p_ctx: Dictionary) -> Dictionary:
 	report["baked"] = p_ctx["baked"]
 	report["owners"] = p_ctx["after"].size()
 	report["cleared"] = p_ctx["cleared"]
+	report["grown"] = p_ctx.get("grown", 0)
 	report["cancelled"] = p_ctx["cancelled"]
 	report["undo"] = {"before": p_ctx["before"], "after": p_ctx["after"]}
 	last_bake_report = report
@@ -1757,13 +1763,16 @@ func scan_for_eroding_brushes() -> int:
 	var fresh := eroding_brushes.duplicate()
 	var added := PackedStringArray()
 	for b: Pasture3DTerrainBrush in found:
-		if listed.has(b) or b.erosion_modifiers().is_empty():
+		# A brush with a grown relief field but no erosion counts: §9.9 gave a DLA the same frozen cache
+		# and the same Bake button, so it is the same kind of thing this list exists to re-bake.
+		if listed.has(b) or (b.erosion_modifiers().is_empty() and not b._has_growing_relief()):
 			continue
 		listed[b] = true
 		fresh.append(get_path_to(b))
 		added.append(String(b.name))
 	if added.is_empty():
-		print("%s: no unregistered brushes with an enabled erosion modifier were found." % _sim_label())
+		print("%s: no unregistered brushes with an enabled erosion modifier or a grown relief field were found."
+				% _sim_label())
 		return 0
 	eroding_brushes = fresh
 	print("%s: registered %d eroding brush(es): %s." % [_sim_label(), added.size(), ", ".join(added)])

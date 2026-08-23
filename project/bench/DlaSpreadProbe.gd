@@ -79,6 +79,8 @@ func _run(p_name: String, p_label: String, p_capped: bool, p_flank: int, p_cover
 	mat.profile_power = p_power
 	mat.blur_growth = p_growth
 	mat.seed = 5
+	# LIVE: the sweep varies growth inputs and reads the mountain each one produces.
+	mat.evaluation = Pasture3DReliefDLA.Evaluation.LIVE
 	var shape := Pasture3DModRelief.new()
 	shape.material = mat
 	shape.strength = 15.0

@@ -36,6 +36,29 @@ extends Pasture3DReliefMaterial
 ## blur wanted it or not, and measured on a 240 m loop that left the relief at exactly 0.00 m for the
 ## first 24 m in from the edge — reported from the editor as "the influence only goes half way down the
 ## mesh", which is precisely what it was.
+## LIVE regrows the cluster whenever anything it is grown from moves; FROZEN holds the mountain it has
+## and regrows only on Bake Mountain.
+##
+## The same two words Pasture3DModErosion uses, deliberately — and the same default, for the same reason.
+## Growing a 512² cluster is seconds of GDScript, `auto_refresh` re-bakes on every frame of a drag, and
+## a material that regrew per frame locked the editor. FROZEN is what makes this a usable brush.
+enum Evaluation { LIVE, FROZEN }
+
+## Whether the cluster regrows on every change, or holds until Bake Mountain.
+##
+## FROZEN is the default and one rule covers everything: ANY change — a slider here, the loop's shape,
+## the surface Ridge Seeding reads — leaves the grown mountain in place and raises a stale warning until
+## you press Bake Mountain. Set it to Live on a small, low-Resolution material where a regrow is cheap
+## enough to watch.
+@export var evaluation: Evaluation = Evaluation.FROZEN:
+	set(v):
+		evaluation = v
+		_touch()
+
+## Regrow the cluster against everything as it stands now. The explicit Bake, and the counterpart to
+## Pasture3DModErosion's Bake Erosion.
+@export_tool_button("Bake Mountain") var _bake_btn = bake_mountain
+
 @export_range(0.2, 1.0, 0.01) var coverage: float = 0.95:
 	set(v):
 		coverage = clampf(v, 0.2, 1.0)
@@ -154,6 +177,23 @@ var _seed_hash := 0
 var _dla_key := ""
 var _dla_field := PackedFloat32Array()
 var _dla_n := 0
+# The field's own dimensions AT THE TIME IT WAS GROWN. `_build` crops to these rather than to the loop's
+# current ones, which matters only while FROZEN and stale: cropping a field grown for a square loop down
+# to a newly-narrowed rectangle would cut the massif off at the crop edge — the loop-boundary step the
+# blur budget exists to prevent, reintroduced by the cache that was supposed to be harmless.
+var _dla_dims := Vector2i.ZERO
+## Set when the held field was grown for inputs that have since moved. Reported as a warning rather than
+## silently regrowing (which is the freeze) or silently serving old data (which is the trap).
+var _stale := false
+## True while the host has told us it can grow this off the main thread — see set_growth_deferred.
+var _growth_deferred := false
+## Set by `_build` when it declined to grow inside a bake, and cleared when the field lands. This is what
+## `collect_growth` hands the host.
+var _pending_grow := false
+## One-shot: a worker's field was stored since the host last asked about deferral. Without it a stack
+## enclosing this material would not be told to re-splice, and pass 3 of the driver would hand out the
+## empty program pass 1 produced. See set_growth_deferred.
+var _growth_landed := false
 # The loop's oriented half-extents in metres, handed over by the host before every compile (see
 # set_host_frame). Only their RATIO is used, and only to decide `_field_dims` — a mountain has no absolute
 # size in here, it has a size relative to its loop.
@@ -205,6 +245,13 @@ func set_host_frame(p_ex: float, p_ez: float) -> bool:
 	if dims == _host_dims:
 		return false
 	_host_dims = dims
+	# FROZEN and holding a mountain: the compiled program does not change — `_build` emits the field at
+	# the dims it was GROWN for — so invalidating here would put a recompile and a re-splice through every
+	# enclosing stack on every frame of a reshape drag, to produce the same bytes. The shape change is
+	# recorded as staleness instead, which is the thing the user actually needs told.
+	if evaluation == Evaluation.FROZEN and not _dla_field.is_empty():
+		_mark_stale()
+		return false
 	_dirty = true
 	return true
 
@@ -316,16 +363,32 @@ func _particles() -> int:
 	return clampi(int(float(REF_PARTICLES) * (r / ref_r) * pow(REF_DETAIL / detail_size, 0.7)), 64, 24000)
 
 
+## THREE OUTCOMES, and which one this is depends on `evaluation` and on what is already held:
+##
+##   * nothing grown yet — grow, here or on the host's worker, and emit nothing until it lands;
+##   * LIVE and something moved — regrow, but keep emitting the old mountain meanwhile so it does not
+##     blink out of the viewport for the pass in between;
+##   * FROZEN and something moved — emit what is held and say it is stale. This is the case the whole
+##     mechanism exists for, and it is one rule: EVERY input is covered by it, because the key is a hash
+##     of all of them rather than a list of the ones somebody remembered to check.
 func _build() -> void:
 	# Seeding on and nothing handed over yet: emit NOTHING rather than grow an unseeded mountain the next
 	# bake would throw away. The brush warns, captures the surface on this bake, and comes straight back.
 	if ridge_seeding and _seed.is_empty():
 		return
-	var f := _field()
-	if f.is_empty():
+	var want := _growth_key()
+	if want != _dla_key or _dla_field.is_empty():
+		if evaluation == Evaluation.LIVE or _dla_field.is_empty():
+			if _growth_deferred:
+				_pending_grow = true
+			else:
+				_grow_field()
+		else:
+			_mark_stale()
+	if _dla_field.is_empty():
 		return
-	var d := _field_dims()
-	_emit(Op.DLA, Blend.ADD, [1.0, _bake_field(_crop(f, _dla_n, d.x, d.y), d.x, d.y)])
+	_emit(Op.DLA, Blend.ADD, [1.0, _bake_field(_crop(_dla_field, _dla_n, _dla_dims.x, _dla_dims.y),
+			_dla_dims.x, _dla_dims.y)])
 
 
 ## True when this material is waiting on the host to hand it a surface to seed from. The host asks before
@@ -349,20 +412,93 @@ func set_seed_surface(p_surface: Dictionary) -> bool:
 		return false
 	_seed = p_surface
 	_seed_hash = h
+	# FROZEN and already grown: KEEP THE SURFACE, do not regrow, and do not ask for another bake.
+	#
+	# This is the freeze the whole change is about. The captured surface moves whenever anything on the
+	# brush does — including translating the node, which changes nothing else about the mountain — so a
+	# seeded DLA answered `true` on every bake of every drag, regrew a 512² cluster to do it, and got a
+	# second bake scheduled for its trouble. Two regrows per frame. The surface is still taken, so Bake
+	# Mountain grows from what is on the brush NOW rather than from whatever it last happened to see.
+	if evaluation == Evaluation.FROZEN and not _dla_field.is_empty():
+		_mark_stale()
+		return false
 	_touch()
 	return true
 
 
-## The normalised 0..1 field, grown on demand and cached on the growth inputs.
-func _field() -> PackedFloat32Array:
-	# The field dimensions are a growth input like any other: the envelope is derived from them, so two
-	# loops of different shape are two different mountains and must not share a cache slot.
+## Everything the grown cluster depends on, in one string. A HASH OF THE INPUTS rather than a list of
+## which edits count as a change, for the same reason `brush_mod_erosion_key` hashes the solver's input
+## grid: it is complete by construction, and nothing can be forgotten out of it later.
+##
+## The field dimensions are a growth input like any other — the envelope is derived from them, so two
+## loops of different shape are two different mountains. `strength`, `blend`, `selector` and
+## `output_curve` are deliberately NOT in here: they invalidate the compiled program and none of them
+## moves a single cell of the cluster.
+func _growth_key() -> String:
 	var d := _field_dims()
-	var key := "%d|%d|%d|%.4f|%.4f|%d|%.4f|%.4f|%.4f|%d|%.4f|%d|%d|%d" % [seed, resolution,
+	return "%d|%d|%d|%.4f|%.4f|%d|%.4f|%.4f|%.4f|%d|%.4f|%d|%d|%d" % [seed, resolution,
 			hierarchy_levels, detail_size, wander, blur_levels, blur_growth, profile_power, coverage,
 			1 if ridge_seeding else 0, ridge_amount, _seed_hash, d.x, d.y]
-	if key == _dla_key and not _dla_field.is_empty():
-		return _dla_field
+
+
+## Grow the cluster and take the result, on whichever thread called. The synchronous path: what every
+## host without a deferred driver gets (the Plow, a headless gate), and what this material always did.
+func _grow_field() -> void:
+	var st := {}
+	grow_into(st)
+	store_growth(st)
+
+
+## ---- The growth protocol (Pasture3DReliefMaterial's four hooks) ------------------------------------
+
+
+## The host offering to grow this off the main thread for the bake in flight. See the base class.
+##
+## Reports a change only when the ANSWER changes the compiled program. A material that is holding a field
+## and has nothing outstanding emits the same bytes either way, and saying "yes I moved" there would put
+## a recompile and a re-splice through every enclosing stack on both passes of every deferred bake.
+##
+## `_growth_landed` is why this is not simply `_pending_grow`: after the worker's field is stored, this
+## material's own `_dirty` is already set, but the STACK holding it has copied the empty program pass 1
+## produced and has no other way to hear that the bytes underneath it moved.
+func set_growth_deferred(p_deferred: bool) -> bool:
+	# A landed field is reported whether or not the FLAG moved. The driver's growth loop bakes twice with
+	# deferral still on — grow, then bake again to see whether that produced more work — and on that
+	# second bake the flag has not changed. Reporting nothing there leaves the enclosing stack splicing
+	# the empty program the first bake produced, which is a stacked DLA painting nothing at all.
+	var moved := _growth_landed
+	_growth_landed = false
+	if _growth_deferred != p_deferred:
+		_growth_deferred = p_deferred
+		if _pending_grow or _dla_field.is_empty():
+			moved = true
+	if moved:
+		_dirty = true
+	return moved
+
+
+func has_growth() -> bool:
+	return true
+
+
+func collect_growth(p_out: Array) -> void:
+	if _pending_grow:
+		p_out.append(self)
+
+
+## RUNS ON A POOL THREAD. Grows the cluster into `p_state` and writes NOTHING back to this material —
+## the same discipline `_erosion_solve_one` keeps, and for the same reason: the main thread is yielding
+## frames while this runs, and an inspector redraw or a mask preview can compile this material on any one
+## of them. A half-replaced `_dla_field` read by a compile is a crash, not a wrong mountain.
+##
+## It does READ this material's properties, and the main thread could move one mid-grow. That is benign
+## and self-correcting: the key was taken before the growth started, so a field grown against a moved
+## slider is stored under a key that no longer matches and the next bake reports it stale.
+func grow_into(p_state: Dictionary) -> void:
+	# Taken HERE, before the first particle walks, so that a property moved while this runs produces a
+	# field stored under a key that no longer matches — reported stale on the next bake — rather than one
+	# quietly filed as current.
+	p_state["key"] = _growth_key()
 	var rng := RandomNumberGenerator.new()
 	# Seeded, never randomize(): the field is part of the compiled program, so two bakes of one saved
 	# resource have to be bitwise identical or every re-bake would move the mountain. Gate CP.
@@ -370,11 +506,69 @@ func _field() -> PackedFloat32Array:
 	var res := _grid_size()
 	var n0 := maxi(res >> (hierarchy_levels - 1), 16)
 	var cluster := _grow(rng, n0, res)
-	var raster := _rasterise(cluster, res)
-	_dla_field = _mass(raster, res)
-	_dla_n = res
-	_dla_key = key
-	return _dla_field
+	p_state["field"] = _mass(_rasterise(cluster, res), res)
+	p_state["n"] = res
+	p_state["dims"] = _field_dims()
+
+
+## MAIN THREAD. Take what `grow_into` built. Split from it so nothing but this line ever writes the
+## material's own arrays, whichever thread the growth ran on.
+func store_growth(p_state: Dictionary) -> void:
+	_dla_field = p_state["field"]
+	_dla_n = int(p_state["n"])
+	_dla_dims = p_state["dims"]
+	_dla_key = String(p_state["key"])
+	_pending_grow = false
+	_stale = false
+	_growth_landed = true
+	_dirty = true
+
+
+## Called on a worker by the host, one material at a time. The pair above, in the order a driver wants
+## them — kept here so a host never has to know that `grow_into` is the half that may not touch anything.
+func grow_now() -> void:
+	_grow_field()
+
+
+## Drop the grown mountain so the next bake grows a new one. THE BAKE BUTTON.
+##
+## Nothing here is saved with the resource, so this is the whole cache: reopening a scene regrows once,
+## in the background, and the alternative is a megabyte of float field inside every .tres that references
+## the material. Same trade Pasture3DModErosion makes, and for the same reason — the mountain the user is
+## looking at is already persisted, in the terrain's layer data.
+func clear_growth() -> int:
+	if _dla_field.is_empty() and not _stale:
+		return 0
+	_dla_field = PackedFloat32Array()
+	_dla_dims = Vector2i.ZERO
+	_dla_n = 0
+	_dla_key = ""
+	_stale = false
+	_touch()
+	return 1
+
+
+func growth_bytes() -> int:
+	return _dla_field.size() * 4
+
+
+## The Bake Mountain button. `clear_growth` answers with a count that a tool button has nowhere to put.
+func bake_mountain() -> void:
+	clear_growth()
+
+
+## Record that the held mountain no longer matches its inputs.
+##
+## Deliberately NOT `_touch()`: every caller runs DURING a bake, and `_touch` emits `changed`, which the
+## brush re-bakes on. The deferred emit on the FALSE->TRUE edge only is what puts the warning in the
+## inspector without turning a reshape drag into one re-bake per frame — the flag stays true for the rest
+## of the drag, so the edge fires once. Mirrors Pasture3DModErosion.set_stale.
+func _mark_stale() -> void:
+	if _stale:
+		return
+	_stale = true
+	if Engine.is_editor_hint():
+		emit_changed.call_deferred()
 
 
 ## Cut the loop's own rectangle out of the square working grid. Exactly centred, because `_field_dims`
@@ -895,6 +1089,10 @@ func _effective_levels() -> int:
 
 
 func _configuration_warning() -> String:
+	if _stale:
+		return ("Relief DLA is FROZEN and something it is grown from has changed, so the terrain is "
+			+ "showing the mountain it grew for the OLD settings. Press Bake Mountain to regrow it, or "
+			+ "set Evaluation to Live.")
 	if hierarchy_levels > _effective_levels():
 		return (("Relief DLA is set to %d hierarchy levels but a %d² grid can only run %d — the coarsest "
 			+ "grid bottoms out at 16 cells. Raise Resolution, or lower Hierarchy Levels to %d.")

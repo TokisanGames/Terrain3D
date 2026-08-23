@@ -118,6 +118,60 @@ func set_seed_surface(p_surface: Dictionary) -> bool:
 	return moved
 
 
+## Forward the host's offer to build off the main thread, and invalidate THIS program when a layer takes
+## it up. Same `_dirty`-not-_touch() rule as set_host_frame, and for the same reason — the host calls this
+## during a bake. A layer that switches between "emit nothing, I am waiting to be grown" and "here is the
+## field" changes the bytes this stack splices, so a memoised stack that did not hear about it would keep
+## handing out the empty program the deferring pass produced.
+func set_growth_deferred(p_deferred: bool) -> bool:
+	var moved := false
+	for m in layers:
+		if m != null and m.set_growth_deferred(p_deferred):
+			moved = true
+	if moved:
+		_dirty = true
+	return moved
+
+
+func has_growth() -> bool:
+	for m in layers:
+		if m != null and m.has_growth():
+			return true
+	return false
+
+
+## Ask every layer, at any depth. A stack grows nothing of its own; what it has to get right is that a
+## DLA inside it is not invisible to the host's driver — the host asks the material it was handed, and
+## what it was handed is this. The same gap that once made a stacked DLA's Ridge Seeding inert.
+func collect_growth(p_out: Array) -> void:
+	for m in layers:
+		if m != null:
+			m.collect_growth(p_out)
+
+
+## Nothing to build here — `collect_growth` hands the host the LAYERS, and the host calls grow_now() on
+## those. A stack never appears in that list, so this is never reached; it is overridden only to make
+## that explicit rather than leave the base's no-op looking like an oversight.
+func grow_now() -> void:
+	pass
+
+
+func clear_growth() -> int:
+	var n := 0
+	for m in layers:
+		if m != null:
+			n += m.clear_growth()
+	return n
+
+
+func growth_bytes() -> int:
+	var n := 0
+	for m in layers:
+		if m != null:
+			n += m.growth_bytes()
+	return n
+
+
 func _build() -> void:
 	for m in layers:
 		if m == null:
