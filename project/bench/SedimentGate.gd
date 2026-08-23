@@ -35,7 +35,30 @@ const BREAK_ROW := 56
 ## Settings that visibly erode this fixture, from the same reasoning as SimPhase1Gate's EROSIVE.
 const ERODE := {"iterations": 30, "erosion_rate": 0.2, "area_exponent": 0.45, "diffusion": 0.0}
 
+## BV is a PERF gate and this box shares itself with another engine, so it does not run unless somebody
+## says so (§11, and the same rule SimProfile and gate CM follow). Flip to true, run it, read the numbers.
+## It stays false in the file: a timing criterion on a CI runner or a busy dev box measures the load, and
+## a check that goes red at random is a check everybody learns to ignore.
+const RUN_PERF := false
+
+## How many times each timed solve is repeated. The MINIMUM is kept, not the mean: a solve cannot run
+## faster than the machine allows, so the fastest of several is the one least contaminated by whatever
+## else the box is doing, while an average is a measurement of the neighbours.
+const PERF_REPEATS := 3
+
+## Cost must stay within this factor, per cell, across a 16x increase in cell count. Stated BEFORE
+## measuring rather than fitted after: an O(n log n) flood over a 16x span costs about 1.33x per cell in
+## the log term alone, and cache behaviour is allowed to roughly double that before "close to linear"
+## stops being an honest description of the scheme.
+const PERF_LINEARITY := 2.5
+
+## The control's floor: raising G from near-nothing to near-one must cost at least this much more time on
+## a FIXED grid, or the stopwatch is not measuring the iteration and the linearity number above is a
+## measurement of setup overhead.
+const PERF_G_RISE := 1.2
+
 var _fail := 0
+var _completed := 0
 var _root: Node3D
 var _terrain
 var _data
@@ -59,8 +82,16 @@ func _ready() -> void:
 	_gate_bs_g_zero_is_the_old_solver()
 	_gate_bt_bounded_by_erosion()
 	_gate_bu_convergence_and_the_cap()
-	_gate_bv_cost(false) # PERF GATE — off by default, see the function
+	_gate_bv_cost(RUN_PERF)
 
+	# House rule (bench/OceanBench.gd): a GDScript runtime error abandons the function WITHOUT
+	# incrementing the failure count, so a suite that only counts failures can report a clean pass having
+	# measured nothing. BV counts itself only when it actually ran.
+	var want := 5 if RUN_PERF else 4
+	if _completed != want:
+		_fail += 1
+		print("\n!! only %d of %d gates ran to completion; the rest hit a runtime error and measured nothing"
+				% [_completed, want])
 	print("\n=== %s (%d failures) ===\n" % ["SEDIMENT PASS" if _fail == 0 else "SEDIMENT FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -114,6 +145,7 @@ func _gate_br_deposits_without_diffusion() -> void:
 	if eroded < 1.0:
 		_fail += 1
 		print("    !! the fixture barely erodes; there is no sediment for the transport term to move")
+	_completed += 1
 
 
 # --- BS: G = 0 is the solver Pasture3D already shipped ----------------------------------------------
@@ -167,6 +199,7 @@ func _gate_bs_g_zero_is_the_old_solver() -> void:
 	if sweeps1 < 1 or moved < 0.1:
 		_fail += 1
 		print("    !! G is not doing anything, so every agreement above is vacuous")
+	_completed += 1
 
 
 # --- BT: G puts material back, and cannot put back more than it took --------------------------------
@@ -233,6 +266,7 @@ func _gate_bt_bounded_by_erosion() -> void:
 	if cut < 0.05:
 		_fail += 1
 		print("    !! G barely changes how much is removed; monotonicity here is measuring noise")
+	_completed += 1
 
 
 # --- BU: convergence degrades with G, is reported, and is capped ------------------------------------
@@ -282,33 +316,82 @@ func _gate_bu_convergence_and_the_cap() -> void:
 	if capped:
 		_fail += 1
 		print("    !! even a moderate G hits the ceiling; the ceiling is too low to be useful")
+	_completed += 1
 
 
 # --- BV: cost stays close to linear in cell count ----------------------------------------------------
 #
-# PERF GATE — OFF BY DEFAULT. Benchmarks on this machine need the user's go-ahead before running
-# (another engine shares the box), so this is called with `false` and prints what it would do.
+# PERF GATE — OFF BY DEFAULT (see RUN_PERF). Benchmarks on this machine need the user's go-ahead before
+# running, because another engine shares the box.
+#
+# The claim is about the SCHEME, not about this machine: Yuan's deposition keeps the O(N) structure the
+# whole design rests on, so per-cell cost must not run away as the grid grows. Reported as us/cell across
+# a 16x span in cell count, which is wide enough that a superlinear term has somewhere to show.
+#
+# THE CONTROL IS ABOUT THE STOPWATCH, not about convergence — BU already owns "sweeps rise with G". What
+# BV needs to know is that its TIMER is sensitive to the iteration at all: if a solve at G = 0.95, which
+# BU measures at roughly twenty sweeps against one, does not cost visibly more than G = 0.05 on the same
+# grid, then the numbers above are dominated by allocation and setup and "cost is linear in cells" would
+# be true of a solver that did no work.
 func _gate_bv_cost(p_run: bool) -> void:
 	print("\n[BV] cost against grid size — PERF GATE")
 	if not p_run:
-		print("    SKIPPED. Perf gates need the user's go-ahead on this machine. Enable by calling")
-		print("    _gate_bv_cost(true): it solves 64/128/256 grids at fixed G and reports ms per cell,")
-		print("    with the control that raising G toward the transport-limited end must visibly")
-		print("    degrade convergence — if it does not, the timing is not measuring the iteration.")
+		print("    SKIPPED. Perf gates need the user's go-ahead on this machine. Set RUN_PERF = true to")
+		print("    run it: it solves 64/128/256 grids at fixed G and reports us per cell, with the")
+		print("    control that raising G on a fixed grid must visibly cost more — if it does not, the")
+		print("    timing is not measuring the iteration.")
 		return
+
 	var sizes: Array[int] = [64, 128, 256]
-	for s in sizes:
-		var z0 := _slope_break_at(s)
-		var p := ERODE.duplicate()
-		p["deposition"] = 0.5
-		p["gw"] = s
-		p["gh"] = s
-		p["cell_size"] = SCELL
-		var t0 := Time.get_ticks_usec()
-		var res: Dictionary = _data.erode_heightfield(z0, p, PackedFloat32Array())
-		var ms := float(Time.get_ticks_usec() - t0) / 1000.0
-		print("    %d^2 = %d cells: %.1f ms (%.4f us/cell), %d sweeps"
-				% [s, s * s, ms, ms * 1000.0 / float(s * s), int(res.get("deposition_sweeps", 0))])
+	var per_cell: Array[float] = []
+	var worked := true
+	for sz in sizes:
+		var r := _timed_solve(sz, 0.5)
+		if r.is_empty():
+			_fail += 1
+			print("    !! the solver rejected the %dx%d grid; nothing was timed" % [sz, sz])
+			return
+		var us_cell: float = float(r["ms"]) * 1000.0 / float(sz * sz)
+		per_cell.append(us_cell)
+		print("    %d^2 = %6d cells: %8.1f ms  (%.4f us/cell), %d sweeps"
+				% [sz, sz * sz, float(r["ms"]), us_cell, int(r["sweeps"])])
+		if int(r["sweeps"]) < 1:
+			worked = false
+
+	# "Measured nothing" guard. A solve reporting no sweeps at G = 0.5 did not run the transporting path,
+	# and timing it would be timing the detachment-limited solver under another name.
+	if not worked:
+		_fail += 1
+		print("    !! a timed solve reported no deposition sweeps, so the transporting path never ran")
+
+	var lo := per_cell[0]
+	var hi := per_cell[0]
+	for v in per_cell:
+		lo = minf(lo, v)
+		hi = maxf(hi, v)
+	var spread := hi / maxf(lo, 0.000001)
+	print("    criterion: per-cell cost spreads %.2fx across a %dx increase in cells (limit %.2fx)"
+			% [spread, (sizes[2] * sizes[2]) / (sizes[0] * sizes[0]), PERF_LINEARITY])
+	if spread > PERF_LINEARITY:
+		_fail += 1
+		print("    !! per-cell cost is running away with grid size; the scheme is not behaving as O(N)")
+
+	# CONTROL — the stopwatch must see the iteration.
+	var cheap := _timed_solve(128, 0.05)
+	var dear := _timed_solve(128, 0.95)
+	if cheap.is_empty() or dear.is_empty():
+		_fail += 1
+		print("    !! the control's solves failed; the linearity number above is unguarded")
+		_completed += 1
+		return
+	var rise: float = float(dear["ms"]) / maxf(float(cheap["ms"]), 0.000001)
+	print("    CONTROL 128^2 at G=0.05 (%d sweeps, %.1f ms) vs G=0.95 (%d sweeps, %.1f ms): %.2fx"
+			% [int(cheap["sweeps"]), float(cheap["ms"]), int(dear["sweeps"]), float(dear["ms"]), rise])
+	if rise < PERF_G_RISE:
+		_fail += 1
+		print("    !! twenty sweeps cost no more than one, so this timer is measuring setup and not the")
+		print("       iteration — the per-cell numbers above are about allocation, not about the scheme")
+	_completed += 1
 
 
 # --- fixtures and helpers ---------------------------------------------------------------------------
@@ -323,6 +406,29 @@ func _gate_bv_cost(p_run: bool) -> void:
 ## routing through it says more about the flood than about transport.
 func _slope_break() -> PackedFloat32Array:
 	return _slope_break_at(SG)
+
+
+## One solve at a given grid size and G, timed. Returns {ms, sweeps} — the MINIMUM wall time over
+## PERF_REPEATS runs, for the reason PERF_REPEATS gives. Empty when the solver rejected the grid, so a
+## caller cannot mistake a refusal for a fast solve.
+func _timed_solve(p_n: int, p_g: float) -> Dictionary:
+	var z0 := _slope_break_at(p_n)
+	var p := ERODE.duplicate()
+	p["deposition"] = p_g
+	p["gw"] = p_n
+	p["gh"] = p_n
+	p["cell_size"] = SCELL
+	var best := INF
+	var sweeps := 0
+	for _i in range(PERF_REPEATS):
+		var t0 := Time.get_ticks_usec()
+		var res: Dictionary = _data.erode_heightfield(z0, p, PackedFloat32Array())
+		var ms := float(Time.get_ticks_usec() - t0) / 1000.0
+		if not bool(res.get("ok", false)):
+			return {}
+		best = minf(best, ms)
+		sweeps = int(res.get("deposition_sweeps", 0))
+	return {"ms": best, "sweeps": sweeps}
 
 
 func _slope_break_at(p_n: int) -> PackedFloat32Array:

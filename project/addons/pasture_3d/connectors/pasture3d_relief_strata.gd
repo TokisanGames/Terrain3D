@@ -117,7 +117,12 @@ func _build() -> void:
 
 ## Band Range is meaningless on the two Band Sources that are not Ground Altitude. Hidden rather than
 ## disabled, and never cleared, so switching back restores what was typed.
+##
+## `super` FIRST, and it is not optional: GDScript resolves a virtual to the most-derived implementation
+## and stops there, so an override that does not chain silently repeals the base's rule. The base hides
+## `blend` on a material that is not in a stack, and this override used to un-hide it — see spec §16.1.
 func _validate_property(property: Dictionary) -> void:
+	super(property)
 	if (property.get("name", "") == "band_range"
 			and band_source != Pasture3DReliefMaterial.BandSource.GROUND_ALTITUDE):
 		property.usage &= ~PROPERTY_USAGE_EDITOR

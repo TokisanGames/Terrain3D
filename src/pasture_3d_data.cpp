@@ -2686,6 +2686,7 @@ void Pasture3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("gpu_raster_available"), &Pasture3DData::gpu_raster_available);
 	// Pasture3DSim (PASTURE3D_SIM_NODE_SPEC.md §4, §6, §8.1).
 	ClassDB::bind_method(D_METHOD("erode_heightfield", "z", "params", "erodability"), &Pasture3DData::erode_heightfield, DEFVAL(PackedFloat32Array()));
+	ClassDB::bind_method(D_METHOD("erosion_progress"), &Pasture3DData::erosion_progress);
 	ClassDB::bind_method(D_METHOD("resample_grid", "src", "sw", "sh", "dw", "dh"), &Pasture3DData::resample_grid);
 	ClassDB::bind_method(D_METHOD("selector_mask_field", "z", "params", "selectors", "sim_result"), &Pasture3DData::selector_mask_field, DEFVAL(Dictionary()));
 	ClassDB::bind_method(D_METHOD("sim_mask_deltas", "deltas", "poly", "params", "lut"), &Pasture3DData::sim_mask_deltas);

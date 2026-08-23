@@ -5,6 +5,7 @@
 #include <godot_cpp/variant/utility_functions.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <queue>
@@ -14,6 +15,17 @@
 #endif
 
 using namespace godot;
+
+// See erosion_progress() in the header for what this is and what it deliberately does not promise.
+// RELAXED ordering throughout: the reader wants a recent number, not a synchronised one, and an
+// acquire/release pair per iteration would be a memory barrier bought for a printed percentage.
+static std::atomic<int> s_progress_done{ 0 };
+static std::atomic<int> s_progress_total{ 0 };
+
+void godot::erosion_progress(int &r_done, int &r_total) {
+	r_done = s_progress_done.load(std::memory_order_relaxed);
+	r_total = s_progress_total.load(std::memory_order_relaxed);
+}
 
 namespace {
 
@@ -514,7 +526,10 @@ ErosionResult godot::erosion_solve(const std::vector<float> &p_z, const ErosionP
 	// flow routing, depression fill and drainage area on an UNTOUCHED surface get their diagnostics
 	// instead of empty arrays, and z comes back exactly as it went in.
 	const int passes = std::max(iterations, 1);
+	s_progress_total.store(iterations, std::memory_order_relaxed);
+	s_progress_done.store(0, std::memory_order_relaxed);
 	for (int iter = 0; iter < passes; iter++) {
+		s_progress_done.store(iter, std::memory_order_relaxed);
 		if (iter % fill_every == 0) {
 			rebuild_network();
 		}
@@ -665,6 +680,12 @@ ErosionResult godot::erosion_solve(const std::vector<float> &p_z, const ErosionP
 		out.stack = stack;
 		out.boundary = boundary;
 	}
+	// BACK TO ZERO on the way out, both of them. Leaving the counter at 100% was tried and it is worse:
+	// the next solve's first poll happens on the main thread BEFORE the worker has entered this function,
+	// so the caller printed "100% (60 of 60)" for work that had not started. A reader between solves must
+	// see nothing in flight, and a caller that wants to know a returned solve finished has the return.
+	s_progress_done.store(0, std::memory_order_relaxed);
+	s_progress_total.store(0, std::memory_order_relaxed);
 	out.ok = true;
 	return out;
 }

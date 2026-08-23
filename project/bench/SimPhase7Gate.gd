@@ -267,7 +267,7 @@ func _gate_ao() -> void:
 		return
 
 	await _settle()
-	var ok: bool = await mgr._solve_on_worker(ctx["clusters"], "AO", Callable())
+	var ok: bool = await mgr._solve_on_worker(ctx["clusters"], "AO", Callable(), mgr._solve_chunk)
 	var solve_ms := _worst * 1000.0
 
 	await _settle()

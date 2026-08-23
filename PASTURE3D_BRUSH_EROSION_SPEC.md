@@ -1023,6 +1023,67 @@ usable test: 1e-30 of full height is 30 femtometres on a 30 m brush. Restated as
 millionth of full height, sub-micron on anything authorable — the same measurement reads 0.8 % drift and
 a border of zero. The invariant was right; the way it was being read was not.
 
+### 9.8 The loop is not square, and the field was grown as though it were
+
+Third report from the editor, and the one that had been true since the material shipped: *the DLA relief
+is getting stretched when the brush is not square.*
+
+It was, and by exactly the loop's aspect ratio. The field is stretched **once** over the loop's oriented
+rectangle — `nu,nv` are ±1 at its edges, the same mapping `CRATER` uses — and it was baked square. A
+square grid pulled across a 3:1 rectangle multiplies every ridge width, every branch spacing and every
+blur radius along one axis by 3. Nothing about the growth was wrong; it was being asked the wrong
+question, and the square test loops the material was built and gated on could not ask it.
+
+Measured as ridge density — local maxima per metre travelled across the massif, along each of the loop's
+own axes, in world metres and normalised by the metres actually spent above the noise floor, so that a
+massif being LONGER one way does not move the number and only its ridges being WIDER one way does:
+
+| Loop | Before | After |
+|---|---|---|
+| 1.0:1 | 0.908 | 0.908 |
+| 3.0:1 | 0.408 | 1.031 |
+| 6.0:1 | 0.235 | 1.017 |
+| 9.0:1 | 0.211 | 1.147 |
+
+**0.908 on a square loop is the metric's own floor**, not an anisotropy — judge the rest against that
+rather than against 1.000. The "before" column tracks 1/aspect, which is the stretch itself.
+
+**The fix is to grow the field to the rectangle rather than stretch it onto one.** The host hands the
+loop's oriented half-extents down before `compile()` (`set_host_frame`, a no-op on every point-evaluated
+material — those read `nu,nv`, and the host has already divided by these two numbers by the time they
+arrive). The square working grid covers a square of side `2·max(ex,ez)`, the loop's rectangle is the
+**centred crop** of it, and the cluster is confined to the ellipse inscribed in that crop. Cropping
+rather than resampling is the point: it keeps the field's cells the same square METRES the cluster was
+grown on. Both crop dimensions are kept even so the crop is exactly centred — `n` is a power of two, so
+`n−w` is even exactly when `w` is, and half a cell would slide the massif off the middle of its loop.
+
+No C++ was touched. `relief_sample_field` already carried `[offset, w, h]` and both readers already
+handled `w ≠ h`, so §9.1's one-implementation-two-readers argument covers the rectangular case unchanged
+and gate CR still holds at 5e-4 m.
+
+**What it trades, said out loud** — the same way §9.7 says it. **The ridge texture now follows the SHORT
+axis**, because the blur budget must. The blur is one isotropic radius in cells; a blur with two radii is
+precisely the squashing being fixed, so the axis that can afford the least is the axis that sets it. It
+is also the axis on which §9.7's "everything outside `coverage` is exactly zero" would break first. At
+3:1 the ridges come out about three times finer in metres than the same material on a square loop of the
+same length — and they have to, since a ridge as wide as the square loop's would be wider than the
+elongated loop is deep. `detail_size` still styles it: 0.12 → 0.30 moved the density 0.19 → 0.13 per
+metre with the isotropy intact. **Existing DLA mountains on non-square loops all regrow; square ones are
+bitwise unchanged**, and gate DA asserts the second half.
+
+**One trap, and it is not about DLA.** A `Pasture3DReliefStack` copies its layers' bytes into its own
+program and memoises the result, so a layer that regrows underneath it is invisible — the first version
+of this change left a stacked DLA serving the square field it was compiled with. `set_host_frame`
+therefore RETURNS whether it invalidated anything, and the stack sets its own `_dirty` from that. It
+cannot use `_touch()`: that emits `changed`, the brush re-bakes on `changed`, and the host calls this
+setter DURING a bake. Any future "the host tells the material something before compile" hook has the same
+shape, and the same two obligations.
+
+**Still open, found while doing this.** The stack does not forward `wants_seed_surface` /
+`set_seed_surface` either, so §9.6's Ridge Seeding is inert — and fails *closed*, stamping nothing —
+whenever the DLA sits inside a stack rather than on a Relief modifier directly. Pre-existing, unrelated
+to the aspect work, not fixed here.
+
 ---
 
 ## 10. Build order
@@ -1030,12 +1091,12 @@ a border of zero. The invariant was right; the way it was being read was not.
 | Phase | Contents | Gates | Depends on |
 |---|---|---|---|
 | **1 — BUILT** | Host profile field; `field_source` on the selector; band source on `TERRACE`/`STRATIFY`; the measured divisor | BM–BQ ✅ | nothing |
-| **2 — BUILT** | Yuan 2019 deposition in `erosion_solve`; `deposition` on the node; the sweep cap, its report and its warning | BR–BU ✅, BV deferred | nothing |
+| **2 — BUILT** | Yuan 2019 deposition in `erosion_solve`; `deposition` on the node; the sweep cap, its report and its warning | BR–BV ✅ | nothing |
 | **3a — BUILT** | The modifier stack; `Pasture3DModNoise` / `ModRelief` / `ModSmooth`; the Mound legacy properties deleted and migrated | BW ✅, BZ ✅ | nothing |
 | **3b — BUILT** | `Pasture3DModErosion`; the field context later selectors read; Live/Frozen and frozen-cache staleness | BX ✅, BY ✅, CA–CE ✅ | 1, 2, 3a |
 | **4 — BUILT** | The manager registry; `Bake All Brushes`; `Register Eroding Brushes`; stale-path warnings | CF ✅, CG ✅, CH ✅, CW ✅ | 3b |
 | **5 — BLOCKED** | Both measurements are done and both came back negative: CK rejected the planned depth correction, CJ showed the uncorrected pipeline mis-routes. The pipeline itself is built and cheap; what remains is §8.1's slope-baseline correction to the coarse stage, which is a solver change | CK ✅, CJ ✅ | 2, 3b |
-| **6 — BUILT** | `Pasture3DReliefDLA` as a baked field op; the `op_fields` / `op_field_meta` wire block and its stack splicing; the Plow's Tile warning generalised from a CRATER test to a loop-sized-op test; `coverage` / `detail_size`; ridge seeding and the modifier-step `capture` it rides on | CP ✅, CQ ✅, CR ✅, CS ✅, CX ✅, CY ✅, CZ ✅ | 1 (to multiply by the host profile) |
+| **6 — BUILT** | `Pasture3DReliefDLA` as a baked field op; the `op_fields` / `op_field_meta` wire block and its stack splicing; the Plow's Tile warning generalised from a CRATER test to a loop-sized-op test; `coverage` / `detail_size`; ridge seeding and the modifier-step `capture` it rides on; the field grown to the LOOP'S OWN proportions rather than stretched onto them, and `set_host_frame` as the hook that carries them | CP ✅, CQ ✅, CR ✅, CS ✅, CX ✅, CY ✅, CZ ✅, DA ✅ | 1 (to multiply by the host profile) |
 
 **Phases 1 and 6 were independent of the erosion chain**, and both were taken before it was finished:
 phase 6 landed while phase 5 sat blocked on a solver change, and needed nothing from it. **Phase 5 is
@@ -1070,7 +1131,7 @@ the Sim spec already established.
 | BS ✅ | *(2)* **`G = 0` never enters the iterative path.** The solver reports **0 Gauss-Seidel sweeps**, two runs are bitwise identical, and a params dict with no `deposition` key at all — what every already-authored scene sends — is bitwise an explicit `0`. | `G = 0.5` must run sweeps and move the ground: **8 sweeps, 14.95 m**. Without it, a solver that ignored `deposition` entirely would pass every agreement above. |
 | BT ✅ | *(2)* **G puts material back, and never more than it took.** Across a sweep `G = 0 … 0.75`, net erosion falls monotonically **by 38 %** and net deposition rises monotonically **0 → 1238 m**, with deposition never exceeding erosion. **The measurement is on net erosion, not on the retained fraction**, and that is the point: §8.2 decision 3 defines the two channels as the two signs of one *net* field, so a channel cell that gains 0.3 m and loses 0.5 m in the same step reports as erosion — net deposition comes out near 1 % while the material actually moving is tens of per cent. That is §15.8's open question, not a defect here. | `G = 0` must deposit exactly zero, and the sweep must span a real range — **38 %** — or "monotonic" is four near-equal numbers in a row. |
 | BU ✅ | *(2)* **The sweep count tracks `G`, is reported, and is bounded.** **4 sweeps at `G = 0.1`, 7 at 0.4, 10 at 0.7, 12 at 0.95** — the published 1-to-20 shape — and never above the ceiling of 50. | A moderate `G = 0.3` must converge **under** the ceiling and report `capped = false`, which it does. A cap that is always hit is not a cap, and a flag that is always true tells nobody anything. |
-| BV ⏸ | *(2)* **Cost stays close to linear in cell count.** Solve time across 64²/128²/256² at fixed `G`. **Written but NOT RUN — perf gates need the user's go-ahead on this machine**, so `_gate_bv_cost(false)` skips it and prints what it would do. | `G` raised toward the transport-limited end, where the published behaviour is that convergence degrades. If that does *not* show up, the gate is not measuring convergence. |
+| BV ✅ | *(2)* **RUN 2026-08-21, on the user's go-ahead.** Cost stays close to linear in cell count: **8.08 / 8.71 / 10.14 µs per cell** at 64² / 128² / 256² and fixed `G = 0.5`, a spread of **1.26× across a 16× increase in cells**. That is at or below what the flood's log term alone would cost over the same span (≈1.33×), so the O(N) structure the phase was required to keep is intact and cache behaviour is not eating it. The **2.5× limit was stated before measuring**, not fitted after. Each figure is the MINIMUM of three runs, not the mean: a solve cannot run faster than the machine allows, so the fastest is the one least contaminated by whatever else the box is doing, while an average measures the neighbours. **Stays behind `RUN_PERF = false` in the file** — a timing criterion on a CI runner or a busy dev box measures the load, and a check that reddens at random is one everybody learns to ignore. | **The control is about the STOPWATCH, not about convergence** — BU already owns "sweeps rise with `G`", and repeating it here would be a second gate on one claim rather than a control on this one. What BV must know is that its timer is sensitive to the iteration at all: on a FIXED 128² grid, `G = 0.05` (4 sweeps, 100.4 ms) against `G = 0.95` (12 sweeps, 192.4 ms) costs **1.92×**. Without it, "cost is linear in cells" would also be true of a solver that did no work, because allocation and setup are linear too. Plus the "measured nothing" guard: a timed solve reporting **zero deposition sweeps** never entered the transporting path, and timing it would be timing the detachment-limited solver under another name. |
 | BW ✅ | *(3a)* **The stack bakes bitwise what the hard-coded pipeline bakes.** A Mound whose stack is `Noise → Relief → Smooth` reproduces the legacy `noise` + `relief` + `smooth_passes` bake to the BYTE, across every shipped preset in `demo/data/relief/`. This is the whole of 3a's claim. **Measured 2026-08-20: 12 of 12 cases identical over 2401 probes** (§6.5), then the legacy path was deleted, so the criterion is historical and the suite now asserts what outlives it — native vs GDScript parity (the stack adds −0.000004 m), every preset still stamps, and re-baking is bitwise stable. | Reorder the stack, which must **differ** — otherwise the order is not being honoured and "bitwise identical" is measuring a stack that ignores its own contents. **The proposed `Relief → Noise → Smooth` does not discriminate** (both are additive point operators in one run); the reorder that does is `Noise → Smooth → Relief`, moving the FIELD operator — it moved the bake 2.41 m. Plus a disabled modifier, which read bitwise identical to removing it and 3.27 m away from leaving it in. |
 | BX ✅ | *(3b)* **A modifier reads only what precedes it.** A Relief modifier gated on a field the stack does not produce until later reads that field's **defined zero** — not the value, and not a stale one from the previous bake. **Measured: the same two modifiers bake 3.1 m apart by ORDER alone.** Positional by construction, in the end: the erosion step publishes at its own place in the list, so a modifier above it has already run against the zero and nothing has to enforce the invariant. | With `publish_fields` off the two orders came back **0.000 m** apart — so the gap above is the field context and not the ordering effect the stack already had in 3a. |
 | BY ✅ | *(3b)* **Frozen is a cache, not a different answer.** A Frozen modifier, freshly baked, produces bitwise what the same modifier produces Live. **Measured: bitwise identical, holding 0.06 MB.** | Change something upstream: doubling the relief under it moved Live **46.7 m** and Frozen **0.000 m**, and the brush reported the modifier stale. Then Bake Erosion brought it to **0.0000 m** of the Live answer with the warning gone — a freeze that silently keeps up is not a freeze, and one that cannot be recovered is worse. |
@@ -1099,6 +1160,11 @@ the Sim spec already established.
 | CX ✅ | *(6)* **From the editor, twice.** First: the massif reached 0.67 of a loop it was allowed 0.96 of, and the only lever that moved it restyled the mountain on the way. Then: `coverage` still topped out at 0.61 of the half-extent because a fixed share of the radius was reserved for a blur that did not want it, and `detail_size` was inert over half its range. Three claims now: it **ARRIVES** (100 % of its allowed radius at every setting), `coverage` **RESIZES** (0.50 → 1.00 grows the field **1.96×** against coverage's own 2.00×), and `detail_size` **RESTYLES WITHOUT RESIZING** — **0.8 %** of support drift while the branch count moves **95×**. Measured on the SUPPORT radius, not on r98 of the mass: r98 moves 34 %, because with the blur no longer reserved a coarse setting really does pull the ridge structure inward, and that is what coarser means. Both numbers are printed. | The field outside the radius `coverage` promises must be below a millionth of full height — a magnitude, not a presence, because a box blur's float32 tail makes "is any cell non-zero" unusable (see §9.7). Plus the "measured nothing" guard: a FLAT field would sail through the no-resize claim by never changing size at all. |
 | CY ✅ | *(6)* **A seeded cluster grows along the ridges it was handed.** Fixture is a synthetic five-armed star ridge, because a synthetic pattern is the only kind whose answer is known before the material runs; statistic is the correlation between the finished field and the seed surface. Seeded **0.640** against unseeded **0.513**, a margin of **+0.127**. Determinism restated for the input CP does not cover: two instances, one seed, one surface, bitwise identical. | Two. UNSEEDED, which does NOT score zero and must not be expected to — a blob correlates with a star at 0.51 for free, and only the margin over that is seeding's doing. And a **FLAT** seed surface, which must land on EXACTLY the unseeded number: it does, to the bit. Without that second one the gate would pass on an implementation that merely perturbed the RNG and called the perturbation an effect. |
 | CZ ✅ | *(6)* **The captured surface is the stack ABOVE the material, so it cannot feed itself.** Measured on the GROUND, not by asking the material — by the time a gate can ask, the bake has already handed it a surface. Bake 1 is bitwise the same brush with the material switched off (**0.0000 m**): it stamped nothing while it waited. Bake 2 moves **7.12 m**. The two captures are **bitwise identical**, which is the no-drift claim and the convergence claim in one measurement — the second bake stamps a mountain the first did not, so a capture that included the material's own output would have moved. | Seeding OFF: nothing is captured at all, and that brush's FIRST bake already moves **5.71 m**. Without it a capture that ran unconditionally would pass every assertion above while charging every stack a grid conversion it never asked for. NaN counts as equal to NaN here, because a captured surface is NaN wherever the brush contributes nothing and `NAN != NAN` would report two copies of one grid as different. |
+| DA ✅ | *(6)* **The ridges are the same size in both directions on a loop that is not square.** The field is stretched ONCE over the loop's oriented rectangle, and it was grown SQUARE — so every ridge width, branch spacing and blur radius arrived multiplied along one axis by the loop's aspect ratio. Invisible on the square test loops the material was built on. Measured as **ridge density**: local maxima per metre travelled across the massif, scanned along each of the loop's own axes, **in world metres and not in cells**, and divided by the metres actually spent above the noise floor — so a massif being LONGER one way does not move it and only its ridges being WIDER one way does. On a 180 x 60 m loop the field is now **256 x 84 cells, 0.706 x 0.723 m per cell**, and the density ratio is **1.037**. Across `bench/DlaAspectProbe.tscn`: **0.408 -> 1.031** at 3:1, **0.235 -> 1.017** at 6:1, **0.211 -> 1.147** at 9:1. The before column tracks 1/aspect, which IS the stretch. The 9:1 residual is resolution and not stretch — the cells are square there too (0.71 vs 0.70 m) and it falls from 1.233 to 1.147 between res 256 and 512, on a massif about three ridges wide. **Also asserts the massif still FILLS its loop** (reaches 0.89 of the half-extent along u, 0.77 along v), because un-squashing by inscribing a round massif would satisfy every isotropy number above and leave the ends of the loop bare. | **Four, and the first is the whole gate.** The same material with the **frame WITHHELD** — not a mock-up of the old behaviour but literally it, since withholding the frame is what every host did before this material was given somewhere to put it — reads **0.410** and must fail the band. The band is **0.80–1.25** and wide on purpose: this metric reads **0.908 on a genuinely isotropic SQUARE loop**, so its own floor is nine points off 1.000 and a tight band would be reporting the metric rather than the material. Second, against the opposite error: a **SQUARE loop, told vs withheld, must be BITWISE identical** — without it the criterion also passes an implementation that merely made every field different. Third, the **cells must be square in world metres** to 5 %, which is the mechanism; a ratio of ridge counts alone could be talked into agreeing by accident. Fourth, **through a Relief Stack**, because a stack copies its layers' bytes and memoises the splice: the field must be 256x256 before the frame and 256x84 after, and comparing against the BARE material rather than against 84 keeps the claim "a layer is told what a material is told". That fourth control caught a defect in the gate itself — `compile()` hands back its own arrays and the second compile refills them in place, so the snapshot was reading one array twice and reported no change on working code. It needs `.duplicate()`. |
+| DC ✅ | *(7)* **Solving on a worker gives the same terrain as solving on the main thread.** §14's driver bakes three times — suppressed, solve, serve — and every step is somewhere the answer could drift. **0.00000000 m across 3364 probes**, on a fixture whose mean cut is **59.24 m**. The cache is warm afterwards (**312 500 bytes**), which is the SPLICE half: if pass 3's key missed, it would re-solve on the main thread and the freeze would be back with the answer still right. | Two, and the second is the one that earns its keep. The erosion must have MOVED the ground — two identical un-eroded surfaces agree perfectly, which is what this would report if the modifier had quietly stopped working. And **pass 1 alone must differ** (**59.24 m**): without it, a `defer` flag that was never read — so every pass solved synchronously and the driver was decoration — passes the headline claim by doing nothing. **This gate found the chunking defect**, see §14.3. |
+| DD ✅ | *(7)* **The four published channels survive the deferral.** On the deferred path they do not come out of the rasteriser at all: the worker computes them, GDScript folds them into the cache entry, and pass 3 publishes from there. Two of the four are not the solver's to give — erosion and deposition are the difference between the surface that went in and the one that came out. Measured through a FLOW-gated Relief modifier below the erosion: **0.00000000 m**. | That gated layer must stamp something on the synchronous arm — **3.64 m**. A gate comparing two modifiers that both read zeros and stamped nothing reports perfect agreement. |
+| DE ✅ | *(7)* **A suppressed bake is the un-eroded shape, and drops the frozen solves.** Both halves, because neither is enough: dropping the caches without re-baking leaves the eroded heights in the layer and the button appears to do nothing; re-baking without dropping them serves the erosion straight back. **Bitwise** against the same stack with the modifier unchecked — a stronger claim than "close to", since suppression keeps the step in the list and returns early where unchecking drops it before the list is built, and the two take different routes through the rasteriser's point/field conversion. | The cache must have been WARM before (it was), and it must take a real erosion off (**49.10 m**). A fixture whose solve cut nothing passes the headline claim and says nothing. |
+| DF ✅ | *(7)* **Clear Simulation On All Brushes clears the registered set, and only it.** Two brushes on two layer owners, both **bitwise** back to their un-eroded shape, **2 frozen solves dropped**. | Three. An **UNREGISTERED** brush on its own layer must not move (**0.00000000 m**) — "clear everything" and "clear the registered set" read the same on a fixture where everything is registered, and the list is the point of the registry. There must have been an erosion to take off (**82.96 m**). And it must be **REVERSIBLE** by Bake All Brushes, bitwise — clearing is not disabling, and a clear that could not be re-baked would mean the button had edited the scene. **The first control read `nan` and passed**, because `nan > tolerance` is false; `_worst` now returns NAN loudly and every caller checks it. |
 
 ---
 
@@ -1124,13 +1190,23 @@ the Sim spec already established.
    - **A sparse or adaptive grid** — full resolution only where flow concentrates. Attractive on paper,
      but drainage area is a global quantity and I would want a prototype before committing. **This one is
      not known to work.**
-3. **Erosion on `Pasture3DRidge` and `Pasture3DTrough`.** The Mound refactor is what makes them cheap, in
+3. **A chunked Sim solve is not the same solve as an unchunked one.** §4.5 of the Sim spec says it is,
+   and the SOLVER is stateless as claimed — but `erode_heightfield` takes and returns a
+   PackedFloat32Array, so every chunk boundary rounds the working surface through float32, and the D8
+   receiver choice downstream is a comparison between neighbours. A rounding that flips one tie moves a
+   channel and the following iterations deepen it. **Measured incidentally by gate DC while building
+   §14: 9.59 m of disagreement on a fixture whose mean cut is 59 m.** §14 sidesteps it by not chunking;
+   `Pasture3DSim` and `Pasture3DSimManager` still chunk, so a Sim's Preview and its Simulate can differ
+   from a straight-through `simulate_now` at the same settings by the same mechanism. Nothing measured
+   depends on it and it has not been chased. The fix, if it is ever wanted, is a solver entry point that
+   keeps the working surface in double between chunks — not a smaller chunk, which makes it worse.
+4. **Erosion on `Pasture3DRidge` and `Pasture3DTrough`.** The Mound refactor is what makes them cheap, in
    the same way the Mound relief spec's refactor did. A Ridge's host profile is its crest section; a
    Trough's is its channel. Neither is specced.
-4. **A rainfall multiplier on drainage area** (Sim spec §15.2) — still a one-line change with a large
+5. **A rainfall multiplier on drainage area** (Sim spec §15.2) — still a one-line change with a large
    effect, and now more interesting, because a brush-hosted mountain is exactly the case where orographic
    bias (wet windward face, dry lee) is visible.
-5. **Does an eroded Mound want its own `Pasture3DSimResult`?** §6.8 writes no separate layer, so there is
+6. **Does an eroded Mound want its own `Pasture3DSimResult`?** §6.8 writes no separate layer, so there is
    nothing to key relief off — a `FLOW`-gated scree material on the mountain it was just eroded from is
    not expressible. The four channels exist during the solve and are discarded. Storing them costs four
    float grids per brush and §21.3's argument about what a result may honestly describe applies here
@@ -1152,3 +1228,141 @@ the Sim spec already established.
 - [Schott et al. 2024, *Terrain Amplification using Multi-Scale Erosion*](https://dl.acm.org/doi/10.1145/3658200) — phase 5's approach.
 - [Jain et al. 2024, *FastFlow: GPU Acceleration of Flow and Depression Routing*](https://onlinelibrary.wiley.com/doi/10.1111/cgf.15243) — §12.2's deferred GPU lever.
 - [Diffusion-limited aggregation](https://en.wikipedia.org/wiki/Diffusion-limited_aggregation), and the [heightmap recipe](http://voxels.blogspot.com/2014/01/procedural-terrain-heightmap-generation.html) phase 6 follows.
+
+---
+
+## 14. Phase 7 — the threaded solve, its progress, and clearing it
+
+**Built 2026-08-22.** Three complaints from using §6 on a kilometre-scale mound: the solve froze the
+editor, it said nothing while it ran, and there was no way to take it back off.
+
+### 14.1 The solve could not simply move to a worker
+
+`Pasture3DSimBase` has had a threaded driver since §20 of the Sim spec, and the obvious move was to point
+it at the brush. It does not reach. The Sim owns its solve from the top: `_begin` / `_solve_chunk` /
+`_finish` is a state machine, and a threaded driver is a third front end onto it. The brush's erosion is
+**one step in the middle of a rasteriser that is a single synchronous C++ call** — there is no `await` to
+be had inside `stamp_mound_loop`, and putting one there would drive a thread boundary through the middle
+of the terrain writes, which is the one place it must not go.
+
+**So the bake happens twice and the solve happens between them.**
+
+1. Bake with `_erosion_defer` set. The erosion step does not solve: it hands the surface it WOULD have
+   solved back through its `out` slot and leaves the grid alone. An ordinary cheap bake, and the viewport
+   shows the brush's un-eroded shape.
+2. Solve every captured surface on a `WorkerThreadPool` task while the main thread yields frames.
+3. Bake again. Every erosion step finds a cache whose key matches and serves it, which is a memcpy.
+
+**Why the key matches, which is why this is sound rather than hopeful.** The key is a hash of the exact
+surface handed to the solver, and that surface is `basey + vals` at the erosion step's own position:
+`basey` is the ground BELOW this brush's layer and `vals` is what the modifiers ABOVE the erosion
+produced. Neither depends on whether the erosion ran. So pass 3 hands the solver the same grid pass 1
+did, byte for byte. This is the same convergence argument §9.5's seed-surface capture makes, and it fails
+in the same single way — something upstream changing between the passes — which is a re-bake, not a wrong
+answer.
+
+**What it costs is one extra cheap bake, and only on a bake that would have solved anyway.** A pass-1
+bake that finds every cache already matching produces no pending work and returns before pass 3.
+
+**FROZEN only.** A Live modifier has no cache to deliver a deferred answer into, and Live is already
+documented as the setting for a brush small enough to watch solve. One rule per Evaluation mode.
+
+**The worker helper moved UP** from `Pasture3DSimBase` to `Pasture3DTerrainBrush`. Two users, one
+implementation: a Sim solving its loops and a Mound solving its `Pasture3DModErosion` are the same
+problem, and the parts that are hard to get right — the join on teardown, the one-way cancel flag — are
+identical. What each brings is its own chunk callable, and `_solve_chunk` stopped being a default: an
+erosion state and a Sim state have nothing in common but the word "state", and one virtual serving both
+would be a dispatcher on which subclass it happened to be, declared on a base class that should not know.
+
+### 14.2 A pre-existing defect the deferral depended on
+
+The GDScript oracle's erosion step ended `if not out.is_empty():` before writing the solve back. **The
+slot arrives empty** — filling it is what that block is for — so on a cache MISS the solve was never
+handed back, and the oracle's frozen cache never filled at all. A FROZEN modifier under
+`force_gdscript_raster` re-solved on every bake and never raised a stale warning. The native side has
+carried a comment saying exactly this since it was written; only this copy asked the other question. It
+is `p_step.has("out")`, and the deferral could not have worked until it was.
+
+### 14.3 The solve is NOT chunked, and that is the interesting part
+
+The first draft chunked it, the way a Sim does, so cancel and progress would have somewhere to land.
+§4.5 says that is free: the solver is stateless between calls, so N chunks of k iterations is one call
+of N·k.
+
+**The solver is stateless. The round trip is not.** `erode_heightfield` takes and returns a
+PackedFloat32Array, so every chunk boundary rounds the working surface through float32, and the D8
+receiver choice downstream of that is a comparison between neighbours — a rounding that flips one tie
+moves a channel, and the next iterations deepen it.
+
+**Gate DC measured it: twelve chunks of five iterations against one call of sixty differed by 9.59 m, on
+a fixture whose mean cut is 59 m.** The same gate with the chunk size raised to the full iteration count
+reads **0.00000000 m**. That is not a tolerance question; it is a different mountain.
+
+A second, smaller thing was found on the way and is worth recording because it looked like the answer:
+the brush's grid arrives with **NaN outside the loop, and that is the boundary condition** (§6.8 fact 2).
+The solver returns those cells as real numbers, so a second chunk would receive a grid with no no-data in
+it and solve the mountain with its drainage sealed off. Restoring the mask per chunk fixes that
+particular error — and changed the measured disagreement by nothing at all, because gate DC's square loop
+fills its own bounding box and has no no-data cells. It is a real defect in chunking that this fixture
+could not see, and it is moot now.
+
+**The price of not chunking is cancel granularity**: a solve can only be abandoned between grids, so a
+single-loop brush cannot be cancelled mid-solve. That is the right trade — the editor stays interactive
+either way, and the alternative buys a Cancel button by changing the terrain the button was going to
+produce.
+
+### 14.4 Progress comes from inside the solver
+
+With chunking gone there is no seam to report from, so the counter went where the work is: two relaxed
+atomic stores per iteration inside `erosion_solve`, read through `Pasture3DData.erosion_progress()` as
+`(done, total)`. The brush polls it from the main thread each frame and prints on 5 % buckets — the Sim
+prints every frame it yields, which on a long solve buries everything else in the Output panel.
+
+Two things it deliberately does not promise. **One solve at a time**: the counter is process-wide, so a
+second concurrent solve overwrites it and both readers see one blended number. The callers are a Sim
+button and a brush bake and neither runs two at once, and nothing but a printed percentage depends on it.
+**(0, 0) means nothing is in flight**, on the way out of every solve as well as before the first —
+leaving it at `(total, total)` was tried and is worse, because the next caller's first poll happens
+before its worker has entered the function and prints `100% (60 of 60)` for work that has not started.
+
+The brush prints three lines: what it is about to solve, the percentage as it goes, and what it did.
+
+```
+Mound4: solving erosion on 1 grid(s), 1 048 576 cells, 30 iteration(s)...
+Mound4: eroding 45% (13 of 30 iterations)
+Mound4: eroded 1 grid(s), 1 048 576 cells, 8 214 ms.
+```
+
+### 14.5 Clear Simulation On All Brushes
+
+The registry's counterpart to Bake All Brushes, and the brush counterpart to Clear Simulation. Every
+registered brush's frozen solve is dropped and its layer re-baked with the erosion suppressed, as ONE
+undo action across every layer touched.
+
+**Both halves matter and neither is enough alone.** Dropping the caches without re-baking frees the
+memory and leaves the eroded heights in the layer, so the button looks like it did nothing — that is the
+version that ships if nobody measures HEIGHT. Re-baking without dropping them serves the cached erosion
+straight back: identical outcome, opposite bug.
+
+**It does not disable anything.** The next ordinary bake solves again. This clears what is on the ground,
+not what the brushes are configured to do, and gate DF checks the reversibility as a control — a clear
+that could not be re-baked would mean the button had edited the scene. To stop a brush eroding, uncheck
+its modifier.
+
+Suppression is a stronger flag than the deferral: `_erosion_defer` only reaches FROZEN steps, because
+only they have a cache to deliver into, while `_erosion_suppress` takes out every erosion step whatever
+its Evaluation. Otherwise a Live modifier would quietly solve during the clear.
+
+### 14.6 What a headless gate cannot say
+
+Gates DC, DD, DE and DF all run with `force_deferred_erosion` set, because `Engine.is_editor_hint()` is
+false headless and the driver is otherwise unreachable — the same seam `force_gdscript_raster` exists
+for. **They prove the ANSWER is unchanged. They do not prove the editor stays interactive**, the same
+limit §20.4's gate AO records for the Sim: the editor does far more per frame, and input and redraw are
+not exercised at all. Open a scene with a kilometre-scale eroding Mound, press Bake Erosion, and drag a
+gizmo while it runs.
+
+The undo shape is also unmeasured here. `_bake_deferred` records ONE action across all three passes,
+because `_refresh_owner`'s own snapshot pair would take "before" from pass 3 — the un-eroded terrain pass
+1 left — and Ctrl+Z would restore the intermediate state rather than the one that was on screen.
+`EditorUndoRedoManager` does not exist in a headless run, so that is reasoned and not measured.

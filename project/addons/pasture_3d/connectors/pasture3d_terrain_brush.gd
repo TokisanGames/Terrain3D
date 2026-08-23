@@ -191,6 +191,172 @@ func _ready() -> void:
 			renamed.connect(_update_label_text)
 
 
+# ---- The worker ------------------------------------------------------------------------------------
+#
+# Hoisted up from Pasture3DSimBase when the brush's own erosion modifier needed it too
+# (PASTURE3D_BRUSH_EROSION_SPEC.md §14). TWO USERS, ONE IMPLEMENTATION: a Pasture3DSim solving its loops
+# and a Mound solving its Pasture3DModErosion are the same problem — a long PURE computation that must
+# not block the editor — and the parts that are hard to get right (the join on teardown, the one-way
+# cancel flag) are identical for both. What each user brings is its own CHUNK callable, and nothing else.
+#
+# ---- §20's original note, which is still the thing that makes it safe ----------------------------
+#
+# §20.2's third driver. `_begin` / `_solve_chunk` / `_finish` was built as a state machine so there could
+# be two drivers over identical work — straight through for gates, frame-yielding for the button. A
+# THREADED driver fits the same seam, which is why this phase adds no restructuring: the pure half of the
+# solve moves to a WorkerThreadPool task and the terrain-touching half stays exactly where it was.
+#
+# Both front ends share this because their solve loops are the same shape — a list of independent states,
+# each advanced by `_solve_chunk` until it reports done. Pasture3DSim's states are loops; the manager's
+# are clusters.
+#
+# WHAT MAKES THIS SAFE is not this function. It is that `_solve_chunk` reads nothing the main thread owns:
+# every `terrain.data.*` call in it copies its arguments into std::vectors and copies results back out,
+# and the three GDScript reads that did touch shared state — the erodability image, the falloff Curve and
+# the loop polygons — were hoisted into `_begin` first. Warnings are collected rather than pushed. That
+# work is the phase; this is the plumbing.
+
+## A solve is running. Blocks a second press and lets Cancel find something to cancel. Lives here
+## rather than on each front end because `_join_worker` and `_solve_on_worker` both need them, and
+## two copies of a cancel flag is one copy too many.
+var _running: bool = false
+## Read by the worker at every chunk boundary, written only by the main thread. A monotonic
+## one-way flag, which is why a plain bool is enough and a Mutex would be ceremony.
+var _cancel: bool = false
+## The pool task's id while a solve is in flight, -1 otherwise. Also the flag `_join_worker` keys on.
+var _task_id: int = -1
+
+# ---- The deferred erosion solve (PASTURE3D_BRUSH_EROSION_SPEC.md §14) -----------------------------
+#
+# A Pasture3DModErosion is the one modifier whose cost is measured in SECONDS, and it ran on the main
+# thread inside the rasteriser — so a bake that had to solve froze the editor for the length of the
+# solve, with no progress and no way out. On a kilometre-scale Mound that is tens of seconds of a window
+# that does not repaint.
+#
+# THE SOLVE CANNOT SIMPLY MOVE TO A WORKER, because it does not sit at the top of anything: it is one
+# step in the middle of a rasteriser that is a single synchronous C++ call, and there is no `await` to be
+# had inside `stamp_mound_loop`. Restructuring the rasteriser around a coroutine would put a thread
+# boundary through the middle of the terrain writes, which is the one place it must not go.
+#
+# SO THE BAKE HAPPENS TWICE, and the solve happens between them:
+#
+#   1. Bake with `_erosion_defer` set. The erosion step does NOT solve: it hands the surface it WOULD
+#      have solved back through its `out` slot and leaves the grid alone, so the pass is an ordinary
+#      cheap bake and the viewport shows the brush's un-eroded shape.
+#   2. Solve every captured surface on a WorkerThreadPool task — ONE call per grid — while the main
+#      thread yields frames, so the editor stays live throughout. Store each result in the modifier's
+#      own frozen cache, under the key pass 1 computed.
+#   3. Bake again. Every erosion step now finds a cache whose key MATCHES and serves it, which is a
+#      memcpy. Nothing else in the stack knows a thread was involved.
+#
+# WHY THE KEY MATCHES, which is the whole reason this is sound rather than hopeful. The key is a hash of
+# the exact surface handed to the solver, and that surface is `basey + vals` at the erosion step's own
+# position: `basey` is the ground BELOW this brush's layer, and `vals` is what the modifiers ABOVE the
+# erosion produced. Neither depends on whether the erosion ran. So pass 3 hands the solver the same grid
+# pass 1 did, byte for byte, and the cache hits. This is the same convergence argument the seed-surface
+# capture makes, and it fails in the same single way — something upstream changing BETWEEN the two
+# passes — which is a re-bake, not a wrong answer.
+#
+# WHAT THIS COSTS is one extra cheap bake, and only on a bake that would have solved anyway: a pass-1
+# bake that finds every cache already matching produces no pending work and returns before pass 3.
+#
+# ---- WHY THE SOLVE IS NOT CHUNKED, which was tried first ----------------------------------------
+#
+# A Pasture3DSim advances its solve CHUNK_ITERATIONS at a time so cancel and progress have somewhere to
+# land, and §4.5 says that is free: the solver is stateless between calls, so N chunks of k iterations is
+# one call of N·k. THE SOLVER IS STATELESS. THE ROUND TRIP IS NOT. `erode_heightfield` takes and returns
+# a PackedFloat32Array, so every chunk boundary rounds the working surface through float32, and the D8
+# receiver choice downstream of that is a comparison between neighbours — a rounding that flips one tie
+# moves a channel, and the next iterations deepen it.
+#
+# MEASURED, on gate DC's fixture: twelve chunks of five iterations against one call of sixty differed by
+# 9.59 m at worst, on a fixture whose mean cut is 59 m. The same gate with the chunk size raised to the
+# full iteration count reads 0.00000000 m. So the brush solves in ONE call and gets its progress from a
+# counter inside the solver's own loop instead (`Pasture3DData.erosion_progress`).
+#
+# THE PRICE IS CANCEL GRANULARITY: a solve can only be abandoned between grids, so a single-loop brush
+# cannot be cancelled mid-solve. That is the right trade — the editor stays interactive either way, and
+# the alternative buys a Cancel button by changing the terrain the button was going to produce.
+#
+# THIS ALSO SAYS SOMETHING ABOUT THE SIM, which does chunk: a chunked Sim solve is not bitwise the same
+# as an unchunked one, and §4.5 claims it is. Nothing here depends on that and it has not been chased.
+#
+# FROZEN ONLY, deliberately. A Live modifier has no cache to deliver a deferred answer INTO, and Live is
+# documented as the setting for a brush small enough to watch solve. One rule per Evaluation mode.
+
+## Take the deferred path where `Engine.is_editor_hint()` is false. A gate's only way in: the driver
+## exists so the EDITOR stays live, and a headless run has no editor to be live — but the answer it
+## produces has to be the same one, and that is exactly what a gate must be able to ask. Mirrors
+## `force_gdscript_raster`, which is there for the same reason.
+var force_deferred_erosion: bool = false
+
+## Set for the duration of pass 1. Read by `_compile_modifiers`, which passes it to both rasterisers.
+var _erosion_defer: bool = false
+
+## Suppress every erosion step outright, frozen or Live, for one bake. `_erosion_defer` only reaches the
+## FROZEN ones, because only they have a cache to deliver a deferred answer into; this is the stronger
+## thing the manager's Clear Simulation On All Brushes needs — the layer holding the shape the brushes
+## make BEFORE they erode, whatever each modifier's Evaluation happens to be.
+var _erosion_suppress: bool = false
+## What pass 1 asked to have solved: one entry per erosion modifier per bake grid.
+var _pending_erosion: Array = []
+## Guards the three-pass driver against re-entry — a refresh scheduled by pass 1 must not start a second
+## driver on top of this one. `_running` is not enough: a Pasture3DSim uses that for its own solve.
+var _erosion_running: bool = false
+
+
+## Run `p_states` to completion on a worker, yielding frames here until it finishes. Returns false when
+## the run was abandoned — cancelled, or the node left the tree — in which case the caller must _abort.
+##
+## §20.3: the chunking stays on the worker, so Cancel still lands on a chunk boundary and §4.5's "N chunks
+## of k iterations is the same solve as one call of N·k" carries over untouched. An atomic cancel flag
+## checked inside the C++ iteration loop would be a new C++ contract bought for nothing.
+## `p_chunk` advances one state and returns true when that state is finished, and every caller passes its
+## own. There is no default: a Sim's state is a loop and the brush's is an erosion grid, and the two have
+## nothing in common but the word "state" — a single `_solve_chunk` virtual serving both would be a
+## dispatcher on which subclass it happened to be, declared on a base class that should not know.
+func _solve_on_worker(p_states: Array, p_label: String, p_progress: Callable,
+		p_chunk: Callable) -> bool:
+	_task_id = WorkerThreadPool.add_task(_worker_body.bind(p_states, p_chunk), true, p_label)
+	while not WorkerThreadPool.is_task_completed(_task_id):
+		# Teardown is watched from HERE rather than from the worker: `is_inside_tree` is a scene-tree
+		# query and the worker must not make one. The worker only ever READS `_cancel`.
+		if not is_inside_tree() or not is_configured():
+			_cancel = true
+		if p_progress.is_valid():
+			p_progress.call()
+		await get_tree().process_frame
+	# Always join, even when cancelled: `is_task_completed` false plus a cancel flag still leaves a task
+	# holding this node's arrays, and freeing the node under it is the crash §20.4 is about.
+	WorkerThreadPool.wait_for_task_completion(_task_id)
+	_task_id = -1
+	return not _cancel
+
+
+## The task body. Runs on a pool thread — nothing in here may touch the tree, the servers, or push a
+## warning (§20.4). It reads `_cancel` and calls the chunk, and that is deliberately all it does.
+func _worker_body(p_states: Array, p_chunk: Callable) -> void:
+	for st in p_states:
+		while not p_chunk.call(st):
+			if _cancel:
+				return
+
+
+## Join any live worker before this node stops being a valid thing for it to write into. Called from both
+## teardown paths; safe to call when nothing is running.
+##
+## §20.4 lists this as "the part that will bite", and it is: every one of these is reachable in an editor
+## and none exists on the synchronous path. The node leaving the tree, the scene closing, the editor
+## reloading a @tool script — all of them free the arrays the task is halfway through.
+func _join_worker() -> void:
+	if _task_id == -1:
+		return
+	_cancel = true
+	WorkerThreadPool.wait_for_task_completion(_task_id)
+	_task_id = -1
+	_running = false
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_TRANSFORM_CHANGED:
 		_schedule_transform_refresh()
@@ -209,8 +375,11 @@ func _notification(what: int) -> void:
 			_clear_tree_settling.call_deferred()
 	elif what == NOTIFICATION_EXIT_TREE:
 		remove_from_group(BRUSH_GROUP)
+		# Before anything else: the task is holding this node's arrays.
+		_join_worker()
 		_clear_mask_preview() # §18.5: a preview owned by a node that has left the scene is orphaned
 	elif what == NOTIFICATION_PREDELETE:
+		_join_worker()
 		# Freed while still attached (e.g. queue_free in the editor): lift our contribution off the layer
 		# so we don't strand a baked footprint. The is_inside_tree() guard inside _detach_from_current
 		# makes a node already removed from the tree (editor delete keeps it in undo history; placement
@@ -583,6 +752,13 @@ func _on_refresh_timer() -> void:
 		return
 	if not _dirty:
 		return
+	# §14. A deferred solve is in flight and the main thread is yielding frames — which is exactly when a
+	# timer gets to fire. Baking now would find no cache and solve SYNCHRONOUSLY, putting back the freeze
+	# the driver exists to remove, on top of a bake the driver is about to redo anyway. Keep the dirty
+	# state and come back after it lands.
+	if _erosion_running:
+		_arm_refresh_timer()
+		return
 	_dirty = false
 	# Snapshot + clear the queued dirty state up front so a refresh that re-enters scheduling is coherent.
 	var full := _full_dirty
@@ -593,10 +769,14 @@ func _on_refresh_timer() -> void:
 	_moved_node = false
 	if not Engine.is_editor_hint() or not is_configured():
 		return
-	if full or splines.is_empty():
-		_refresh_owner(_layer_owner, false, [])
+	var bake: Callable = (_refresh_owner.bind(_layer_owner, false, []) if full or splines.is_empty()
+			else _refresh_owner_rect.bind(_layer_owner, splines, moved_node))
+	# §14. Both bake paths go through the same driver, because either can be the one that has no cache
+	# yet: dragging a spline on a freshly created Mound reaches the dirty-rect path first.
+	if _wants_deferred_erosion():
+		await _bake_deferred(bake, _layer_owner, false)
 	else:
-		_refresh_owner_rect(_layer_owner, splines, moved_node)
+		bake.call()
 	# Record the transform this bake reflects, so a later no-op TRANSFORM_CHANGED (tab switch) is skipped.
 	_last_baked_xform = global_transform
 
@@ -613,6 +793,9 @@ func _refresh_button() -> void:
 
 func refresh(record_undo: bool = false) -> void:
 	if not Engine.is_editor_hint() or not is_configured():
+		return
+	if _wants_deferred_erosion():
+		await _bake_deferred(_refresh_owner.bind(_layer_owner, false, []), _layer_owner, record_undo)
 		return
 	_refresh_owner(_layer_owner, record_undo, [])
 
@@ -712,6 +895,222 @@ func _refresh_owner(owner: String, record_undo: bool, extra_clears: Array) -> vo
 	# §18.5: the preview is built from the surface below this layer, which this bake may have moved.
 	for s in sibs:
 		s._queue_mask_preview()
+
+
+## True when a bake from here would have to SOLVE an erosion modifier rather than serve one, and so
+## should go through the deferred driver instead of freezing the editor for the length of it.
+##
+## Deliberately optimistic: it does not try to predict whether the caches will hit, because the only
+## honest way to know is to hash the surface, which means baking. Pass 1 answers it for real — a bake
+## that finds every cache matching produces no pending work and the driver returns after one pass.
+func _wants_deferred_erosion() -> bool:
+	if not (Engine.is_editor_hint() or force_deferred_erosion):
+		return false
+	if _erosion_running or _task_id != -1:
+		return false
+	if not is_inside_tree():
+		return false # `_solve_on_worker` yields on the scene tree, and a detached node has none
+	for m in erosion_modifiers():
+		if m.evaluation == Pasture3DBrushModifier.Evaluation.FROZEN:
+			return true
+	return false
+
+
+## Bake, solve off the main thread, bake again. `p_bake` is the ordinary synchronous bake with its
+## arguments already bound, so the dirty-rect path and the whole-layer path share this driver and neither
+## of them learns anything about threads.
+##
+## Records the undo action ITSELF, around all three passes: `_refresh_owner`'s own snapshot pair would
+## take "before" from pass 3, which is the un-eroded terrain pass 1 left — so Ctrl+Z would restore the
+## intermediate state rather than the one the user was looking at.
+func _bake_deferred(p_bake: Callable, p_owner: String, p_record_undo: bool) -> void:
+	if _erosion_running:
+		return
+	_erosion_running = true
+	var can_undo := p_record_undo and _layers_api_available()
+	var before: Dictionary = _snapshot_owner(p_owner) if can_undo else {}
+
+	_pending_erosion = []
+	_erosion_defer = true
+	p_bake.call()
+	_erosion_defer = false
+	var pending := _pending_erosion
+	_pending_erosion = []
+	if pending.is_empty():
+		# Every erosion step served a cache, so pass 1 WAS the bake. This is the common case on any
+		# refresh that is not the first one after a change.
+		_erosion_running = false
+		_commit_deferred_undo(p_owner, before, can_undo)
+		return
+
+	var ok := await _solve_erosion_pending(pending)
+	if ok:
+		for st: Dictionary in pending:
+			_store_solved_erosion(st)
+	p_bake.call()
+	_erosion_running = false
+	_commit_deferred_undo(p_owner, before, can_undo)
+	if not ok:
+		# The layer holds the UN-ERODED shape now, which is what pass 1 painted. Said out loud rather
+		# than left to be discovered: a cancelled solve that quietly looked like a finished one would be
+		# the worst outcome of the whole feature.
+		print("%s: erosion cancelled — the brush is showing its un-eroded shape. Bake again to solve."
+				% name)
+
+
+## One action over the whole three-pass bake, or none when there was nothing undoable to record.
+func _commit_deferred_undo(p_owner: String, p_before: Dictionary, p_can_undo: bool) -> void:
+	if not p_can_undo:
+		return
+	var ur: EditorUndoRedoManager = _editor_undo()
+	if ur == null:
+		return
+	var after := _snapshot_owner(p_owner)
+	ur.create_action("Pasture3D %s Bake" % _spline_basename())
+	ur.add_do_method(self, "_restore_owner", p_owner, after)
+	ur.add_undo_method(self, "_restore_owner", p_owner, p_before)
+	ur.commit_action(false)
+
+
+## Run every pending solve on a worker, yielding frames here. Returns false when it was cancelled or the
+## node stopped being a valid thing to write into.
+func _solve_erosion_pending(p_pending: Array) -> bool:
+	var cells := 0
+	var iters := 0
+	for st: Dictionary in p_pending:
+		cells += int(st["gw"]) * int(st["gh"])
+		iters += int(st["iterations"])
+	print("%s: solving erosion on %d grid(s), %d cells, %d iteration(s)…"
+			% [name, p_pending.size(), cells, iters])
+	var t0 := Time.get_ticks_msec()
+	_cancel = false
+	_running = true
+	var last_pct := -1
+	var ok: bool = await _solve_on_worker(p_pending, "%s: eroding" % name,
+			func() -> void:
+				# Two sources, because neither is enough alone: the finished states contribute whole
+				# iteration counts, and the one in flight contributes a counter the SOLVER bumps from
+				# inside its own loop. Clamped, because right after a grid finishes both briefly claim
+				# the same iterations and a percentage that goes past 100 reads as a bug.
+				var done := 0
+				for st: Dictionary in p_pending:
+					done += int(st["done"])
+				var cur: Vector2i = terrain.data.erosion_progress()
+				done = mini(done + cur.x, iters)
+				var pct := int(100.0 * float(done) / float(maxi(iters, 1)))
+				# Bucketed, not per frame. The Sim prints every frame it yields, which on a long solve
+				# buries everything else in the Output panel; a line that repeats is a line nobody reads.
+				if pct / 5 == last_pct / 5:
+					return
+				last_pct = pct
+				print("%s: eroding %d%% (%d of %d iterations)" % [name, pct, done, iters]),
+			_erosion_solve_one)
+	_running = false
+	if not ok:
+		return false
+	var failed := 0
+	for st: Dictionary in p_pending:
+		if bool(st["failed"]):
+			failed += 1
+	if failed > 0:
+		push_warning(("%s: the erosion solver rejected %d of %d grid(s), so those were left un-eroded. "
+			+ "Nothing was silently half-solved.") % [name, failed, p_pending.size()])
+	print("%s: eroded %d grid(s), %d cells, %d ms." % [name, p_pending.size() - failed, cells,
+			Time.get_ticks_msec() - t0])
+	return true
+
+
+## Solve one pending grid, in ONE call — see the driver's header for why it is not chunked.
+##
+## RUNS ON A POOL THREAD: it may touch nothing but its own state dictionary and
+## `terrain.data.erode_heightfield`, which copies its arguments into std::vectors and copies the result
+## back out. Returns true always, because one call is the whole solve; the shape is `_solve_on_worker`'s.
+func _erosion_solve_one(p_state: Dictionary) -> bool:
+	if bool(p_state["failed"]) or int(p_state["done"]) > 0:
+		return true
+	var params: Dictionary = (p_state["params"] as Dictionary).duplicate()
+	params["gw"] = p_state["gw"]
+	params["gh"] = p_state["gh"]
+	params["cell_size"] = terrain.vertex_spacing
+	params["time_step"] = 1.0
+	params["iterations"] = p_state["iterations"]
+	params["want_diagnostics"] = p_state["want_diagnostics"]
+	var res: Dictionary = terrain.data.erode_heightfield(p_state["z"], params,
+			params.get("erodability_lut", PackedFloat32Array()))
+	if not bool(res.get("ok", false)):
+		p_state["failed"] = true
+		p_state["done"] = p_state["iterations"]
+		return true
+	p_state["z"] = res["z"]
+	p_state["res"] = res
+	p_state["done"] = p_state["iterations"]
+	return true
+
+
+## Put one finished solve into its modifier's frozen cache, in exactly the shape a cache HIT expects.
+##
+## The four channels are computed here rather than taken from the solver because two of them are not the
+## solver's to give: erosion and deposition are the difference between the surface that went in and the
+## one that came out, over the WHOLE solve rather than the last chunk. Same conversions
+## `_publish_erosion_fields` makes — positive metres removed, positive metres gained — so a FLOW or
+## EROSION band means the same thing whether it was solved on this thread or that one.
+func _store_solved_erosion(p_state: Dictionary) -> void:
+	if bool(p_state["failed"]):
+		return
+	var m: Pasture3DModErosion = p_state["mod"]
+	var z0: PackedFloat32Array = p_state["z0"]
+	var zo: PackedFloat32Array = p_state["z"]
+	var entry := {"key": int(p_state["key"]), "grid": zo,
+			"flow": PackedFloat32Array(), "ero": PackedFloat32Array(),
+			"dep": PackedFloat32Array(), "wet": PackedFloat32Array()}
+	var res: Dictionary = p_state["res"]
+	var n := zo.size()
+	var flow: PackedFloat32Array = res.get("flow", PackedFloat32Array())
+	var wet: PackedFloat32Array = res.get("lake_depth", PackedFloat32Array())
+	if m.publish_fields and flow.size() == n and wet.size() == n:
+		var ero := PackedFloat32Array()
+		var dep := PackedFloat32Array()
+		ero.resize(n)
+		dep.resize(n)
+		for i in range(n):
+			var d: float = zo[i] - z0[i]
+			if not is_finite(d):
+				d = 0.0
+			ero[i] = maxf(-d, 0.0)
+			dep[i] = maxf(d, 0.0)
+		entry["flow"] = flow
+		entry["ero"] = ero
+		entry["dep"] = dep
+		entry["wet"] = wet
+	m.store_cache(String(p_state["extent"]), entry)
+
+
+## Bake this brush's layer with every erosion modifier suppressed, so the layer holds the shape the
+## brushes on it make BEFORE they erode, and drop the frozen solves that were holding the old answer.
+##
+## This is pass 1 of the deferred driver with the captured surfaces thrown away instead of solved — the
+## same bake, minus the two steps that put the erosion back. Returns how many frozen solves it dropped.
+##
+## NOT a state the brush remembers: the next ordinary bake solves again. That is deliberate and it is what
+## makes the button safe to press — it takes the erosion off what is on the ground right now, and Bake
+## All Brushes (or any refresh) puts it back. A persistent "eroded: off" would be a second, invisible copy
+## of the `enabled` checkbox that is already on every modifier.
+func bake_without_erosion(p_owner: String) -> int:
+	var dropped := clear_erosion_caches()
+	_pending_erosion = []
+	_erosion_suppress = true
+	_refresh_owner(p_owner, false, [])
+	_erosion_suppress = false
+	# Whatever pass 1 captured is discarded here, unsolved. That IS the clear.
+	_pending_erosion = []
+	return dropped
+
+
+## Abandon a deferred solve in flight. The layer is left holding pass 1's un-eroded shape, and
+## `_bake_deferred` says so.
+func cancel_erosion() -> void:
+	if _erosion_running:
+		_cancel = true
 
 
 ## Dirty-rect refresh (Stage 1 partial redraw): one or more of THIS node's splines moved. Rework only the
@@ -2693,8 +3092,14 @@ func _needs_host_fields(ops: PackedInt32Array, op_selectors: PackedFloat32Array)
 	var stride := Pasture3DReliefMaterial.SELECTOR_STRIDE
 	for i in range(ops.size() / Pasture3DReliefMaterial.OP_STRIDE):
 		var o := i * Pasture3DReliefMaterial.OP_STRIDE
-		var sid := ops[o + 2]
-		if sid >= 0:
+		# BOTH gate slots. A material selector landing in the second one (spec §16.3) reads the host
+		# profile exactly as it would in the first, and a predicate that only looked at the first would
+		# leave the field unbuilt — which gates everything to zero with no warning, the failure
+		# _offers_host_profile exists to make loud.
+		for slot in [2, Pasture3DReliefMaterial.OP_GATE_2]:
+			var sid := ops[o + slot]
+			if sid < 0:
+				continue
 			var b := sid * stride + Pasture3DReliefMaterial.SELECTOR_FIELD_SOURCE
 			if (b < op_selectors.size()
 					and int(op_selectors[b]) == Pasture3DReliefSelector.FieldSource.HOST_PROFILE):
@@ -2926,6 +3331,9 @@ func _compile_modifiers(p_extent: String = "", p_ex: float = 1.0, p_ez: float = 
 			blk["cache_ero"] = entry.get("ero", PackedFloat32Array())
 			blk["cache_dep"] = entry.get("dep", PackedFloat32Array())
 			blk["cache_wet"] = entry.get("wet", PackedFloat32Array())
+			# §14. Pass 1 of the deferred driver: hand the surface back instead of solving it. Only
+			# meaningful on a FROZEN step, because the cache is how the answer gets delivered.
+			blk["defer"] = _erosion_suppress or (_erosion_defer and bool(blk["frozen"]))
 			blk["out"] = slot
 			step["out"] = slot
 		if m is Pasture3DModRelief:
@@ -2936,8 +3344,10 @@ func _compile_modifiers(p_extent: String = "", p_ex: float = 1.0, p_ez: float = 
 			# A material still WAITING for its seed surface compiles to nothing, and that is exactly the
 			# bake on which it has to be in the list: the capture is what gives it one. So an empty program
 			# is only a no-op when nobody is listening for the surface.
-			var wants_seed: bool = (m.material.has_method("wants_seed_surface")
-					and m.material.wants_seed_surface())
+			# Asked through the base-class virtual, not through has_method. The duck-typed version answered
+			# "did this class implement it", which is false for a STACK holding a seeded DLA — so a stacked
+			# DLA's Ridge Seeding compiled to nothing, was dropped here as a no-op, and never got a capture.
+			var wants_seed: bool = m.material.wants_seed_surface()
 			if ops.is_empty() and not wants_seed:
 				continue # a material that compiles to nothing is not a step, it is a no-op
 			# Ask the predicates BEFORE rebasing: both index the material's own selector block by the
@@ -2998,6 +3408,17 @@ func _commit_modifier_caches(p_stack: Dictionary, p_extent: String, p_frame: Arr
 			var surf := {"surface": out["surface"], "gw": out.get("gw", 0), "gh": out.get("gh", 0),
 					"frame": p_frame}
 			reseeded = m.material.set_seed_surface(surf) or reseeded
+		if out.has("pending"):
+			# §14 pass 1. Nothing was solved; the surface that WOULD have been is waiting here, with the
+			# key it will be stored under. Recorded rather than solved because this is still the bake.
+			_pending_erosion.append({
+				"mod": m, "extent": p_extent,
+				"z0": out["pending"], "z": out["pending"], "key": int(out["pending_key"]),
+				"gw": int(out["pending_gw"]), "gh": int(out["pending_gh"]),
+				"iterations": maxi(m.iterations, 1), "done": 0, "failed": false,
+				"want_diagnostics": m.publish_fields, "res": {},
+				"params": m.to_params(), "erod": PackedFloat32Array(),
+			})
 		if out.has("grid"):
 			m.store_cache(p_extent, {
 				"key": out["key"], "grid": out["grid"],
@@ -3253,6 +3674,15 @@ func _apply_erosion_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		out["served"] = true
 		return p_vals
 
+	# §14 pass 1: hand the surface out and leave the grid un-eroded. `out` is non-empty exactly when the
+	# step is frozen and someone is listening, which is the same condition `defer` was compiled under.
+	if bool(p_step.get("defer", false)) and p_step.has("out"):
+		out["pending"] = z
+		out["pending_key"] = key
+		out["pending_gw"] = gw
+		out["pending_gh"] = gh
+		return p_vals
+
 	var params: Dictionary = m.to_params()
 	params["gw"] = gw
 	params["gh"] = gh
@@ -3279,7 +3709,13 @@ func _apply_erosion_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 			continue
 		p_vals[i] = (zo[i] - basey[i]) if add else zo[i]
 
-	if not out.is_empty():
+	# `p_step.has("out")`, NOT `out.is_empty()`. The slot arrives EMPTY — filling it is what this block is
+	# for — so emptiness says nothing about whether anyone is listening. Asking the wrong one meant that
+	# on a cache MISS the solve was never handed back, and so the oracle's frozen cache never filled at
+	# all: a FROZEN modifier on `force_gdscript_raster` re-solved every bake and never raised a stale
+	# warning. The native side has said this in a comment since it was written; only this copy asked the
+	# other question.
+	if p_step.has("out"):
 		out["key"] = key
 		out["grid"] = zo
 		out["stale"] = false

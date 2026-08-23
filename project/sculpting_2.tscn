@@ -25,6 +25,8 @@
 [ext_resource type="Script" uid="uid://di4sl8ruaafhp" path="res://addons/pasture_3d/connectors/pasture3d_sim_pass.gd" id="15_sy2cg"]
 [ext_resource type="Script" uid="uid://bl6s71hjqixse" path="res://addons/pasture_3d/connectors/pasture3d_relief_terraces.gd" id="20_60p45"]
 [ext_resource type="Script" uid="uid://btghvibxcxh6p" path="res://addons/pasture_3d/connectors/pasture3d_mod_erosion.gd" id="24_ce53t"]
+[ext_resource type="Script" uid="uid://bn5t60kllucu2" path="res://addons/pasture_3d/connectors/pasture3d_stream.gd" id="26_ai4gw"]
+[ext_resource type="Material" uid="uid://c088g1lo2b37b" path="res://addons/pasture_3d/extras/shaders/water/M_water_river.tres" id="27_7sjga"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_vnp0k"]
 _shader_parameters = {
@@ -177,10 +179,10 @@ point_count = 24
 [sub_resource type="Curve3D" id="Curve3D_gs7qi"]
 closed = true
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -374.4839, 1, 133.92426, 0, 0, 0, 0, 0, 0, -347.61688, 1, -229.30444, 0, 0, 0, 0, 0, 0, -54.17749, 1, -255.25958, 0, 0, 0, 0, 0, 0, -1.0997009, 1, -605.27686, 0, 0, 0, 0, 0, 0, 549.3568, 1, -656.61957, 0, 0, 0, 0, 0, 0, 562.6616, 1, 244.62985),
-"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0)
+"points": PackedVector3Array(-5.045301, 0, 37.38211, 5.045301, 0, -37.38211, -271.11035, 1, 14.1388855, -20.278376, 0, 19.733074, 20.278376, 0, -19.733074, -187.20271, 1, -119.38743, -28.274723, 0, 1.0708452, 28.274723, 0, -1.0708452, -84.66232, 1, -167.29543, -45.982204, 0, -7.001417, 45.982204, 0, 7.001417, 97.64575, 1, -130.17546, -55.74827, 0, -25.711998, 55.74827, 0, 25.711998, 341.6362, 1, -102.385666, -1.488407, 0, -65.8087, 1.488407, 0, 65.8087, 538.0652, 1, 72.953064, 31.069145, 0, -2.57666, -31.069145, 0, 2.57666, 326.14792, 1, 153.4462, 30.605127, 0, -5.937777, -30.605127, 0, 5.937777, 213.54178, 1, 99.86679, 28.031427, 0, -11.80942, -28.031427, 0, 11.80942, 70.44031, 1, 203.05667, 44.82398, 0, 7.421033, -44.82398, 0, -7.421033, -50.95038, 1, 211.29526, 28.100426, 0, 25.16433, -28.100426, 0, -25.16433, -224.59657, 1, 157.67462),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 }
-point_count = 6
+point_count = 11
 
 [sub_resource type="Curve3D" id="Curve3D_e657i"]
 _data = {
@@ -205,7 +207,7 @@ point_count = 2
 
 [sub_resource type="Curve3D" id="Curve3D_8ey8c"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 0, -20, 0, 0, 0, 0, 0, 0, 0, 0, 20),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -0.27856445, 2.2888184e-05, -76.79503, 0, 0, 0, 0, 0, 0, 0, 0, 20),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -497,10 +499,36 @@ strength = 1.0
 [sub_resource type="Curve3D" id="Curve3D_2a5dl"]
 closed = true
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -40.02221, 1, -50.602036, 0, 0, 0, 0, 0, 0, 20, 1, -46.77466, 0, 0, 0, 0, 0, 0, 20, 1, 19.999992, 0, 0, 0, 0, 0, 0, -41.311775, 1, 19.999992),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -40.02221, 1, -50.602036, -28.761543, 0, 0, 0, 0, 0, 20, 1, -46.77466, 0, 0, 0, 0, 0, 0, 20, 1, 19.999992, 0, 0, 0, 0, 0, 0, -41.311775, 1, 19.999992),
 "tilts": PackedFloat32Array(0, 0, 0, 0)
 }
 point_count = 4
+
+[sub_resource type="Resource" id="Resource_ixpov"]
+script = ExtResource("3_qex3v")
+ridge_seeding = true
+metadata/_custom_type_script = "uid://b76lupc5lsgrt"
+
+[sub_resource type="Resource" id="Resource_aqh6t"]
+script = ExtResource("4_ce53t")
+material = SubResource("Resource_ixpov")
+strength = 25.0
+metadata/_custom_type_script = "uid://5aqm0epy240i"
+
+[sub_resource type="Resource" id="Resource_p7n8d"]
+script = ExtResource("24_ce53t")
+iterations = 60
+hillslope_diffusion = 0.6
+evaluation = 1
+metadata/_custom_type_script = "uid://btghvibxcxh6p"
+
+[sub_resource type="Curve3D" id="Curve3D_tukl7"]
+closed = true
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -74.33118, 1, -138.781, 0, 0, 0, 0, 0, 0, 20, 1, -20, 0, 0, 0, 0, 0, 0, 119.07245, 1, -13.401642, 0, 0, 0, 0, 0, 0, 229.87091, 1, 137.97281, 0, 0, 0, 0, 0, 0, 95.00464, 1, 197.1916, 0, 0, 0, 0, 0, 0, -41.150146, 1, 222.47742, 0, 0, 0, 0, 0, 0, -82.47583, 1, 145.22713, 0, 0, 0, 0, 0, 0, -175.15399, 1, 150.93066, 0, 0, 0, 0, 0, 0, -251.85632, 1, 119.93286, 0, 0, 0, 0, 0, 0, -335.3847, 1, 191.35437, 0, 0, 0, 0, 0, 0, -456.24658, 1, 140.66425, 0, 0, 0, 0, 0, 0, -619.6307, 1, 87.39752, 0, 0, 0, 0, 0, 0, -732.151, 1, 203.7472, 0, 0, 0, 0, 0, 0, -843.9422, 1, 73.92935, 0, 0, 0, 0, 0, 0, -900.8795, 1, 141.21922, 0, 0, 0, 0, 0, 0, -1130.7351, 1, 150.8057, 0, 0, 0, 0, 0, 0, -1158.155, 1, -25.934692, 0, 0, 0, 0, 0, 0, -1047.4877, 1, -129.29242, 0, 0, 0, 0, 0, 0, -964.7826, 1, -61.555573, 0, 0, 0, 0, 0, 0, -887.63464, 1, -162.81522, 0, 0, 0, 0, 0, 0, -805.8958, 1, -128.89935, 0, 0, 0, 0, 0, 0, -637.4434, 1, -79.819305, 0, 0, 0, 0, 0, 0, -397.9076, 1, -130.23267, 0, 0, 0, 0, 0, 0, -264.80676, 1, -98.43854),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+}
+point_count = 24
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4owis"]
 sky_top_color = Color(0.48185542, 0.72736245, 0.79296875, 1)
@@ -581,7 +609,7 @@ modifiers = Array[ExtResource("2_w1nth")]([SubResource("Resource_pp151"), null])
 curve = SubResource("Curve3D_rdfxo")
 
 [node name="Mound2" type="Node3D" parent="Pasture3D" unique_id=1022464105 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -305.53122, 0.2611847, -103.357376)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -703.0426, 0.2611847, -103.357376)
 script = ExtResource("1_fwsd8")
 flank_mode = 1
 slope_angle = 35.0
@@ -617,7 +645,7 @@ material = ExtResource("10_gs7qi")
 manager = NodePath("../../Pasture3DPoolManager")
 
 [node name="Ridge" type="Node3D" parent="Pasture3D" unique_id=381948275 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -95.78416, 20, -244.00903)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 319.55533, 20, -22.160004)
 script = ExtResource("2_60doo")
 terrain = NodePath("..")
 snap_to_surface = false
@@ -627,7 +655,7 @@ _layer_owner = "pasture3d_brush:Ridges"
 curve = SubResource("Curve3D_e657i")
 
 [node name="Ridge1" type="Node3D" parent="Pasture3D" unique_id=73246018 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -242.788, 20, -239.37573)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 211.50476, 19.999939, -18.781906)
 script = ExtResource("2_60doo")
 terrain = NodePath("..")
 snap_to_surface = false
@@ -637,7 +665,7 @@ _layer_owner = "pasture3d_brush:Ridges"
 curve = SubResource("Curve3D_1kye0")
 
 [node name="Ridge2" type="Node3D" parent="Pasture3D" unique_id=642083273 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -338.61856, 20, -224.8732)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 102.64639, 20, -20.98056)
 script = ExtResource("2_60doo")
 terrain = NodePath("..")
 snap_to_surface = false
@@ -647,7 +675,7 @@ _layer_owner = "pasture3d_brush:Ridges"
 curve = SubResource("Curve3D_13rgy")
 
 [node name="Trough" type="Node3D" parent="Pasture3D" unique_id=1107057731 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 90.9723, -10, -306.24176)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 440.80914, -10, 8.09256)
 script = ExtResource("3_whwrs")
 terrain = NodePath("..")
 snap_to_surface = false
@@ -657,7 +685,7 @@ _layer_owner = "pasture3d_brush:Troughs"
 curve = SubResource("Curve3D_8ey8c")
 
 [node name="Trough1" type="Node3D" parent="Pasture3D" unique_id=664716800 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 212.03482, -10, -297.38336)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 505.40964, -10, -4.1173096)
 script = ExtResource("3_whwrs")
 terrain = NodePath("..")
 snap_to_surface = false
@@ -667,7 +695,7 @@ _layer_owner = "pasture3d_brush:Troughs"
 curve = SubResource("Curve3D_sy2cg")
 
 [node name="Trough2" type="Node3D" parent="Pasture3D" unique_id=990380298 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 304.9472, -10, -308.8401)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 589.3331, -10, -4.01239)
 script = ExtResource("3_whwrs")
 terrain = NodePath("..")
 snap_to_surface = false
@@ -776,7 +804,7 @@ sim_result = SubResource("Resource_sy2cg")
 metadata/_custom_type_script = "uid://di4sl8ruaafhp"
 
 [node name="Pasture3DSim" type="Node3D" parent="Pasture3D/Pasture3DSimManager/Pasture3DSimPass" unique_id=1393446866 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 68.14456, -0.2665863, -132.33043)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -339.39923, -0.2665863, -132.33043)
 script = ExtResource("14_8ey8c")
 area_exponent = 0.25
 terrain = NodePath("../../..")
@@ -802,7 +830,7 @@ sim_result = SubResource("Resource_d10wp")
 metadata/_custom_type_script = "uid://di4sl8ruaafhp"
 
 [node name="Pasture3DSim2" type="Node3D" parent="Pasture3D/Pasture3DSimManager/Pasture3DSimPass2" unique_id=172511343 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -136.24927, 0, -197.17499)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -523.75653, 0, -197.17499)
 script = ExtResource("14_8ey8c")
 mask_preview = 1
 terrain = NodePath("../../..")
@@ -872,6 +900,25 @@ modifiers = Array[ExtResource("2_w1nth")]([SubResource("Resource_b2p0t"), SubRes
 
 [node name="Loop1" type="Path3D" parent="Pasture3D/Mound3" unique_id=322211360]
 curve = SubResource("Curve3D_2a5dl")
+
+[node name="Mound4" type="Node3D" parent="Pasture3D" unique_id=44265822 node_paths=PackedStringArray("terrain")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 692.94196, 0, -279.8384)
+script = ExtResource("1_fwsd8")
+flank_mode = 1
+terrain = NodePath("..")
+_layer_owner = "pasture3d_brush:Mounds"
+modifiers = Array[ExtResource("2_w1nth")]([SubResource("Resource_aqh6t"), SubResource("Resource_p7n8d")])
+
+[node name="Loop1" type="Path3D" parent="Pasture3D/Mound4" unique_id=1303970607]
+curve = SubResource("Curve3D_tukl7")
+
+[node name="TroughStream" type="Node3D" parent="Pasture3D" unique_id=330465800 node_paths=PackedStringArray("source_spline", "manager")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 440.80914, -10.5, 8.09256)
+script = ExtResource("26_ai4gw")
+source_spline = NodePath("../Trough/Channel1")
+wave_profile = &"river_flow"
+material = ExtResource("27_7sjga")
+manager = NodePath("../../Pasture3DPoolManager")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2130707292]
 environment = SubResource("Environment_ahg1b")

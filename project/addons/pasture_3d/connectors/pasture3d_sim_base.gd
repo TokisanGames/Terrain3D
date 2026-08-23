@@ -97,89 +97,21 @@ func _offset_polygon(p_poly: PackedVector2Array, p_edge_offset: float) -> Array:
 	return Geometry2D.offset_polygon(p_poly, p_edge_offset)
 
 
-# ---- The worker (spec §20) ------------------------------------------------------------------------
+# ---- The worker ------------------------------------------------------------------------------------
 #
-# §20.2's third driver. `_begin` / `_solve_chunk` / `_finish` was built as a state machine so there could
-# be two drivers over identical work — straight through for gates, frame-yielding for the button. A
-# THREADED driver fits the same seam, which is why this phase adds no restructuring: the pure half of the
-# solve moves to a WorkerThreadPool task and the terrain-touching half stays exactly where it was.
+# §20's threaded driver moved UP to Pasture3DTerrainBrush when the brush's own erosion modifier needed
+# the same thing (PASTURE3D_BRUSH_EROSION_SPEC.md §14). `_solve_on_worker`, `_worker_body`,
+# `_join_worker`, `_running`, `_cancel` and `_task_id` all live there now. A Sim and an eroding Mound are
+# the same problem — a long PURE solve that must not block the editor — and two copies of a cancel flag
+# and a teardown join is how one of them eventually stops joining.
 #
-# Both front ends share this because their solve loops are the same shape — a list of independent states,
-# each advanced by `_solve_chunk` until it reports done. Pasture3DSim's states are loops; the manager's
-# are clusters.
-#
-# WHAT MAKES THIS SAFE is not this function. It is that `_solve_chunk` reads nothing the main thread owns:
-# every `terrain.data.*` call in it copies its arguments into std::vectors and copies results back out,
-# and the three GDScript reads that did touch shared state — the erodability image, the falloff Curve and
-# the loop polygons — were hoisted into `_begin` first. Warnings are collected rather than pushed. That
-# work is the phase; this is the plumbing.
-
-## A solve is running. Blocks a second press and lets Cancel find something to cancel. Lives here
-## rather than on each front end because `_join_worker` and `_solve_on_worker` both need them, and
-## two copies of a cancel flag is one copy too many.
-var _running: bool = false
-## Read by the worker at every chunk boundary, written only by the main thread. A monotonic
-## one-way flag, which is why a plain bool is enough and a Mutex would be ceremony.
-var _cancel: bool = false
-## The pool task's id while a solve is in flight, -1 otherwise. Also the flag `_join_worker` keys on.
-var _task_id: int = -1
-
-
-## Run `p_states` to completion on a worker, yielding frames here until it finishes. Returns false when
-## the run was abandoned — cancelled, or the node left the tree — in which case the caller must _abort.
-##
-## §20.3: the chunking stays on the worker, so Cancel still lands on a chunk boundary and §4.5's "N chunks
-## of k iterations is the same solve as one call of N·k" carries over untouched. An atomic cancel flag
-## checked inside the C++ iteration loop would be a new C++ contract bought for nothing.
-func _solve_on_worker(p_states: Array, p_label: String, p_progress: Callable) -> bool:
-	_task_id = WorkerThreadPool.add_task(_worker_body.bind(p_states), true, p_label)
-	while not WorkerThreadPool.is_task_completed(_task_id):
-		# Teardown is watched from HERE rather than from the worker: `is_inside_tree` is a scene-tree
-		# query and the worker must not make one. The worker only ever READS `_cancel`.
-		if not is_inside_tree() or not is_configured():
-			_cancel = true
-		if p_progress.is_valid():
-			p_progress.call()
-		await get_tree().process_frame
-	# Always join, even when cancelled: `is_task_completed` false plus a cancel flag still leaves a task
-	# holding this node's arrays, and freeing the node under it is the crash §20.4 is about.
-	WorkerThreadPool.wait_for_task_completion(_task_id)
-	_task_id = -1
-	return not _cancel
-
-
-## The task body. Runs on a pool thread — nothing in here may touch the tree, the servers, or push a
-## warning (§20.4). It reads `_cancel` and calls `_solve_chunk`, and that is deliberately all it does.
-func _worker_body(p_states: Array) -> void:
-	for st in p_states:
-		while not _solve_chunk(st):
-			if _cancel:
-				return
-
-
-## Join any live worker before this node stops being a valid thing for it to write into. Called from both
-## teardown paths; safe to call when nothing is running.
-##
-## §20.4 lists this as "the part that will bite", and it is: every one of these is reachable in an editor
-## and none exists on the synchronous path. The node leaving the tree, the scene closing, the editor
-## reloading a @tool script — all of them free the arrays the task is halfway through.
-func _join_worker() -> void:
-	if _task_id == -1:
-		return
-	_cancel = true
-	WorkerThreadPool.wait_for_task_completion(_task_id)
-	_task_id = -1
-	_running = false
-
-
-func _notification(what: int) -> void:
-	super(what)
-	if what == NOTIFICATION_EXIT_TREE or what == NOTIFICATION_PREDELETE:
-		_join_worker()
-
+# `_solve_chunk` stays HERE, because it is the state machine §20.2 built and only a Sim and a manager
+# have one. Every caller of `_solve_on_worker` hands it its own chunk callable — the brush's erosion
+# driver has one that has nothing to do with a Sim state, and a single virtual serving both would be a
+# dispatcher on which subclass it happened to be.
 
 ## Overridden by both front ends: advance one solve state, returning true when it is finished. Declared
-## here so `_worker_body` is not calling into thin air.
+## here so a front end that forgets to override it stops rather than looping.
 func _solve_chunk(_p_state: Dictionary) -> bool:
 	return true
 

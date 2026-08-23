@@ -1,0 +1,18 @@
+Gizmo sprites — the viewport markers, NOT the scene-tree icons.
+
+WHY THEY ARE SEPARATE FILES. The gizmo first drew the scene-tree `@icon` directly, and Godot's
+"detect 3D" saw a 16x16 editor icon used in a 3D material and silently rewrote its import settings to
+VRAM-compressed with mipmaps. A 16px glyph through S3TC block compression is mush, and it degraded the
+icon everywhere else it appears too. These are their own files, at their own resolution, imported with
+`detect_3d/compress_to=0` so nothing can do it again.
+
+THE RULES, and every file here follows them:
+  - 128x128 viewBox. Bold shapes only; anything finer than the 9px stroke disappears at gizmo size.
+  - GRAYSCALE. The material multiplies by the brush's own `_gizmo_color()` — light neon purple for a
+    stamping brush, dark blue for the erosion family — so white becomes the tint and mid-grey becomes a
+    darker shade of it.
+  - BLACK OUTLINE, which survives the tint unchanged. That is what separates the marker from pale
+    terrain; the white body is what separates it from a dark hillside. A sprite needs both.
+  - Named after the SCRIPT, not the class: brush_gizmo.gd walks a node's script inheritance chain and
+    takes the first `gizmo/<script file name>.svg` that exists. Adding a brush family means adding one
+    file here and nothing else.

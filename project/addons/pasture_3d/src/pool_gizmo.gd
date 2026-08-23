@@ -15,9 +15,13 @@
 @tool
 extends EditorNode3DGizmoPlugin
 
-## The brush gizmo owns the marker shape, so the two are literally the same octahedron and cannot
-## drift apart visually.
+## The brush gizmo owns the fallback marker shape, so the two are literally the same octahedron and
+## cannot drift apart visually.
 const BrushGizmo: Script = preload("res://addons/pasture_3d/src/brush_gizmo.gd")
+## The shared sprite machinery. A water body is not a brush and never will be — its loop belongs to the
+## brush that carved it — but "this node's icon, legible from any distance" is the same problem, and it
+## is answered in one place rather than two.
+const Sprites: Script = preload("res://addons/pasture_3d/src/gizmo_sprites.gd")
 
 ## World half-size of the marker (and its click box). Matches the brush marker.
 const MARKER_R: float = 4.0
@@ -85,7 +89,17 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 		return
 
 	var centre := _marker_centre(node)
-	p_gizmo.add_lines(BrushGizmo.octa(centre, MARKER_R), _marker_material)
+	# The node's own sprite — a pool reads as a level sheet of water, a stream as a meander — tinted
+	# with the orange that has always told a water body apart from a brush. Grayscale art, so the tint
+	# is the whole of the colour; see icons/gizmo/_style.txt.
+	var sprite: Texture2D = Sprites.sprite_for(node)
+	if sprite != null:
+		p_gizmo.add_mesh(Sprites._quad_mesh(),
+				Sprites._sprite_material("sprite:%s:%s" % [sprite.resource_name,
+						MARKER_COLOR.to_html(false)], sprite, MARKER_COLOR),
+				Transform3D(Basis().scaled(Vector3.ONE * Sprites.ICON_SIZE), centre))
+	else:
+		p_gizmo.add_lines(BrushGizmo.octa(centre, MARKER_R), _marker_material)
 	# A solid box of collision triangles makes the marker pickable from any angle, which is what
 	# turns it from decoration into a selection handle. add_collision_triangles takes no transform,
 	# so the vertices are moved to the marker rather than the mesh being placed.

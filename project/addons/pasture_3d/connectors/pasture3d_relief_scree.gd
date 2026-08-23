@@ -54,7 +54,12 @@ extends Pasture3DReliefMaterial
 
 func _build() -> void:
 	# The op carries its own slope gate rather than relying on the base's `selector` property, so the
-	# material works out of the box. Assigning a selector on top still works — it gates the op further.
+	# material works out of the box. Assigning a selector on top narrows it further: compile() puts that
+	# one in the op's SECOND gate slot and the two multiply, so "steep AND above 400 m" is one material.
+	#
+	# It did not always. Until 2026-08-22 there was one slot, compile() filled it only when it was empty,
+	# and this op's was never empty — so `selector` on a Scree did precisely nothing, with no way round it
+	# and this comment promising otherwise. Spec §16.3, gate Q.
 	var gate := Pasture3DReliefSelector.new()
 	gate.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
 	gate.range_min = min_slope_degrees

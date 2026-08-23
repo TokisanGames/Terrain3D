@@ -12,18 +12,47 @@ class_name Pasture3DReliefMaterial
 extends Resource
 
 ## Op ids — MUST stay in sync with ReliefOpType in src/pasture_3d_relief_ops.h.
+## Ids 0 and 11 are BURNED, not free. CONST (0) and CLAMP (11) were implemented in both evaluators and
+## emitted by no material, so nothing could reach them and no gate could cover them — four holes in the
+## 1e-4 m parity claim that no amount of running the gates would ever find (spec §16.6). Deleted 2026-08-22.
+## The ids stay spent because they are a WIRE FORMAT: renumbering to close the gap would silently
+## reinterpret every op in a program compiled by the other side of a mismatched build.
 enum Op {
-	CONST = 0, FBM = 1, RIDGED = 2, BILLOW = 3, DUNES = 4, FURROWS = 5, CRATER = 6, SCREE = 7,
-	WARP = 8, TERRACE = 9, STRATIFY = 10, CLAMP = 11, CURVE = 12, DLA = 13,
+	FBM = 1, RIDGED = 2, BILLOW = 3, DUNES = 4, FURROWS = 5, CRATER = 6, SCREE = 7,
+	WARP = 8, TERRACE = 9, STRATIFY = 10, CURVE = 12, DLA = 13,
+	## §16.4's bracket. A Pasture3DReliefStack wraps a layer whose Domain Warp is SCOPED in these two, and
+	## the evaluator saves and restores `u,v,nu,nv` across them — which is the only way to undo a warp,
+	## since a second WARP would sample its noise at the already-displaced point and land somewhere else.
+	## Neither carries a value, a blend or a gate; they move the sample point and nothing else.
+	DOMAIN_PUSH = 14, DOMAIN_POP = 15,
 }
+## How deep the domain save stack goes: one level per NESTED stack that scopes a warp. Realistically 1 —
+## a stack of materials, each with at most one warp — so 8 is four doublings of headroom. A push past it
+## is dropped and its pop is a no-op, which keeps the two balanced rather than restoring to the wrong
+## depth; the alternative (an unbounded per-cell allocation in the oracle) costs every cell to insure
+## against a nesting nobody has ever authored.
+const DOMAIN_MAX_DEPTH := 8
 ## How an op's value combines into the accumulator. PROFILE ops ignore this.
 enum Blend { ADD = 0, SUB = 1, MUL = 2, MAX = 3, MIN = 4, REPLACE = 5 }
 
 ## Wire format (spec §4.1). Mirrored by the C++ evaluator.
-const OP_STRIDE := 4     # [op_type, blend, selector_id, flags]
+const OP_STRIDE := 5     # [op_type, blend, selector_id, flags, selector_id_2]
+## Slot of an op's SECOND gate. An op is gated by the product of the two, so a material's own `selector`
+## can narrow an op that already carries one of its own — which, before this slot existed, it could not:
+## compile() assigned the material's selector only to ops holding NO_SELECTOR, and SCREE holds a real id.
+## The property was therefore inert on a Pasture3DReliefScree, with no way round it (a stack's selector
+## reaches the same test and skips the same op). See spec §16.3.
+##
+## TWO SLOTS AND NOT A CHAIN INSIDE THE SELECTOR TABLE. The stack already walks the ops rebasing slot 2,
+## so a second slot rebases in the loop that exists; a chain field would need a new walk over a table the
+## stack copies wholesale today. And "this op is gated by its own band AND by its material's" is what is
+## actually true, which is worth more than one fewer int per op.
+const OP_GATE_2 := 4
 const PARAM_STRIDE := 12 # per-op float block
-const FLAG_NEGATE := 1   # bit0 — negate the op's value before blending
-const FLAG_CLAMP := 2    # bit1 — clamp the accumulator to [-1,1] after blending
+# Bits 0-1 are BURNED. They were FLAG_NEGATE and FLAG_CLAMP, set by nothing and therefore covered by no
+# gate; see the note on Op above and spec §16.6. Deleted 2026-08-22, and left spent rather than reused,
+# because the flags word is a wire format and Blend.SUB already expresses the only one of the two anybody
+# reached for.
 const FLAG_BAND_SHIFT := 2 # bits 2-3 — which coordinate a PROFILE band op quantises (BandSource)
 const FLAG_BAND_MASK := 3 << FLAG_BAND_SHIFT
 const NO_SELECTOR := -1  # op is ungated
@@ -52,6 +81,20 @@ const CURVE_LUT_N := 256 # samples per baked Curve, one contiguous block per CUR
 ## carries a header: [offset into _fields, width, height].
 const FIELD_META_STRIDE := 3
 const DLA_FIELD_SLOT := 1 # param slot of a DLA op's field index (slot 0 is its amplitude)
+## Param slot of an op's GAIN — a plain multiplier on the op's gate, defaulting to 1.0. The LAST slot,
+## which is free in every op in the catalogue: the widest (STRATIFY) uses 9.
+##
+## It exists because a Pasture3DReliefStack layer's `strength` was not the operation a host applies. A
+## host multiplies the material's whole output; the stack used to fold `strength` into its layers'
+## GENERATOR amplitudes, which is exact for a layer of generators and wrong for one carrying a PROFILE op
+## — a TERRACE remaps whatever is in the accumulator whether its layer's amplitude was scaled or not, so
+## **a layer at `strength = 0` still terraced the stack.** Measured 0.225 apart at 0.5. Spec §16.5.
+##
+## GAIN MULTIPLIES THE GATE RATHER THAN THE VALUE, which is what makes one slot cover all three op
+## categories: `sel` already scales a generator's contribution, a domain op's displacement and a profile
+## op's lerp, so `sel == 0` already means "this op did nothing" whatever it is. Layer strength is exactly
+## that statement with a number in it, and needed no new mechanism — only a way to say it per op.
+const OP_GAIN := 11
 ## Depth of hollow, in metres over one cell, at which SCREE's toe deposition reaches full strength.
 ## Sync with RELIEF_SCREE_TOE_FULL_M in src/pasture_3d_relief_ops.h — see _scree.
 const SCREE_TOE_FULL_M := 0.25
@@ -160,13 +203,25 @@ func compile() -> Array:
 		# This material's own selector gates EVERY op it emitted, not just the generators. An earlier
 		# version gated only generators, which left PROFILE ops (TERRACE / STRATIFY) remapping a
 		# gated-to-zero accumulator into a non-zero constant — so a fully excluded area still got stepped
-		# relief. Ops that already carry a selector (Scree gates its own) keep theirs.
+		# relief.
+		#
+		# An op that already carries a gate of its own KEEPS IT AND TAKES THIS ONE TOO, in the second
+		# slot, so the two multiply. It used to keep its own and drop this one, which made `selector`
+		# silently inert on the one material that gates itself — see OP_GATE_2 and spec §16.3. The second
+		# slot is free by construction: nothing but this line ever writes it.
 		if selector != null:
 			var sid := _emit_selector(selector)
 			for i in range(_ops.size() / OP_STRIDE):
 				var o := i * OP_STRIDE
+				# The domain bracket carries no value to gate, and gating it would also make
+				# _needs_terrain_fields read this program as one that reads the ground — an O(cells)
+				# grid built for a pair of ops that only move the sample point.
+				if _ops[o] == Op.DOMAIN_PUSH or _ops[o] == Op.DOMAIN_POP:
+					continue
 				if _ops[o + 2] == NO_SELECTOR:
 					_ops[o + 2] = sid
+				else:
+					_ops[o + OP_GATE_2] = sid
 		# The output curve is emitted last so it shapes the finished relief.
 		if output_curve != null:
 			_emit(Op.CURVE, Blend.ADD, [_bake_curve(output_curve)])
@@ -240,6 +295,30 @@ func set_host_frame(_p_ex: float, _p_ez: float) -> bool:
 	return false
 
 
+## True when this material needs the working surface the modifiers ABOVE it produced, before it can
+## compile to anything. The host asks before every bake and captures only when something says yes, so a
+## material that does not want one costs nothing to ask.
+##
+## Declared on the base rather than left to `has_method`, which is what the host used to do. A duck-typed
+## check answers "did anyone implement this" and the question actually being asked is "does anything in
+## this material, at any depth, want a surface" — and those two differ exactly at a composite, which
+## implements nothing itself and holds a layer that wants one. That gap is why a stacked DLA's Ridge
+## Seeding did nothing. Pasture3DReliefStack overrides both of these to ask its layers.
+func wants_seed_surface() -> bool:
+	return false
+
+
+## Hand over the captured surface. RETURNS true when it differs from the one already held, which is the
+## host's signal to regrow and bake again — see Pasture3DTerrainBrush._commit_modifier_caches, which
+## schedules exactly one more pass on a true and converges because the capture EXCLUDES the material
+## reading it.
+##
+## Unlike set_host_frame this one may call _touch(): the host calls it AFTER the bake, not during, so the
+## `changed` it emits is a re-bake request rather than reentrancy.
+func set_seed_surface(_p_surface: Dictionary) -> bool:
+	return false
+
+
 ## Append a selector to the table and return its index (the value an op stores in its selector slot).
 func _emit_selector(s: Pasture3DReliefSelector) -> int:
 	var id := _selectors.size() / SELECTOR_STRIDE
@@ -259,10 +338,14 @@ func _emit(op: int, blend_mode: int, p: Array, flags: int = 0, selector: int = N
 	_ops.append(blend_mode)
 	_ops.append(selector)
 	_ops.append(flags)
+	_ops.append(NO_SELECTOR) # the second gate; only compile() ever fills it
 	var base := _params.size()
 	_params.resize(base + PARAM_STRIDE)
 	for i in range(mini(p.size(), PARAM_STRIDE)):
 		_params[base + i] = float(p[i])
+	# Written AFTER the copy, so slot OP_GAIN is reserved: an op may use at most PARAM_STRIDE - 1 params.
+	# The widest today uses 9 of 12. A material that needed the twelfth would have to take another slot.
+	_params[base + OP_GAIN] = 1.0
 	_noise.append(_make_noise(op, _params, base))
 
 
@@ -295,7 +378,17 @@ func _bake_field(p_data: PackedFloat32Array, w: int, h: int) -> int:
 ## src/pasture_3d_relief_ops.h, so a new generator appends at the end and the predicate widens, rather
 ## than every id shifting to keep one comparison tidy.
 static func _is_generator(op: int) -> bool:
-	return (op >= Op.CONST and op <= Op.SCREE) or op == Op.DLA
+	return (op >= Op.FBM and op <= Op.SCREE) or op == Op.DLA
+
+
+## True when this material's DOMAIN WARP should stop at the end of its own layer, so a stack brackets it.
+##
+## The displacement is not the material's business to scope — a material standing alone has no layers
+## below it to displace, so this is only ever read by Pasture3DReliefStack, about one of its layers.
+## False here and on a stack itself: a stack has no warp of its own, and a layer inside it that asked NOT
+## to be scoped should leak out through the stack that holds it, which is what the toggle means.
+func wants_domain_scope() -> bool:
+	return false
 
 
 ## Does this material predominantly RAISE the ground? Drives the plow's Add Water raise check
@@ -401,6 +494,10 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 	if _dirty:
 		compile()
 	var acc := 0.0
+	# The domain save stack, four floats per level (u, v, nu, nv). Empty and untouched on every program
+	# that has no scoped warp in it, which is all of them until a stack puts one there.
+	var dom := PackedFloat32Array()
+	var dom_depth := 0
 	var count := _ops.size() / OP_STRIDE
 	for i in range(count):
 		var o := i * OP_STRIDE
@@ -412,12 +509,41 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		# Terrain-aware gate for this op, if any. A GENERATOR scales its contribution by it, a DOMAIN op
 		# scales its displacement, and a PROFILE op lerps between the un-remapped and remapped
 		# accumulator — so `sel == 0` always means "this op did nothing", smoothly, whatever its category.
+		# TWO gates, multiplied: the op's own (SCREE's slope band) and the material's `selector`. Both
+		# read the same cell, so the product is "in the band AND on the slope" — see OP_GATE_2.
 		var sid := _ops[o + 2]
 		var sel := 1.0
 		if sid >= 0:
 			sel = _selector_value(sid, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi,
 					host_alt, host_slope_deg, host_curv, has_host, host_measured)
+		var sid2 := _ops[o + OP_GATE_2]
+		if sid2 >= 0:
+			sel *= _selector_value(sid2, alt, slope_deg, curv, flow, ero, dep, wet, measured, fi,
+					host_alt, host_slope_deg, host_curv, has_host, host_measured)
+		# ...and the op's own gain, which is how a stack layer's `strength` reaches every category of op
+		# rather than only its generators. 1.0 on everything a material emits directly.
+		sel *= _params[p + OP_GAIN]
 		var band_source := (flags & FLAG_BAND_MASK) >> FLAG_BAND_SHIFT
+
+		# --- DOMAIN BRACKET: saves and restores the sample point around one stack layer (§16.4).
+		if op == Op.DOMAIN_PUSH:
+			# The DEPTH counts past the cap while the array does not, so a dropped push and its pop stay
+			# paired and an outer bracket is never restored by an inner one. Mirrors the C++ exactly.
+			if dom_depth < DOMAIN_MAX_DEPTH:
+				dom.append_array([u, v, nu, nv])
+			dom_depth += 1
+			continue
+		if op == Op.DOMAIN_POP:
+			if dom_depth > 0:
+				dom_depth -= 1
+				if dom_depth < DOMAIN_MAX_DEPTH:
+					var b := dom.size() - 4
+					u = dom[b]
+					v = dom[b + 1]
+					nu = dom[b + 2]
+					nv = dom[b + 3]
+					dom.resize(b)
+			continue
 
 		# --- DOMAIN: rewrites the sample point for every op that follows; never touches acc.
 		if op == Op.WARP:
@@ -456,9 +582,6 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 				w = clampf(_band_coord(band_source, acc, host_norm, alt, p) + tilt * 0.5, 0.0, 1.0)
 			acc = lerpf(acc, _band(w, _params[p], _params[p + 1]) * 2.0 - 1.0, sel)
 			continue
-		if op == Op.CLAMP:
-			acc = lerpf(acc, clampf(acc, _params[p], _params[p + 1]), sel)
-			continue
 		if op == Op.CURVE:
 			acc = lerpf(acc, _sample_lut(int(_params[p]), clampf(acc * 0.5 + 0.5, 0.0, 1.0)) * 2.0 - 1.0, sel)
 			continue
@@ -466,8 +589,6 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 		# --- GENERATOR: computes a value and blends it in.
 		var val := 0.0
 		match op:
-			Op.CONST:
-				val = _params[p]
 			Op.FBM, Op.RIDGED, Op.BILLOW:
 				var raw: float = _noise[i].get_noise_2d(u, v)
 				if op == Op.BILLOW:
@@ -482,7 +603,7 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 			Op.FURROWS:
 				val = _furrows(u, v, _params, p, _noise[i])
 			Op.CRATER:
-				val = _crater(nu, nv, _params, p)
+				val = _crater(nu, nv, inv_ex, inv_ez, _params, p)
 			Op.DLA:
 				# Loop-normalised, exactly like CRATER: the cluster maps once onto the oriented rectangle.
 				val = _sample_field(int(_params[p + DLA_FIELD_SLOT]), nu, nv) * _params[p]
@@ -493,8 +614,6 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 
 		val *= sel
 
-		if flags & FLAG_NEGATE:
-			val = -val
 		match blend_mode:
 			Blend.ADD: acc += val
 			Blend.SUB: acc -= val
@@ -502,8 +621,6 @@ func eval(u: float, v: float, nu: float, nv: float, inv_ex: float, inv_ez: float
 			Blend.MAX: acc = maxf(acc, val)
 			Blend.MIN: acc = minf(acc, val)
 			Blend.REPLACE: acc = val
-		if flags & FLAG_CLAMP:
-			acc = clampf(acc, -1.0, 1.0)
 	return acc
 
 
@@ -645,6 +762,23 @@ func _sample_field(slot: int, nu: float, nv: float) -> float:
 	return (a * (1.0 - tx) + b * tx) * (1.0 - ty) + (c * (1.0 - tx) + d * tx) * ty
 
 
+## The factor that turns a metric rim width into a normalised one, along the ray through (nu,nv).
+##
+## `w = rim_width * min(ex,ez)` metres of rim; the distance from the centre to the ellipse edge along this
+## ray is `L = |(ex*cos, ez*sin)|`; the rim therefore occupies `w / L` of the normalised radius. Returned
+## as `min(ex,ez) / L`, so the caller multiplies by `rim_width` and reads the same expression it always
+## did. Exactly 1.0 on a square loop, and at r = 0 (where the ray is undefined and the rim is irrelevant).
+static func _rim_scale(nu: float, nv: float, r: float, inv_ex: float, inv_ez: float) -> float:
+	if r <= 1.0e-9:
+		return 1.0
+	var ex := 1.0 / maxf(inv_ex, 1.0e-9)
+	var ez := 1.0 / maxf(inv_ez, 1.0e-9)
+	var cu := (nu / r) * ex
+	var cv := (nv / r) * ez
+	var l := sqrt(cu * cu + cv * cv)
+	return minf(ex, ez) / maxf(l, 1.0e-9)
+
+
 ## Quantise x in [0,1] into `steps` bands. `hardness` 0 = untouched (identity), 1 = flat benches with
 ## near-vertical risers. Shared by TERRACE and STRATIFY, which differ only in the coordinate they band.
 static func _band(x: float, steps: float, hardness: float) -> float:
@@ -686,17 +820,34 @@ static func _furrows(u: float, v: float, params: PackedFloat32Array, p: int, n: 
 	return (f * 2.0 - 1.0) * params[p]
 
 
-## Radial crater profile in normalised loop space: a flattenable bowl, a rim at `1 - rim_width`, and
-## ejecta decaying to zero at r = 1. The two branches meet continuously at the rim (both give rim_height).
+## Radial crater profile in normalised loop space: a flattenable bowl, a rim, and ejecta decaying to zero
+## at r = 1. The two branches meet continuously at the rim (both give rim_height).
 ## p: [0]=amplitude [1]=floor_depth [2]=rim_height [3]=rim_width [4]=ejecta_falloff [5]=floor_flatness
 ##    [6]=terrace_steps  ([7] reserved for rim wobble)
-static func _crater(nu: float, nv: float, params: PackedFloat32Array, p: int) -> float:
+##
+## THE BOWL FILLS THE LOOP; THE RIM DOES NOT STRETCH WITH IT (spec §16.7). `nu,nv` are ±1 at the loop's
+## half-extents, so r = 1 is the loop's own ellipse and an elongated loop gets an elongated crater — which
+## is what an elongated loop asks for, and is left alone. `rim_width` used to be a fraction of that
+## normalised radius too, which made the rim band and the ejecta blanket three times wider one way on a
+## 3:1 loop. A rim is a feature ON the crater rather than the crater's outline, and that is exactly the
+## distinction PASTURE3D_BRUSH_EROSION_SPEC.md §9.8 drew for the DLA's ridges.
+##
+## So the rim is measured in METRES: `rim_width` times the SHORT semi-axis, converted back into normalised
+## depth per direction by dividing by the distance to the ellipse edge along this ray. The short axis is
+## what makes a SQUARE loop bitwise what it always was — there `L == min(ex,ez) == ex` and the whole
+## expression collapses to `1 - rim_width`.
+##
+## The bowl's own inner wall (the smoothstep up to the crest) still scales with the bowl and is meant to:
+## it is the shape of the depression, not a band laid on top of it, and an elongated crater's long wall
+## IS longer.
+static func _crater(nu: float, nv: float, inv_ex: float, inv_ez: float,
+		params: PackedFloat32Array, p: int) -> float:
 	var r := sqrt(nu * nu + nv * nv)
 	if r >= 1.0:
 		return 0.0
 	var floor_depth := params[p + 1]
 	var rim_height := params[p + 2]
-	var rim_pos := clampf(1.0 - params[p + 3], 0.05, 0.98)
+	var rim_pos := clampf(1.0 - params[p + 3] * _rim_scale(nu, nv, r, inv_ex, inv_ez), 0.05, 0.98)
 	var val: float
 	if r <= rim_pos:
 		var t := r / rim_pos

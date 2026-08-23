@@ -94,10 +94,40 @@ func set_host_frame(p_ex: float, p_ez: float) -> bool:
 	return moved
 
 
+## Ask every layer, at any depth. A stack implements no seeding of its own; what it has to get right is
+## that a DLA inside it is not invisible to the host's capture — the host asks the material it was handed,
+## and what it was handed is this.
+func wants_seed_surface() -> bool:
+	for m in layers:
+		if m != null and m.wants_seed_surface():
+			return true
+	return false
+
+
+## Hand the captured surface to every layer, and DO NOT stop at the first taker: two seeded layers in one
+## stack both need it, and `or` short-circuits.
+##
+## No `_dirty` of our own here, unlike set_host_frame — a layer that accepted a new surface calls _touch(),
+## which emits `changed`, which _connect_layers has already wired to ours. The frame hook cannot use that
+## path because it runs during a bake; this one runs after.
+func set_seed_surface(p_surface: Dictionary) -> bool:
+	var moved := false
+	for m in layers:
+		if m != null and m.set_seed_surface(p_surface):
+			moved = true
+	return moved
+
+
 func _build() -> void:
 	for m in layers:
 		if m == null:
 			continue
+		# §16.4. A layer whose Domain Warp is scoped gets bracketed, so its displacement dies with it and
+		# the layers below are sampled where they would have been. Asked of the LAYER, not decided here:
+		# the toggle lives on the material that owns the warp.
+		var scoped: bool = m.wants_domain_scope()
+		if scoped:
+			_emit(Op.DOMAIN_PUSH, Blend.ADD, [])
 		var prog: Array = m._program()
 		var c_ops: PackedInt32Array = prog[0]
 		var c_params: PackedFloat32Array = prog[1]
@@ -138,14 +168,21 @@ func _build() -> void:
 			_ops.append(m.blend if i == entry else c_ops[o + 1])
 			_ops.append(c_ops[o + 2] if c_ops[o + 2] < 0 else c_ops[o + 2] + sel_offset)
 			_ops.append(c_ops[o + 3])
+			# The second gate indexes the same table as the first, so it rebases the same way.
+			var g2 := c_ops[o + OP_GATE_2]
+			_ops.append(g2 if g2 < 0 else g2 + sel_offset)
 			var base := _params.size()
 			_params.resize(base + PARAM_STRIDE)
 			for k in range(PARAM_STRIDE):
 				_params[base + k] = c_params[i * PARAM_STRIDE + k]
-			# Fold the layer's own strength into the op amplitude. Only the top-level material's strength
-			# is applied by the brush, so a nested layer's would otherwise be silently ignored.
-			if m.strength != 1.0 and _is_generator(c_ops[o]):
-				_params[base] *= m.strength
+			# The layer's own strength, as a gain on EVERY op it emitted. Only the top-level material's
+			# strength is applied by the brush, so a nested layer's would otherwise be ignored.
+			#
+			# MULTIPLIED, not assigned: a nested stack has already written its own layers' strengths into
+			# this slot, and the two compose. And applied to every op rather than to the generators, which
+			# is the §16.5 fix — folding into amplitudes left a PROFILE op acting at full force, so a
+			# layer at strength 0 still terraced the stack underneath it.
+			_params[base + OP_GAIN] *= m.strength
 			if c_ops[o] == Op.CURVE:
 				_params[base] += lut_offset
 			elif c_ops[o] == Op.DLA:
@@ -154,6 +191,8 @@ func _build() -> void:
 				# a generator, so the first branch can never have run) and is left reading as it always did.
 				_params[base + DLA_FIELD_SLOT] += field_offset
 			_noise.append(c_noise[i])
+		if scoped:
+			_emit(Op.DOMAIN_POP, Blend.ADD, [])
 
 
 ## The stack raises if any layer that is not purely subtractive raises. A stack of only craters digs.
@@ -164,7 +203,49 @@ func _raises() -> bool:
 	return false
 
 
+## Our own complaint, plus every layer's — the last accessor that did not ask its layers, and the same
+## defect shape as the seeding one (spec §16.2). A material that knows how to say "Base Amount fights the
+## Host Profile" or "I am still waiting for a surface" fell silent the moment it became a layer, which is
+## how a broken stack came to look exactly like a working one.
+##
+## EVERY complaint and not just the first: the failure being fixed is a hidden complaint, and returning
+## one of several is that failure with a smaller radius. They are joined with newlines because the host
+## appends this as a single warning entry (Pasture3DTerrainBrush._relief_warnings) and the signature is
+## one String — widening it would touch every material in the catalogue for no gain here.
+##
+## Each layer's line names the layer, because "hardness is 0" is not actionable in a stack of four. A
+## nested stack prefixes again, which is what makes the path readable rather than just the leaf.
 func _configuration_warning() -> String:
+	var own := _own_warning()
+	var out := PackedStringArray()
+	if not own.is_empty():
+		out.append(own)
+	for i in range(layers.size()):
+		var m: Pasture3DReliefMaterial = layers[i]
+		if m == null:
+			continue
+		var w := m._configuration_warning()
+		if w.is_empty():
+			continue
+		# Prefix EVERY line, not the string. A nested stack hands back one line per complaint, and
+		# prefixing only the first leaves its second complaint reading as though it came from this level.
+		for line in w.split("
+"):
+			out.append("Layer %d (%s): %s" % [i + 1, _layer_name(m), line])
+	return "\n".join(out)
+
+
+## The name to call a layer in a warning: what the user typed, or the class with the prefix stripped —
+## the same rule Pasture3DBrushModifier.display_name uses, for the same reason.
+func _layer_name(m: Pasture3DReliefMaterial) -> String:
+	if not m.resource_name.is_empty():
+		return m.resource_name
+	var s: Script = m.get_script()
+	return String(s.get_global_name()).trim_prefix("Pasture3DRelief") if s != null else "Relief"
+
+
+## The stack's OWN complaint, split out so _configuration_warning can put it first and still forward.
+func _own_warning() -> String:
 	var live := 0
 	var first = null
 	for m in layers:

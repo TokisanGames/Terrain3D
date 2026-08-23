@@ -37,6 +37,10 @@ const SITE_E := Vector3(480.0, 0.0, 420.0)
 const SITE_F := Vector3(780.0, 0.0, 420.0)
 const SITE_G := Vector3(180.0, 0.0, 720.0)
 const SITE_H := Vector3(480.0, 0.0, 720.0)
+## §10's Clear Simulation On All Brushes: two brushes on two layer owners, plus one unregistered.
+const SITE_I := Vector3(780.0, 0.0, 720.0)
+const SITE_J := Vector3(900.0, 0.0, 120.0)
+const SITE_K := Vector3(900.0, 0.0, 420.0)
 
 const HALF := 50.0
 const PROBE_STRIDE := 2
@@ -71,6 +75,7 @@ func _ready() -> void:
 	_gate_cg_stale_path_warns_and_does_not_drop()
 	await _gate_ch_one_undo_and_cancel()
 	_gate_cw_scan_appends()
+	_gate_df_clear_all_brushes()
 
 	print("\n=== %s (%d failures) ===\n"
 		% ["BRUSH REGISTRY PASS" if _fail == 0 else "BRUSH REGISTRY FAIL", _fail])
@@ -592,3 +597,116 @@ func _max_abs_diff(p_a: Array[float], p_b: Array[float]) -> float:
 
 func _height(p_at: Vector3) -> float:
 	return _terrain.data.get_height(Vector3(p_at.x, 0.0, p_at.z))
+
+
+# --- DF: Clear Simulation On All Brushes takes the erosion off, and only off the registered set ------
+#
+# Spec §14. The counterpart to Bake All Brushes and the brush-registry counterpart to Clear Simulation:
+# every registered brush's frozen solve is dropped and its layer re-baked with the erosion suppressed, so
+# the ground holds the shape the brushes make BEFORE they erode.
+#
+# BOTH HALVES ARE CLAIMS AND NEITHER IS ENOUGH ALONE, which is the whole reason this gate exists rather
+# than a check that the caches are empty:
+#
+#   - drop the caches without re-baking, and the eroded heights stay in the layer. The button frees some
+#     memory and appears to do nothing, which is the version that would ship if nobody measured HEIGHT.
+#   - re-bake without dropping them, and the cached erosion is served straight back. Identical outcome,
+#     opposite bug.
+#
+# CONTROL 1: an UNREGISTERED brush on its own layer must not move. "Clear everything" and "clear the
+# registered set" produce the same reading on a fixture where everything is registered, and the list is
+# the entire point of the registry.
+#
+# CONTROL 2: there has to have been an erosion on the ground to take off. A fixture whose solve cut
+# nothing passes the headline claim perfectly and says nothing.
+#
+# CONTROL 3: it must be REVERSIBLE by Bake All Brushes. Clearing is not disabling — nothing about the
+# brushes changed — and a clear that could not be re-baked would mean the button had edited the scene.
+func _gate_df_clear_all_brushes() -> void:
+	print("\n[DF] Clear Simulation On All Brushes takes the erosion off the registered set:")
+	var reg_a = _make_mound("ClearA", SITE_I, "ClearA")
+	var reg_b = _make_mound("ClearB", SITE_J, "ClearB")
+	var unreg = _make_mound("ClearU", SITE_K, "ClearU")
+	if reg_a == null or reg_b == null or unreg == null:
+		return
+	var pa := _lattice(SITE_I)
+	var pb := _lattice(SITE_J)
+	var pu := _lattice(SITE_K)
+
+	# The un-eroded reference, taken first: the same stacks with the modifier unchecked.
+	for m in [reg_a, reg_b, unreg]:
+		(m.modifiers[1] as Pasture3DModErosion).enabled = false
+		m._refresh_owner(m._layer_owner, false, [])
+	var bare_a := _snapshot(pa)
+	var bare_b := _snapshot(pb)
+	for m in [reg_a, reg_b, unreg]:
+		(m.modifiers[1] as Pasture3DModErosion).enabled = true
+		m._refresh_owner(m._layer_owner, false, [])
+	var eroded_a := _snapshot(pa)
+	var eroded_u := _snapshot(pu)
+
+	var listed: Array[NodePath] = [_mgr.get_path_to(reg_a), _mgr.get_path_to(reg_b)]
+	_mgr.eroding_brushes = listed
+	var report: Dictionary = _mgr.clear_all_brushes()
+	if not bool(report["ok"]):
+		_fail += 1
+		print("    !! the button refused: %s" % report["reason"])
+		return
+	var clear_a := _snapshot(pa)
+	var clear_b := _snapshot(pb)
+	var clear_u := _snapshot(pu)
+
+	var back_a := _first_difference(clear_a, bare_a)
+	var back_b := _first_difference(clear_b, bare_b)
+	var moved_u := _worst(clear_u, eroded_u)
+	var took_off := _worst(clear_a, eroded_a)
+	print("    %d brush(es) across %d layer(s), %d frozen solve(s) dropped"
+			% [int(report["brushes"]), int(report["owners"]), int(report["cleared"])])
+	print("    layer A back to its un-eroded shape: %s"
+			% ["bitwise identical" if back_a < 0 else "MOVED at probe %d" % back_a])
+	print("    layer B back to its un-eroded shape: %s"
+			% ["bitwise identical" if back_b < 0 else "MOVED at probe %d" % back_b])
+	print("    CONTROL it took a real erosion off layer A: %.4f m" % took_off)
+	print("    CONTROL the unregistered brush did not move: %.8f m" % moved_u)
+	if back_a >= 0 or back_b >= 0:
+		_fail += 1
+		print("    !! a cleared layer is not the shape the brush makes before it erodes")
+	if int(report["owners"]) != 2:
+		_fail += 1
+		print("    !! expected 2 layer owners, got %d" % int(report["owners"]))
+	if int(report["cleared"]) < 2:
+		_fail += 1
+		print("    !! fewer frozen solves were dropped than there are registered brushes")
+	if not is_finite(took_off) or took_off < 1.0:
+		_fail += 1
+		print("    !! there was no erosion on the ground to clear, so clearing it proves nothing")
+	if not is_finite(moved_u) or moved_u > 1.0e-6:
+		_fail += 1
+		print("    !! an UNREGISTERED brush moved, or its probes read off the terrain — either way this "
+			+ "control is not controlling")
+
+	# CONTROL 3. Nothing was disabled, so Bake All Brushes puts it back.
+	var again: Dictionary = _mgr.bake_all_brushes_now(false)
+	var re_a := _snapshot(pa)
+	var restored := _first_difference(re_a, eroded_a)
+	print("    CONTROL Bake All Brushes puts it back: %s (baked %d)"
+			% ["bitwise identical" if restored < 0 else "MOVED at probe %d" % restored,
+				int(again.get("baked", 0))])
+	if restored >= 0:
+		_fail += 1
+		print("    !! the clear was not reversible, so it changed more than what is on the ground")
+
+
+## Worst absolute difference between two probe runs, or NAN if either run read off the terrain.
+##
+## Non-finite is returned rather than skipped ON PURPOSE. A probe run of NaNs compares equal to nothing
+## and `nan > tolerance` is FALSE, so a control built on one passes silently — which is exactly what this
+## gate did on its first run, reporting "the unregistered brush did not move: nan" as a pass. Every caller
+## checks `is_finite` on the way out.
+func _worst(p_a: Array[float], p_b: Array[float]) -> float:
+	var out := 0.0
+	for i in range(mini(p_a.size(), p_b.size())):
+		if not is_finite(p_a[i]) or not is_finite(p_b[i]):
+			return NAN
+		out = maxf(out, absf(p_a[i] - p_b[i]))
+	return out

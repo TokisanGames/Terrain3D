@@ -37,6 +37,12 @@ const SITE_P3PARITY := Vector3(780.0, 0.0, 540.0)
 ## Chosen for having genuinely flat ground (the other sites are almost all steep) while staying clear of
 ## the region edge at X = 1024, where get_height returns NaN.
 const SITE_PROFILE_GATE := Vector3(960.0, 0.0, 700.0)
+## §16.7's parity site. Gate D's fixture is a SQUARE loop carrying a fractal stack, and gate C's crater
+## loop is 60x22 but never A/B'd — so a crater on a non-square loop had no parity coverage at all, in
+## either gate, until the rim's metric width made that a live risk.
+const SITE_CRATER_PARITY := Vector3(380.0, 0.0, 500.0)
+## §16.4's parity site.
+const SITE_WARP_SCOPE := Vector3(580.0, 0.0, 500.0)
 ## A probe counts as steep / flat for the binned selector gates at these slopes, in degrees.
 const STEEP_DEG := 30.0
 const FLAT_DEG := 10.0
@@ -45,6 +51,13 @@ const PRESET_DIR := "res://demo/data/relief"
 const PARITY_TOL := 1.0e-4
 
 var _fail := 0
+## Counts ONLY the gates that carry it. A GDScript runtime error abandons a function without incrementing
+## `_fail`, so a suite that counts failures alone can report a clean pass having measured nothing — the
+## house rule from bench/OceanBench.gd. Gates A-N predate it and are not retrofitted here; bringing them
+## up is its own change, and a counter that covers half a suite must say which half or it is worse than
+## none. O and P below are the half it covers.
+const COUNTED_GATES := 6
+var _completed := 0
 var _root: Node3D
 var _terrain
 
@@ -71,7 +84,17 @@ func _ready() -> void:
 	_gate_l_scree()
 	_gate_m_phase3_parity()
 	_gate_n_profile_ops_are_gated()
+	_gate_o_blend_is_hidden()
+	_gate_p_stack_forwards_warnings()
+	_gate_q_second_gate()
+	_gate_r_layer_strength()
+	_gate_s_crater_rim_is_metric()
+	_gate_t_warp_scope()
 
+	if _completed != COUNTED_GATES:
+		_fail += 1
+		print("\n!! only %d of the %d counted gates ran to completion; the rest hit a runtime error"
+				% [_completed, COUNTED_GATES])
 	print("\n=== %s (%d failures) ===\n" % ["PLOW RELIEF PASS" if _fail == 0 else "PLOW RELIEF FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -959,3 +982,637 @@ func _snapshot(p_points: Array[Vector3]) -> Array[float]:
 
 func _height(p_at: Vector3) -> float:
 	return _terrain.data.get_height(Vector3(p_at.x, 0.0, p_at.z))
+
+
+# --- O: `blend` is hidden on a material that cannot use it ----------------------------------------
+#
+# Spec §16.1. Outside a Pasture3DReliefStack, `blend` does nothing at all: a host evaluates one material
+# into an accumulator that starts at 0 and adds the result, and no setting of it changes a byte. The base
+# hides it for that reason, and three subclasses overrode `_validate_property` without calling `super`,
+# which repealed the rule on exactly those three -- GDScript resolves a virtual to the most-derived
+# implementation and stops.
+#
+# MEASURED AS INSPECTOR VISIBILITY, not by reading the source for `super`. A grep-shaped gate passes on
+# code that calls super and then undoes it, and fails on a subclass that solves the problem some other
+# way. What has to be true is what the artist sees.
+#
+# The catalogue is enumerated rather than sampled, so a NEW material that forgets is caught the day it is
+# added rather than the day someone wonders why the control is there.
+#
+# CONTROL. The same instances, put into a stack, must show it. Without that "hidden everywhere" is also
+# what a gate reports when `blend` has been renamed out of the property list entirely, or when the
+# visibility bit is read the wrong way round -- both of which pass the criterion while measuring nothing.
+func _gate_o_blend_is_hidden() -> void:
+	print("\n[O] `blend` is hidden on a material that is not in a stack (spec 16.1):")
+	var cases: Array[Pasture3DReliefMaterial] = [
+		Pasture3DReliefFractal.new(), Pasture3DReliefTerraces.new(), Pasture3DReliefStrata.new(),
+		Pasture3DReliefDunes.new(), Pasture3DReliefFurrows.new(), Pasture3DReliefCrater.new(),
+		Pasture3DReliefScree.new(), Pasture3DReliefDLA.new(), Pasture3DReliefStack.new(),
+	]
+	var loose := 0
+	for m in cases:
+		if _blend_visible(m):
+			loose += 1
+			_fail += 1
+			print("    !! %s shows Blend while not in a stack, where it cannot act" % _cls(m))
+	print("    %d of %d materials hide it outside a stack" % [cases.size() - loose, cases.size()])
+
+	# CONTROL: one stack holding every one of them, which must un-hide it on all of them.
+	var host := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = []
+	for m in cases:
+		l.append(m)
+	host.layers = l
+	var shown := 0
+	for m in cases:
+		if _blend_visible(m):
+			shown += 1
+	print("    CONTROL the same instances as layers of a stack: %d of %d show it" % [shown, cases.size()])
+	if shown != cases.size():
+		_fail += 1
+		print("    !! Blend does not appear even where it acts, so the criterion above measured nothing")
+	_completed += 1
+
+
+## Is `blend` in this material's EDITOR property list? Read from get_property_list, which is what the
+## inspector itself walks, rather than from _validate_property directly -- the bug being gated is that the
+## engine never calls the base implementation, and calling it by hand would step around exactly that.
+func _blend_visible(m: Pasture3DReliefMaterial) -> bool:
+	for prop in m.get_property_list():
+		if prop.get("name", "") == "blend":
+			return (int(prop.get("usage", 0)) & PROPERTY_USAGE_EDITOR) != 0
+	return false
+
+
+func _cls(m: Object) -> String:
+	var sc: Script = m.get_script()
+	return String(sc.get_global_name()) if sc != null else m.get_class()
+
+
+# --- P: a stack forwards its layers' configuration warnings ---------------------------------------
+#
+# Spec §16.2. `_configuration_warning()` was the last accessor Pasture3DReliefStack did not pass down, so
+# every complaint every material knows how to make vanished the moment it became a layer. The host reads
+# one string off the top-level material (Pasture3DTerrainBrush._relief_warnings) and never walks the tree
+# itself, so a silent stack is a silent inspector.
+#
+# THREE CLAIMS, because the fix has three parts. The complaint arrives; it NAMES the layer, which is what
+# makes it actionable in a stack of four; and ALL of them arrive, because returning the first would be the
+# same hidden-complaint failure with a smaller radius.
+#
+# CONTROL, and it is the one that matters: a stack of HEALTHY layers must say nothing. A stack that
+# concatenated its layers unconditionally, or one that warned about its own structure on every call, would
+# satisfy every claim above while telling the artist nothing they can act on.
+#
+# SECOND CONTROL: the same broken layer standing ALONE must say the same thing. If it does not, this gate
+# is measuring a sentence the stack invented rather than one it forwarded.
+func _gate_p_stack_forwards_warnings() -> void:
+	print("\n[P] a stack reports its layers' complaints (spec 16.2):")
+	var broken := Pasture3DReliefTerraces.new()
+	broken.hardness = 0.0
+	broken.resource_name = "Benches"
+	var also_broken := Pasture3DReliefFractal.new()
+	also_broken.amplitude = 0.0
+	var healthy := Pasture3DReliefDunes.new()
+
+	var alone := broken._configuration_warning()
+	print("    the layer standing alone says: %s" % _oneline(alone))
+	if alone.is_empty():
+		_fail += 1
+		print("    !! the fixture does not complain on its own, so P has nothing to forward")
+		_completed += 1
+		return
+
+	var stack := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [healthy, broken, also_broken]
+	stack.layers = l
+	var got := stack._configuration_warning()
+	print("    the stack says: %s" % _oneline(got))
+	if not got.contains(alone):
+		_fail += 1
+		print("    !! the layer's own complaint did not survive the forward")
+	if not got.contains("Benches"):
+		_fail += 1
+		print("    !! the complaint does not name the layer it is about")
+	if got.split("\n").size() < 2:
+		_fail += 1
+		print("    !! only one of the two broken layers was reported")
+
+	# The nesting claim: a stack inside a stack still reaches the leaf.
+	var outer := Pasture3DReliefStack.new()
+	var l2: Array[Pasture3DReliefMaterial] = [stack]
+	outer.layers = l2
+	print("    nested one level deeper: %s" % _oneline(outer._configuration_warning()))
+	if not outer._configuration_warning().contains(alone):
+		_fail += 1
+		print("    !! the forward stops at the first level, so a stack of stacks is still silent")
+
+	# CONTROL. A stack of healthy layers says nothing at all.
+	var quiet := Pasture3DReliefStack.new()
+	var l3: Array[Pasture3DReliefMaterial] = [healthy, Pasture3DReliefFurrows.new()]
+	quiet.layers = l3
+	print("    CONTROL a stack of healthy layers says: %s" % _oneline(quiet._configuration_warning()))
+	if not quiet._configuration_warning().is_empty():
+		_fail += 1
+		print("    !! a healthy stack complains too, so the criterion above passes on anything")
+	_completed += 1
+
+
+## Warnings are multi-line now; the log stays one line per fact.
+func _oneline(s: String) -> String:
+	return "(nothing)" if s.is_empty() else "\"%s\"" % s.replace("\n", " | ")
+
+
+# --- Q: a material's own selector reaches an op that gates itself ---------------------------------
+#
+# Spec §16.3. SCREE emits its op already carrying a slope band, so the material works out of the box.
+# compile() used to assign the material's `selector` only to ops holding NO_SELECTOR, and SCREE's is never
+# empty -- so the property was inert on the one material that gates itself, with no way round it: a
+# stack's selector reaches the same test and skips the same op. The op now carries TWO gate slots and is
+# scaled by their product.
+#
+# MEASURED ON THE OP'S OUTPUT, at a cell the assigned band must exclude and the built-in band must pass.
+# That combination is the whole point -- a cell excluded by BOTH would go to zero under any wiring at all,
+# including the broken one, and would prove nothing.
+#
+# THREE CONTROLS, because "the output went to zero" has three uninteresting causes.
+#   1. The same band on a material whose op carries NO gate of its own (Fractal), which must also gate out
+#      -- that is what says the band itself works and the fixture is not simply misconfigured.
+#   2. The same Scree with NO selector assigned, which must be non-zero at that cell -- otherwise the
+#      built-in slope gate was closing it and the assigned band is irrelevant.
+#   3. The built-in gate must still act: a cell the assigned band PASSES and the slope band rejects must
+#      still be zero. Without it, "the two multiply" would also be satisfied by an implementation that
+#      threw the op's own gate away and kept the material's, which is the previous bug inverted.
+func _gate_q_second_gate() -> void:
+	print("\n[Q] an assigned selector narrows an op that gates itself (spec 16.3):")
+	# A steep cell (60 deg) at 0 m, and an ALTITUDE band of 500-600 m that must exclude it.
+	var steep_low := func(m: Pasture3DReliefMaterial) -> float:
+		return m.eval(30.0, 30.0, 0.2, 0.2, 1.0, 1.0, 0.0, 60.0)
+	# A steep cell at 550 m, which the same band PASSES.
+	var steep_high := func(m: Pasture3DReliefMaterial) -> float:
+		return m.eval(30.0, 30.0, 0.2, 0.2, 1.0, 1.0, 550.0, 60.0)
+	# A FLAT cell at 550 m: the band passes, Scree's own slope gate must not.
+	var flat_high := func(m: Pasture3DReliefMaterial) -> float:
+		return m.eval(30.0, 30.0, 0.2, 0.2, 1.0, 1.0, 550.0, 2.0)
+
+	var bare := Pasture3DReliefScree.new()
+	var gated := Pasture3DReliefScree.new()
+	gated.selector = _altitude_band(500.0, 600.0)
+
+	var ungated_v: float = steep_low.call(bare)
+	var gated_v: float = steep_low.call(gated)
+	print("    steep, 0 m (band EXCLUDES): ungated %.6f -> with a 500-600 m band %.6f"
+			% [ungated_v, gated_v])
+	if is_zero_approx(ungated_v):
+		_fail += 1
+		print("    !! the ungated Scree is already zero here; Q measured nothing")
+	elif not is_zero_approx(gated_v):
+		_fail += 1
+		print("    !! the assigned selector did not reach the op, so `selector` is still inert on Scree")
+
+	var pass_v: float = steep_high.call(gated)
+	print("    steep, 550 m (band PASSES): %.6f" % pass_v)
+	if is_zero_approx(pass_v):
+		_fail += 1
+		print("    !! the band excludes everywhere, so the zero above is not evidence of anything")
+
+	# CONTROL 3: the op's OWN gate must survive. Flat ground, inside the altitude band.
+	var own_v: float = flat_high.call(gated)
+	print("    CONTROL flat, 550 m (band passes, SLOPE gate rejects): %.6f" % own_v)
+	if not is_zero_approx(own_v):
+		_fail += 1
+		print("    !! the op's own slope gate was dropped; the two must MULTIPLY, not replace")
+
+	# CONTROL 1: the same band on an op that carries no gate of its own.
+	var f_bare := Pasture3DReliefFractal.new()
+	var f_gated := Pasture3DReliefFractal.new()
+	f_gated.selector = _altitude_band(500.0, 600.0)
+	var fb: float = steep_low.call(f_bare)
+	var fg: float = steep_low.call(f_gated)
+	print("    CONTROL the same band on a Fractal (no gate of its own): %.6f -> %.6f" % [fb, fg])
+	if is_zero_approx(fb) or not is_zero_approx(fg):
+		_fail += 1
+		print("    !! the band does not work on an ungated op either, so the fixture is wrong")
+
+	# And the stack path, since that is where the ids get rebased and a wrong offset reads another
+	# material's band. One layer either side, so the Scree's ids are not at 0.
+	var stacked := Pasture3DReliefStack.new()
+	var inner := Pasture3DReliefScree.new()
+	inner.selector = _altitude_band(500.0, 600.0)
+	var l: Array[Pasture3DReliefMaterial] = [_screen_layer(), inner]
+	stacked.layers = l
+	var s_low: float = steep_low.call(stacked)
+	var s_high: float = steep_high.call(stacked)
+	print("    in a stack behind another gated layer: excluded %.6f, passed %.6f" % [s_low, s_high])
+	if not is_equal_approx(s_low, s_high):
+		print("    (the Scree layer contributes %.6f of the difference)" % absf(s_high - s_low))
+	if is_equal_approx(s_low, s_high):
+		_fail += 1
+		print("    !! the band does nothing inside a stack, so the second slot is not being rebased")
+	_completed += 1
+
+
+## A gated layer to sit in front of the Scree in Q's stack, so the Scree's selector ids are not 0 and a
+## missing rebase shows up as reading the WRONG band rather than as reading none.
+func _screen_layer() -> Pasture3DReliefFractal:
+	var f := Pasture3DReliefFractal.new()
+	f.seed = 91
+	f.selector = _altitude_band(-10000.0, 10000.0) # passes everywhere; it is here to consume ids
+	return f
+
+
+func _altitude_band(p_lo: float, p_hi: float) -> Pasture3DReliefSelector:
+	var s := Pasture3DReliefSelector.new()
+	s.filter_type = Pasture3DReliefSelector.FilterType.ALTITUDE
+	s.range_min = p_lo
+	s.range_max = p_hi
+	s.falloff_low = 0.0
+	s.falloff_high = 0.0
+	s.strength = 1.0
+	return s
+
+
+# --- R: a layer's Strength scales how much the layer acts ----------------------------------------
+#
+# Spec §16.5. A host multiplies a material's WHOLE output by `material.strength`; the stack used to fold a
+# layer's strength into its GENERATOR op amplitudes. Those agree exactly on a layer of generators and not
+# at all on one carrying a PROFILE op, because TERRACE and STRATIFY remap whatever is in the accumulator
+# whether their layer's amplitude was scaled or not -- so **a layer at strength 0 still terraced the stack
+# under it**, which is not a semantics question but a switch that does not switch off.
+#
+# WHAT THIS GATE DOES NOT CLAIM, and the first version of it wrongly did: that a fractional strength on a
+# PROFILE layer equals half the host's output. It does not, and it should not. The host's operation is
+# "scale the finished relief"; a profile op's contribution is not separable from the layers below it,
+# deliberately -- terracing the layer BELOW is a documented workflow (Pasture3DReliefTerraces.base_amount
+# says so in as many words), so scoping each layer to its own sub-accumulator would break a feature to fix
+# a bug. Strength therefore scales how much each op ACTS: a generator's amplitude, a domain op's
+# displacement, a profile op's lerp. Half-terraced, not half of terraced. Measured, those differ by 0.093
+# on the shipped Terraces defaults, and the number is reported below rather than asserted on.
+#
+# FOUR CLAIMS, three of them EXACT and asserted at 0.0 rather than at a tolerance, because each is an
+# identity rather than an approximation.
+#   1. strength 0 contributes exactly nothing. The one that was broken.
+#   2. strength 1 is bitwise what an authored stack already produced -- the gain defaults to 1.0, and
+#      every shipped preset is at 1.0, so this is the whole migration story in one assertion.
+#   3. on a GENERATOR-ONLY layer it still equals the host operation exactly, which is what says the fix
+#      generalised the old behaviour instead of replacing it.
+#   4. on a PROFILE layer the knob is live ACROSS its range: 0.5 differs from both 0 and 1. Without it,
+#      claims 1 and 2 are jointly satisfied by a switch with nothing in between.
+func _gate_r_layer_strength() -> void:
+	print("\n[R] a layer's Strength scales how much the layer acts (spec 16.5):")
+	for kind in ["Terraces", "Dunes"]:
+		var full := _fresh(kind)
+		var off := _stack_of(_fresh(kind), 0.0)
+		var half := _stack_of(_fresh(kind), 0.5)
+		var one := _stack_of(_fresh(kind), 1.0)
+		var profile: bool = (kind == "Terraces")
+		var worst_off := 0.0
+		var vs_host := 0.0
+		var worst_one := 0.0
+		var carried := 0.0
+		var live_lo := 0.0
+		var live_hi := 0.0
+		for k in range(400):
+			var u := float(k % 20) * 6.0
+			var v := float(k / 20) * 6.0
+			var solo: float = full.eval(u, v, 0.0, 0.0, 1.0, 1.0)
+			var h: float = half.eval(u, v, 0.0, 0.0, 1.0, 1.0)
+			carried = maxf(carried, absf(solo))
+			worst_off = maxf(worst_off, absf(off.eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+			vs_host = maxf(vs_host, absf(h - solo * 0.5))
+			worst_one = maxf(worst_one, absf(one.eval(u, v, 0.0, 0.0, 1.0, 1.0) - solo))
+			live_lo = maxf(live_lo, absf(h - off.eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+			live_hi = maxf(live_hi, absf(h - one.eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+		print("    %-8s carries %.4f | 0 leaves %.6f | 1.0 is %.6f off an authored stack | 0.5 vs host x0.5: %.6f"
+				% [kind, carried, worst_off, worst_one, vs_host])
+		if carried < 0.1:
+			_fail += 1
+			print("    !! the %s fixture produces almost nothing; R measured nothing on it" % kind)
+			continue
+		if worst_off > 0.0:
+			_fail += 1
+			print("    !! strength 0 does not turn the layer off; it still moves the accumulator")
+		if worst_one > 0.0:
+			_fail += 1
+			print("    !! strength 1.0 moved an authored stack, which is a migration nobody asked for")
+		if not profile:
+			# CLAIM 3: on generators the two operations coincide, and must still, exactly.
+			if vs_host > 0.0:
+				_fail += 1
+				print("    !! a generator-only layer no longer matches the host operation exactly")
+		else:
+			# CLAIM 4: the knob is live across its range. Reported, because "half-terraced" is a
+			# different operation from "half of terraced" BY DESIGN and the gap is not a defect.
+			print("             (a PROFILE layer is half-TERRACED, not half of terraced -- see the note)")
+			print("             0.5 differs from off by %.6f and from full by %.6f" % [live_lo, live_hi])
+			if live_lo <= 0.0 or live_hi <= 0.0:
+				_fail += 1
+				print("    !! 0.5 collapses onto 0 or 1; Strength is a switch, not a scale")
+
+	# CONTROL 3. The same comparison at FULL strength against the HALVED host must NOT agree, or the
+	# 0.5 claim above would also pass on a stack that ignored strength entirely.
+	var t := _fresh("Terraces")
+	var t_one := _stack_of(_fresh("Terraces"), 1.0)
+	var sep := 0.0
+	for k in range(400):
+		var u := float(k % 20) * 6.0
+		var v := float(k / 20) * 6.0
+		sep = maxf(sep, absf(t_one.eval(u, v, 0.0, 0.0, 1.0, 1.0) - t.eval(u, v, 0.0, 0.0, 1.0, 1.0) * 0.5))
+	print("    CONTROL Terraces at strength 1.0 against the HALVED host: %.6f apart" % sep)
+	if sep < 1.0e-6:
+		_fail += 1
+		print("    !! full and half strength are indistinguishable, so R's 0.5 claim is vacuous")
+	_completed += 1
+
+
+func _fresh(p_kind: String) -> Pasture3DReliefMaterial:
+	if p_kind == "Terraces":
+		return Pasture3DReliefTerraces.new()
+	return Pasture3DReliefDunes.new()
+
+
+## One material as the ONLY layer of a stack, at the given strength. One layer because the claim is about
+## what the layer contributes, and a second would add a shape to subtract before measuring it.
+func _stack_of(p_mat: Pasture3DReliefMaterial, p_strength: float) -> Pasture3DReliefStack:
+	p_mat.strength = p_strength
+	var st := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [p_mat]
+	st.layers = l
+	return st
+
+
+# --- S: a crater's rim and ejecta are the same width in METRES on both axes ------------------------
+#
+# Spec §16.7. `nu,nv` are ±1 at the loop's half-extents, so a crater fills the loop's own ellipse and an
+# elongated loop gets an elongated crater -- which is what an elongated loop asks for and is left alone.
+# `rim_width` was a fraction of that same normalised radius, so the rim band and the ejecta blanket came
+# out three times wider one way on a 3:1 loop. A rim is a feature ON the crater rather than its outline,
+# which is the distinction PASTURE3D_BRUSH_EROSION_SPEC.md §9.8 drew for the DLA's ridges.
+#
+# MEASURED BY SCANNING THE PROFILE, not by reading the formula back: step outward along each of the loop's
+# axes in WORLD METRES, find where the surface peaks (the rim crest) and where the ejecta reaches the
+# loop edge. The ejecta blanket is the distance between those two, and it is the number that has to match.
+#
+# CONTROL 1, and it is the one that gives the statistic teeth: the BOWL's own extent -- the crest radius
+# itself -- must come out 3:1 on the same scan, because the crater is still supposed to fill its loop.
+# Same machinery, a quantity that MUST be anisotropic. Without it, "the two widths agree" is also what a
+# scan reports when it is measuring nothing, or measuring the same ray twice.
+#
+# CONTROL 2: on a SQUARE loop the crest must sit at exactly (1 - rim_width) of the half-extent, which is
+# the expression this material used before §16.7. That pins the square case to the old behaviour
+# analytically rather than trusting that nothing moved.
+func _gate_s_crater_rim_is_metric() -> void:
+	print("\n[S] a crater's rim and ejecta are the same width in metres on both axes (spec 16.7):")
+	var mat := Pasture3DReliefCrater.new()
+	mat.rim_width = 0.25
+	mat.rim_height = 0.2
+	mat.floor_depth = 0.7
+	mat.terrace_steps = 0
+
+	var ex := 90.0
+	var ez := 30.0
+	var u_scan := _crater_scan(mat, ex, ez, true)
+	var v_scan := _crater_scan(mat, ex, ez, false)
+	if u_scan.is_empty() or v_scan.is_empty():
+		_fail += 1
+		print("    !! the crater profile has no rim on one axis; S measured nothing")
+		_completed += 1
+		return
+	var ej_u: float = ex - float(u_scan["crest"])
+	var ej_v: float = ez - float(v_scan["crest"])
+	print("    %.0f x %.0f m loop: crest at %.2f m along u, %.2f m along v"
+			% [ex, ez, u_scan["crest"], v_scan["crest"]])
+	print("    ejecta blanket: %.2f m along u, %.2f m along v -> ratio %.3f"
+			% [ej_u, ej_v, ej_u / maxf(ej_v, 1.0e-6)])
+	if absf(ej_u / maxf(ej_v, 1.0e-6) - 1.0) > 0.05:
+		_fail += 1
+		print("    !! the ejecta blanket still stretches with the loop")
+
+	# CONTROL 1. Measured at the OUTER EDGE, not at the crest. The crest is no longer proportional to the
+	# half-extent -- that is the fix -- so the "still fills its loop" claim lives where the crater ends:
+	# it must reach ex along u and ez along v, ratio 3.0 exactly. An isotropic crater inscribed in the
+	# loop (the option §16.7 did NOT take) reads 1.0 here, which is what gives the scan its teeth.
+	var reach := float(u_scan["reach"]) / maxf(float(v_scan["reach"]), 1.0e-6)
+	print("    CONTROL the bowl still fills the loop: reaches %.2f m along u, %.2f m along v -> %.3f (want %.1f)"
+			% [u_scan["reach"], v_scan["reach"], reach, ex / ez])
+	if absf(reach - ex / ez) > 0.05:
+		_fail += 1
+		print("    !! the crater no longer fills its loop, or the scan cannot see anisotropy at all")
+	print("    (the crest itself is at ratio %.3f, which is 1 - 7.5/L per axis rather than a constant)"
+			% [float(u_scan["crest"]) / maxf(float(v_scan["crest"]), 1.0e-6)])
+
+	# CONTROL 2. A square loop must land exactly where the pre-16.7 expression put it.
+	var sq := _crater_scan(mat, 60.0, 60.0, true)
+	var want := (1.0 - mat.rim_width) * 60.0
+	print("    CONTROL square loop: crest at %.2f m, the old formula gives %.2f m" % [sq.get("crest", -1.0), want])
+	if absf(float(sq.get("crest", -1.0)) - want) > 0.30:
+		_fail += 1
+		print("    !! a square loop moved; §16.7 was supposed to leave it exactly where it was")
+	_crater_parity()
+	_completed += 1
+
+
+## The A/B half, and it is not decoration: everything above reads `mat.eval`, which is the GDScript ORACLE
+## and never touches C++, so the native mirror of the rim scale could be wrong and every claim above would
+## still pass. Gate D would not have caught it either — its fixture is a SQUARE loop carrying a fractal
+## stack, and gate C's 60x22 crater is never baked down both paths. A crater on a non-square loop had no
+## parity coverage in this suite at all. Verified by reverting the C++ side alone: D stays at 0.00000000
+## and this arm is what moves.
+func _crater_parity() -> void:
+	var plow = _make_plow("CraterParity", SITE_CRATER_PARITY, 60.0, 20.0)
+	if plow == null:
+		return
+	var mat := Pasture3DReliefCrater.new()
+	mat.rim_width = 0.25
+	mat.rim_height = 0.25
+	mat.floor_depth = 0.6
+	plow.source = Pasture3DPlow.Source.RELIEF
+	plow.relief = mat
+	plow.mapping = Pasture3DPlow.Mapping.FIT
+	plow.height_scale = 9.0
+	# Probes strung along BOTH of the loop's axes, out where the rim and the ejecta live — the band that
+	# moved. A lattice would spend most of its points in the floor, where the two formulas agree anyway.
+	var probes: Array[Vector3] = []
+	for k in range(-6, 7):
+		probes.append(SITE_CRATER_PARITY + Vector3(float(k) * 9.0, 0.0, 0.0))
+		probes.append(SITE_CRATER_PARITY + Vector3(0.0, 0.0, float(k) * 3.0))
+	var base := _snapshot(probes)
+	plow.force_gdscript_raster = false
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var native := _snapshot(probes)
+	plow.force_gdscript_raster = true
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var worst := 0.0
+	var spread := 0.0
+	for i in range(probes.size()):
+		var g := _height(probes[i])
+		worst = maxf(worst, absf(g - native[i]))
+		spread = maxf(spread, absf(g - base[i]))
+	print("    PARITY on a 60x20 loop: %d probes, worst |native - gdscript| = %.8f m (relief %.4f m)"
+			% [probes.size(), worst, spread])
+	if worst > PARITY_TOL:
+		_fail += 1
+		print("    !! the two crater implementations disagree on a non-square loop")
+	if spread < 0.1:
+		_fail += 1
+		print("    !! the parity probes sat on flat ground, so that agreement means nothing")
+
+
+## Step outward from the crater's centre along ONE of the loop's axes, in world metres, and report where
+## the profile peaks. `nu,nv` are the metric offset divided by the half-extents, which is what the host
+## hands the evaluator; inv_ex / inv_ez travel with them so the op can recover the loop's shape.
+func _crater_scan(p_mat: Pasture3DReliefMaterial, p_ex: float, p_ez: float, p_along_u: bool) -> Dictionary:
+	var span := p_ex if p_along_u else p_ez
+	var step := span / 2000.0
+	var best := -INF
+	var crest := -1.0
+	var reach := 0.0
+	var d := 0.0
+	while d < span:
+		var nu := (d / p_ex) if p_along_u else 0.0
+		var nv := 0.0 if p_along_u else (d / p_ez)
+		var val := p_mat.eval(0.0, 0.0, nu, nv, 1.0 / p_ex, 1.0 / p_ez)
+		if val > best:
+			best = val
+			crest = d
+		if absf(val) > 1.0e-6:
+			reach = d
+		d += step
+	if crest < 0.0 or best <= 0.0 or reach <= 0.0:
+		return {}
+	return {"crest": crest, "peak": best, "reach": reach}
+
+
+# --- T: a layer's Domain Warp stops at its own layer, unless told otherwise -----------------------
+#
+# Spec §16.4. WARP is a DOMAIN op -- it rewrites u,v for every op that FOLLOWS it -- and a stack is one
+# flat op stream with no per-layer scoping, so a layer's warp used to displace every layer under it.
+# Measured before: a Dunes layer under a warped Fractal differed from the same Dunes alone by 1.99 on a
+# material whose output spans +/-1. Not a perturbation, a decorrelation.
+#
+# THE STATISTIC ISOLATES THE LOWER LAYER. Evaluate the two-layer stack, subtract the upper layer standing
+# alone in a stack of its own, and what remains is the Dunes layer as the stack actually saw it. Compare
+# that against Dunes alone. Anything but zero is displacement leaking down.
+#
+# CONTROL, and it is simply the toggle in its other position: `warp_below = true` must put the leak back,
+# large. A gate that only checked the scoped case would pass just as well on an implementation that had
+# quietly stopped warping anything at all -- and a warp that does nothing is a much worse bug than a warp
+# that does too much, because it looks like a slider with a bad range rather than like a defect.
+#
+# SECOND CONTROL: the upper layer must still be warped BY ITS OWN warp in both cases. The bracket restores
+# the sample point AFTER the layer, so scoping must not cost the layer its own displacement -- which is
+# what a push/pop emitted in the wrong order would do, and it would be invisible to the claim above.
+#
+# THIRD: parity. The bracket is two new op ids, and a native evaluator that skipped them would produce a
+# perfectly self-consistent wrong answer. Baked down both rasterisers.
+func _gate_t_warp_scope() -> void:
+	print("\n[T] a layer's Domain Warp stops at its own layer (spec 16.4):")
+	var below := Pasture3DReliefDunes.new()
+	below.seed = 3
+	var alone := _one_layer(below)
+
+	var scoped_leak := _leak_below(false)
+	var open_leak := _leak_below(true)
+	print("    warp scoped to its layer : the layer below moves %.6f" % scoped_leak)
+	print("    CONTROL warp_below = true: the layer below moves %.6f" % open_leak)
+	if scoped_leak > 1.0e-6:
+		_fail += 1
+		print("    !! displacement is still leaking past the layer that owns it")
+	if open_leak < 0.5:
+		_fail += 1
+		print("    !! the toggle does not restore the old behaviour, so T cannot tell a scoped warp\n"
+			+ "       from a warp that stopped working")
+
+	# SECOND CONTROL. The upper layer keeps its own warp either way.
+	var warped := _warper(false)
+	var flat := Pasture3DReliefFractal.new()
+	flat.seed = 11
+	flat.warp_amount = 0.0
+	var own := 0.0
+	for k in range(400):
+		var u := float(k % 20) * 7.0
+		var v := float(k / 20) * 7.0
+		own = maxf(own, absf(_one_layer(warped).eval(u, v, 0.0, 0.0, 1.0, 1.0)
+				- _one_layer(flat).eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+	print("    CONTROL the scoped layer still warps ITSELF: %.6f from an unwarped twin" % own)
+	if own < 0.1:
+		_fail += 1
+		print("    !! scoping cost the layer its own displacement; the bracket is in the wrong order")
+
+	# THIRD. Both rasterisers, because the bracket is two op ids the native side has to know.
+	var plow = _make_plow("WarpScope", SITE_WARP_SCOPE, 40.0, 40.0)
+	if plow == null:
+		_completed += 1
+		return
+	var probes: Array[Vector3] = []
+	for i in range(-2, 3):
+		for j in range(-2, 3):
+			probes.append(SITE_WARP_SCOPE + Vector3(i * 8.0, 0.0, j * 8.0))
+	plow.source = Pasture3DPlow.Source.RELIEF
+	plow.relief = _stack(_warper(false), below)
+	plow.height_scale = 9.0
+	var base := _snapshot(probes)
+	plow.force_gdscript_raster = false
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var native := _snapshot(probes)
+	plow.force_gdscript_raster = true
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var worst := 0.0
+	var spread := 0.0
+	for i in range(probes.size()):
+		var g := _height(probes[i])
+		worst = maxf(worst, absf(g - native[i]))
+		spread = maxf(spread, absf(g - base[i]))
+	print("    PARITY across the bracket: %d probes, worst %.8f m (relief %.4f m)"
+			% [probes.size(), worst, spread])
+	if worst > PARITY_TOL:
+		_fail += 1
+		print("    !! the two paths disagree across the domain bracket")
+	if spread < 0.1:
+		_fail += 1
+		print("    !! the parity probes sat on flat ground")
+	# The alone-arm is referenced so the fixture cannot be optimised into nothing by a future edit.
+	if alone == null:
+		_fail += 1
+	_completed += 1
+
+
+## How far the LOWER layer of a two-layer stack moves, compared with that layer standing on its own. The
+## upper layer's own contribution is subtracted by evaluating it alone in a stack of its own, so what is
+## left is the lower layer as the stack saw it.
+func _leak_below(p_warp_below: bool) -> float:
+	var below := Pasture3DReliefDunes.new()
+	below.seed = 3
+	var top := _warper(p_warp_below)
+	var both := _stack(top, below)
+	var solo_top := _one_layer(_warper(p_warp_below))
+	var solo_below := _one_layer(below)
+	var worst := 0.0
+	for k in range(400):
+		var u := float(k % 20) * 7.0
+		var v := float(k / 20) * 7.0
+		var seen: float = both.eval(u, v, 0.0, 0.0, 1.0, 1.0) - solo_top.eval(u, v, 0.0, 0.0, 1.0, 1.0)
+		worst = maxf(worst, absf(seen - solo_below.eval(u, v, 0.0, 0.0, 1.0, 1.0)))
+	return worst
+
+
+func _warper(p_warp_below: bool) -> Pasture3DReliefFractal:
+	var f := Pasture3DReliefFractal.new()
+	f.seed = 11
+	f.warp_amount = 40.0
+	f.warp_below = p_warp_below
+	return f
+
+
+func _one_layer(p_mat: Pasture3DReliefMaterial) -> Pasture3DReliefStack:
+	var st := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [p_mat]
+	st.layers = l
+	return st
+
+
+func _stack(p_a: Pasture3DReliefMaterial, p_b: Pasture3DReliefMaterial) -> Pasture3DReliefStack:
+	var st := Pasture3DReliefStack.new()
+	var l: Array[Pasture3DReliefMaterial] = [p_a, p_b]
+	st.layers = l
+	return st

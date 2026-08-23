@@ -46,6 +46,16 @@ bench/PlowReliefCheck.tscn
 bench/MoundReliefCheck.tscn
 bench/PondBrushCheck.tscn
 
+# --- Brush erosion spec (PASTURE3D_BRUSH_EROSION_SPEC.md §11) ---
+# Only the DLA suite so far. The other gates from that spec — HostProfile, BrushStack, BrushErosion,
+# BrushRegistry, Sediment — pass locally but have not been watched green HERE, which is this file's bar.
+bench/DLAGate.tscn
+
+# --- The editor gizmo's markers and its handle pick order ---
+# Headless can say the icons resolve per class, that the two dot textures differ, and that clicking a
+# hidden handle selects its point. It cannot say any of it LOOKS right — that needs the editor.
+bench/GizmoMarkerGate.tscn
+
 # --- Water bodies: the two that load connectors BY PATH, so a rename breaks them loudly ---
 bench/WaterBodySplitCheck.tscn
 bench/StreamRippleCheck.tscn

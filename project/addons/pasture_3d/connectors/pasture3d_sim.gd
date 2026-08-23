@@ -770,7 +770,8 @@ func _simulate_interactive(p_scale: int, p_is_preview: bool) -> void:
 				var done := 0
 				for st in ctx["states"]:
 					done += int(st["done"])
-				print("Pasture3DSim '%s': %d%%" % [name, int(100.0 * float(done) / float(total))]))
+				print("Pasture3DSim '%s': %d%%" % [name, int(100.0 * float(done) / float(total))]),
+			_solve_chunk)
 	if not ok:
 		_abort(ctx)
 		return

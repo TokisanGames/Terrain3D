@@ -19,8 +19,9 @@
 namespace godot {
 
 // Op ids — MUST stay in sync with Pasture3DReliefMaterial.Op (connectors/pasture3d_relief_material.gd).
+// Ids 0 and 11 are BURNED, not free — CONST and CLAMP were emitted by nothing and covered by no gate,
+// so they were deleted on 2026-08-22 (spec §16.6). The ids stay spent because this is a wire format.
 enum ReliefOpType {
-	RELIEF_OP_CONST = 0,
 	RELIEF_OP_FBM = 1,
 	RELIEF_OP_RIDGED = 2,
 	RELIEF_OP_BILLOW = 3,
@@ -31,10 +32,16 @@ enum ReliefOpType {
 	RELIEF_OP_WARP = 8,
 	RELIEF_OP_TERRACE = 9,
 	RELIEF_OP_STRATIFY = 10,
-	RELIEF_OP_CLAMP = 11,
 	RELIEF_OP_CURVE = 12,
 	RELIEF_OP_DLA = 13,
+	// §16.4's bracket: a stack wraps a layer whose Domain Warp is scoped in these two, and the evaluator
+	// saves and restores u,v,nu,nv across them. Neither carries a value, a blend or a gate.
+	RELIEF_OP_DOMAIN_PUSH = 14,
+	RELIEF_OP_DOMAIN_POP = 15,
 };
+// One level per nested stack that scopes a warp; realistically 1. A push past it is dropped and its pop
+// is a no-op, so the two stay balanced. Mirrors Pasture3DReliefMaterial.DOMAIN_MAX_DEPTH.
+constexpr int RELIEF_DOMAIN_MAX_DEPTH = 8;
 
 // Blend ids — sync with Pasture3DReliefMaterial.Blend. Prefixed because MAX/MIN are godot-cpp macros.
 enum ReliefBlendMode {
@@ -46,10 +53,17 @@ enum ReliefBlendMode {
 	RELIEF_BLEND_REPLACE = 5,
 };
 
-constexpr int RELIEF_OP_STRIDE = 4; // [op_type, blend, selector_id, flags]
+constexpr int RELIEF_OP_STRIDE = 5; // [op_type, blend, selector_id, flags, selector_id_2]
+// Slot of an op's SECOND gate; an op is gated by the PRODUCT of the two. Mirrors
+// Pasture3DReliefMaterial.OP_GATE_2 — a material's own `selector` lands here when the op already carries
+// one of its own (SCREE), which before this slot existed meant the property was silently dropped.
+constexpr int RELIEF_OP_GATE_2 = 4;
 constexpr int RELIEF_PARAM_STRIDE = 12;
-constexpr int RELIEF_FLAG_NEGATE = 1; // bit0
-constexpr int RELIEF_FLAG_CLAMP = 2; // bit1
+// Param slot of an op's GAIN, a plain multiplier on its gate, 1.0 unless a Pasture3DReliefStack layer's
+// `strength` set it. The LAST slot, reserved: an op may use at most RELIEF_PARAM_STRIDE - 1 params.
+// Mirrors Pasture3DReliefMaterial.OP_GAIN — see spec §16.5 for why the gate and not the value.
+constexpr int RELIEF_OP_GAIN = 11;
+// Bits 0-1 are BURNED: FLAG_NEGATE and FLAG_CLAMP, set by nothing, deleted 2026-08-22 (spec §16.6).
 // bits 2-3: which coordinate a PROFILE band op quantises (BM phase §4.2). Packed into the existing flags
 // word rather than spending a param slot, because TERRACE and STRATIFY do not agree on which slots are
 // free and one rule that holds for both is worth more than two rules that each fit.

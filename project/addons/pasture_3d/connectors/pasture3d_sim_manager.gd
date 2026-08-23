@@ -125,6 +125,9 @@ const RESULT_MAX_CELLS: int = 4194304
 ## Re-solve every registered brush's erosion and re-bake its layer, as ONE undo action. A loop, not a
 ## chain: each brush erodes its own surface independently.
 @export_tool_button("Bake All Brushes") var _bake_all_btn = bake_all_brushes
+## Take the erosion back off every registered brush: drop its frozen solves and re-bake its layer with
+## the erosion suppressed, so the ground holds the shape the brushes make BEFORE they erode.
+@export_tool_button("Clear Simulation On All Brushes") var _clear_all_btn = clear_all_brushes
 ## Find brushes on this terrain carrying an enabled erosion modifier and append the ones not listed.
 @export_tool_button("Register Eroding Brushes") var _scan_btn = scan_for_eroding_brushes
 
@@ -148,6 +151,10 @@ const RESULT_MAX_CELLS: int = 4194304
 @export_tool_button("Add Brushes") var _add_brushes_btn = add_brushes
 ## Remove every brush this manager generated, edited or not.
 @export_tool_button("Clear Brushes") var _clear_brushes_btn = clear_brushes
+
+## The registered brush whose erosion is being solved right now, so Cancel can reach it. Null whenever
+## Bake All Brushes is not inside a deferred solve.
+var _bake_all_brush: Pasture3DTerrainBrush = null
 
 ## Footprint hash recorded at the last successful bake (loops, margin, and the pass ORDER — reordering
 ## the children changes the result, so it has to invalidate the bake).
@@ -640,6 +647,11 @@ func clear_simulation() -> void:
 func cancel_simulation() -> void:
 	if _running:
 		_cancel = true
+		# Bake All Brushes spends its time inside a BRUSH's solve, not this node's, and the two have
+		# separate cancel flags because they are separate workers. Reaching across is what makes Cancel
+		# mean the same thing for both buttons.
+		if _bake_all_brush != null and is_instance_valid(_bake_all_brush):
+			_bake_all_brush.cancel_erosion()
 		print("%s: cancelling..." % _sim_label())
 
 
@@ -694,7 +706,8 @@ func _simulate_interactive(p_scale: int, p_is_preview: bool, p_up_to: int = -1) 
 				var done := 0
 				for c in ctx["clusters"]:
 					done += int(c["iterations_done"])
-				print("%s: %d%%" % [_sim_label(), int(100.0 * float(done) / float(total))]))
+				print("%s: %d%%" % [_sim_label(), int(100.0 * float(done) / float(total))]),
+			_solve_chunk)
 	if not ok:
 		_abort(ctx)
 		return
@@ -1515,6 +1528,9 @@ func bake_all_brushes() -> void:
 		return
 	_running = true
 	_cancel = false
+	# §14. Only the EDITOR front end defers: `bake_all_brushes_now` is the scripted entry point and must
+	# return a finished report, not a coroutine that finishes some frames later.
+	ctx["deferred"] = true
 	var plan: Array = ctx["plan"]
 	for i in range(plan.size()):
 		# Checked BEFORE the layer is touched, so a cancel never lands between the cache clear and the
@@ -1522,7 +1538,12 @@ func bake_all_brushes() -> void:
 		if _cancel:
 			ctx["cancelled"] = true
 			break
-		_bake_all_step(ctx, i)
+		await _bake_all_step(ctx, i)
+		if _cancel:
+			# A cancel that landed INSIDE the solve above: the brush is showing its un-eroded shape and
+			# said so, and this run stops here rather than starting the next layer.
+			ctx["cancelled"] = true
+			break
 		print("%s: baked %d of %d brush(es)" % [_sim_label(), int(ctx["baked"]), int(ctx["total"])])
 		# One frame between layers: this is where Cancel gets a chance to run, and where the editor gets
 		# to draw the layer that was just baked.
@@ -1592,7 +1613,16 @@ func _bake_all_step(p_ctx: Dictionary, p_index: int) -> void:
 		p_ctx["cleared"] = int(p_ctx["cleared"]) + b.clear_erosion_caches()
 	# `_refresh_owner` is the brush's own layer bake — clear the layer, repaint every tool bound to it,
 	# one GPU push. Called with record_undo FALSE: this run is one action, not one per layer.
-	(brushes[0] as Pasture3DTerrainBrush)._refresh_owner(owner, false, [])
+	var lead: Pasture3DTerrainBrush = brushes[0]
+	if bool(p_ctx.get("deferred", false)) and lead._wants_deferred_erosion():
+		# The caches were just dropped, so this layer WILL solve — which is the whole point of the
+		# button and, before §14, the whole reason it froze the editor for a minute at a time. Held here
+		# so Cancel can reach the brush that is actually solving.
+		_bake_all_brush = lead
+		await lead._bake_deferred(lead._refresh_owner.bind(owner, false, []), owner, false)
+		_bake_all_brush = null
+	else:
+		lead._refresh_owner(owner, false, [])
 	p_ctx["after"][owner] = _snapshot_owner(owner)
 	p_ctx["baked"] = int(p_ctx["baked"]) + brushes.size()
 
@@ -1635,6 +1665,75 @@ func _bake_all_undo_actions(p_ctx: Dictionary) -> Array:
 	if p_ctx["after"].is_empty():
 		return []
 	return [{"name": "Pasture3D Bake All Brushes", "owners": p_ctx["after"].keys()}]
+
+
+## Clear Simulation On All Brushes: the counterpart to Bake All Brushes, and the brush-registry
+## counterpart to Clear Simulation. Every registered brush's frozen solve is dropped and its layer is
+## re-baked with the erosion suppressed, as ONE undo action across every layer touched.
+##
+## BOTH HALVES MATTER, and neither is enough alone. Dropping the caches without re-baking frees the
+## memory but leaves the eroded heights sitting in the layer, so the button would look like it did
+## nothing. Re-baking without dropping them would serve the cached erosion straight back.
+##
+## It does NOT disable anything. The next ordinary bake solves again — this clears what is on the ground,
+## not what the brushes are configured to do. To stop a brush eroding, uncheck its modifier.
+##
+## Returns {ok, reason, brushes, owners, cleared}.
+func clear_all_brushes() -> Dictionary:
+	var reg := resolved_eroding_brushes()
+	var report := {"ok": false, "reason": "", "brushes": 0, "owners": 0, "cleared": 0}
+	if _running:
+		report["reason"] = "a solve is already running"
+		return report
+	if not is_configured():
+		report["reason"] = "no Pasture3D terrain assigned"
+		push_warning("%s: %s." % [_sim_label(), report["reason"]])
+		return report
+	var brushes: Array = reg["brushes"]
+	if brushes.is_empty():
+		report["reason"] = "Eroding Brushes is empty — there is nothing registered to clear"
+		push_warning("%s: %s." % [_sim_label(), report["reason"]])
+		return report
+
+	var before := {}
+	var after := {}
+	var cleared := 0
+	# Grouped by LAYER OWNER exactly as Bake All Brushes is: a bake repaints every tool on the layer, so
+	# two registered brushes sharing one owner are one bake and one snapshot pair, not two.
+	for entry: Dictionary in _eroding_owner_plan(brushes):
+		var owner: String = entry["owner"]
+		var members: Array = entry["brushes"]
+		if members.is_empty():
+			continue
+		if not before.has(owner):
+			before[owner] = _snapshot_owner(owner)
+		# Every registered brush on the layer drops its caches; only the FIRST bakes, because that one
+		# bake repaints all of them. Suppression is per brush, so each has to be asked.
+		for b in members:
+			cleared += b.clear_erosion_caches()
+			b._erosion_suppress = true
+		(members[0] as Pasture3DTerrainBrush)._refresh_owner(owner, false, [])
+		for b in members:
+			b._erosion_suppress = false
+			b._pending_erosion = []
+		after[owner] = _snapshot_owner(owner)
+
+	var ur: EditorUndoRedoManager = _editor_undo()
+	if ur != null and not after.is_empty():
+		ur.create_action("Pasture3D Clear Simulation On All Brushes", UndoRedo.MERGE_DISABLE, self)
+		for owner in after:
+			ur.add_do_method(self, "_restore_owner", owner, after[owner])
+			ur.add_undo_method(self, "_restore_owner", owner, before[owner])
+		ur.commit_action(false) # already applied; do NOT re-run the do-methods
+	report["ok"] = true
+	report["brushes"] = brushes.size()
+	report["owners"] = after.size()
+	report["cleared"] = cleared
+	update_configuration_warnings()
+	print(("%s: Clear Simulation On All Brushes — %d brush(es) across %d layer(s) re-baked without "
+		+ "erosion, %d frozen solve(s) dropped.")
+		% [_sim_label(), brushes.size(), after.size(), cleared])
+	return report
 
 
 ## Register Eroding Brushes: append every brush on this terrain that carries an enabled erosion modifier

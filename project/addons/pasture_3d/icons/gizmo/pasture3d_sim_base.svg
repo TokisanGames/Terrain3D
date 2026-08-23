@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" version="1.1">
+  <g fill="none" stroke="#000000" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M8 110 H120"/>
+    <path d="M20 110 L58 18 L96 110 Z" fill="#ffffff"/>
+    <!-- drainage, cut in BLACK so it survives any tint on any background -->
+    <path d="M58 36 V62 M58 62 L42 100 M58 62 L76 98" stroke-width="7"/>
+    <!-- the droplet is what says EROSION rather than "a mountain" -->
+    <path d="M104 34 C114 48 118 56 118 62 A14 14 0 0 1 90 62 C90 56 94 48 104 34 Z" fill="#ffffff"/>
+  </g>
+</svg>

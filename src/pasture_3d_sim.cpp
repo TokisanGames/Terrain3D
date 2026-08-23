@@ -201,6 +201,16 @@ PackedFloat32Array Pasture3DData::resample_grid(const PackedFloat32Array &p_src,
 	return out;
 }
 
+// Progress of the solve running right now, as (iterations done, iterations total). Polled from the main
+// thread while `erode_heightfield` runs on a worker; see erosion_progress() for why it is a counter
+// inside the loop rather than a chunked call. (0, 0) before the first solve of the session.
+Vector2i Pasture3DData::erosion_progress() const {
+	int done = 0;
+	int total = 0;
+	godot::erosion_progress(done, total);
+	return Vector2i(done, total);
+}
+
 Dictionary Pasture3DData::erode_heightfield(const PackedFloat32Array &p_z, const Dictionary &p_params,
 		const PackedFloat32Array &p_erodability) {
 	Dictionary out;

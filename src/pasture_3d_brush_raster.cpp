@@ -337,6 +337,10 @@ struct BrushModStep {
 	// THIS grid extent, and `cache_key` the surface it was solved for. `out` is the modifier's own
 	// Dictionary — a reference type, so writing into it here is how the result gets back to GDScript.
 	bool frozen = false;
+	// EROSION, PASTURE3D_BRUSH_EROSION_SPEC.md sec14: pass 1 of the deferred solve. Hand the surface this
+	// step WOULD have solved back through `out` and leave the grid alone, so the main thread can solve it
+	// on a worker and bake again. Only ever set on a FROZEN step: the cache is how the answer returns.
+	bool defer = false;
 	// RELIEF: hand the working surface back BEFORE this step runs, so a material that has to be built
 	// from the stack above it (a ridge-seeded DLA) can see what that stack produced. Deliberately the
 	// surface at THIS step's position and not the finished one -- a material seeded on its own output
@@ -472,6 +476,7 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			st.erosion.want_diagnostics = st.publish_fields;
 			st.erodability = d.get("erodability_lut", PackedFloat32Array());
 			st.frozen = d.get("frozen", false);
+			st.defer = d.get("defer", false);
 			st.cache_key = d.get("cache_key", (int64_t)0);
 			st.cache = d.get("cache", PackedFloat32Array());
 			st.cache_flow = d.get("cache_flow", PackedFloat32Array());
@@ -551,6 +556,26 @@ void brush_mod_erode(BrushModStep &p_step, std::vector<float> &r_vals,
 		}
 		p_step.out["stale"] = stale;
 		p_step.out["served"] = true;
+		return;
+	}
+
+	// ---- The deferred solve, pass 1 (sec10) ----
+	//
+	// Nothing is solved and nothing is written: the surface goes out through `out` and the grid keeps the
+	// un-eroded shape. The main thread solves this on a WorkerThreadPool task and bakes again, and on
+	// that bake the cache above HITS -- the key is a hash of exactly this grid, and the grid does not
+	// depend on whether the erosion ran, so pass 3 hands the solver the same bytes pass 1 did.
+	//
+	// The key is already computed: `want_key` is `frozen && has_out`, and `defer` is only ever set on a
+	// step that is both.
+	if (p_step.defer && p_step.has_out) {
+		PackedFloat32Array pending;
+		pending.resize((int)n);
+		std::memcpy(pending.ptrw(), z.data(), n * sizeof(float));
+		p_step.out["pending"] = pending;
+		p_step.out["pending_key"] = key;
+		p_step.out["pending_gw"] = p_gw;
+		p_step.out["pending_gh"] = p_gh;
 		return;
 	}
 

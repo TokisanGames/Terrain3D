@@ -66,6 +66,7 @@ func _ready() -> void:
 
 	_report()
 	_budget_stage()
+	_saturation_stage(0.02)
 	get_tree().quit(0)
 
 
@@ -96,7 +97,8 @@ func _measure(p_fixture: String, p_relief: float, p_rate: float, p_cell: float) 
 
 ## Solve one arm and return `{rms, cut}` — the RMS of its delta measured on the FINE lattice, and the
 ## mean absolute cut on its own grid (a sanity number, so an RMS built from nothing is visible).
-func _solve_at(p_fixture: String, p_relief: float, p_rate: float, p_cell: float, p_div: int) -> Dictionary:
+func _solve_at(p_fixture: String, p_relief: float, p_rate: float, p_cell: float, p_div: int,
+		p_diffusion: float = 0.02) -> Dictionary:
 	var n := FINE / p_div
 	var cell := p_cell * float(p_div)
 	var span := float(FINE) * p_cell # the physical box, identical for every arm
@@ -104,10 +106,11 @@ func _solve_at(p_fixture: String, p_relief: float, p_rate: float, p_cell: float,
 	var res: Dictionary = _terrain.data.erode_heightfield(z_in, {
 		"gw": n, "gh": n, "cell_size": cell, "time_step": 1.0,
 		"iterations": ITERATIONS, "erosion_rate": p_rate, "area_exponent": 0.45,
-		"diffusion": 0.02, "deposition": 0.0,
+		"diffusion": p_diffusion, "deposition": 0.0, "want_diagnostics": true,
 	}, PackedFloat32Array())
 	if not bool(res.get("ok", false)):
 		return {}
+	var kp := _median_kp(res, n, cell, p_rate)
 	var z_out: PackedFloat32Array = res["z"]
 	var delta := PackedFloat32Array()
 	delta.resize(n * n)
@@ -123,7 +126,7 @@ func _solve_at(p_fixture: String, p_relief: float, p_rate: float, p_cell: float,
 	if live == 0:
 		return {}
 	return {"rms": _rms_on_fine(delta, n), "cut": cut / float(live),
-			"relief_left": _relief(z_out) / maxf(_relief(z_in), 1e-6)}
+			"relief_left": _relief(z_out) / maxf(_relief(z_in), 1e-6), "kp": kp}
 
 
 ## Peak-to-trough of the finite part of a grid. THE SATURATION DIAGNOSTIC, and the reason this probe was
@@ -524,3 +527,142 @@ func _median(p_vals: Array) -> float:
 	var v := p_vals.duplicate()
 	v.sort()
 	return float(v[v.size() / 2])
+
+
+## ---- Stage 3: the implicit step's own saturation — TESTED AND NOT CONFIRMED -----------------------
+##
+## Stages 1 and 2 established what the ratio is NOT. This stage proposed a mechanism with a closed form,
+## and the stage's own control refuted it. The negative is worth keeping because the hypothesis is the
+## obvious one to have, and because the control that killed it is cheap and reusable.
+##
+## THE HYPOTHESIS. §4.3's implicit update is `z' = (z + kp*zr)/(1 + kp)` with
+##
+##     kp = dt * K * erod * A^m / len
+##
+## and `len` the D8 receiver distance, which IS a cell size — apparently the only place resolution
+## enters, because `area` is accumulated in SQUARE METRES and is therefore resolution-free. One step
+## removes `kp/(1+kp) * drop`, and on a surface of slope S the drop to a receiver one cell away is
+## `S*len`. Writing `c = dt*K*erod*A^m` so that `kp = c/len`:
+##
+##     removed = [c/len / (1 + c/len)] * S * len = c * S * len / (len + c)
+##
+## which rises with `len` and saturates at `c*S`: a coarse cell removes more per step because the
+## implicit form cannot remove more than the drop to its receiver, and a fine grid is clamped by that
+## while a coarse grid is not. Assuming both arms see the same A and the same S, that gives
+##
+##     ratio(d) = (1 + kp_f) / (1 + kp_f/d)
+##
+## one expression, no fitted parameters, with `kp_f` measured on the fine arm rather than fitted.
+##
+## MEASURED 2026-08-21, and it agrees in a band and not outside it. At kp_f = 0.131 the prediction lands
+## within **0.96-1.01x** on both fixtures at all three divisors — six arms, zero free parameters, which
+## is exactly the sort of result that gets believed. At kp_f = 0.044, on the HEALTHIEST arms in the whole
+## sweep (87-95 % of relief still standing), it under-predicts by up to **1.66x**. Diffusion was the
+## obvious confound and is not it: rerunning the whole stage at `diffusion = 0` moved the worst error
+## 1.66x to 1.60x.
+##
+## WHAT KILLED IT IS THE `kc*d/kf` COLUMN, which tests the derivation's own premise rather than its
+## conclusion. If `len` were the only resolution term, the coarse arm's kp would be exactly `kp_f/d` and
+## that column would read 1.00. It reads **1.87 at d=2, 3.48 at d=4 and 6.50 at d=8** — kp barely moves
+## between arms (0.044 -> 0.035) because the median channel cell on a coarse grid drains a far larger
+## area, and A^m grows by almost as much as `len` does. **So the premise is false by up to 6.5x, and a
+## conclusion that agrees in one band while its premise is violated everywhere is a coincidence, not a
+## mechanism.** The six good numbers are not evidence.
+##
+## WHAT IT DOES LEAVE, and it points where CJ already pointed. The thing that moves most between
+## resolutions is not the slope baseline and not the implicit clamp: it is WHERE THE DRAINAGE NETWORK
+## PUTS ITS AREA. A coarse grid concentrates the same catchment into fewer channel cells, and every term
+## carrying A^m inherits that. CJ measured the same conclusion from the other end — that the coarse
+## stage's error is ROUTING, which the fine stage then incises rather than re-routes.
+##
+## NEXT, and it should be measured before anything is built: whether a coarse arm whose channel cells are
+## made to carry the fine arm's drainage area reproduces the fine structure. That is a statement about
+## the accumulation, not about the incision, and it is what §8.1's remaining work should be re-aimed at.
+func _saturation_stage(p_diffusion: float = 0.02) -> void:
+	print("\n\n=== STAGE 3: the ratio against the implicit step's own saturation (diffusion %.2f) ===\n"
+			% p_diffusion)
+	print("  prediction  ratio(d) = (1 + kp_f) / (1 + kp_f/d), kp_f MEASURED on the fine arm")
+	print("  no free parameters: kp_f is the median of dt*K*A^m/len over channel cells\n")
+	print("  %-13s %5s %4s %7s %7s %6s %8s %8s %7s %6s"
+			% ["fixture", "rate", "div", "kp_f", "kp_c", "kc*d/kf", "predicted", "measured", "err", "left"])
+	var errs: Array = []
+	var live_errs: Array = []
+	for fixture in ["bowl", "y_catchment"]:
+		for rate in [0.05, 0.15, 0.4]:
+			var fine := _solve_at(fixture, 1.0, rate, 4.0, 1, p_diffusion)
+			if fine.is_empty() or float(fine["rms"]) <= 0.0:
+				print("  %-14s %6.2f   fine arm produced nothing" % [fixture, rate])
+				continue
+			var kp_f: float = float(fine["kp"])
+			for d in [2, 4, 8]:
+				var coarse := _solve_at(fixture, 1.0, rate, 4.0, d, p_diffusion)
+				if coarse.is_empty():
+					continue
+				var measured: float = float(coarse["rms"]) / float(fine["rms"])
+				var predicted: float = (1.0 + kp_f) / (1.0 + kp_f / float(d))
+				var err: float = measured / maxf(predicted, 1e-6)
+				# The saturation guard stage 1 had to learn: a flattened arm agrees with anything.
+				var left: float = minf(float(fine["relief_left"]), float(coarse["relief_left"]))
+				# kp_c * d / kp_f tests the derivation's OWN assumption: it should be 1.00 if the two
+				# arms see the same drainage area at their channel cells and `len` is the only thing
+				# that differs. Anything else is a second resolution term the closed form omits.
+				var kp_c: float = float(coarse["kp"])
+				var assume: float = kp_c * float(d) / maxf(kp_f, 1e-9)
+				print("  %-13s %5.2f %4d %7.3f %7.3f %6.2f %8.3f %8.3f %7.2fx %5.0f%%"
+						% [fixture, rate, d, kp_f, kp_c, assume, predicted, measured, err, 100.0 * left])
+				errs.append(err)
+				if left > 0.25:
+					live_errs.append(err)
+	if errs.is_empty():
+		print("\n  nothing measured")
+		return
+	print("\n  worst |predicted/measured| over ALL arms:  %.2fx" % _worst(errs))
+	if live_errs.is_empty():
+		print("  every arm was flattened; this stage measured nothing")
+		return
+	print("  worst over arms with >25%% of their relief still standing: %.2fx (%d of %d arms)"
+			% [_worst(live_errs), live_errs.size(), errs.size()])
+	print("\n  READ THE kc*d/kf COLUMN FIRST. The closed form assumes `len` is the only resolution term,")
+	print("  which makes that column 1.00 by construction. It is not: kp barely moves between arms because")
+	print("  a coarse grid's channel cells drain far more area, so A^m grows nearly as fast as len. The")
+	print("  agreement at kp_f = 0.13 is therefore a coincidence in a band, not a mechanism — see the")
+	print("  note above this function. What moves between resolutions is WHERE THE NETWORK PUTS ITS AREA,")
+	print("  which is the same place gate CJ's routing finding points.")
+
+
+## Median `kp` over the cells that carry a channel, computed from the solver's OWN diagnostics rather
+## than from an assumed drainage area — `flow` is the accumulated area in m², and `receiver` gives the
+## exact D8 distance including diagonals.
+##
+## Taken over cells above the MEDIAN drainage area, because kp is dominated by A^m and the ratio this
+## predicts is an RMS over the whole grid, which channels dominate. Hillslope cells sit at A = one cell
+## and would drag the median toward a value no incision anywhere is happening at.
+func _median_kp(p_res: Dictionary, p_n: int, p_cell: float, p_rate: float) -> float:
+	var flow: PackedFloat32Array = p_res.get("flow", PackedFloat32Array())
+	var recv: PackedInt32Array = p_res.get("receiver", PackedInt32Array())
+	if flow.size() != p_n * p_n or recv.size() != p_n * p_n:
+		return 0.0
+	var areas: Array = []
+	for i in range(p_n * p_n):
+		if is_finite(flow[i]) and flow[i] > 0.0:
+			areas.append(flow[i])
+	if areas.size() < 16:
+		return 0.0
+	areas.sort()
+	var a_cut: float = areas[areas.size() / 2]
+	var diag := p_cell * sqrt(2.0)
+	var kps: Array = []
+	for i in range(p_n * p_n):
+		if not is_finite(flow[i]) or flow[i] < a_cut:
+			continue
+		var r := recv[i]
+		if r < 0 or r == i:
+			continue
+		var dx: int = (i % p_n) - (r % p_n)
+		var dz: int = (i / p_n) - (r / p_n)
+		var l: float = diag if (dx != 0 and dz != 0) else p_cell
+		kps.append(1.0 * p_rate * pow(flow[i], 0.45) / l)
+	if kps.is_empty():
+		return 0.0
+	kps.sort()
+	return kps[kps.size() / 2]
