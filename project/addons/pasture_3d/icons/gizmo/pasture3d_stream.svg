@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" version="1.1">
+  <g fill="none" stroke="#000000" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M22 10 C22 42 78 46 78 72 C78 96 46 100 46 120" stroke-width="34"/>
+    <path d="M22 10 C22 42 78 46 78 72 C78 96 46 100 46 120" stroke="#ffffff" stroke-width="18"/>
+    <!-- downstream, marked on the channel rather than beside it -->
+    <path d="M40 40 L54 48 L44 60" stroke-width="8"/>
+    <path d="M74 84 L70 96 L56 94" stroke-width="8"/>
+  </g>
+</svg>

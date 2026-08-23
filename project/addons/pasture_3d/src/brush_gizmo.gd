@@ -21,6 +21,9 @@ const SURFACE_LIFT: float = 3.0
 const MARKER_COLOR := Color(0.74, 0.42, 1.0)
 ## World half-size of the per-point marker drawn at each loop control point.
 const POINT_R: float = 1.1
+## The shared marker machinery: sprites at a constant screen size, and the handle dots.
+const Sprites: Script = preload("res://addons/pasture_3d/src/gizmo_sprites.gd")
+
 ## Cyan-white point markers, distinct from the purple origin marker.
 const POINT_COLOR := Color(0.55, 0.95, 1.0)
 ## World half-size of the small tangent-handle marker.
@@ -28,38 +31,6 @@ const TANGENT_R: float = 0.8
 ## Orange tangent handles, distinct from cyan points and purple origin.
 const TANGENT_COLOR := Color(1.0, 0.66, 0.2)
 
-# ---- Constant-size sprite markers -----------------------------------------------------------------
-#
-# The wireframe octahedra were a single pixel thick and vanished into a checkered terrain the moment
-# more than a couple of brushes were on screen — and they said nothing about WHICH brush you were
-# looking at. The origin marker is now the node's own scene-tree icon and the loop handles are the
-# filled/hollow dots a vector drawing program uses, all drawn at a CONSTANT SCREEN SIZE so they read the
-# same whether the camera is on the mountain or a kilometre off it.
-#
-# `fixed_size` on a billboarded StandardMaterial3D is what makes them screen-constant. It is used rather
-# than `add_unscaled_billboard`, which is the API for exactly this, because that one draws at the gizmo
-# NODE'S ORIGIN and takes no transform — fine for the one origin marker, useless for the fifty loop
-# points that are the bigger half of the problem. One mechanism for both beats two.
-#
-# THESE THREE ARE THE SIZE KNOBS. They are in `fixed_size` units, whose mapping to pixels depends on the
-# viewport height and the camera's vertical FOV, so they are tuned by looking rather than derived.
-
-## The brush's scene-tree icon at its origin.
-const ICON_SIZE: float = 0.055
-## A loop control point.
-const POINT_SIZE: float = 0.030
-## A bezier tangent handle — smaller than a point, so the point stays the thing you aim at.
-const TANGENT_SIZE: float = 0.023
-## Where the gizmo sprites live. Carries a `.gdignore`, so Godot's importer never touches them — see
-## `sprite_for` for the reimport that made that necessary.
-const SPRITE_DIR := "res://addons/pasture_3d/icons/gizmo/"
-## Pixel size the 128-unit sprites are rasterised to. Four times the size they are usually drawn at, so
-## the mipmap chain has something to work with and a close camera does not find the edge of the raster.
-const SPRITE_PX: int = 256
-
-## Resolution of the generated dot textures. 64 is comfortably above the pixel size they are drawn at,
-## so the mipmapped edge stays clean when the camera is close enough to make them large.
-const DOT_PX: int = 64
 
 ## Per-drag capture of the true pre-drag value of each touched subgizmo (id -> Vector3): position for a
 ## point handle, in/out offset for a tangent. Lets undo restore exactly (esp. a stubbed zero tangent
@@ -83,20 +54,6 @@ var _smooth_drag: Dictionary = {}
 ## interned somewhere; doing it lazily means a new brush family declares a colour and nothing else.
 var _marker_materials: Dictionary = {}
 
-## Sprite materials by key, one per (shape, colour) pair actually asked for. Same lazy interning as
-## `_marker_materials` and for the same reason.
-var _sprite_materials: Dictionary = {}
-
-## The two dot textures and the unit quad, generated once for the whole editor session. `static` because
-## nothing about them varies per plugin instance, and a gizmo plugin is re-instantiated on every @tool
-## script reload — which is often.
-static var _dot_hollow: ImageTexture
-static var _dot_filled: ImageTexture
-static var _quad: QuadMesh
-## Sprite path -> the rasterised texture, or null when there is no file there. Cached across the whole
-## editor session; `static` because a gizmo plugin is re-instantiated on every @tool script reload.
-static var _sprite_cache: Dictionary = {}
-
 
 func _init() -> void:
 	# on_top so the markers show through the terrain (a brush sunk below the surface stays findable).
@@ -114,141 +71,6 @@ func _marker_material(p_gizmo: EditorNode3DGizmo, p_color: Color) -> Material:
 		create_material(mname, p_color, false, true)
 		_marker_materials[key] = mname
 	return get_material(_marker_materials[key], p_gizmo)
-
-
-## The shared unit quad every sprite is an instance of. Sized 1x1 and scaled by the transform, so the
-## three size constants are the only place a size is written down.
-static func _quad_mesh() -> QuadMesh:
-	if _quad == null:
-		_quad = QuadMesh.new()
-		_quad.size = Vector2.ONE
-	return _quad
-
-
-## A dot texture: WHITE body with a BLACK rim, on transparent. Filled is a disc, unfilled a ring.
-##
-## The body is white so the material's albedo can tint it — cyan for a point, orange for a handle — and
-## the rim is black so it survives being tinted, which is what keeps the marker readable against pale
-## terrain AND against a dark sky. A single-colour dot loses one of those two.
-static func _dot_texture(p_filled: bool) -> ImageTexture:
-	var img := Image.create_empty(DOT_PX, DOT_PX, true, Image.FORMAT_RGBA8)
-	var c := (DOT_PX - 1) * 0.5
-	var r_out := DOT_PX * 0.5 - 1.0
-	var rim := DOT_PX * 0.10          # black outline thickness
-	var r_in := r_out - DOT_PX * 0.30 # inner edge of the ring's white band
-	var aa := 1.2                     # antialias width, pixels
-	for y in DOT_PX:
-		for x in DOT_PX:
-			var d := Vector2(x - c, y - c).length()
-			var alpha: float
-			var white: float
-			if p_filled:
-				alpha = clampf((r_out - d) / aa, 0.0, 1.0)
-				white = clampf((r_out - rim - d) / aa, 0.0, 1.0)
-			else:
-				alpha = minf(clampf((r_out - d) / aa, 0.0, 1.0),
-						clampf((d - (r_in - rim)) / aa, 0.0, 1.0))
-				white = minf(clampf((r_out - rim - d) / aa, 0.0, 1.0),
-						clampf((d - r_in) / aa, 0.0, 1.0))
-			img.set_pixel(x, y, Color(white, white, white, alpha))
-	img.generate_mipmaps()
-	return ImageTexture.create_from_image(img)
-
-
-static func _dot(p_filled: bool) -> ImageTexture:
-	if p_filled:
-		if _dot_filled == null:
-			_dot_filled = _dot_texture(true)
-		return _dot_filled
-	if _dot_hollow == null:
-		_dot_hollow = _dot_texture(false)
-	return _dot_hollow
-
-
-## A billboarded, screen-constant, always-on-top material for one texture and tint.
-##
-## `no_depth_test` mirrors what the wireframes did (`create_material(..., on_top = true)`): a brush sunk
-## below the surface stays findable, which on a terrain plugin is the common case rather than the odd one.
-func _sprite_material(p_key: String, p_tex: Texture2D, p_color: Color) -> StandardMaterial3D:
-	if _sprite_materials.has(p_key):
-		return _sprite_materials[p_key]
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_texture = p_tex
-	m.albedo_color = p_color
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	# Without this the billboard code throws the model scale away and every sprite comes out the same
-	# size, which would make the three size constants above do nothing at all.
-	m.billboard_keep_scale = true
-	m.fixed_size = true
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.no_depth_test = true
-	m.disable_receive_shadows = true
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	m.render_priority = 10
-	_sprite_materials[p_key] = m
-	return m
-
-
-## Draw one dot at `p_at` (node-local).
-func _dot_sprite(p_gizmo: EditorNode3DGizmo, p_at: Vector3, p_size: float, p_color: Color,
-		p_filled: bool) -> void:
-	var key := "%s:%s" % ["filled" if p_filled else "hollow", p_color.to_html(false)]
-	p_gizmo.add_mesh(_quad_mesh(), _sprite_material(key, _dot(p_filled), p_color),
-			Transform3D(Basis().scaled(Vector3.ONE * p_size), p_at))
-
-
-## The gizmo sprite for a node: `icons/gizmo/<script file name>.svg`, walking up the script's
-## inheritance chain until one exists. No list here and none anywhere else — adding a brush family means
-## dropping one file next to the others.
-##
-## RASTERISED HERE RATHER THAN IMPORTED, and that is the whole point of the directory. The first version
-## of this drew the class's scene-tree `@icon` directly, and Godot's "detect 3D" saw a 16x16 editor icon
-## used in a 3D material and silently rewrote its import settings to VRAM-compressed with mipmaps — a
-## 16px glyph through S3TC, which is exactly the mush that got reported, and it degraded the icon
-## everywhere else it appears at the same time. `icons/gizmo/` carries a `.gdignore` so the importer
-## never sees these at all; `load_svg_from_string` renders them at whatever size is asked for, and
-## nothing can quietly decide otherwise.
-static func sprite_for(p_node: Node3D) -> Texture2D:
-	var scr: Script = p_node.get_script()
-	# Bounded: a script chain is short, and this runs inside a redraw.
-	for _step in 16:
-		if scr == null or scr.resource_path.is_empty():
-			break
-		var path := SPRITE_DIR + scr.resource_path.get_file().get_basename() + ".svg"
-		if not _sprite_cache.has(path):
-			_sprite_cache[path] = _rasterise(path)
-		var tex: Texture2D = _sprite_cache[path]
-		if tex != null:
-			return tex
-		scr = scr.get_base_script()
-	return null
-
-
-## One SVG at SPRITE_PX, mipmapped. Null when the file is not there, which is how the chain walk knows
-## to keep going.
-static func _rasterise(p_path: String) -> Texture2D:
-	if not FileAccess.file_exists(p_path):
-		return null
-	var src := FileAccess.get_file_as_string(p_path)
-	if src.is_empty():
-		return null
-	var img := Image.new()
-	# The sprites are authored on a 128 unit canvas; see icons/gizmo/_style.txt.
-	if img.load_svg_from_string(src, float(SPRITE_PX) / 128.0) != OK:
-		push_warning("Pasture3D: gizmo sprite '%s' could not be rasterised." % p_path)
-		return null
-	# Without these the marker crawls with aliasing whenever it is smaller than its source, which at a
-	# constant screen size is most of the time.
-	img.generate_mipmaps()
-	var tex := ImageTexture.create_from_image(img)
-	# A texture built from an Image has an EMPTY `resource_path`, and the material cache is keyed on the
-	# sprite's identity — so without this every brush family would share one cache entry and therefore
-	# one texture, and every marker in the scene would draw as whichever sprite was rasterised first.
-	# `resource_name` rather than `take_over_path`: this is a label, not a claim on the res:// path.
-	tex.resource_name = p_path
-	return tex
 
 
 func _get_gizmo_name() -> String:
@@ -273,14 +95,14 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	# for a stamping brush, dark blue for the erosion family. The sprites are grayscale so the tint is
 	# the whole of it: white becomes the colour, the black outline stays black whatever it is.
 	var tint: Color = node._gizmo_color() if node.has_method("_gizmo_color") else MARKER_COLOR
-	var sprite := sprite_for(node)
+	var sprite: Texture2D = Sprites.sprite_for(node)
 	if sprite != null:
 		# What kind of brush this is, answerable at a glance and from any distance. The wireframe
 		# octahedron it replaced was a pixel thick and told you only that SOMETHING was there.
-		p_gizmo.add_mesh(_quad_mesh(),
-				_sprite_material("sprite:%s:%s" % [sprite.resource_name, tint.to_html(false)],
+		p_gizmo.add_mesh(Sprites._quad_mesh(),
+				Sprites._sprite_material("sprite:%s:%s" % [sprite.resource_name, tint.to_html(false)],
 						sprite, tint),
-				Transform3D(Basis().scaled(Vector3.ONE * ICON_SIZE), centre))
+				Transform3D(Basis().scaled(Vector3.ONE * Sprites.ICON_SIZE), centre))
 	else:
 		# A class with no sprite anywhere up its chain keeps the old marker rather than nothing.
 		p_gizmo.add_lines(octa(centre, MARKER_R), _marker_material(p_gizmo, tint))
@@ -311,7 +133,7 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 		for path in _h.loop_paths(node):
 			for i in path.curve.point_count:
 				var c := node.to_local(path.to_global(path.curve.get_point_position(i)))
-				_dot_sprite(p_gizmo, c, POINT_SIZE, POINT_COLOR,
+				Sprites._dot_sprite(p_gizmo, c, Sprites.POINT_SIZE, POINT_COLOR,
 						is_sel_node and gpi == _h.sel_gpi and _h.sel_kind == 0)
 				# Tangents only for the selected point (or all, when the toggle is on) — declutter.
 				if _h.show_tangents(node, gpi):
@@ -320,7 +142,7 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 						# The stem stays a line: it is what says which point a handle belongs to, and
 						# two dots with nothing between them do not say it.
 						p_gizmo.add_lines(PackedVector3Array([c, hc]), gmat)
-						_dot_sprite(p_gizmo, hc, TANGENT_SIZE, TANGENT_COLOR,
+						Sprites._dot_sprite(p_gizmo, hc, Sprites.TANGENT_SIZE, TANGENT_COLOR,
 								is_sel_node and gpi == _h.sel_gpi and _h.sel_kind == kind)
 				gpi += 1
 

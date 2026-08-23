@@ -18,7 +18,9 @@
 # Run: Godot_v4.7-stable_win64_console.exe --headless --path project bench/GizmoMarkerGate.tscn
 extends Node
 
-const GIZMO := preload("res://addons/pasture_3d/src/brush_gizmo.gd")
+## The sprite machinery lives here rather than in either gizmo plugin, because BOTH draw markers with
+## it and `EditorNode3DGizmoPlugin` cannot be instantiated outside the editor anyway.
+const SPRITES := preload("res://addons/pasture_3d/src/gizmo_sprites.gd")
 const HANDLES := preload("res://addons/pasture_3d/src/brush_handles.gd")
 
 ## How many gates below are expected to report. THE FIRST RUN OF THIS FILE PRINTED "PASS (0 failures)"
@@ -43,6 +45,12 @@ const EXPECTED := {
 	"Pasture3DSplat": "pasture3d_splat.svg",
 	"Pasture3DSim": "pasture3d_sim_base.svg",
 	"Pasture3DSimManager": "pasture3d_sim_manager.svg",
+	# The water family. NOT brushes — a water body's loop belongs to the brush that carved it, so these
+	# are drawn by pool_gizmo.gd instead. They are here because the sprite lookup is shared, and because
+	# the first pass of this feature missed them entirely: PondWater kept its octahedron.
+	"Pasture3DPool": "pasture3d_pool.svg",
+	"Pasture3DStream": "pasture3d_stream.svg",
+	"Pasture3DWaterBody": "pasture3d_water_body.svg",
 }
 
 var _fail := 0
@@ -79,7 +87,7 @@ func _ready() -> void:
 # silently make the whole feature pointless, because `pasture3d_terrain_brush.svg` exists as the base and
 # EVERY subclass would fall back to it if the per-class lookup broke. "A sprite resolved" stays true.
 #
-# So the criterion is per class AND on the variety: eight families must produce at least seven DISTINCT
+# So the criterion is per class AND on the variety: eleven families must produce at least ten DISTINCT
 # textures. The control is the count, not a flag.
 #
 # It also checks WHERE they came from. Drawing the scene-tree `@icon` instead is not a cosmetic
@@ -101,25 +109,26 @@ func _gate_dg_icons_are_per_class() -> void:
 		if node == null:
 			missed.append("%s (could not instantiate)" % cls)
 			continue
-		_root.add_child(node)
-		var tex: Texture2D = GIZMO.sprite_for(node)
+		# NOT added to the tree: `sprite_for` reads the node's script and nothing else, and a water body
+		# entering the tree starts building surface meshes this gate has no use for.
+		var tex: Texture2D = SPRITES.sprite_for(node)
 		var got := tex.resource_name.get_file() if tex != null else "<none>"
 		var want: String = EXPECTED[cls]
 		if got != want:
 			missed.append("%s -> %s (wanted %s)" % [cls, got, want])
 		if tex != null:
 			seen[tex.resource_name] = true
-			if not tex.resource_name.begins_with(GIZMO.SPRITE_DIR):
+			if not tex.resource_name.begins_with(SPRITES.SPRITE_DIR):
 				missed.append("%s came from %s, outside the gizmo sprite directory"
 						% [cls, tex.resource_name])
-		node.queue_free()
+		node.free()
 	print("    %d families, %d distinct icons" % [EXPECTED.size(), seen.size()])
 	if not missed.is_empty():
 		_fail += 1
 		print("    !! wrong or missing: %s" % ", ".join(missed))
 	# THE CONTROL. All eight resolving to one texture is exactly what a broken per-class lookup looks
 	# like, and every assertion above would still pass if `EXPECTED` had been written from that run.
-	if seen.size() < 7:
+	if seen.size() < 10:
 		_fail += 1
 		print("    !! only %d distinct sprites across %d families — the lookup is collapsing to the base "
 			% [seen.size(), EXPECTED.size()]
@@ -135,8 +144,8 @@ func _gate_dg_icons_are_per_class() -> void:
 # being tinted or the marker vanishes against pale ground.
 func _gate_dh_dots_differ() -> void:
 	print("\n[DH] the selected dot is a different image from the unselected one:")
-	var hollow: ImageTexture = GIZMO._dot(false)
-	var filled: ImageTexture = GIZMO._dot(true)
+	var hollow: ImageTexture = SPRITES._dot(false)
+	var filled: ImageTexture = SPRITES._dot(true)
 	if hollow == null or filled == null:
 		_fail += 1
 		print("    !! a dot texture was not generated at all")
@@ -321,7 +330,7 @@ func _gate_dj_sprites_are_grayscale() -> void:
 	print("    %d sprites, worst saturation %.4f (%s)" % [files.size(), worst_sat, worst_name])
 	print("    thinnest body %.3f of frame, thinnest outline %.3f (both must clear 0.020)"
 			% [min_white, min_black])
-	if files.size() < 8:
+	if files.size() < 11:
 		_fail += 1
 		print("    !! only %d sprites found; the directory is not the one being drawn from" % files.size())
 	if worst_sat > 0.02:
@@ -347,12 +356,12 @@ func _gate_dj_sprites_are_grayscale() -> void:
 ## without a class behind it is still held to the rules.
 func _sprite_files() -> PackedStringArray:
 	var out := PackedStringArray()
-	var dir := DirAccess.open(GIZMO.SPRITE_DIR)
+	var dir := DirAccess.open(SPRITES.SPRITE_DIR)
 	if dir == null:
 		return out
 	for f in dir.get_files():
 		if f.get_extension() == "svg":
-			out.append(GIZMO.SPRITE_DIR + f)
+			out.append(SPRITES.SPRITE_DIR + f)
 	out.sort()
 	return out
 
