@@ -2788,6 +2788,19 @@ func _raise_inverted() -> bool:
 	return get("invert") == true
 
 
+## The `fill_offset` a pool created by this brush should start with, or NAN for "leave the default".
+##
+## On the base class because a brush that carves knows how deep its basin is and the water body does
+## not — but only Pasture3DPond overrides it (see PASTURE3D_POND_WATER_OFFSET_SPEC.md §5). Giving
+## every brush a water-level dial is a bigger decision; the hook is here for whoever makes it, the
+## same way _region_coverage() is.
+##
+## NAN rather than -0.5 keeps the default in ONE place — Pasture3DWaterBody's own property — so a
+## brush with no opinion cannot pin a stale default by restating it.
+func _pool_fill_offset() -> float:
+	return NAN
+
+
 ## Human-readable blend mode, for the dialog and the warning. Reads the subclass's own enum names so
 ## a brush that adds a mode does not need this updated.
 func _blend_mode_name() -> String:
@@ -2864,6 +2877,17 @@ func _build_pool_for(p_spline: Path3D, p_manager: Node) -> Node:
 	var pool: Node = script.new()
 	pool.name = _pool_name_for(p_spline, is_river)
 	pool.source_spline = p_spline
+	# Above the is_river branch so it seeds BOTH kinds. A stream's fill_offset is only its
+	# no-terrain fallback, but at creation there is nothing else to seed that fallback from, so the
+	# brush's number is the best available answer. (Pushing it LATER is a different question — by
+	# then the banks are answering; see Pasture3DPond._apply_water_offset.)
+	#
+	# Before the node is in the tree, which is where it has to be: _apply_add_water calls
+	# fit_to_curve() on insertion and that reads fill_offset, so the seeded level comes out right
+	# first time rather than needing a second press.
+	var seed_fill := _pool_fill_offset()
+	if is_finite(seed_fill):
+		pool.fill_offset = seed_fill
 	if is_river:
 		# A river gets the river profile and the river shader, and its width comes from the channel
 		# the brush carved — a Trough already knows how wide its bed is, so asking the user again

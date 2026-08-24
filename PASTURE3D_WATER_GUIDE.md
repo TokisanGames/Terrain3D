@@ -204,6 +204,14 @@ which is a moat and is occasionally what you want.
 point plus `fill_offset`. It is never automatic, because the brushes re-snap their spline points to
 the terrain and an automatic fit would move the water level whenever the ground under the rim moved.
 
+**On a `Pasture3DPond`, set the level on the BRUSH, not here.** The pond has a `water_offset` under
+its own **Water** group — same frame, same sign, same number as `fill_offset` — and typing into it
+moves water that already exists, with no Fit to Curve press and no hunting for the pool in the Scene
+dock. It also seeds the level when Add Water fires, so a pond dropped in with a non-default offset
+lands right the first time. `fill_offset` here still works and still wins until the brush's value next
+changes; when the two disagree the pond says so in its configuration warnings and its **Level Water**
+button re-applies. See `PASTURE3D_POND_WATER_OFFSET_SPEC.md`.
+
 Dragging a **pool** in **Y** moves the water level. Dragging it in **XZ** does not move the water —
 the spline decides where that is — but it does move `_water_domain_origin`, which is what keeps wave
 phase precise far from the world origin. Water driven by a bare `curve` is the exception and travels

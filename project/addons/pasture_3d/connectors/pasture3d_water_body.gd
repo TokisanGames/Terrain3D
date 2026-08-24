@@ -1163,17 +1163,31 @@ func _spline_level() -> float:
 	return lowest + fill_offset
 
 
-## Move this node's Y onto the spline-implied level, if that is what was asked for.
+## Move this node's Y onto the spline-implied level, now, whatever level_from_spline says.
 ##
-## Y only. Fit to Curve also seats the XZ, because a press is a deliberate act; doing it every
-## rebuild would drag the body under the user's cursor. Guarded on an actual change so it does not
-## write the transform -- and notify everything that listens -- on every rebuild of a still body.
-func _apply_spline_level() -> void:
-	if not level_from_spline:
-		return
+## Y ONLY, and that is what makes it cheap enough to call from a property setter:
+## NOTIFICATION_TRANSFORM_CHANGED treats a Y move as needing no rebuild -- the mesh is built flat in
+## local space and the surface height IS this node's Y -- so this is a transform write and a
+## domain-origin update, not a re-mesh. Fit to Curve is the version that also re-seats XZ, which is a
+## bigger act and stays a button press.
+##
+## Guarded on an actual change so it does not write the transform -- and notify everything that
+## listens -- on every rebuild of a still body.
+func level_to_spline() -> void:
 	var level := _spline_level()
 	if is_finite(level) and not is_equal_approx(level, global_position.y):
 		global_position.y = level
+
+
+## Move this node's Y onto the spline-implied level, if that is what was asked for.
+##
+## The gate, split from the operation above so a caller with a deliberate reason -- a brush pushing
+## its own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §4.2) -- can re-level without turning
+## level_from_spline on for good.
+func _apply_spline_level() -> void:
+	if not level_from_spline:
+		return
+	level_to_spline()
 
 
 ## Duplicate the resolved material into the scene so a plugin update cannot overwrite

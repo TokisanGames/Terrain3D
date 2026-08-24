@@ -597,7 +597,11 @@ and anything added later:
 4. Picks the mode from the curve: `curve.closed` → loop, else ribbon. It reads the flag, not the brush
    class, so a `Mound` whose loop the user opened behaves as the curve says. *Until Phase 7 exists,
    an open curve is skipped with a warning naming the spline rather than filled as a wedge (§11.5).*
-5. Seeds the level: `global_position.y = curve_min_y + fill_offset` (§7.2).
+5. Seeds the level: `global_position.y = curve_min_y + fill_offset` (§7.2). `fill_offset` itself comes
+   from the brush's `_pool_fill_offset()` when that returns a finite value, and from the water body's
+   own default when it returns `NAN` — which is every brush but `Pasture3DPond`, whose `water_offset`
+   is the same number under a name that says which offset it is
+   (`PASTURE3D_POND_WATER_OFFSET_SPEC.md`).
 6. Seeds `wave_profile` from the brush type — `pond_still` for a `Mound`/`Plow`/`Splat` under
    ~40 m across, `lake_calm` above, `river_flow` for a `Trough` — and `ribbon_half_width` from the
    `Trough`'s `bed_half_width` where one exists. These are starting points, not bindings; nothing
