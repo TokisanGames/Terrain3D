@@ -7,6 +7,7 @@
 #include "pasture_3d_data.h"
 #include "pasture_3d_erosion.h"
 #include "pasture_3d_gpu_raster.h"
+#include "pasture_3d_graph_ops.h"
 #include "pasture_3d_raster_util.h"
 #include "pasture_3d_relief_ops.h"
 #include "pasture_3d_util.h"
@@ -322,7 +323,7 @@ float raster_polyline_field(const PackedVector3Array &pts, double min_x, double 
 // position in the list. See the header of connectors/pasture3d_brush_modifier.gd for why that split is
 // structural rather than an optimisation.
 struct BrushModStep {
-	enum Kind { NOISE = 0, RELIEF = 1, SMOOTH = 2, EROSION = 3 };
+	enum Kind { NOISE = 0, RELIEF = 1, SMOOTH = 2, EROSION = 3, GRAPH = 4 };
 	int kind = NOISE;
 	bool field = false;
 	Ref<FastNoiseLite> noise; // NOISE
@@ -330,6 +331,13 @@ struct BrushModStep {
 	ReliefProgram prog; // RELIEF
 	double mat_strength = 1.0; // RELIEF: the material's own Strength multiplier
 	int passes = 0; // SMOOTH
+	// GRAPH (the terrain-graph grid-pass interleave). `graph_prog` is the whole-graph program; `graph_amount`
+	// the 0..1 composite amount; `graph_reads_input`/`graph_content_key` drive the frozen key the same way
+	// _apply_graph_step does — key on the input surface only for a FILTER graph, else on the revision alone.
+	GraphProgram graph_prog;
+	double graph_amount = 1.0;
+	bool graph_reads_input = false;
+	int64_t graph_content_key = 0;
 	ErosionParams erosion; // EROSION
 	PackedFloat32Array erodability; // EROSION: the hardness LUT, empty for uniform rock
 	bool publish_fields = false; // EROSION: write the four channels into the stack's field context
@@ -488,6 +496,24 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			if (st.erosion.iterations < 1 || (st.erosion.erosion_rate == 0.0 && st.erosion.diffusion == 0.0)) {
 				continue; // would route water and subtract nothing
 			}
+		} else if (op == "graph") {
+			st.kind = BrushModStep::GRAPH;
+			st.field = true;
+			st.graph_amount = CLAMP((double)d.get("strength", 1.0), 0.0, 1.0);
+			// An empty or unsupported program (a node op the native evaluator does not implement) is not a
+			// step. GDScript only takes the native path when native_supported(), so this is a belt-and-braces
+			// guard, not the common case.
+			const Dictionary prog = d.get("graph_program", Dictionary());
+			if (!graph_build(prog, st.graph_prog)) {
+				continue;
+			}
+			st.graph_reads_input = d.get("reads_input", false);
+			st.graph_content_key = d.get("content_key", (int64_t)0);
+			st.frozen = d.get("frozen", false);
+			st.cache_key = d.get("cache_key", (int64_t)0);
+			st.cache = d.get("cache", PackedFloat32Array());
+			st.has_out = d.has("out");
+			st.out = d.get("out", Dictionary());
 		} else {
 			continue; // an unknown op is a newer plugin's node; skipping beats guessing
 		}
@@ -639,6 +665,86 @@ void brush_mod_erode(BrushModStep &p_step, std::vector<float> &r_vals,
 			p_step.out["dep"] = dp;
 			p_step.out["wet"] = w;
 		}
+	}
+}
+
+// A key for one frozen GRAPH evaluation. Like brush_mod_erosion_key: the revision (any node param or wiring
+// change bumps content_key), plus the input surface ONLY for a FILTER graph (graph_reads_input), which is
+// what makes a drag re-key a filter but leave a world-fixed generator alone. The amount is NOT folded in —
+// it scales the composite, not the cached output, so a strength edit reuses the cache. This need not agree
+// with the GDScript key; each path compares only keys it wrote.
+int64_t brush_mod_graph_key(const BrushModStep &p_step, const std::vector<float> &p_z) {
+	uint64_t h = BRUSH_FNV_OFFSET;
+	h = brush_fnv(h, (uint64_t)p_step.graph_content_key);
+	if (p_step.graph_reads_input) {
+		for (size_t i = 0; i < p_z.size(); i++) {
+			uint32_t b;
+			const float f = p_z[i];
+			std::memcpy(&b, &f, sizeof(b));
+			if (std::isnan(f)) {
+				b = 0x7fc00000u;
+			}
+			h = brush_fnv(h, (uint64_t)b);
+		}
+	}
+	return (int64_t)h;
+}
+
+// Composite the graph's absolute output `p_zo` over the absolute input surface `p_z`, feathered by the
+// interior profile and scaled by `p_amount`, then write back into `r_vals` in that grid's units (a delta
+// under ADD). A byte-for-byte port of Pasture3DTerrainBrush._composite_graph. NaN cells pass through.
+static void brush_mod_graph_composite(std::vector<float> &r_vals, const std::vector<float> &p_z,
+		const float *p_zo, const std::vector<float> &p_profile, double p_amount,
+		const std::vector<float> &p_basey, bool p_add, size_t p_n) {
+	for (size_t k = 0; k < p_n; k++) {
+		if (std::isnan(r_vals[k])) {
+			continue;
+		}
+		const double t = p_amount * (double)p_profile[k];
+		const double abs_out = (double)p_z[k] + ((double)p_zo[k] - (double)p_z[k]) * t;
+		r_vals[k] = p_add ? (float)(abs_out - (double)p_basey[k]) : (float)abs_out;
+	}
+}
+
+// Run one GRAPH step over the working grid, in place. Mirrors Pasture3DTerrainBrush._apply_graph_step:
+// lift the working delta to an absolute surface, hand it to the native whole-graph evaluator (an Input node
+// reads it), composite the output back feathered by the profile, and cache the ABSOLUTE output per extent
+// with the three-way frozen split brush_mod_erode uses.
+void brush_mod_graph(BrushModStep &p_step, std::vector<float> &r_vals, const std::vector<float> &p_basey,
+		const std::vector<float> &p_profile, bool p_add, int p_gw, int p_gh, double p_vs,
+		double p_min_x, double p_min_z) {
+	const size_t n = (size_t)p_gw * p_gh;
+	std::vector<float> z(n);
+	for (size_t i = 0; i < n; i++) {
+		z[i] = p_add ? (float)((double)p_basey[i] + (double)r_vals[i]) : r_vals[i];
+	}
+	const double amount = p_step.graph_amount;
+
+	// FROZEN (§6.3): a missing cache evaluates, a matching one is served, a stale one is served AND flagged.
+	const bool want_key = p_step.frozen && p_step.has_out;
+	const int64_t key = want_key ? brush_mod_graph_key(p_step, z) : 0;
+	const bool have_cache = p_step.frozen && p_step.cache.size() == (int)n;
+	if (have_cache) {
+		brush_mod_graph_composite(r_vals, z, p_step.cache.ptr(), p_profile, amount, p_basey, p_add, n);
+		p_step.out["stale"] = p_step.cache_key != key;
+		p_step.out["served"] = true;
+		return;
+	}
+
+	// MISS: evaluate at the brush's own per-cell world coords (a half-cell-shifted rect makes
+	// graph_cell_to_world reproduce min + i*vs), handing the graph the absolute surface for its Input node.
+	const Rect2 rect((real_t)(p_min_x - 0.5 * p_vs), (real_t)(p_min_z - 0.5 * p_vs),
+			(real_t)((double)p_gw * p_vs), (real_t)((double)p_gh * p_vs));
+	PackedFloat32Array zin;
+	zin.resize((int)n);
+	std::memcpy(zin.ptrw(), z.data(), n * sizeof(float));
+	const PackedFloat32Array zo = graph_eval_grid(p_step.graph_prog, p_gw, p_gh, rect, zin);
+	brush_mod_graph_composite(r_vals, z, zo.ptr(), p_profile, amount, p_basey, p_add, n);
+	if (want_key) {
+		p_step.out["key"] = key;
+		p_step.out["grid"] = zo;
+		p_step.out["stale"] = false;
+		p_step.out["served"] = false;
 	}
 }
 
@@ -1217,6 +1323,23 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 			nan_blur(vals, gw, gh, steps[si].passes);
 		} else if (steps[si].kind == BrushModStep::EROSION) {
 			brush_mod_erode(steps[si], vals, basey, add, gw, gh, vs, fields);
+		} else if (steps[si].kind == BrushModStep::GRAPH) {
+			// The graph composites its output feathered by the interior profile. That 0..1 mask is not
+			// stored (see the note above `amp`), so materialise it once here from the same host_profile_at
+			// the point run uses — only for a graph step, which is already an O(cells) evaluation.
+			std::vector<float> gprofile((size_t)gw * gh, 0.f);
+			for (int iz = 0; iz < gh; iz++) {
+				const int row = iz * gw;
+				for (int ix = 0; ix < gw; ix++) {
+					const int i = row + ix;
+					double a = 0.0;
+					double pr = 0.0;
+					if (host_profile_at((double)field[i] + edge_offset, a, pr)) {
+						gprofile[i] = (float)pr;
+					}
+				}
+			}
+			brush_mod_graph(steps[si], vals, basey, gprofile, add, gw, gh, vs, min_x, min_z);
 		}
 		si++;
 	}

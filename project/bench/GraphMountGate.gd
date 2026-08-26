@@ -33,7 +33,7 @@ func _ready() -> void:
 	_a_world_aligned_add()
 	_b_feathered_by_profile()
 	_c_grid_node_in_graph()
-	_d_forces_gdscript_path()
+	_d_native_supported_runs_native()
 	_e_filter_reads_surface()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH MOUNT PASS" if _fail == 0 else "GRAPH MOUNT FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
@@ -144,23 +144,34 @@ func _c_grid_node_in_graph() -> void:
 		_fail += 1; print("    !! control dead: Smooth changed nothing through the mount")
 
 
-# --- D. An active graph modifier forces the GDScript path --------------------------------------------
-func _d_forces_gdscript_path() -> void:
-	print("[D] an active graph modifier forces the GDScript rasteriser")
+# --- D. A native-supported graph runs on the NATIVE path; an unsupported one falls back to GDScript ----
+func _d_native_supported_runs_native() -> void:
+	print("[D] a native-supported graph does NOT force GDScript (the grid-pass interleave runs it)")
 	var gnode := _graph_node(_single_noise_graph(_make_noise(1, 0.05), 5.0), 1.0)
-	var stack: Array[Pasture3DNode] = [gnode]
-	_brush.modifiers = stack
+	_brush.modifiers = [gnode] as Array[Pasture3DNode]
 	var forced: bool = _brush._stack_forces_gdscript()
-	print("    graph in stack -> forces GDScript = %s" % forced)
-	if not forced:
-		_fail += 1; print("    !! a graph modifier did NOT force the GDScript path (native would drop it)")
+	print("    native-supported graph -> forces GDScript = %s (want false)" % forced)
+	if forced:
+		_fail += 1; print("    !! a native-supported graph still forces GDScript — the flip did not take")
 
-	# CONTROL: a non-graph stack (a Noise node) does not force it.
+	# CONTROL 1: an UNSUPPORTED graph (a cycle -> native_supported false) DOES fall back to GDScript, so
+	# native never silently drops it.
+	var cyc := Pasture3DTerrainGraph.new()
+	var cn: Array[Pasture3DGraphNode] = [_blend_add()]
+	cyc.nodes = cn
+	cyc.connections = [PackedInt32Array([0, 0, 0, 0])] # blend feeds itself -> a cycle
+	cyc.output_node = 0
+	_brush.modifiers = [_graph_node(cyc, 1.0)] as Array[Pasture3DNode]
+	var cforced: bool = _brush._stack_forces_gdscript()
+	print("    control: an unsupported (cyclic) graph -> forces GDScript = %s (want true)" % cforced)
+	if not cforced:
+		_fail += 1; print("    !! an unsupported graph did not fall back to GDScript")
+
+	# CONTROL 2: a non-graph stack (a Noise node) does not force it either.
 	var nnode := Pasture3DNodeNoise.new()
 	nnode.noise = _make_noise(2, 0.05)
 	nnode.strength = 3.0
-	var stack2: Array[Pasture3DNode] = [nnode]
-	_brush.modifiers = stack2
+	_brush.modifiers = [nnode] as Array[Pasture3DNode]
 	var forced2: bool = _brush._stack_forces_gdscript()
 	print("    control: noise-only stack -> forces GDScript = %s (want false)" % forced2)
 	if forced2:

@@ -92,6 +92,13 @@ bench/GraphFoldGate.tscn
 # graph (a cycle refuses). Controls throughout.
 bench/GraphNativeGraphGate.tscn
 
+# --- Terrain graph, native rasteriser bake (grid-pass interleave stage 2, PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
+# Needs the freshly built DLL and demo/data (bakes a Mound over the demo regions, like PlowReliefCheck).
+# Asserts a native-supported graph no longer forces GDScript, and the native rasteriser's BrushModStep::GRAPH
+# bakes the same surface as the GDScript oracle to 1e-4 m beyond the pre-existing dome float/double gap, with
+# a control (doubling the amount moves the bake).
+bench/GraphNativeBakeGate.tscn
+
 # --- Terrain graph, Input/Output filter paradigm (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
 # The graph reads the surface handed to it (an Input node) and its Output is the result: a bare
 # Input->Output is the identity, Input->Smooth->Output == blur_nan(surface), Input->Blend(ADD)<-Const adds a
