@@ -32,6 +32,8 @@ func _ready() -> void:
 	_c_terrace_is_a_filter_not_a_generator()
 	_d_furrows_then_terrace_composite()
 	_e_categories_and_native_fallback()
+	_f_dunes_matches_formula()
+	_g_crater_fills_the_frame()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH RELIEF NODE PASS" if _fail == 0 else "GRAPH RELIEF NODE FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -161,6 +163,53 @@ func _e_categories_and_native_fallback() -> void:
 		_fail += 1; print("    !! the native check is broken — a supported graph reported false")
 
 
+# --- F. Dunes generator == an independent asymmetric-ridge re-derivation ------------------------------
+func _f_dunes_matches_formula() -> void:
+	print("[F] Dunes (0 inputs) == hand-derived asymmetric ridges, per cell")
+	var dn := _dunes(3.0, 35.0, 20.0, 0.7, 1.4, 10.0, 110.0, 5)
+	var got := _gen_graph(dn).evaluate(GW, GH, RECT)
+	var want := _dunes_oracle(dn)
+	var d := _max_abs_diff(got, want)
+	print("    max |graph - oracle| = %.7f (want < %.7f)" % [d, EPS])
+	if d > EPS:
+		_fail += 1; print("    !! the Dunes node diverged from the hand-derived formula")
+	# CONTROL: amplitude 0 -> flat; and it varies across the grid.
+	var flat := _absmax(_gen_graph(_dunes(0.0, 35.0, 20.0, 0.7, 1.4, 10.0, 110.0, 5)).evaluate(GW, GH, RECT))
+	print("    control: amplitude 0 -> flat (absmax %.7f, want < %.7f) ; spread %.3f (want > 0.05)"
+		% [flat, EPS, _spread(got)])
+	if flat > EPS or _spread(got) <= 0.05:
+		_fail += 1; print("    !! amplitude control dead, or the dune field is flat")
+
+
+# --- G. Crater grid generator fills the FRAME (the new code: nu,nv,inv_ex,inv_ez from the rect) --------
+func _g_crater_fills_the_frame() -> void:
+	print("[G] Crater (grid, 0 inputs) fills the rect; graph == independent-frame + _crater profile")
+	var cr := _crater(20.0, 0.7, 0.15, 0.25, 2.0, 0.35, 0)
+	var got := _gen_graph(cr).evaluate(GW, GH, RECT)
+	var want := _crater_oracle(cr)
+	var d := _max_abs_diff(got, want)
+	print("    max |graph - oracle| = %.7f (want < %.7f)" % [d, EPS])
+	if d > EPS:
+		_fail += 1; print("    !! the Crater node diverged from the independent-frame oracle")
+	# CONTROL: the centre cell is the deepest point (a bowl) and is negative.
+	var centre := got[(GH / 2) * GW + (GW / 2)]
+	var lo := got[0]
+	for v in got:
+		lo = minf(lo, v)
+	print("    control: centre = %.3f (want < 0) and is the minimum (min %.3f)" % [centre, lo])
+	if centre >= 0.0 or absf(centre - lo) > 0.5:
+		_fail += 1; print("    !! the crater is not a bowl centred in the frame")
+	# CONTROL: a corner (outside the inscribed ellipse, r >= 1) reads 0 — the crater does not fill corners.
+	print("    control: corner (r>=1) reads %.7f (want < %.7f)" % [got[0], EPS])
+	if absf(got[0]) > EPS:
+		_fail += 1; print("    !! the crater bled past r = 1 into the frame corners")
+	# CONTROL: amplitude 0 -> flat.
+	var flat := _absmax(_gen_graph(_crater(0.0, 0.7, 0.15, 0.25, 2.0, 0.35, 0)).evaluate(GW, GH, RECT))
+	print("    control: amplitude 0 -> flat (absmax %.7f, want < %.7f)" % [flat, EPS])
+	if flat > EPS:
+		_fail += 1; print("    !! amplitude 0 did not flatten the crater")
+
+
 # ---- node builders ----------------------------------------------------------------------------------
 
 func _furrows(amp: float, spacing: float, dir_deg: float, profile, wobble_amt: float, wobble_size: float,
@@ -176,6 +225,22 @@ func _terrace(band_h: float, hardness: float, amount: float, jitter: float, jitt
 	var n := Pasture3DGraphNodeTerrace.new()
 	n.band_height = band_h; n.hardness = hardness; n.amount = amount
 	n.jitter = jitter; n.jitter_size = jitter_size; n.seed = seed
+	return n
+
+
+func _dunes(amp: float, wavelength: float, dir_deg: float, asymmetry: float, sharpness: float,
+		wander_amt: float, wander_size: float, seed: int) -> Pasture3DGraphNodeDunes:
+	var n := Pasture3DGraphNodeDunes.new()
+	n.amplitude = amp; n.wavelength = wavelength; n.direction_degrees = dir_deg; n.asymmetry = asymmetry
+	n.crest_sharpness = sharpness; n.wander_amount = wander_amt; n.wander_size = wander_size; n.seed = seed
+	return n
+
+
+func _crater(amp: float, floor_depth: float, rim_height: float, rim_width: float, ejecta: float,
+		flatness: float, steps: int) -> Pasture3DGraphNodeCrater:
+	var n := Pasture3DGraphNodeCrater.new()
+	n.amplitude = amp; n.floor_depth = floor_depth; n.rim_height = rim_height; n.rim_width = rim_width
+	n.ejecta_falloff = ejecta; n.floor_flatness = flatness; n.terrace_steps = steps
 	return n
 
 
@@ -242,6 +307,44 @@ func _terrace_oracle(t: Pasture3DGraphNodeTerrace, p_field: PackedFloat32Array) 
 			var fr := tt - q
 			var stepped := (q + pow(fr, 1.0 + t.hardness * 15.0)) * bh
 			out[i] = lerpf(x, stepped, t.amount)
+	return out
+
+
+## Per-cell asymmetric dune ridge, hand-derived. Matches Pasture3DReliefMaterial._dunes, which the node
+## delegates to — so agreement cross-checks both the relief static and the graph wiring.
+func _dunes_oracle(dn: Pasture3DGraphNodeDunes) -> PackedFloat32Array:
+	var noise := Pasture3DReliefMaterial._configure_noise(1.0 / maxf(dn.wander_size, 0.01), 2, 2.0, 0.5, dn.seed, false)
+	var dir := deg_to_rad(dn.direction_degrees)
+	var out := PackedFloat32Array()
+	out.resize(GW * GH)
+	for iz in range(GH):
+		for ix in range(GW):
+			var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, GW, GH, RECT)
+			var d := w.x * cos(dir) + w.y * sin(dir)
+			d += noise.get_noise_2d(w.x, w.y) * dn.wander_amount
+			var phase := fposmod(d / maxf(dn.wavelength, 0.001), 1.0)
+			var a := clampf(dn.asymmetry, 0.01, 0.99)
+			var t := (phase / a) if phase < a else (1.0 - (phase - a) / (1.0 - a))
+			out[iz * GW + ix] = (pow(clampf(t, 0.0, 1.0), maxf(dn.crest_sharpness, 0.01)) * 2.0 - 1.0) * dn.amplitude
+	return out
+
+
+## The crater field, computing the FRAME (the node's new code) INDEPENDENTLY here and reusing the vetted
+## Pasture3DReliefMaterial._crater profile — so this isolates the nu,nv,inv_ex,inv_ez mapping under test.
+func _crater_oracle(cr: Pasture3DGraphNodeCrater) -> PackedFloat32Array:
+	var cx := RECT.position.x + RECT.size.x * 0.5
+	var cz := RECT.position.y + RECT.size.y * 0.5
+	var inv_ex := 2.0 / maxf(RECT.size.x, 1.0e-9)
+	var inv_ez := 2.0 / maxf(RECT.size.y, 1.0e-9)
+	var params := PackedFloat32Array([cr.amplitude, cr.floor_depth, cr.rim_height, cr.rim_width,
+			cr.ejecta_falloff, cr.floor_flatness, float(cr.terrace_steps)])
+	var out := PackedFloat32Array()
+	out.resize(GW * GH)
+	for iz in range(GH):
+		for ix in range(GW):
+			var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, GW, GH, RECT)
+			out[iz * GW + ix] = Pasture3DReliefMaterial._crater((w.x - cx) * inv_ex, (w.y - cz) * inv_ez,
+					inv_ex, inv_ez, params, 0)
 	return out
 
 

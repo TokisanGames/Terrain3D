@@ -90,9 +90,11 @@ func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> floa
 
 
 ## GRID node entry point. `p_inputs` is one grid (PackedFloat32Array, row-major `p_gw * p_gh`) per input
-## port, in port order; `p_mask` is an optional [0,1] grid of the same shape, or null. Returns the output
-## grid. Default = pass the first input through. Only called when `needs_grid()` is true.
-func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask) -> PackedFloat32Array:
+## port, in port order; `p_mask` is an optional [0,1] grid of the same shape, or null; `p_rect` is the
+## world-XZ extent the grid covers, so a frame-dependent generator (Crater, DLA) can normalise a cell's
+## world position to the loop. Returns the output grid. Default = pass the first input through. Only called
+## when `needs_grid()` is true.
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
 	return (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 else Pasture3DGraphOps.zeros(p_gw * p_gh)
 
 

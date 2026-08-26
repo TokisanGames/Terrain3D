@@ -230,7 +230,7 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 		if node.op() == &"input":
 			grids[ni] = _surface_grid(p_input, n) # the surface handed in, or a flat 0 when none
 		elif node.needs_grid():
-			grids[ni] = node.eval_grid(_input_grids(ni, grids, n), p_gw, p_gh, p_mask)
+			grids[ni] = node.eval_grid(_input_grids(ni, grids, n), p_gw, p_gh, p_mask, p_rect)
 		else:
 			var g := PackedFloat32Array()
 			g.resize(n)
@@ -473,7 +473,7 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input 
 			continue
 		var in_grids := _input_grids(ni, grids, n)
 		if node.needs_grid():
-			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask)
+			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask, p_rect)
 		else:
 			var g := PackedFloat32Array()
 			g.resize(n)

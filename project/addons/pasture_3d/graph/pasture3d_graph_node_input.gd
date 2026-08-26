@@ -36,5 +36,5 @@ func input_names() -> PackedStringArray:
 
 ## Never actually called — the evaluator fills an Input node's grid from the surface it was handed, before
 ## it would dispatch here. Kept defined (a flat 0) so a stray caller gets nothing rather than an error.
-func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask) -> PackedFloat32Array:
+func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
 	return Pasture3DGraphOps.zeros(p_gw * p_gh)
