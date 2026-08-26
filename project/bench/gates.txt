@@ -60,6 +60,12 @@ bench/GizmoMarkerGate.tscn
 bench/WaterBodySplitCheck.tscn
 bench/StreamRippleCheck.tscn
 
+# --- Terrain graph, increment 1: the headless evaluator (PASTURE3D_TERRAIN_GRAPH_SPEC.md §5) ---
+# Watched green 2026-08-25 (0 failures). Pure GDScript — no dll dependency. Asserts the evaluator
+# matches an independent recompute for Noise/Blend/Smooth, and that topo order, cycle detection and
+# unwired-input-reads-0 hold, each with a control that moves the field.
+bench/TerrainGraphGate.tscn
+
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 # Watched green 2026-08-23, 8/8. It reaches across three files — the Pond, the Add Water hook on
 # Pasture3DTerrainBrush, and level_to_spline() on Pasture3DWaterBody — so it is the gate that notices
