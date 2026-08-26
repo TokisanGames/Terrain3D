@@ -590,16 +590,19 @@ func _m_thumbnail_generation() -> void:
 	
 	var mask = Pasture3DGraphNodeRegistry.create(&"mask")
 	var n1 = g.add_node(mask, Vector2(300, 100))
-	g.connect_ports(n0, 0, n1, 0)
+	var inp = Pasture3DGraphNodeRegistry.create(&"input")
+	var n2 = g.add_node(inp, Vector2(500, 100))
 	
 	var tex_nz = ThumbnailGenScript.generate_thumbnail(g, n0, 128)
 	var tex_mask = ThumbnailGenScript.generate_thumbnail(g, n1, 128)
+	var tex_inp = ThumbnailGenScript.generate_thumbnail(g, n2, 128)
 	
 	var nz_ok: bool = tex_nz != null and tex_nz.get_width() == 128 and tex_nz.get_height() == 128
 	var mask_ok: bool = tex_mask != null and tex_mask.get_width() == 128 and tex_mask.get_height() == 128
+	var inp_ok: bool = tex_inp != null and tex_inp.get_width() == 128 and tex_inp.get_height() == 128
 	
-	print("    noise thumbnail ok=%s, mask thumbnail ok=%s" % [nz_ok, mask_ok])
-	if not nz_ok or not mask_ok:
+	print("    noise thumbnail ok=%s, mask thumbnail ok=%s, input brush thumbnail ok=%s" % [nz_ok, mask_ok, inp_ok])
+	if not nz_ok or not mask_ok or not inp_ok:
 		_fail += 1; print("    !! thumbnail generation failed")
 
 
