@@ -36,6 +36,7 @@ func _ready() -> void:
 	_g_crater_fills_the_frame()
 	_h_strata_bands_its_input_tilted()
 	_i_curve_remaps_its_input()
+	_j_mask_weights_from_terrain()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH RELIEF NODE PASS" if _fail == 0 else "GRAPH RELIEF NODE FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -271,6 +272,62 @@ func _i_curve_remaps_its_input() -> void:
 		_fail += 1; print("    !! amount 0 or a null curve did not pass the input through")
 
 
+# --- J. Mask reads a terrain property of its input and outputs a 0..1 weight; MUL gates a generator -----
+func _j_mask_weights_from_terrain() -> void:
+	print("[J] Input -> Mask -> Output == the band weight of the surface property; MUL gates")
+	var surf := _ramp(60.0)
+	# ALTITUDE band with soft edges — the main parity check against the independent oracle.
+	var mk := _mask(Pasture3DGraphNodeMask.Property.ALTITUDE, 30.0, 80.0, 10.0, 10.0, false, 1.0)
+	var got := _mask_graph(mk).evaluate(GW, GH, RECT, null, surf)
+	var want := _mask_oracle(mk, surf)
+	var d := _max_abs_diff(got, want)
+	print("    max |graph - oracle| = %.7f (want < %.7f)" % [d, EPS])
+	if d > EPS:
+		_fail += 1; print("    !! the Mask node diverged from the independent slope/altitude/band oracle")
+	# The weight stays in [0,1].
+	var lo := INF
+	var hi := -INF
+	for v in got:
+		lo = minf(lo, v); hi = maxf(hi, v)
+	print("    weight range [%.3f, %.3f] (want within [0,1] and actually varying)" % [lo, hi])
+	if lo < -EPS or hi > 1.0 + EPS or (hi - lo) <= 0.05:
+		_fail += 1; print("    !! the mask weight left [0,1] or did not vary")
+	# CONTROL: a SLOPE band that spans the ramp's (constant) slope passes everything; one above it blocks.
+	var pass_all := _mask_graph(_mask(Pasture3DGraphNodeMask.Property.SLOPE, 0.0, 90.0, 0.0, 0.0, false, 1.0)).evaluate(GW, GH, RECT, null, surf)
+	var block_all := _mask_graph(_mask(Pasture3DGraphNodeMask.Property.SLOPE, 60.0, 90.0, 0.0, 0.0, false, 1.0)).evaluate(GW, GH, RECT, null, surf)
+	print("    control: slope in [0,90] -> min weight %.3f (want ~1) ; slope in [60,90] -> max %.3f (want ~0)"
+		% [_amin(pass_all), _absmax(block_all)])
+	if _amin(pass_all) < 1.0 - EPS or _absmax(block_all) > EPS:
+		_fail += 1; print("    !! the slope band did not pass-all / block-all as expected")
+	# CONTROL: invert is 1 - weight; strength 0 is weight 1 everywhere.
+	var inv := _mask_graph(_mask(Pasture3DGraphNodeMask.Property.ALTITUDE, 30.0, 80.0, 10.0, 10.0, true, 1.0)).evaluate(GW, GH, RECT, null, surf)
+	var inv_ok := 0.0
+	for i in range(got.size()):
+		inv_ok = maxf(inv_ok, absf(inv[i] - (1.0 - got[i])))
+	var s0 := _mask_graph(_mask(Pasture3DGraphNodeMask.Property.ALTITUDE, 30.0, 80.0, 10.0, 10.0, false, 0.0)).evaluate(GW, GH, RECT, null, surf)
+	var s0_off := 0.0
+	for v in s0:
+		s0_off = maxf(s0_off, absf(v - 1.0))
+	print("    control: invert == 1-weight (err %.7f) ; strength 0 -> weight 1 (err %.7f)" % [inv_ok, s0_off])
+	if inv_ok > EPS or s0_off > EPS:
+		_fail += 1; print("    !! invert or strength-0 did not behave")
+	# CONTROL: Const(5) * Mask == 5 * weight — the MUL-gate workflow end to end.
+	var g := Pasture3DTerrainGraph.new()
+	var nodes: Array[Pasture3DGraphNode] = [Pasture3DGraphNodeInput.new(), _const(5.0),
+			_mask(Pasture3DGraphNodeMask.Property.ALTITUDE, 30.0, 80.0, 10.0, 10.0, false, 1.0),
+			_blend(Pasture3DGraphNodeBlend.Mode.MUL), Pasture3DGraphNodeOutput.new()]
+	g.nodes = nodes
+	# 0 Input, 1 Const(5), 2 Mask(<-Input), 3 Blend(MUL a<-Const b<-Mask), 4 Output<-Blend.
+	g.connections = [_c4(0, 0, 2, 0), _c4(1, 0, 3, 0), _c4(2, 0, 3, 1), _c4(3, 0, 4, 0)]
+	var gated := g.evaluate(GW, GH, RECT, null, surf)
+	var worst := 0.0
+	for i in range(gated.size()):
+		worst = maxf(worst, absf(gated[i] - 5.0 * want[i]))
+	print("    control: Const(5) * Mask == 5 * weight (err %.7f, want < %.7f)" % [worst, EPS])
+	if worst > EPS:
+		_fail += 1; print("    !! multiplying a generator by the mask did not gate it")
+
+
 # ---- node builders ----------------------------------------------------------------------------------
 
 func _furrows(amp: float, spacing: float, dir_deg: float, profile, wobble_amt: float, wobble_size: float,
@@ -319,6 +376,32 @@ func _curve(c: Curve, in_min: float, in_max: float, out_min: float, out_max: flo
 	n.curve = c; n.input_min = in_min; n.input_max = in_max
 	n.output_min = out_min; n.output_max = out_max; n.amount = amount
 	return n
+
+
+func _mask(prop, band_min: float, band_max: float, f_lo: float, f_hi: float, invert: bool,
+		strength: float) -> Pasture3DGraphNodeMask:
+	var n := Pasture3DGraphNodeMask.new()
+	n.property = prop; n.band_min = band_min; n.band_max = band_max
+	n.falloff_lo = f_lo; n.falloff_hi = f_hi; n.invert = invert; n.strength = strength
+	return n
+
+
+func _const(p_v: float) -> Pasture3DGraphNodeConst:
+	var n := Pasture3DGraphNodeConst.new(); n.value = p_v
+	return n
+
+
+func _blend(p_mode) -> Pasture3DGraphNodeBlend:
+	var n := Pasture3DGraphNodeBlend.new(); n.mode = p_mode
+	return n
+
+
+func _mask_graph(p_mask: Pasture3DGraphNodeMask) -> Pasture3DTerrainGraph:
+	var g := Pasture3DTerrainGraph.new()
+	var nodes: Array[Pasture3DGraphNode] = [Pasture3DGraphNodeInput.new(), p_mask, Pasture3DGraphNodeOutput.new()]
+	g.nodes = nodes
+	g.connections = [_c4(0, 0, 1, 0), _c4(1, 0, 2, 0)]
+	return g
 
 
 func _const_curve(p_y: float) -> Curve:
@@ -472,6 +555,48 @@ func _curve_oracle(cn: Pasture3DGraphNodeCurve, p_field: PackedFloat32Array) -> 
 		var y := cn.curve.sample_baked(tx)
 		out[i] = lerpf(x, lerpf(cn.output_min, cn.output_max, y), cn.amount)
 	return out
+
+
+## The mask weight field, hand-derived: slope/curvature by the same arithmetic as
+## Pasture3DTerrainBrush._derive_fields (§21.6), altitude = the input, then the relief selector band shape.
+func _mask_oracle(mk: Pasture3DGraphNodeMask, p_field: PackedFloat32Array) -> PackedFloat32Array:
+	var dx := RECT.size.x / float(GW)
+	var dz := RECT.size.y / float(GH)
+	var inv2x := 1.0 / (2.0 * dx)
+	var inv2z := 1.0 / (2.0 * dz)
+	var out := PackedFloat32Array()
+	out.resize(GW * GH)
+	for iz in range(GH):
+		var row := iz * GW
+		var zm := maxi(iz - 1, 0) * GW
+		var zp := mini(iz + 1, GH - 1) * GW
+		for ix in range(GW):
+			var xm := maxi(ix - 1, 0)
+			var xp := mini(ix + 1, GW - 1)
+			var c := p_field[row + ix]
+			var x := 0.0
+			if mk.property == Pasture3DGraphNodeMask.Property.ALTITUDE:
+				x = c
+			elif mk.property == Pasture3DGraphNodeMask.Property.SLOPE:
+				var gx := (p_field[row + xp] - p_field[row + xm]) * inv2x
+				var gz := (p_field[zp + ix] - p_field[zm + ix]) * inv2z
+				x = rad_to_deg(atan(sqrt(gx * gx + gz * gz)))
+			else:
+				x = (p_field[row + xp] + p_field[row + xm] + p_field[zp + ix] + p_field[zm + ix] - 4.0 * c) * 0.25
+			var rise := 1.0 if x >= mk.band_min else (smoothstep(mk.band_min - mk.falloff_lo, mk.band_min, x) if mk.falloff_lo > 0.0 else 0.0)
+			var fall := 1.0 if x <= mk.band_max else (1.0 - smoothstep(mk.band_max, mk.band_max + mk.falloff_hi, x) if mk.falloff_hi > 0.0 else 0.0)
+			var s := clampf(minf(rise, fall), 0.0, 1.0)
+			if mk.invert:
+				s = 1.0 - s
+			out[row + ix] = lerpf(1.0, s, mk.strength)
+	return out
+
+
+func _amin(p: PackedFloat32Array) -> float:
+	var m := INF
+	for v in p:
+		m = minf(m, v)
+	return m
 
 
 # ---- generic helpers --------------------------------------------------------------------------------
