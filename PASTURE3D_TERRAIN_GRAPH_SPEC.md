@@ -2,7 +2,10 @@
 
 **Status:** Increments 1–5 built (2026-08-25) — the headless evaluator core (with the **cell-node fold**),
 the brush **stack mount** (`Pasture3DNodeGraph`, FROZEN by default), and the **visual GraphEdit editor**
-(`Pasture3DGraphEditor`). No C++/GPU backend yet (see Build order). Target: Godot 4.7, Pasture3D.
+(`Pasture3DGraphEditor`). Plus the **C++ cell-run parity step** (2026-08-25): a native evaluator for a
+lowered cell-only run, matched to the GDScript oracle to float32 rounding (gate `GraphCppParityGate`). No
+GPU backend and no native grid-pass interleave yet, so the live bake path still runs GDScript (see Build
+order). Target: Godot 4.7, Pasture3D.
 **Builds on:** `PASTURE3D_NODE_VOCABULARY.md` (node / op() / cell·grid), the relief op-program
 (`pasture3d_relief_material.gd`), and the brush node stack (`pasture3d_terrain_brush.gd`).
 
@@ -55,9 +58,17 @@ landscape" is a resource. The shape maps 1:1 onto Godot `GraphEdit` for the late
 
 **Built since (increment 5): the cell-node fold** — a run of cell nodes is fused into one loop and only
 grid nodes / the output / fan-out points / grid-node inputs materialise; `_eval_unfolded` (the per-node
-evaluator above) is kept as the oracle it matches (`bench/GraphFoldGate`). **Still not yet:** lowering a
-fused run into the relief op-program, and a **C++/GPU (RenderingDevice)** backend that keeps grids
-resident and reads back once. That is a pure optimization whose oracle is this per-node evaluator. The mask is **plumbed** to grid nodes but not applied globally: where a graph's
+evaluator above) is kept as the oracle it matches (`bench/GraphFoldGate`).
+
+**Built since (C++ parity step):** a native evaluator for a lowered cell-only run
+(`src/pasture_3d_graph_ops.cpp`, bound as `Pasture3DUtil.graph_cell_eval_grid`). `compile_cell_program`
+lowers a graph whose whole output ancestry is cell nodes into a flat SSA program (op / params / two input
+slots / a parallel FastNoiseLite table); the native evaluator runs it per cell and matches `evaluate` to
+float32 rounding (`bench/GraphCppParityGate`). It is checked headlessly against the oracle; the live bake
+path is NOT yet routed through it. **Still not yet:** interleaving native grid passes (Smooth and later)
+so a graph carrying a grid node can run natively end-to-end, flipping `_stack_forces_gdscript` off, and a
+**GPU (RenderingDevice)** backend that keeps grids resident and reads back once. Those are pure
+optimizations whose oracle is this per-node evaluator. The mask is **plumbed** to grid nodes but not applied globally: where a graph's
 result lands is the host's concern (a whole-terrain bake, or the masked brush mount), not the graph's.
 
 ---
@@ -114,8 +125,15 @@ failures) ===`.
    `bench/GraphEditModelGate`. **Later:** inline node params, undo/redo, copy/paste, node search, minimap.
 3. **Cell-node fold — BUILT (increment 5).** `evaluate` fuses cell-node runs into one loop, materialising
    only grid nodes / the output / fan-out points / grid-node inputs; `_eval_unfolded` is the oracle it
-   matches (gate `bench/GraphFoldGate`). **Still pending:** lowering a fused run into the relief op-program
-   and a C++ evaluator matched to the GDScript oracle to 1e-4, as relief is.
+   matches (gate `bench/GraphFoldGate`).
+   **C++ cell-run parity — BUILT.** `Pasture3DTerrainGraph.compile_cell_program` lowers a cell-only graph
+   to a flat SSA program (`ops`/`params`/`in_a`/`in_b`/`noise`/`output`, a wire format shared with
+   `src/pasture_3d_graph_ops.h`); the native `Pasture3DUtil.graph_cell_eval_grid` evaluates it per cell and
+   matches `evaluate` to float32 rounding (gate `bench/GraphCppParityGate`, ≤5e-7 m measured). Modelled on
+   the relief op-program's style, not a literal reuse — a graph diamond does not fit relief's linear
+   accumulator, and the noise resource travels as-is rather than being rebuilt from params. **Still
+   pending:** a native grid-pass interleave (so Smooth runs natively and `_stack_forces_gdscript` can flip
+   off), then the GPU backend below.
 4. **GPU backend (RenderingDevice)** — each grid pass a compute dispatch over resident textures, the
    mask bound, one readback at the bake. Keeps cross-platform (see the `gpu_spike/` de-risk); only the
    test matrix is scoped to Windows+Linux.
