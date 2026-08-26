@@ -94,6 +94,16 @@ public:
 			const int p_exact_band = 2, const bool p_half_float = true,
 			const bool p_sqrt_encoding = false);
 
+	// Native terrain-graph CELL-RUN evaluator (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6, C++ parity step). Given
+	// a program compiled by Pasture3DTerrainGraph.compile_cell_program, evaluate the whole `p_gw x p_gh`
+	// field over `p_rect` in C++. The GDScript folded evaluator (Pasture3DTerrainGraph.evaluate) is the A/B
+	// oracle — GraphCppParityGate holds the two to 1e-4 m. Returns a flat 0 field for an empty/malformed
+	// program, the same defined nothing the oracle returns for a missing output. Bound so a headless gate
+	// can compare the paths directly, before the live bake path routes through native (which awaits the
+	// grid-node interleave + GPU backend).
+	static PackedFloat32Array graph_cell_eval_grid(const Dictionary &p_program, const int p_gw,
+			const int p_gh, const Rect2 &p_rect);
+
 protected:
 	static void _bind_methods();
 };

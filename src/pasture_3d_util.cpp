@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/time.hpp>
 
 #include "logger.h"
+#include "pasture_3d_graph_ops.h"
 #include "pasture_3d_util.h"
 
 ///////////////////////////
@@ -1102,6 +1103,36 @@ Ref<Image> Pasture3DUtil::build_shore_sdf(const PackedVector2Array &p_poly, cons
 			p_half_float ? Image::FORMAT_RH : Image::FORMAT_R8, data);
 }
 
+// Native terrain-graph cell-run evaluator. Build the program once, then loop the grid sampling the same
+// cell-centre world point the GDScript oracle does (graph_cell_to_world == Pasture3DTerrainGraph.cell_to_world)
+// and writing the output to float32 — the storage the oracle's materialised grid uses, so the two round
+// identically at the boundary.
+PackedFloat32Array Pasture3DUtil::graph_cell_eval_grid(const Dictionary &p_program, const int p_gw,
+		const int p_gh, const Rect2 &p_rect) {
+	const int n = MAX(p_gw, 0) * MAX(p_gh, 0);
+	PackedFloat32Array out;
+	out.resize(n);
+	// A zeros grid up front doubles as the empty-program result: memset to 0 then bail if the build fails.
+	float *w = out.ptrw();
+	for (int i = 0; i < n; i++) {
+		w[i] = 0.f;
+	}
+	GraphCellProgram prog;
+	if (n == 0 || !graph_cell_build(p_program, prog)) {
+		return out;
+	}
+	std::vector<double> scratch(prog.count);
+	for (int iz = 0; iz < p_gh; iz++) {
+		const int row = iz * p_gw;
+		for (int ix = 0; ix < p_gw; ix++) {
+			double wx, wz;
+			graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
+			w[row + ix] = (float)graph_cell_eval(prog, wx, wz, scratch);
+		}
+	}
+	return out;
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1153,4 +1184,9 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil", D_METHOD("load_image", "file_name", "cache_mode", "r16_height_range", "r16_size"), &Pasture3DUtil::load_image, DEFVAL(ResourceLoader::CACHE_MODE_IGNORE), DEFVAL(Vector2(0.f, 255.f)), DEFVAL(V2I_ZERO));
 	ClassDB::bind_static_method("Pasture3DUtil", D_METHOD("pack_image", "src_rgb", "src_a", "src_ao", "invert_green", "invert_alpha", "normalize_alpha", "alpha_channel", "ao_channel"), &Pasture3DUtil::pack_image, DEFVAL(false), DEFVAL(false), DEFVAL(false), DEFVAL(0), DEFVAL(0));
 	ClassDB::bind_static_method("Pasture3DUtil", D_METHOD("luminance_to_height", "src_rgb"), &Pasture3DUtil::luminance_to_height);
+
+	// Terrain graph — the native cell-run evaluator, for the parity gate.
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("graph_cell_eval_grid", "program", "gw", "gh", "rect"),
+			&Pasture3DUtil::graph_cell_eval_grid);
 }

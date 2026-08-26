@@ -260,6 +260,69 @@ func _fold_plan() -> Dictionary:
 	return {"order": order, "inputs_of": inputs_of, "materialize": materialize}
 
 
+## Lower a CELL-ONLY graph into the flat SSA program the native evaluator reads
+## (Pasture3DUtil.graph_cell_eval_grid; C++ side pasture_3d_graph_ops). One instruction per node in
+## topological order, so an instruction's inputs are always lower-numbered slots. Returns {} — meaning
+## "not lowerable, stay on the GDScript path" — when the output is missing, its ancestry has a cycle, or it
+## contains ANY grid node (a neighbour-reading pass like Smooth cannot fold into a per-cell loop). That is
+## exactly the fold's cell-run scope (§6): the native path optimises the cell runs, and `evaluate` remains
+## the oracle it must match. A node whose op the native evaluator does not know also returns {} rather than
+## a program the two sides would read differently.
+##
+## Program keys, all parallel and one entry per slot except `output`:
+##   ops     [int]   GraphCellOpType — 1 noise, 2 const, 3 blend (a WIRE FORMAT shared with C++)
+##   params  [float] one scalar per slot: amplitude (noise) / value (const) / mode (blend)
+##   in_a    [int]   input-A source slot, or -1 for an unwired port (reads 0)
+##   in_b    [int]   input-B source slot (blend only), or -1
+##   noise   [Variant] the slot's FastNoiseLite (noise ops) or null — passed as-is, never rebuilt, so the
+##                   two evaluators cannot disagree on the noise
+##   output  int     the slot whose value is the graph output
+func compile_cell_program() -> Dictionary:
+	if output_node < 0 or output_node >= nodes.size() or nodes[output_node] == null:
+		return {}
+	var order := _eval_order()
+	if order.is_empty():
+		return {}
+	var slot_of := {}
+	for k in range(order.size()):
+		slot_of[order[k]] = k
+	var inputs_of: Dictionary = _fold_plan()["inputs_of"] # node -> [source node per port, -1 unwired]
+	var ops := PackedInt32Array()
+	var params := PackedFloat32Array()
+	var in_a := PackedInt32Array()
+	var in_b := PackedInt32Array()
+	var noise_tab: Array = []
+	for ni in order:
+		var node: Pasture3DGraphNode = nodes[ni]
+		if node.needs_grid():
+			return {} # a grid node cannot fold into a per-cell run — stay on the GDScript path
+		var srcs: Array = inputs_of[ni]
+		var sa: int = int(srcs[0]) if srcs.size() > 0 else -1
+		var sb: int = int(srcs[1]) if srcs.size() > 1 else -1
+		match node.op():
+			&"noise":
+				ops.append(1)
+				params.append(float(node.get("amplitude")))
+				noise_tab.append(node.get("noise"))
+			&"const":
+				ops.append(2)
+				params.append(float(node.get("value")))
+				noise_tab.append(null)
+			&"blend":
+				ops.append(3)
+				params.append(float(int(node.get("mode"))))
+				noise_tab.append(null)
+			_:
+				return {} # an op the native cell evaluator does not implement
+		# Generators have no inputs; -1 there is harmless (the native evaluator only reads a blend's ports).
+		in_a.append(int(slot_of[sa]) if sa >= 0 else -1)
+		in_b.append(int(slot_of[sb]) if sb >= 0 else -1)
+	return {
+		"ops": ops, "params": params, "in_a": in_a, "in_b": in_b,
+		"noise": noise_tab, "output": int(slot_of[output_node]),
+	}
+
+
 ## The pre-fold reference: materialise EVERY node's grid (increment 1's evaluator). Kept as the oracle the
 ## folded `evaluate` is checked against — GraphFoldGate asserts they agree to float32 rounding.
 func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null) -> PackedFloat32Array:

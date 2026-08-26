@@ -85,6 +85,14 @@ bench/GraphFreezeGate.tscn
 # materialises fan-out nodes. Pure GDScript.
 bench/GraphFoldGate.tscn
 
+# --- Terrain graph, C++ parity: the native cell-run evaluator (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
+# Needs the freshly built DLL (it calls Pasture3DUtil.graph_cell_eval_grid) — the gate fails loudly with a
+# "DLL is stale" line if the extension was not rebuilt. Asserts the native cell-run evaluator matches the
+# GDScript folded oracle to 1e-4 on a chain and every blend mode, that a grid node refuses to lower (stays
+# on GDScript) while a cell-only graph lowers, and that an unwired input reads 0 on both paths — each with
+# a control that moves the field or flag.
+bench/GraphCppParityGate.tscn
+
 # --- Terrain graph, increment 3: the editor's model layer (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
 # Watched green 2026-08-25 (0 failures). The GraphEdit VIEW is editor-only (can't assert visuals
 # headlessly, like the gizmo gates), so the mutation API it drives — add / connect (one wire per port) /
