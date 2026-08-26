@@ -33,7 +33,7 @@ func _run_all() -> void:
 	var g := _single_noise_graph(noise, 10.0)
 	var m := Pasture3DNodeGraph.new()
 	m.graph = g
-	m.strength = 2.0                                  # defaults to FROZEN in _init
+	m.strength = 1.0                                  # amount (0..1); defaults to FROZEN in _init
 
 	# Bake 1: a cold FROZEN cache MISSES, evaluates, and stores.
 	var v1 := _bake(m, "E1", -5.0, 3.0)
@@ -75,7 +75,8 @@ func _run_all() -> void:
 	# [C] A new extent MISSES and evaluates fresh for its own world origin.
 	print("[C] a new extent misses and evaluates for its own coords")
 	var v5 := _bake(m, "E2", 40.0, -20.0)
-	var ref5 := _scaled(_raw(g, 40.0, -20.0), 2.0) # strength 2 * graph over E2's shifted grid
+	# A generator over a zero surface with amount 1 and a flat profile composites to the raw graph output.
+	var ref5 := _raw(g, 40.0, -20.0)
 	var d5 := _max_abs_diff(v5, ref5)
 	print("    max |E2 bake - fresh E2 eval| = %.6f (want < %.6f)" % [d5, EPS])
 	if d5 > EPS:

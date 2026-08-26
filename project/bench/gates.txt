@@ -85,6 +85,12 @@ bench/GraphFreezeGate.tscn
 # materialises fan-out nodes. Pure GDScript.
 bench/GraphFoldGate.tscn
 
+# --- Terrain graph, Input/Output filter paradigm (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
+# The graph reads the surface handed to it (an Input node) and its Output is the result: a bare
+# Input->Output is the identity, Input->Smooth->Output == blur_nan(surface), Input->Blend(ADD)<-Const adds a
+# constant; output_index resolves to the sink and reads_input flags an Input-fed graph. Controls throughout.
+bench/GraphFilterGate.tscn
+
 # --- Terrain graph, C++ parity: the native cell-run evaluator (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
 # Needs the freshly built DLL (it calls Pasture3DUtil.graph_cell_eval_grid) — the gate fails loudly with a
 # "DLL is stale" line if the extension was not rebuilt. Asserts the native cell-run evaluator matches the

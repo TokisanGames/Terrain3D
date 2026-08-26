@@ -111,30 +111,41 @@ func _clear() -> void:
 func _make_graphnode(p_index: int, p_node: Pasture3DGraphNode) -> GraphNode:
 	var gn := GraphNode.new()
 	gn.name = "n%d" % p_index
-	var is_out := p_index == graph.output_node
+	var is_out := p_index == graph.output_index()
 	gn.title = p_node.display_name() + ("  ● OUT" if is_out else "")
 	gn.position_offset = p_node.graph_position
 	if is_out:
 		gn.modulate = Color(0.8, 1.0, 0.85)
 
-	# A "Set as Output" button in the title bar.
-	var out_btn := Button.new()
-	out_btn.text = "Out"
-	out_btn.tooltip_text = "Make this node the graph's output"
-	out_btn.pressed.connect(func(): graph.set_output(p_index))
-	gn.get_titlebar_hbox().add_child(out_btn)
+	# "Set as Output" lets you designate any node the output — but only when there is no Output SINK node,
+	# which takes that role automatically (see Pasture3DTerrainGraph.output_index). A sink offers no button.
+	if p_node.has_output() and not _graph_has_sink():
+		var out_btn := Button.new()
+		out_btn.text = "Out"
+		out_btn.tooltip_text = "Make this node the graph's output"
+		out_btn.pressed.connect(func(): graph.set_output(p_index))
+		gn.get_titlebar_hbox().add_child(out_btn)
 
-	# One row per input port; the single output sits on the first row's right edge.
+	# One row per input port; the single output (when the node has one) sits on the first row's right edge.
 	var names := p_node.input_names()
 	var n_in := p_node.input_count()
+	var has_right := p_node.has_output()
 	var rows := maxi(n_in, 1)
 	for r in range(rows):
 		var lbl := Label.new()
 		lbl.text = names[r] if r < n_in else " "
 		gn.add_child(lbl)
 	for r in range(rows):
-		gn.set_slot(r, r < n_in, 0, Color(0.6, 0.8, 1.0), r == 0, 0, Color(1.0, 0.85, 0.5))
+		gn.set_slot(r, r < n_in, 0, Color(0.6, 0.8, 1.0), has_right and r == 0, 0, Color(1.0, 0.85, 0.5))
 	return gn
+
+
+## True when the graph holds an Output sink node, which becomes the output automatically.
+func _graph_has_sink() -> bool:
+	for nd in graph.nodes:
+		if nd != null and nd.op() == &"output":
+			return true
+	return false
 
 
 func _graph_label() -> String:

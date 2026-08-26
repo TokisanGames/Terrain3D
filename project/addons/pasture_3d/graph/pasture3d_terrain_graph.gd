@@ -153,6 +153,27 @@ func set_output(p_index: int) -> void:
 		output_node = p_index
 
 
+## The EFFECTIVE output node the evaluator returns: an explicit Output node (op &"output") if the graph has
+## one, else the designated `output_node` (the legacy "Set as Output"). The Output node is the standard
+## input→output paradigm — wire the pipeline into it and it is the output, no separate designation. The
+## first one wins if somehow two exist.
+func output_index() -> int:
+	for i in range(nodes.size()):
+		if nodes[i] != null and nodes[i].op() == &"output":
+			return i
+	return output_node
+
+
+## True when an Input node feeds the output — the graph is a FILTER whose result depends on the surface it
+## is handed, not a pure generator. A host reads this to decide whether its frozen cache must key on that
+## surface: an Input-reading graph re-evaluates when the surface changes, a generator does not.
+func reads_input() -> bool:
+	for ni in _eval_order():
+		if nodes[ni] != null and nodes[ni].op() == &"input":
+			return true
+	return false
+
+
 ## Map a cell to its WORLD XZ. Cell-CENTRE sampling over `p_rect` (position = min XZ, size = extent).
 ## Static so the graph and any oracle sample the identical point — a mapping disagreement would look like
 ## a solver bug. `dx = size / count`, `w = min + (i + 0.5) * dx`.
@@ -173,9 +194,10 @@ static func cell_to_world(p_ix: int, p_iz: int, p_gw: int, p_gh: int, p_rect: Re
 ## cell node consumed once by another cell node folds into that consumer's loop, saving an allocation and
 ## a pass. `_eval_unfolded` is the reference this matches (to float32 rounding — the fold keeps
 ## intermediates in double, so it is in fact slightly more accurate); GraphFoldGate holds the two together.
-func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null) -> PackedFloat32Array:
+func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null) -> PackedFloat32Array:
 	var n := p_gw * p_gh
-	if output_node < 0 or output_node >= nodes.size() or nodes[output_node] == null:
+	var out := output_index()
+	if out < 0 or out >= nodes.size() or nodes[out] == null:
 		return Pasture3DGraphOps.zeros(n)
 	var plan := _fold_plan()
 	var order: Array = plan["order"]
@@ -189,7 +211,9 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null) -> PackedFloat
 		if not materialize[ni]:
 			continue # folded — computed inline by _cell_value when a materialised consumer reads it
 		var node: Pasture3DGraphNode = nodes[ni]
-		if node.needs_grid():
+		if node.op() == &"input":
+			grids[ni] = _surface_grid(p_input, n) # the surface handed in, or a flat 0 when none
+		elif node.needs_grid():
 			grids[ni] = node.eval_grid(_input_grids(ni, grids, n), p_gw, p_gh, p_mask)
 		else:
 			var g := PackedFloat32Array()
@@ -200,7 +224,16 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null) -> PackedFloat
 					var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
 					g[row + ix] = _cell_value(ni, row + ix, w.x, w.y, grids, inputs_of)
 			grids[ni] = g
-	return grids[output_node]
+	return grids[out]
+
+
+## The grid an Input node yields: a COPY of the surface handed to `evaluate`, or a flat 0 when none was
+## (or its size does not match the grid). Copied so a downstream grid node mutating it in place cannot
+## corrupt the host's working surface.
+func _surface_grid(p_input, p_n: int) -> PackedFloat32Array:
+	if p_input is PackedFloat32Array and (p_input as PackedFloat32Array).size() == p_n:
+		return (p_input as PackedFloat32Array).duplicate()
+	return Pasture3DGraphOps.zeros(p_n)
 
 
 ## A cell node's value at one cell, folding unmaterialised cell inputs inline. A materialised node (a grid
@@ -253,9 +286,10 @@ func _fold_plan() -> Dictionary:
 				fanout[s] += 1
 				if nodes[ni].needs_grid():
 					grid_consumer[s] = true
+	var out := output_index()
 	var materialize := {}
 	for ni in order:
-		materialize[ni] = nodes[ni].needs_grid() or ni == output_node \
+		materialize[ni] = nodes[ni].needs_grid() or ni == out \
 				or fanout[ni] > 1 or grid_consumer[ni]
 	return {"order": order, "inputs_of": inputs_of, "materialize": materialize}
 
@@ -278,7 +312,8 @@ func _fold_plan() -> Dictionary:
 ##                   two evaluators cannot disagree on the noise
 ##   output  int     the slot whose value is the graph output
 func compile_cell_program() -> Dictionary:
-	if output_node < 0 or output_node >= nodes.size() or nodes[output_node] == null:
+	var out := output_index()
+	if out < 0 or out >= nodes.size() or nodes[out] == null:
 		return {}
 	var order := _eval_order()
 	if order.is_empty():
@@ -319,15 +354,16 @@ func compile_cell_program() -> Dictionary:
 		in_b.append(int(slot_of[sb]) if sb >= 0 else -1)
 	return {
 		"ops": ops, "params": params, "in_a": in_a, "in_b": in_b,
-		"noise": noise_tab, "output": int(slot_of[output_node]),
+		"noise": noise_tab, "output": int(slot_of[out]),
 	}
 
 
 ## The pre-fold reference: materialise EVERY node's grid (increment 1's evaluator). Kept as the oracle the
 ## folded `evaluate` is checked against — GraphFoldGate asserts they agree to float32 rounding.
-func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null) -> PackedFloat32Array:
+func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null) -> PackedFloat32Array:
 	var n := p_gw * p_gh
-	if output_node < 0 or output_node >= nodes.size() or nodes[output_node] == null:
+	var out := output_index()
+	if out < 0 or out >= nodes.size() or nodes[out] == null:
 		return Pasture3DGraphOps.zeros(n)
 	var order := _eval_order()
 	if order.is_empty():
@@ -335,6 +371,9 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null) -> Packe
 	var grids := {}
 	for ni in order:
 		var node: Pasture3DGraphNode = nodes[ni]
+		if node.op() == &"input":
+			grids[ni] = _surface_grid(p_input, n)
+			continue
 		var in_grids := _input_grids(ni, grids, n)
 		if node.needs_grid():
 			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask)
@@ -351,7 +390,7 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null) -> Packe
 						cell_in[k] = (in_grids[k] as PackedFloat32Array)[row + ix]
 					g[row + ix] = node.eval_cell(w.x, w.y, cell_in)
 			grids[ni] = g
-	return grids[output_node]
+	return grids[out]
 
 
 ## The input grids for node `p_ni`, one per input port in port order; an unwired port reads zeros so a
@@ -371,13 +410,14 @@ func _input_grids(p_ni: int, p_grids: Dictionary, p_n: int) -> Array:
 	return out
 
 
-## Topological order of exactly the nodes that feed `output_node`. Empty if the output is unreachable or
-## its ancestry contains a cycle (Kahn leaves nodes unresolved). Restricting to ancestors means a stray
-## disconnected node neither runs nor breaks the sort.
+## Topological order of exactly the nodes that feed the output (`output_index`). Empty if the output is
+## unreachable or its ancestry contains a cycle (Kahn leaves nodes unresolved). Restricting to ancestors
+## means a stray disconnected node neither runs nor breaks the sort.
 func _eval_order() -> Array:
 	# 1. Ancestor set: walk connections backwards from the output.
-	var needed := {output_node: true}
-	var frontier: Array = [output_node]
+	var root := output_index()
+	var needed := {root: true}
+	var frontier: Array = [root]
 	while not frontier.is_empty():
 		var cur: int = frontier.pop_back()
 		for c in connections:
@@ -418,7 +458,8 @@ func _eval_order() -> Array:
 ## True when the output's ancestry contains a cycle — surfaced as a warning and the reason `evaluate`
 ## returns a flat field.
 func has_cycle() -> bool:
-	return output_node >= 0 and output_node < nodes.size() and nodes[output_node] != null \
+	var out := output_index()
+	return out >= 0 and out < nodes.size() and nodes[out] != null \
 			and _eval_order().is_empty()
 
 
@@ -426,8 +467,9 @@ func has_cycle() -> bool:
 ## a null node, an unwired required input, plus each node's own complaints.
 func graph_warnings() -> PackedStringArray:
 	var w := PackedStringArray()
-	if output_node < 0 or output_node >= nodes.size():
-		w.append("Terrain graph has no output node set, so it evaluates to a flat 0.")
+	if output_index() < 0 or output_index() >= nodes.size():
+		w.append("Terrain graph has no output node set. Add an Output node (or Set as Output on a node), "
+			+ "or it evaluates to a flat 0.")
 		return w
 	if has_cycle():
 		w.append("Terrain graph has a cycle feeding its output, so it evaluates to a flat 0. Remove a "

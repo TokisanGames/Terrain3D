@@ -12,10 +12,12 @@ extends RefCounted
 ## Pasture3DGraphNode.Role names); `script` is the GDScript class to instance.
 static func entries() -> Array[Dictionary]:
 	return [
+		{"op": &"input", "title": "Input", "role": "Source", "script": Pasture3DGraphNodeInput},
 		{"op": &"noise", "title": "Noise", "role": "Generator", "script": Pasture3DGraphNodeNoise},
 		{"op": &"const", "title": "Const", "role": "Generator", "script": Pasture3DGraphNodeConst},
 		{"op": &"blend", "title": "Blend", "role": "Combiner", "script": Pasture3DGraphNodeBlend},
 		{"op": &"smooth", "title": "Smooth", "role": "Filter", "script": Pasture3DGraphNodeSmooth},
+		{"op": &"output", "title": "Output", "role": "Sink", "script": Pasture3DGraphNodeOutput},
 	]
 
 
