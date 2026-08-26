@@ -404,12 +404,12 @@ static func cell_to_world(p_ix: int, p_iz: int, p_gw: int, p_gh: int, p_rect: Re
 ## cell node consumed once by another cell node folds into that consumer's loop, saving an allocation and
 ## a pass. `_eval_unfolded` is the reference this matches (to float32 rounding — the fold keeps
 ## intermediates in double, so it is in fact slightly more accurate); GraphFoldGate holds the two together.
-func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null) -> PackedFloat32Array:
+func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null, p_root_node: int = -1) -> PackedFloat32Array:
 	var n := p_gw * p_gh
-	var out := output_index()
+	var out := p_root_node if (p_root_node >= 0 and p_root_node < nodes.size()) else output_index()
 	if out < 0 or out >= nodes.size() or nodes[out] == null:
 		return Pasture3DGraphOps.zeros(n)
-	var plan := _fold_plan()
+	var plan := _fold_plan(out)
 	var order: Array = plan["order"]
 	if order.is_empty(): # unreachable output or a cycle
 		return Pasture3DGraphOps.zeros(n)
@@ -487,8 +487,9 @@ func _cell_value(p_ni: int, p_cell: int, p_wx: float, p_wz: float, p_grids: Dict
 ## (`inputs_of`, -1 = unwired), and which nodes MATERIALISE (`materialize`). A node materialises if it is a
 ## grid node, the output, fans out to more than one consumer, or feeds a grid node; every other cell node
 ## folds. Exposed for GraphFoldGate.
-func _fold_plan() -> Dictionary:
-	var order := _eval_order()
+func _fold_plan(p_root: int = -1) -> Dictionary:
+	var out := p_root if (p_root >= 0 and p_root < nodes.size()) else output_index()
+	var order := _eval_order(out)
 	var needed := {}
 	for ni in order:
 		needed[ni] = true
@@ -517,7 +518,6 @@ func _fold_plan() -> Dictionary:
 				fanout[s] += 1
 				if nodes[ni].needs_grid():
 					grid_consumer[s] = true
-	var out := output_index()
 	var materialize := {}
 	for ni in order:
 		materialize[ni] = nodes[ni].needs_grid() or ni == out \
@@ -727,9 +727,11 @@ func _input_grids(p_ni: int, p_grids: Dictionary, p_n: int) -> Array:
 ## Topological order of exactly the nodes that feed the output (`output_index`). Empty if the output is
 ## unreachable or its ancestry contains a cycle (Kahn leaves nodes unresolved). Restricting to ancestors
 ## means a stray disconnected node neither runs nor breaks the sort.
-func _eval_order() -> Array:
-	# 1. Ancestor set: walk connections backwards from the output.
-	var root := output_index()
+func _eval_order(p_root: int = -1) -> Array:
+	# 1. Ancestor set: walk connections backwards from the root.
+	var root := p_root if (p_root >= 0 and p_root < nodes.size()) else output_index()
+	if root < 0 or root >= nodes.size() or nodes[root] == null:
+		return []
 	var needed := {root: true}
 	var frontier: Array = [root]
 	while not frontier.is_empty():

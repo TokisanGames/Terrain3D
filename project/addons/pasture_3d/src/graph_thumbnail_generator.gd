@@ -33,11 +33,8 @@ static func generate_thumbnail(p_graph: Pasture3DTerrainGraph, p_node_index: int
 				var wx: float = rect.position.x + (float(ix) / float(w)) * rect.size.x
 				field[row + ix] = node.eval_cell(wx, wz, PackedFloat32Array())
 	else:
-		# Downstream node or filter: evaluate sub-graph using solo preview mechanism
-		var old_override: int = p_graph.output_override
-		p_graph.output_override = p_node_index
-		field = p_graph.evaluate(w, h, rect)
-		p_graph.output_override = old_override
+		# Subgraph rooted at this node without side effects or signal emissions
+		field = p_graph.evaluate(w, h, rect, null, null, p_node_index)
 		
 	if field.is_empty() or field.size() != n:
 		return null
