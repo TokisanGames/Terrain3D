@@ -290,6 +290,8 @@ public:
 	bool get_show_vertex_grid() const { return _material.is_valid() ? _material->get_show_vertex_grid() : false; }
 	void set_show_contours(const bool p_enabled) { _material.is_valid() ? _material->set_show_contours(p_enabled) : void(); }
 	bool get_show_contours() const { return _material.is_valid() ? _material->get_show_contours() : false; }
+	void set_show_slope(const bool p_enabled) { _material.is_valid() ? _material->set_show_slope(p_enabled) : void(); }
+	bool get_show_slope() const { return _material.is_valid() ? _material->get_show_slope() : false; }
 	void set_show_navigation(const bool p_enabled) { _material.is_valid() ? _material->set_show_navigation(p_enabled) : void(); }
 	bool get_show_navigation() const { return _material.is_valid() ? _material->get_show_navigation() : false; }
 

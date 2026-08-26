@@ -857,7 +857,7 @@ Returns the region id at a global position. See :ref:`get_region_id()<class_Terr
 
 ``Vector2i`` **get_region_location**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_region_location>`
 
-Returns the calculated region location for the given global position. This is just a calculation and does no bounds checking or verification that a region exists. See :ref:`get_region_map_index()<class_Terrain3DData_method_get_region_map_index>` for bounds checking, or :ref:`has_region()<class_Terrain3DData_method_has_region>` for checking existance.
+Returns the calculated region location for the given global position. This is just a calculation and does no bounds checking or verification that a region exists. See :ref:`get_region_map_index()<class_Terrain3DData_method_get_region_map_index>` for bounds checking, or :ref:`has_region()<class_Terrain3DData_method_has_region>` for checking if it exists.
 
 .. rst-class:: classref-item-separator
 
