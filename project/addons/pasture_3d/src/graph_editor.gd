@@ -22,6 +22,7 @@ const PORT_COLORS: Array[Color] = [
 
 var plugin: EditorPlugin
 var graph: Pasture3DTerrainGraph
+var host_modifier: Pasture3DNodeGraph = null
 
 var _graphedit: GraphEdit
 var _search_dialog: PopupPanel
@@ -63,7 +64,12 @@ func remove_dock() -> void:
 
 
 ## Bind the panel to a graph (or null). Reconnects the `changed` -> rebuild link and redraws.
-func edit_graph(p_graph: Pasture3DTerrainGraph) -> void:
+func edit_graph(p_graph: Pasture3DTerrainGraph, p_mod: Pasture3DNodeGraph = null) -> void:
+	if p_mod != null:
+		host_modifier = p_mod
+	elif host_modifier != null and host_modifier.graph != p_graph:
+		host_modifier = null
+		
 	if graph == p_graph:
 		_rebuild()
 		return
@@ -73,6 +79,20 @@ func edit_graph(p_graph: Pasture3DTerrainGraph) -> void:
 	if graph != null and not graph.changed.is_connected(_rebuild):
 		graph.changed.connect(_rebuild)
 	_rebuild()
+
+
+func _find_host_modifier() -> Pasture3DNodeGraph:
+	if host_modifier != null and host_modifier.graph == graph:
+		return host_modifier
+	if plugin != null and graph != null:
+		var sel := EditorInterface.get_selection().get_selected_nodes()
+		for nd in sel:
+			if nd is Pasture3DTerrainBrush:
+				for m in (nd as Pasture3DTerrainBrush).modifiers:
+					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
+						host_modifier = m
+						return m
+	return null
 
 
 func _build_ui() -> void:
@@ -410,7 +430,12 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 
 	# 2D Heightmap Preview Thumbnail (if enabled and not collapsed)
 	if _show_previews and not p_node.collapsed:
-		var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, p_index, 128)
+		var mod := _find_host_modifier()
+		var in_grid := mod.last_input_surface if mod != null else PackedFloat32Array()
+		var in_gw := mod.last_gw if mod != null else 0
+		var in_gh := mod.last_gh if mod != null else 0
+		var in_rect := mod.last_rect if mod != null and mod.last_rect.size.x > 0 else Rect2(-50.0, -50.0, 100.0, 100.0)
+		var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, p_index, 128, in_grid, in_gw, in_gh, in_rect)
 		if tex != null:
 			var center_box := CenterContainer.new()
 			var trect := TextureRect.new()

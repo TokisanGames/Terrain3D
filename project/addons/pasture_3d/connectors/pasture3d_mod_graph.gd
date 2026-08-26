@@ -58,6 +58,12 @@ extends Pasture3DNode
 var _cache: Dictionary = {}
 var _stale: bool = false
 
+## Working input surface captured during brush rasterisation, used to render live 2D previews in Graph Editor
+var last_input_surface: PackedFloat32Array = PackedFloat32Array()
+var last_rect: Rect2 = Rect2(-50.0, -50.0, 100.0, 100.0)
+var last_gw: int = 0
+var last_gh: int = 0
+
 @export_tool_button("Bake Graph") var _bake_btn = clear_cache
 
 
