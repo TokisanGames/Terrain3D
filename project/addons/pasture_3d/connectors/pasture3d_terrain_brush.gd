@@ -3815,18 +3815,52 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		return p_vals
 	var gw: int = p_ctx["gw"]
 	var gh: int = p_ctx["gh"]
+	var n := gw * gh
 	var vs: float = p_ctx["vs"]
 	var min_x: float = p_ctx["min_x"]
 	var min_z: float = p_ctx["min_z"]
-	var rect := Rect2(min_x - 0.5 * vs, min_z - 0.5 * vs, float(gw) * vs, float(gh) * vs)
-	var out := g.evaluate(gw, gh, rect) # the graph's own mask is unused here; the interior profile is it
 	var profile: PackedFloat64Array = p_ctx["profile"]
 	var s: float = m.strength
-	for k in range(gw * gh):
+
+	# ---- FROZEN cache (mirrors _apply_erosion_step §6.3) ----
+	#
+	# The cache holds the RAW graph output, keyed by extent. A MISS evaluates; a cached extent is SERVED,
+	# and served ANYWAY when the graph has changed since (reported stale) rather than cleared mid-edit.
+	# This is sound while dragging because the graph is world-fixed: the raw output over an extent does not
+	# depend on where the spline sits inside it — only `strength` and the interior profile, applied below,
+	# move with the footprint. The cache stores raw output, so a Strength edit reuses it for free.
+	var out_slot: Dictionary = p_step.get("out", {})
+	var frozen: bool = m.evaluation == Pasture3DNode.Evaluation.FROZEN
+	var extent: String = p_ctx.get("extent", "")
+	var key := g.content_key()
+	var entry: Dictionary = m.cache_for(extent) if frozen and extent != "" else {}
+	var raw: PackedFloat32Array = entry.get("grid", PackedFloat32Array())
+	if raw.size() == n:
+		_add_graph_field(p_vals, raw, profile, s, n)
+		out_slot["stale"] = int(entry.get("key", 0)) != key
+		out_slot["served"] = true
+		return p_vals
+
+	# MISS: evaluate at the brush's exact per-cell world coords (min_x + ix*vs; a half-cell-shifted rect
+	# reproduces that through Pasture3DTerrainGraph.cell_to_world).
+	var rect := Rect2(min_x - 0.5 * vs, min_z - 0.5 * vs, float(gw) * vs, float(gh) * vs)
+	raw = g.evaluate(gw, gh, rect)
+	_add_graph_field(p_vals, raw, profile, s, n)
+	if p_step.has("out"):
+		out_slot["key"] = key
+		out_slot["grid"] = raw
+		out_slot["stale"] = false
+	return p_vals
+
+
+## Add a graph's raw output into the working grid, scaled by strength and feathered by the interior
+## profile, skipping cells the brush does not contribute to (NaN).
+func _add_graph_field(p_vals: PackedFloat32Array, p_raw: PackedFloat32Array,
+		p_profile: PackedFloat64Array, p_strength: float, p_n: int) -> void:
+	for k in range(p_n):
 		var v: float = p_vals[k]
 		if is_finite(v):
-			p_vals[k] = v + s * out[k] * profile[k]
-	return p_vals
+			p_vals[k] = v + p_strength * p_raw[k] * p_profile[k]
 
 
 ## The erosion FIELD step: solve over the brush's own surface, and optionally publish the four channels

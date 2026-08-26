@@ -67,6 +67,22 @@ func _on_node_changed() -> void:
 	emit_changed()
 
 
+## Monotonic content revision, bumped on every `changed` (any node param, wiring, or output). A host's
+## frozen cache stores the revision it baked at; a served entry whose revision differs is stale. Absolute
+## value does not matter — only that it changes on an edit — so resetting to 0 on reload is fine, because
+## the in-memory cache is empty then too.
+var _revision: int = 0
+
+
+func _init() -> void:
+	changed.connect(func(): _revision += 1)
+
+
+## The current content revision — a host reads this as the staleness key for a frozen bake.
+func content_key() -> int:
+	return _revision
+
+
 # ---- Editing API -------------------------------------------------------------------------------------
 #
 # The seam the graph editor drives and the gate tests. Every mutation keeps `connections` and
@@ -148,18 +164,112 @@ static func cell_to_world(p_ix: int, p_iz: int, p_gw: int, p_gh: int, p_rect: Re
 
 
 ## Evaluate the graph to a `p_gw * p_gh` row-major height field over `p_rect` (world XZ). `p_mask` is an
-## optional [0,1] grid of the same shape handed to grid nodes; it is NOT applied globally here — where a
-## graph's result lands is the concern of whatever hosts it (a whole-terrain bake, or the masked brush
-## mount), not of the graph itself. A missing output or a cycle yields a flat 0 field.
+## optional [0,1] grid handed to grid nodes; it is NOT applied globally — where a graph's result lands is
+## the host's concern. A missing output or a cycle yields a flat 0 field.
+##
+## Uses the CELL-NODE FOLD: a run of cell nodes is evaluated INLINE in one loop rather than materialising
+## a grid per node — the same optimisation the brush node stack makes. Only a grid node, the OUTPUT, a
+## node that fans out to more than one consumer, and a node feeding a grid node get a materialised grid; a
+## cell node consumed once by another cell node folds into that consumer's loop, saving an allocation and
+## a pass. `_eval_unfolded` is the reference this matches (to float32 rounding — the fold keeps
+## intermediates in double, so it is in fact slightly more accurate); GraphFoldGate holds the two together.
 func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null) -> PackedFloat32Array:
 	var n := p_gw * p_gh
 	if output_node < 0 or output_node >= nodes.size() or nodes[output_node] == null:
 		return Pasture3DGraphOps.zeros(n)
-	var order := _eval_order()
-	if order.is_empty(): # unreachable output or a cycle in its ancestry
+	var plan := _fold_plan()
+	var order: Array = plan["order"]
+	if order.is_empty(): # unreachable output or a cycle
 		return Pasture3DGraphOps.zeros(n)
+	var inputs_of: Dictionary = plan["inputs_of"]
+	var materialize: Dictionary = plan["materialize"]
 
-	var grids := {} # node index -> PackedFloat32Array
+	var grids := {} # node index -> materialised grid (folded nodes are absent)
+	for ni in order:
+		if not materialize[ni]:
+			continue # folded — computed inline by _cell_value when a materialised consumer reads it
+		var node: Pasture3DGraphNode = nodes[ni]
+		if node.needs_grid():
+			grids[ni] = node.eval_grid(_input_grids(ni, grids, n), p_gw, p_gh, p_mask)
+		else:
+			var g := PackedFloat32Array()
+			g.resize(n)
+			for iz in range(p_gh):
+				var row := iz * p_gw
+				for ix in range(p_gw):
+					var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
+					g[row + ix] = _cell_value(ni, row + ix, w.x, w.y, grids, inputs_of)
+			grids[ni] = g
+	return grids[output_node]
+
+
+## A cell node's value at one cell, folding unmaterialised cell inputs inline. A materialised node (a grid
+## node, or a materialised cell node) is read from its grid; a folded input recurses. `p_cell` is the
+## row-major index; `p_wx`/`p_wz` the world XZ.
+func _cell_value(p_ni: int, p_cell: int, p_wx: float, p_wz: float, p_grids: Dictionary,
+		p_inputs_of: Dictionary) -> float:
+	if p_grids.has(p_ni):
+		return (p_grids[p_ni] as PackedFloat32Array)[p_cell]
+	var srcs: Array = p_inputs_of[p_ni]
+	var cell_in := PackedFloat32Array()
+	cell_in.resize(srcs.size())
+	for k in range(srcs.size()):
+		var s: int = srcs[k]
+		cell_in[k] = _cell_value(s, p_cell, p_wx, p_wz, p_grids, p_inputs_of) if s >= 0 else 0.0
+	return nodes[p_ni].eval_cell(p_wx, p_wz, cell_in)
+
+
+## The fold plan for the output's ancestry: the topo `order`, each node's input source per port
+## (`inputs_of`, -1 = unwired), and which nodes MATERIALISE (`materialize`). A node materialises if it is a
+## grid node, the output, fans out to more than one consumer, or feeds a grid node; every other cell node
+## folds. Exposed for GraphFoldGate.
+func _fold_plan() -> Dictionary:
+	var order := _eval_order()
+	var needed := {}
+	for ni in order:
+		needed[ni] = true
+	var inputs_of := {}
+	for ni in order:
+		var arr: Array = []
+		arr.resize(nodes[ni].input_count())
+		arr.fill(-1)
+		inputs_of[ni] = arr
+	for c in connections:
+		if c.size() >= 4:
+			var to := int(c[2])
+			var from := int(c[0])
+			if needed.has(to) and needed.has(from):
+				var tp := int(c[3])
+				if tp >= 0 and tp < (inputs_of[to] as Array).size():
+					inputs_of[to][tp] = from
+	var fanout := {}
+	var grid_consumer := {}
+	for ni in order:
+		fanout[ni] = 0
+		grid_consumer[ni] = false
+	for ni in order:
+		for s in inputs_of[ni]:
+			if s >= 0 and needed.has(s):
+				fanout[s] += 1
+				if nodes[ni].needs_grid():
+					grid_consumer[s] = true
+	var materialize := {}
+	for ni in order:
+		materialize[ni] = nodes[ni].needs_grid() or ni == output_node \
+				or fanout[ni] > 1 or grid_consumer[ni]
+	return {"order": order, "inputs_of": inputs_of, "materialize": materialize}
+
+
+## The pre-fold reference: materialise EVERY node's grid (increment 1's evaluator). Kept as the oracle the
+## folded `evaluate` is checked against — GraphFoldGate asserts they agree to float32 rounding.
+func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null) -> PackedFloat32Array:
+	var n := p_gw * p_gh
+	if output_node < 0 or output_node >= nodes.size() or nodes[output_node] == null:
+		return Pasture3DGraphOps.zeros(n)
+	var order := _eval_order()
+	if order.is_empty():
+		return Pasture3DGraphOps.zeros(n)
+	var grids := {}
 	for ni in order:
 		var node: Pasture3DGraphNode = nodes[ni]
 		var in_grids := _input_grids(ni, grids, n)

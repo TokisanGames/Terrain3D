@@ -64,9 +64,14 @@ func _b_blend_combiner() -> void:
 	var g := _graph([_noise_node(noise, 8.0), _const_node(c), add],
 			[[0, 0, 2, 0], [1, 0, 2, 1]], 2)
 	var got := g.evaluate(GW, GH, RECT)
-	var oracle := _direct_noise_grid(noise, 8.0, GW, GH, RECT)
-	for i in range(oracle.size()):
-		oracle[i] += c
+	# Oracle computed in DOUBLE and rounded once, matching the fold (which keeps a folded chain's
+	# intermediates in double rather than rounding each to float32 like a materialised grid would).
+	var oracle := PackedFloat32Array()
+	oracle.resize(GW * GH)
+	for iz in range(GH):
+		for ix in range(GW):
+			var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, GW, GH, RECT)
+			oracle[iz * GW + ix] = 8.0 * noise.get_noise_2d(w.x, w.y) + c
 	var d := _max_abs_diff(got, oracle)
 	print("    max |blend - (noise + c)| = %.8f m (want < %.8f)" % [d, EPS])
 	if d > EPS:

@@ -11,7 +11,13 @@ extends Pasture3DGraphNode
 ## and places it. Unassigned = a defined flat 0 (and a configuration warning), never invented values.
 @export var noise: FastNoiseLite:
 	set(v):
+		# Forward the noise resource's own `changed` so editing its frequency / seed in the Inspector
+		# re-bakes and bumps the graph revision — a nested Resource does not propagate `changed` on its own.
+		if noise != null and noise.changed.is_connected(emit_changed):
+			noise.changed.disconnect(emit_changed)
 		noise = v
+		if noise != null and not noise.changed.is_connected(emit_changed):
+			noise.changed.connect(emit_changed)
 		emit_changed()
 
 ## Metres of relief at the noise's full [-1, 1] output.
