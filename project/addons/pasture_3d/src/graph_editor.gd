@@ -20,6 +20,10 @@ var _add_menu: MenuButton
 var _title: Label
 var _hint: Label
 
+## Where the next Add-node should land, in graph (position_offset) space, or null to fall back to the
+## auto-layout. Set by a right-click on the canvas so the node appears under the cursor; cleared after use.
+var _add_at = null
+
 
 func initialize(p_plugin: EditorPlugin) -> void:
 	plugin = p_plugin
@@ -70,6 +74,7 @@ func _build_ui() -> void:
 	_graphedit.delete_nodes_request.connect(_on_delete_request)
 	_graphedit.node_selected.connect(_on_node_selected)
 	_graphedit.end_node_move.connect(_on_node_move_end)
+	_graphedit.popup_request.connect(_on_popup_request) # right-click the canvas -> the node menu, at the cursor
 	add_child(_graphedit)
 
 	_hint = Label.new()
@@ -156,12 +161,32 @@ func _graph_label() -> String:
 
 # ---- edits (delegate to the model, which re-emits `changed` -> _rebuild) ------------------------------
 
+## Right-click on the canvas: place the SAME node menu at the cursor and remember the click point so the
+## chosen node lands there. `popup_request` fires only over empty graph area, so it never shadows a node.
+func _on_popup_request(p_at_position: Vector2) -> void:
+	if graph == null:
+		return
+	# The click point in graph (position_offset) space: undo the pan and zoom the canvas applies.
+	_add_at = (p_at_position + _graphedit.scroll_offset) / _graphedit.zoom
+	var popup := _add_menu.get_popup()
+	popup.reset_size()
+	popup.position = Vector2i((_graphedit.get_screen_transform() * p_at_position).round())
+	popup.popup()
+
+
 func _on_add_selected(p_id: int) -> void:
 	if graph == null:
 		return
 	var e: Dictionary = Pasture3DGraphNodeRegistry.entries()[p_id]
 	var node := Pasture3DGraphNodeRegistry.create(e["op"])
-	var pos := _graphedit.scroll_offset / _graphedit.zoom + Vector2(60, 60) + Vector2(30, 30) * graph.nodes.size()
+	# A right-click set the drop point; otherwise stagger from the top-left so the Add-Node button still
+	# lays nodes out without overlap.
+	var pos: Vector2
+	if _add_at != null:
+		pos = _add_at
+		_add_at = null
+	else:
+		pos = _graphedit.scroll_offset / _graphedit.zoom + Vector2(60, 60) + Vector2(30, 30) * graph.nodes.size()
 	graph.add_node(node, pos)
 
 
