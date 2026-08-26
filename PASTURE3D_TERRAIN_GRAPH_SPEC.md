@@ -1,7 +1,8 @@
 # Pasture3D Terrain Graph — Spec
 
-**Status:** Increment 1 built (2026-08-25) — the headless evaluator core. No editor UI, no C++/GPU, no
-stack mount yet (see Build order). Target: Godot 4.7, Pasture3D.
+**Status:** Increments 1–2 built (2026-08-25) — the headless evaluator core, and the brush **stack
+mount** (`Pasture3DNodeGraph`). No editor UI and no C++/GPU yet (see Build order). Target: Godot 4.7,
+Pasture3D.
 **Builds on:** `PASTURE3D_NODE_VOCABULARY.md` (node / op() / cell·grid), the relief op-program
 (`pasture3d_relief_material.gd`), and the brush node stack (`pasture3d_terrain_brush.gd`).
 
@@ -91,9 +92,14 @@ failures) ===`.
 
 ## 6. Build order (later increments, each gated the same way)
 
-1. **Stack mount** — `Pasture3DNodeGraph` (a `Pasture3DNode`, `op() == &"graph"`, a grid node, FROZEN by
-   default like erosion) hosting a `Pasture3DTerrainGraph`, evaluated over the brush footprint and the
-   brush's mask, in the existing `modifiers` array. Inherits freeze/cache, field-context, warnings.
+1. **Stack mount — BUILT (increment 2).** `Pasture3DNodeGraph` (`pasture3d_mod_graph.gd`; a
+   `Pasture3DNode`, `op() == &"graph"`, a grid node) hosts a `Pasture3DTerrainGraph` in the `modifiers`
+   array. The host evaluates it in `Pasture3DTerrainBrush._apply_graph_step` over the brush's exact
+   per-cell world grid (`min_x + ix*vs`, a half-cell-shifted rect into `cell_to_world`), adds it feathered
+   by the interior profile, and forces the GDScript rasteriser when a graph op is present
+   (`_stack_forces_gdscript`, since native cannot run `&"graph"`). Gate: `bench/GraphMountGate`.
+   **Still LIVE** — the FROZEN cache (reusing the erosion modifier's extent/surface-keyed cache, a Bake
+   button and a stale warning) is the immediate next step so a graph does not re-evaluate on every drag.
 2. **GraphEdit UI** — a dock mapping `nodes`/`connections` onto `GraphEdit`; add-node palette by `role()`.
 3. **Cell-node fold + C++ parity** — fuse cell-node runs; lower them into the relief op-program; a C++
    evaluator matched to the GDScript oracle to 1e-4, as relief is.

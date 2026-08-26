@@ -3133,7 +3133,21 @@ func _ridge_cross_lut(c: Curve) -> PackedFloat32Array:
 ## True when the native C++ rasteriser for `method` is available (post-Round-2 build). Falls back to the
 ## GDScript reference loop otherwise.
 func _native_raster(method: String) -> bool:
-	return not force_gdscript_raster and terrain != null and terrain.data != null and terrain.data.has_method(method)
+	return not force_gdscript_raster and not _stack_forces_gdscript() \
+			and terrain != null and terrain.data != null and terrain.data.has_method(method)
+
+
+## True when the stack carries an op the native rasteriser cannot run, so the whole stamp must take the
+## GDScript path. Today that is exactly Pasture3DNodeGraph (&"graph"): the native side skips an op it does
+## not know (pasture_3d_brush_raster.cpp), which would silently drop the graph. Routing to GDScript is how
+## the graph runs at all until it grows a native/GPU backend (PASTURE3D_TERRAIN_GRAPH_SPEC.md).
+func _stack_forces_gdscript() -> bool:
+	if not _supports_modifiers():
+		return false
+	for m in modifiers:
+		if m != null and m.is_active() and m.op() == &"graph":
+			return true
+	return false
 
 
 ## Grid of the height of layers BELOW this brush's own, over the spline grid (origin min_x/min_z, step vs,
@@ -3632,6 +3646,7 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 	var n: int = int(p_ctx["gw"]) * int(p_ctx["gh"])
 	var add: bool = p_ctx["add"]
 	p_ctx["basey"] = p_basey # a field modifier may need the absolute surface, not the delta
+	p_ctx["profile"] = p_profile # a graph node feathers its whole-grid output by the interior profile
 	var vals := PackedFloat32Array()
 	vals.resize(n)
 	var in_vals := false
@@ -3781,6 +3796,36 @@ func _apply_field_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		return _blur_grid(p_vals, p_ctx["gw"], p_ctx["gh"], p_step["mod"].passes)
 	if p_step["op"] == &"erosion":
 		return _apply_erosion_step(p_step, p_vals, p_ctx)
+	if p_step["op"] == &"graph":
+		return _apply_graph_step(p_step, p_vals, p_ctx)
+	return p_vals
+
+
+## One Pasture3DNodeGraph over the whole grid: evaluate its Pasture3DTerrainGraph at THIS brush's exact
+## per-cell world coords, then add it in, feathered by the interior profile so the rim stays clean.
+##
+## The world mapping must match the cell loop's (`min_x + ix*vs`), NOT the graph's own cell-centre helper,
+## or a graph baked through a brush would land half a cell off the terrain it sits on. A rect shifted by
+## half a cell makes Pasture3DTerrainGraph.cell_to_world reproduce `min_x + ix*vs` exactly.
+func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
+		p_ctx: Dictionary) -> PackedFloat32Array:
+	var m: Pasture3DNodeGraph = p_step["mod"]
+	var g: Pasture3DTerrainGraph = m.graph
+	if g == null:
+		return p_vals
+	var gw: int = p_ctx["gw"]
+	var gh: int = p_ctx["gh"]
+	var vs: float = p_ctx["vs"]
+	var min_x: float = p_ctx["min_x"]
+	var min_z: float = p_ctx["min_z"]
+	var rect := Rect2(min_x - 0.5 * vs, min_z - 0.5 * vs, float(gw) * vs, float(gh) * vs)
+	var out := g.evaluate(gw, gh, rect) # the graph's own mask is unused here; the interior profile is it
+	var profile: PackedFloat64Array = p_ctx["profile"]
+	var s: float = m.strength
+	for k in range(gw * gh):
+		var v: float = p_vals[k]
+		if is_finite(v):
+			p_vals[k] = v + s * out[k] * profile[k]
 	return p_vals
 
 
