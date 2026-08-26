@@ -84,6 +84,28 @@ func has_output() -> bool:
 	return true
 
 
+## Port data types for visual wiring and validation.
+enum PortType {
+	HEIGHT = 0,   # Scalar elevation field (meters) - Sky Blue
+	MASK = 1,     # Normalized scalar [0.0, 1.0] - Amber
+	VECTOR = 2,   # Directional 2D vector / angle field - Purple
+	CURVE = 3,    # Spline / transfer curve - Emerald
+}
+
+
+## Types for each input port. Defaults to HEIGHT for all ports.
+func input_port_types() -> PackedInt32Array:
+	var arr := PackedInt32Array()
+	arr.resize(input_count())
+	arr.fill(PortType.HEIGHT)
+	return arr
+
+
+## Output port type. Defaults to HEIGHT.
+func output_port_type() -> int:
+	return PortType.HEIGHT
+
+
 ## How many input ports this node reads. GENERATOR = 0; a FILTER = 1; Blend = 2.
 func input_count() -> int:
 	return 1

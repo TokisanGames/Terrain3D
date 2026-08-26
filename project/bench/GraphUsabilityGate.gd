@@ -19,7 +19,7 @@ var _fail := 0
 
 
 func _ready() -> void:
-	print("=== GraphUsabilityGate: Terrain Graph Usability Phases 1, 2 & 3 ===\n")
+	print("=== GraphUsabilityGate: Terrain Graph Usability Phases 1, 2, 3 & 4 ===\n")
 	_a_registry_search_and_tags()
 	_b_subgraph_duplication_and_wire_remapping()
 	_c_clipboard_serialize_deserialize()
@@ -30,6 +30,8 @@ func _ready() -> void:
 	_h_mute_bypass_evaluation()
 	_i_inline_controls_and_live_updates()
 	_j_solo_output_override()
+	_k_port_type_system_and_colors()
+	_l_drag_to_create_wiring()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH USABILITY PASS" if _fail == 0 else "GRAPH USABILITY FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -509,6 +511,68 @@ func _j_solo_output_override() -> void:
 	print("    toggle solo off -> output = %.1f (want 15.0)" % restored_field[0])
 	if absf(restored_field[0] - 15.0) > 1.0e-5:
 		_fail += 1; print("    !! toggling solo off did not restore default output")
+
+
+func _k_port_type_system_and_colors() -> void:
+	print("[K] Port type system & color definitions")
+	var mask_node = Pasture3DGraphNodeRegistry.create(&"mask")
+	var const_node = Pasture3DGraphNodeRegistry.create(&"const")
+	var blend_node = Pasture3DGraphNodeRegistry.create(&"blend")
+	
+	var mask_out_type: int = mask_node.output_port_type()
+	var const_out_type: int = const_node.output_port_type()
+	var blend_in_types: PackedInt32Array = blend_node.input_port_types()
+	
+	var mask_ok: bool = mask_out_type == Pasture3DGraphNode.PortType.MASK
+	var const_ok: bool = const_out_type == Pasture3DGraphNode.PortType.HEIGHT
+	var blend_ok: bool = blend_in_types.size() == 2 and blend_in_types[0] == Pasture3DGraphNode.PortType.HEIGHT
+	
+	print("    mask out type=%d (want %d), const out type=%d (want %d), blend in count=%d" % [
+		mask_out_type, Pasture3DGraphNode.PortType.MASK, const_out_type, Pasture3DGraphNode.PortType.HEIGHT, blend_in_types.size()
+	])
+	if not mask_ok or not const_ok or not blend_ok:
+		_fail += 1; print("    !! port types incorrectly reported")
+
+
+func _l_drag_to_create_wiring() -> void:
+	print("[L] Drag-to-create wiring & rapid disconnection")
+	var g = Pasture3DTerrainGraph.new()
+	var n0 = g.add_node(Pasture3DGraphNodeRegistry.create(&"const"), Vector2(100, 100))
+	
+	var editor = Pasture3DGraphEditor.new()
+	add_child(editor)
+	editor._build_ui()
+	editor.edit_graph(g)
+	
+	# Simulate connection_to_empty from node 0 port 0 -> search select "smooth"
+	editor._on_connection_to_empty(StringName("n0"), 0, Vector2(300, 100))
+	editor._on_search_node_selected(&"smooth", Vector2(300, 100))
+	
+	var nodes_count_1: int = g.nodes.size()
+	var has_conn_1: bool = _has_wire(g, n0, 1, 0)
+	print("    drag-to-create 'from' -> total nodes=%d, connected wire ok=%s" % [nodes_count_1, has_conn_1])
+	if nodes_count_1 != 2 or not has_conn_1:
+		_fail += 1; print("    !! drag-to-create 'from' failed to create or wire node")
+		
+	# Simulate connection_from_empty into node 1 port 0 -> search select "noise"
+	editor._on_connection_from_empty(StringName("n1"), 0, Vector2(50, 100))
+	editor._on_search_node_selected(&"noise", Vector2(50, 100))
+	
+	var nodes_count_2: int = g.nodes.size()
+	var has_conn_2: bool = _has_wire(g, 2, 1, 0)
+	print("    drag-to-create 'to' -> total nodes=%d, connected wire ok=%s" % [nodes_count_2, has_conn_2])
+	if nodes_count_2 != 3 or not has_conn_2:
+		_fail += 1; print("    !! drag-to-create 'to' failed to create or wire node")
+		
+	# Disconnect wire
+	editor._action_disconnect(2, 0, 1, 0)
+	var has_conn_after_cut: bool = _has_wire(g, 2, 1, 0)
+	print("    rapid disconnect wire -> connected=%s (want false)" % has_conn_after_cut)
+	if has_conn_after_cut:
+		_fail += 1; print("    !! wire disconnection failed")
+		
+	remove_child(editor)
+	editor.free()
 
 
 # ---- helpers ----------------------------------------------------------------------------------------

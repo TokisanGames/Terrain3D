@@ -12,6 +12,13 @@ extends VBoxContainer
 
 const SearchDialogScript = preload("res://addons/pasture_3d/src/graph_search_dialog.gd")
 
+const PORT_COLORS: Array[Color] = [
+	Color(0.36, 0.68, 0.89), # 0: HEIGHT (#5dade2) - Sky Blue
+	Color(0.95, 0.61, 0.07), # 1: MASK (#f39c12) - Amber
+	Color(0.69, 0.48, 0.77), # 2: VECTOR (#af7ac5) - Purple
+	Color(0.18, 0.80, 0.44), # 3: CURVE (#2ecc71) - Emerald
+]
+
 var plugin: EditorPlugin
 var graph: Pasture3DTerrainGraph
 
@@ -32,6 +39,9 @@ var _clipboard: Dictionary = {}
 
 ## Track previous node/frame positions for undo/redo move actions
 var _drag_start_positions: Dictionary = {}
+
+## Track pending drag-to-create connection
+var _pending_drag_connection: Dictionary = {}
 
 
 func initialize(p_plugin: EditorPlugin) -> void:
@@ -100,8 +110,24 @@ func _build_ui() -> void:
 	_graphedit.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_graphedit.right_disconnects = true
 	_graphedit.minimap_enabled = false
+	
+	# Register Phase 4 Valid Port Connection Types
+	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.HEIGHT, Pasture3DGraphNode.PortType.HEIGHT)
+	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.MASK, Pasture3DGraphNode.PortType.MASK)
+	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.HEIGHT, Pasture3DGraphNode.PortType.MASK)
+	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.MASK, Pasture3DGraphNode.PortType.HEIGHT)
+	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.VECTOR, Pasture3DGraphNode.PortType.VECTOR)
+	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.CURVE, Pasture3DGraphNode.PortType.CURVE)
+
+	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.HEIGHT)
+	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.MASK)
+	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.VECTOR)
+	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.CURVE)
+
 	_graphedit.connection_request.connect(_on_connection_request)
 	_graphedit.disconnection_request.connect(_on_disconnection_request)
+	_graphedit.connection_to_empty.connect(_on_connection_to_empty)
+	_graphedit.connection_from_empty.connect(_on_connection_from_empty)
 	_graphedit.delete_nodes_request.connect(_on_delete_request)
 	_graphedit.node_selected.connect(_on_node_selected)
 	_graphedit.begin_node_move.connect(_on_node_move_begin)
@@ -271,7 +297,7 @@ func _make_graphnode(p_index: int, p_node: Pasture3DGraphNode) -> GraphNode:
 		var row := Control.new()
 		row.custom_minimum_size = Vector2(0, 14)
 		gn.add_child(row)
-		gn.set_slot(0, true, 0, Color(0.6, 0.8, 1.0), true, 0, Color(1.0, 0.85, 0.5))
+		gn.set_slot(0, true, Pasture3DGraphNode.PortType.HEIGHT, PORT_COLORS[0], true, Pasture3DGraphNode.PortType.HEIGHT, PORT_COLORS[0])
 		return gn
 		
 	var is_out := p_index == graph.output_index()
@@ -326,6 +352,9 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 	var names := p_node.input_names()
 	var n_in := p_node.input_count()
 	var has_right := p_node.has_output()
+	var in_types := p_node.input_port_types()
+	var out_type := p_node.output_port_type()
+	var out_color: Color = PORT_COLORS[out_type % PORT_COLORS.size()]
 	
 	# Find wired input port indices
 	var wired_inputs: Dictionary = {}
@@ -342,8 +371,11 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 		lbl.text = names[r] if r < n_in else " "
 		row_box.add_child(lbl)
 		
+		var in_type: int = in_types[r] if r < in_types.size() else 0
+		var in_color: Color = PORT_COLORS[in_type % PORT_COLORS.size()]
+		
 		p_gn.add_child(row_box)
-		p_gn.set_slot(r, r < n_in, 0, Color(0.6, 0.8, 1.0), has_right and r == 0, 0, Color(1.0, 0.85, 0.5))
+		p_gn.set_slot(r, r < n_in, in_type, in_color, has_right and r == 0, out_type, out_color)
 
 	# Inline parameter controls (if node is not collapsed)
 	if not p_node.collapsed:
@@ -465,6 +497,17 @@ func _add_inline_node_controls(p_gn: GraphNode, p_node: Pasture3DGraphNode) -> v
 			a_row.add_child(a_lbl); a_row.add_child(a_sb)
 			p_gn.add_child(a_row)
 
+		&"mask":
+			var m_row := HBoxContainer.new()
+			var opt := OptionButton.new()
+			opt.add_item("Slope", 0)
+			opt.add_item("Altitude", 1)
+			opt.add_item("Curvature", 2)
+			opt.selected = int(p_node.get("property"))
+			opt.item_selected.connect(func(idx: int): p_node.set("property", idx))
+			m_row.add_child(opt)
+			p_gn.add_child(m_row)
+
 
 func _graph_has_sink() -> bool:
 	for nd in graph.nodes:
@@ -484,6 +527,7 @@ func _graph_label() -> String:
 func _on_add_button_pressed() -> void:
 	if graph == null:
 		return
+	_pending_drag_connection.clear()
 	var center_screen: Vector2 = _graphedit.get_global_transform().origin + _graphedit.size * 0.5
 	var center_graph: Vector2 = (_graphedit.scroll_offset + _graphedit.size * 0.5) / _graphedit.zoom
 	_search_dialog.open_at(center_screen, center_graph)
@@ -492,17 +536,80 @@ func _on_add_button_pressed() -> void:
 func _on_popup_request(p_at_position: Vector2) -> void:
 	if graph == null:
 		return
+	_pending_drag_connection.clear()
 	var screen_pos := _graphedit.get_screen_transform() * p_at_position
 	var graph_pos := (p_at_position + _graphedit.scroll_offset) / _graphedit.zoom
 	_search_dialog.open_at(screen_pos, graph_pos)
+
+
+func _on_connection_to_empty(p_from: StringName, p_from_port: int, p_release_position: Vector2) -> void:
+	if graph == null:
+		return
+	var f_idx := _idx(p_from)
+	if f_idx < 0:
+		return
+	var screen_pos := (_graphedit.get_screen_transform() * p_release_position) if _graphedit.is_inside_tree() else p_release_position
+	var graph_pos := (p_release_position + _graphedit.scroll_offset) / _graphedit.zoom
+	_pending_drag_connection = {
+		"mode": "from",
+		"from_node": f_idx,
+		"from_port": p_from_port,
+	}
+	if _search_dialog != null and _search_dialog.is_inside_tree():
+		_search_dialog.open_at(screen_pos, graph_pos)
+
+
+func _on_connection_from_empty(p_to: StringName, p_to_port: int, p_release_position: Vector2) -> void:
+	if graph == null:
+		return
+	var t_idx := _idx(p_to)
+	if t_idx < 0:
+		return
+	var screen_pos := (_graphedit.get_screen_transform() * p_release_position) if _graphedit.is_inside_tree() else p_release_position
+	var graph_pos := (p_release_position + _graphedit.scroll_offset) / _graphedit.zoom
+	_pending_drag_connection = {
+		"mode": "to",
+		"to_node": t_idx,
+		"to_port": p_to_port,
+	}
+	if _search_dialog != null and _search_dialog.is_inside_tree():
+		_search_dialog.open_at(screen_pos, graph_pos)
 
 
 func _on_search_node_selected(p_op: StringName, p_position: Vector2) -> void:
 	if graph == null:
 		return
 	var node := Pasture3DGraphNodeRegistry.create(p_op)
-	if node != null:
+	if node == null:
+		return
+		
+	var pending := _pending_drag_connection.duplicate()
+	_pending_drag_connection.clear()
+	
+	if pending.is_empty():
 		_action_add_node(node, p_position)
+		return
+		
+	# Drag-to-create: add node and wire in a single undoable action!
+	var new_idx := graph.nodes.size()
+	var old_nodes := graph.nodes.duplicate()
+	var old_conns := graph.connections.duplicate()
+	
+	_ur_create_action("Create & Connect Node")
+	_ur_add_do_method(graph, &"add_node", [node, p_position])
+	if pending.get("mode") == "from":
+		var f_idx: int = pending.get("from_node", -1)
+		var f_port: int = pending.get("from_port", 0)
+		if node.input_count() > 0:
+			_ur_add_do_method(graph, &"connect_ports", [f_idx, f_port, new_idx, 0])
+	elif pending.get("mode") == "to":
+		var t_idx: int = pending.get("to_node", -1)
+		var t_port: int = pending.get("to_port", 0)
+		if node.has_output():
+			_ur_add_do_method(graph, &"connect_ports", [new_idx, 0, t_idx, t_port])
+	_ur_add_undo_property(graph, &"nodes", old_nodes)
+	_ur_add_undo_property(graph, &"connections", old_conns)
+	_ur_commit()
 
 
 # ---- Undoable Actions -------------------------------------------------------------------------------
@@ -568,9 +675,11 @@ func _action_disconnect(p_from: int, p_from_port: int, p_to: int, p_to_port: int
 
 func _action_set_output(p_index: int) -> void:
 	var old_out := graph.output_node
-	_ur_create_action("Set Terrain Graph Output")
+	var old_override := graph.output_override
+	_ur_create_action("Set Terrain Graph Output / Solo")
 	_ur_add_do_method(graph, &"set_output", [p_index])
-	_ur_add_undo_method(graph, &"set_output", [old_out])
+	_ur_add_undo_property(graph, &"output_override", old_override)
+	_ur_add_undo_property(graph, &"output_node", old_out)
 	_ur_commit()
 
 
@@ -869,6 +978,19 @@ func _on_graphedit_gui_input(p_event: InputEvent) -> void:
 		_split_closest_connection(p_event.position)
 		_accept_event()
 		return
+		
+	# Alt + Left Click on wire / port -> rapid wire disconnection
+	if p_event is InputEventMouseButton and p_event.pressed and p_event.alt_pressed and p_event.button_index == MOUSE_BUTTON_LEFT:
+		var conn: Dictionary = _graphedit.get_closest_connection_at_point(p_event.position, 20.0)
+		if not conn.is_empty():
+			var f_idx := _idx(conn.get("from_node", &""))
+			var f_port: int = conn.get("from_port", 0)
+			var t_idx := _idx(conn.get("to_node", &""))
+			var t_port: int = conn.get("to_port", 0)
+			if f_idx >= 0 and t_idx >= 0:
+				_action_disconnect(f_idx, f_port, t_idx, t_port)
+				_accept_event()
+				return
 		
 	if p_event is InputEventKey and p_event.pressed:
 		var is_ctrl: bool = p_event.ctrl_pressed or p_event.meta_pressed or p_event.is_command_or_control_autoremap()
