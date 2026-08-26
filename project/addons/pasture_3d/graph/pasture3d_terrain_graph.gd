@@ -23,7 +23,9 @@ extends Resource
 ## The nodes. Order here is authoring order only — evaluation order is derived from `connections`.
 @export var nodes: Array[Pasture3DGraphNode] = []:
 	set(v):
+		_bind_nodes(nodes, false)
 		nodes = v
+		_bind_nodes(nodes, true)
 		emit_changed()
 
 ## The wires, each a PackedInt32Array `[from_node, from_port, to_node, to_port]` (indices into `nodes`).
@@ -41,6 +43,98 @@ extends Resource
 	set(v):
 		output_node = v
 		emit_changed()
+
+
+# ---- Change forwarding -------------------------------------------------------------------------------
+#
+# A node's own property setters emit `changed` on the node; the graph re-emits it so a host (the mounted
+# Pasture3DNodeGraph -> the brush) re-bakes when a node's params are edited in the Inspector. Without this
+# editing a Noise node's amplitude would change nothing until the graph itself was touched. `graph_position`
+# is the one node property that does not emit, so dragging a node on the canvas never triggers a re-bake.
+
+func _bind_nodes(p_list: Array, p_connect: bool) -> void:
+	for n in p_list:
+		if n == null:
+			continue
+		if p_connect:
+			if not n.changed.is_connected(_on_node_changed):
+				n.changed.connect(_on_node_changed)
+		elif n.changed.is_connected(_on_node_changed):
+			n.changed.disconnect(_on_node_changed)
+
+
+func _on_node_changed() -> void:
+	emit_changed()
+
+
+# ---- Editing API -------------------------------------------------------------------------------------
+#
+# The seam the graph editor drives and the gate tests. Every mutation keeps `connections` and
+# `output_node` consistent with `nodes` and emits `changed`. Reassigning `nodes`/`connections` goes
+# through their setters, so binding and the emit happen there.
+
+## Append a node at `p_pos` and return its index.
+func add_node(p_node: Pasture3DGraphNode, p_pos: Vector2 = Vector2.ZERO) -> int:
+	if p_node == null:
+		return -1
+	p_node.graph_position = p_pos
+	var arr := nodes.duplicate()
+	arr.append(p_node)
+	nodes = arr
+	return nodes.size() - 1
+
+
+## Remove the node at `p_index`: drop every connection touching it, shift indices above it down by one,
+## and follow `output_node` (cleared if it WAS the output).
+func remove_node(p_index: int) -> void:
+	if p_index < 0 or p_index >= nodes.size():
+		return
+	var remapped: Array = []
+	for c in connections:
+		var f := int(c[0])
+		var t := int(c[2])
+		if f == p_index or t == p_index:
+			continue
+		remapped.append(PackedInt32Array([
+			f - 1 if f > p_index else f, int(c[1]),
+			t - 1 if t > p_index else t, int(c[3])]))
+	if output_node == p_index:
+		output_node = -1
+	elif output_node > p_index:
+		output_node = output_node - 1
+	connections = remapped
+	var arr := nodes.duplicate()
+	arr.remove_at(p_index)
+	nodes = arr
+
+
+## Wire `from`:`from_port` -> `to`:`to_port`. An input port takes ONE wire, so any existing wire into
+## `(to, to_port)` is replaced.
+func connect_ports(p_from: int, p_from_port: int, p_to: int, p_to_port: int) -> void:
+	var arr: Array = []
+	for c in connections:
+		if int(c[2]) == p_to and int(c[3]) == p_to_port:
+			continue
+		arr.append(c)
+	arr.append(PackedInt32Array([p_from, p_from_port, p_to, p_to_port]))
+	connections = arr
+
+
+## Remove exactly the wire `from`:`from_port` -> `to`:`to_port`, if present.
+func disconnect_ports(p_from: int, p_from_port: int, p_to: int, p_to_port: int) -> void:
+	var arr: Array = []
+	for c in connections:
+		if int(c[0]) == p_from and int(c[1]) == p_from_port \
+				and int(c[2]) == p_to and int(c[3]) == p_to_port:
+			continue
+		arr.append(c)
+	connections = arr
+
+
+## Designate the graph's output node (-1 = none).
+func set_output(p_index: int) -> void:
+	if p_index >= -1 and p_index < nodes.size():
+		output_node = p_index
 
 
 ## Map a cell to its WORLD XZ. Cell-CENTRE sampling over `p_rect` (position = min XZ, size = extent).

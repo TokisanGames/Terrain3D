@@ -19,6 +19,8 @@ var editor_settings: EditorSettings
 var ui: Node # Pasture3DUI see Godot #75388
 var asset_dock: PanelContainer
 var layers_dock: PanelContainer
+var graph_editor: Pasture3DGraphEditor # bottom-panel visual node-graph editor
+var graph_inspector: Pasture3DGraphInspectorPlugin # "Edit in Graph Editor" button
 var brush_gizmo: EditorNode3DGizmoPlugin # Clickable origin markers for brush nodes
 var pool_gizmo: EditorNode3DGizmoPlugin # Clickable markers floating over Pasture3DPool water
 var current_region_position: Vector2
@@ -87,6 +89,15 @@ func _enter_tree() -> void:
 	layers_dock = Pasture3DLayersDock.new()
 	layers_dock.initialize(self)
 
+	# Visual node-graph editor (PASTURE3D_TERRAIN_GRAPH_SPEC.md) — a bottom panel, opened from the
+	# "Edit in Graph Editor" button the inspector plugin adds to a graph / graph modifier.
+	graph_editor = Pasture3DGraphEditor.new()
+	graph_editor.initialize(self)
+	graph_inspector = Pasture3DGraphInspectorPlugin.new()
+	graph_inspector.editor = graph_editor
+	graph_inspector.plugin = self
+	add_inspector_plugin(graph_inspector)
+
 	# Clickable origin markers so brush nodes are easy to select in a busy scene.
 	brush_gizmo = Pasture3DBrushGizmo.new()
 	add_node_3d_gizmo_plugin(brush_gizmo)
@@ -138,6 +149,11 @@ func _exit_tree() -> void:
 	asset_dock.queue_free()
 	layers_dock.remove_dock()
 	layers_dock.queue_free()
+	if graph_inspector:
+		remove_inspector_plugin(graph_inspector)
+	if graph_editor:
+		graph_editor.remove_dock()
+		graph_editor.queue_free()
 	if brush_gizmo:
 		remove_node_3d_gizmo_plugin(brush_gizmo)
 	if pool_gizmo:
