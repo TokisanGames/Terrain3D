@@ -21,6 +21,8 @@ static func entries() -> Array[Dictionary]:
 		{"op": &"blend", "title": "Blend", "role": "Combiner", "script": Pasture3DGraphNodeBlend},
 		{"op": &"smooth", "title": "Smooth", "role": "Filter", "script": Pasture3DGraphNodeSmooth},
 		{"op": &"terrace", "title": "Terrace", "role": "Filter", "script": Pasture3DGraphNodeTerrace},
+		{"op": &"strata", "title": "Strata", "role": "Filter", "script": Pasture3DGraphNodeStrata},
+		{"op": &"curve", "title": "Curve", "role": "Filter", "script": Pasture3DGraphNodeCurve},
 		{"op": &"output", "title": "Output", "role": "Sink", "script": Pasture3DGraphNodeOutput},
 	]
 

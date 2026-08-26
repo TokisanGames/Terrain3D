@@ -34,6 +34,8 @@ func _ready() -> void:
 	_e_categories_and_native_fallback()
 	_f_dunes_matches_formula()
 	_g_crater_fills_the_frame()
+	_h_strata_bands_its_input_tilted()
+	_i_curve_remaps_its_input()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH RELIEF NODE PASS" if _fail == 0 else "GRAPH RELIEF NODE FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -210,6 +212,65 @@ func _g_crater_fills_the_frame() -> void:
 		_fail += 1; print("    !! amplitude 0 did not flatten the crater")
 
 
+# --- H. Strata filter bands its input with a tilt -----------------------------------------------------
+func _h_strata_bands_its_input_tilted() -> void:
+	print("[H] Input -> Strata -> Output bands the surface (tilted), matching a re-derivation")
+	var st := _strata(7.0, 1.0, 1.0, 5.0, 30.0, 2.0, 45.0, 4)
+	var surf := _ramp(70.0)
+	var got := _filter_graph(st).evaluate(GW, GH, RECT, null, surf)
+	var want := _strata_oracle(st, surf)
+	var d := _max_abs_diff(got, want)
+	print("    max |graph - oracle| = %.7f (want < %.7f)" % [d, EPS])
+	if d > EPS:
+		_fail += 1; print("    !! the Strata node diverged from the re-derivation")
+	# CONTROL: it forms benches; amount 0 is the identity.
+	var flats := _horizontal_flats(got)
+	var t0 := _strata(7.0, 1.0, 0.0, 5.0, 30.0, 2.0, 45.0, 4)
+	var id := _max_abs_diff(_filter_graph(t0).evaluate(GW, GH, RECT, null, surf), surf)
+	print("    control: %d flat steps (want > %d) ; amount 0 identity diff %.7f (want < %.7f)"
+		% [flats, GW, id, EPS])
+	if flats <= GW or id > EPS:
+		_fail += 1; print("    !! no benches formed, or amount 0 was not the identity")
+	# CONTROL: dip actually tilts — beds under a nonzero dip differ from horizontal beds.
+	var horiz := _strata(7.0, 1.0, 1.0, 0.0, 30.0, 0.0, 45.0, 4) # dip 0, break 0
+	var tilted := _strata(7.0, 1.0, 1.0, 12.0, 30.0, 0.0, 45.0, 4) # strong dip, break 0
+	var moved := _max_abs_diff(_filter_graph(horiz).evaluate(GW, GH, RECT, null, surf),
+			_filter_graph(tilted).evaluate(GW, GH, RECT, null, surf))
+	print("    control: dip changes the bedding (diff %.3f, want > 0.05)" % moved)
+	if moved <= 0.05:
+		_fail += 1; print("    !! dip did nothing — the beds are not tilted")
+
+
+# --- I. Curve filter remaps its input through the transfer curve --------------------------------------
+func _i_curve_remaps_its_input() -> void:
+	print("[I] Input -> Curve -> Output remaps the surface, matching a re-derivation")
+	var c := _const_curve(0.5)
+	var cn := _curve(c, 0.0, 100.0, 0.0, 100.0, 1.0)
+	var surf := _ramp(70.0)
+	var got := _filter_graph(cn).evaluate(GW, GH, RECT, null, surf)
+	var want := _curve_oracle(cn, surf)
+	var d := _max_abs_diff(got, want)
+	print("    max |graph - oracle| = %.7f (want < %.7f)" % [d, EPS])
+	if d > EPS:
+		_fail += 1; print("    !! the Curve node diverged from the re-derivation")
+	# CONTROL: a constant-0.5 curve over [0,100]->[0,100] maps every cell to ~50 (it is remapping).
+	var at50 := true
+	for v in got:
+		if absf(v - 50.0) > 0.01:
+			at50 = false
+	print("    control: constant curve -> flat 50 (spread %.5f, all==50 %s)" % [_spread(got), at50])
+	if not at50:
+		_fail += 1; print("    !! the constant curve did not flatten the output to its value")
+	# CONTROL: amount 0 is the identity; a null curve passes through.
+	var c0 := _curve(c, 0.0, 100.0, 0.0, 100.0, 0.0)
+	var id := _max_abs_diff(_filter_graph(c0).evaluate(GW, GH, RECT, null, surf), surf)
+	var cnull := _curve(null, 0.0, 100.0, 0.0, 100.0, 1.0)
+	var pass_through := _max_abs_diff(_filter_graph(cnull).evaluate(GW, GH, RECT, null, surf), surf)
+	print("    control: amount 0 diff %.7f, null curve diff %.7f (want < %.7f)" % [id, pass_through, EPS])
+	if id > EPS or pass_through > EPS:
+		_fail += 1; print("    !! amount 0 or a null curve did not pass the input through")
+
+
 # ---- node builders ----------------------------------------------------------------------------------
 
 func _furrows(amp: float, spacing: float, dir_deg: float, profile, wobble_amt: float, wobble_size: float,
@@ -242,6 +303,29 @@ func _crater(amp: float, floor_depth: float, rim_height: float, rim_width: float
 	n.amplitude = amp; n.floor_depth = floor_depth; n.rim_height = rim_height; n.rim_width = rim_width
 	n.ejecta_falloff = ejecta; n.floor_flatness = flatness; n.terrace_steps = steps
 	return n
+
+
+func _strata(band_h: float, hardness: float, amount: float, dip: float, break_size: float,
+		break_amt: float, dip_dir: float, seed: int) -> Pasture3DGraphNodeStrata:
+	var n := Pasture3DGraphNodeStrata.new()
+	n.band_height = band_h; n.hardness = hardness; n.amount = amount; n.dip = dip
+	n.break_size = break_size; n.break_amount = break_amt; n.dip_direction_degrees = dip_dir; n.seed = seed
+	return n
+
+
+func _curve(c: Curve, in_min: float, in_max: float, out_min: float, out_max: float,
+		amount: float) -> Pasture3DGraphNodeCurve:
+	var n := Pasture3DGraphNodeCurve.new()
+	n.curve = c; n.input_min = in_min; n.input_max = in_max
+	n.output_min = out_min; n.output_max = out_max; n.amount = amount
+	return n
+
+
+func _const_curve(p_y: float) -> Curve:
+	var c := Curve.new()
+	c.add_point(Vector2(0.0, p_y))
+	c.add_point(Vector2(1.0, p_y))
+	return c
 
 
 func _gen_graph(p_gen: Pasture3DGraphNode) -> Pasture3DTerrainGraph:
@@ -345,6 +429,48 @@ func _crater_oracle(cr: Pasture3DGraphNodeCrater) -> PackedFloat32Array:
 			var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, GW, GH, RECT)
 			out[iz * GW + ix] = Pasture3DReliefMaterial._crater((w.x - cx) * inv_ex, (w.y - cz) * inv_ez,
 					inv_ex, inv_ez, params, 0)
+	return out
+
+
+## Per-cell tilted metric strata, hand-derived to match the Strata node's eval_cell.
+func _strata_oracle(st: Pasture3DGraphNodeStrata, p_field: PackedFloat32Array) -> PackedFloat32Array:
+	var noise := Pasture3DReliefMaterial._configure_noise(1.0 / maxf(st.break_size, 0.01), 3, 2.0, 0.5, st.seed, false)
+	var dipdir := deg_to_rad(st.dip_direction_degrees)
+	var bh := maxf(st.band_height, 0.001)
+	var out := PackedFloat32Array()
+	out.resize(GW * GH)
+	for iz in range(GH):
+		for ix in range(GW):
+			var i := iz * GW + ix
+			var x := p_field[i]
+			if is_nan(x):
+				out[i] = x
+				continue
+			var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, GW, GH, RECT)
+			var tilt := st.dip * (w.x * cos(dipdir) + w.y * sin(dipdir)) * 0.01
+			if st.break_amount > 0.0:
+				tilt += noise.get_noise_2d(w.x, w.y) * st.break_amount
+			var t := (x + tilt) / bh
+			var q := floorf(t)
+			var fr := t - q
+			out[i] = lerpf(x, (q + pow(fr, 1.0 + st.hardness * 15.0)) * bh, st.amount)
+	return out
+
+
+## Per-cell metric curve remap, computing the domain/range mapping (the node's new code) INDEPENDENTLY and
+## reusing the same Curve sampler — so this isolates the mapping under test.
+func _curve_oracle(cn: Pasture3DGraphNodeCurve, p_field: PackedFloat32Array) -> PackedFloat32Array:
+	var span := cn.input_max - cn.input_min
+	var out := PackedFloat32Array()
+	out.resize(GW * GH)
+	for i in range(p_field.size()):
+		var x := p_field[i]
+		if cn.curve == null or is_nan(x):
+			out[i] = x
+			continue
+		var tx := clampf((x - cn.input_min) / span, 0.0, 1.0) if absf(span) > 1.0e-9 else 0.0
+		var y := cn.curve.sample_baked(tx)
+		out[i] = lerpf(x, lerpf(cn.output_min, cn.output_max, y), cn.amount)
 	return out
 
 
