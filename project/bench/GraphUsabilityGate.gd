@@ -592,11 +592,11 @@ func _m_thumbnail_generation() -> void:
 	var n1 = g.add_node(mask, Vector2(300, 100))
 	g.connect_ports(n0, 0, n1, 0)
 	
-	var tex_nz = ThumbnailGenScript.generate_thumbnail(g, n0, 48)
-	var tex_mask = ThumbnailGenScript.generate_thumbnail(g, n1, 48)
+	var tex_nz = ThumbnailGenScript.generate_thumbnail(g, n0, 256)
+	var tex_mask = ThumbnailGenScript.generate_thumbnail(g, n1, 256)
 	
-	var nz_ok: bool = tex_nz != null and tex_nz.get_width() == 48 and tex_nz.get_height() == 48
-	var mask_ok: bool = tex_mask != null and tex_mask.get_width() == 48 and tex_mask.get_height() == 48
+	var nz_ok: bool = tex_nz != null and tex_nz.get_width() == 256 and tex_nz.get_height() == 256
+	var mask_ok: bool = tex_mask != null and tex_mask.get_width() == 256 and tex_mask.get_height() == 256
 	
 	print("    noise thumbnail ok=%s, mask thumbnail ok=%s" % [nz_ok, mask_ok])
 	if not nz_ok or not mask_ok:
