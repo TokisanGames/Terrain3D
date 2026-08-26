@@ -1,6 +1,7 @@
 #include "pasture_3d_graph_gpu.h"
 
 #include <godot_cpp/classes/fast_noise_lite.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/rd_shader_source.hpp>
 #include <godot_cpp/classes/rd_shader_spirv.hpp>
 #include <godot_cpp/classes/rd_uniform.hpp>
@@ -360,3 +361,37 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 	std::memcpy(r_out.ptrw(), out_bytes.ptr(), bytes);
 	return true;
 }
+
+namespace godot {
+
+int graph_gpu_threshold() {
+	// Measured crossover (GraphGpuBenchGate, reference machine): at/above this many cells the GPU's
+	// dispatch+readback beats the CPU whole-graph evaluator for one MISS. Below it the CPU wins (no
+	// readback latency), so the GPU stays off for the common small-brush bake. 0 disables the GPU path.
+	// Per-shape crossovers on the bench: smooth4 ~96^2, smooth2 ~128^2, noise+blend+smooth ("mixed")
+	// ~256^2, identity never (a do-nothing graph always loses the transfer). 256^2 is the conservative
+	// pick — the heaviest realistic filter (mixed) has crossed over, so no plausible graph regresses
+	// above it; only the degenerate identity does, and only on a frozen miss (sub-ms).
+	const int dflt = 65536; // 256x256; set from GraphGpuBenchGate
+	ProjectSettings *ps = ProjectSettings::get_singleton();
+	if (!ps) {
+		return dflt;
+	}
+	return (int)ps->get_setting("pasture_3d/performance/graph_gpu_threshold", dflt);
+}
+
+PackedFloat32Array graph_eval_grid_best(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
+		const PackedFloat32Array &p_input) {
+	const int threshold = graph_gpu_threshold();
+	if (threshold > 0 && (int64_t)p_gw * p_gh >= (int64_t)threshold) {
+		static Pasture3DGraphGPU s_gpu; // persistent: the local RD + shader compile once across bakes
+		PackedFloat32Array out;
+		if (s_gpu.eval_grid(p_prog, p_gw, p_gh, p_rect, p_input, out)) {
+			return out;
+		}
+		// GPU unavailable or failed — fall through to the CPU evaluator (three-tier fallback).
+	}
+	return graph_eval_grid(p_prog, p_gw, p_gh, p_rect, p_input);
+}
+
+} // namespace godot

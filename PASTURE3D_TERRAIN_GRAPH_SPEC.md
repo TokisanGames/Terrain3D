@@ -8,8 +8,8 @@ the **Input/Output filter paradigm** (2026-08-26, §2.1): Input/Output nodes mak
 over the incoming surface rather than a bare added generator. Plus the **native grid-pass interleave**
 (2026-08-26): a native-supported graph now bakes end-to-end in C++ (the GDScript path stays as the A/B
 oracle and the fallback for an unsupported op). Plus the **GPU evaluator** (2026-08-26): a RenderingDevice
-compute path for the grid passes, matched to the CPU oracle (not yet wired into the live bake — see Build
-order §6.4). Target: Godot 4.7, Pasture3D.
+compute path for the grid passes, matched to the CPU oracle and wired into the live bake above a measured
+size threshold (see Build order §6.4). Target: Godot 4.7, Pasture3D.
 **Builds on:** `PASTURE3D_NODE_VOCABULARY.md` (node / op() / cell·grid), the relief op-program
 (`pasture3d_relief_material.gd`), and the brush node stack (`pasture3d_terrain_brush.gd`).
 
@@ -173,7 +173,7 @@ failures) ===`.
    the GDScript oracle on a terrain fixture (adds <1e-4 m beyond the pre-existing dome float/double gap);
    `BrushStackGate`/`BrushErosionGate` confirm the relief/erosion native paths did not regress. **Next:**
    the GPU backend below.
-4. **GPU backend (RenderingDevice) — evaluator BUILT.** `Pasture3DGraphGPU` (`src/pasture_3d_graph_gpu.cpp`,
+4. **GPU backend (RenderingDevice) — BUILT and wired into the live bake (2026-08-26).** `Pasture3DGraphGPU` (`src/pasture_3d_graph_gpu.cpp`,
    bound as `Pasture3DUtil.graph_eval_grid_gpu`) owns a local RenderingDevice and one compute shader that
    runs the graph's GRID passes (Blend, Smooth, Output) over resident storage buffers — one buffer per node,
    one readback of the output. The **generators (Input/Noise/Const) are CPU-computed and uploaded**:
@@ -183,9 +183,14 @@ failures) ===`.
    `bench/GraphGpuParityGate` (run NON-headless — the dummy headless driver has no local RD; it skip-passes
    under `--headless`) measured GPU vs CPU at ≤2e-6 m (Blend bit-exact, Smooth ~1e-6). Three-tier fallback
    GPU→C++→GDScript, as the SDF raster. Cross-platform (RenderingDevice); only the test matrix is Windows+Linux.
-   **Still pending:** wire the GPU tier into the native rasteriser's `brush_mod_graph` (a size threshold like
-   the SDF raster's `gpu_raster_threshold`, chosen from a bake benchmark) so the live bake uses it above the
-   crossover. Small brush footprints stay on the CPU path, which the threshold picks.
+   **Live bake:** `brush_mod_graph` (native rasteriser) calls `graph_eval_grid_best` on a FROZEN miss — GPU
+   when the footprint is ≥ `graph_gpu_threshold()` cells and a local RD exists, else the CPU evaluator. The
+   threshold reads `ProjectSettings pasture_3d/performance/graph_gpu_threshold` (0 disables the GPU),
+   defaulting to **65536 (256²)** — the measured crossover (`bench/GraphGpuBenchGate`, NON-headless): per
+   shape smooth4 ~96², smooth2 ~128², noise+blend+smooth ~256², identity never (a do-nothing graph always
+   loses the transfer). 256² is the conservative pick — the heaviest realistic filter has crossed over, so
+   no plausible graph regresses above it, and the small-brush bake stays on the CPU where its overhead is
+   least. `GraphGpuBenchGate` is a timing bench (like `SimProfile`), so it is NOT in `gates.txt`.
 5. **Multi-output channels** — a node exposing named outputs (flow/erosion/…), generalizing
    `publish_fields`.
 

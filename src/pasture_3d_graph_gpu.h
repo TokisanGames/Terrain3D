@@ -46,4 +46,20 @@ private:
 	bool _ensure_init();
 };
 
+namespace godot {
+
+// The crossover, in cells (p_gw*p_gh), at or above which the GPU beats the CPU whole-graph evaluator for a
+// single MISS evaluation. Read from ProjectSettings pasture_3d/performance/graph_gpu_threshold; the default
+// is the measured crossover on the reference machine (GraphGpuBenchGate). 0 disables the GPU path entirely.
+int graph_gpu_threshold();
+
+// Production whole-graph evaluator for the live bake: runs on the GPU when the grid is at least
+// graph_gpu_threshold() cells AND a local RenderingDevice is available, otherwise (or on any GPU failure)
+// on the CPU (graph_eval_grid). Always returns the field — the three-tier GPU -> C++ fallback the SDF
+// raster uses. One persistent Pasture3DGraphGPU, so the shader compiles once across bakes.
+PackedFloat32Array graph_eval_grid_best(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
+		const PackedFloat32Array &p_input);
+
+} // namespace godot
+
 #endif // PASTURE_3D_GRAPH_GPU_H
