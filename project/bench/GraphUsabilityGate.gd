@@ -14,12 +14,13 @@ extends Node
 
 const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_frame_data.gd")
 const RerouteNodeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_reroute.gd")
+const ThumbnailGenScript = preload("res://addons/pasture_3d/src/graph_thumbnail_generator.gd")
 
 var _fail := 0
 
 
 func _ready() -> void:
-	print("=== GraphUsabilityGate: Terrain Graph Usability Phases 1, 2, 3 & 4 ===\n")
+	print("=== GraphUsabilityGate: Terrain Graph Usability Phases 1, 2, 3, 4 & 5 ===\n")
 	_a_registry_search_and_tags()
 	_b_subgraph_duplication_and_wire_remapping()
 	_c_clipboard_serialize_deserialize()
@@ -32,6 +33,8 @@ func _ready() -> void:
 	_j_solo_output_override()
 	_k_port_type_system_and_colors()
 	_l_drag_to_create_wiring()
+	_m_thumbnail_generation()
+	_n_preset_template_networks()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH USABILITY PASS" if _fail == 0 else "GRAPH USABILITY FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -570,6 +573,64 @@ func _l_drag_to_create_wiring() -> void:
 	print("    rapid disconnect wire -> connected=%s (want false)" % has_conn_after_cut)
 	if has_conn_after_cut:
 		_fail += 1; print("    !! wire disconnection failed")
+		
+	remove_child(editor)
+	editor.free()
+
+
+func _m_thumbnail_generation() -> void:
+	print("[M] 2D heightmap & mask thumbnail generation")
+	var g = Pasture3DTerrainGraph.new()
+	var nz = Pasture3DGraphNodeRegistry.create(&"noise")
+	nz.set("amplitude", 20.0)
+	var fnz = FastNoiseLite.new()
+	fnz.frequency = 0.02
+	nz.set("noise", fnz)
+	var n0 = g.add_node(nz, Vector2(100, 100))
+	
+	var mask = Pasture3DGraphNodeRegistry.create(&"mask")
+	var n1 = g.add_node(mask, Vector2(300, 100))
+	g.connect_ports(n0, 0, n1, 0)
+	
+	var tex_nz = ThumbnailGenScript.generate_thumbnail(g, n0, 48)
+	var tex_mask = ThumbnailGenScript.generate_thumbnail(g, n1, 48)
+	
+	var nz_ok: bool = tex_nz != null and tex_nz.get_width() == 48 and tex_nz.get_height() == 48
+	var mask_ok: bool = tex_mask != null and tex_mask.get_width() == 48 and tex_mask.get_height() == 48
+	
+	print("    noise thumbnail ok=%s, mask thumbnail ok=%s" % [nz_ok, mask_ok])
+	if not nz_ok or not mask_ok:
+		_fail += 1; print("    !! thumbnail generation failed")
+
+
+func _n_preset_template_networks() -> void:
+	print("[N] Preset template network insertion & grouping")
+	var g = Pasture3DTerrainGraph.new()
+	var editor = Pasture3DGraphEditor.new()
+	add_child(editor)
+	editor._build_ui()
+	editor.edit_graph(g)
+	
+	# Insert Alpine Mountain preset (id=0)
+	editor._insert_preset(0, Vector2(100, 100))
+	
+	var node_count: int = g.nodes.size()
+	var conn_count: int = g.connections.size()
+	var frame_count: int = g.frames.size()
+	var frame_title: String = g.frames[0].title if frame_count > 0 else ""
+	
+	print("    alpine preset -> nodes=%d (want 3), conns=%d (want 2), frames=%d title='%s'" % [
+		node_count, conn_count, frame_count, frame_title
+	])
+	if node_count != 3 or conn_count != 2 or frame_count != 1 or frame_title != "Alpine Mountain":
+		_fail += 1; print("    !! preset insertion did not construct correct network or frame")
+		
+	# Test Undo
+	var ur = editor._get_undo_redo()
+	ur.undo()
+	print("    undo preset -> nodes=%d, frames=%d (want 0, 0)" % [g.nodes.size(), g.frames.size()])
+	if not g.nodes.is_empty() or not g.frames.is_empty():
+		_fail += 1; print("    !! undoing preset failed to revert graph")
 		
 	remove_child(editor)
 	editor.free()

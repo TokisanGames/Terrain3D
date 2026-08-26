@@ -11,6 +11,7 @@ class_name Pasture3DGraphEditor
 extends VBoxContainer
 
 const SearchDialogScript = preload("res://addons/pasture_3d/src/graph_search_dialog.gd")
+const ThumbnailGenScript = preload("res://addons/pasture_3d/src/graph_thumbnail_generator.gd")
 
 const PORT_COLORS: Array[Color] = [
 	Color(0.36, 0.68, 0.89), # 0: HEIGHT (#5dade2) - Sky Blue
@@ -25,11 +26,15 @@ var graph: Pasture3DTerrainGraph
 var _graphedit: GraphEdit
 var _search_dialog: PopupPanel
 var _add_button: Button
+var _presets_button: MenuButton
 var _frame_button: Button
+var _preview_button: Button
 var _minimap_button: Button
 var _arrange_button: Button
 var _title: Label
 var _hint: Label
+
+var _show_previews: bool = false
 
 ## Standalone fallback when running without EditorPlugin (e.g. tests)
 var _local_undo_redo: UndoRedo = UndoRedo.new()
@@ -81,6 +86,19 @@ func _build_ui() -> void:
 	_add_button.tooltip_text = "Add a new node to the graph (or press Tab / Space over canvas)"
 	_add_button.pressed.connect(_on_add_button_pressed)
 	bar.add_child(_add_button)
+
+	_presets_button = MenuButton.new()
+	_presets_button.text = "Presets"
+	_presets_button.tooltip_text = "Insert pre-configured terrain graph template networks"
+	var popup: PopupMenu = _presets_button.get_popup()
+	popup.clear()
+	popup.add_item("Alpine Mountain (Noise + Strata + Smooth)", 0)
+	popup.add_item("Desert Dunes (Dunes + Ripple Furrows)", 1)
+	popup.add_item("Impact Crater Field (Crater + Relief)", 2)
+	popup.add_item("Terraced Valley (Input + Terraces)", 3)
+	popup.add_item("Steep Flank Mask (Slope Gate + Noise)", 4)
+	popup.id_pressed.connect(_on_preset_selected)
+	bar.add_child(_presets_button)
 	
 	_frame_button = Button.new()
 	_frame_button.text = "Group Frame"
@@ -88,6 +106,17 @@ func _build_ui() -> void:
 	_frame_button.pressed.connect(group_selected_in_frame)
 	bar.add_child(_frame_button)
 	
+	_preview_button = Button.new()
+	_preview_button.text = "2D Previews"
+	_preview_button.toggle_mode = true
+	_preview_button.button_pressed = false
+	_preview_button.tooltip_text = "Toggle inline 2D heightmap thumbnail previews"
+	_preview_button.toggled.connect(func(enabled: bool):
+		_show_previews = enabled
+		_rebuild()
+	)
+	bar.add_child(_preview_button)
+
 	_minimap_button = Button.new()
 	_minimap_button.text = "Minimap"
 	_minimap_button.toggle_mode = true
@@ -233,7 +262,9 @@ func _rebuild() -> void:
 	_clear()
 	var has := graph != null
 	if _add_button != null: _add_button.disabled = not has
+	if _presets_button != null: _presets_button.disabled = not has
 	if _frame_button != null: _frame_button.disabled = not has
+	if _preview_button != null: _preview_button.disabled = not has
 	if _minimap_button != null: _minimap_button.disabled = not has
 	if _arrange_button != null: _arrange_button.disabled = not has
 	if _title != null: _title.text = "  editing: %s" % _graph_label() if has else "  (no graph)"
@@ -376,6 +407,18 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 		
 		p_gn.add_child(row_box)
 		p_gn.set_slot(r, r < n_in, in_type, in_color, has_right and r == 0, out_type, out_color)
+
+	# 2D Heightmap Preview Thumbnail (if enabled and not collapsed)
+	if _show_previews and not p_node.collapsed:
+		var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, p_index, 48)
+		if tex != null:
+			var center_box := CenterContainer.new()
+			var trect := TextureRect.new()
+			trect.texture = tex
+			trect.custom_minimum_size = Vector2(48, 48)
+			trect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			center_box.add_child(trect)
+			p_gn.add_child(center_box)
 
 	# Inline parameter controls (if node is not collapsed)
 	if not p_node.collapsed:
@@ -520,6 +563,120 @@ func _graph_label() -> String:
 	if not graph.resource_path.is_empty():
 		return graph.resource_path.get_file()
 	return "Terrain Graph"
+
+
+# ---- Preset Templates -------------------------------------------------------------------------------
+
+func _on_preset_selected(p_id: int) -> void:
+	if graph == null:
+		return
+	var center_graph: Vector2 = (_graphedit.scroll_offset + _graphedit.size * 0.5) / _graphedit.zoom
+	_insert_preset(p_id, center_graph)
+
+
+func _insert_preset(p_id: int, p_pos: Vector2) -> void:
+	var old_nodes := graph.nodes.duplicate()
+	var old_conns := graph.connections.duplicate()
+	var old_frames := graph.frames.duplicate()
+	var base_idx := graph.nodes.size()
+	
+	_ur_create_action("Insert Terrain Preset")
+	
+	match p_id:
+		0: # Alpine Mountain (Noise + Strata + Smooth)
+			var nz = Pasture3DGraphNodeRegistry.create(&"noise")
+			nz.set("amplitude", 35.0)
+			var fnz = FastNoiseLite.new()
+			fnz.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+			fnz.frequency = 0.008
+			fnz.fractal_octaves = 5
+			nz.set("noise", fnz)
+			
+			var ter = Pasture3DGraphNodeRegistry.create(&"terrace")
+			ter.set("band_height", 8.0)
+			ter.set("hardness", 0.7)
+			
+			var sm = Pasture3DGraphNodeRegistry.create(&"smooth")
+			sm.set("passes", 2)
+			
+			_ur_add_do_method(graph, &"add_node", [nz, p_pos])
+			_ur_add_do_method(graph, &"add_node", [ter, p_pos + Vector2(220, 0)])
+			_ur_add_do_method(graph, &"add_node", [sm, p_pos + Vector2(440, 0)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2], "Alpine Mountain"])
+			
+		1: # Desert Dunes (Dunes + Ripple Furrows)
+			var dunes = Pasture3DGraphNodeRegistry.create(&"dunes")
+			dunes.set("amplitude", 12.0)
+			dunes.set("wavelength", 60.0)
+			dunes.set("asymmetry", 0.75)
+			
+			var furrows = Pasture3DGraphNodeRegistry.create(&"furrows")
+			furrows.set("amplitude", 0.8)
+			furrows.set("spacing", 6.0)
+			
+			var blend = Pasture3DGraphNodeRegistry.create(&"blend")
+			blend.set("mode", 0) # ADD
+			
+			_ur_add_do_method(graph, &"add_node", [dunes, p_pos])
+			_ur_add_do_method(graph, &"add_node", [furrows, p_pos + Vector2(0, 150)])
+			_ur_add_do_method(graph, &"add_node", [blend, p_pos + Vector2(240, 75)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 1])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2], "Desert Dunes"])
+			
+		2: # Impact Crater Field
+			var crater = Pasture3DGraphNodeRegistry.create(&"crater")
+			var nz = Pasture3DGraphNodeRegistry.create(&"noise")
+			nz.set("amplitude", 5.0)
+			var blend = Pasture3DGraphNodeRegistry.create(&"blend")
+			blend.set("mode", 3) # MAX
+			
+			_ur_add_do_method(graph, &"add_node", [crater, p_pos])
+			_ur_add_do_method(graph, &"add_node", [nz, p_pos + Vector2(0, 150)])
+			_ur_add_do_method(graph, &"add_node", [blend, p_pos + Vector2(240, 75)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 1])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2], "Impact Crater Field"])
+			
+		3: # Terraced Valley (Input + Terraces)
+			var inp = Pasture3DGraphNodeRegistry.create(&"input")
+			var ter = Pasture3DGraphNodeRegistry.create(&"terrace")
+			ter.set("band_height", 12.0)
+			ter.set("hardness", 0.85)
+			
+			_ur_add_do_method(graph, &"add_node", [inp, p_pos])
+			_ur_add_do_method(graph, &"add_node", [ter, p_pos + Vector2(200, 0)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1], "Terraced Valley"])
+			
+		4: # Steep Flank Mask (Slope Gate + Noise)
+			var inp = Pasture3DGraphNodeRegistry.create(&"input")
+			var mask = Pasture3DGraphNodeRegistry.create(&"mask")
+			mask.set("property", 0) # Slope
+			mask.set("band_min", 30.0)
+			mask.set("band_max", 90.0)
+			
+			var nz = Pasture3DGraphNodeRegistry.create(&"noise")
+			nz.set("amplitude", 8.0)
+			
+			var blend = Pasture3DGraphNodeRegistry.create(&"blend")
+			blend.set("mode", 2) # MUL
+			
+			_ur_add_do_method(graph, &"add_node", [inp, p_pos])
+			_ur_add_do_method(graph, &"add_node", [mask, p_pos + Vector2(200, 0)])
+			_ur_add_do_method(graph, &"add_node", [nz, p_pos + Vector2(200, 150)])
+			_ur_add_do_method(graph, &"add_node", [blend, p_pos + Vector2(420, 75)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 3, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 2, 0, base_idx + 3, 1])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2, base_idx + 3], "Steep Flank Mask"])
+			
+	_ur_add_undo_property(graph, &"nodes", old_nodes)
+	_ur_add_undo_property(graph, &"connections", old_conns)
+	_ur_add_undo_property(graph, &"frames", old_frames)
+	_ur_commit()
 
 
 # ---- Search & Creation ------------------------------------------------------------------------------

@@ -192,15 +192,16 @@ func remove_frame(p_index: int) -> void:
 
 
 ## Groups the specified node indices into a new GraphFrame bounding them. Returns frame index.
-func group_nodes_in_frame(p_indices: Array[int], p_title: String = "Group", p_tint: Color = Color(0.2, 0.25, 0.35, 0.75)) -> int:
+func group_nodes_in_frame(p_indices: Array, p_title: String = "Group", p_tint: Color = Color(0.2, 0.25, 0.35, 0.75)) -> int:
 	var valid_indices: Array[int] = []
 	var min_pos := Vector2(INF, INF)
 	var max_pos := Vector2(-INF, -INF)
 	
 	for idx in p_indices:
-		if idx >= 0 and idx < nodes.size() and nodes[idx] != null:
-			valid_indices.append(idx)
-			var pos: Vector2 = nodes[idx].graph_position
+		var i := int(idx)
+		if i >= 0 and i < nodes.size() and nodes[i] != null:
+			valid_indices.append(i)
+			var pos: Vector2 = nodes[i].graph_position
 			min_pos = min_pos.min(pos)
 			max_pos = max_pos.max(pos + Vector2(200, 100))
 			
