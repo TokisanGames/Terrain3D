@@ -1,8 +1,8 @@
 # Pasture3D Terrain Graph — Spec
 
-**Status:** Increments 1–4 built (2026-08-25) — the headless evaluator core, the brush **stack mount**
-(`Pasture3DNodeGraph`, FROZEN by default), and the **visual GraphEdit editor** (`Pasture3DGraphEditor`).
-No C++/GPU yet (see Build order). Target: Godot 4.7, Pasture3D.
+**Status:** Increments 1–5 built (2026-08-25) — the headless evaluator core (with the **cell-node fold**),
+the brush **stack mount** (`Pasture3DNodeGraph`, FROZEN by default), and the **visual GraphEdit editor**
+(`Pasture3DGraphEditor`). No C++/GPU backend yet (see Build order). Target: Godot 4.7, Pasture3D.
 **Builds on:** `PASTURE3D_NODE_VOCABULARY.md` (node / op() / cell·grid), the relief op-program
 (`pasture3d_relief_material.gd`), and the brush node stack (`pasture3d_terrain_brush.gd`).
 
@@ -53,10 +53,11 @@ landscape" is a resource. The shape maps 1:1 onto Godot `GraphEdit` for the late
    `eval_grid`. An unwired input port reads a clean zeros grid.
 4. Return the output node's grid.
 
-**Not yet, on purpose:** the **cell-node fold** — fusing a run of cell nodes into one loop (as the stack
-does), then lowering that fused run into the relief op-program, then a **C++/GPU (RenderingDevice)**
-backend that keeps grids resident and reads back once. That is a pure optimization whose oracle is this
-per-node evaluator. The mask is **plumbed** to grid nodes but not applied globally: where a graph's
+**Built since (increment 5): the cell-node fold** — a run of cell nodes is fused into one loop and only
+grid nodes / the output / fan-out points / grid-node inputs materialise; `_eval_unfolded` (the per-node
+evaluator above) is kept as the oracle it matches (`bench/GraphFoldGate`). **Still not yet:** lowering a
+fused run into the relief op-program, and a **C++/GPU (RenderingDevice)** backend that keeps grids
+resident and reads back once. That is a pure optimization whose oracle is this per-node evaluator. The mask is **plumbed** to grid nodes but not applied globally: where a graph's
 result lands is the host's concern (a whole-terrain bake, or the masked brush mount), not the graph's.
 
 ---
@@ -111,8 +112,10 @@ failures) ===`.
    params are edited in the Inspector (select a node → `EditorInterface.edit_resource`). The graph's
    editing API (`add_node`/`connect_ports`/…) is on `Pasture3DTerrainGraph` and gated by
    `bench/GraphEditModelGate`. **Later:** inline node params, undo/redo, copy/paste, node search, minimap.
-3. **Cell-node fold + C++ parity** — fuse cell-node runs; lower them into the relief op-program; a C++
-   evaluator matched to the GDScript oracle to 1e-4, as relief is.
+3. **Cell-node fold — BUILT (increment 5).** `evaluate` fuses cell-node runs into one loop, materialising
+   only grid nodes / the output / fan-out points / grid-node inputs; `_eval_unfolded` is the oracle it
+   matches (gate `bench/GraphFoldGate`). **Still pending:** lowering a fused run into the relief op-program
+   and a C++ evaluator matched to the GDScript oracle to 1e-4, as relief is.
 4. **GPU backend (RenderingDevice)** — each grid pass a compute dispatch over resident textures, the
    mask bound, one readback at the bake. Keeps cross-platform (see the `gpu_spike/` de-risk); only the
    test matrix is scoped to Windows+Linux.

@@ -78,6 +78,13 @@ bench/GraphMountGate.tscn
 # re-evaluates, Bake re-evaluates, and a new extent misses. No terrain, no dll.
 bench/GraphFreezeGate.tscn
 
+# --- Terrain graph, increment 5: the cell-node fold (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
+# Watched green 2026-08-25 (0 failures). The folded evaluate (materialise only grid nodes, the output,
+# fan-out points and grid-node inputs; fold cell-node runs into one loop) matches a double-precision math
+# oracle and the pre-fold _eval_unfolded reference, actually folds (fewer materialised grids), and
+# materialises fan-out nodes. Pure GDScript.
+bench/GraphFoldGate.tscn
+
 # --- Terrain graph, increment 3: the editor's model layer (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
 # Watched green 2026-08-25 (0 failures). The GraphEdit VIEW is editor-only (can't assert visuals
 # headlessly, like the gizmo gates), so the mutation API it drives — add / connect (one wire per port) /
