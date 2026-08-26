@@ -1133,6 +1133,20 @@ PackedFloat32Array Pasture3DUtil::graph_cell_eval_grid(const Dictionary &p_progr
 	return out;
 }
 
+// Native whole-graph evaluator — a thin binding over graph_eval_grid so a headless gate and the native
+// rasteriser share one implementation.
+PackedFloat32Array Pasture3DUtil::graph_eval_grid(const Dictionary &p_program, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const PackedFloat32Array &p_input) {
+	godot::GraphProgram prog;
+	if (!godot::graph_build(p_program, prog)) {
+		PackedFloat32Array out;
+		out.resize(MAX(p_gw, 0) * MAX(p_gh, 0));
+		out.fill(0.f);
+		return out;
+	}
+	return godot::graph_eval_grid(prog, p_gw, p_gh, p_rect, p_input);
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1189,4 +1203,8 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("graph_cell_eval_grid", "program", "gw", "gh", "rect"),
 			&Pasture3DUtil::graph_cell_eval_grid);
+	// Terrain graph — the native whole-graph evaluator (grid-pass interleave).
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("graph_eval_grid", "program", "gw", "gh", "rect", "input"),
+			&Pasture3DUtil::graph_eval_grid);
 }

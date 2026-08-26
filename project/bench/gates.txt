@@ -85,6 +85,13 @@ bench/GraphFreezeGate.tscn
 # materialises fan-out nodes. Pure GDScript.
 bench/GraphFoldGate.tscn
 
+# --- Terrain graph, native whole-graph evaluator / grid-pass interleave (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
+# Needs the freshly built DLL (Pasture3DUtil.graph_eval_grid). The native evaluator materialises every node
+# — Input/Smooth/Output included — and matches the GDScript _eval_unfolded to float32 rounding and the
+# folded evaluate loosely, over a real input surface; native_supported / compile_graph_program reflect the
+# graph (a cycle refuses). Controls throughout.
+bench/GraphNativeGraphGate.tscn
+
 # --- Terrain graph, Input/Output filter paradigm (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
 # The graph reads the surface handed to it (an Input node) and its Output is the result: a bare
 # Input->Output is the identity, Input->Smooth->Output == blur_nan(surface), Input->Blend(ADD)<-Const adds a

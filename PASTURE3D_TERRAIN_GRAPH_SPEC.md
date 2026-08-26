@@ -156,9 +156,16 @@ failures) ===`.
    `src/pasture_3d_graph_ops.h`); the native `Pasture3DUtil.graph_cell_eval_grid` evaluates it per cell and
    matches `evaluate` to float32 rounding (gate `bench/GraphCppParityGate`, ≤5e-7 m measured). Modelled on
    the relief op-program's style, not a literal reuse — a graph diamond does not fit relief's linear
-   accumulator, and the noise resource travels as-is rather than being rebuilt from params. **Still
-   pending:** a native grid-pass interleave (so Smooth runs natively and `_stack_forces_gdscript` can flip
-   off), then the GPU backend below.
+   accumulator, and the noise resource travels as-is rather than being rebuilt from params.
+   **Native grid-pass interleave — stage 1 BUILT.** `Pasture3DTerrainGraph.compile_graph_program()` lowers
+   the WHOLE graph (Input/Smooth/Output plus the cell ops) to a flat program; `Pasture3DUtil.graph_eval_grid`
+   (C++ `graph_eval_grid`, `pasture_3d_graph_ops`) materialises every node in topological order — the
+   analogue of `_eval_unfolded`, which it matches to float32 rounding (gate `bench/GraphNativeGraphGate`),
+   and the folded `evaluate` loosely. `native_supported()` reports whether every op in the ancestry is one
+   the native evaluator implements. **Stage 2 pending:** wire a `BrushModStep::GRAPH` into the native
+   rasteriser's stack loop (absolute surface + amount·profile composite + a frozen cache mirroring
+   `brush_mod_erode`), flip `_stack_forces_gdscript` to only force GDScript when `not native_supported()`,
+   and gate it with a native-vs-GDScript A/B bake on a terrain fixture. Then the GPU backend below.
 4. **GPU backend (RenderingDevice)** — each grid pass a compute dispatch over resident textures, the
    mask bound, one readback at the bake. Keeps cross-platform (see the `gpu_spike/` de-risk); only the
    test matrix is scoped to Windows+Linux.

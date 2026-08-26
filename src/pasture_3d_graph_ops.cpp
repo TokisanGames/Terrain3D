@@ -5,6 +5,8 @@
 #include "pasture_3d_graph_ops.h"
 
 #include <algorithm>
+#include <cmath>
+#include <utility>
 
 using namespace godot;
 
@@ -93,6 +95,166 @@ void graph_cell_to_world(int p_ix, int p_iz, int p_gw, int p_gh, const Rect2 &p_
 	const double dz = (double)p_rect.size.y / (double)(p_gh < 1 ? 1 : p_gh);
 	r_wx = (double)p_rect.position.x + ((double)p_ix + 0.5) * dx;
 	r_wz = (double)p_rect.position.y + ((double)p_iz + 0.5) * dz;
+}
+
+void graph_nan_blur(std::vector<float> &r_vals, int p_gw, int p_gh, int p_passes) {
+	if (p_passes <= 0) {
+		return;
+	}
+	std::vector<float> tmp((size_t)p_gw * p_gh);
+	for (int pass = 0; pass < p_passes; pass++) {
+		// Horizontal: vals -> tmp
+		for (int iz = 0; iz < p_gh; iz++) {
+			const int row = iz * p_gw;
+			for (int ix = 0; ix < p_gw; ix++) {
+				const float v = r_vals[row + ix];
+				if (std::isnan(v)) { tmp[row + ix] = (float)NAN; continue; }
+				float sum = 0.5f * v, weight = 0.5f;
+				if (ix > 0 && !std::isnan(r_vals[row + ix - 1])) { sum += 0.25f * r_vals[row + ix - 1]; weight += 0.25f; }
+				if (ix < p_gw - 1 && !std::isnan(r_vals[row + ix + 1])) { sum += 0.25f * r_vals[row + ix + 1]; weight += 0.25f; }
+				tmp[row + ix] = sum / weight;
+			}
+		}
+		// Vertical: tmp -> vals
+		for (int iz = 0; iz < p_gh; iz++) {
+			const int row = iz * p_gw;
+			for (int ix = 0; ix < p_gw; ix++) {
+				const float v = tmp[row + ix];
+				if (std::isnan(v)) { r_vals[row + ix] = (float)NAN; continue; }
+				float sum = 0.5f * v, weight = 0.5f;
+				if (iz > 0 && !std::isnan(tmp[(iz - 1) * p_gw + ix])) { sum += 0.25f * tmp[(iz - 1) * p_gw + ix]; weight += 0.25f; }
+				if (iz < p_gh - 1 && !std::isnan(tmp[(iz + 1) * p_gw + ix])) { sum += 0.25f * tmp[(iz + 1) * p_gw + ix]; weight += 0.25f; }
+				r_vals[row + ix] = sum / weight;
+			}
+		}
+	}
+}
+
+bool graph_build(const Dictionary &p_prog, GraphProgram &r_out) {
+	r_out = GraphProgram();
+	if (!p_prog.has("ops") || !p_prog.has("params") || !p_prog.has("in0") ||
+			!p_prog.has("in1") || !p_prog.has("noise") || !p_prog.has("output")) {
+		return false;
+	}
+	r_out.ops = p_prog["ops"];
+	r_out.params = p_prog["params"];
+	r_out.in0 = p_prog["in0"];
+	r_out.in1 = p_prog["in1"];
+	r_out.output = (int)p_prog["output"];
+	const int n = r_out.ops.size();
+	const Array noise_in = p_prog["noise"];
+	if (r_out.params.size() != n || r_out.in0.size() != n || r_out.in1.size() != n || noise_in.size() != n) {
+		r_out = GraphProgram();
+		return false;
+	}
+	r_out.noise.resize(n);
+	for (int i = 0; i < n; i++) {
+		r_out.noise[i] = Ref<FastNoiseLite>(noise_in[i]);
+	}
+	r_out.count = n;
+	if (r_out.is_empty()) {
+		r_out = GraphProgram();
+		return false;
+	}
+	return true;
+}
+
+PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
+		const PackedFloat32Array &p_input) {
+	const int n = (p_gw > 0 ? p_gw : 0) * (p_gh > 0 ? p_gh : 0);
+	PackedFloat32Array out;
+	out.resize(n);
+	{
+		float *w = out.ptrw();
+		for (int i = 0; i < n; i++) {
+			w[i] = 0.f;
+		}
+	}
+	if (n == 0 || p_prog.is_empty()) {
+		return out;
+	}
+	const bool have_input = p_input.size() == n;
+	const int32_t *ops = p_prog.ops.ptr();
+	const float *params = p_prog.params.ptr();
+	const int32_t *in0 = p_prog.in0.ptr();
+	const int32_t *in1 = p_prog.in1.ptr();
+
+	// One materialised grid per slot; a slot's inputs are always earlier slots (topological order).
+	std::vector<std::vector<float>> grids(p_prog.count);
+	for (int s = 0; s < p_prog.count; s++) {
+		std::vector<float> g((size_t)n, 0.f);
+		switch (ops[s]) {
+			case GRAPH_OP_INPUT: {
+				if (have_input) {
+					const float *src = p_input.ptr();
+					for (int i = 0; i < n; i++) {
+						g[i] = src[i];
+					}
+				}
+				// else: a flat 0, matching _surface_grid handing back zeros when no surface was passed.
+			} break;
+			case GRAPH_OP_NOISE: {
+				const Ref<FastNoiseLite> &nz = p_prog.noise[s];
+				if (nz.is_valid()) {
+					const double amp = (double)params[s];
+					for (int iz = 0; iz < p_gh; iz++) {
+						const int row = iz * p_gw;
+						for (int ix = 0; ix < p_gw; ix++) {
+							double wx, wz;
+							graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
+							g[row + ix] = (float)(amp * (double)nz->get_noise_2d(wx, wz));
+						}
+					}
+				}
+			} break;
+			case GRAPH_OP_CONST: {
+				const float v = params[s];
+				for (int i = 0; i < n; i++) {
+					g[i] = v;
+				}
+			} break;
+			case GRAPH_OP_BLEND: {
+				const std::vector<float> *ga = in0[s] >= 0 ? &grids[in0[s]] : nullptr;
+				const std::vector<float> *gb = in1[s] >= 0 ? &grids[in1[s]] : nullptr;
+				const int mode = (int)params[s];
+				for (int i = 0; i < n; i++) {
+					const double a = ga ? (double)(*ga)[i] : 0.0;
+					const double b = gb ? (double)(*gb)[i] : 0.0;
+					double val;
+					switch (mode) {
+						case GRAPH_BLEND_ADD: val = a + b; break;
+						case GRAPH_BLEND_SUB: val = a - b; break;
+						case GRAPH_BLEND_MUL: val = a * b; break;
+						case GRAPH_BLEND_MAX: val = a > b ? a : b; break;
+						case GRAPH_BLEND_MIN: val = a < b ? a : b; break;
+						default: val = a; break;
+					}
+					g[i] = (float)val;
+				}
+			} break;
+			case GRAPH_OP_SMOOTH: {
+				if (in0[s] >= 0) {
+					g = grids[in0[s]]; // duplicate the upstream grid; blur mutates in place
+				}
+				graph_nan_blur(g, p_gw, p_gh, (int)params[s]);
+			} break;
+			case GRAPH_OP_OUTPUT: {
+				if (in0[s] >= 0) {
+					g = grids[in0[s]];
+				}
+			} break;
+			default:
+				break; // an unknown op stays a flat 0 (the GDScript compiler refuses to emit one)
+		}
+		grids[s] = std::move(g);
+	}
+
+	const std::vector<float> &res = grids[p_prog.output];
+	float *w = out.ptrw();
+	for (int i = 0; i < n; i++) {
+		w[i] = res[i];
+	}
+	return out;
 }
 
 } // namespace godot
