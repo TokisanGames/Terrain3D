@@ -66,6 +66,12 @@ bench/StreamRippleCheck.tscn
 # unwired-input-reads-0 hold, each with a control that moves the field.
 bench/TerrainGraphGate.tscn
 
+# --- Terrain graph, increment 2: the brush stack mount (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
+# Watched green 2026-08-25 (0 failures). Drives the real GDScript executor (_run_modifier_stack ->
+# _apply_graph_step) on a Pasture3DMound: world-aligned add, profile feathering, a grid node inside the
+# graph, and that an active graph modifier forces the GDScript path. No terrain, no dll needed.
+bench/GraphMountGate.tscn
+
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 # Watched green 2026-08-23, 8/8. It reaches across three files — the Pond, the Add Water hook on
 # Pasture3DTerrainBrush, and level_to_spline() on Pasture3DWaterBody — so it is the gate that notices
