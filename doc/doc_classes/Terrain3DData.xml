@@ -229,6 +229,7 @@
 				Returns the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates.
 				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
 				Uses [method Terrain3DRegion.get_active_color_map] for the color map.
+				Note: If using [member Terrain3D.color_compress_mode], Godot Image.set_pixel() and get_pixel() do not work at runtime on compressed images and will print errors.
 			</description>
 		</method>
 		<method name="get_region" qualifiers="const">
@@ -556,7 +557,7 @@
 			<description>
 				Sets the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use [method Terrain3DRegion.get_map], then edit the images directly.
 				After setting pixels you need to call [method update_maps]. You may also need to regenerate collision if you don't have dynamic collision enabled.
-				Note: If writing color or wetness, compressed color maps cannot be modified at runtime. See [member Terrain3D.color_compress_mode].
+				Note: If using [member Terrain3D.color_compress_mode], Godot Image.set_pixel() and get_pixel() do not work at runtime on compressed images and will print errors.
 			</description>
 		</method>
 		<method name="set_region_deleted">

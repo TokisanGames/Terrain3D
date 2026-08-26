@@ -174,7 +174,9 @@ Property Descriptions
 - |void| **set_color_map**\ (\ value\: ``Image``\ )
 - ``Image`` **get_color_map**\ (\ )
 
-This map is used for wetness and to paint color that blends in to the terrain textures.
+This is the map that is used for wetness and to paint color that blends in to the terrain textures.
+
+\ ``get_color_map()`` returns the uncompressed map, only.
 
 In game, this will be cleared if :ref:`compressed_color_map<class_Terrain3DRegion_property_compressed_color_map>` is set.
 
@@ -201,11 +203,11 @@ Image format: FORMAT_RGBA8, 32-bits per pixel as four 8-bit components.
 
 **Experimental:** This function is experimental.
 
-This is a compressed version of the color map.
+This is the compressed version of the :ref:`color_map<class_Terrain3DRegion_property_color_map>`.
 
 In editor, it will be cleared and will be regenerated upon save if the region is modified or :ref:`Terrain3D.color_compress_mode<class_Terrain3D_property_color_compress_mode>` is set differently than what is stored on disk.
 
-In game, this map is preferred by functions over :ref:`color_map<class_Terrain3DRegion_property_color_map>`. The compressed color map cannot be modified, so if you want to edit it at runtime, disable color compression.
+In game, this map is preferred by functions over over the uncompressed map. The compressed color map cannot be modified, so if you want to edit it at runtime, disable color compression.
 
 .. rst-class:: classref-item-separator
 

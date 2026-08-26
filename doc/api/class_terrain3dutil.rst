@@ -300,9 +300,9 @@ Returns the blend value from a control map pixel.
 
 CompressMode **get_compress_mode**\ (\ image_format\: Image.Format\ ) |static| :ref:`🔗<class_Terrain3DUtil_method_get_compress_mode>`
 
-Converts a Godot ``Image.Format`` enum value to a :ref:`CompressMode<enum_Terrain3D_CompressMode>` enum value (equivalent to Godot ``Image.CompressMode]).
+Converts a Godot ``Image.Format`` enum value to a :ref:`CompressMode<enum_Terrain3D_CompressMode>` enum value (equivalent to Godot ``Image.CompressMode``).
 
-e.g. Input [code skip-lint]Image::FORMAT_DXT5`` and receive Godot ``Terrain3D.CompressMode.COMPRESS_S3TC``.
+e.g. Input ``Image::FORMAT_DXT5`` and receive Godot ``Terrain3D.CompressMode.COMPRESS_S3TC``.
 
 .. rst-class:: classref-item-separator
 

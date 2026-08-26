@@ -803,6 +803,8 @@ Returns ``Color(NAN, NAN, NAN, NAN)`` if the position is outside of defined regi
 
 Uses :ref:`Terrain3DRegion.get_active_color_map()<class_Terrain3DRegion_method_get_active_color_map>` for the color map.
 
+Note: If using :ref:`Terrain3D.color_compress_mode<class_Terrain3D_property_color_compress_mode>`, Godot Image.set_pixel() and get_pixel() do not work at runtime on compressed images and will print errors.
+
 .. rst-class:: classref-item-separator
 
 ----
@@ -1329,7 +1331,7 @@ Sets the pixel for the map type associated with the specified position. Global p
 
 After setting pixels you need to call :ref:`update_maps()<class_Terrain3DData_method_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
 
-Note: If writing color or wetness, compressed color maps cannot be modified at runtime. See :ref:`Terrain3D.color_compress_mode<class_Terrain3D_property_color_compress_mode>`.
+Note: If using :ref:`Terrain3D.color_compress_mode<class_Terrain3D_property_color_compress_mode>`, Godot Image.set_pixel() and get_pixel() do not work at runtime on compressed images and will print errors.
 
 .. rst-class:: classref-item-separator
 
