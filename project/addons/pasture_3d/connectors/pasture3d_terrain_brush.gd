@@ -3801,12 +3801,18 @@ func _apply_field_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	return p_vals
 
 
-## One Pasture3DNodeGraph over the whole grid: evaluate its Pasture3DTerrainGraph at THIS brush's exact
-## per-cell world coords, then add it in, feathered by the interior profile so the rim stays clean.
+## One Pasture3DNodeGraph over the whole grid, as a FILTER (input → output paradigm): feed the graph the
+## working surface entering this step (an Input node reads it), evaluate at THIS brush's exact per-cell
+## world coords, and composite the graph's output back over the surface — feathered by the interior profile
+## so the rim stays clean, scaled by Strength as an amount (0 = no change, 1 = full effect at the centre).
+## A pure generator (no Input node) still runs: its output simply does not depend on the surface, so the
+## graph replaces toward it. To ADD relief on top of the brush, wire Input → Blend(ADD) ← Noise → Output.
 ##
-## The world mapping must match the cell loop's (`min_x + ix*vs`), NOT the graph's own cell-centre helper,
-## or a graph baked through a brush would land half a cell off the terrain it sits on. A rect shifted by
-## half a cell makes Pasture3DTerrainGraph.cell_to_world reproduce `min_x + ix*vs` exactly.
+## Like the erosion step, the graph reads and writes an ABSOLUTE surface, so the working grid's delta (under
+## ADD) is lifted to absolute before the graph sees it and dropped back after. The world mapping must match
+## the cell loop's (`min_x + ix*vs`), NOT the graph's own cell-centre helper, or a graph baked through a
+## brush would land half a cell off the terrain it sits on; a half-cell-shifted rect makes
+## Pasture3DTerrainGraph.cell_to_world reproduce `min_x + ix*vs` exactly.
 func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		p_ctx: Dictionary) -> PackedFloat32Array:
 	var m: Pasture3DNodeGraph = p_step["mod"]
@@ -3820,47 +3826,68 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	var min_x: float = p_ctx["min_x"]
 	var min_z: float = p_ctx["min_z"]
 	var profile: PackedFloat64Array = p_ctx["profile"]
-	var s: float = m.strength
+	var add: bool = p_ctx["add"]
+	var basey: PackedFloat32Array = p_ctx["basey"]
+	var amount := clampf(m.strength, 0.0, 1.0)
+
+	# The absolute surface the graph reads and writes (§6.8, as the erosion step): the working grid holds a
+	# delta under ADD. NaN outside the loop stays NaN — an Input node's Smooth is NaN-aware and every write
+	# back below skips those cells.
+	var z := PackedFloat32Array()
+	z.resize(n)
+	for i in range(n):
+		var v: float = p_vals[i]
+		z[i] = (basey[i] + v) if add else v
+
+	var rect := Rect2(min_x - 0.5 * vs, min_z - 0.5 * vs, float(gw) * vs, float(gh) * vs)
+	# A FILTER graph (an Input node feeds the output) depends on the surface, so the cache must key on it —
+	# a drag changes the surface and the entry goes stale, exactly as the erosion cache does. A pure
+	# generator is world-fixed, so its key is just the content revision and the cache serves across drags.
+	var reads: bool = g.reads_input()
 
 	# ---- FROZEN cache (mirrors _apply_erosion_step §6.3) ----
 	#
-	# The cache holds the RAW graph output, keyed by extent. A MISS evaluates; a cached extent is SERVED,
-	# and served ANYWAY when the graph has changed since (reported stale) rather than cleared mid-edit.
-	# This is sound while dragging because the graph is world-fixed: the raw output over an extent does not
-	# depend on where the spline sits inside it — only `strength` and the interior profile, applied below,
-	# move with the footprint. The cache stores raw output, so a Strength edit reuses it for free.
+	# The cache holds the graph's ABSOLUTE output, keyed by extent. A MISS evaluates; a cached extent is
+	# SERVED, and served ANYWAY when its key no longer matches (reported stale) rather than cleared mid-edit.
+	# The output is composited per bake below, so Strength and the profile — which move with the footprint —
+	# reuse a cached evaluation for free.
 	var out_slot: Dictionary = p_step.get("out", {})
 	var frozen: bool = m.evaluation == Pasture3DNode.Evaluation.FROZEN
 	var extent: String = p_ctx.get("extent", "")
-	var key := g.content_key()
+	var key: int = hash([g.content_key(), z]) if reads else g.content_key()
 	var entry: Dictionary = m.cache_for(extent) if frozen and extent != "" else {}
-	var raw: PackedFloat32Array = entry.get("grid", PackedFloat32Array())
-	if raw.size() == n:
-		_add_graph_field(p_vals, raw, profile, s, n)
+	var zo: PackedFloat32Array = entry.get("grid", PackedFloat32Array())
+	if zo.size() == n:
+		_composite_graph(p_vals, z, zo, profile, amount, basey, add, n)
 		out_slot["stale"] = int(entry.get("key", 0)) != key
 		out_slot["served"] = true
 		return p_vals
 
-	# MISS: evaluate at the brush's exact per-cell world coords (min_x + ix*vs; a half-cell-shifted rect
-	# reproduces that through Pasture3DTerrainGraph.cell_to_world).
-	var rect := Rect2(min_x - 0.5 * vs, min_z - 0.5 * vs, float(gw) * vs, float(gh) * vs)
-	raw = g.evaluate(gw, gh, rect)
-	_add_graph_field(p_vals, raw, profile, s, n)
+	# MISS: evaluate, handing the graph the absolute surface for its Input node.
+	zo = g.evaluate(gw, gh, rect, null, z)
+	_composite_graph(p_vals, z, zo, profile, amount, basey, add, n)
 	if p_step.has("out"):
 		out_slot["key"] = key
-		out_slot["grid"] = raw
+		out_slot["grid"] = zo
 		out_slot["stale"] = false
+		out_slot["served"] = false
 	return p_vals
 
 
-## Add a graph's raw output into the working grid, scaled by strength and feathered by the interior
-## profile, skipping cells the brush does not contribute to (NaN).
-func _add_graph_field(p_vals: PackedFloat32Array, p_raw: PackedFloat32Array,
-		p_profile: PackedFloat64Array, p_strength: float, p_n: int) -> void:
+## Composite the graph's absolute output `p_zo` over the absolute input surface `p_z`, feathered by the
+## interior profile and scaled by `p_amount` (0 = no change, 1 = full effect at the profile's centre), then
+## write it back into the working grid in that grid's own units (a delta under ADD). Cells the brush does
+## not contribute to (NaN) pass through untouched. `p_zo == p_z` (a bare Input → Output) is the identity.
+func _composite_graph(p_vals: PackedFloat32Array, p_z: PackedFloat32Array, p_zo: PackedFloat32Array,
+		p_profile: PackedFloat64Array, p_amount: float, p_basey: PackedFloat32Array,
+		p_add: bool, p_n: int) -> void:
 	for k in range(p_n):
 		var v: float = p_vals[k]
-		if is_finite(v):
-			p_vals[k] = v + p_strength * p_raw[k] * p_profile[k]
+		if not is_finite(v):
+			continue
+		var t: float = p_amount * p_profile[k]
+		var abs_out: float = p_z[k] + (p_zo[k] - p_z[k]) * t
+		p_vals[k] = (abs_out - p_basey[k]) if p_add else abs_out
 
 
 ## The erosion FIELD step: solve over the brush's own surface, and optionally publish the four channels

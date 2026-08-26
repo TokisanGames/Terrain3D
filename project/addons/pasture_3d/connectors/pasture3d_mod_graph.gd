@@ -38,11 +38,13 @@ extends Pasture3DNode
 			graph.changed.connect(_touch)
 		_touch()
 
-## Metres of relief at the graph's full output, masked by the brush's interior profile so the rim stays
-## clean — the same convention as the Noise and Relief nodes' amplitude.
-@export var strength: float = 1.0:
+## How strongly the graph's output replaces the incoming surface, 0..1, feathered further by the brush's
+## interior profile so the rim stays clean. 0 = the graph does nothing; 1 = its output fully applies at the
+## profile's centre. It is an AMOUNT, not metres: the graph is a filter (input → output), and a generator
+## node inside it already carries its own amplitude.
+@export_range(0.0, 1.0, 0.01) var strength: float = 1.0:
 	set(v):
-		strength = v
+		strength = clampf(v, 0.0, 1.0)
 		_touch()
 
 
@@ -115,7 +117,7 @@ func needs_grid() -> bool:
 ## Inactive with no graph, a zero strength, or a graph with no output — exactly the cases where running
 ## it would cost the O(cells) evaluation and the forced GDScript path for nothing.
 func is_active() -> bool:
-	return enabled and graph != null and not is_zero_approx(strength) and graph.output_node >= 0
+	return enabled and graph != null and not is_zero_approx(strength) and graph.output_index() >= 0
 
 
 func modifier_warnings(_p_host) -> PackedStringArray:

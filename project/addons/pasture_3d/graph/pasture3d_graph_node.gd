@@ -65,6 +65,13 @@ func needs_grid() -> bool:
 	return false
 
 
+## True when this node exposes an output port that other nodes can wire from. The Output sink returns
+## false — its value is the graph's result, read by the host, not consumed downstream. EDITOR-only (drives
+## whether a right-side slot is drawn); the evaluator reads the output through `output_index`.
+func has_output() -> bool:
+	return true
+
+
 ## How many input ports this node reads. GENERATOR = 0; a FILTER = 1; Blend = 2.
 func input_count() -> int:
 	return 1
