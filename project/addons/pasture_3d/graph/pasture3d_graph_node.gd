@@ -43,6 +43,11 @@ enum Role { GENERATOR, FILTER, COMBINER }
 	get:
 		return resource_name
 
+## Where this node sits on the graph editor canvas, in GraphEdit offset units. Persisted so a layout
+## survives a reload. Deliberately does NOT emit `changed`: moving a node is not a reason to re-bake the
+## terrain, only a reason to re-save the layout.
+@export var graph_position: Vector2 = Vector2.ZERO
+
 
 ## The dispatch tag. MUST match the string any equivalent stack op / native backend tests.
 func op() -> StringName:

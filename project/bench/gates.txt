@@ -72,6 +72,12 @@ bench/TerrainGraphGate.tscn
 # graph, and that an active graph modifier forces the GDScript path. No terrain, no dll needed.
 bench/GraphMountGate.tscn
 
+# --- Terrain graph, increment 3: the editor's model layer (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
+# Watched green 2026-08-25 (0 failures). The GraphEdit VIEW is editor-only (can't assert visuals
+# headlessly, like the gizmo gates), so the mutation API it drives — add / connect (one wire per port) /
+# disconnect / set output / remove-with-reindex, and node-change forwarding — is tested here.
+bench/GraphEditModelGate.tscn
+
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 # Watched green 2026-08-23, 8/8. It reaches across three files — the Pond, the Add Water hook on
 # Pasture3DTerrainBrush, and level_to_spline() on Pasture3DWaterBody — so it is the gate that notices

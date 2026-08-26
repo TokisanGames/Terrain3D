@@ -1,8 +1,8 @@
 # Pasture3D Terrain Graph — Spec
 
-**Status:** Increments 1–2 built (2026-08-25) — the headless evaluator core, and the brush **stack
-mount** (`Pasture3DNodeGraph`). No editor UI and no C++/GPU yet (see Build order). Target: Godot 4.7,
-Pasture3D.
+**Status:** Increments 1–3 built (2026-08-25) — the headless evaluator core, the brush **stack mount**
+(`Pasture3DNodeGraph`), and the **visual GraphEdit editor** (`Pasture3DGraphEditor`). No C++/GPU yet
+(see Build order). Target: Godot 4.7, Pasture3D.
 **Builds on:** `PASTURE3D_NODE_VOCABULARY.md` (node / op() / cell·grid), the relief op-program
 (`pasture3d_relief_material.gd`), and the brush node stack (`pasture3d_terrain_brush.gd`).
 
@@ -100,7 +100,13 @@ failures) ===`.
    (`_stack_forces_gdscript`, since native cannot run `&"graph"`). Gate: `bench/GraphMountGate`.
    **Still LIVE** — the FROZEN cache (reusing the erosion modifier's extent/surface-keyed cache, a Bake
    button and a stale warning) is the immediate next step so a graph does not re-evaluate on every drag.
-2. **GraphEdit UI** — a dock mapping `nodes`/`connections` onto `GraphEdit`; add-node palette by `role()`.
+2. **GraphEdit UI — BUILT (increment 3).** `Pasture3DGraphEditor` (`src/graph_editor.gd`), a bottom
+   panel mapping `nodes`/`connections` onto `GraphEdit`, opened by the "Edit in Graph Editor" button an
+   `EditorInspectorPlugin` (`src/graph_inspector_plugin.gd`) adds to a graph / graph modifier. Topology
+   is edited on the canvas (add via `Pasture3DGraphNodeRegistry`, wire, "Set as Output", delete); node
+   params are edited in the Inspector (select a node → `EditorInterface.edit_resource`). The graph's
+   editing API (`add_node`/`connect_ports`/…) is on `Pasture3DTerrainGraph` and gated by
+   `bench/GraphEditModelGate`. **Later:** inline node params, undo/redo, copy/paste, node search, minimap.
 3. **Cell-node fold + C++ parity** — fuse cell-node runs; lower them into the relief op-program; a C++
    evaluator matched to the GDScript oracle to 1e-4, as relief is.
 4. **GPU backend (RenderingDevice)** — each grid pass a compute dispatch over resident textures, the
