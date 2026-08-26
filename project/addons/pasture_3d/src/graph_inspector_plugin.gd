@@ -30,7 +30,9 @@ func _open(p_object: Object) -> void:
 	elif p_object is Pasture3DNodeGraph:
 		var node_graph := p_object as Pasture3DNodeGraph
 		if node_graph.graph == null:
-			node_graph.graph = Pasture3DTerrainGraph.new() # a modifier with no graph gets an empty one
+			# A modifier with no graph gets one pre-wired Input -> Output (the standard starting point), so
+			# the canvas opens ready to build a filter rather than blank.
+			node_graph.graph = Pasture3DTerrainGraph.create_default()
 		target = node_graph.graph
 	if target == null or editor == null:
 		return

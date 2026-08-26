@@ -24,6 +24,7 @@ func _ready() -> void:
 	_c_add_constant()
 	_d_output_index_and_reads_input()
 	_e_no_surface_reads_zero()
+	_f_default_graph()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH FILTER PASS" if _fail == 0 else "GRAPH FILTER FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -127,6 +128,24 @@ func _e_no_surface_reads_zero() -> void:
 	print("    control: with a surface the output is non-zero (%.3f, want > 0.05)" % nz)
 	if nz <= 0.05:
 		_fail += 1; print("    !! control dead")
+
+
+# --- F. create_default() is a pre-wired Input -> Output identity graph --------------------------------
+func _f_default_graph() -> void:
+	print("[F] create_default() -> Input -> Output, connected, identity")
+	var g := Pasture3DTerrainGraph.create_default()
+	var shape_ok := g.nodes.size() == 2 and g.nodes[0].op() == &"input" and g.nodes[1].op() == &"output" \
+			and g.connections.size() == 1 and g.output_index() == 1 and g.reads_input()
+	print("    2 nodes Input->Output, output_index=%d, reads_input=%s, wires=%d"
+		% [g.output_index(), g.reads_input(), g.connections.size()])
+	if not shape_ok:
+		_fail += 1; print("    !! the default graph is not a connected Input -> Output pair")
+	# It is the identity: a surface passes straight through.
+	var surf := _ramp(4.0)
+	var d := _max_abs_diff(g.evaluate(GW, GH, RECT, null, surf), surf)
+	print("    default graph is the identity (diff %.7f, want < %.7f)" % [d, EPS])
+	if d > EPS:
+		_fail += 1; print("    !! the default Input->Output did not pass the surface through unchanged")
 
 
 # ---- helpers ----------------------------------------------------------------------------------------

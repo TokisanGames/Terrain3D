@@ -174,6 +174,22 @@ func reads_input() -> bool:
 	return false
 
 
+## A fresh graph pre-populated with an Input → Output pair, wired together — the standard starting point a
+## host hands the user instead of a blank canvas. As built it is the IDENTITY (Output passes the surface
+## straight through), so it changes nothing until nodes are inserted between the two. Laid out left-to-right
+## so the Add-node flow drops new nodes into the gap.
+static func create_default() -> Pasture3DTerrainGraph:
+	var g := Pasture3DTerrainGraph.new()
+	var input := Pasture3DGraphNodeInput.new()
+	input.graph_position = Vector2(40.0, 80.0)
+	var output := Pasture3DGraphNodeOutput.new()
+	output.graph_position = Vector2(420.0, 80.0)
+	var nodes: Array[Pasture3DGraphNode] = [input, output]
+	g.nodes = nodes
+	g.connections = [PackedInt32Array([0, 0, 1, 0])] # Input.out -> Output.result
+	return g
+
+
 ## Map a cell to its WORLD XZ. Cell-CENTRE sampling over `p_rect` (position = min XZ, size = extent).
 ## Static so the graph and any oracle sample the identical point — a mapping disagreement would look like
 ## a solver bug. `dx = size / count`, `w = min + (i + 0.5) * dx`.
