@@ -80,9 +80,9 @@ func _gate_bm_field_excludes_relief() -> void:
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 18.0
 	mat.seed = 7
-	var sel := Pasture3DReliefSelector.new()
-	sel.filter_type = Pasture3DReliefSelector.FilterType.ALTITUDE
-	sel.field_source = Pasture3DReliefSelector.FieldSource.HOST_PROFILE
+	var sel := Pasture3DTerrainMask.new()
+	sel.filter_type = Pasture3DTerrainMask.FilterType.ALTITUDE
+	sel.field_source = Pasture3DTerrainMask.FieldSource.HOST_PROFILE
 	# Metres UP THE DOME, not world height: the field is the brush's own contribution.
 	sel.range_min = 20.0
 	sel.range_max = 10000.0
@@ -160,8 +160,8 @@ func _gate_bn_flanks_against_crown() -> void:
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 14.0
 	mat.seed = 21
-	var sel := Pasture3DReliefSelector.new()
-	sel.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
+	var sel := Pasture3DTerrainMask.new()
+	sel.filter_type = Pasture3DTerrainMask.FilterType.SLOPE
 	sel.range_min = 25.0
 	sel.range_max = 90.0
 	sel.falloff_low = 10.0
@@ -174,7 +174,7 @@ func _gate_bn_flanks_against_crown() -> void:
 	var plain := _snapshot(probes)
 	_relief_strength(mound, 4.0)
 
-	sel.field_source = Pasture3DReliefSelector.FieldSource.HOST_PROFILE
+	sel.field_source = Pasture3DTerrainMask.FieldSource.HOST_PROFILE
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var host_vals := _snapshot(probes)
 	var host_crown := _mean_relief(plain, host_vals, 0, crown.size())
@@ -196,7 +196,7 @@ func _gate_bn_flanks_against_crown() -> void:
 	# on uniformly steep ground it admits everything, and either way the two bins come out alike. Only a
 	# below-layer slope that happens to trace this loop's crown would separate them, and then the gate
 	# says so rather than crediting the result above.
-	sel.field_source = Pasture3DReliefSelector.FieldSource.BELOW_LAYER
+	sel.field_source = Pasture3DTerrainMask.FieldSource.BELOW_LAYER
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var below_vals := _snapshot(probes)
 	var below_crown := _mean_relief(plain, below_vals, 0, crown.size())
@@ -212,7 +212,7 @@ func _gate_bn_flanks_against_crown() -> void:
 		print("       happens to trace the loop and the Host Profile result is not evidence")
 
 	# CONTROL 2 — strength 0 is "no gating at all", so relief must cover the crown as well.
-	sel.field_source = Pasture3DReliefSelector.FieldSource.HOST_PROFILE
+	sel.field_source = Pasture3DTerrainMask.FieldSource.HOST_PROFILE
 	sel.strength = 0.0
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var open_vals := _snapshot(probes)
@@ -349,10 +349,10 @@ func _gate_bp_accumulator_is_unchanged() -> void:
 	print("\n[BP] the historical band source and field source are the defaults:")
 	var t := Pasture3DReliefTerraces.new()
 	var s := Pasture3DReliefStrata.new()
-	var sel := Pasture3DReliefSelector.new()
+	var sel := Pasture3DTerrainMask.new()
 	var ok := (t.band_source == Pasture3DReliefMaterial.BandSource.ACCUMULATOR
 			and s.band_source == Pasture3DReliefMaterial.BandSource.ACCUMULATOR
-			and sel.field_source == Pasture3DReliefSelector.FieldSource.BELOW_LAYER)
+			and sel.field_source == Pasture3DTerrainMask.FieldSource.BELOW_LAYER)
 	print("    fresh Terraces %d, Strata %d (want 0), fresh Selector field source %d (want 0)"
 			% [t.band_source, s.band_source, sel.field_source])
 	if not ok:
@@ -373,7 +373,7 @@ func _gate_bp_accumulator_is_unchanged() -> void:
 					print("    !! %s loads with band_source %d" % [f, m.band_source])
 			if m.selector != null:
 				checked += 1
-				if m.selector.field_source != Pasture3DReliefSelector.FieldSource.BELOW_LAYER:
+				if m.selector.field_source != Pasture3DTerrainMask.FieldSource.BELOW_LAYER:
 					_fail += 1
 					print("    !! %s has a selector loading with field_source %d"
 							% [f, m.selector.field_source])
@@ -436,9 +436,9 @@ func _gate_bq_parity() -> void:
 	shape.style = Pasture3DReliefFractal.Style.CRAGGY
 	shape.feature_size = 20.0
 	shape.seed = 5
-	var gate := Pasture3DReliefSelector.new()
-	gate.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
-	gate.field_source = Pasture3DReliefSelector.FieldSource.HOST_PROFILE
+	var gate := Pasture3DTerrainMask.new()
+	gate.filter_type = Pasture3DTerrainMask.FilterType.SLOPE
+	gate.field_source = Pasture3DTerrainMask.FieldSource.HOST_PROFILE
 	gate.range_min = 15.0
 	gate.range_max = 90.0
 	gate.falloff_low = 8.0
@@ -647,9 +647,9 @@ func _height(p_at: Vector3) -> float:
 # them having to build a stack by hand.
 func _stack(p_mound, p_mat, p_strength: float, p_noise: FastNoiseLite = null,
 		p_noise_strength: float = 0.0, p_passes: int = 0) -> void:
-	var mods: Array[Pasture3DBrushModifier] = []
+	var mods: Array[Pasture3DNode] = []
 	if p_noise != null:
-		var mn := Pasture3DModNoise.new()
+		var mn := Pasture3DNodeNoise.new()
 		mn.noise = p_noise
 		mn.strength = p_noise_strength
 		mods.append(mn)
@@ -657,12 +657,12 @@ func _stack(p_mound, p_mat, p_strength: float, p_noise: FastNoiseLite = null,
 		# Kept in the list even at strength 0, so `_relief_strength` below always has something to move.
 		# An inactive modifier is dropped at compile time, which is exactly what `relief_strength = 0`
 		# used to do.
-		var mr := Pasture3DModRelief.new()
+		var mr := Pasture3DNodeRelief.new()
 		mr.material = p_mat
 		mr.strength = p_strength
 		mods.append(mr)
 	if p_passes > 0:
-		var ms := Pasture3DModSmooth.new()
+		var ms := Pasture3DNodeSmooth.new()
 		ms.passes = p_passes
 		mods.append(ms)
 	p_mound.modifiers = mods
@@ -671,7 +671,7 @@ func _stack(p_mound, p_mat, p_strength: float, p_noise: FastNoiseLite = null,
 ## The Relief modifier's current amplitude, for the two gates that predict a height from it.
 func _strength_of(p_mound) -> float:
 	for m in p_mound.modifiers:
-		if m is Pasture3DModRelief:
+		if m is Pasture3DNodeRelief:
 			return m.strength
 	return 0.0
 
@@ -679,5 +679,5 @@ func _strength_of(p_mound) -> float:
 ## The `relief_strength = x` idiom: move the Relief modifier's amplitude, leaving the stack alone.
 func _relief_strength(p_mound, p_strength: float) -> void:
 	for m in p_mound.modifiers:
-		if m is Pasture3DModRelief:
+		if m is Pasture3DNodeRelief:
 			m.strength = p_strength

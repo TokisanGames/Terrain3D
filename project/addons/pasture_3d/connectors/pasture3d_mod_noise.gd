@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DModNoise — vertical jitter to break up a brush's silhouette, as a modifier stack step.
+# Pasture3DNodeNoise — vertical jitter to break up a brush's silhouette, as a modifier stack step.
 # The point-operator replacement for Pasture3DMound's `noise` / `noise_strength` pair.
 #
 #   amp += strength * noise.get_noise_2d(world_x, world_z) * profile
@@ -9,8 +9,8 @@
 # this was two properties on the Mound. Evaluated in world XZ, so two overlapping brushes carrying the
 # same FastNoiseLite agree where they meet.
 @tool
-class_name Pasture3DModNoise
-extends Pasture3DBrushModifier
+class_name Pasture3DNodeNoise
+extends Pasture3DNode
 
 ## The field to sample. Unassigned contributes nothing — the modifier reports itself inactive rather
 ## than costing a pass.
@@ -30,7 +30,7 @@ extends Pasture3DBrushModifier
 		_touch()
 
 
-func kind() -> StringName:
+func op() -> StringName:
 	return &"noise"
 
 

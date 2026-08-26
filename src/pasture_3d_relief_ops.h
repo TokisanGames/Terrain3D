@@ -93,7 +93,7 @@ constexpr int RELIEF_SELECTOR_RADIUS = 7; // slot of `measure_radius`, in METRES
 constexpr int RELIEF_SELECTOR_FIELD_SOURCE = 8; // slot of `field_source`, a ReliefFieldSource
 
 // Which surface a selector's SLOPE / ALTITUDE / CURVATURE reads. Sync with
-// Pasture3DReliefSelector.FieldSource. The four sim filter types ignore this — a Sim Result is one field
+// Pasture3DTerrainMask.FieldSource. The four sim filter types ignore this — a Sim Result is one field
 // with one meaning, and there is no host-profile version of "how much land drains through here".
 //
 // BELOW is the historical behaviour and the default: the composite of the layers UNDER this brush's own,
@@ -130,7 +130,7 @@ enum ReliefBandSource {
 constexpr int RELIEF_BAND_RANGE_LO = 7;
 constexpr int RELIEF_BAND_RANGE_HI = 8;
 
-// Selector filter types — sync with Pasture3DReliefSelector.FilterType. (The GDScript property was
+// Selector filter types — sync with Pasture3DTerrainMask.FilterType. (The GDScript property was
 // called `kind` until it was renamed for legibility; the ids and the wire slot are unchanged.)
 //
 // 0-2 read the ground's own shape. 3-6 read a Pasture3DSimResult, i.e. what the erosion sim did here

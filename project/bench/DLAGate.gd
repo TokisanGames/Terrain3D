@@ -271,7 +271,7 @@ func _gate_cr_parity() -> void:
 	if mound == null:
 		return
 	var probes := _lattice(SITE_CR)
-	var shape := mound.modifiers[0] as Pasture3DModRelief
+	var shape := mound.modifiers[0] as Pasture3DNodeRelief
 
 	shape.strength = 0.0
 	var dome_only := _parity_gap(mound, probes)
@@ -578,7 +578,7 @@ func _gate_cz_capture_excludes_itself() -> void:
 	if mound == null:
 		return
 	var probes := _lattice(SITE_CZ)
-	var grow := mound.modifiers[1] as Pasture3DModRelief
+	var grow := mound.modifiers[1] as Pasture3DNodeRelief
 	var dla: Pasture3DReliefDLA = grow.material
 
 	# The reference: the same brush with the seeded material switched OFF, which is what "it stamped
@@ -625,12 +625,12 @@ func _gate_cz_capture_excludes_itself() -> void:
 	var off = _make_seeded_mound("CZoff", SITE_CZ_OFF, false)
 	if off == null:
 		return
-	var off_dla: Pasture3DReliefDLA = (off.modifiers[1] as Pasture3DModRelief).material
+	var off_dla: Pasture3DReliefDLA = (off.modifiers[1] as Pasture3DNodeRelief).material
 	var off_probes := _lattice(SITE_CZ_OFF)
-	(off.modifiers[1] as Pasture3DModRelief).enabled = false
+	(off.modifiers[1] as Pasture3DNodeRelief).enabled = false
 	off._refresh_owner(off._layer_owner, false, [])
 	var off_rough := _snapshot(off_probes)
-	(off.modifiers[1] as Pasture3DModRelief).enabled = true
+	(off.modifiers[1] as Pasture3DNodeRelief).enabled = true
 	off._refresh_owner(off._layer_owner, false, [])
 	var off_first := _snapshot(off_probes)
 	print("    CONTROL seeding off: captured %d cells, and its FIRST bake already moves %.4f m"
@@ -811,17 +811,17 @@ func _make_seeded_mound(p_name: String, p_at: Vector3, p_seeding: bool):
 	var mound = _make_mound(p_name, p_at)
 	if mound == null:
 		return null
-	var rough := Pasture3DModRelief.new()
+	var rough := Pasture3DNodeRelief.new()
 	rough.label = "Rough"
 	rough.material = _fractal()
 	rough.strength = RELIEF_M
 	var dla := _dla(5, 256)
 	dla.ridge_seeding = p_seeding
-	var grow := Pasture3DModRelief.new()
+	var grow := Pasture3DNodeRelief.new()
 	grow.label = "DLA"
 	grow.material = dla
 	grow.strength = RELIEF_M
-	var stack: Array[Pasture3DBrushModifier] = [rough, grow]
+	var stack: Array[Pasture3DNode] = [rough, grow]
 	mound.modifiers = stack
 	return mound
 
@@ -970,11 +970,11 @@ func _make_mound(p_name: String, p_at: Vector3):
 	mound.blend_mode = Pasture3DMound.BlendMode.ADD
 	_add_loop(mound)
 	mound._set_layer_owner(Pasture3DTerrainBrush.BRUSH_OWNER_PREFIX + p_name)
-	var shape := Pasture3DModRelief.new()
+	var shape := Pasture3DNodeRelief.new()
 	shape.label = "DLA"
 	shape.material = _dla(5, 512)
 	shape.strength = RELIEF_M
-	var stack: Array[Pasture3DBrushModifier] = [shape]
+	var stack: Array[Pasture3DNode] = [shape]
 	mound.modifiers = stack
 	return mound
 
@@ -1283,7 +1283,7 @@ func _gate_db_stacked_seeding() -> void:
 		_completed += 1
 		return
 	var probes := _lattice(SITE_DB)
-	var grow := mound.modifiers[1] as Pasture3DModRelief
+	var grow := mound.modifiers[1] as Pasture3DNodeRelief
 	grow.enabled = false
 	mound._refresh_owner(mound._layer_owner, false, [])
 	var rough_only := _snapshot(probes)
@@ -1322,7 +1322,7 @@ func _make_stacked_mound(p_name: String, p_at: Vector3):
 	var mound = _make_mound(p_name, p_at)
 	if mound == null:
 		return null
-	var rough := Pasture3DModRelief.new()
+	var rough := Pasture3DNodeRelief.new()
 	rough.label = "Rough"
 	rough.material = _fractal()
 	rough.strength = RELIEF_M
@@ -1331,11 +1331,11 @@ func _make_stacked_mound(p_name: String, p_at: Vector3):
 	var stack := Pasture3DReliefStack.new()
 	var l: Array[Pasture3DReliefMaterial] = [dla]
 	stack.layers = l
-	var grow := Pasture3DModRelief.new()
+	var grow := Pasture3DNodeRelief.new()
 	grow.label = "DLA in a stack"
 	grow.material = stack
 	grow.strength = RELIEF_M
-	var mods: Array[Pasture3DBrushModifier] = [rough, grow]
+	var mods: Array[Pasture3DNode] = [rough, grow]
 	mound.modifiers = mods
 	return mound
 
@@ -1467,7 +1467,7 @@ func _gate_dl_deferred_growth() -> void:
 	if mound == null:
 		return
 	var probes := _lattice(SITE_DL)
-	var step: Pasture3DModRelief = mound.modifiers[0]
+	var step: Pasture3DNodeRelief = mound.modifiers[0]
 	var mat: Pasture3DReliefDLA = step.material
 	# FROZEN, the shipped default: the configuration the editor actually runs.
 	mat.evaluation = Pasture3DReliefDLA.Evaluation.FROZEN
@@ -1527,7 +1527,7 @@ func _gate_dl_deferred_growth() -> void:
 		_completed += 1
 		return
 	var sprobes := _lattice(SITE_DL2)
-	var sstep: Pasture3DModRelief = smound.modifiers[0]
+	var sstep: Pasture3DNodeRelief = smound.modifiers[0]
 	var sdla := _dla(6, 256)
 	sdla.evaluation = Pasture3DReliefDLA.Evaluation.FROZEN
 	var sstack := Pasture3DReliefStack.new()

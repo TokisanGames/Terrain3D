@@ -90,9 +90,9 @@ func _ready() -> void:
 		print("!! this build has no sim_result_build — phases 2-3 are unbuilt, not failing")
 		_done()
 		return
-	if Pasture3DReliefSelector.FilterType.size() < 7:
+	if Pasture3DTerrainMask.FilterType.size() < 7:
 		_fail += 1
-		print("!! Pasture3DReliefSelector has no sim filter types — phase 3 is unbuilt, not failing")
+		print("!! Pasture3DTerrainMask has no sim filter types — phase 3 is unbuilt, not failing")
 		_done()
 		return
 
@@ -169,7 +169,7 @@ func _erode() -> bool:
 		_ch[3].append(maxf(_result.sample(Pasture3DSimResult.Channel.WETNESS, p), 0.0))
 	for k in range(4):
 		print("    %-11s median %.4f | p75 %.4f | p95 %.4f | max %.4f" % [
-				_kind_name(k + Pasture3DReliefSelector.FilterType.FLOW),
+				_kind_name(k + Pasture3DTerrainMask.FilterType.FLOW),
 				_pct(_ch[k], 0.50), _pct(_ch[k], 0.75), _pct(_ch[k], 0.95), _pct(_ch[k], 1.0)])
 	var sorted := _areas.duplicate()
 	sorted.sort()
@@ -213,7 +213,7 @@ func _gate_l1_flow_gates_relief() -> void:
 	var plow = _make_plow("FlowGate")
 	if plow == null:
 		return
-	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.FLOW, _channel_m2, 1.0e9)
+	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.FLOW, _channel_m2, 1.0e9)
 	sel.falloff_low = 0.0
 	var mat := _fractal(sel)
 	plow.relief = mat
@@ -260,7 +260,7 @@ func _gate_l2_all_kinds_wired() -> void:
 	if plow == null:
 		return
 	for k in range(4):
-		var kind: int = k + Pasture3DReliefSelector.FilterType.FLOW
+		var kind: int = k + Pasture3DTerrainMask.FilterType.FLOW
 		var vals: PackedFloat32Array = _ch[k]
 		# The band floor: whatever value puts roughly the top 30 probes inside it. Taken from the channel
 		# rather than chosen, so the criterion adapts to a channel that is sparse (deposition, wetness)
@@ -321,7 +321,7 @@ func _gate_l3_flow_band_is_area() -> void:
 		return
 	var biggest := _max_area()
 	print("    the masks' largest catchment here is %.0f m2, i.e. log %.2f" % [biggest, log(biggest)])
-	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.FLOW, _channel_m2, 1.0e9)
+	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.FLOW, _channel_m2, 1.0e9)
 	plow.relief = _fractal(sel)
 	var as_area := _bake_and_bin(plow)
 	print("    band %.0f..1e9 (m2):     channel %.4f m | ridge %.4f m" % [
@@ -371,7 +371,7 @@ func _gate_l4_erosion_is_positive() -> void:
 		_fail += 1
 		print("    !! the sim barely eroded; L4 has no band to test")
 		return
-	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.EROSION, 2.0, 1.0e9)
+	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.EROSION, 2.0, 1.0e9)
 	plow.relief = _fractal(sel)
 	var positive := _bake_mean(plow)
 	print("    band 2..1e9 (m removed): mean |relief| %.4f m" % positive)
@@ -408,7 +408,7 @@ func _gate_l5_outside_extent() -> void:
 	if outside == null:
 		return
 	# A band that admits every value the channel can actually hold, but NOT the defined 0.
-	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.FLOW, 1.5, 1.0e9)
+	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.FLOW, 1.5, 1.0e9)
 	outside.relief = _fractal(sel)
 	var probes: Array[Vector3] = []
 	for i in range(-4, 5):
@@ -427,7 +427,7 @@ func _gate_l5_outside_extent() -> void:
 	var inside = _make_plow("Inside")
 	if inside == null:
 		return
-	inside.relief = _fractal(_sim_selector(Pasture3DReliefSelector.FilterType.FLOW, 1.5, 1.0e9))
+	inside.relief = _fractal(_sim_selector(Pasture3DTerrainMask.FilterType.FLOW, 1.5, 1.0e9))
 	var in_mean := _bake_mean(inside)
 	print("    CONTROL the same brush inside the extent: mean |relief| %.4f m (want > 0.2)" % in_mean)
 	if in_mean < 0.2:
@@ -460,7 +460,7 @@ func _gate_l6_parity() -> void:
 	var plow = _make_plow("Parity")
 	if plow == null:
 		return
-	var sel := _sim_selector(Pasture3DReliefSelector.FilterType.FLOW, _channel_m2, 1.0e9)
+	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.FLOW, _channel_m2, 1.0e9)
 	sel.sim_result = _coarse
 	plow.relief = _fractal(sel)
 	plow.force_gdscript_raster = false
@@ -495,7 +495,7 @@ func _gate_l7_no_drift() -> void:
 	var plow = _make_plow("Drift")
 	if plow == null:
 		return
-	plow.relief = _fractal(_sim_selector(Pasture3DReliefSelector.FilterType.FLOW, _channel_m2, 1.0e9))
+	plow.relief = _fractal(_sim_selector(Pasture3DTerrainMask.FilterType.FLOW, _channel_m2, 1.0e9))
 	plow._refresh_owner(plow._layer_owner, false, [])
 	var first := _snapshot(_probes)
 	var moved := 0.0
@@ -519,8 +519,8 @@ func _gate_l7_no_drift() -> void:
 
 # --- fixture helpers ---------------------------------------------------------------------------------
 
-func _sim_selector(p_kind: int, p_min: float, p_max: float) -> Pasture3DReliefSelector:
-	var s := Pasture3DReliefSelector.new()
+func _sim_selector(p_kind: int, p_min: float, p_max: float) -> Pasture3DTerrainMask:
+	var s := Pasture3DTerrainMask.new()
 	s.filter_type = p_kind
 	s.range_min = p_min
 	s.range_max = p_max
@@ -532,7 +532,7 @@ func _sim_selector(p_kind: int, p_min: float, p_max: float) -> Pasture3DReliefSe
 
 ## A craggy fractal, the same material PlowReliefCheck's selector gates use, so a difference between the
 ## two gate files is a difference in the selector and not in the relief.
-func _fractal(p_sel: Pasture3DReliefSelector) -> Pasture3DReliefFractal:
+func _fractal(p_sel: Pasture3DTerrainMask) -> Pasture3DReliefFractal:
 	var mat := Pasture3DReliefFractal.new()
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 20.0
@@ -633,9 +633,9 @@ func _min_of(p_a: PackedFloat32Array) -> float:
 
 func _kind_name(p_kind: int) -> String:
 	match p_kind:
-		Pasture3DReliefSelector.FilterType.FLOW: return "FLOW"
-		Pasture3DReliefSelector.FilterType.EROSION: return "EROSION"
-		Pasture3DReliefSelector.FilterType.DEPOSITION: return "DEPOSITION"
+		Pasture3DTerrainMask.FilterType.FLOW: return "FLOW"
+		Pasture3DTerrainMask.FilterType.EROSION: return "EROSION"
+		Pasture3DTerrainMask.FilterType.DEPOSITION: return "DEPOSITION"
 		_: return "WETNESS"
 
 

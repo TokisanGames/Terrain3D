@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DReliefSelector — gates a relief material by what the ground is already doing: its steepness,
+# Pasture3DTerrainMask — gates a relief material by what the ground is already doing: its steepness,
 # its altitude, or its concavity. "Craggy detail on the flanks, smooth on the plateaus", "strata only
 # above the treeline", "scree piling into the hollows". This is the single technique that separates a
 # uniform stamp from something that reads as geology.
@@ -12,7 +12,7 @@
 # which is the same class of bug the base_below plumbing exists to prevent.
 # See PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md §7.
 @tool
-class_name Pasture3DReliefSelector
+class_name Pasture3DTerrainMask
 extends Resource
 
 ## Which property of the underlying ground to gate on. Ids MUST stay in sync with

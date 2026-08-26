@@ -75,8 +75,8 @@ func _set(property: StringName, value: Variant) -> bool:
 		if _ready_done:
 			# Not silent: a script still assigning these is assigning to nothing, and the failure mode
 			# that hides is "my relief stopped appearing and no one said why".
-			push_error(("Pasture3DMound.%s was removed in phase 3a. Build a Pasture3DModRelief / "
-				+ "Pasture3DModNoise / Pasture3DModSmooth and put it in `modifiers` instead.") % property)
+			push_error(("Pasture3DMound.%s was removed in phase 3a. Build a Pasture3DNodeRelief / "
+				+ "Pasture3DNodeNoise / Pasture3DNodeSmooth and put it in `modifiers` instead.") % property)
 			return true
 		_legacy[String(property)] = value
 		return true
@@ -101,22 +101,22 @@ func _migrate_legacy() -> void:
 		push_warning(("Pasture3DMound '%s' carries BOTH a Modifiers stack and the removed noise / relief "
 			+ "properties. The stack wins; the old values were dropped.") % name)
 		return
-	var out: Array[Pasture3DBrushModifier] = []
+	var out: Array[Pasture3DNode] = []
 	var n_strength := float(old.get("noise_strength", 0.0))
 	if old.get("noise", null) != null and not is_zero_approx(n_strength):
-		var mn := Pasture3DModNoise.new()
+		var mn := Pasture3DNodeNoise.new()
 		mn.noise = old["noise"]
 		mn.strength = n_strength
 		out.append(mn)
 	var r_strength := float(old.get("relief_strength", 0.0))
 	if old.get("relief", null) != null and not is_zero_approx(r_strength):
-		var mr := Pasture3DModRelief.new()
+		var mr := Pasture3DNodeRelief.new()
 		mr.material = old["relief"]
 		mr.strength = r_strength
 		out.append(mr)
 	var passes := int(old.get("smooth_passes", 0))
 	if passes > 0:
-		var ms := Pasture3DModSmooth.new()
+		var ms := Pasture3DNodeSmooth.new()
 		ms.passes = passes
 		out.append(ms)
 	if out.is_empty():
@@ -142,7 +142,7 @@ func _offers_host_profile() -> bool:
 
 func _get_configuration_warnings() -> PackedStringArray:
 	# Every relief complaint now comes from the Relief modifier that owns the material — the base folds
-	# `_modifier_warnings()` in, and Pasture3DModRelief calls `_relief_warnings` from there.
+	# `_modifier_warnings()` in, and Pasture3DNodeRelief calls `_relief_warnings` from there.
 	return super()
 
 
@@ -238,7 +238,7 @@ func _paint_spline(path: Path3D) -> void:
 	# §21.6: the wider grids any selector's `measure_radius` asks for, indexed by selector id. Empty when
 	# every selector left it at 0, which is the default.
 	var measured: Array = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh,
-			Pasture3DReliefSelector.FieldSource.BELOW_LAYER) if use_fields else []
+			Pasture3DTerrainMask.FieldSource.BELOW_LAYER) if use_fields else []
 	var sim_fields: Array = []
 	var sim_dict := {}
 	if sim_res != null and sim_res.is_valid():
@@ -339,7 +339,7 @@ func _paint_spline(path: Path3D) -> void:
 		# half-width never reaches full profile. See the same note in stamp_mound_loop.
 		host_div = peak if peak > 0.0 else 1.0
 		host_measured = _measured_fields(host_fields[0], host_fields[2], op_selectors, vs, gw, gh,
-				Pasture3DReliefSelector.FieldSource.HOST_PROFILE)
+				Pasture3DTerrainMask.FieldSource.HOST_PROFILE)
 
 	# Rasterise the profile into its own grids, then let the modifier stack run over them. The split is
 	# not a tidier spelling of one fused loop: a FIELD modifier reads the whole grid, so the profile has
@@ -399,7 +399,7 @@ func _paint_spline(path: Path3D) -> void:
 ## it is about to be handed one, and it will grow its field against this frame when it is.
 func _has_relief_modifier() -> bool:
 	for m in modifiers:
-		if m is Pasture3DModRelief and m.is_active():
+		if m is Pasture3DNodeRelief and m.is_active():
 			return true
 	return false
 
@@ -429,7 +429,7 @@ func _update_mask_preview() -> void:
 ## `_mask_preview_warnings` says so when the previewed modifier is not currently stamping.
 func _preview_relief_material():
 	for m in modifiers:
-		if m is Pasture3DModRelief and m.material != null:
+		if m is Pasture3DNodeRelief and m.material != null:
 			return m.material
 	return null
 
@@ -437,6 +437,6 @@ func _preview_relief_material():
 ## The Relief modifier `_preview_relief_material` picked, so the warnings can talk about it by name.
 func _preview_relief_modifier():
 	for m in modifiers:
-		if m is Pasture3DModRelief and m.material != null:
+		if m is Pasture3DNodeRelief and m.material != null:
 			return m
 	return null

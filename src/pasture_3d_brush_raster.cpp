@@ -420,9 +420,9 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 	const PackedFloat32Array selectors = p_params.get("op_selectors", PackedFloat32Array());
 	for (int i = 0; i < mods.size(); i++) {
 		const Dictionary d = mods[i];
-		const String kind = d.get("kind", String());
+		const String op = d.get("op", String());
 		BrushModStep st;
-		if (kind == "noise") {
+		if (op == "noise") {
 			st.kind = BrushModStep::NOISE;
 			Object *obj = d.get("noise", Variant());
 			st.noise = Object::cast_to<FastNoiseLite>(obj);
@@ -430,7 +430,7 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			if (st.noise.is_null() || st.strength == 0.0) {
 				continue;
 			}
-		} else if (kind == "relief") {
+		} else if (op == "relief") {
 			st.kind = BrushModStep::RELIEF;
 			st.strength = d.get("strength", 0.0);
 			st.mat_strength = d.get("mat_strength", 1.0);
@@ -459,14 +459,14 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			if (!relief_build(sub, st.prog) && !st.capture) {
 				continue;
 			}
-		} else if (kind == "smooth") {
+		} else if (op == "smooth") {
 			st.kind = BrushModStep::SMOOTH;
 			st.field = true;
 			st.passes = (int)d.get("passes", 0);
 			if (st.passes <= 0) {
 				continue;
 			}
-		} else if (kind == "erosion") {
+		} else if (op == "erosion") {
 			st.kind = BrushModStep::EROSION;
 			st.field = true;
 			// Same reader the Pasture3DSim node's params go through, so a value tuned on a standalone
@@ -489,7 +489,7 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 				continue; // would route water and subtract nothing
 			}
 		} else {
-			continue; // an unknown kind is a newer plugin's modifier; skipping beats guessing
+			continue; // an unknown op is a newer plugin's node; skipping beats guessing
 		}
 		r_steps.push_back(st);
 	}
@@ -589,7 +589,7 @@ void brush_mod_erode(BrushModStep &p_step, std::vector<float> &r_vals,
 	}
 	if (p_step.publish_fields && r_fields.ready && res.flow.size() == n && res.lake_depth.size() == n) {
 		// The four channels a later modifier's selectors read, in the units and signs a
-		// Pasture3DReliefSelector expects — the same conversions relief_fields_add_sim makes on the way
+		// Pasture3DTerrainMask expects — the same conversions relief_fields_add_sim makes on the way
 		// out of a Pasture3DSimResult, so a FLOW band means here exactly what it means there.
 		//
 		// POSITIONAL BY CONSTRUCTION (§6.4): this happens at the erosion step's own place in the list, so

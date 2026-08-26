@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DModRelief — a Pasture3DReliefMaterial applied to the brush's own surface, as a modifier stack
+# Pasture3DNodeRelief — a Pasture3DReliefMaterial applied to the brush's own surface, as a modifier stack
 # step. The point-operator replacement for Pasture3DMound's `relief` / `relief_strength` pair.
 #
 #   amp += strength * material.eval(...) * profile * material.strength
@@ -18,8 +18,8 @@
 # meet, while radial ops (Crater) read the loop-normalised coordinates and so remain sized and oriented to
 # the host's own footprint.
 @tool
-class_name Pasture3DModRelief
-extends Pasture3DBrushModifier
+class_name Pasture3DNodeRelief
+extends Pasture3DNode
 
 ## The landform material to stamp — craggy fractal, strata, terraces, dunes, scree, craters, or a stack
 ## of them.
@@ -43,7 +43,7 @@ extends Pasture3DBrushModifier
 		_touch()
 
 
-func kind() -> StringName:
+func op() -> StringName:
 	return &"relief"
 
 

@@ -889,7 +889,7 @@ const ERODABILITY_LUT_MAX: int = 256
 ## `reason` explains why the map could not be used and the LUT is empty (uniform erodability).
 ##
 ## Static and living HERE — on the base of the erosion family — because two unrelated hosts now need it:
-## `Pasture3DSim` and `Pasture3DModErosion`. The callers keep their own warning wording, because a node
+## `Pasture3DSim` and `Pasture3DNodeErosion`. The callers keep their own warning wording, because a node
 ## and a modifier name themselves differently; what must not be duplicated is the LUT itself, since the
 ## solver's remap depends on how the luminance was sampled and downscaled.
 static func erodability_lut(p_map: Texture2D) -> Array:

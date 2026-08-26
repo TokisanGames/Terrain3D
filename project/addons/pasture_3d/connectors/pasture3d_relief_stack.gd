@@ -290,7 +290,7 @@ func _configuration_warning() -> String:
 
 
 ## The name to call a layer in a warning: what the user typed, or the class with the prefix stripped —
-## the same rule Pasture3DBrushModifier.display_name uses, for the same reason.
+## the same rule Pasture3DNode.display_name uses, for the same reason.
 func _layer_name(m: Pasture3DReliefMaterial) -> String:
 	if not m.resource_name.is_empty():
 		return m.resource_name

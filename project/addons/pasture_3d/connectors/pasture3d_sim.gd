@@ -131,7 +131,7 @@ const RESULT_MAX_CELLS: int = 4194304
 
 @export_group("Masking")
 ## Where this Sim is allowed to erode, gated on what the ground is already doing (§17). The same
-## Pasture3DReliefSelector the Plow and Mound relief materials use, so a `SLOPE 30-90` band means here
+## Pasture3DTerrainMask the Plow and Mound relief materials use, so a `SLOPE 30-90` band means here
 ## exactly what it means there: steepness in degrees, altitude in metres, curvature, or one of the four
 ## sim channels out of another Sim's masks.
 ##
@@ -141,7 +141,7 @@ const RESULT_MAX_CELLS: int = 4194304
 ##
 ## This gates the SOLVE: masked-out ground still routes water and still receives sediment, it just resists
 ## incision. Empty = erode everywhere, exactly as before this existed.
-@export var erosion_mask: Array[Pasture3DReliefSelector] = []:
+@export var erosion_mask: Array[Pasture3DTerrainMask] = []:
 	set(v):
 		_bind_mask_preview_signals(erosion_mask, false)
 		erosion_mask = v
@@ -154,7 +154,7 @@ const RESULT_MAX_CELLS: int = 4194304
 ##
 ## That is how you keep the gullies on one face of a hill without the water re-routing around the part you
 ## excluded. Multiplies the loop's own edge falloff. Empty = write everything inside the loop.
-@export var write_mask: Array[Pasture3DReliefSelector] = []:
+@export var write_mask: Array[Pasture3DTerrainMask] = []:
 	set(v):
 		_bind_mask_preview_signals(write_mask, false)
 		write_mask = v
@@ -571,7 +571,7 @@ func _managed_mask_warnings(p_list: Array, p_label: String) -> PackedStringArray
 	var sim_kinds := 0
 	var pinned := 0
 	var inverted := 0
-	for s: Pasture3DReliefSelector in p_list:
+	for s: Pasture3DTerrainMask in p_list:
 		if s == null:
 			continue
 		if s.is_inverted_band():
@@ -1177,7 +1177,7 @@ func _write_result(p_states: Array, p_is_preview: bool, p_scale: int) -> String:
 ## The erodability map as a [0,1] LUT: [PackedFloat32Array data, w, h]. [empty, 0, 0] when no map is
 ## assigned, which the solver reads as uniform 1.0. Capped in resolution like Plow's height LUT.
 func _erodability_lut() -> Array:
-	# The LUT itself is Pasture3DSimBase.erodability_lut (shared with Pasture3DModErosion); only the
+	# The LUT itself is Pasture3DSimBase.erodability_lut (shared with Pasture3DNodeErosion); only the
 	# wording of the complaint belongs to this node.
 	var r := Pasture3DSimBase.erodability_lut(erodability_map)
 	if r[3] != "":
@@ -1248,7 +1248,7 @@ func _update_mask_preview() -> void:
 ## decides what a stack contributes and the warning below describes the same set.
 func _selector_block(p_list: Array) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
-	for s: Pasture3DReliefSelector in p_list:
+	for s: Pasture3DTerrainMask in p_list:
 		if s == null or _self_references(s):
 			continue
 		out.append_array(PackedFloat32Array(s.to_params()))
@@ -1263,7 +1263,7 @@ func _selector_block(p_list: Array) -> PackedFloat32Array:
 ## Phase 6's pass chain makes the interesting version work properly: masking pass 2 on pass 1's live flow
 ## field is not self-reference, because pass 1's fields are a deterministic function of the same
 ## below-layer read. The warning says which one is missing rather than implying the idea is illegal.
-func _self_references(p_sel: Pasture3DReliefSelector) -> bool:
+func _self_references(p_sel: Pasture3DTerrainMask) -> bool:
 	if is_managed():
 		# §19.5: under a manager there is no self-reference to refuse. Sim Filter Types read the PREVIOUS
 		# live fields, which are a deterministic function of the manager's one below-layer read, and this
@@ -1288,7 +1288,7 @@ func _mask_sim_dict(p_list: Array) -> Dictionary:
 	if mgr != null:
 		var idx := mgr.pass_index_of(self)
 		return _sim_result_dict(mgr.pass_result(idx - 1)) if idx > 0 else {}
-	for s: Pasture3DReliefSelector in p_list:
+	for s: Pasture3DTerrainMask in p_list:
 		if s != null and s.is_sim_filter_type() and s.sim_result != null and not _self_references(s):
 			return _sim_result_dict(s.sim_result)
 	return {}
@@ -1327,7 +1327,7 @@ func _mask_warnings(p_list: Array, p_label: String) -> PackedStringArray:
 	var dangling := 0
 	var inverted := 0
 	var results: Array = []
-	for s: Pasture3DReliefSelector in p_list:
+	for s: Pasture3DTerrainMask in p_list:
 		if s == null:
 			continue
 		# §21.5: Range Min above Range Max makes the evaluator's min(rise, fall) 0 everywhere, so the whole

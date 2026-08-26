@@ -203,7 +203,7 @@ func _d2_managed_sim() -> void:
 	# Pass 2 masks on pass 1's flow. Filter Type-appropriate band, no `sim_result` — which is what §19.5
 	# says to do under a manager, and what the child's own warning tells you to do.
 	var flow_sel := _sel(K_FLOW, FLOW_MIN, FLOW_MAX, FLOW_FALLOFF, 0.0)
-	p2.erosion_mask = [flow_sel] as Array[Pasture3DReliefSelector]
+	p2.erosion_mask = [flow_sel] as Array[Pasture3DTerrainMask]
 
 	mgr.capture_chain = true
 	if not bool(mgr.simulate_now(1, false).get("ok", false)):
@@ -233,7 +233,7 @@ func _d2_managed_sim() -> void:
 
 	# CONTROL: the same node, same preview machinery, a SLOPE band instead. Both paths read the surface, so
 	# both must light up — which proves the preview is not simply broken on a managed Sim.
-	p2.erosion_mask = [_sel(K_SLOPE, 12.0, 90.0, 6.0, 0.0)] as Array[Pasture3DReliefSelector]
+	p2.erosion_mask = [_sel(K_SLOPE, 12.0, 90.0, 6.0, 0.0)] as Array[Pasture3DTerrainMask]
 	p2._update_mask_preview()
 	var ctrl := _preview_field(p2)
 	var sc := _spread(ctrl)
@@ -329,8 +329,8 @@ func _self_drift(p_z: PackedFloat32Array) -> float:
 
 # --- helpers ---------------------------------------------------------------------------------------
 
-func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float) -> Pasture3DReliefSelector:
-	var s := Pasture3DReliefSelector.new()
+func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float) -> Pasture3DTerrainMask:
+	var s := Pasture3DTerrainMask.new()
 	s.filter_type = p_kind
 	s.range_min = p_lo
 	s.range_max = p_hi
