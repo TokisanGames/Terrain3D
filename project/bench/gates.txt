@@ -150,6 +150,17 @@ bench/GraphSolverNodeGate.tscn
 # Controls throughout.
 bench/GraphErosionNodeGate.tscn
 
+# --- Terrain graph, graph-native SOLVER: DLA (diffusion-limited-aggregation mountain) ---
+# Pure GDScript on the graph model + the Pasture3DReliefDLA growth engine (no DLL, no terrain). The node
+# COMPOSES the relief DLA and drives its grow_into hook, so the ~600-line tuned growth path is reused
+# untouched (its own appearance is covered by DLAGate) and this gate tests the graph adapter + the
+# structural invariants a massif must keep: two outputs (height + footprint mask); a real mountain with an
+# INTERIOR peak (not a hollow ring), zero at the rect corners (not cut off at the loop edge), height ==
+# amplitude*mask, and deterministic for a fixed seed; ridge seeding that actually uses the wired input
+# (control: a flat input falls back to the central seed); per-solver FROZEN serve/stale/Bake; and the
+# footprint mask gating a Blend. Controls throughout. Small 64^2 grow so it runs fast.
+bench/GraphDLANodeGate.tscn
+
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 # Watched green 2026-08-23, 8/8. It reaches across three files — the Pond, the Add Water hook on
 # Pasture3DTerrainBrush, and level_to_spline() on Pasture3DWaterBody — so it is the gate that notices

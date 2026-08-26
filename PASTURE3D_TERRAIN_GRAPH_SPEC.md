@@ -199,7 +199,7 @@ failures) ===`.
      `Reroute`. **BUILT.** Gate `bench/GraphReliefNodeGate` (Furrows generator + Terrace filter, each vs an
      independent re-derivation reusing the vetted relief statics `_furrows`/`_dunes`/`_crater`/`_scree`).
    * **Solvers** (`Role.SOLVER`, a grid node that reads an input field and routes/iterates a simulation over
-     it): **Scree and Erosion BUILT; DLA queued (item 6).**
+     it): **Scree, Erosion and DLA BUILT (items 6–8).**
    A generator that shares a stack op's name computes the same thing (delegates to the relief static); a
    filter bands EXACTLY its input (flat in → flat out).
 6. **Solvers, multi-output & the Scree slice — Scree BUILT (2026-08-26).** The solver category brought three
@@ -251,8 +251,31 @@ failures) ===`.
      channel algebra and a flow floor of one cell area; FROZEN serve/stale/Bake; NaN passthrough; the erosion
      channel gating a Blend mask. The native solve itself is already covered by the SimPhase gates, so this
      gate is scoped to the graph plumbing, not a stream-power re-derivation.
-8. **Queued solver:** **DLA** (baked-field growth, `pasture3d_relief_dla.gd`) — the remaining solver, growth
-   currently frozen (see the DLA memory); to follow the Scree/Erosion pattern as its own graph node.
+8. **DLA solver — BUILT (2026-08-26).** A mountain grown by diffusion-limited aggregation:
+   `pasture3d_graph_node_dla.gd`, op `&"dla"`, `Role.SOLVER`, a grid node with **two outputs**
+   `[height HEIGHT, mask MASK]` (the massif in metres + its normalised footprint for a downstream Blend).
+   * **Composes the growth engine, does not reimplement it.** The ~600-line tuned growth lives on
+     `Pasture3DReliefDLA` (six documented growth bugs in its history); this node OWNS a configured engine
+     instance and drives its `grow_into(state)` hook — which grows the cluster into a state Dictionary and
+     touches nothing on the material — so the entire growth path is reused byte-for-byte. Only the thin
+     adapter is new: mirror the params, hand the engine the rect's half-extents + (when seeding) the input
+     surface as the seed frame, and bilinear-sample its normalised field onto the output grid. (A DLA needs
+     a grid at COMPILE time only and is a point operator where it counts — so it is a graph node, never a
+     brush modifier; see the DLA memory.)
+   * **Optional seed input (what makes it a SOLVER, not a bare generator).** With Ridge Seeding on, the wired
+     input's crest lines become the cluster's starting skeleton — the `Input → Erosion → DLA` workflow, where
+     the ridge network grows along what erosion actually cut. Unwired (or seeding off) it grows from a single
+     central seed, a pure generator.
+   * **Defaults to FROZEN** (growing a cluster is seconds of GDScript) with the same per-solver
+     cache/stale/Bake as Erosion and the inline canvas Bake button.
+   * Gate `bench/GraphDLANodeGate` (A–E, pure GDScript, small 64² grow): two outputs; a real massif with an
+     INTERIOR peak (not the hollow-ring failure), zero at the rect corners (not cut off at the loop edge),
+     `height == amplitude·mask`, deterministic for a fixed seed; ridge seeding that uses the input (control:
+     a flat input falls back to the central seed); FROZEN serve/stale/Bake; the footprint mask gating a
+     Blend. The growth's own appearance stays covered by `DLAGate`.
+
+   **All three solver categories are now built — Scree, Erosion, DLA — and the clean-category split
+   (Generators / Filters / Solvers, each doing ONE job) is complete for the shipping node set.**
 
 ---
 
