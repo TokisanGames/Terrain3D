@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/GraphUsabilityGate.gd" id="1_gusability"]
+
+[node name="GraphUsabilityGate" type="Node"]
+script = ExtResource("1_gusability")

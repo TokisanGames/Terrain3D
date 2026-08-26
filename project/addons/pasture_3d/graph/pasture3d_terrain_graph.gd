@@ -153,6 +153,92 @@ func set_output(p_index: int) -> void:
 		output_node = p_index
 
 
+## Returns all connections touching `p_index` ([from, from_port, to, to_port]).
+func get_node_connections(p_index: int) -> Array:
+	var result: Array = []
+	for c in connections:
+		if int(c[0]) == p_index or int(c[2]) == p_index:
+			result.append(c)
+	return result
+
+
+## Serializes a subset of nodes and their internal connecting wires into a clipboard dictionary.
+func serialize_subgraph(p_indices: Array) -> Dictionary:
+	var valid_indices: Array[int] = []
+	for idx in p_indices:
+		var i := int(idx)
+		if i >= 0 and i < nodes.size() and nodes[i] != null and not valid_indices.has(i):
+			valid_indices.append(i)
+	if valid_indices.is_empty():
+		return {"nodes": [], "connections": [], "center": Vector2.ZERO}
+	
+	var cloned_nodes: Array[Pasture3DGraphNode] = []
+	var center_accum := Vector2.ZERO
+	for i in valid_indices:
+		var cloned: Pasture3DGraphNode = nodes[i].duplicate(true)
+		cloned.graph_position = nodes[i].graph_position
+		center_accum += nodes[i].graph_position
+		cloned_nodes.append(cloned)
+	var center := center_accum / float(valid_indices.size())
+	
+	var internal_wires: Array = []
+	for c in connections:
+		var f := int(c[0])
+		var t := int(c[2])
+		var local_f := valid_indices.find(f)
+		var local_t := valid_indices.find(t)
+		if local_f != -1 and local_t != -1:
+			internal_wires.append(PackedInt32Array([local_f, int(c[1]), local_t, int(c[3])]))
+			
+	return {
+		"nodes": cloned_nodes,
+		"connections": internal_wires,
+		"center": center,
+	}
+
+
+## Deserializes subgraph data into the graph. If `p_at_position` is provided, positions are offset relative
+## to the data's center. Returns the newly created global node indices.
+func deserialize_subgraph(p_data: Dictionary, p_at_position: Vector2 = Vector2.INF) -> Array[int]:
+	var input_nodes: Array = p_data.get("nodes", [])
+	var input_wires: Array = p_data.get("connections", [])
+	var original_center: Vector2 = p_data.get("center", Vector2.ZERO)
+	if input_nodes.is_empty():
+		return []
+	
+	var offset := Vector2.ZERO
+	if not is_inf(p_at_position.x) and not is_inf(p_at_position.y):
+		offset = p_at_position - original_center
+		
+	var new_indices: Array[int] = []
+	for n in input_nodes:
+		if n is Pasture3DGraphNode:
+			var cloned: Pasture3DGraphNode = n.duplicate(true)
+			var new_pos: Vector2 = n.graph_position + offset
+			var idx := add_node(cloned, new_pos)
+			new_indices.append(idx)
+			
+	for w in input_wires:
+		if w.size() >= 4:
+			var local_f := int(w[0])
+			var local_t := int(w[2])
+			if local_f >= 0 and local_f < new_indices.size() and local_t >= 0 and local_t < new_indices.size():
+				connect_ports(new_indices[local_f], int(w[1]), new_indices[local_t], int(w[3]))
+				
+	return new_indices
+
+
+## Duplicates selected nodes and internal connecting wires by `p_offset`. Returns new global indices.
+func duplicate_subgraph(p_indices: Array, p_offset: Vector2 = Vector2(40, 40)) -> Array[int]:
+	var serialized := serialize_subgraph(p_indices)
+	if serialized["nodes"].is_empty():
+		return []
+	for n in serialized["nodes"]:
+		n.graph_position += p_offset
+	return deserialize_subgraph(serialized, Vector2.INF)
+
+
+
 ## The EFFECTIVE output node the evaluator returns: an explicit Output node (op &"output") if the graph has
 ## one, else the designated `output_node` (the legacy "Set as Output"). The Output node is the standard
 ## input→output paradigm — wire the pipeline into it and it is the output, no separate designation. The
