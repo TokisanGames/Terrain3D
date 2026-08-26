@@ -12,16 +12,21 @@
 # Follows the house discipline: every criterion measures a concrete state delta and carries a control.
 extends Node
 
+const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_frame_data.gd")
+const RerouteNodeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_reroute.gd")
+
 var _fail := 0
 
 
 func _ready() -> void:
-	print("=== GraphUsabilityGate: Terrain Graph Usability Phase 1 ===\n")
+	print("=== GraphUsabilityGate: Terrain Graph Usability Phases 1 & 2 ===\n")
 	_a_registry_search_and_tags()
 	_b_subgraph_duplication_and_wire_remapping()
 	_c_clipboard_serialize_deserialize()
 	_d_undo_redo_actions()
 	_e_keyboard_shortcuts_and_selection()
+	_f_graph_frames_and_grouping()
+	_g_reroute_node_and_connection_splitting()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH USABILITY PASS" if _fail == 0 else "GRAPH USABILITY FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -217,30 +222,30 @@ func _d_undo_redo_actions() -> void:
 
 func _e_keyboard_shortcuts_and_selection() -> void:
 	print("[E] Keyboard shortcuts & multi-selection")
-	var g := Pasture3DTerrainGraph.new()
-	var n0 := g.add_node(Pasture3DGraphNodeRegistry.create(&"noise"), Vector2(100, 100)) # 0
-	var n1 := g.add_node(Pasture3DGraphNodeRegistry.create(&"const"), Vector2(100, 200)) # 1
+	var g = Pasture3DTerrainGraph.new()
+	var n0 = g.add_node(Pasture3DGraphNodeRegistry.create(&"noise"), Vector2(100, 100)) # 0
+	var n1 = g.add_node(Pasture3DGraphNodeRegistry.create(&"const"), Vector2(100, 200)) # 1
 	
-	var editor := Pasture3DGraphEditor.new()
+	var editor = Pasture3DGraphEditor.new()
 	editor._build_ui()
 	editor.edit_graph(g)
 	
 	# Select all nodes
 	editor._select_all_nodes(true)
-	var sel := editor._get_selected_node_indices()
-	var sel_ok := sel.size() == 2
+	var sel = editor._get_selected_node_indices()
+	var sel_ok = sel.size() == 2
 	print("    select all nodes: count=%d (want 2)" % sel.size())
 	if not sel_ok:
 		_fail += 1; print("    !! select all failed to select both nodes")
 		
 	# Test Ctrl+D Duplicate Event
-	var ev_ctrl_d := InputEventKey.new()
+	var ev_ctrl_d = InputEventKey.new()
 	ev_ctrl_d.pressed = true
 	ev_ctrl_d.ctrl_pressed = true
 	ev_ctrl_d.keycode = KEY_D
 	editor._on_graphedit_gui_input(ev_ctrl_d)
 	
-	var dup_ok := g.nodes.size() == 4
+	var dup_ok = g.nodes.size() == 4
 	print("    Ctrl+D input event: node count = %d (want 4)" % g.nodes.size())
 	if not dup_ok:
 		_fail += 1; print("    !! Ctrl+D event did not duplicate nodes")
@@ -251,25 +256,120 @@ func _e_keyboard_shortcuts_and_selection() -> void:
 	if gn0:
 		gn0.set_selected(true)
 	
-	var ev_ctrl_c := InputEventKey.new()
+	var ev_ctrl_c = InputEventKey.new()
 	ev_ctrl_c.pressed = true
 	ev_ctrl_c.ctrl_pressed = true
 	ev_ctrl_c.keycode = KEY_C
 	editor._on_graphedit_gui_input(ev_ctrl_c)
 	
 	# Test Ctrl+V Paste Event
-	var ev_ctrl_v := InputEventKey.new()
+	var ev_ctrl_v = InputEventKey.new()
 	ev_ctrl_v.pressed = true
 	ev_ctrl_v.ctrl_pressed = true
 	ev_ctrl_v.keycode = KEY_V
 	editor._on_graphedit_gui_input(ev_ctrl_v)
 	
-	var paste_ok := g.nodes.size() == 5
+	var paste_ok = g.nodes.size() == 5
 	print("    Ctrl+C & Ctrl+V input event: node count = %d (want 5)" % g.nodes.size())
 	if not paste_ok:
 		_fail += 1; print("    !! Ctrl+C / Ctrl+V event failed")
 		
 	editor.free()
+
+
+func _f_graph_frames_and_grouping() -> void:
+	print("[F] GraphFrame grouping, serialization & node attachment")
+	var g = Pasture3DTerrainGraph.new()
+	var n0 = g.add_node(Pasture3DGraphNodeRegistry.create(&"noise"), Vector2(100, 100)) # 0
+	var n1 = g.add_node(Pasture3DGraphNodeRegistry.create(&"const"), Vector2(100, 200)) # 1
+	var n2 = g.add_node(Pasture3DGraphNodeRegistry.create(&"smooth"), Vector2(300, 150)) # 2
+	
+	# Group nodes 0 and 1 into a frame
+	var f_idx = g.group_nodes_in_frame([n0, n1], "Generators", Color(0.3, 0.4, 0.5, 0.8))
+	var f_created = f_idx == 0 and g.frames.size() == 1
+	var frame = g.frames[0] if g.frames.size() > 0 else null
+	
+	var frame_ok: bool = frame != null and frame.title == "Generators" \
+			and frame.attached_node_indices.size() == 2 \
+			and frame.attached_node_indices[0] == 0 and frame.attached_node_indices[1] == 1
+			
+	print("    frame created=%s, title='%s', attached=%s" % [
+		f_created, frame.title if frame else "", frame.attached_node_indices if frame else []
+	])
+	if not f_created or not frame_ok:
+		_fail += 1; print("    !! frame grouping failed")
+		
+	# Removing node 0 shifts node 1 down to index 0, so frame attachment must remap from [0, 1] to [0]
+	g.remove_node(0)
+	var remapped_ok: bool = g.frames.size() == 1 and g.frames[0].attached_node_indices.size() == 1 \
+			and g.frames[0].attached_node_indices[0] == 0
+			
+	print("    after remove_node(0): frame attached=%s (ok=%s)" % [
+		g.frames[0].attached_node_indices if g.frames.size() > 0 else [], remapped_ok
+	])
+	if not remapped_ok:
+		_fail += 1; print("    !! node removal did not remap frame attached indices")
+		
+	# CONTROL: removing frame drops frame without affecting nodes.
+	var node_count_before = g.nodes.size()
+	g.remove_frame(0)
+	print("    control: remove_frame -> %d frames (want 0), nodes stay %d" % [g.frames.size(), g.nodes.size()])
+	if g.frames.size() != 0 or g.nodes.size() != node_count_before:
+		_fail += 1; print("    !! frame removal failed or mutated nodes")
+
+
+func _g_reroute_node_and_connection_splitting() -> void:
+	print("[G] Reroute node transparent passthrough & connection splitting")
+	var g = Pasture3DTerrainGraph.new()
+	var c0 = Pasture3DGraphNodeRegistry.create(&"const")
+	c0.set("value", 10.0)
+	var n0 = g.add_node(c0, Vector2(100, 100)) # 0
+	
+	var c1 = Pasture3DGraphNodeRegistry.create(&"const")
+	c1.set("value", 5.0)
+	var n1 = g.add_node(c1, Vector2(100, 200)) # 1
+	
+	var blend = Pasture3DGraphNodeRegistry.create(&"blend")
+	var n2 = g.add_node(blend, Vector2(300, 150)) # 2
+	
+	var out_node = Pasture3DGraphNodeRegistry.create(&"output")
+	var n3 = g.add_node(out_node, Vector2(500, 150)) # 3
+	
+	g.connect_ports(n0, 0, n2, 0)
+	g.connect_ports(n1, 0, n2, 1)
+	g.connect_ports(n2, 0, n3, 0)
+	
+	var baseline: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	var base_val: float = baseline[0]
+	print("    baseline evaluation (10 + 5) = %.1f" % base_val)
+	if absf(base_val - 15.0) > 1.0e-5:
+		_fail += 1; print("    !! baseline evaluation did not produce 15.0")
+		
+	# Split connection (0:0 -> 2:0) with a Reroute node
+	var reroute_node = Pasture3DGraphNodeRegistry.create(&"reroute")
+	var r_idx: int = g.split_connection_with_node(n0, 0, n2, 0, reroute_node, Vector2(200, 100))
+	
+	var split_ok: bool = r_idx == 4 and g.connections.size() == 4 \
+			and _has_wire(g, n0, r_idx, 0) and _has_wire(g, r_idx, n2, 0) and not _has_wire(g, n0, n2, 0)
+			
+	var rerouted_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	var rerouted_val: float = rerouted_field[0]
+	
+	var diff_from_base: float = 0.0
+	for i in range(baseline.size()):
+		diff_from_base = maxf(diff_from_base, absf(baseline[i] - rerouted_field[i]))
+		
+	var passthrough_ok: bool = diff_from_base < 1.0e-6
+	print("    split wire ok=%s, max |rerouted - baseline| = %.8f m (want 0.0)" % [split_ok, diff_from_base])
+	if not split_ok or not passthrough_ok:
+		_fail += 1; print("    !! reroute node did not pass values transparently or split connection correctly")
+		
+	# CONTROL: disconnecting reroute drops field back to unwired default (5.0).
+	g.disconnect_ports(r_idx, 0, n2, 0)
+	var unwired_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    control: disconnecting reroute -> %.1f (want 5.0)" % unwired_field[0])
+	if absf(unwired_field[0] - 5.0) > 1.0e-5:
+		_fail += 1; print("    !! disconnected reroute did not revert field")
 
 
 # ---- helpers ----------------------------------------------------------------------------------------

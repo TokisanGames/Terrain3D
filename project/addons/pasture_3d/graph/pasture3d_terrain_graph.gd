@@ -20,6 +20,8 @@
 class_name Pasture3DTerrainGraph
 extends Resource
 
+const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_frame_data.gd")
+
 ## The nodes. Order here is authoring order only — evaluation order is derived from `connections`.
 @export var nodes: Array[Pasture3DGraphNode] = []:
 	set(v):
@@ -44,6 +46,14 @@ extends Resource
 		output_node = v
 		emit_changed()
 
+## Comment and grouping boxes organizing subsets of nodes on the visual canvas.
+@export var frames: Array = []:
+	set(v):
+		_bind_frames(frames, false)
+		frames = v
+		_bind_frames(frames, true)
+		emit_changed()
+
 
 # ---- Change forwarding -------------------------------------------------------------------------------
 #
@@ -64,6 +74,21 @@ func _bind_nodes(p_list: Array, p_connect: bool) -> void:
 
 
 func _on_node_changed() -> void:
+	emit_changed()
+
+
+func _bind_frames(p_list: Array, p_connect: bool) -> void:
+	for f in p_list:
+		if f == null:
+			continue
+		if p_connect:
+			if not f.changed.is_connected(_on_frame_changed):
+				f.changed.connect(_on_frame_changed)
+		elif f.changed.is_connected(_on_frame_changed):
+			f.changed.disconnect(_on_frame_changed)
+
+
+func _on_frame_changed() -> void:
 	emit_changed()
 
 
@@ -101,7 +126,7 @@ func add_node(p_node: Pasture3DGraphNode, p_pos: Vector2 = Vector2.ZERO) -> int:
 
 
 ## Remove the node at `p_index`: drop every connection touching it, shift indices above it down by one,
-## and follow `output_node` (cleared if it WAS the output).
+## follow `output_node`, and update frame attachments.
 func remove_node(p_index: int) -> void:
 	if p_index < 0 or p_index >= nodes.size():
 		return
@@ -119,9 +144,75 @@ func remove_node(p_index: int) -> void:
 	elif output_node > p_index:
 		output_node = output_node - 1
 	connections = remapped
+	
+	# Remap frame attached indices
+	for f in frames:
+		if f != null:
+			var new_attached := PackedInt32Array()
+			for idx in f.attached_node_indices:
+				if idx == p_index:
+					continue
+				new_attached.append(idx - 1 if idx > p_index else idx)
+			f.attached_node_indices = new_attached
+			
 	var arr := nodes.duplicate()
 	arr.remove_at(p_index)
 	nodes = arr
+
+
+## Append a frame and return its index.
+func add_frame(p_frame: Resource) -> int:
+	if p_frame == null:
+		return -1
+	var arr := frames.duplicate()
+	arr.append(p_frame)
+	frames = arr
+	return frames.size() - 1
+
+
+## Remove the frame at `p_index`.
+func remove_frame(p_index: int) -> void:
+	if p_index < 0 or p_index >= frames.size():
+		return
+	var arr := frames.duplicate()
+	arr.remove_at(p_index)
+	frames = arr
+
+
+## Groups the specified node indices into a new GraphFrame bounding them. Returns frame index.
+func group_nodes_in_frame(p_indices: Array[int], p_title: String = "Group", p_tint: Color = Color(0.2, 0.25, 0.35, 0.75)) -> int:
+	var valid_indices: Array[int] = []
+	var min_pos := Vector2(INF, INF)
+	var max_pos := Vector2(-INF, -INF)
+	
+	for idx in p_indices:
+		if idx >= 0 and idx < nodes.size() and nodes[idx] != null:
+			valid_indices.append(idx)
+			var pos: Vector2 = nodes[idx].graph_position
+			min_pos = min_pos.min(pos)
+			max_pos = max_pos.max(pos + Vector2(200, 100))
+			
+	var frame_pos: Vector2 = min_pos - Vector2(30, 40) if not is_inf(min_pos.x) else Vector2(100, 100)
+	var frame_size: Vector2 = (max_pos - min_pos) + Vector2(60, 80) if not is_inf(min_pos.x) else Vector2(320, 240)
+	frame_size = frame_size.max(Vector2(200, 140))
+	
+	var fd = FrameDataScript.new()
+	fd.title = p_title
+	fd.tint_color = p_tint
+	fd.position_offset = frame_pos
+	fd.size = frame_size
+	fd.attached_node_indices = PackedInt32Array(valid_indices)
+	return add_frame(fd)
+
+
+## Splits an existing connection `(from:from_port -> to:to_port)` by inserting `p_node` at `p_pos`.
+## Returns the newly inserted node's index.
+func split_connection_with_node(p_from: int, p_from_port: int, p_to: int, p_to_port: int, p_node: Pasture3DGraphNode, p_pos: Vector2) -> int:
+	disconnect_ports(p_from, p_from_port, p_to, p_to_port)
+	var new_idx := add_node(p_node, p_pos)
+	connect_ports(p_from, p_from_port, new_idx, 0)
+	connect_ports(new_idx, 0, p_to, p_to_port)
+	return new_idx
 
 
 ## Wire `from`:`from_port` -> `to`:`to_port`. An input port takes ONE wire, so any existing wire into

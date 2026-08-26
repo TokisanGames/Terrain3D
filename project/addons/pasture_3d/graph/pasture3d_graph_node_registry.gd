@@ -8,6 +8,9 @@ class_name Pasture3DGraphNodeRegistry
 extends RefCounted
 
 
+const RerouteScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_reroute.gd")
+
+
 ## Palette entries, in menu order. `title` is the menu/label text; `role` groups them (the same three
 ## Pasture3DGraphNode.Role names); `script` is the GDScript class to instance; `tags` supports fuzzy search.
 static func entries() -> Array[Dictionary]:
@@ -24,6 +27,7 @@ static func entries() -> Array[Dictionary]:
 		{"op": &"strata", "title": "Strata", "role": "Filter", "script": Pasture3DGraphNodeStrata, "tags": ["layers", "geology", "bands", "sediment"], "description": "Applies geological sedimentary layering to slopes."},
 		{"op": &"curve", "title": "Curve", "role": "Filter", "script": Pasture3DGraphNodeCurve, "tags": ["remap", "ramp", "profile", "transfer", "shaping"], "description": "Remaps input heights through a custom Curve resource."},
 		{"op": &"mask", "title": "Mask", "role": "Filter", "script": Pasture3DGraphNodeMask, "tags": ["selector", "slope", "altitude", "weight", "gate"], "description": "Gates height by slope, elevation, or curvature masks."},
+		{"op": &"reroute", "title": "Reroute", "role": "Utility", "script": RerouteScript, "tags": ["dot", "relay", "wire", "route", "passthrough", "clean"], "description": "1-in / 1-out transparent wire routing dot."},
 		{"op": &"output", "title": "Output", "role": "Sink", "script": Pasture3DGraphNodeOutput, "tags": ["sink", "result", "final", "surface"], "description": "The destination sink representing the graph's output surface."},
 	]
 

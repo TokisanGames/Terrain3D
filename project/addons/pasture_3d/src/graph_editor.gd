@@ -1,8 +1,8 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
 # Pasture3DGraphEditor — the bottom-panel visual editor for a Pasture3DTerrainGraph, built on Godot's
-# GraphEdit/GraphNode (the same controls the VisualShader / Shader Graph editor uses). The canvas owns
-# TOPOLOGY — nodes, wiring and which node is the output; a node's parameters can be edited inline or in
+# GraphEdit/GraphNode/GraphFrame (the same controls the VisualShader / Shader Graph editor uses). The canvas owns
+# TOPOLOGY — nodes, wiring, frames, and which node is the output; a node's parameters can be edited inline or in
 # Godot's normal Inspector. See PASTURE3D_TERRAIN_GRAPH_USABILITY_SPEC.md.
 #
 # All structural edits go through undo/redo actions operating on Pasture3DTerrainGraph.
@@ -18,6 +18,7 @@ var graph: Pasture3DTerrainGraph
 var _graphedit: GraphEdit
 var _search_dialog: PopupPanel
 var _add_button: Button
+var _frame_button: Button
 var _minimap_button: Button
 var _arrange_button: Button
 var _title: Label
@@ -29,7 +30,7 @@ var _local_undo_redo: UndoRedo = UndoRedo.new()
 ## Internal clipboard for copy/cut/paste
 var _clipboard: Dictionary = {}
 
-## Track previous node positions for undo/redo move actions
+## Track previous node/frame positions for undo/redo move actions
 var _drag_start_positions: Dictionary = {}
 
 
@@ -70,6 +71,12 @@ func _build_ui() -> void:
 	_add_button.tooltip_text = "Add a new node to the graph (or press Tab / Space over canvas)"
 	_add_button.pressed.connect(_on_add_button_pressed)
 	bar.add_child(_add_button)
+	
+	_frame_button = Button.new()
+	_frame_button.text = "Group Frame"
+	_frame_button.tooltip_text = "Group selected nodes into a visual GraphFrame (Ctrl+J or C)"
+	_frame_button.pressed.connect(group_selected_in_frame)
+	bar.add_child(_frame_button)
 	
 	_minimap_button = Button.new()
 	_minimap_button.text = "Minimap"
@@ -139,6 +146,8 @@ func _ur_add_do_method(p_obj: Object, p_method: StringName, p_args: Array = []) 
 			2: ur.add_do_method(p_obj, p_method, p_args[0], p_args[1])
 			3: ur.add_do_method(p_obj, p_method, p_args[0], p_args[1], p_args[2])
 			4: ur.add_do_method(p_obj, p_method, p_args[0], p_args[1], p_args[2], p_args[3])
+			5: ur.add_do_method(p_obj, p_method, p_args[0], p_args[1], p_args[2], p_args[3], p_args[4])
+			6: ur.add_do_method(p_obj, p_method, p_args[0], p_args[1], p_args[2], p_args[3], p_args[4], p_args[5])
 	elif ur is UndoRedo:
 		match p_args.size():
 			0: ur.add_do_method(Callable(p_obj, p_method))
@@ -146,6 +155,8 @@ func _ur_add_do_method(p_obj: Object, p_method: StringName, p_args: Array = []) 
 			2: ur.add_do_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1]))
 			3: ur.add_do_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1], p_args[2]))
 			4: ur.add_do_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1], p_args[2], p_args[3]))
+			5: ur.add_do_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1], p_args[2], p_args[3], p_args[4]))
+			6: ur.add_do_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1], p_args[2], p_args[3], p_args[4], p_args[5]))
 
 
 func _ur_add_undo_method(p_obj: Object, p_method: StringName, p_args: Array = []) -> void:
@@ -157,6 +168,8 @@ func _ur_add_undo_method(p_obj: Object, p_method: StringName, p_args: Array = []
 			2: ur.add_undo_method(p_obj, p_method, p_args[0], p_args[1])
 			3: ur.add_undo_method(p_obj, p_method, p_args[0], p_args[1], p_args[2])
 			4: ur.add_undo_method(p_obj, p_method, p_args[0], p_args[1], p_args[2], p_args[3])
+			5: ur.add_undo_method(p_obj, p_method, p_args[0], p_args[1], p_args[2], p_args[3], p_args[4])
+			6: ur.add_undo_method(p_obj, p_method, p_args[0], p_args[1], p_args[2], p_args[3], p_args[4], p_args[5])
 	elif ur is UndoRedo:
 		match p_args.size():
 			0: ur.add_undo_method(Callable(p_obj, p_method))
@@ -164,6 +177,8 @@ func _ur_add_undo_method(p_obj: Object, p_method: StringName, p_args: Array = []
 			2: ur.add_undo_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1]))
 			3: ur.add_undo_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1], p_args[2]))
 			4: ur.add_undo_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1], p_args[2], p_args[3]))
+			5: ur.add_undo_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1], p_args[2], p_args[3], p_args[4]))
+			6: ur.add_undo_method(Callable(p_obj, p_method).bind(p_args[0], p_args[1], p_args[2], p_args[3], p_args[4], p_args[5]))
 
 
 func _ur_add_do_property(p_obj: Object, p_prop: StringName, p_val: Variant) -> void:
@@ -192,6 +207,7 @@ func _rebuild() -> void:
 	_clear()
 	var has := graph != null
 	if _add_button != null: _add_button.disabled = not has
+	if _frame_button != null: _frame_button.disabled = not has
 	if _minimap_button != null: _minimap_button.disabled = not has
 	if _arrange_button != null: _arrange_button.disabled = not has
 	if _title != null: _title.text = "  editing: %s" % _graph_label() if has else "  (no graph)"
@@ -199,11 +215,35 @@ func _rebuild() -> void:
 	if not has:
 		return
 		
+	# 1. Recreate Frames
+	for f_idx in range(graph.frames.size()):
+		var fdata = graph.frames[f_idx]
+		if fdata != null:
+			var gf := GraphFrame.new()
+			gf.name = "f%d" % f_idx
+			gf.title = fdata.title
+			gf.position_offset = fdata.position_offset
+			gf.size = fdata.size
+			gf.set_tint_color_enabled(true)
+			gf.set_tint_color(fdata.tint_color)
+			gf.set_autoshrink_enabled(fdata.autoshrink)
+			_graphedit.add_child(gf)
+			
+	# 2. Recreate Nodes
 	for i in range(graph.nodes.size()):
 		var node: Pasture3DGraphNode = graph.nodes[i]
 		if node != null:
 			_graphedit.add_child(_make_graphnode(i, node))
 			
+	# 3. Attach Nodes to Frames
+	for f_idx in range(graph.frames.size()):
+		var fdata = graph.frames[f_idx]
+		if fdata != null:
+			for n_idx in fdata.attached_node_indices:
+				if n_idx >= 0 and n_idx < graph.nodes.size():
+					_graphedit.attach_graph_element_to_frame("n%d" % n_idx, "f%d" % f_idx)
+			
+	# 4. Connect Wires
 	for c in graph.connections:
 		if c.size() >= 4:
 			_graphedit.connect_node("n%d" % int(c[0]), int(c[1]), "n%d" % int(c[2]), int(c[3]))
@@ -212,7 +252,7 @@ func _rebuild() -> void:
 func _clear() -> void:
 	_graphedit.clear_connections()
 	for c in _graphedit.get_children():
-		if c is GraphNode:
+		if c is GraphElement:
 			_graphedit.remove_child(c)
 			c.queue_free()
 
@@ -223,8 +263,19 @@ func _make_graphnode(p_index: int, p_node: Pasture3DGraphNode) -> GraphNode:
 	gn.set_selectable(true)
 	gn.set_draggable(true)
 	var is_out := p_index == graph.output_index()
-	gn.title = p_node.display_name() + ("  ● OUT" if is_out else "")
 	gn.position_offset = p_node.graph_position
+	
+	# Compact rendering for Reroute dot nodes
+	if p_node.op() == &"reroute":
+		gn.title = "●"
+		gn.custom_minimum_size = Vector2(36, 32)
+		var row := Control.new()
+		row.custom_minimum_size = Vector2(0, 14)
+		gn.add_child(row)
+		gn.set_slot(0, true, 0, Color(0.6, 0.8, 1.0), true, 0, Color(1.0, 0.85, 0.5))
+		return gn
+		
+	gn.title = p_node.display_name() + ("  ● OUT" if is_out else "")
 	if is_out:
 		gn.modulate = Color(0.8, 1.0, 0.85)
 
@@ -319,6 +370,21 @@ func _action_delete_nodes(p_indices: Array[int]) -> void:
 	_ur_commit()
 
 
+func _action_delete_frames(p_indices: Array[int]) -> void:
+	if p_indices.is_empty() or graph == null:
+		return
+	var sorted_indices := p_indices.duplicate()
+	sorted_indices.sort()
+	sorted_indices.reverse()
+	
+	var old_frames := graph.frames.duplicate()
+	_ur_create_action("Delete Graph Frame(s)")
+	for i in sorted_indices:
+		_ur_add_do_method(graph, &"remove_frame", [i])
+	_ur_add_undo_property(graph, &"frames", old_frames)
+	_ur_commit()
+
+
 func _action_connect(p_from: int, p_from_port: int, p_to: int, p_to_port: int) -> void:
 	var old_conns := graph.connections.duplicate()
 	_ur_create_action("Connect Terrain Graph Ports")
@@ -357,10 +423,20 @@ func _on_disconnection_request(p_from: StringName, p_from_port: int, p_to: Strin
 func _on_delete_request(p_names: Array) -> void:
 	if graph == null:
 		return
-	var idx: Array[int] = []
+	var node_indices: Array[int] = []
+	var frame_indices: Array[int] = []
 	for nm in p_names:
-		idx.append(_idx(nm))
-	_action_delete_nodes(idx)
+		var n_idx := _idx(nm)
+		if n_idx >= 0:
+			node_indices.append(n_idx)
+		var f_idx := _frame_idx(nm)
+		if f_idx >= 0:
+			frame_indices.append(f_idx)
+			
+	if not node_indices.is_empty():
+		_action_delete_nodes(node_indices)
+	if not frame_indices.is_empty():
+		_action_delete_frames(frame_indices)
 
 
 func _on_node_selected(p_node: Node) -> void:
@@ -378,7 +454,11 @@ func _on_node_move_begin() -> void:
 		if c is GraphNode:
 			var i := _idx(c.name)
 			if i >= 0 and i < graph.nodes.size() and graph.nodes[i] != null:
-				_drag_start_positions[i] = graph.nodes[i].graph_position
+				_drag_start_positions["n%d" % i] = graph.nodes[i].graph_position
+		elif c is GraphFrame:
+			var f := _frame_idx(c.name)
+			if f >= 0 and f < graph.frames.size() and graph.frames[f] != null:
+				_drag_start_positions["f%d" % f] = graph.frames[f].position_offset
 
 
 func _on_node_move_end() -> void:
@@ -390,27 +470,43 @@ func _on_node_move_end() -> void:
 		if c is GraphNode:
 			var i := _idx(c.name)
 			if i >= 0 and i < graph.nodes.size() and graph.nodes[i] != null:
-				end_positions[i] = c.position_offset
+				end_positions["n%d" % i] = c.position_offset
 				graph.nodes[i].graph_position = c.position_offset
-				if _drag_start_positions.has(i) and _drag_start_positions[i] != c.position_offset:
+				var key := "n%d" % i
+				if _drag_start_positions.has(key) and _drag_start_positions[key] != c.position_offset:
+					has_diff = true
+		elif c is GraphFrame:
+			var f := _frame_idx(c.name)
+			if f >= 0 and f < graph.frames.size() and graph.frames[f] != null:
+				end_positions["f%d" % f] = c.position_offset
+				graph.frames[f].position_offset = c.position_offset
+				graph.frames[f].size = c.size
+				var key := "f%d" % f
+				if _drag_start_positions.has(key) and _drag_start_positions[key] != c.position_offset:
 					has_diff = true
 					
 	if has_diff and not _drag_start_positions.is_empty():
 		var start_snap := _drag_start_positions.duplicate()
 		var end_snap := end_positions.duplicate()
-		_ur_create_action("Move Terrain Graph Node(s)")
-		_ur_add_do_method(self, &"_apply_node_positions", [end_snap])
-		_ur_add_undo_method(self, &"_apply_node_positions", [start_snap])
+		_ur_create_action("Move Terrain Graph Element(s)")
+		_ur_add_do_method(self, &"_apply_element_positions", [end_snap])
+		_ur_add_undo_method(self, &"_apply_element_positions", [start_snap])
 		_ur_commit(false)
 
 
-func _apply_node_positions(p_positions: Dictionary) -> void:
+func _apply_element_positions(p_positions: Dictionary) -> void:
 	if graph == null:
 		return
-	for idx in p_positions.keys():
-		var i := int(idx)
-		if i >= 0 and i < graph.nodes.size() and graph.nodes[i] != null:
-			graph.nodes[i].graph_position = p_positions[idx]
+	for key in p_positions.keys():
+		var s := String(key)
+		if s.begins_with("n"):
+			var i := int(s.substr(1))
+			if i >= 0 and i < graph.nodes.size() and graph.nodes[i] != null:
+				graph.nodes[i].graph_position = p_positions[key]
+		elif s.begins_with("f"):
+			var f := int(s.substr(1))
+			if f >= 0 and f < graph.frames.size() and graph.frames[f] != null:
+				graph.frames[f].position_offset = p_positions[key]
 	_rebuild()
 
 
@@ -419,7 +515,7 @@ func _on_minimap_toggled(p_enabled: bool) -> void:
 		_graphedit.minimap_enabled = p_enabled
 
 
-# ---- Clipboard & Navigation Shortcuts ---------------------------------------------------------------
+# ---- Clipboard, Grouping & Navigation Shortcuts ----------------------------------------------------
 
 func _get_selected_node_indices() -> Array[int]:
 	var result: Array[int] = []
@@ -431,6 +527,19 @@ func _get_selected_node_indices() -> Array[int]:
 			if i >= 0:
 				result.append(i)
 	return result
+
+
+func group_selected_in_frame() -> void:
+	if graph == null:
+		return
+	var selected := _get_selected_node_indices()
+	if selected.is_empty():
+		return
+	var old_frames := graph.frames.duplicate()
+	_ur_create_action("Group Nodes in Frame")
+	_ur_add_do_method(graph, &"group_nodes_in_frame", [selected, "Group"])
+	_ur_add_undo_property(graph, &"frames", old_frames)
+	_ur_commit()
 
 
 func duplicate_selected() -> void:
@@ -481,6 +590,36 @@ func paste() -> void:
 	_ur_commit()
 
 
+func _split_closest_connection(p_mouse_pos: Vector2) -> void:
+	if graph == null or _graphedit == null:
+		return
+	var conn: Dictionary = _graphedit.get_closest_connection_at_point(p_mouse_pos, 16.0)
+	if conn.is_empty():
+		return
+		
+	var from_node_name: StringName = conn.get("from_node", &"")
+	var from_port: int = conn.get("from_port", 0)
+	var to_node_name: StringName = conn.get("to_node", &"")
+	var to_port: int = conn.get("to_port", 0)
+	
+	var f_idx := _idx(from_node_name)
+	var t_idx := _idx(to_node_name)
+	if f_idx < 0 or t_idx < 0:
+		return
+		
+	var graph_pos: Vector2 = (p_mouse_pos + _graphedit.scroll_offset) / _graphedit.zoom
+	var reroute_node = Pasture3DGraphNodeRegistry.create(&"reroute")
+	
+	var old_nodes := graph.nodes.duplicate()
+	var old_conns := graph.connections.duplicate()
+	
+	_ur_create_action("Insert Reroute Node")
+	_ur_add_do_method(graph, &"split_connection_with_node", [f_idx, from_port, t_idx, to_port, reroute_node, graph_pos])
+	_ur_add_undo_property(graph, &"nodes", old_nodes)
+	_ur_add_undo_property(graph, &"connections", old_conns)
+	_ur_commit()
+
+
 func frame_selected() -> void:
 	if _graphedit == null:
 		return
@@ -488,7 +627,7 @@ func frame_selected() -> void:
 	var max_pos := Vector2(-INF, -INF)
 	var has_sel := false
 	for c in _graphedit.get_children():
-		if c is GraphNode and c.is_selected():
+		if c is GraphElement and c.is_selected():
 			has_sel = true
 			min_pos = min_pos.min(c.position_offset)
 			max_pos = max_pos.max(c.position_offset + c.size)
@@ -508,7 +647,7 @@ func frame_all() -> void:
 	var max_pos := Vector2(-INF, -INF)
 	var count := 0
 	for c in _graphedit.get_children():
-		if c is GraphNode:
+		if c is GraphElement:
 			count += 1
 			min_pos = min_pos.min(c.position_offset)
 			max_pos = max_pos.max(c.position_offset + c.size)
@@ -535,6 +674,12 @@ func _accept_event() -> void:
 
 
 func _on_graphedit_gui_input(p_event: InputEvent) -> void:
+	# Double click on connection line -> split with Reroute node
+	if p_event is InputEventMouseButton and p_event.pressed and p_event.double_click and p_event.button_index == MOUSE_BUTTON_LEFT:
+		_split_closest_connection(p_event.position)
+		_accept_event()
+		return
+		
 	if p_event is InputEventKey and p_event.pressed:
 		var is_ctrl: bool = p_event.ctrl_pressed or p_event.meta_pressed or p_event.is_command_or_control_autoremap()
 		
@@ -563,6 +708,9 @@ func _on_graphedit_gui_input(p_event: InputEvent) -> void:
 				KEY_A:
 					_select_all_nodes(true)
 					_accept_event()
+				KEY_J:
+					group_selected_in_frame()
+					_accept_event()
 			return
 			
 		# Non-Ctrl Shortcuts
@@ -572,6 +720,9 @@ func _on_graphedit_gui_input(p_event: InputEvent) -> void:
 				if not sel.is_empty():
 					_action_delete_nodes(sel)
 					_accept_event()
+			KEY_C:
+				group_selected_in_frame()
+				_accept_event()
 			KEY_F:
 				frame_selected()
 				_accept_event()
@@ -586,3 +737,8 @@ func _on_graphedit_gui_input(p_event: InputEvent) -> void:
 func _idx(p_name) -> int:
 	var s := String(p_name)
 	return int(s.substr(1)) if s.begins_with("n") else -1
+
+
+func _frame_idx(p_name) -> int:
+	var s := String(p_name)
+	return int(s.substr(1)) if s.begins_with("f") else -1
