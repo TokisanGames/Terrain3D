@@ -69,6 +69,10 @@ func needs_grid() -> bool:
 	return true
 
 
+func output_port_type() -> int:
+	return PortType.MASK
+
+
 func input_count() -> int:
 	return 1
 

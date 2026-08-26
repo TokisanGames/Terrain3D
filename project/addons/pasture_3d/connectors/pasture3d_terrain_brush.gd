@@ -3851,6 +3851,10 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		z[i] = (basey[i] + v) if add else v
 
 	var rect := Rect2(min_x - 0.5 * vs, min_z - 0.5 * vs, float(gw) * vs, float(gh) * vs)
+	m.last_input_surface = z.duplicate()
+	m.last_rect = rect
+	m.last_gw = gw
+	m.last_gh = gh
 	# A FILTER graph (an Input node feeds the output) depends on the surface, so the cache must key on it —
 	# a drag changes the surface and the entry goes stale, exactly as the erosion cache does. A pure
 	# generator is world-fixed, so its key is just the content revision and the cache serves across drags.

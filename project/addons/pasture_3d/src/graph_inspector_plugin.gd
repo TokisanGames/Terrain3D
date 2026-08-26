@@ -25,17 +25,18 @@ func _parse_begin(p_object: Object) -> void:
 
 func _open(p_object: Object) -> void:
 	var target: Pasture3DTerrainGraph = null
+	var mod: Pasture3DNodeGraph = null
 	if p_object is Pasture3DTerrainGraph:
 		target = p_object
 	elif p_object is Pasture3DNodeGraph:
-		var node_graph := p_object as Pasture3DNodeGraph
-		if node_graph.graph == null:
+		mod = p_object as Pasture3DNodeGraph
+		if mod.graph == null:
 			# A modifier with no graph gets one pre-wired Input -> Output (the standard starting point), so
 			# the canvas opens ready to build a filter rather than blank.
-			node_graph.graph = Pasture3DTerrainGraph.create_default()
-		target = node_graph.graph
+			mod.graph = Pasture3DTerrainGraph.create_default()
+		target = mod.graph
 	if target == null or editor == null:
 		return
-	editor.edit_graph(target)
+	editor.edit_graph(target, mod)
 	if plugin != null:
 		plugin.make_bottom_panel_item_visible(editor)

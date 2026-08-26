@@ -20,6 +20,8 @@
 class_name Pasture3DTerrainGraph
 extends Resource
 
+const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_frame_data.gd")
+
 ## The nodes. Order here is authoring order only — evaluation order is derived from `connections`.
 @export var nodes: Array[Pasture3DGraphNode] = []:
 	set(v):
@@ -44,6 +46,21 @@ extends Resource
 		output_node = v
 		emit_changed()
 
+## Temporary editor solo preview override (-1 = normal graph output). When set >= 0, evaluate() routes
+## this node's output to the 3D viewport without mutating the permanent saved output.
+@export var output_override: int = -1:
+	set(v):
+		output_override = v
+		emit_changed()
+
+## Comment and grouping boxes organizing subsets of nodes on the visual canvas.
+@export var frames: Array = []:
+	set(v):
+		_bind_frames(frames, false)
+		frames = v
+		_bind_frames(frames, true)
+		emit_changed()
+
 
 # ---- Change forwarding -------------------------------------------------------------------------------
 #
@@ -64,6 +81,21 @@ func _bind_nodes(p_list: Array, p_connect: bool) -> void:
 
 
 func _on_node_changed() -> void:
+	emit_changed()
+
+
+func _bind_frames(p_list: Array, p_connect: bool) -> void:
+	for f in p_list:
+		if f == null:
+			continue
+		if p_connect:
+			if not f.changed.is_connected(_on_frame_changed):
+				f.changed.connect(_on_frame_changed)
+		elif f.changed.is_connected(_on_frame_changed):
+			f.changed.disconnect(_on_frame_changed)
+
+
+func _on_frame_changed() -> void:
 	emit_changed()
 
 
@@ -101,7 +133,7 @@ func add_node(p_node: Pasture3DGraphNode, p_pos: Vector2 = Vector2.ZERO) -> int:
 
 
 ## Remove the node at `p_index`: drop every connection touching it, shift indices above it down by one,
-## and follow `output_node` (cleared if it WAS the output).
+## follow `output_node`, and update frame attachments.
 func remove_node(p_index: int) -> void:
 	if p_index < 0 or p_index >= nodes.size():
 		return
@@ -118,10 +150,82 @@ func remove_node(p_index: int) -> void:
 		output_node = -1
 	elif output_node > p_index:
 		output_node = output_node - 1
+		
+	if output_override == p_index:
+		output_override = -1
+	elif output_override > p_index:
+		output_override = output_override - 1
 	connections = remapped
+	
+	# Remap frame attached indices
+	for f in frames:
+		if f != null:
+			var new_attached := PackedInt32Array()
+			for idx in f.attached_node_indices:
+				if idx == p_index:
+					continue
+				new_attached.append(idx - 1 if idx > p_index else idx)
+			f.attached_node_indices = new_attached
+			
 	var arr := nodes.duplicate()
 	arr.remove_at(p_index)
 	nodes = arr
+
+
+## Append a frame and return its index.
+func add_frame(p_frame: Resource) -> int:
+	if p_frame == null:
+		return -1
+	var arr := frames.duplicate()
+	arr.append(p_frame)
+	frames = arr
+	return frames.size() - 1
+
+
+## Remove the frame at `p_index`.
+func remove_frame(p_index: int) -> void:
+	if p_index < 0 or p_index >= frames.size():
+		return
+	var arr := frames.duplicate()
+	arr.remove_at(p_index)
+	frames = arr
+
+
+## Groups the specified node indices into a new GraphFrame bounding them. Returns frame index.
+func group_nodes_in_frame(p_indices: Array, p_title: String = "Group", p_tint: Color = Color(0.2, 0.25, 0.35, 0.75)) -> int:
+	var valid_indices: Array[int] = []
+	var min_pos := Vector2(INF, INF)
+	var max_pos := Vector2(-INF, -INF)
+	
+	for idx in p_indices:
+		var i := int(idx)
+		if i >= 0 and i < nodes.size() and nodes[i] != null:
+			valid_indices.append(i)
+			var pos: Vector2 = nodes[i].graph_position
+			min_pos = min_pos.min(pos)
+			max_pos = max_pos.max(pos + Vector2(200, 100))
+			
+	var frame_pos: Vector2 = min_pos - Vector2(30, 40) if not is_inf(min_pos.x) else Vector2(100, 100)
+	var frame_size: Vector2 = (max_pos - min_pos) + Vector2(60, 80) if not is_inf(min_pos.x) else Vector2(320, 240)
+	frame_size = frame_size.max(Vector2(200, 140))
+	
+	var fd = FrameDataScript.new()
+	fd.title = p_title
+	fd.tint_color = p_tint
+	fd.position_offset = frame_pos
+	fd.size = frame_size
+	fd.attached_node_indices = PackedInt32Array(valid_indices)
+	return add_frame(fd)
+
+
+## Splits an existing connection `(from:from_port -> to:to_port)` by inserting `p_node` at `p_pos`.
+## Returns the newly inserted node's index.
+func split_connection_with_node(p_from: int, p_from_port: int, p_to: int, p_to_port: int, p_node: Pasture3DGraphNode, p_pos: Vector2) -> int:
+	disconnect_ports(p_from, p_from_port, p_to, p_to_port)
+	var new_idx := add_node(p_node, p_pos)
+	connect_ports(p_from, p_from_port, new_idx, 0)
+	connect_ports(new_idx, 0, p_to, p_to_port)
+	return new_idx
 
 
 ## Wire `from`:`from_port` -> `to`:`to_port`. An input port takes ONE wire, so any existing wire into
@@ -147,17 +251,107 @@ func disconnect_ports(p_from: int, p_from_port: int, p_to: int, p_to_port: int) 
 	connections = arr
 
 
-## Designate the graph's output node (-1 = none).
+## Designate the graph's output node (-1 = none). Also toggles solo preview override.
 func set_output(p_index: int) -> void:
 	if p_index >= -1 and p_index < nodes.size():
+		if output_override == p_index:
+			output_override = -1
+		else:
+			output_override = p_index
 		output_node = p_index
 
 
-## The EFFECTIVE output node the evaluator returns: an explicit Output node (op &"output") if the graph has
-## one, else the designated `output_node` (the legacy "Set as Output"). The Output node is the standard
-## input→output paradigm — wire the pipeline into it and it is the output, no separate designation. The
-## first one wins if somehow two exist.
+## Returns all connections touching `p_index` ([from, from_port, to, to_port]).
+func get_node_connections(p_index: int) -> Array:
+	var result: Array = []
+	for c in connections:
+		if int(c[0]) == p_index or int(c[2]) == p_index:
+			result.append(c)
+	return result
+
+
+## Serializes a subset of nodes and their internal connecting wires into a clipboard dictionary.
+func serialize_subgraph(p_indices: Array) -> Dictionary:
+	var valid_indices: Array[int] = []
+	for idx in p_indices:
+		var i := int(idx)
+		if i >= 0 and i < nodes.size() and nodes[i] != null and not valid_indices.has(i):
+			valid_indices.append(i)
+	if valid_indices.is_empty():
+		return {"nodes": [], "connections": [], "center": Vector2.ZERO}
+	
+	var cloned_nodes: Array[Pasture3DGraphNode] = []
+	var center_accum := Vector2.ZERO
+	for i in valid_indices:
+		var cloned: Pasture3DGraphNode = nodes[i].duplicate(true)
+		cloned.graph_position = nodes[i].graph_position
+		center_accum += nodes[i].graph_position
+		cloned_nodes.append(cloned)
+	var center := center_accum / float(valid_indices.size())
+	
+	var internal_wires: Array = []
+	for c in connections:
+		var f := int(c[0])
+		var t := int(c[2])
+		var local_f := valid_indices.find(f)
+		var local_t := valid_indices.find(t)
+		if local_f != -1 and local_t != -1:
+			internal_wires.append(PackedInt32Array([local_f, int(c[1]), local_t, int(c[3])]))
+			
+	return {
+		"nodes": cloned_nodes,
+		"connections": internal_wires,
+		"center": center,
+	}
+
+
+## Deserializes subgraph data into the graph. If `p_at_position` is provided, positions are offset relative
+## to the data's center. Returns the newly created global node indices.
+func deserialize_subgraph(p_data: Dictionary, p_at_position: Vector2 = Vector2.INF) -> Array[int]:
+	var input_nodes: Array = p_data.get("nodes", [])
+	var input_wires: Array = p_data.get("connections", [])
+	var original_center: Vector2 = p_data.get("center", Vector2.ZERO)
+	if input_nodes.is_empty():
+		return []
+	
+	var offset := Vector2.ZERO
+	if not is_inf(p_at_position.x) and not is_inf(p_at_position.y):
+		offset = p_at_position - original_center
+		
+	var new_indices: Array[int] = []
+	for n in input_nodes:
+		if n is Pasture3DGraphNode:
+			var cloned: Pasture3DGraphNode = n.duplicate(true)
+			var new_pos: Vector2 = n.graph_position + offset
+			var idx := add_node(cloned, new_pos)
+			new_indices.append(idx)
+			
+	for w in input_wires:
+		if w.size() >= 4:
+			var local_f := int(w[0])
+			var local_t := int(w[2])
+			if local_f >= 0 and local_f < new_indices.size() and local_t >= 0 and local_t < new_indices.size():
+				connect_ports(new_indices[local_f], int(w[1]), new_indices[local_t], int(w[3]))
+				
+	return new_indices
+
+
+## Duplicates selected nodes and internal connecting wires by `p_offset`. Returns new global indices.
+func duplicate_subgraph(p_indices: Array, p_offset: Vector2 = Vector2(40, 40)) -> Array[int]:
+	var serialized := serialize_subgraph(p_indices)
+	if serialized["nodes"].is_empty():
+		return []
+	for n in serialized["nodes"]:
+		n.graph_position += p_offset
+	return deserialize_subgraph(serialized, Vector2.INF)
+
+
+
+## The EFFECTIVE output node the evaluator returns: an explicit solo override (if set), else an explicit
+## Output node (op &"output"), else the designated `output_node`.
 func output_index() -> int:
+	if output_override >= 0 and output_override < nodes.size() and nodes[output_override] != null:
+		return output_override
 	for i in range(nodes.size()):
 		if nodes[i] != null and nodes[i].op() == &"output":
 			return i
@@ -210,12 +404,12 @@ static func cell_to_world(p_ix: int, p_iz: int, p_gw: int, p_gh: int, p_rect: Re
 ## cell node consumed once by another cell node folds into that consumer's loop, saving an allocation and
 ## a pass. `_eval_unfolded` is the reference this matches (to float32 rounding — the fold keeps
 ## intermediates in double, so it is in fact slightly more accurate); GraphFoldGate holds the two together.
-func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null) -> PackedFloat32Array:
+func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null, p_root_node: int = -1) -> PackedFloat32Array:
 	var n := p_gw * p_gh
-	var out := output_index()
+	var out := p_root_node if (p_root_node >= 0 and p_root_node < nodes.size()) else output_index()
 	if out < 0 or out >= nodes.size() or nodes[out] == null:
 		return Pasture3DGraphOps.zeros(n)
-	var plan := _fold_plan()
+	var plan := _fold_plan(out)
 	var order: Array = plan["order"]
 	if order.is_empty(): # unreachable output or a cycle
 		return Pasture3DGraphOps.zeros(n)
@@ -227,7 +421,22 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 		if not materialize[ni]:
 			continue # folded — computed inline by _cell_value when a materialised consumer reads it
 		var node: Pasture3DGraphNode = nodes[ni]
-		if node.op() == &"input":
+		if node.muted:
+			var s0: int = inputs_of[ni][0] if not inputs_of[ni].is_empty() else -1
+			if s0 < 0:
+				grids[ni] = Pasture3DGraphOps.zeros(n)
+			elif grids.has(s0):
+				grids[ni] = (grids[s0] as PackedFloat32Array).duplicate()
+			else:
+				var g := PackedFloat32Array()
+				g.resize(n)
+				for iz in range(p_gh):
+					var row := iz * p_gw
+					for ix in range(p_gw):
+						var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
+						g[row + ix] = _cell_value(s0, row + ix, w.x, w.y, grids, inputs_of)
+				grids[ni] = g
+		elif node.op() == &"input":
 			grids[ni] = _surface_grid(p_input, n) # the surface handed in, or a flat 0 when none
 		elif node.needs_grid():
 			grids[ni] = node.eval_grid(_input_grids(ni, grids, n), p_gw, p_gh, p_mask, p_rect)
@@ -259,21 +468,28 @@ func _cell_value(p_ni: int, p_cell: int, p_wx: float, p_wz: float, p_grids: Dict
 		p_inputs_of: Dictionary) -> float:
 	if p_grids.has(p_ni):
 		return (p_grids[p_ni] as PackedFloat32Array)[p_cell]
+	var node: Pasture3DGraphNode = nodes[p_ni]
 	var srcs: Array = p_inputs_of[p_ni]
+	if node.muted:
+		if srcs.is_empty():
+			return 0.0
+		var s0: int = srcs[0]
+		return _cell_value(s0, p_cell, p_wx, p_wz, p_grids, p_inputs_of) if s0 >= 0 else 0.0
 	var cell_in := PackedFloat32Array()
 	cell_in.resize(srcs.size())
 	for k in range(srcs.size()):
 		var s: int = srcs[k]
 		cell_in[k] = _cell_value(s, p_cell, p_wx, p_wz, p_grids, p_inputs_of) if s >= 0 else 0.0
-	return nodes[p_ni].eval_cell(p_wx, p_wz, cell_in)
+	return node.eval_cell(p_wx, p_wz, cell_in)
 
 
 ## The fold plan for the output's ancestry: the topo `order`, each node's input source per port
 ## (`inputs_of`, -1 = unwired), and which nodes MATERIALISE (`materialize`). A node materialises if it is a
 ## grid node, the output, fans out to more than one consumer, or feeds a grid node; every other cell node
 ## folds. Exposed for GraphFoldGate.
-func _fold_plan() -> Dictionary:
-	var order := _eval_order()
+func _fold_plan(p_root: int = -1) -> Dictionary:
+	var out := p_root if (p_root >= 0 and p_root < nodes.size()) else output_index()
+	var order := _eval_order(out)
 	var needed := {}
 	for ni in order:
 		needed[ni] = true
@@ -302,7 +518,6 @@ func _fold_plan() -> Dictionary:
 				fanout[s] += 1
 				if nodes[ni].needs_grid():
 					grid_consumer[s] = true
-	var out := output_index()
 	var materialize := {}
 	for ni in order:
 		materialize[ni] = nodes[ni].needs_grid() or ni == out \
@@ -450,7 +665,7 @@ func native_supported() -> bool:
 		return false
 	const SUPPORTED := [&"input", &"noise", &"const", &"blend", &"smooth", &"output"]
 	for ni in order:
-		if nodes[ni] == null or not SUPPORTED.has(nodes[ni].op()):
+		if nodes[ni] == null or nodes[ni].muted or not SUPPORTED.has(nodes[ni].op()):
 			return false
 	return true
 
@@ -472,7 +687,9 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input 
 			grids[ni] = _surface_grid(p_input, n)
 			continue
 		var in_grids := _input_grids(ni, grids, n)
-		if node.needs_grid():
+		if node.muted:
+			grids[ni] = (in_grids[0] as PackedFloat32Array) if not in_grids.is_empty() else Pasture3DGraphOps.zeros(n)
+		elif node.needs_grid():
 			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask, p_rect)
 		else:
 			var g := PackedFloat32Array()
@@ -510,9 +727,11 @@ func _input_grids(p_ni: int, p_grids: Dictionary, p_n: int) -> Array:
 ## Topological order of exactly the nodes that feed the output (`output_index`). Empty if the output is
 ## unreachable or its ancestry contains a cycle (Kahn leaves nodes unresolved). Restricting to ancestors
 ## means a stray disconnected node neither runs nor breaks the sort.
-func _eval_order() -> Array:
-	# 1. Ancestor set: walk connections backwards from the output.
-	var root := output_index()
+func _eval_order(p_root: int = -1) -> Array:
+	# 1. Ancestor set: walk connections backwards from the root.
+	var root := p_root if (p_root >= 0 and p_root < nodes.size()) else output_index()
+	if root < 0 or root >= nodes.size() or nodes[root] == null:
+		return []
 	var needed := {root: true}
 	var frontier: Array = [root]
 	while not frontier.is_empty():

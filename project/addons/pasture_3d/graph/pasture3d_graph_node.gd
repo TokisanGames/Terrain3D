@@ -48,6 +48,18 @@ enum Role { GENERATOR, FILTER, COMBINER }
 ## terrain, only a reason to re-save the layout.
 @export var graph_position: Vector2 = Vector2.ZERO
 
+## When muted, this node is bypassed during graph evaluation (passes its first input through, or 0.0).
+@export var muted: bool = false:
+	set(v):
+		muted = v
+		emit_changed()
+
+## When collapsed, the editor hides internal inline controls, displaying a compact header with port slots.
+@export var collapsed: bool = false:
+	set(v):
+		collapsed = v
+		emit_changed()
+
 
 ## The dispatch tag. MUST match the string any equivalent stack op / native backend tests.
 func op() -> StringName:
@@ -70,6 +82,28 @@ func needs_grid() -> bool:
 ## whether a right-side slot is drawn); the evaluator reads the output through `output_index`.
 func has_output() -> bool:
 	return true
+
+
+## Port data types for visual wiring and validation.
+enum PortType {
+	HEIGHT = 0,   # Scalar elevation field (meters) - Sky Blue
+	MASK = 1,     # Normalized scalar [0.0, 1.0] - Amber
+	VECTOR = 2,   # Directional 2D vector / angle field - Purple
+	CURVE = 3,    # Spline / transfer curve - Emerald
+}
+
+
+## Types for each input port. Defaults to HEIGHT for all ports.
+func input_port_types() -> PackedInt32Array:
+	var arr := PackedInt32Array()
+	arr.resize(input_count())
+	arr.fill(PortType.HEIGHT)
+	return arr
+
+
+## Output port type. Defaults to HEIGHT.
+func output_port_type() -> int:
+	return PortType.HEIGHT
 
 
 ## How many input ports this node reads. GENERATOR = 0; a FILTER = 1; Blend = 2.
