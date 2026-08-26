@@ -59,3 +59,12 @@ static func zeros(p_n: int) -> PackedFloat32Array:
 	var g := PackedFloat32Array()
 	g.resize(p_n)
 	return g
+
+
+## A grid of `p_n` cells all set to `p_v` — the defined value of an unconnected input port whose unwired
+## default is non-zero (a MASK port reads 1.0 so a missing gate is fully open).
+static func filled(p_n: int, p_v: float) -> PackedFloat32Array:
+	var g := PackedFloat32Array()
+	g.resize(p_n)
+	g.fill(p_v)
+	return g

@@ -191,8 +191,45 @@ failures) ===`.
    loses the transfer). 256² is the conservative pick — the heaviest realistic filter has crossed over, so
    no plausible graph regresses above it, and the small-brush bake stays on the CPU where its overhead is
    least. `GraphGpuBenchGate` is a timing bench (like `SimProfile`), so it is NOT in `gates.txt`.
-5. **Multi-output channels** — a node exposing named outputs (flow/erosion/…), generalizing
-   `publish_fields`.
+5. **Graph-native relief & solver nodes — clean-category split (in progress).** The relief material system
+   conflates categories in single ops; the graph splits each into a node that does ONE category's job, so
+   the palette and the fold can reason about them:
+   * **Generators** (0 inputs, 1 output — a field): `Noise`, `Const`, `Furrows`, `Dunes`, `Crater`. **BUILT.**
+   * **Filters** (1 input, transform it, invent nothing): `Smooth`, `Terrace`, `Strata`, `Curve`, `Mask`,
+     `Reroute`. **BUILT.** Gate `bench/GraphReliefNodeGate` (Furrows generator + Terrace filter, each vs an
+     independent re-derivation reusing the vetted relief statics `_furrows`/`_dunes`/`_crater`/`_scree`).
+   * **Solvers** (`Role.SOLVER`, a grid node that reads an input field and routes/iterates a simulation over
+     it): **Scree BUILT; DLA, Erosion queued (item 6).**
+   A generator that shares a stack op's name computes the same thing (delegates to the relief static); a
+   filter bands EXACTLY its input (flat in → flat out).
+6. **Solvers, multi-output & the Scree slice — Scree BUILT (2026-08-26).** The solver category brought three
+   model additions, proved on Scree first (`pasture3d_graph_node_scree.gd`, op `&"scree"`):
+   * **Multi-output ports.** A node may expose several outputs — a primary height plus derived channels.
+     `Pasture3DGraphNode` gained `output_count()` / `output_names()` / `output_port_types()` and an
+     `eval_grid_channels()` returning one grid per port; the evaluator materialises port 0 into its `grids`
+     slot and ports ≥ 1 into a parallel `aux` map, selected by the connection tuple's existing `from_port`
+     (`_read_channel` / `_cell_input`). Single-output nodes are unchanged — the fold and the C++/GPU parity
+     gates (`GraphFoldGate`, `GraphCppParityGate`, `GraphNativeGraphGate`, `GraphNativeBakeGate`) all stay
+     green. **Scree exposes `[height HEIGHT, shed MASK]`:** it reads its input's slope/curvature/gradient
+     (a grid op), gates deposition by a smooth slope band, and delegates the grain + toe to the relief
+     `_scree` static. NaN in the surface passes through as NaN height / 0 shed (the brush-loop boundary).
+   * **Blend mask input.** `Blend` gained an optional third port, `mask` (MASK). Wired, it gates the combine —
+     `result = lerp(a, blended, mask)` — so a solver's channel stamps detail only where the mask is hot;
+     unwired it reads **1.0** (`input_unwired_default`, the principled MASK-port default), so existing
+     two-input blends are unchanged. A masked Blend is a 3-input op the native cell/graph lowering cannot
+     represent, so `native_supported()` / `compile_*_program()` refuse it to GDScript (gate `[F]`).
+   * **Per-solver freeze.** A solver carries its OWN in-memory frozen cache (a `Bake` button + stale warning),
+     keyed by a hash of its input surface — so tuning a node DOWNSTREAM of an expensive solve does not
+     re-solve it (what the host's whole-graph `content_key` cache cannot give). Scree is cheap, so it defaults
+     to LIVE; the mechanism is in place for DLA/Erosion. Gate `bench/GraphSolverNodeGate` (A–F, controls
+     throughout: field parity, multi-output mask routing, freeze/stale/Bake, NaN, native refusal).
+   * **DEFERRED — bundled channels socket.** A future top output socket on a solver that carries all channels
+     as one bundle, understood by the `Output` node (so a downstream graph can consume a solver's whole field
+     context in one wire rather than per-channel). Not built; the per-channel ports above are the shipping form.
+   * **Queued solvers:** **DLA** (baked-field growth, `pasture3d_relief_dla.gd`) and **Erosion** (stream-power
+     fluvial, `pasture3d_mod_erosion.gd` + native `erosion_solve`). Erosion is the multi-output case that
+     motivated all of the above — it publishes flow / erosion / deposition / wetness channels — and will
+     reuse the native `erosion_solve` with the modifier's own solve as the A/B oracle.
 
 ---
 

@@ -31,8 +31,11 @@ extends Resource
 
 ## What a node does to the field, so the editor palette and the (later) fold can group nodes without
 ## parsing their op. GENERATOR takes no input and makes a field; FILTER transforms one input; COMBINER
-## merges several. SOLVER (erosion) is a FILTER that iterates — folded in when it arrives.
-enum Role { GENERATOR, FILTER, COMBINER }
+## merges several; SOLVER takes an input field and iterates/routes a simulation over it (Scree, DLA,
+## Erosion). A SOLVER is always a grid node, and it is the category that may expose MULTIPLE outputs — a
+## primary height plus derived channels (a deposition/flow/wetness mask) that downstream Mask/Blend nodes
+## read. See PASTURE3D_TERRAIN_GRAPH_SPEC.md (Solvers).
+enum Role { GENERATOR, FILTER, COMBINER, SOLVER }
 
 ## A view onto `resource_name`, so a graph of three Blend nodes does not read as three identical rows in
 ## the editor. EDITOR-only, not stored twice: `resource_name` already serialises. Mirrors
@@ -101,9 +104,37 @@ func input_port_types() -> PackedInt32Array:
 	return arr
 
 
-## Output port type. Defaults to HEIGHT.
+## Output port type of the PRIMARY (port 0) output. Defaults to HEIGHT. Kept as the single-output
+## shorthand; `output_port_types()[0]` is the same value.
 func output_port_type() -> int:
-	return PortType.HEIGHT
+	return output_port_types()[0]
+
+
+## How many output ports this node exposes. 1 for every node except a multi-output SOLVER, which returns
+## its primary height plus one grid per derived channel (e.g. Scree = [height, deposition-mask]). The
+## connection tuple already carries `from_port`, so a consumer wires to a specific channel; the evaluator
+## materialises port 0 into its `grids` slot and ports >= 1 into a parallel `aux` map.
+func output_count() -> int:
+	return 1
+
+
+## Labels for each output port, for the editor's right-side slots. Length should match `output_count()`.
+func output_names() -> PackedStringArray:
+	return PackedStringArray(["out"])
+
+
+## Types for each output port, in port order. Defaults to a single HEIGHT. A multi-output node overrides
+## this so the editor colours each channel slot (a Scree's channel-1 slot is MASK-amber).
+func output_port_types() -> PackedInt32Array:
+	return PackedInt32Array([PortType.HEIGHT])
+
+
+## MULTI-OUTPUT grid entry point. Returns one grid per output port, in port order (`output_count()`
+## entries). The default wraps the single-output `eval_grid` as `[eval_grid(...)]`, so only a node that
+## actually produces channels overrides this. Only called for a node whose `output_count() > 1`; every
+## single-output grid node continues to go through `eval_grid` unchanged.
+func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> Array:
+	return [eval_grid(p_inputs, p_gw, p_gh, p_mask, p_rect)]
 
 
 ## How many input ports this node reads. GENERATOR = 0; a FILTER = 1; Blend = 2.
@@ -114,6 +145,13 @@ func input_count() -> int:
 ## Port labels, for the editor and for configuration warnings. Length should match `input_count()`.
 func input_names() -> PackedStringArray:
 	return PackedStringArray(["in"])
+
+
+## The value an UNWIRED input port reads. A HEIGHT port reads 0 (a missing height adds nothing); a MASK
+## port reads 1.0 (a missing gate is fully open, so an unwired mask input is a no-op rather than a hard 0
+## that would zero the node out). Nodes with a mask/weight input override this per port.
+func input_unwired_default(_p_port: int) -> float:
+	return 0.0
 
 
 ## CELL node entry point. `p_wx` / `p_wz` are this cell's WORLD XZ (so noise stays continuous where two

@@ -130,6 +130,15 @@ bench/GraphEditModelGate.tscn
 # --- Terrain graph usability phase 1: search, clipboard & undo/redo (PASTURE3D_TERRAIN_GRAPH_USABILITY_SPEC.md) ---
 bench/GraphUsabilityGate.tscn
 
+# --- Terrain graph, graph-native SOLVERS: Scree + multi-output ports + the Blend mask input ---
+# Pure GDScript on the graph model + relief statics (no DLL, no terrain). The first SOLVER: a Scree node
+# reads its input field's slope/curvature and deposits talus, matching an INDEPENDENT re-derivation of the
+# field + gate (reusing only the vetted _scree grain); it exposes TWO outputs (height + a shed MASK) and
+# that mask channel (port 1) gates a Blend's new mask input cell-for-cell; per-solver FROZEN serves a cached
+# solve and reports stale until Bake; NaN passes through; a masked Blend refuses to lower to native.
+# Controls throughout. First slice of the graph-native solver work.
+bench/GraphSolverNodeGate.tscn
+
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 # Watched green 2026-08-23, 8/8. It reaches across three files — the Pond, the Add Water hook on
 # Pasture3DTerrainBrush, and level_to_spline() on Pasture3DWaterBody — so it is the gate that notices

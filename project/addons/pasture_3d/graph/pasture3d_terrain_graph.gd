@@ -414,19 +414,22 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 	if order.is_empty(): # unreachable output or a cycle
 		return Pasture3DGraphOps.zeros(n)
 	var inputs_of: Dictionary = plan["inputs_of"]
+	var input_ports_of: Dictionary = plan["input_ports_of"]
 	var materialize: Dictionary = plan["materialize"]
 
-	var grids := {} # node index -> materialised grid (folded nodes are absent)
+	var grids := {} # node index -> materialised grid (port 0; folded nodes are absent)
+	var aux := {}   # node index -> { output_port >= 1 : grid } for multi-output solver channels
 	for ni in order:
 		if not materialize[ni]:
 			continue # folded — computed inline by _cell_value when a materialised consumer reads it
 		var node: Pasture3DGraphNode = nodes[ni]
 		if node.muted:
 			var s0: int = inputs_of[ni][0] if not inputs_of[ni].is_empty() else -1
+			var sp0: int = input_ports_of[ni][0] if not input_ports_of[ni].is_empty() else 0
 			if s0 < 0:
 				grids[ni] = Pasture3DGraphOps.zeros(n)
-			elif grids.has(s0):
-				grids[ni] = (grids[s0] as PackedFloat32Array).duplicate()
+			elif sp0 > 0 or grids.has(s0):
+				grids[ni] = _read_channel(s0, sp0, grids, aux, n).duplicate()
 			else:
 				var g := PackedFloat32Array()
 				g.resize(n)
@@ -434,12 +437,21 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 					var row := iz * p_gw
 					for ix in range(p_gw):
 						var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
-						g[row + ix] = _cell_value(s0, row + ix, w.x, w.y, grids, inputs_of)
+						g[row + ix] = _cell_input(s0, sp0, row + ix, w.x, w.y, grids, aux, inputs_of, input_ports_of)
 				grids[ni] = g
 		elif node.op() == &"input":
 			grids[ni] = _surface_grid(p_input, n) # the surface handed in, or a flat 0 when none
 		elif node.needs_grid():
-			grids[ni] = node.eval_grid(_input_grids(ni, grids, n), p_gw, p_gh, p_mask, p_rect)
+			var in_grids := _input_grids(ni, grids, aux, n)
+			if node.output_count() > 1:
+				var chans: Array = node.eval_grid_channels(in_grids, p_gw, p_gh, p_mask, p_rect)
+				grids[ni] = chans[0]
+				var ax := {}
+				for pi in range(1, chans.size()):
+					ax[pi] = chans[pi]
+				aux[ni] = ax
+			else:
+				grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask, p_rect)
 		else:
 			var g := PackedFloat32Array()
 			g.resize(n)
@@ -447,7 +459,7 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 				var row := iz * p_gw
 				for ix in range(p_gw):
 					var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
-					g[row + ix] = _cell_value(ni, row + ix, w.x, w.y, grids, inputs_of)
+					g[row + ix] = _cell_value(ni, row + ix, w.x, w.y, grids, aux, inputs_of, input_ports_of)
 			grids[ni] = g
 	return grids[out]
 
@@ -464,23 +476,39 @@ func _surface_grid(p_input, p_n: int) -> PackedFloat32Array:
 ## A cell node's value at one cell, folding unmaterialised cell inputs inline. A materialised node (a grid
 ## node, or a materialised cell node) is read from its grid; a folded input recurses. `p_cell` is the
 ## row-major index; `p_wx`/`p_wz` the world XZ.
-func _cell_value(p_ni: int, p_cell: int, p_wx: float, p_wz: float, p_grids: Dictionary,
-		p_inputs_of: Dictionary) -> float:
+func _cell_value(p_ni: int, p_cell: int, p_wx: float, p_wz: float, p_grids: Dictionary, p_aux: Dictionary,
+		p_inputs_of: Dictionary, p_ports_of: Dictionary) -> float:
 	if p_grids.has(p_ni):
 		return (p_grids[p_ni] as PackedFloat32Array)[p_cell]
 	var node: Pasture3DGraphNode = nodes[p_ni]
 	var srcs: Array = p_inputs_of[p_ni]
+	var ports: Array = p_ports_of[p_ni]
 	if node.muted:
-		if srcs.is_empty():
+		if srcs.is_empty() or srcs[0] < 0:
 			return 0.0
-		var s0: int = srcs[0]
-		return _cell_value(s0, p_cell, p_wx, p_wz, p_grids, p_inputs_of) if s0 >= 0 else 0.0
+		return _cell_input(srcs[0], ports[0], p_cell, p_wx, p_wz, p_grids, p_aux, p_inputs_of, p_ports_of)
 	var cell_in := PackedFloat32Array()
 	cell_in.resize(srcs.size())
 	for k in range(srcs.size()):
-		var s: int = srcs[k]
-		cell_in[k] = _cell_value(s, p_cell, p_wx, p_wz, p_grids, p_inputs_of) if s >= 0 else 0.0
+		if srcs[k] < 0:
+			cell_in[k] = node.input_unwired_default(k)
+		else:
+			cell_in[k] = _cell_input(srcs[k], ports[k], p_cell, p_wx, p_wz, p_grids, p_aux, p_inputs_of, p_ports_of)
 	return node.eval_cell(p_wx, p_wz, cell_in)
+
+
+## One input value at a cell: an unwired source reads 0; a port >= 1 reads a materialised multi-output
+## channel directly out of `p_aux`; a port-0 source recurses (folding an unmaterialised cell run inline, or
+## reading a materialised source's primary grid).
+func _cell_input(p_src: int, p_port: int, p_cell: int, p_wx: float, p_wz: float, p_grids: Dictionary,
+		p_aux: Dictionary, p_inputs_of: Dictionary, p_ports_of: Dictionary) -> float:
+	if p_src < 0:
+		return 0.0
+	if p_port > 0:
+		if p_aux.has(p_src) and (p_aux[p_src] as Dictionary).has(p_port):
+			return (p_aux[p_src][p_port] as PackedFloat32Array)[p_cell]
+		return 0.0
+	return _cell_value(p_src, p_cell, p_wx, p_wz, p_grids, p_aux, p_inputs_of, p_ports_of)
 
 
 ## The fold plan for the output's ancestry: the topo `order`, each node's input source per port
@@ -494,11 +522,16 @@ func _fold_plan(p_root: int = -1) -> Dictionary:
 	for ni in order:
 		needed[ni] = true
 	var inputs_of := {}
+	var input_ports_of := {}
 	for ni in order:
 		var arr: Array = []
 		arr.resize(nodes[ni].input_count())
 		arr.fill(-1)
 		inputs_of[ni] = arr
+		var parr: Array = []
+		parr.resize(nodes[ni].input_count())
+		parr.fill(0)
+		input_ports_of[ni] = parr
 	for c in connections:
 		if c.size() >= 4:
 			var to := int(c[2])
@@ -507,6 +540,7 @@ func _fold_plan(p_root: int = -1) -> Dictionary:
 				var tp := int(c[3])
 				if tp >= 0 and tp < (inputs_of[to] as Array).size():
 					inputs_of[to][tp] = from
+					input_ports_of[to][tp] = int(c[1])
 	var fanout := {}
 	var grid_consumer := {}
 	for ni in order:
@@ -522,7 +556,8 @@ func _fold_plan(p_root: int = -1) -> Dictionary:
 	for ni in order:
 		materialize[ni] = nodes[ni].needs_grid() or ni == out \
 				or fanout[ni] > 1 or grid_consumer[ni]
-	return {"order": order, "inputs_of": inputs_of, "materialize": materialize}
+	return {"order": order, "inputs_of": inputs_of, "input_ports_of": input_ports_of,
+			"materialize": materialize}
 
 
 ## Lower a CELL-ONLY graph into the flat SSA program the native evaluator reads
@@ -575,6 +610,8 @@ func compile_cell_program() -> Dictionary:
 				params.append(float(node.get("value")))
 				noise_tab.append(null)
 			&"blend":
+				if srcs.size() > 2 and int(srcs[2]) >= 0:
+					return {} # a masked blend is 3-input; the native cell evaluator only reads a & b
 				ops.append(3)
 				params.append(float(int(node.get("mode"))))
 				noise_tab.append(null)
@@ -635,6 +672,8 @@ func compile_graph_program() -> Dictionary:
 			&"const":
 				op_id = 2; param = float(node.get("value"))
 			&"blend":
+				if srcs.size() > 2 and int(srcs[2]) >= 0:
+					return {} # a masked blend is 3-input; the native whole-graph evaluator reads only in0/in1
 				op_id = 3; param = float(int(node.get("mode")))
 			&"smooth":
 				op_id = 11; param = float(int(node.get("passes")))
@@ -667,7 +706,23 @@ func native_supported() -> bool:
 	for ni in order:
 		if nodes[ni] == null or nodes[ni].muted or not SUPPORTED.has(nodes[ni].op()):
 			return false
+	# A Blend whose MASK port (2) is wired is a 3-input op the native evaluator reads as a plain 2-input
+	# blend, so it must stay on the GDScript path where the mask is applied.
+	if _has_masked_blend(order):
+		return false
 	return true
+
+
+## True when a Blend node in `p_order` has its mask input (port 2) wired — the case the native lowering
+## cannot represent. Scans connections rather than the fold plan so it is cheap enough for native_supported.
+func _has_masked_blend(p_order: Array) -> bool:
+	for c in connections:
+		if c.size() >= 4 and int(c[3]) == 2:
+			var to := int(c[2])
+			if to >= 0 and to < nodes.size() and nodes[to] != null \
+					and nodes[to].op() == &"blend" and p_order.has(to):
+				return true
+	return false
 
 
 ## The pre-fold reference: materialise EVERY node's grid (increment 1's evaluator). Kept as the oracle the
@@ -681,14 +736,22 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input 
 	if order.is_empty():
 		return Pasture3DGraphOps.zeros(n)
 	var grids := {}
+	var aux := {}
 	for ni in order:
 		var node: Pasture3DGraphNode = nodes[ni]
 		if node.op() == &"input":
 			grids[ni] = _surface_grid(p_input, n)
 			continue
-		var in_grids := _input_grids(ni, grids, n)
+		var in_grids := _input_grids(ni, grids, aux, n)
 		if node.muted:
 			grids[ni] = (in_grids[0] as PackedFloat32Array) if not in_grids.is_empty() else Pasture3DGraphOps.zeros(n)
+		elif node.needs_grid() and node.output_count() > 1:
+			var chans: Array = node.eval_grid_channels(in_grids, p_gw, p_gh, p_mask, p_rect)
+			grids[ni] = chans[0]
+			var ax := {}
+			for pi in range(1, chans.size()):
+				ax[pi] = chans[pi]
+			aux[ni] = ax
 		elif node.needs_grid():
 			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask, p_rect)
 		else:
@@ -708,20 +771,35 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input 
 
 
 ## The input grids for node `p_ni`, one per input port in port order; an unwired port reads zeros so a
-## missing connection is a clean 0, not an error.
-func _input_grids(p_ni: int, p_grids: Dictionary, p_n: int) -> Array:
-	var count: int = nodes[p_ni].input_count()
+## missing connection is a clean 0, not an error. Channel-aware: a connection from a multi-output source's
+## port >= 1 reads that channel out of `p_aux[from]`, so a grid node can consume a solver's mask channel.
+func _input_grids(p_ni: int, p_grids: Dictionary, p_aux: Dictionary, p_n: int) -> Array:
+	var node: Pasture3DGraphNode = nodes[p_ni]
+	var count: int = node.input_count()
 	var out: Array = []
 	out.resize(count)
 	for p in range(count):
-		out[p] = Pasture3DGraphOps.zeros(p_n)
+		var dv: float = node.input_unwired_default(p)
+		out[p] = Pasture3DGraphOps.zeros(p_n) if is_zero_approx(dv) else Pasture3DGraphOps.filled(p_n, dv)
 	for c in connections:
 		if c.size() >= 4 and int(c[2]) == p_ni:
 			var to_port := int(c[3])
 			var from := int(c[0])
-			if to_port >= 0 and to_port < count and p_grids.has(from):
-				out[to_port] = p_grids[from]
+			var from_port := int(c[1])
+			if to_port >= 0 and to_port < count:
+				out[to_port] = _read_channel(from, from_port, p_grids, p_aux, p_n)
 	return out
+
+
+## One source node's output grid at `p_from_port`: port 0 comes from the materialised `p_grids` slot;
+## a port >= 1 comes from `p_aux[p_from]` (a multi-output solver's derived channel). Reads zeros when the
+## source has not materialised or lacks that channel, so a stale wire is a clean 0.
+func _read_channel(p_from: int, p_from_port: int, p_grids: Dictionary, p_aux: Dictionary, p_n: int) -> PackedFloat32Array:
+	if p_from_port <= 0:
+		return p_grids[p_from] if p_grids.has(p_from) else Pasture3DGraphOps.zeros(p_n)
+	if p_aux.has(p_from) and (p_aux[p_from] as Dictionary).has(p_from_port):
+		return p_aux[p_from][p_from_port]
+	return Pasture3DGraphOps.zeros(p_n)
 
 
 ## Topological order of exactly the nodes that feed the output (`output_index`). Empty if the output is
