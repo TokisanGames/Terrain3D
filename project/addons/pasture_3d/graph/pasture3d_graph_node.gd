@@ -48,6 +48,18 @@ enum Role { GENERATOR, FILTER, COMBINER }
 ## terrain, only a reason to re-save the layout.
 @export var graph_position: Vector2 = Vector2.ZERO
 
+## When muted, this node is bypassed during graph evaluation (passes its first input through, or 0.0).
+@export var muted: bool = false:
+	set(v):
+		muted = v
+		emit_changed()
+
+## When collapsed, the editor hides internal inline controls, displaying a compact header with port slots.
+@export var collapsed: bool = false:
+	set(v):
+		collapsed = v
+		emit_changed()
+
 
 ## The dispatch tag. MUST match the string any equivalent stack op / native backend tests.
 func op() -> StringName:

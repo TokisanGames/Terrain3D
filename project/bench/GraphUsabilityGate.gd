@@ -19,7 +19,7 @@ var _fail := 0
 
 
 func _ready() -> void:
-	print("=== GraphUsabilityGate: Terrain Graph Usability Phases 1 & 2 ===\n")
+	print("=== GraphUsabilityGate: Terrain Graph Usability Phases 1, 2 & 3 ===\n")
 	_a_registry_search_and_tags()
 	_b_subgraph_duplication_and_wire_remapping()
 	_c_clipboard_serialize_deserialize()
@@ -27,6 +27,9 @@ func _ready() -> void:
 	_e_keyboard_shortcuts_and_selection()
 	_f_graph_frames_and_grouping()
 	_g_reroute_node_and_connection_splitting()
+	_h_mute_bypass_evaluation()
+	_i_inline_controls_and_live_updates()
+	_j_solo_output_override()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH USABILITY PASS" if _fail == 0 else "GRAPH USABILITY FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -370,6 +373,142 @@ func _g_reroute_node_and_connection_splitting() -> void:
 	print("    control: disconnecting reroute -> %.1f (want 5.0)" % unwired_field[0])
 	if absf(unwired_field[0] - 5.0) > 1.0e-5:
 		_fail += 1; print("    !! disconnected reroute did not revert field")
+
+
+func _h_mute_bypass_evaluation() -> void:
+	print("[H] Mute bypass evaluation across Filters & Combiners")
+	var g = Pasture3DTerrainGraph.new()
+	var c10 = Pasture3DGraphNodeRegistry.create(&"const")
+	c10.set("value", 10.0)
+	var n0 = g.add_node(c10, Vector2(100, 100)) # 0
+	
+	var c5 = Pasture3DGraphNodeRegistry.create(&"const")
+	c5.set("value", 5.0)
+	var n1 = g.add_node(c5, Vector2(100, 200)) # 1
+	
+	var blend = Pasture3DGraphNodeRegistry.create(&"blend")
+	var n2 = g.add_node(blend, Vector2(300, 150)) # 2
+	
+	var smooth = Pasture3DGraphNodeRegistry.create(&"smooth")
+	smooth.set("passes", 3)
+	var n3 = g.add_node(smooth, Vector2(500, 150)) # 3
+	
+	var out_node = Pasture3DGraphNodeRegistry.create(&"output")
+	var n4 = g.add_node(out_node, Vector2(700, 150)) # 4
+	
+	g.connect_ports(n0, 0, n2, 0) # 10 -> blend A
+	g.connect_ports(n1, 0, n2, 1) # 5 -> blend B
+	g.connect_ports(n2, 0, n3, 0) # blend -> smooth
+	g.connect_ports(n3, 0, n4, 0) # smooth -> output
+	
+	# Normal evaluation: (10 + 5) = 15.0 -> smoothed = 15.0
+	var normal_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    normal output = %.1f" % normal_field[0])
+	
+	# MUTE Blend node -> should bypass blend and pass port 0 (10.0) through to smooth -> output is 10.0
+	blend.muted = true
+	var blend_muted_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    blend muted output = %.1f (want 10.0)" % blend_muted_field[0])
+	if absf(blend_muted_field[0] - 10.0) > 1.0e-5:
+		_fail += 1; print("    !! muted blend did not bypass to input 0")
+		
+	# MUTE Smooth node as well -> output is still 10.0
+	smooth.muted = true
+	var all_muted_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    blend & smooth muted output = %.1f (want 10.0)" % all_muted_field[0])
+	if absf(all_muted_field[0] - 10.0) > 1.0e-5:
+		_fail += 1; print("    !! muted smooth did not pass input through")
+		
+	# CONTROL: unmuting restores 15.0
+	blend.muted = false
+	smooth.muted = false
+	var restored_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    control: unmuting restores = %.1f (want 15.0)" % restored_field[0])
+	if absf(restored_field[0] - 15.0) > 1.0e-5:
+		_fail += 1; print("    !! unmuting did not restore output")
+
+
+func _i_inline_controls_and_live_updates() -> void:
+	print("[I] Inline parameter mutation & live update signal propagation")
+	var g = Pasture3DTerrainGraph.new()
+	var c_node = Pasture3DGraphNodeRegistry.create(&"const")
+	c_node.set("value", 3.0)
+	var n0 = g.add_node(c_node, Vector2(100, 100))
+	
+	var out_node = Pasture3DGraphNodeRegistry.create(&"output")
+	var n1 = g.add_node(out_node, Vector2(300, 100))
+	g.connect_ports(n0, 0, n1, 0)
+	
+	var editor = Pasture3DGraphEditor.new()
+	editor._build_ui()
+	editor.edit_graph(g)
+	
+	var key_before = g.content_key()
+	# Live edit const node parameter
+	c_node.value = 42.0
+	var key_after = g.content_key()
+	var live_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	
+	print("    key bumped=%s (%d -> %d), new field value=%.1f (want 42.0)" % [
+		key_after > key_before, key_before, key_after, live_field[0]
+	])
+	if key_after <= key_before or absf(live_field[0] - 42.0) > 1.0e-5:
+		_fail += 1; print("    !! inline parameter mutation did not bump content key or update evaluation")
+		
+	# Toggle Mute via editor action
+	editor._action_set_node_muted(n0, true)
+	var muted_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    action mute const node -> %.1f (want 0.0)" % muted_field[0])
+	if absf(muted_field[0] - 0.0) > 1.0e-5:
+		_fail += 1; print("    !! editor action mute failed")
+		
+	editor.free()
+
+
+func _j_solo_output_override() -> void:
+	print("[J] Solo output override evaluation and toggling")
+	var g = Pasture3DTerrainGraph.new()
+	var c10 = Pasture3DGraphNodeRegistry.create(&"const")
+	c10.set("value", 10.0)
+	var n0 = g.add_node(c10, Vector2(100, 100)) # 0
+	
+	var c5 = Pasture3DGraphNodeRegistry.create(&"const")
+	c5.set("value", 5.0)
+	var n1 = g.add_node(c5, Vector2(100, 200)) # 1
+	
+	var blend = Pasture3DGraphNodeRegistry.create(&"blend")
+	var n2 = g.add_node(blend, Vector2(300, 150)) # 2
+	
+	var out_node = Pasture3DGraphNodeRegistry.create(&"output")
+	var n3 = g.add_node(out_node, Vector2(500, 150)) # 3
+	
+	g.connect_ports(n0, 0, n2, 0)
+	g.connect_ports(n1, 0, n2, 1)
+	g.connect_ports(n2, 0, n3, 0)
+	
+	var normal_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    normal output (10 + 5) = %.1f" % normal_field[0])
+	
+	# Solo node 1 (c5 = 5.0)
+	g.set_output(n1)
+	var solo_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    solo node 1 (Const 5) output = %.1f (want 5.0)" % solo_field[0])
+	if absf(solo_field[0] - 5.0) > 1.0e-5:
+		_fail += 1; print("    !! solo override did not route to soloed node")
+		
+	# Solo node 0 (c10 = 10.0)
+	g.set_output(n0)
+	var solo0_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    solo node 0 (Const 10) output = %.1f (want 10.0)" % solo0_field[0])
+	if absf(solo0_field[0] - 10.0) > 1.0e-5:
+		_fail += 1; print("    !! solo override did not route to node 0")
+		
+	# Toggle solo off by calling set_output on node 0 again
+	g.set_output(n0)
+	var restored_field: PackedFloat32Array = g.evaluate(8, 8, Rect2(0, 0, 10, 10))
+	print("    toggle solo off -> output = %.1f (want 15.0)" % restored_field[0])
+	if absf(restored_field[0] - 15.0) > 1.0e-5:
+		_fail += 1; print("    !! toggling solo off did not restore default output")
 
 
 # ---- helpers ----------------------------------------------------------------------------------------

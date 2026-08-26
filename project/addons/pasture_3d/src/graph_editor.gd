@@ -262,7 +262,6 @@ func _make_graphnode(p_index: int, p_node: Pasture3DGraphNode) -> GraphNode:
 	gn.name = "n%d" % p_index
 	gn.set_selectable(true)
 	gn.set_draggable(true)
-	var is_out := p_index == graph.output_index()
 	gn.position_offset = p_node.graph_position
 	
 	# Compact rendering for Reroute dot nodes
@@ -275,29 +274,196 @@ func _make_graphnode(p_index: int, p_node: Pasture3DGraphNode) -> GraphNode:
 		gn.set_slot(0, true, 0, Color(0.6, 0.8, 1.0), true, 0, Color(1.0, 0.85, 0.5))
 		return gn
 		
-	gn.title = p_node.display_name() + ("  ● OUT" if is_out else "")
-	if is_out:
+	var is_out := p_index == graph.output_index()
+	var is_solo := graph.output_override == p_index
+	gn.title = p_node.display_name() + ("  ★ SOLO" if is_solo else ("  ● OUT" if is_out else ""))
+	if is_solo:
+		gn.modulate = Color(1.0, 0.9, 0.5)
+	elif is_out:
 		gn.modulate = Color(0.8, 1.0, 0.85)
+	elif p_node.muted:
+		gn.modulate = Color(0.65, 0.65, 0.7, 0.6)
 
-	# "Set as Output" button
-	if p_node.has_output() and not _graph_has_sink():
+	var thbox: HBoxContainer = gn.get_titlebar_hbox()
+
+	# Tier Badge ([CELL] / [GRID])
+	var tier_lbl := Label.new()
+	tier_lbl.text = "[GRID]" if p_node.needs_grid() else "[CELL]"
+	tier_lbl.modulate = Color(0.4, 0.75, 1.0, 0.8) if p_node.needs_grid() else Color(0.45, 0.9, 0.55, 0.8)
+	tier_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	thbox.add_child(tier_lbl)
+
+	# Mute / Bypass Button [M]
+	var mute_btn := Button.new()
+	mute_btn.text = "M"
+	mute_btn.toggle_mode = true
+	mute_btn.button_pressed = p_node.muted
+	mute_btn.tooltip_text = "Mute / Bypass node (M)"
+	mute_btn.toggled.connect(func(pressed: bool): _action_set_node_muted(p_index, pressed))
+	thbox.add_child(mute_btn)
+
+	# Collapse Button [-] / [+]
+	var fold_btn := Button.new()
+	fold_btn.text = "+" if p_node.collapsed else "-"
+	fold_btn.tooltip_text = "Collapse / Expand inline controls"
+	fold_btn.pressed.connect(func(): _action_set_node_collapsed(p_index, not p_node.collapsed))
+	thbox.add_child(fold_btn)
+
+	# Solo / Output button
+	if p_node.has_output():
 		var out_btn := Button.new()
-		out_btn.text = "Out"
-		out_btn.tooltip_text = "Make this node the graph's output"
+		out_btn.text = "★" if is_solo else "Out"
+		out_btn.tooltip_text = "Toggle Solo Output preview for this node (S)"
 		out_btn.pressed.connect(func(): _action_set_output(p_index))
-		gn.get_titlebar_hbox().add_child(out_btn)
+		thbox.add_child(out_btn)
 
+	# Populate Slots & Inline Controls
+	_populate_node_slots_and_controls(gn, p_index, p_node)
+	return gn
+
+
+func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pasture3DGraphNode) -> void:
 	var names := p_node.input_names()
 	var n_in := p_node.input_count()
 	var has_right := p_node.has_output()
+	
+	# Find wired input port indices
+	var wired_inputs: Dictionary = {}
+	for c in graph.connections:
+		if int(c[2]) == p_index:
+			wired_inputs[int(c[3])] = int(c[0])
+			
 	var rows := maxi(n_in, 1)
 	for r in range(rows):
+		var row_box := HBoxContainer.new()
+		row_box.custom_minimum_size = Vector2(0, 22)
+		
 		var lbl := Label.new()
 		lbl.text = names[r] if r < n_in else " "
-		gn.add_child(lbl)
-	for r in range(rows):
-		gn.set_slot(r, r < n_in, 0, Color(0.6, 0.8, 1.0), has_right and r == 0, 0, Color(1.0, 0.85, 0.5))
-	return gn
+		row_box.add_child(lbl)
+		
+		p_gn.add_child(row_box)
+		p_gn.set_slot(r, r < n_in, 0, Color(0.6, 0.8, 1.0), has_right and r == 0, 0, Color(1.0, 0.85, 0.5))
+
+	# Inline parameter controls (if node is not collapsed)
+	if not p_node.collapsed:
+		_add_inline_node_controls(p_gn, p_node)
+
+
+func _add_inline_node_controls(p_gn: GraphNode, p_node: Pasture3DGraphNode) -> void:
+	var op := p_node.op()
+	match op:
+		&"blend":
+			var row := HBoxContainer.new()
+			var opt := OptionButton.new()
+			opt.add_item("Add (+)", 0)
+			opt.add_item("Subtract (-)", 1)
+			opt.add_item("Multiply (*)", 2)
+			opt.add_item("Max", 3)
+			opt.add_item("Min", 4)
+			opt.selected = int(p_node.get("mode"))
+			opt.item_selected.connect(func(idx: int): p_node.set("mode", idx))
+			row.add_child(opt)
+			p_gn.add_child(row)
+			
+		&"const":
+			var row := HBoxContainer.new()
+			var lbl := Label.new(); lbl.text = "Val:"
+			var sb := SpinBox.new()
+			sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5
+			sb.value = float(p_node.get("value"))
+			sb.value_changed.connect(func(val: float): p_node.set("value", val))
+			row.add_child(lbl); row.add_child(sb)
+			p_gn.add_child(row)
+			
+		&"noise":
+			var f_row := HBoxContainer.new()
+			var f_lbl := Label.new(); f_lbl.text = "Freq:"
+			var f_sb := SpinBox.new(); f_sb.min_value = 0.0001; f_sb.max_value = 1.0; f_sb.step = 0.001
+			var nz: FastNoiseLite = p_node.get("noise")
+			f_sb.value = nz.frequency if nz != null else 0.01
+			f_sb.value_changed.connect(func(val: float): 
+				var n: FastNoiseLite = p_node.get("noise")
+				if n != null: n.frequency = val
+			)
+			f_row.add_child(f_lbl); f_row.add_child(f_sb)
+			p_gn.add_child(f_row)
+			
+			var a_row := HBoxContainer.new()
+			var a_lbl := Label.new(); a_lbl.text = "Amp:"
+			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 1000.0; a_sb.step = 0.5
+			a_sb.value = float(p_node.get("amplitude"))
+			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+			
+			var seed_btn := Button.new()
+			seed_btn.text = "🎲"
+			seed_btn.tooltip_text = "Randomize noise seed"
+			seed_btn.pressed.connect(func():
+				var n: FastNoiseLite = p_node.get("noise")
+				if n != null: n.seed = randi() % 100000
+			)
+			a_row.add_child(a_lbl); a_row.add_child(a_sb); a_row.add_child(seed_btn)
+			p_gn.add_child(a_row)
+			
+		&"smooth":
+			var row := HBoxContainer.new()
+			var lbl := Label.new(); lbl.text = "Passes:"
+			var sb := SpinBox.new(); sb.min_value = 1; sb.max_value = 20; sb.step = 1
+			sb.value = int(p_node.get("passes"))
+			sb.value_changed.connect(func(val: float): p_node.set("passes", int(val)))
+			row.add_child(lbl); row.add_child(sb)
+			p_gn.add_child(row)
+			
+		&"terrace":
+			var b_row := HBoxContainer.new()
+			var b_lbl := Label.new(); b_lbl.text = "Step:"
+			var b_sb := SpinBox.new(); b_sb.min_value = 0.1; b_sb.max_value = 200.0; b_sb.step = 0.5
+			b_sb.value = float(p_node.get("band_height"))
+			b_sb.value_changed.connect(func(val: float): p_node.set("band_height", val))
+			b_row.add_child(b_lbl); b_row.add_child(b_sb)
+			p_gn.add_child(b_row)
+			
+			var h_row := HBoxContainer.new()
+			var h_lbl := Label.new(); h_lbl.text = "Hard:"
+			var h_sb := SpinBox.new(); h_sb.min_value = 0.0; h_sb.max_value = 1.0; h_sb.step = 0.05
+			h_sb.value = float(p_node.get("hardness"))
+			h_sb.value_changed.connect(func(val: float): p_node.set("hardness", val))
+			h_row.add_child(h_lbl); h_row.add_child(h_sb)
+			p_gn.add_child(h_row)
+			
+		&"furrows":
+			var s_row := HBoxContainer.new()
+			var s_lbl := Label.new(); s_lbl.text = "Space:"
+			var s_sb := SpinBox.new(); s_sb.min_value = 0.5; s_sb.max_value = 200.0; s_sb.step = 0.5
+			s_sb.value = float(p_node.get("spacing"))
+			s_sb.value_changed.connect(func(val: float): p_node.set("spacing", val))
+			s_row.add_child(s_lbl); s_row.add_child(s_sb)
+			p_gn.add_child(s_row)
+			
+			var a_row := HBoxContainer.new()
+			var a_lbl := Label.new(); a_lbl.text = "Amp:"
+			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
+			a_sb.value = float(p_node.get("amplitude"))
+			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+			a_row.add_child(a_lbl); a_row.add_child(a_sb)
+			p_gn.add_child(a_row)
+
+		&"dunes":
+			var w_row := HBoxContainer.new()
+			var w_lbl := Label.new(); w_lbl.text = "Wave:"
+			var w_sb := SpinBox.new(); w_sb.min_value = 1.0; w_sb.max_value = 256.0; w_sb.step = 1.0
+			w_sb.value = float(p_node.get("wavelength"))
+			w_sb.value_changed.connect(func(val: float): p_node.set("wavelength", val))
+			w_row.add_child(w_lbl); w_row.add_child(w_sb)
+			p_gn.add_child(w_row)
+			
+			var a_row := HBoxContainer.new()
+			var a_lbl := Label.new(); a_lbl.text = "Amp:"
+			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
+			a_sb.value = float(p_node.get("amplitude"))
+			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+			a_row.add_child(a_lbl); a_row.add_child(a_sb)
+			p_gn.add_child(a_row)
 
 
 func _graph_has_sink() -> bool:
@@ -405,6 +571,30 @@ func _action_set_output(p_index: int) -> void:
 	_ur_create_action("Set Terrain Graph Output")
 	_ur_add_do_method(graph, &"set_output", [p_index])
 	_ur_add_undo_method(graph, &"set_output", [old_out])
+	_ur_commit()
+
+
+func _action_set_node_muted(p_index: int, p_muted: bool) -> void:
+	if graph == null or p_index < 0 or p_index >= graph.nodes.size():
+		return
+	var node: Pasture3DGraphNode = graph.nodes[p_index]
+	if node == null or node.muted == p_muted:
+		return
+	_ur_create_action("Toggle Mute Node")
+	_ur_add_do_property(node, &"muted", p_muted)
+	_ur_add_undo_property(node, &"muted", not p_muted)
+	_ur_commit()
+
+
+func _action_set_node_collapsed(p_index: int, p_collapsed: bool) -> void:
+	if graph == null or p_index < 0 or p_index >= graph.nodes.size():
+		return
+	var node: Pasture3DGraphNode = graph.nodes[p_index]
+	if node == null or node.collapsed == p_collapsed:
+		return
+	_ur_create_action("Toggle Collapse Node")
+	_ur_add_do_property(node, &"collapsed", p_collapsed)
+	_ur_add_undo_property(node, &"collapsed", not p_collapsed)
 	_ur_commit()
 
 
@@ -722,6 +912,17 @@ func _on_graphedit_gui_input(p_event: InputEvent) -> void:
 					_accept_event()
 			KEY_C:
 				group_selected_in_frame()
+				_accept_event()
+			KEY_M:
+				var sel := _get_selected_node_indices()
+				for idx in sel:
+					if idx >= 0 and idx < graph.nodes.size() and graph.nodes[idx] != null:
+						_action_set_node_muted(idx, not graph.nodes[idx].muted)
+				_accept_event()
+			KEY_S:
+				var sel := _get_selected_node_indices()
+				if not sel.is_empty():
+					_action_set_output(sel[0])
 				_accept_event()
 			KEY_F:
 				frame_selected()

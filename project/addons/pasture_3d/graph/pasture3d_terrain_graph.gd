@@ -46,6 +46,13 @@ const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_f
 		output_node = v
 		emit_changed()
 
+## Temporary editor solo preview override (-1 = normal graph output). When set >= 0, evaluate() routes
+## this node's output to the 3D viewport without mutating the permanent saved output.
+@export var output_override: int = -1:
+	set(v):
+		output_override = v
+		emit_changed()
+
 ## Comment and grouping boxes organizing subsets of nodes on the visual canvas.
 @export var frames: Array = []:
 	set(v):
@@ -143,6 +150,11 @@ func remove_node(p_index: int) -> void:
 		output_node = -1
 	elif output_node > p_index:
 		output_node = output_node - 1
+		
+	if output_override == p_index:
+		output_override = -1
+	elif output_override > p_index:
+		output_override = output_override - 1
 	connections = remapped
 	
 	# Remap frame attached indices
@@ -238,9 +250,13 @@ func disconnect_ports(p_from: int, p_from_port: int, p_to: int, p_to_port: int) 
 	connections = arr
 
 
-## Designate the graph's output node (-1 = none).
+## Designate the graph's output node (-1 = none). Also toggles solo preview override.
 func set_output(p_index: int) -> void:
 	if p_index >= -1 and p_index < nodes.size():
+		if output_override == p_index:
+			output_override = -1
+		else:
+			output_override = p_index
 		output_node = p_index
 
 
@@ -330,11 +346,11 @@ func duplicate_subgraph(p_indices: Array, p_offset: Vector2 = Vector2(40, 40)) -
 
 
 
-## The EFFECTIVE output node the evaluator returns: an explicit Output node (op &"output") if the graph has
-## one, else the designated `output_node` (the legacy "Set as Output"). The Output node is the standard
-## input→output paradigm — wire the pipeline into it and it is the output, no separate designation. The
-## first one wins if somehow two exist.
+## The EFFECTIVE output node the evaluator returns: an explicit solo override (if set), else an explicit
+## Output node (op &"output"), else the designated `output_node`.
 func output_index() -> int:
+	if output_override >= 0 and output_override < nodes.size() and nodes[output_override] != null:
+		return output_override
 	for i in range(nodes.size()):
 		if nodes[i] != null and nodes[i].op() == &"output":
 			return i
@@ -404,7 +420,22 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 		if not materialize[ni]:
 			continue # folded — computed inline by _cell_value when a materialised consumer reads it
 		var node: Pasture3DGraphNode = nodes[ni]
-		if node.op() == &"input":
+		if node.muted:
+			var s0: int = inputs_of[ni][0] if not inputs_of[ni].is_empty() else -1
+			if s0 < 0:
+				grids[ni] = Pasture3DGraphOps.zeros(n)
+			elif grids.has(s0):
+				grids[ni] = (grids[s0] as PackedFloat32Array).duplicate()
+			else:
+				var g := PackedFloat32Array()
+				g.resize(n)
+				for iz in range(p_gh):
+					var row := iz * p_gw
+					for ix in range(p_gw):
+						var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
+						g[row + ix] = _cell_value(s0, row + ix, w.x, w.y, grids, inputs_of)
+				grids[ni] = g
+		elif node.op() == &"input":
 			grids[ni] = _surface_grid(p_input, n) # the surface handed in, or a flat 0 when none
 		elif node.needs_grid():
 			grids[ni] = node.eval_grid(_input_grids(ni, grids, n), p_gw, p_gh, p_mask, p_rect)
@@ -436,13 +467,19 @@ func _cell_value(p_ni: int, p_cell: int, p_wx: float, p_wz: float, p_grids: Dict
 		p_inputs_of: Dictionary) -> float:
 	if p_grids.has(p_ni):
 		return (p_grids[p_ni] as PackedFloat32Array)[p_cell]
+	var node: Pasture3DGraphNode = nodes[p_ni]
 	var srcs: Array = p_inputs_of[p_ni]
+	if node.muted:
+		if srcs.is_empty():
+			return 0.0
+		var s0: int = srcs[0]
+		return _cell_value(s0, p_cell, p_wx, p_wz, p_grids, p_inputs_of) if s0 >= 0 else 0.0
 	var cell_in := PackedFloat32Array()
 	cell_in.resize(srcs.size())
 	for k in range(srcs.size()):
 		var s: int = srcs[k]
 		cell_in[k] = _cell_value(s, p_cell, p_wx, p_wz, p_grids, p_inputs_of) if s >= 0 else 0.0
-	return nodes[p_ni].eval_cell(p_wx, p_wz, cell_in)
+	return node.eval_cell(p_wx, p_wz, cell_in)
 
 
 ## The fold plan for the output's ancestry: the topo `order`, each node's input source per port
@@ -627,7 +664,7 @@ func native_supported() -> bool:
 		return false
 	const SUPPORTED := [&"input", &"noise", &"const", &"blend", &"smooth", &"output"]
 	for ni in order:
-		if nodes[ni] == null or not SUPPORTED.has(nodes[ni].op()):
+		if nodes[ni] == null or nodes[ni].muted or not SUPPORTED.has(nodes[ni].op()):
 			return false
 	return true
 
@@ -649,7 +686,9 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input 
 			grids[ni] = _surface_grid(p_input, n)
 			continue
 		var in_grids := _input_grids(ni, grids, n)
-		if node.needs_grid():
+		if node.muted:
+			grids[ni] = (in_grids[0] as PackedFloat32Array) if not in_grids.is_empty() else Pasture3DGraphOps.zeros(n)
+		elif node.needs_grid():
 			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask, p_rect)
 		else:
 			var g := PackedFloat32Array()
