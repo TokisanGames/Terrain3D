@@ -39,7 +39,7 @@ extends Pasture3DReliefMaterial
 ## LIVE regrows the cluster whenever anything it is grown from moves; FROZEN holds the mountain it has
 ## and regrows only on Bake Mountain.
 ##
-## The same two words Pasture3DModErosion uses, deliberately — and the same default, for the same reason.
+## The same two words Pasture3DNodeErosion uses, deliberately — and the same default, for the same reason.
 ## Growing a 512² cluster is seconds of GDScript, `auto_refresh` re-bakes on every frame of a drag, and
 ## a material that regrew per frame locked the editor. FROZEN is what makes this a usable brush.
 enum Evaluation { LIVE, FROZEN }
@@ -56,7 +56,7 @@ enum Evaluation { LIVE, FROZEN }
 		_touch()
 
 ## Regrow the cluster against everything as it stands now. The explicit Bake, and the counterpart to
-## Pasture3DModErosion's Bake Erosion.
+## Pasture3DNodeErosion's Bake Erosion.
 @export_tool_button("Bake Mountain") var _bake_btn = bake_mountain
 
 @export_range(0.2, 1.0, 0.01) var coverage: float = 0.95:
@@ -534,7 +534,7 @@ func grow_now() -> void:
 ##
 ## Nothing here is saved with the resource, so this is the whole cache: reopening a scene regrows once,
 ## in the background, and the alternative is a megabyte of float field inside every .tres that references
-## the material. Same trade Pasture3DModErosion makes, and for the same reason — the mountain the user is
+## the material. Same trade Pasture3DNodeErosion makes, and for the same reason — the mountain the user is
 ## looking at is already persisted, in the terrain's layer data.
 func clear_growth() -> int:
 	if _dla_field.is_empty() and not _stale:
@@ -562,7 +562,7 @@ func bake_mountain() -> void:
 ## Deliberately NOT `_touch()`: every caller runs DURING a bake, and `_touch` emits `changed`, which the
 ## brush re-bakes on. The deferred emit on the FALSE->TRUE edge only is what puts the warning in the
 ## inspector without turning a reshape drag into one re-bake per frame — the flag stays true for the rest
-## of the drag, so the edge fires once. Mirrors Pasture3DModErosion.set_stale.
+## of the drag, so the edge fires once. Mirrors Pasture3DNodeErosion.set_stale.
 func _mark_stale() -> void:
 	if _stale:
 		return

@@ -159,7 +159,7 @@ func _gate_bk() -> void:
 		_fail += 1
 		print("    !! no terrain at %s\n" % SITE_BK)
 		return
-	p2.erosion_mask = [_sel(K_FLOW, FLOW_MIN, FLOW_MAX, FLOW_FALLOFF)] as Array[Pasture3DReliefSelector]
+	p2.erosion_mask = [_sel(K_FLOW, FLOW_MIN, FLOW_MAX, FLOW_FALLOFF)] as Array[Pasture3DTerrainMask]
 	if not bool(mgr.simulate_now(1, false).get("ok", false)):
 		_fail += 1
 		print("    !! the chain did not solve\n")
@@ -212,7 +212,7 @@ func _gate_bk() -> void:
 
 	# CONTROL 2. Pass 1 has no predecessor, so §19.5 says its sim Filter Types read a defined 0 — the
 	# preview must agree with the bake about that too, rather than inventing a field for it.
-	p1.erosion_mask = [_sel(K_FLOW, FLOW_MIN, FLOW_MAX, FLOW_FALLOFF)] as Array[Pasture3DReliefSelector]
+	p1.erosion_mask = [_sel(K_FLOW, FLOW_MIN, FLOW_MAX, FLOW_FALLOFF)] as Array[Pasture3DTerrainMask]
 	p1.mask_preview = 1
 	p1._update_mask_preview()
 	var first := _preview_field(p1)
@@ -242,7 +242,7 @@ func _gate_bl() -> void:
 		_fail += 1
 		print("    !! no terrain at %s\n" % SITE_BL)
 		return
-	p2.erosion_mask = [_sel(K_SLOPE, 12.0, 90.0, 6.0)] as Array[Pasture3DReliefSelector]
+	p2.erosion_mask = [_sel(K_SLOPE, 12.0, 90.0, 6.0)] as Array[Pasture3DTerrainMask]
 	var layer_id: int = mgr._ensure_layer_for(mgr._layer_owner, true)
 	var g := _grid(SITE_BL)
 
@@ -303,8 +303,8 @@ func _gate_bl() -> void:
 
 # --- fixtures --------------------------------------------------------------------------------------
 
-func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float) -> Pasture3DReliefSelector:
-	var s := Pasture3DReliefSelector.new()
+func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float) -> Pasture3DTerrainMask:
+	var s := Pasture3DTerrainMask.new()
 	s.filter_type = p_kind
 	s.range_min = p_lo
 	s.range_max = p_hi
@@ -398,7 +398,7 @@ func _standalone_like(p_src: Pasture3DSim, p_name: String, p_at: Vector3,
 	_add_square(s, LOOP_HALF)
 	var sel := _sel(K_FLOW, FLOW_MIN, FLOW_MAX, FLOW_FALLOFF)
 	sel.sim_result = p_result
-	s.erosion_mask = [sel] as Array[Pasture3DReliefSelector]
+	s.erosion_mask = [sel] as Array[Pasture3DTerrainMask]
 	return s
 
 

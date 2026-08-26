@@ -61,7 +61,7 @@ const NO_SELECTOR := -1  # op is ungated
 ## never serialised — it is rebuilt from the selector resources on every compile.
 const SELECTOR_STRIDE := 9
 const SELECTOR_RADIUS := 7 # slot of measure_radius, in METRES; 0 = one cell (spec §21.6)
-const SELECTOR_FIELD_SOURCE := 8 # slot of field_source, a Pasture3DReliefSelector.FieldSource
+const SELECTOR_FIELD_SOURCE := 8 # slot of field_source, a Pasture3DTerrainMask.FieldSource
 
 ## Which coordinate TERRACE / STRATIFY quantise into bands. Ids MUST stay in sync with ReliefBandSource
 ## in src/pasture_3d_relief_ops.h.
@@ -107,10 +107,10 @@ const SCREE_TOE_FULL_M := 0.25
 ## How this material combines into the accumulator when it is a LAYER OF A Pasture3DReliefStack.
 ##
 ## HIDDEN WHEN THE MATERIAL IS NOT IN A STACK, because there it does nothing at all: a host — a
-## Pasture3DModRelief, a Mound's relief, a Plow's — evaluates one material into an accumulator that
+## Pasture3DNodeRelief, a Mound's relief, a Plow's — evaluates one material into an accumulator that
 ## starts at 0 and adds the result to the brush's amplitude, and no setting of this changes a single byte
 ## of that. Measured across all six modes on a directly-assigned material: identical output every time.
-## The rule is Pasture3DBrushModifier's, and it is the same rule that hides Evaluation on the modifiers
+## The rule is Pasture3DNode's, and it is the same rule that hides Evaluation on the modifiers
 ## that cannot freeze — shipping a control that silently does nothing is worse than not shipping it.
 ##
 ## Whether it is in a stack is STRUCTURE, not a value, so flipping it may rebuild the inspector.
@@ -131,8 +131,8 @@ const SCREE_TOE_FULL_M := 0.25
 			output_curve.changed.connect(_touch)
 		_touch()
 ## Optional terrain-aware gate: confine this material to steep ground, an altitude band, or hollows.
-## Applied to every shape this material generates. See Pasture3DReliefSelector.
-@export var selector: Pasture3DReliefSelector:
+## Applied to every shape this material generates. See Pasture3DTerrainMask.
+@export var selector: Pasture3DTerrainMask:
 	set(v):
 		if selector != null and selector.changed.is_connected(_touch):
 			selector.changed.disconnect(_touch)
@@ -241,7 +241,7 @@ func _program() -> Array:
 ## Empty for the ordinary terrain-shape Filter Types, which is the common case and costs nothing.
 ##
 ## The brush needs these because a Sim Result is a whole grid with its own extent and cannot travel in
-## the flat stride-8 selector block (see Pasture3DReliefSelector.to_params). Composites — the stack —
+## the flat stride-8 selector block (see Pasture3DTerrainMask.to_params). Composites — the stack —
 ## override this to include their children's.
 func sim_results() -> Array:
 	if selector != null and selector.is_sim_filter_type() and selector.sim_result != null:
@@ -249,7 +249,7 @@ func sim_results() -> Array:
 	return []
 
 
-## Every Pasture3DReliefSelector this material gates on, in compile order. Only the assignable one lives
+## Every Pasture3DTerrainMask this material gates on, in compile order. Only the assignable one lives
 ## here; composites override to add their children's, and an op that carries its own gate (Scree's slope
 ## band) does not appear — that one is generated from the op's own properties and cannot be misconfigured
 ## the way an assigned selector can. Drives the host's band-shape warnings (§21.5).
@@ -323,11 +323,11 @@ func set_seed_surface(_p_surface: Dictionary) -> bool:
 #
 # A material whose build costs SECONDS rather than microseconds cannot be rebuilt inside every bake an
 # `auto_refresh` drag fires, and Pasture3DReliefDLA is the only one: it grows a cluster on a 512 grid
-# in GDScript. The three hooks below are the relief-side half of the same bargain Pasture3DModErosion
+# in GDScript. The three hooks below are the relief-side half of the same bargain Pasture3DNodeErosion
 # makes with its frozen cache — hold what was built, rebuild on an explicit Bake, and say so meanwhile.
 #
 # WHY IT LIVES HERE AND NOT ON THE MODIFIER. What makes erosion safe is not that it is a
-# Pasture3DBrushModifier; it is `evaluation`, a keyed cache, a Bake button and a stale warning. None of
+# Pasture3DNode; it is `evaluation`, a keyed cache, a Bake button and a stale warning. None of
 # those needs a modifier to live on, and a DLA is a POINT operator at evaluation time — its grid is
 # baked into the op program and bilinear-sampled per cell — so moving it out of the relief system to buy
 # a cache would cost it selectors, output_curve, blend, stack layering and the shared C++/GDScript
@@ -384,7 +384,7 @@ func growth_bytes() -> int:
 
 
 ## Append a selector to the table and return its index (the value an op stores in its selector slot).
-func _emit_selector(s: Pasture3DReliefSelector) -> int:
+func _emit_selector(s: Pasture3DTerrainMask) -> int:
 	var id := _selectors.size() / SELECTOR_STRIDE
 	for f in s.to_params():
 		_selectors.append(f)
@@ -721,7 +721,7 @@ func _selector_value(sid: int, alt: float, slope_deg: float, curv: float,
 	# Which of the two parallel field sets the three SHAPE filter types read. Decided before anything is
 	# measured, because it picks the grids every read below comes out of. A host-source selector on a host
 	# that built no host fields reads zeros — not the below-layer values under another name.
-	var host := int(_selectors[b + SELECTOR_FIELD_SOURCE]) == Pasture3DReliefSelector.FieldSource.HOST_PROFILE
+	var host := int(_selectors[b + SELECTOR_FIELD_SOURCE]) == Pasture3DTerrainMask.FieldSource.HOST_PROFILE
 	var src_measured: Array = host_measured if host else measured
 	# SLOPE and CURVATURE are the two filter types a measure_radius applies to (§21.6) — the same
 	# measurement over a wider stencil. Everything else reads the one value it always did.

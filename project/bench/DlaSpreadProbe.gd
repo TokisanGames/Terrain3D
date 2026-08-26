@@ -81,10 +81,10 @@ func _run(p_name: String, p_label: String, p_capped: bool, p_flank: int, p_cover
 	mat.seed = 5
 	# LIVE: the sweep varies growth inputs and reads the mountain each one produces.
 	mat.evaluation = Pasture3DReliefDLA.Evaluation.LIVE
-	var shape := Pasture3DModRelief.new()
+	var shape := Pasture3DNodeRelief.new()
 	shape.material = mat
 	shape.strength = 15.0
-	var stack: Array[Pasture3DBrushModifier] = [shape]
+	var stack: Array[Pasture3DNode] = [shape]
 	mound.modifiers = stack
 
 	# A radial fan of probes, so "how far out does relief survive" is a direct reading.

@@ -630,8 +630,8 @@ func _gate_k_slope_selector() -> void:
 	var mat := Pasture3DReliefFractal.new()
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 20.0
-	var sel := Pasture3DReliefSelector.new()
-	sel.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
+	var sel := Pasture3DTerrainMask.new()
+	sel.filter_type = Pasture3DTerrainMask.FilterType.SLOPE
 	sel.range_min = STEEP_DEG
 	sel.range_max = 90.0
 	sel.falloff_low = 8.0
@@ -766,8 +766,8 @@ func _gate_m_phase3_parity() -> void:
 	var rock := Pasture3DReliefFractal.new()
 	rock.style = Pasture3DReliefFractal.Style.CRAGGY
 	rock.feature_size = 22.0
-	var high := Pasture3DReliefSelector.new()
-	high.filter_type = Pasture3DReliefSelector.FilterType.ALTITUDE
+	var high := Pasture3DTerrainMask.new()
+	high.filter_type = Pasture3DTerrainMask.FilterType.ALTITUDE
 	high.range_min = -10000.0
 	high.range_max = 10000.0
 	rock.selector = high
@@ -784,8 +784,8 @@ func _gate_m_phase3_parity() -> void:
 	wide.style = Pasture3DReliefFractal.Style.HILLS
 	wide.feature_size = 30.0
 	wide.blend = Pasture3DReliefMaterial.Blend.ADD
-	var over12 := Pasture3DReliefSelector.new()
-	over12.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
+	var over12 := Pasture3DTerrainMask.new()
+	over12.filter_type = Pasture3DTerrainMask.FilterType.SLOPE
 	over12.range_min = 18.0
 	over12.range_max = 90.0
 	over12.falloff_low = 6.0
@@ -848,8 +848,8 @@ func _gate_n_profile_ops_are_gated() -> void:
 	mat.layers = 14
 	mat.hardness = 0.75
 	mat.dip = 0.25
-	var sel := Pasture3DReliefSelector.new()
-	sel.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
+	var sel := Pasture3DTerrainMask.new()
+	sel.filter_type = Pasture3DTerrainMask.FilterType.SLOPE
 	sel.range_min = 25.0
 	sel.range_max = 90.0
 	sel.falloff_low = 10.0
@@ -1221,9 +1221,9 @@ func _screen_layer() -> Pasture3DReliefFractal:
 	return f
 
 
-func _altitude_band(p_lo: float, p_hi: float) -> Pasture3DReliefSelector:
-	var s := Pasture3DReliefSelector.new()
-	s.filter_type = Pasture3DReliefSelector.FilterType.ALTITUDE
+func _altitude_band(p_lo: float, p_hi: float) -> Pasture3DTerrainMask:
+	var s := Pasture3DTerrainMask.new()
+	s.filter_type = Pasture3DTerrainMask.FilterType.ALTITUDE
 	s.range_min = p_lo
 	s.range_max = p_hi
 	s.falloff_low = 0.0

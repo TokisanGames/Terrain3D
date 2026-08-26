@@ -2,7 +2,7 @@
 #
 # Gates BW and BZ for the BRUSH MODIFIER STACK — phase 3a of PASTURE3D_BRUSH_EROSION_SPEC.md §6.
 # (BX and BY moved to 3b: both need a modifier that PRODUCES a field or can be frozen, and the only one
-# is Pasture3DModErosion. See §11's gate table.)
+# is Pasture3DNodeErosion. See §11's gate table.)
 #
 # The claim under test: `Pasture3DMound`'s hard-coded `profile -> +noise -> +relief -> blur` pipeline has
 # become an ordered list of modifier resources, AND NOTHING ELSE CHANGED. 3a is a refactor, so its gate
@@ -127,7 +127,7 @@ func _gate_bw_stack_reproduces_the_pipeline() -> void:
 	# preset that stamped nothing at all would read the same as one that stamped plenty. That is what the
 	# first version of this criterion did, and channel_boulders (which gates on a Sim Result it has not
 	# got, and correctly contributes zero) is the case that exposed it.
-	var none: Array[Pasture3DBrushModifier] = []
+	var none: Array[Pasture3DNode] = []
 	mound.modifiers = none
 	var bare := _bake(mound, probes)
 	_configure_stack(mound, null, 0.0, null, 0.0, 2, false)
@@ -195,7 +195,7 @@ func _gate_bw_oracle() -> void:
 	# in phase 1 and settled the same way. So the question is not "do the two paths agree", which the
 	# dome alone already answers no to at height 40; it is "does the STACK add any disagreement of its
 	# own". Measure the bare dome's gap first and subtract it.
-	var none: Array[Pasture3DBrushModifier] = []
+	var none: Array[Pasture3DNode] = []
 	mound.modifiers = none
 	mound.force_gdscript_raster = false
 	var dome_native := _bake(mound, probes)
@@ -265,10 +265,10 @@ func _gate_bw_controls() -> void:
 			+ "'bitwise identical' above is measuring a stack that ignores its own contents")
 
 	# CONTROL 2 — a disabled modifier must equal REMOVING it, and must not equal leaving it in.
-	var full: Array[Pasture3DBrushModifier] = _stack_of(noise, 3.0, mat, 6.0, 2, false)
-	var disabled: Array[Pasture3DBrushModifier] = _stack_of(noise, 3.0, mat, 6.0, 2, false)
+	var full: Array[Pasture3DNode] = _stack_of(noise, 3.0, mat, 6.0, 2, false)
+	var disabled: Array[Pasture3DNode] = _stack_of(noise, 3.0, mat, 6.0, 2, false)
 	disabled[1].enabled = false
-	var removed: Array[Pasture3DBrushModifier] = [_stack_of(noise, 3.0, null, 0.0, 2, false)[0],
+	var removed: Array[Pasture3DNode] = [_stack_of(noise, 3.0, null, 0.0, 2, false)[0],
 			_stack_of(noise, 3.0, null, 0.0, 2, false)[1]]
 
 	mound.modifiers = full
@@ -301,7 +301,7 @@ func _gate_bw_controls() -> void:
 #    step. Only the modifier ROW LABELS and the Mask Preview Source list are derived from the stack, so
 #    only those are worth a rebuild.
 #
-# 2. THE LABEL. A stack of three `Pasture3DModRelief` rows is unreadable; `label` names them. It is a
+# 2. THE LABEL. A stack of three `Pasture3DNodeRelief` rows is unreadable; `label` names them. It is a
 #    view onto `resource_name`, which is what Godot's resource picker actually draws.
 #
 # Measured on the node's own `property_list_changed` signal rather than by eye, because "the inspector
@@ -313,10 +313,10 @@ func _gate_bw_editor() -> void:
 		return
 	var mat := Pasture3DReliefTerraces.new()
 	mat.steps = 6
-	var mr := Pasture3DModRelief.new()
+	var mr := Pasture3DNodeRelief.new()
 	mr.material = mat
 	mr.strength = 5.0
-	var mods: Array[Pasture3DBrushModifier] = [mr]
+	var mods: Array[Pasture3DNode] = [mr]
 	mound.modifiers = mods
 
 	var rebuilds := [0]
@@ -458,13 +458,13 @@ func _gate_bz_converted_suites() -> void:
 	got.add_child(path)
 	got.height = 40.0
 
-	var kinds := PackedStringArray()
+	var ops := PackedStringArray()
 	for m in got.modifiers:
-		kinds.append(String(m.kind()))
+		ops.append(String(m.op()))
 	var migrated := _bake(got, probes)
 	var at := _first_difference(reference, migrated)
 	print("    migrated stack: [%s]   vs a hand-built one: %s"
-		% [", ".join(kinds), "bitwise identical" if at < 0 else "DIFFERS at probe %d" % at])
+		% [", ".join(ops), "bitwise identical" if at < 0 else "DIFFERS at probe %d" % at])
 	if got.modifiers.size() != 3:
 		_fail += 1
 		print("    !! the legacy properties did not become a 3-step stack, so a pre-3a scene loses its "
@@ -478,7 +478,7 @@ func _gate_bz_converted_suites() -> void:
 	both.name = "BZboth"
 	both.set("relief", mat)
 	both.set("relief_strength", 99.0)
-	var explicit: Array[Pasture3DBrushModifier] = _stack_of(noise, 3.0, null, 0.0, 1, false)
+	var explicit: Array[Pasture3DNode] = _stack_of(noise, 3.0, null, 0.0, 1, false)
 	both.modifiers = explicit
 	_root.add_child(both)
 	var kept: bool = both.modifiers.size() == explicit.size()
@@ -502,11 +502,11 @@ func _gate_bz_converted_suites() -> void:
 		var tmp := "user://_brush_stack_roundtrip.tscn"
 		ResourceSaver.save(packed, tmp)
 		var reloaded = ResourceLoader.load(tmp, "", ResourceLoader.CACHE_MODE_IGNORE).instantiate()
-		var round_kinds := PackedStringArray()
+		var round_ops := PackedStringArray()
 		for m in reloaded.modifiers:
-			round_kinds.append(String(m.kind()))
-		print("    round-trip through a saved scene: [%s]" % ", ".join(round_kinds))
-		if round_kinds.size() != kinds.size():
+			round_ops.append(String(m.op()))
+		print("    round-trip through a saved scene: [%s]" % ", ".join(round_ops))
+		if round_ops.size() != ops.size():
 			_fail += 1
 			print("    !! the modifier stack did not survive save/load — `modifiers` is not persisting, "
 				+ "so everything an artist builds in it is lost the moment they save")
@@ -553,17 +553,17 @@ func _configure_stack(p_mound, p_noise: FastNoiseLite, p_noise_strength: float,
 ## drops the Relief step entirely rather than leaving an inactive one in, so the "no relief" case really
 ## is a two-step stack.
 func _stack_of(p_noise: FastNoiseLite, p_noise_strength: float, p_mat, p_relief_strength: float,
-		p_passes: int, p_smooth_first: bool) -> Array[Pasture3DBrushModifier]:
-	var mn := Pasture3DModNoise.new()
+		p_passes: int, p_smooth_first: bool) -> Array[Pasture3DNode]:
+	var mn := Pasture3DNodeNoise.new()
 	mn.noise = p_noise
 	mn.strength = p_noise_strength
-	var ms := Pasture3DModSmooth.new()
+	var ms := Pasture3DNodeSmooth.new()
 	ms.passes = p_passes
-	var out: Array[Pasture3DBrushModifier] = [mn]
+	var out: Array[Pasture3DNode] = [mn]
 	if p_mat == null:
 		out.append(ms)
 		return out
-	var mr := Pasture3DModRelief.new()
+	var mr := Pasture3DNodeRelief.new()
 	mr.material = p_mat
 	mr.strength = p_relief_strength
 	if p_smooth_first:

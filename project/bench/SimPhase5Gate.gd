@@ -27,7 +27,7 @@ const SG := 128
 const SCELL := 4.0
 const BASE_Z := 200.0
 
-## Selector filter types, mirroring Pasture3DReliefSelector.FilterType so the gate names them without importing
+## Selector filter types, mirroring Pasture3DTerrainMask.FilterType so the gate names them without importing
 ## resource's enum into every call site.
 const K_SLOPE := 0
 const K_ALTITUDE := 1
@@ -326,7 +326,7 @@ func _gate_ad_write_mask() -> void:
 	var flow_plain: PackedFloat32Array = sim.sim_result.flow.duplicate()
 	var h_plain := _snapshot(probes)
 
-	var sel: Array[Pasture3DReliefSelector] = [_sel(K_SLOPE, 12.0, 90.0, 4.0, 0.0)]
+	var sel: Array[Pasture3DTerrainMask] = [_sel(K_SLOPE, 12.0, 90.0, 4.0, 0.0)]
 	sim.write_mask = sel
 	var w: Dictionary = sim.simulate_now(1, false)
 	if not bool(w.get("ok", false)):
@@ -346,7 +346,7 @@ func _gate_ad_write_mask() -> void:
 		print("    !! the write mask changed no heights either, so the criterion measured nothing")
 
 	# CONTROL: the same selector on the erosion mask must move the flow field.
-	sim.write_mask = [] as Array[Pasture3DReliefSelector]
+	sim.write_mask = [] as Array[Pasture3DTerrainMask]
 	sim.erosion_mask = sel
 	var e: Dictionary = sim.simulate_now(1, false)
 	if not bool(e.get("ok", false)):
@@ -379,8 +379,8 @@ func _gate_ae_idempotent() -> void:
 	# both passed almost everything, which made "idempotent WITH masks" barely different from gate H and
 	# left the control moving only 0.2 m of a 21.8 m bake. A median split cannot be that weak anywhere.
 	var mid := _median(before)
-	sim.erosion_mask = [_sel(K_ALTITUDE, mid, 1.0e6, 0.0, 0.0)] as Array[Pasture3DReliefSelector]
-	sim.write_mask = [_sel(K_ALTITUDE, mid - 5.0, 1.0e6, 0.0, 0.0)] as Array[Pasture3DReliefSelector]
+	sim.erosion_mask = [_sel(K_ALTITUDE, mid, 1.0e6, 0.0, 0.0)] as Array[Pasture3DTerrainMask]
+	sim.write_mask = [_sel(K_ALTITUDE, mid - 5.0, 1.0e6, 0.0, 0.0)] as Array[Pasture3DTerrainMask]
 	print("    bands split the site at %.1f m altitude (probe range %.1f..%.1f m)" % [
 			mid, before.min(), before.max()])
 
@@ -407,7 +407,7 @@ func _gate_ae_idempotent() -> void:
 		print("    !! a masked Sim drifts on re-run")
 
 	# CONTROL: the comparison can see a difference when there is one.
-	sim.erosion_mask = [] as Array[Pasture3DReliefSelector]
+	sim.erosion_mask = [] as Array[Pasture3DTerrainMask]
 	if bool(sim.simulate_now(1, false).get("ok", false)):
 		var unmasked := _max_abs_diff(run1, _snapshot(probes))
 		print("    CONTROL mask cleared: surface moved %.4f m (want > 0.5)" % unmasked)
@@ -446,7 +446,7 @@ func _gate_ag_self_reference() -> void:
 	# found. The mutation is safe because _prepare_solve builds the mask before _write_result rewrites the
 	# channels, and this is still the same object, so it is still self-reference.
 	_split_erosion(sim.sim_result)
-	sim.erosion_mask = [_sel(K_EROSION, 5.0, 1.0e6, 0.0, 0.0, false, 1.0, sim.sim_result)] as Array[Pasture3DReliefSelector]
+	sim.erosion_mask = [_sel(K_EROSION, 5.0, 1.0e6, 0.0, 0.0, false, 1.0, sim.sim_result)] as Array[Pasture3DTerrainMask]
 	var warned := false
 	for w in sim._get_configuration_warnings():
 		if String(w).contains("own output"):
@@ -468,7 +468,7 @@ func _gate_ag_self_reference() -> void:
 
 	# CONTROL: the same filter type and band against a FOREIGN result must gate.
 	var foreign: Pasture3DSimResult = _foreign_result(sim.sim_result)
-	sim.erosion_mask = [_sel(K_EROSION, 5.0, 1.0e6, 0.0, 0.0, false, 1.0, foreign)] as Array[Pasture3DReliefSelector]
+	sim.erosion_mask = [_sel(K_EROSION, 5.0, 1.0e6, 0.0, 0.0, false, 1.0, foreign)] as Array[Pasture3DTerrainMask]
 	if bool(sim.simulate_now(1, false).get("ok", false)):
 		var gated := _max_abs_diff(h_plain, _snapshot(probes))
 		print("    CONTROL the same band on ANOTHER Sim's result: moved %.4f m (want > 0.1)" % gated)
@@ -632,10 +632,10 @@ func _curvature_field(p_z: PackedFloat32Array) -> PackedFloat32Array:
 
 # --- helpers --------------------------------------------------------------------------------------
 
-## One Pasture3DReliefSelector, built from the numbers a criterion cares about.
+## One Pasture3DTerrainMask, built from the numbers a criterion cares about.
 func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float,
-		p_invert := false, p_strength := 1.0, p_result: Pasture3DSimResult = null) -> Pasture3DReliefSelector:
-	var s := Pasture3DReliefSelector.new()
+		p_invert := false, p_strength := 1.0, p_result: Pasture3DSimResult = null) -> Pasture3DTerrainMask:
+	var s := Pasture3DTerrainMask.new()
 	s.filter_type = p_kind # first — a filter type change re-defaults an untouched band (§21.5)
 	s.measure_radius = 0.0 # this gate computes its own ONE-CELL fields; CURVATURE's preset sets 8 m
 	s.range_min = p_lo
@@ -653,7 +653,7 @@ func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float,
 func _field(p_z: PackedFloat32Array, p_sels: Array, p_result: Pasture3DSimResult = null,
 		p_dx := 0.0, p_dz := 0.0) -> PackedFloat32Array:
 	var block := PackedFloat32Array()
-	for s: Pasture3DReliefSelector in p_sels:
+	for s: Pasture3DTerrainMask in p_sels:
 		block.append_array(PackedFloat32Array(s.to_params()))
 	var sim: Dictionary = {}
 	if p_result != null:

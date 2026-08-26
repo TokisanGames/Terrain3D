@@ -83,19 +83,19 @@ func _gate_ct_values_do_not_rebuild() -> void:
 	var layer := _fractal(5)
 	var stack := Pasture3DReliefStack.new()
 	stack.layers = [layer]
-	var relief := Pasture3DModRelief.new()
+	var relief := Pasture3DNodeRelief.new()
 	relief.label = "Crags"
 	relief.material = stack
 	relief.strength = 0.0
-	var noise := Pasture3DModNoise.new()
+	var noise := Pasture3DNodeNoise.new()
 	noise.noise = FastNoiseLite.new()
-	var erosion := Pasture3DModErosion.new()
+	var erosion := Pasture3DNodeErosion.new()
 	# LIVE, though the shipped default is Frozen — the last criterion below bakes. A Frozen erosion
 	# serves its cached SURFACE, which is the whole grid, so the Relief modifier above it is overwritten
 	# by the solve from before its Strength was raised and the control reads 0.000 m for entirely the
 	# right reason. Same trap as gates CA and CE.
-	erosion.evaluation = Pasture3DBrushModifier.Evaluation.LIVE
-	var mods: Array[Pasture3DBrushModifier] = [relief, noise, erosion]
+	erosion.evaluation = Pasture3DNode.Evaluation.LIVE
+	var mods: Array[Pasture3DNode] = [relief, noise, erosion]
 	mound.modifiers = mods
 
 	var rebuilds := _watch(mound)
@@ -164,7 +164,7 @@ func _gate_ct_values_do_not_rebuild() -> void:
 	relief.strength = 0.0
 	relief.enabled = true
 	var with_inactive := _bake(mound, probes)
-	var without: Array[Pasture3DBrushModifier] = [noise, erosion]
+	var without: Array[Pasture3DNode] = [noise, erosion]
 	mound.modifiers = without
 	var absent := _bake(mound, probes)
 	var at := _first_difference(with_inactive, absent)
@@ -176,7 +176,7 @@ func _gate_ct_values_do_not_rebuild() -> void:
 			+ "stamping")
 	# ...and the probe must be able to see a Relief modifier at all, or "identical" is about nothing.
 	relief.strength = 8.0
-	var back: Array[Pasture3DBrushModifier] = [relief, noise, erosion]
+	var back: Array[Pasture3DNode] = [relief, noise, erosion]
 	mound.modifiers = back
 	var active := _bake(mound, probes)
 	var reach := _max_abs_diff(absent, active)
@@ -208,10 +208,10 @@ func _gate_cu_names_do_not_rebuild() -> void:
 	var layer := _fractal(5)
 	var stack := Pasture3DReliefStack.new()
 	stack.layers = [layer]
-	var relief := Pasture3DModRelief.new()
+	var relief := Pasture3DNodeRelief.new()
 	relief.material = stack
 	relief.strength = 8.0
-	var mods: Array[Pasture3DBrushModifier] = [relief]
+	var mods: Array[Pasture3DNode] = [relief]
 	mound.modifiers = mods
 
 	# Typed one character at a time, which is how the bug arrived and the only way to catch a guard that
@@ -256,7 +256,7 @@ func _gate_cu_names_do_not_rebuild() -> void:
 	var on_class: int = rebuilds[0] - at2
 	stack.layers = [layer]
 	at2 = rebuilds[0]
-	layer.selector = Pasture3DReliefSelector.new()
+	layer.selector = Pasture3DTerrainMask.new()
 	var on_selector: int = rebuilds[0] - at2
 	print("    control: swapping the layer's CLASS rebuilt %d time(s); giving it a Selector rebuilt %d"
 		% [on_class, on_selector])

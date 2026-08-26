@@ -84,7 +84,7 @@ const SITE_WIPE := Vector3(150.0, 0.0, 520.0)
 const LOOP_HALF := 60.0
 const CHAIN_MARGIN := 32.0
 
-## Mirrors Pasture3DReliefSelector.FilterType.
+## Mirrors Pasture3DTerrainMask.FilterType.
 const K_CURVATURE := 2
 ## AL's hollow band, in §21.6's units: metres this cell sits below its four neighbours. 0.075 m at the
 ## fixture's 1 m sim cell is the 0.3 1/m Laplacian this gate was written against.
@@ -449,7 +449,7 @@ func _gate_al_masks_per_pass() -> void:
 	# 1/m Laplacian to METRES of deviation over one cell, and at this fixture's 1 m sim cell the two differ
 	# by exactly 4. Same ground, same cells: only the number the artist would type has moved.
 	var band := _sel(K_CURVATURE, CURV_BAND, 100.0)
-	p2.erosion_mask = [band] as Array[Pasture3DReliefSelector]
+	p2.erosion_mask = [band] as Array[Pasture3DTerrainMask]
 	mgr.capture_chain = true
 	if not bool(mgr.simulate_now(1, false).get("ok", false)):
 		_fail += 1
@@ -530,7 +530,7 @@ func _gate_am_idempotent() -> void:
 	p2.hillslope_diffusion = 0.4
 	p2.iterations = 15
 	# A mask on pass 2, so the re-evaluation §19.5 adds is inside what is being called idempotent.
-	p2.erosion_mask = [_sel(K_CURVATURE, 0.0025, 100.0)] as Array[Pasture3DReliefSelector] # §21.6 units
+	p2.erosion_mask = [_sel(K_CURVATURE, 0.0025, 100.0)] as Array[Pasture3DTerrainMask] # §21.6 units
 	var probes := _probe_ring(SITE_IDEMPOTENT)
 	var base := _snapshot(probes)
 	if not bool(mgr.simulate_now(1, false).get("ok", false)):
@@ -963,8 +963,8 @@ func _add_rect(p_sim: Pasture3DSim, p_x0: float, p_x1: float, p_z0: float, p_z1:
 	p_sim.add_child(path)
 
 
-func _sel(p_kind: int, p_lo: float, p_hi: float) -> Pasture3DReliefSelector:
-	var s := Pasture3DReliefSelector.new()
+func _sel(p_kind: int, p_lo: float, p_hi: float) -> Pasture3DTerrainMask:
+	var s := Pasture3DTerrainMask.new()
 	s.filter_type = p_kind # first — a filter type change re-defaults an untouched band (§21.5)
 	s.range_min = p_lo
 	s.range_max = p_hi

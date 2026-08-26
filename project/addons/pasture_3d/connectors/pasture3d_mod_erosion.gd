@@ -1,9 +1,9 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DModErosion — the stream-power fluvial solver, run over a brush's OWN output before it
+# Pasture3DNodeErosion — the stream-power fluvial solver, run over a brush's OWN output before it
 # composites. Phase 3b of PASTURE3D_BRUSH_EROSION_SPEC.md §6.7.
 #
-# This is the modifier the whole stack exists for. A FIELD operator (see Pasture3DBrushModifier's
+# This is the modifier the whole stack exists for. A FIELD operator (see Pasture3DNode's
 # header): it routes water across the entire footprint, so it cannot be a relief op and cannot be folded
 # into the rasteriser's cell loop. It is the same `erosion_solve` a Pasture3DSim runs — same parameter
 # names, same defaults — so a value tuned on a standalone Sim transfers by reading one inspector and
@@ -26,8 +26,8 @@
 # A mountain IS the drainage divide, so nothing upstream feeds it and `catchment_margin` — quadratic,
 # and much of why the standalone Sim is expensive over a big area — does not apply to this host.
 @tool
-class_name Pasture3DModErosion
-extends Pasture3DBrushModifier
+class_name Pasture3DNodeErosion
+extends Pasture3DNode
 
 @export_group("Simulation")
 ## Solver iterations. Each one re-routes the drainage network over the current surface, so more
@@ -137,7 +137,7 @@ func _init() -> void:
 	evaluation = Evaluation.FROZEN
 
 
-func is_field_operator() -> bool:
+func needs_grid() -> bool:
 	return true
 
 
@@ -186,7 +186,7 @@ func set_stale(p_stale: bool) -> void:
 		emit_changed.call_deferred()
 
 
-func kind() -> StringName:
+func op() -> StringName:
 	return &"erosion"
 
 

@@ -354,8 +354,8 @@ func _gate_e_slope_selector() -> void:
 	var mat := Pasture3DReliefFractal.new()
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 20.0
-	var sel := Pasture3DReliefSelector.new()
-	sel.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
+	var sel := Pasture3DTerrainMask.new()
+	sel.filter_type = Pasture3DTerrainMask.FilterType.SLOPE
 	sel.range_min = STEEP_DEG
 	sel.range_max = 90.0
 	sel.falloff_low = 8.0
@@ -544,9 +544,9 @@ func _height(p_at: Vector3) -> float:
 # them having to build a stack by hand.
 func _stack(p_mound, p_mat, p_strength: float, p_noise: FastNoiseLite = null,
 		p_noise_strength: float = 0.0, p_passes: int = 0) -> void:
-	var mods: Array[Pasture3DBrushModifier] = []
+	var mods: Array[Pasture3DNode] = []
 	if p_noise != null:
-		var mn := Pasture3DModNoise.new()
+		var mn := Pasture3DNodeNoise.new()
 		mn.noise = p_noise
 		mn.strength = p_noise_strength
 		mods.append(mn)
@@ -554,12 +554,12 @@ func _stack(p_mound, p_mat, p_strength: float, p_noise: FastNoiseLite = null,
 		# Kept in the list even at strength 0, so `_relief_strength` below always has something to move.
 		# An inactive modifier is dropped at compile time, which is exactly what `relief_strength = 0`
 		# used to do.
-		var mr := Pasture3DModRelief.new()
+		var mr := Pasture3DNodeRelief.new()
 		mr.material = p_mat
 		mr.strength = p_strength
 		mods.append(mr)
 	if p_passes > 0:
-		var ms := Pasture3DModSmooth.new()
+		var ms := Pasture3DNodeSmooth.new()
 		ms.passes = p_passes
 		mods.append(ms)
 	p_mound.modifiers = mods
@@ -568,5 +568,5 @@ func _stack(p_mound, p_mat, p_strength: float, p_noise: FastNoiseLite = null,
 ## The `relief_strength = x` idiom: move the Relief modifier's amplitude, leaving the stack alone.
 func _relief_strength(p_mound, p_strength: float) -> void:
 	for m in p_mound.modifiers:
-		if m is Pasture3DModRelief:
+		if m is Pasture3DNodeRelief:
 			m.strength = p_strength

@@ -260,7 +260,7 @@ Dictionary Pasture3DData::erode_heightfield(const PackedFloat32Array &p_z, const
 	return out;
 }
 
-// §17: the per-cell mask field, from a stack of Pasture3DReliefSelectors evaluated over a height grid.
+// §17: the per-cell mask field, from a stack of Pasture3DTerrainMasks evaluated over a height grid.
 //
 // Named `sim_` until §18 — nothing in it is sim-specific. It takes a height grid and a selector block, so
 // the Plow's and Mound's relief selectors read it on exactly the same terms, and the §18 mask preview

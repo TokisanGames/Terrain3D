@@ -23,7 +23,7 @@ extends Node
 
 const DEMO_DATA := "res://demo/data"
 
-## Selector filter types, mirroring Pasture3DReliefSelector.FilterType.
+## Selector filter types, mirroring Pasture3DTerrainMask.FilterType.
 const K_SLOPE := 0
 const K_ALTITUDE := 1
 const K_CURVATURE := 2
@@ -66,7 +66,7 @@ var _data
 
 
 func _ready() -> void:
-	print("\n=== Pasture3DReliefSelector phase 6.5 (spec §21.9 gates BE-BH) ===\n")
+	print("\n=== Pasture3DTerrainMask phase 6.5 (spec §21.9 gates BE-BH) ===\n")
 	_root = Node3D.new()
 	add_child(_root)
 	_terrain = ClassDB.instantiate("Pasture3D")
@@ -78,7 +78,7 @@ func _ready() -> void:
 		print("!! this build has no selector_mask_field — the selector path is unbuilt, not failing")
 		_done()
 		return
-	if not (Pasture3DReliefSelector.new() as Object).has_method("uses_measure_radius"):
+	if not (Pasture3DTerrainMask.new() as Object).has_method("uses_measure_radius"):
 		_fail += 1
 		print("!! this build's selector has no measure_radius — phase 6.5 is unbuilt, not failing")
 		_done()
@@ -115,9 +115,9 @@ func _gate_be_presets() -> void:
 	# Every filter type, from a fresh selector, re-defaults to its own preset.
 	var wrong := 0
 	for kind in range(7):
-		var s := Pasture3DReliefSelector.new()
+		var s := Pasture3DTerrainMask.new()
 		s.filter_type = kind
-		var want: Array = Pasture3DReliefSelector.PRESETS[kind]
+		var want: Array = Pasture3DTerrainMask.PRESETS[kind]
 		var got := _band(s)
 		if not _bands_equal(got, want):
 			wrong += 1
@@ -129,7 +129,7 @@ func _gate_be_presets() -> void:
 	# ALTITUDE is the filter type that keeps today's band (§21.10 decision 1). Stated as its own check because
 	# "it has no preset" and "its preset is the shipped band" are different implementations with the same
 	# first hop, and only the second lets a LATER filter type change re-default.
-	var alt := Pasture3DReliefSelector.new()
+	var alt := Pasture3DTerrainMask.new()
 	alt.filter_type = K_ALTITUDE
 	print("    ALTITUDE keeps the shipped band: %s (want [25, 90, 10, 10, 0])" % [_band(alt)])
 	if not _bands_equal(_band(alt), [25.0, 90.0, 10.0, 10.0, 0.0]):
@@ -137,7 +137,7 @@ func _gate_be_presets() -> void:
 		print("    !! ALTITUDE was given a band of its own; §21.10 decision 1 says it keeps today's")
 
 	# An EDITED band survives.
-	var edited := Pasture3DReliefSelector.new()
+	var edited := Pasture3DTerrainMask.new()
 	edited.range_min = 40.0
 	edited.filter_type = K_FLOW
 	print("    edited (range_min 40 on SLOPE) then -> FLOW: %s (want [40, 90, 10, 10, 0])" % [_band(edited)])
@@ -146,8 +146,8 @@ func _gate_be_presets() -> void:
 		print("    !! an edited band was overwritten by the incoming filter type's preset")
 
 	# CONTROL 1: edited TO the incoming filter type's own preset value.
-	var trap := Pasture3DReliefSelector.new()
-	trap.range_min = Pasture3DReliefSelector.PRESETS[K_FLOW][0] # 5000, which is FLOW's own range_min
+	var trap := Pasture3DTerrainMask.new()
+	trap.range_min = Pasture3DTerrainMask.PRESETS[K_FLOW][0] # 5000, which is FLOW's own range_min
 	trap.filter_type = K_FLOW
 	var trap_band := _band(trap)
 	print("    CONTROL range_min set to FLOW's own 5000 while still SLOPE, then -> FLOW: %s" % [trap_band])
@@ -157,22 +157,22 @@ func _gate_be_presets() -> void:
 		print("    !! 'untouched' is being decided against the INCOMING filter type, not the outgoing one")
 
 	# CONTROL 2: two hops. The second only moves if the comparison tracks the outgoing filter type.
-	var chain := Pasture3DReliefSelector.new()
+	var chain := Pasture3DTerrainMask.new()
 	chain.filter_type = K_FLOW
 	var mid := _band(chain)
 	chain.filter_type = K_EROSION
 	var end_band := _band(chain)
 	print("    CONTROL two hops SLOPE -> FLOW %s -> EROSION %s" % [mid, end_band])
-	if not _bands_equal(mid, Pasture3DReliefSelector.PRESETS[K_FLOW]):
+	if not _bands_equal(mid, Pasture3DTerrainMask.PRESETS[K_FLOW]):
 		_fail += 1
 		print("    !! the first hop did not re-default, so the second proves nothing")
-	elif not _bands_equal(end_band, Pasture3DReliefSelector.PRESETS[K_EROSION]):
+	elif not _bands_equal(end_band, Pasture3DTerrainMask.PRESETS[K_EROSION]):
 		_fail += 1
 		print("    !! the second hop froze; 'untouched' is being compared against the shipped defaults")
 
 	# A hand-tuned band survives being written to disk and read back — the preset hook fires on the `kind`
 	# assignment ResourceLoader makes too.
-	var authored := Pasture3DReliefSelector.new()
+	var authored := Pasture3DTerrainMask.new()
 	authored.filter_type = K_CURVATURE
 	authored.range_min = 0.6
 	authored.range_max = 3.0
@@ -181,7 +181,7 @@ func _gate_be_presets() -> void:
 	authored.measure_radius = 21.0
 	var path := "user://phase65_selector_roundtrip.tres"
 	var saved := ResourceSaver.save(authored, path)
-	var back: Pasture3DReliefSelector = null
+	var back: Pasture3DTerrainMask = null
 	if saved == OK:
 		back = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
 	if back == null:
@@ -206,7 +206,7 @@ func _gate_be_presets() -> void:
 		_fail += 1
 		print("    !! could not write the pre-rename fixture; the migration is untested")
 	else:
-		f.store_string("[gd_resource type=\"Resource\" script_class=\"Pasture3DReliefSelector\" "
+		f.store_string("[gd_resource type=\"Resource\" script_class=\"Pasture3DTerrainMask\" "
 			+ "load_steps=2 format=3]
 
 "
@@ -227,7 +227,7 @@ invert = false
 			+ "strength = 1.0
 ")
 		f.close()
-		var legacy: Pasture3DReliefSelector = ResourceLoader.load(legacy_path, "",
+		var legacy: Pasture3DTerrainMask = ResourceLoader.load(legacy_path, "",
 				ResourceLoader.CACHE_MODE_IGNORE)
 		if legacy == null:
 			_fail += 1
@@ -243,7 +243,7 @@ invert = false
 				print("    !! the band did not survive the migration")
 			# CONTROL: a property that never existed must still be refused, or `_set` is swallowing
 			# everything and the migration above would pass no matter what it did.
-			var fresh := Pasture3DReliefSelector.new()
+			var fresh := Pasture3DTerrainMask.new()
 			var refused: bool = not fresh._set(&"no_such_property", 7)
 			print("    CONTROL an unknown property is still refused: %s (want true)" % refused)
 			if not refused:
@@ -461,7 +461,7 @@ func _gate_bg_preset_coverage() -> void:
 	var bad := 0
 	var control_failures := 0
 	for kind in refs.keys():
-		var p: Array = Pasture3DReliefSelector.PRESETS[kind]
+		var p: Array = Pasture3DTerrainMask.PRESETS[kind]
 		var preset := _sel(kind, p[0], p[1], p[2], p[3], p[4])
 		preset.sim_result = res
 		var frac := _fraction(_field(z1, SIM_W, SIM_CELL, [preset], res), 0.5)
@@ -499,7 +499,7 @@ func _gate_bh_inverted_band() -> void:
 
 	var mat := Pasture3DReliefFractal.new()
 	mat.feature_size = 20.0
-	var sel := Pasture3DReliefSelector.new()
+	var sel := Pasture3DTerrainMask.new()
 	sel.filter_type = K_SLOPE
 	sel.range_min = 60.0
 	sel.range_max = 20.0 # inverted
@@ -522,7 +522,7 @@ func _gate_bh_inverted_band() -> void:
 	# The same stack on a Sim, which owns selectors on its own terms (§17).
 	var sim = _make_sim("InvertedBandSim", SITE_BAND + Vector3(0.0, 0.0, 200.0))
 	if sim != null:
-		sim.erosion_mask = [sel] as Array[Pasture3DReliefSelector]
+		sim.erosion_mask = [sel] as Array[Pasture3DTerrainMask]
 		var sim_warned := _warns_about_band(sim)
 		print("    Sim with the same band in its Erosion Mask: %s" % ("warns" if sim_warned else "SILENT"))
 		if not sim_warned:
@@ -637,7 +637,7 @@ func _bg_fixture() -> PackedFloat32Array:
 func _field(p_z: PackedFloat32Array, p_w: int, p_cell: float, p_sels: Array,
 		p_result: Pasture3DSimResult = null) -> PackedFloat32Array:
 	var block := PackedFloat32Array()
-	for s: Pasture3DReliefSelector in p_sels:
+	for s: Pasture3DTerrainMask in p_sels:
 		block.append_array(PackedFloat32Array(s.to_params()))
 	var sim: Dictionary = {}
 	if p_result != null:
@@ -748,8 +748,8 @@ func _curvature_field(p_z: PackedFloat32Array, p_w: int, p_radius: float,
 # --- small helpers ---------------------------------------------------------------------------------
 
 func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float,
-		p_radius: float) -> Pasture3DReliefSelector:
-	var s := Pasture3DReliefSelector.new()
+		p_radius: float) -> Pasture3DTerrainMask:
+	var s := Pasture3DTerrainMask.new()
 	# First: a filter type change re-defaults an untouched band (§21.5), so everything else follows it.
 	s.filter_type = p_kind
 	s.range_min = p_lo
@@ -760,7 +760,7 @@ func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float,
 	return s
 
 
-func _band(p_s: Pasture3DReliefSelector) -> Array:
+func _band(p_s: Pasture3DTerrainMask) -> Array:
 	return [p_s.range_min, p_s.range_max, p_s.falloff_low, p_s.falloff_high, p_s.measure_radius]
 
 

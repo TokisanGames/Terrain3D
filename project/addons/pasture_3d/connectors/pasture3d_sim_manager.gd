@@ -110,7 +110,7 @@ const RESULT_MAX_CELLS: int = 4194304
 @export_range(0.0, 20.0, 0.05, "or_greater") var river_carve_depth: float = 0.25
 
 @export_group("Eroding Brushes")
-## Brushes carrying a `Pasture3DModErosion` (§6.7) that Bake All Brushes re-solves, in this order.
+## Brushes carrying a `Pasture3DNodeErosion` (§6.7) that Bake All Brushes re-solves, in this order.
 ##
 ## EXPLICIT AND DIFFABLE, rather than a scan at bake time. The list is serialised into the scene, so what
 ## will bake is readable without running anything, and the manager stays the single place that knows the
@@ -1083,7 +1083,7 @@ func _later_pass_wants_fields(p_st: Dictionary) -> bool:
 		for member: Dictionary in chain[i]["members"]:
 			var sim: Pasture3DSim = member["sim"]
 			for stack in [sim.erosion_mask, sim.write_mask]:
-				for s: Pasture3DReliefSelector in stack:
+				for s: Pasture3DTerrainMask in stack:
 					if s != null and s.is_sim_filter_type():
 						return true
 	return false

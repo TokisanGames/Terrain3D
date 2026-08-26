@@ -60,8 +60,8 @@ func _build() -> void:
 	# It did not always. Until 2026-08-22 there was one slot, compile() filled it only when it was empty,
 	# and this op's was never empty — so `selector` on a Scree did precisely nothing, with no way round it
 	# and this comment promising otherwise. Spec §16.3, gate Q.
-	var gate := Pasture3DReliefSelector.new()
-	gate.filter_type = Pasture3DReliefSelector.FilterType.SLOPE
+	var gate := Pasture3DTerrainMask.new()
+	gate.filter_type = Pasture3DTerrainMask.FilterType.SLOPE
 	gate.range_min = min_slope_degrees
 	gate.range_max = 90.0
 	gate.falloff_low = slope_falloff_degrees

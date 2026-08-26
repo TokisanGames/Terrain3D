@@ -380,7 +380,7 @@ func _gate_cw_scan_appends() -> void:
 	var off = _make_mound("ErosionOff", SITE_H, "Scan")
 	if plain == null or off == null:
 		return
-	var bare: Array[Pasture3DBrushModifier] = [_shape_of(plain)]
+	var bare: Array[Pasture3DNode] = [_shape_of(plain)]
 	plain.modifiers = bare
 	_erosion_of(off).enabled = false
 
@@ -444,7 +444,7 @@ func _walk_fixture(p_from: Node, r_out: Array) -> void:
 	for c in p_from.get_children():
 		if c is Pasture3DMound:
 			for m in (c as Pasture3DMound).modifiers:
-				if m is Pasture3DModErosion and (m as Pasture3DModErosion).enabled:
+				if m is Pasture3DNodeErosion and (m as Pasture3DNodeErosion).enabled:
 					r_out.append(c)
 					break
 		_walk_fixture(c, r_out)
@@ -466,9 +466,9 @@ func _names(p_nodes: Array) -> PackedStringArray:
 	return out
 
 
-func _erosion_of(p_mound) -> Pasture3DModErosion:
+func _erosion_of(p_mound) -> Pasture3DNodeErosion:
 	for m in p_mound.modifiers:
-		if m is Pasture3DModErosion:
+		if m is Pasture3DNodeErosion:
 			return m
 	return null
 
@@ -507,11 +507,11 @@ func _make_mound(p_name: String, p_at: Vector3, p_layer: String):
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 22.0
 	mat.seed = 5
-	var shape := Pasture3DModRelief.new()
+	var shape := Pasture3DNodeRelief.new()
 	shape.label = "Shape"
 	shape.material = mat
 	shape.strength = 8.0
-	var ero := Pasture3DModErosion.new()
+	var ero := Pasture3DNodeErosion.new()
 	ero.label = "Erosion"
 	ero.iterations = 30
 	ero.erosion_rate = 0.09
@@ -519,7 +519,7 @@ func _make_mound(p_name: String, p_at: Vector3, p_layer: String):
 	# FROZEN is the shipped default and is left alone here, deliberately: the registry exists because a
 	# frozen solve does not follow its input, and a gate that set this to Live would be testing a
 	# configuration in which Bake All has nothing to do.
-	var stack: Array[Pasture3DBrushModifier] = [shape, ero]
+	var stack: Array[Pasture3DNode] = [shape, ero]
 	mound.modifiers = stack
 	return mound
 
@@ -529,16 +529,16 @@ func _none() -> Array[NodePath]:
 	return []
 
 
-func _shape_of(p_mound) -> Pasture3DModRelief:
-	return p_mound.modifiers[0] as Pasture3DModRelief
+func _shape_of(p_mound) -> Pasture3DNodeRelief:
+	return p_mound.modifiers[0] as Pasture3DNodeRelief
 
 
 ## Does this brush's erosion modifier consider itself stale — i.e. is it showing a solve for a shape that
 ## has since moved? Read through the brush's own warnings, which is where the artist reads it.
 func _is_stale(p_mound) -> bool:
 	for m in p_mound.modifiers:
-		if m is Pasture3DModErosion:
-			for w in (m as Pasture3DModErosion).modifier_warnings(p_mound):
+		if m is Pasture3DNodeErosion:
+			for w in (m as Pasture3DNodeErosion).modifier_warnings(p_mound):
 				if w.contains("FROZEN") and w.contains("changed"):
 					return true
 	return false
@@ -635,12 +635,12 @@ func _gate_df_clear_all_brushes() -> void:
 
 	# The un-eroded reference, taken first: the same stacks with the modifier unchecked.
 	for m in [reg_a, reg_b, unreg]:
-		(m.modifiers[1] as Pasture3DModErosion).enabled = false
+		(m.modifiers[1] as Pasture3DNodeErosion).enabled = false
 		m._refresh_owner(m._layer_owner, false, [])
 	var bare_a := _snapshot(pa)
 	var bare_b := _snapshot(pb)
 	for m in [reg_a, reg_b, unreg]:
-		(m.modifiers[1] as Pasture3DModErosion).enabled = true
+		(m.modifiers[1] as Pasture3DNodeErosion).enabled = true
 		m._refresh_owner(m._layer_owner, false, [])
 	var eroded_a := _snapshot(pa)
 	var eroded_u := _snapshot(pu)

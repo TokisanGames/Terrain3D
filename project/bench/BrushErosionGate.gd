@@ -96,7 +96,7 @@ func _gate_ca_it_erodes() -> void:
 	# built on one would be measuring the solver's response to floating-point noise.
 	var shape := _craggy(8.0)
 	var ero := _erosion(60, 0.09)
-	var stack: Array[Pasture3DBrushModifier] = [shape, ero]
+	var stack: Array[Pasture3DNode] = [shape, ero]
 
 	ero.enabled = false
 	mound.modifiers = stack
@@ -170,7 +170,7 @@ func _gate_cb_absolute_surface() -> void:
 		return
 
 	var ero := _erosion(60, 0.09)
-	var stack: Array[Pasture3DBrushModifier] = [_craggy(8.0), ero]
+	var stack: Array[Pasture3DNode] = [_craggy(8.0), ero]
 	mound.modifiers = stack
 
 	# THE CONTROL FIRST, because it decides what the headline number means.
@@ -217,7 +217,7 @@ func _gate_cc_published_fields() -> void:
 	var shape := _craggy(8.0)
 	var ero := _erosion(60, 0.09)
 	var detail := _flow_gated(4.0, 1.0)
-	var stack: Array[Pasture3DBrushModifier] = [shape, ero, detail]
+	var stack: Array[Pasture3DNode] = [shape, ero, detail]
 
 	# The baseline is the same stack with the DETAIL modifier off — so every number below is the detail
 	# pass alone, not the erosion's own cut.
@@ -240,7 +240,7 @@ func _gate_cc_published_fields() -> void:
 
 	# CONTROL 2 — the selector neutered instead. Strength 0 means "gate nothing", so the detail must
 	# cover EVERYTHING. Without this, "nothing appeared" and "the field is missing" read the same.
-	var sel: Pasture3DReliefSelector = detail.material.selector
+	var sel: Pasture3DTerrainMask = detail.material.selector
 	sel.strength = 0.0
 	mound.modifiers = stack
 	var ungated := _bake(mound, probes)
@@ -283,11 +283,11 @@ func _gate_bx_positional() -> void:
 	var ero := _erosion(60, 0.09)
 	var detail := _flow_gated(4.0, 1.0)
 
-	var below: Array[Pasture3DBrushModifier] = [shape, ero, detail]
+	var below: Array[Pasture3DNode] = [shape, ero, detail]
 	mound.modifiers = below
 	var after_erosion := _bake(mound, probes)
 
-	var above: Array[Pasture3DBrushModifier] = [shape, detail, ero]
+	var above: Array[Pasture3DNode] = [shape, detail, ero]
 	mound.modifiers = above
 	var before_erosion := _bake(mound, probes)
 
@@ -332,14 +332,14 @@ func _gate_by_frozen_is_a_cache() -> void:
 	var probes := _lattice(SITE_BY)
 	var shape := _craggy(8.0)
 	var ero := _erosion(60, 0.09)
-	var stack: Array[Pasture3DBrushModifier] = [shape, ero]
+	var stack: Array[Pasture3DNode] = [shape, ero]
 	mound.modifiers = stack
 
-	ero.evaluation = Pasture3DBrushModifier.Evaluation.LIVE
+	ero.evaluation = Pasture3DNode.Evaluation.LIVE
 	ero.clear_cache()
 	var live := _bake(mound, probes)
 
-	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
+	ero.evaluation = Pasture3DNode.Evaluation.FROZEN
 	ero.clear_cache()
 	var frozen_fresh := _bake(mound, probes)
 	var at := _first_difference(live, frozen_fresh)
@@ -361,13 +361,13 @@ func _gate_by_frozen_is_a_cache() -> void:
 	# --- change the surface underneath it ---
 	shape.strength = 16.0
 
-	ero.evaluation = Pasture3DBrushModifier.Evaluation.LIVE
+	ero.evaluation = Pasture3DNode.Evaluation.LIVE
 	ero.clear_cache()
 	var live_after := _bake(mound, probes)
 	var live_moved := _max_abs_diff(live, live_after)
 
 	# Frozen, with the cache from the ORIGINAL surface still in hand.
-	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
+	ero.evaluation = Pasture3DNode.Evaluation.FROZEN
 	ero.clear_cache()
 	shape.strength = 8.0
 	var _seed := _bake(mound, probes) # solve and cache against the original shape
@@ -548,7 +548,7 @@ func _gate_ce_idempotent() -> void:
 		return
 	var probes := _lattice(SITE_CE)
 	var ero := _erosion(60, 0.09)
-	var stack: Array[Pasture3DBrushModifier] = [_craggy(8.0), ero, _flow_gated(4.0, 1.0)]
+	var stack: Array[Pasture3DNode] = [_craggy(8.0), ero, _flow_gated(4.0, 1.0)]
 	mound.modifiers = stack
 
 	var first := _bake(mound, probes)
@@ -580,12 +580,12 @@ func _gate_ce_idempotent() -> void:
 
 ## A craggy Relief modifier. Erosion needs something to organise around: a perfectly smooth dome has no
 ## asymmetry, so water would only follow floating-point noise.
-func _craggy(p_strength: float) -> Pasture3DModRelief:
+func _craggy(p_strength: float) -> Pasture3DNodeRelief:
 	var mat := Pasture3DReliefFractal.new()
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 22.0
 	mat.seed = 5
-	var m := Pasture3DModRelief.new()
+	var m := Pasture3DNodeRelief.new()
 	m.label = "Shape"
 	m.material = mat
 	m.strength = p_strength
@@ -600,9 +600,9 @@ func _craggy(p_strength: float) -> Pasture3DModRelief:
 ## leaves the cached solve in place and raises a stale warning, and CA's and CE's controls would both
 ## read "nothing moved" for entirely the right reason. Gate BY is the one that sets Frozen, and it sets
 ## it explicitly.
-func _erosion(p_iterations: int, p_rate: float) -> Pasture3DModErosion:
-	var m := Pasture3DModErosion.new()
-	m.evaluation = Pasture3DBrushModifier.Evaluation.LIVE
+func _erosion(p_iterations: int, p_rate: float) -> Pasture3DNodeErosion:
+	var m := Pasture3DNodeErosion.new()
+	m.evaluation = Pasture3DNode.Evaluation.LIVE
 	m.label = "Erosion"
 	m.iterations = p_iterations
 	m.erosion_rate = p_rate
@@ -613,13 +613,13 @@ func _erosion(p_iterations: int, p_rate: float) -> Pasture3DModErosion:
 
 ## A Relief modifier gated on FLOW — "only where a real catchment drains through". The band starts well
 ## above the 1 m² a cell that drains only itself reports, so an unpublished field reads as excluded.
-func _flow_gated(p_strength: float, p_sel_strength: float) -> Pasture3DModRelief:
+func _flow_gated(p_strength: float, p_sel_strength: float) -> Pasture3DNodeRelief:
 	var mat := Pasture3DReliefFractal.new()
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 7.0
 	mat.seed = 21
-	var sel := Pasture3DReliefSelector.new()
-	sel.filter_type = Pasture3DReliefSelector.FilterType.FLOW
+	var sel := Pasture3DTerrainMask.new()
+	sel.filter_type = Pasture3DTerrainMask.FilterType.FLOW
 	# Calibrated, not guessed: on this fixture the drainage field runs to about 600 m² with a 90th
 	# percentile near 46, so a band starting at 60 catches roughly the channelised tenth. The first
 	# version of this gate asked for 2000 m² — above anything the field contains — and measured 0%.
@@ -629,7 +629,7 @@ func _flow_gated(p_strength: float, p_sel_strength: float) -> Pasture3DModRelief
 	sel.falloff_high = 0.0
 	sel.strength = p_sel_strength
 	mat.selector = sel
-	var m := Pasture3DModRelief.new()
+	var m := Pasture3DNodeRelief.new()
 	m.label = "Channel detail"
 	m.material = mat
 	m.strength = p_strength
@@ -826,8 +826,8 @@ func _gate_dc_deferred_matches() -> void:
 	var ero := _erosion(60, 0.09)
 	# FROZEN, because the cache is how a deferred answer is delivered and Live has none. This is also the
 	# shipped default, so it is the configuration the editor actually runs.
-	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
-	var stack: Array[Pasture3DBrushModifier] = [shape, ero]
+	ero.evaluation = Pasture3DNode.Evaluation.FROZEN
+	var stack: Array[Pasture3DNode] = [shape, ero]
 
 	ero.enabled = false
 	mound.modifiers = stack
@@ -903,9 +903,9 @@ func _gate_dd_deferred_publishes() -> void:
 	var probes := _lattice(SITE_DD)
 	var shape := _craggy(8.0)
 	var ero := _erosion(60, 0.09)
-	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
+	ero.evaluation = Pasture3DNode.Evaluation.FROZEN
 	var detail := _flow_gated(6.0, 1.0)
-	var stack: Array[Pasture3DBrushModifier] = [shape, ero, detail]
+	var stack: Array[Pasture3DNode] = [shape, ero, detail]
 
 	detail.enabled = false
 	mound.modifiers = stack
@@ -959,8 +959,8 @@ func _gate_de_suppressed_is_unerooded() -> void:
 	var probes := _lattice(SITE_DE)
 	var shape := _craggy(8.0)
 	var ero := _erosion(60, 0.09)
-	ero.evaluation = Pasture3DBrushModifier.Evaluation.FROZEN
-	var stack: Array[Pasture3DBrushModifier] = [shape, ero]
+	ero.evaluation = Pasture3DNode.Evaluation.FROZEN
+	var stack: Array[Pasture3DNode] = [shape, ero]
 
 	ero.enabled = false
 	mound.modifiers = stack

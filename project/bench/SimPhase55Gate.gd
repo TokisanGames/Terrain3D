@@ -88,7 +88,7 @@ func _gate_as_same_field() -> void:
 	var sim = _make_sim("AS", SITE_A)
 	if sim == null:
 		return
-	sim.erosion_mask = [_sel(K_SLOPE, 12.0, 90.0, 6.0, 0.0)] as Array[Pasture3DReliefSelector]
+	sim.erosion_mask = [_sel(K_SLOPE, 12.0, 90.0, 6.0, 0.0)] as Array[Pasture3DTerrainMask]
 	sim.mask_preview = 1
 	if not sim._owns_mask_preview():
 		_fail += 1
@@ -164,7 +164,7 @@ func _gate_at_rect() -> void:
 	var sim = _make_sim("AT", SITE_A)
 	if sim == null:
 		return
-	sim.erosion_mask = [_sel(K_ALTITUDE, -1.0e6, 1.0e6, 0.0, 0.0)] as Array[Pasture3DReliefSelector]
+	sim.erosion_mask = [_sel(K_ALTITUDE, -1.0e6, 1.0e6, 0.0, 0.0)] as Array[Pasture3DTerrainMask]
 	sim.mask_preview = 1
 	var rect: Vector4 = sim._mask_preview_rect
 	var g := _preview_grid(sim)
@@ -214,7 +214,7 @@ func _gate_au_one_owner() -> void:
 	var b = _make_sim("AU_B", SITE_B)
 	if a == null or b == null:
 		return
-	var sel: Array[Pasture3DReliefSelector] = [_sel(K_SLOPE, 8.0, 90.0, 4.0, 0.0)]
+	var sel: Array[Pasture3DTerrainMask] = [_sel(K_SLOPE, 8.0, 90.0, 4.0, 0.0)]
 	a.erosion_mask = sel
 	b.erosion_mask = sel
 
@@ -255,7 +255,7 @@ func _gate_av_leaves_nothing() -> void:
 		return
 	var probes := _probe_ring(SITE_A)
 	var before := _snapshot(probes)
-	sim.erosion_mask = [_sel(K_SLOPE, 8.0, 90.0, 4.0, 0.0)] as Array[Pasture3DReliefSelector]
+	sim.erosion_mask = [_sel(K_SLOPE, 8.0, 90.0, 4.0, 0.0)] as Array[Pasture3DTerrainMask]
 
 	sim.mask_preview = 1
 	var on_owner: int = int(_mat.get_mask_preview_owner())
@@ -302,7 +302,7 @@ func _gate_aw_clipped_to_brush() -> void:
 	if sim == null:
 		return
 	# A band that passes everywhere, so anything NOT red is the clip and not the selector.
-	sim.erosion_mask = [_sel(K_ALTITUDE, -1.0e6, 1.0e6, 0.0, 0.0)] as Array[Pasture3DReliefSelector]
+	sim.erosion_mask = [_sel(K_ALTITUDE, -1.0e6, 1.0e6, 0.0, 0.0)] as Array[Pasture3DTerrainMask]
 
 	var layers_before := _layer_count()
 	sim.mask_preview = 1
@@ -351,7 +351,7 @@ func _gate_aw_clipped_to_brush() -> void:
 
 
 # --- AX: editing a selector updates the overlay ----------------------------------------------------
-# A Pasture3DReliefSelector is a Resource: the inspector mutates it in place and fires `changed`. Without
+# A Pasture3DTerrainMask is a Resource: the inspector mutates it in place and fires `changed`. Without
 # a connection the node never hears, and the overlay only moved when the toggle was flipped — reported
 # from the editor as "the preview does not update live when editing".
 #
@@ -365,7 +365,7 @@ func _gate_ax_live_update() -> void:
 	if sim == null:
 		return
 	var sel := _sel(K_ALTITUDE, 40.0, 1.0e6, 0.0, 0.0)
-	sim.erosion_mask = [sel] as Array[Pasture3DReliefSelector]
+	sim.erosion_mask = [sel] as Array[Pasture3DTerrainMask]
 	sim.mask_preview = 1
 	# Drain anything already queued before recording the baseline. `_ready` queues a rebuild of its own,
 	# and the first version of this criterion was measuring THAT firing on the awaited frame rather than
@@ -519,8 +519,8 @@ func _gate_ay_stack_sources() -> void:
 
 # --- helpers --------------------------------------------------------------------------------------
 
-func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float) -> Pasture3DReliefSelector:
-	var s := Pasture3DReliefSelector.new()
+func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float) -> Pasture3DTerrainMask:
+	var s := Pasture3DTerrainMask.new()
 	s.filter_type = p_kind
 	s.range_min = p_lo
 	s.range_max = p_hi
@@ -531,7 +531,7 @@ func _sel(p_kind: int, p_lo: float, p_hi: float, p_f_lo: float, p_f_hi: float) -
 
 func _block(p_list: Array) -> PackedFloat32Array:
 	var out := PackedFloat32Array()
-	for s: Pasture3DReliefSelector in p_list:
+	for s: Pasture3DTerrainMask in p_list:
 		out.append_array(PackedFloat32Array(s.to_params()))
 	return out
 
