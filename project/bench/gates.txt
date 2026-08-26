@@ -85,6 +85,20 @@ bench/GraphFreezeGate.tscn
 # materialises fan-out nodes. Pure GDScript.
 bench/GraphFoldGate.tscn
 
+# --- Terrain graph, native whole-graph evaluator / grid-pass interleave (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
+# Needs the freshly built DLL (Pasture3DUtil.graph_eval_grid). The native evaluator materialises every node
+# — Input/Smooth/Output included — and matches the GDScript _eval_unfolded to float32 rounding and the
+# folded evaluate loosely, over a real input surface; native_supported / compile_graph_program reflect the
+# graph (a cycle refuses). Controls throughout.
+bench/GraphNativeGraphGate.tscn
+
+# --- Terrain graph, native rasteriser bake (grid-pass interleave stage 2, PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
+# Needs the freshly built DLL and demo/data (bakes a Mound over the demo regions, like PlowReliefCheck).
+# Asserts a native-supported graph no longer forces GDScript, and the native rasteriser's BrushModStep::GRAPH
+# bakes the same surface as the GDScript oracle to 1e-4 m beyond the pre-existing dome float/double gap, with
+# a control (doubling the amount moves the bake).
+bench/GraphNativeBakeGate.tscn
+
 # --- Terrain graph, Input/Output filter paradigm (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
 # The graph reads the surface handed to it (an Input node) and its Output is the result: a bare
 # Input->Output is the identity, Input->Smooth->Output == blur_nan(surface), Input->Blend(ADD)<-Const adds a
@@ -98,6 +112,14 @@ bench/GraphFilterGate.tscn
 # on GDScript) while a cell-only graph lowers, and that an unwired input reads 0 on both paths — each with
 # a control that moves the field or flag.
 bench/GraphCppParityGate.tscn
+
+# --- Terrain graph, graph-native relief nodes: Furrows (generator) + Terrace (filter) ---
+# Pure GDScript on the graph model + relief statics (no DLL, no terrain). The clean-category split the
+# relief system does not make: a Furrows GENERATOR (0 inputs) matches a hand-derived corrugation and a
+# relief Furrows op; a Terrace FILTER bands EXACTLY the field wired into it (flat in -> flat out, invents
+# nothing) and matches a metric-band re-derivation; Furrows->Terrace composes; categories/native-fallback
+# hold. Controls throughout. First slice of the graph-native relief work.
+bench/GraphReliefNodeGate.tscn
 
 # --- Terrain graph, increment 3: the editor's model layer (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
 # Watched green 2026-08-25 (0 failures). The GraphEdit VIEW is editor-only (can't assert visuals

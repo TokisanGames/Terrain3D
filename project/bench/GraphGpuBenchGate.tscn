@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/GraphGpuBenchGate.gd" id="1_gbench"]
+
+[node name="GraphGpuBenchGate" type="Node"]
+script = ExtResource("1_gbench")

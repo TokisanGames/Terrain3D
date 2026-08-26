@@ -3138,15 +3138,18 @@ func _native_raster(method: String) -> bool:
 
 
 ## True when the stack carries an op the native rasteriser cannot run, so the whole stamp must take the
-## GDScript path. Today that is exactly Pasture3DNodeGraph (&"graph"): the native side skips an op it does
-## not know (pasture_3d_brush_raster.cpp), which would silently drop the graph. Routing to GDScript is how
-## the graph runs at all until it grows a native/GPU backend (PASTURE3D_TERRAIN_GRAPH_SPEC.md).
+## GDScript path. The native side now runs a Pasture3DNodeGraph (a BrushModStep::GRAPH in
+## pasture_3d_brush_raster.cpp) as long as every node in the graph is one it implements — so a graph forces
+## GDScript ONLY when it uses an op the native whole-graph evaluator does not know
+## (`graph.native_supported()`), which would otherwise be silently dropped. See
+## PASTURE3D_TERRAIN_GRAPH_SPEC.md (native grid-pass interleave).
 func _stack_forces_gdscript() -> bool:
 	if not _supports_modifiers():
 		return false
 	for m in modifiers:
 		if m != null and m.is_active() and m.op() == &"graph":
-			return true
+			if m.graph == null or not m.graph.native_supported():
+				return true
 	return false
 
 
@@ -3513,6 +3516,14 @@ func _compile_modifiers(p_extent: String = "", p_ex: float = 1.0, p_ez: float = 
 			blk["defer"] = _erosion_suppress or (_erosion_defer and bool(blk["frozen"]))
 			blk["out"] = slot
 			step["out"] = slot
+		if m is Pasture3DNodeGraph and m.graph != null:
+			# The native rasteriser needs the whole-graph program (Pasture3DUtil.graph_eval_grid reads it),
+			# the amount, and the two freeze inputs its key folds in — reads_input decides whether the input
+			# surface is in the key. GDScript's _apply_graph_step ignores these; only the native path reads them.
+			blk["graph_program"] = m.graph.compile_graph_program()
+			blk["strength"] = m.strength
+			blk["reads_input"] = m.graph.reads_input()
+			blk["content_key"] = m.graph.content_key()
 		if m is Pasture3DNodeRelief:
 			m.material.set_host_frame(p_ex, p_ez)
 			# §9.9. Offered on EVERY compile, never left set from a previous pass: the flag says what is

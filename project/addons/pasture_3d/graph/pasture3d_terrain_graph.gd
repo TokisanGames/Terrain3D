@@ -174,6 +174,22 @@ func reads_input() -> bool:
 	return false
 
 
+## A fresh graph pre-populated with an Input → Output pair, wired together — the standard starting point a
+## host hands the user instead of a blank canvas. As built it is the IDENTITY (Output passes the surface
+## straight through), so it changes nothing until nodes are inserted between the two. Laid out left-to-right
+## so the Add-node flow drops new nodes into the gap.
+static func create_default() -> Pasture3DTerrainGraph:
+	var g := Pasture3DTerrainGraph.new()
+	var input := Pasture3DGraphNodeInput.new()
+	input.graph_position = Vector2(40.0, 80.0)
+	var output := Pasture3DGraphNodeOutput.new()
+	output.graph_position = Vector2(420.0, 80.0)
+	var nodes: Array[Pasture3DGraphNode] = [input, output]
+	g.nodes = nodes
+	g.connections = [PackedInt32Array([0, 0, 1, 0])] # Input.out -> Output.result
+	return g
+
+
 ## Map a cell to its WORLD XZ. Cell-CENTRE sampling over `p_rect` (position = min XZ, size = extent).
 ## Static so the graph and any oracle sample the identical point — a mapping disagreement would look like
 ## a solver bug. `dx = size / count`, `w = min + (i + 0.5) * dx`.
@@ -214,7 +230,7 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 		if node.op() == &"input":
 			grids[ni] = _surface_grid(p_input, n) # the surface handed in, or a flat 0 when none
 		elif node.needs_grid():
-			grids[ni] = node.eval_grid(_input_grids(ni, grids, n), p_gw, p_gh, p_mask)
+			grids[ni] = node.eval_grid(_input_grids(ni, grids, n), p_gw, p_gh, p_mask, p_rect)
 		else:
 			var g := PackedFloat32Array()
 			g.resize(n)
@@ -358,6 +374,87 @@ func compile_cell_program() -> Dictionary:
 	}
 
 
+## Lower the WHOLE graph — any node types — into the flat program the native evaluator materialises node by
+## node (`Pasture3DUtil.graph_eval_grid`; C++ `pasture_3d_graph_ops`). One slot per node in topological
+## order, so a slot's inputs are always earlier slots. This is the materialise-every-node analogue of
+## `_eval_unfolded` (which `evaluate`, the folded path, matches to float32 rounding); the native side does
+## not fold, so it mirrors the unfolded reference. Returns {} — "stay on the GDScript path" — for a missing
+## or cyclic output, or a node whose op the native evaluator does not implement.
+##
+## Program keys, all parallel and one entry per slot except `output`:
+##   ops    [int]     GraphCellOpType — 1 noise, 2 const, 3 blend, 10 input, 11 smooth, 12 output
+##   params [float]   amplitude | value | blend-mode | smooth-passes (0 for input/output)
+##   in0    [int]     first input's source slot, or -1 unwired
+##   in1    [int]     second input's source slot (blend only), or -1
+##   noise  [Variant] the slot's FastNoiseLite (noise ops) or null — passed as-is, never rebuilt
+##   output int       the slot whose grid is the graph output
+func compile_graph_program() -> Dictionary:
+	var out := output_index()
+	if out < 0 or out >= nodes.size() or nodes[out] == null:
+		return {}
+	var order := _eval_order()
+	if order.is_empty():
+		return {}
+	var slot_of := {}
+	for k in range(order.size()):
+		slot_of[order[k]] = k
+	var inputs_of: Dictionary = _fold_plan()["inputs_of"] # node -> [source node per port, -1 unwired]
+	var ops := PackedInt32Array()
+	var params := PackedFloat32Array()
+	var in0 := PackedInt32Array()
+	var in1 := PackedInt32Array()
+	var noise_tab: Array = []
+	for ni in order:
+		var node: Pasture3DGraphNode = nodes[ni]
+		var srcs: Array = inputs_of[ni]
+		var s0: int = int(srcs[0]) if srcs.size() > 0 else -1
+		var s1: int = int(srcs[1]) if srcs.size() > 1 else -1
+		var op_id := 0
+		var param := 0.0
+		var nz = null
+		match node.op():
+			&"input":
+				op_id = 10
+			&"noise":
+				op_id = 1; param = float(node.get("amplitude")); nz = node.get("noise")
+			&"const":
+				op_id = 2; param = float(node.get("value"))
+			&"blend":
+				op_id = 3; param = float(int(node.get("mode")))
+			&"smooth":
+				op_id = 11; param = float(int(node.get("passes")))
+			&"output":
+				op_id = 12
+			_:
+				return {} # an op the native evaluator does not implement
+		ops.append(op_id)
+		params.append(param)
+		noise_tab.append(nz)
+		in0.append(int(slot_of[s0]) if s0 >= 0 else -1)
+		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
+	return {
+		"ops": ops, "params": params, "in0": in0, "in1": in1,
+		"noise": noise_tab, "output": int(slot_of[out]),
+	}
+
+
+## True when every node feeding the output has an op the native whole-graph evaluator implements — i.e.
+## `compile_graph_program()` would return a program, so the host can run this graph natively instead of
+## forcing the GDScript rasteriser. Cheap structural check (no grids), for `_stack_forces_gdscript`.
+func native_supported() -> bool:
+	var out := output_index()
+	if out < 0 or out >= nodes.size() or nodes[out] == null:
+		return false
+	var order := _eval_order()
+	if order.is_empty():
+		return false
+	const SUPPORTED := [&"input", &"noise", &"const", &"blend", &"smooth", &"output"]
+	for ni in order:
+		if nodes[ni] == null or not SUPPORTED.has(nodes[ni].op()):
+			return false
+	return true
+
+
 ## The pre-fold reference: materialise EVERY node's grid (increment 1's evaluator). Kept as the oracle the
 ## folded `evaluate` is checked against — GraphFoldGate asserts they agree to float32 rounding.
 func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null) -> PackedFloat32Array:
@@ -376,7 +473,7 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input 
 			continue
 		var in_grids := _input_grids(ni, grids, n)
 		if node.needs_grid():
-			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask)
+			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask, p_rect)
 		else:
 			var g := PackedFloat32Array()
 			g.resize(n)

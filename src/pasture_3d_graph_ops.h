@@ -26,13 +26,17 @@
 
 namespace godot {
 
-// Cell-node op ids — MUST stay in sync with the op() tags in project/addons/pasture_3d/graph/. These are a
-// WIRE FORMAT between compile_cell_program (GDScript) and graph_cell_build (here); a new cell node appends
-// an id rather than renumbering, exactly as the relief catalogue does.
+// Graph op ids — MUST stay in sync with the op() tags in project/addons/pasture_3d/graph/. These are a
+// WIRE FORMAT between the GDScript compilers (compile_cell_program / compile_graph_program) and the
+// builders here; a new node appends an id rather than renumbering, exactly as the relief catalogue does.
+// 1-3 are CELL ops (point-evaluable); 10-12 are GRID / structural ops the whole-graph evaluator handles.
 enum GraphCellOpType {
-	GRAPH_OP_NOISE = 1, // GENERATOR: params[slot] * noise[slot].get_noise_2d(wx, wz)
-	GRAPH_OP_CONST = 2, // GENERATOR: params[slot]
-	GRAPH_OP_BLEND = 3, // COMBINER: in_a (o) in_b, o = params[slot] cast to GraphBlendMode
+	GRAPH_OP_NOISE = 1, // GENERATOR cell: params[slot] * noise[slot].get_noise_2d(wx, wz)
+	GRAPH_OP_CONST = 2, // GENERATOR cell: params[slot]
+	GRAPH_OP_BLEND = 3, // COMBINER cell: in_a (o) in_b, o = params[slot] cast to GraphBlendMode
+	GRAPH_OP_INPUT = 10, // SOURCE grid: the surface handed to the graph (or a flat 0)
+	GRAPH_OP_SMOOTH = 11, // FILTER grid: NaN-aware blur of in0, params[slot] passes
+	GRAPH_OP_OUTPUT = 12, // SINK: passes in0 through (the graph's result)
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed
@@ -80,5 +84,39 @@ double graph_cell_eval(const GraphCellProgram &p_prog, double p_wx, double p_wz,
 // identical point; a mapping disagreement would read as an evaluator bug.
 void graph_cell_to_world(int p_ix, int p_iz, int p_gw, int p_gh, const Rect2 &p_rect,
 		double &r_wx, double &r_wz);
+
+// NaN-aware separable box blur — 0.5 centre / 0.25 each neighbour, renormalised at edges and across NaN
+// holes, NaN preserved where the input is NaN. A byte-for-byte port of Pasture3DGraphOps.blur_nan (and the
+// identical nan_blur in pasture_3d_brush_raster.cpp), so the graph's Smooth node computes the same surface
+// on every path. In place; p_passes <= 0 is the identity and allocates nothing.
+void graph_nan_blur(std::vector<float> &r_vals, int p_gw, int p_gh, int p_passes);
+
+// ---- Whole-graph evaluator (the native grid-pass interleave) ----------------------------------------
+//
+// The materialise-every-node analogue of Pasture3DTerrainGraph._eval_unfolded: one grid per node in
+// topological order, each read from its input slots. Handles GRID nodes (Input / Smooth / Output) that the
+// cell-run evaluator cannot, so a graph carrying one runs end-to-end in C++. The GDScript `_eval_unfolded`
+// is the A/B oracle (which `evaluate` — the folded path — matches to float32 rounding, GraphFoldGate); the
+// fold is a GDScript-only optimisation, so this materialises every node rather than reproducing it.
+struct GraphProgram {
+	PackedInt32Array ops; // one GraphCellOpType per slot, topological order
+	PackedFloat32Array params; // amplitude | value | blend-mode | smooth-passes (0 for input/output)
+	PackedInt32Array in0; // first input's source slot, or -1 unwired
+	PackedInt32Array in1; // second input's source slot (BLEND), or -1
+	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless NOISE
+	int output = -1; // the slot whose grid is the graph output
+	int count = 0;
+	bool is_empty() const { return count == 0 || output < 0 || output >= count; }
+};
+
+// Read a program dictionary (keys "ops"/"params"/"in0"/"in1"/"noise"/"output") from
+// Pasture3DTerrainGraph.compile_graph_program. False — r_out left empty — on a missing key, a length
+// mismatch, or an out-of-range output; the caller then treats the graph as a flat 0.
+bool graph_build(const Dictionary &p_prog, GraphProgram &r_out);
+
+// Evaluate the whole graph to a p_gw*p_gh row-major field over p_rect. `p_input` feeds Input nodes — a
+// COPY of it (or a flat 0 when it is empty / the wrong size). An empty/malformed program yields a flat 0.
+PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
+		const PackedFloat32Array &p_input);
 
 } // namespace godot

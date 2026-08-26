@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/time.hpp>
 
 #include "logger.h"
+#include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_util.h"
 
@@ -1133,6 +1134,36 @@ PackedFloat32Array Pasture3DUtil::graph_cell_eval_grid(const Dictionary &p_progr
 	return out;
 }
 
+// Native whole-graph evaluator — a thin binding over graph_eval_grid so a headless gate and the native
+// rasteriser share one implementation.
+PackedFloat32Array Pasture3DUtil::graph_eval_grid(const Dictionary &p_program, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const PackedFloat32Array &p_input) {
+	godot::GraphProgram prog;
+	if (!godot::graph_build(p_program, prog)) {
+		PackedFloat32Array out;
+		out.resize(MAX(p_gw, 0) * MAX(p_gh, 0));
+		out.fill(0.f);
+		return out;
+	}
+	return godot::graph_eval_grid(prog, p_gw, p_gh, p_rect, p_input);
+}
+
+// GPU whole-graph evaluator binding. A persistent instance so the local RD + shader compile ONCE across
+// calls. Returns empty on unavailable/failure — the gate (and any caller) reads that as "use the CPU path".
+PackedFloat32Array Pasture3DUtil::graph_eval_grid_gpu(const Dictionary &p_program, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const PackedFloat32Array &p_input) {
+	static Pasture3DGraphGPU s_gpu;
+	PackedFloat32Array out;
+	godot::GraphProgram prog;
+	if (!godot::graph_build(p_program, prog)) {
+		return out; // empty
+	}
+	if (!s_gpu.eval_grid(prog, p_gw, p_gh, p_rect, p_input, out)) {
+		return PackedFloat32Array(); // empty signals unavailable/failed
+	}
+	return out;
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1189,4 +1220,12 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("graph_cell_eval_grid", "program", "gw", "gh", "rect"),
 			&Pasture3DUtil::graph_cell_eval_grid);
+	// Terrain graph — the native whole-graph evaluator (grid-pass interleave).
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("graph_eval_grid", "program", "gw", "gh", "rect", "input"),
+			&Pasture3DUtil::graph_eval_grid);
+	// Terrain graph — the GPU whole-graph evaluator (RenderingDevice); empty return => unavailable/failed.
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("graph_eval_grid_gpu", "program", "gw", "gh", "rect", "input"),
+			&Pasture3DUtil::graph_eval_grid_gpu);
 }

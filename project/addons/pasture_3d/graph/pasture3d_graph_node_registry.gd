@@ -15,8 +15,15 @@ static func entries() -> Array[Dictionary]:
 		{"op": &"input", "title": "Input", "role": "Source", "script": Pasture3DGraphNodeInput},
 		{"op": &"noise", "title": "Noise", "role": "Generator", "script": Pasture3DGraphNodeNoise},
 		{"op": &"const", "title": "Const", "role": "Generator", "script": Pasture3DGraphNodeConst},
+		{"op": &"furrows", "title": "Furrows", "role": "Generator", "script": Pasture3DGraphNodeFurrows},
+		{"op": &"dunes", "title": "Dunes", "role": "Generator", "script": Pasture3DGraphNodeDunes},
+		{"op": &"crater", "title": "Crater", "role": "Generator", "script": Pasture3DGraphNodeCrater},
 		{"op": &"blend", "title": "Blend", "role": "Combiner", "script": Pasture3DGraphNodeBlend},
 		{"op": &"smooth", "title": "Smooth", "role": "Filter", "script": Pasture3DGraphNodeSmooth},
+		{"op": &"terrace", "title": "Terrace", "role": "Filter", "script": Pasture3DGraphNodeTerrace},
+		{"op": &"strata", "title": "Strata", "role": "Filter", "script": Pasture3DGraphNodeStrata},
+		{"op": &"curve", "title": "Curve", "role": "Filter", "script": Pasture3DGraphNodeCurve},
+		{"op": &"mask", "title": "Mask", "role": "Filter", "script": Pasture3DGraphNodeMask},
 		{"op": &"output", "title": "Output", "role": "Sink", "script": Pasture3DGraphNodeOutput},
 	]
 

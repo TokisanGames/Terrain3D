@@ -104,6 +104,19 @@ public:
 	static PackedFloat32Array graph_cell_eval_grid(const Dictionary &p_program, const int p_gw,
 			const int p_gh, const Rect2 &p_rect);
 
+	// Native WHOLE-graph evaluator (the grid-pass interleave): materialises every node — Input / Smooth /
+	// Output included — so a graph carrying a grid node runs end-to-end in C++. `p_program` comes from
+	// Pasture3DTerrainGraph.compile_graph_program; `p_input` feeds Input nodes. The GDScript `_eval_unfolded`
+	// is the A/B oracle (GraphNativeGraphGate). Bound for the gate and for the native rasteriser.
+	static PackedFloat32Array graph_eval_grid(const Dictionary &p_program, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const PackedFloat32Array &p_input);
+
+	// GPU whole-graph evaluator (RenderingDevice). Same program/inputs as graph_eval_grid, run on a local
+	// RD. Returns an EMPTY array when the GPU path is unavailable (headless/no driver) or fails, so a caller
+	// falls back to the CPU. Bound for GraphGpuParityGate (run NON-headless). See pasture_3d_graph_gpu.
+	static PackedFloat32Array graph_eval_grid_gpu(const Dictionary &p_program, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const PackedFloat32Array &p_input);
+
 protected:
 	static void _bind_methods();
 };

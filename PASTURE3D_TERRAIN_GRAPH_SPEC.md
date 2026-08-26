@@ -5,8 +5,11 @@ the brush **stack mount** (`Pasture3DNodeGraph`, FROZEN by default), and the **v
 (`Pasture3DGraphEditor`). Plus the **C++ cell-run parity step** (2026-08-25): a native evaluator for a
 lowered cell-only run, matched to the GDScript oracle to float32 rounding (gate `GraphCppParityGate`). Plus
 the **Input/Output filter paradigm** (2026-08-26, §2.1): Input/Output nodes make the mounted graph a filter
-over the incoming surface rather than a bare added generator. No GPU backend and no native grid-pass
-interleave yet, so the live bake path still runs GDScript (see Build order). Target: Godot 4.7, Pasture3D.
+over the incoming surface rather than a bare added generator. Plus the **native grid-pass interleave**
+(2026-08-26): a native-supported graph now bakes end-to-end in C++ (the GDScript path stays as the A/B
+oracle and the fallback for an unsupported op). Plus the **GPU evaluator** (2026-08-26): a RenderingDevice
+compute path for the grid passes, matched to the CPU oracle and wired into the live bake above a measured
+size threshold (see Build order §6.4). Target: Godot 4.7, Pasture3D.
 **Builds on:** `PASTURE3D_NODE_VOCABULARY.md` (node / op() / cell·grid), the relief op-program
 (`pasture3d_relief_material.gd`), and the brush node stack (`pasture3d_terrain_brush.gd`).
 
@@ -156,12 +159,38 @@ failures) ===`.
    `src/pasture_3d_graph_ops.h`); the native `Pasture3DUtil.graph_cell_eval_grid` evaluates it per cell and
    matches `evaluate` to float32 rounding (gate `bench/GraphCppParityGate`, ≤5e-7 m measured). Modelled on
    the relief op-program's style, not a literal reuse — a graph diamond does not fit relief's linear
-   accumulator, and the noise resource travels as-is rather than being rebuilt from params. **Still
-   pending:** a native grid-pass interleave (so Smooth runs natively and `_stack_forces_gdscript` can flip
-   off), then the GPU backend below.
-4. **GPU backend (RenderingDevice)** — each grid pass a compute dispatch over resident textures, the
-   mask bound, one readback at the bake. Keeps cross-platform (see the `gpu_spike/` de-risk); only the
-   test matrix is scoped to Windows+Linux.
+   accumulator, and the noise resource travels as-is rather than being rebuilt from params.
+   **Native grid-pass interleave — stage 1 BUILT.** `Pasture3DTerrainGraph.compile_graph_program()` lowers
+   the WHOLE graph (Input/Smooth/Output plus the cell ops) to a flat program; `Pasture3DUtil.graph_eval_grid`
+   (C++ `graph_eval_grid`, `pasture_3d_graph_ops`) materialises every node in topological order — the
+   analogue of `_eval_unfolded`, which it matches to float32 rounding (gate `bench/GraphNativeGraphGate`),
+   and the folded `evaluate` loosely. `native_supported()` reports whether every op in the ancestry is one
+   the native evaluator implements. **Stage 2 BUILT:** a `BrushModStep::GRAPH`
+   (`pasture_3d_brush_raster.cpp`) in the native rasteriser's stack loop (absolute surface + amount·profile composite + a frozen cache mirroring
+   `brush_mod_erode`, keyed on the surface for a `reads_input` filter and the revision alone for a
+   generator). `_stack_forces_gdscript` now forces GDScript ONLY when `not graph.native_supported()`, so a
+   native-supported graph bakes end-to-end in C++. `bench/GraphNativeBakeGate` A/Bs the native bake against
+   the GDScript oracle on a terrain fixture (adds <1e-4 m beyond the pre-existing dome float/double gap);
+   `BrushStackGate`/`BrushErosionGate` confirm the relief/erosion native paths did not regress. **Next:**
+   the GPU backend below.
+4. **GPU backend (RenderingDevice) — BUILT and wired into the live bake (2026-08-26).** `Pasture3DGraphGPU` (`src/pasture_3d_graph_gpu.cpp`,
+   bound as `Pasture3DUtil.graph_eval_grid_gpu`) owns a local RenderingDevice and one compute shader that
+   runs the graph's GRID passes (Blend, Smooth, Output) over resident storage buffers — one buffer per node,
+   one readback of the output. The **generators (Input/Noise/Const) are CPU-computed and uploaded**:
+   FastNoiseLite cannot be reproduced in GLSL to the parity tolerance, so the noise is the exact bytes
+   `graph_eval_grid` computes and only the grid arithmetic moves to the GPU (which is the win — Smooth is
+   multi-pass, and future erosion nodes are the expensive ones). The CPU `graph_eval_grid` is the A/B oracle;
+   `bench/GraphGpuParityGate` (run NON-headless — the dummy headless driver has no local RD; it skip-passes
+   under `--headless`) measured GPU vs CPU at ≤2e-6 m (Blend bit-exact, Smooth ~1e-6). Three-tier fallback
+   GPU→C++→GDScript, as the SDF raster. Cross-platform (RenderingDevice); only the test matrix is Windows+Linux.
+   **Live bake:** `brush_mod_graph` (native rasteriser) calls `graph_eval_grid_best` on a FROZEN miss — GPU
+   when the footprint is ≥ `graph_gpu_threshold()` cells and a local RD exists, else the CPU evaluator. The
+   threshold reads `ProjectSettings pasture_3d/performance/graph_gpu_threshold` (0 disables the GPU),
+   defaulting to **65536 (256²)** — the measured crossover (`bench/GraphGpuBenchGate`, NON-headless): per
+   shape smooth4 ~96², smooth2 ~128², noise+blend+smooth ~256², identity never (a do-nothing graph always
+   loses the transfer). 256² is the conservative pick — the heaviest realistic filter has crossed over, so
+   no plausible graph regresses above it, and the small-brush bake stays on the CPU where its overhead is
+   least. `GraphGpuBenchGate` is a timing bench (like `SimProfile`), so it is NOT in `gates.txt`.
 5. **Multi-output channels** — a node exposing named outputs (flow/erosion/…), generalizing
    `publish_fields`.
 

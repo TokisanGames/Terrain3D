@@ -33,7 +33,7 @@ func input_count() -> int:
 	return 1
 
 
-func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask) -> PackedFloat32Array:
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
 	# Duplicate so the blur does not mutate the upstream node's cached grid (the evaluator may hand the
 	# same grid to more than one consumer).
 	var g: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array).duplicate() if p_inputs.size() > 0 \
