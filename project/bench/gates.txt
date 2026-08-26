@@ -113,6 +113,14 @@ bench/GraphFilterGate.tscn
 # a control that moves the field or flag.
 bench/GraphCppParityGate.tscn
 
+# --- Terrain graph, graph-native relief nodes: Furrows (generator) + Terrace (filter) ---
+# Pure GDScript on the graph model + relief statics (no DLL, no terrain). The clean-category split the
+# relief system does not make: a Furrows GENERATOR (0 inputs) matches a hand-derived corrugation and a
+# relief Furrows op; a Terrace FILTER bands EXACTLY the field wired into it (flat in -> flat out, invents
+# nothing) and matches a metric-band re-derivation; Furrows->Terrace composes; categories/native-fallback
+# hold. Controls throughout. First slice of the graph-native relief work.
+bench/GraphReliefNodeGate.tscn
+
 # --- Terrain graph, increment 3: the editor's model layer (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6) ---
 # Watched green 2026-08-25 (0 failures). The GraphEdit VIEW is editor-only (can't assert visuals
 # headlessly, like the gizmo gates), so the mutation API it drives — add / connect (one wire per port) /
