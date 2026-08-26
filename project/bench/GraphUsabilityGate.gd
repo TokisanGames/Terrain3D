@@ -528,9 +528,12 @@ func _k_port_type_system_and_colors() -> void:
 	
 	var mask_ok: bool = mask_out_type == Pasture3DGraphNode.PortType.MASK
 	var const_ok: bool = const_out_type == Pasture3DGraphNode.PortType.HEIGHT
-	var blend_ok: bool = blend_in_types.size() == 2 and blend_in_types[0] == Pasture3DGraphNode.PortType.HEIGHT
-	
-	print("    mask out type=%d (want %d), const out type=%d (want %d), blend in count=%d" % [
+	# Blend is A, B (HEIGHT) + an optional mask (MASK) weight port.
+	var blend_ok: bool = blend_in_types.size() == 3 \
+			and blend_in_types[0] == Pasture3DGraphNode.PortType.HEIGHT \
+			and blend_in_types[2] == Pasture3DGraphNode.PortType.MASK
+
+	print("    mask out type=%d (want %d), const out type=%d (want %d), blend in count=%d (want 3, [2]=MASK)" % [
 		mask_out_type, Pasture3DGraphNode.PortType.MASK, const_out_type, Pasture3DGraphNode.PortType.HEIGHT, blend_in_types.size()
 	])
 	if not mask_ok or not const_ok or not blend_ok:

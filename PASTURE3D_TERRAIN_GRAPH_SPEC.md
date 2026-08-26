@@ -191,8 +191,91 @@ failures) ===`.
    loses the transfer). 256² is the conservative pick — the heaviest realistic filter has crossed over, so
    no plausible graph regresses above it, and the small-brush bake stays on the CPU where its overhead is
    least. `GraphGpuBenchGate` is a timing bench (like `SimProfile`), so it is NOT in `gates.txt`.
-5. **Multi-output channels** — a node exposing named outputs (flow/erosion/…), generalizing
-   `publish_fields`.
+5. **Graph-native relief & solver nodes — clean-category split (in progress).** The relief material system
+   conflates categories in single ops; the graph splits each into a node that does ONE category's job, so
+   the palette and the fold can reason about them:
+   * **Generators** (0 inputs, 1 output — a field): `Noise`, `Const`, `Furrows`, `Dunes`, `Crater`. **BUILT.**
+   * **Filters** (1 input, transform it, invent nothing): `Smooth`, `Terrace`, `Strata`, `Curve`, `Mask`,
+     `Reroute`. **BUILT.** Gate `bench/GraphReliefNodeGate` (Furrows generator + Terrace filter, each vs an
+     independent re-derivation reusing the vetted relief statics `_furrows`/`_dunes`/`_crater`/`_scree`).
+   * **Solvers** (`Role.SOLVER`, a grid node that reads an input field and routes/iterates a simulation over
+     it): **Scree, Erosion and DLA BUILT (items 6–8).**
+   A generator that shares a stack op's name computes the same thing (delegates to the relief static); a
+   filter bands EXACTLY its input (flat in → flat out).
+6. **Solvers, multi-output & the Scree slice — Scree BUILT (2026-08-26).** The solver category brought three
+   model additions, proved on Scree first (`pasture3d_graph_node_scree.gd`, op `&"scree"`):
+   * **Multi-output ports.** A node may expose several outputs — a primary height plus derived channels.
+     `Pasture3DGraphNode` gained `output_count()` / `output_names()` / `output_port_types()` and an
+     `eval_grid_channels()` returning one grid per port; the evaluator materialises port 0 into its `grids`
+     slot and ports ≥ 1 into a parallel `aux` map, selected by the connection tuple's existing `from_port`
+     (`_read_channel` / `_cell_input`). Single-output nodes are unchanged — the fold and the C++/GPU parity
+     gates (`GraphFoldGate`, `GraphCppParityGate`, `GraphNativeGraphGate`, `GraphNativeBakeGate`) all stay
+     green. **Scree exposes `[height HEIGHT, shed MASK]`:** it reads its input's slope/curvature/gradient
+     (a grid op), gates deposition by a smooth slope band, and delegates the grain + toe to the relief
+     `_scree` static. NaN in the surface passes through as NaN height / 0 shed (the brush-loop boundary).
+   * **Blend mask input.** `Blend` gained an optional third port, `mask` (MASK). Wired, it gates the combine —
+     `result = lerp(a, blended, mask)` — so a solver's channel stamps detail only where the mask is hot;
+     unwired it reads **1.0** (`input_unwired_default`, the principled MASK-port default), so existing
+     two-input blends are unchanged. A masked Blend is a 3-input op the native cell/graph lowering cannot
+     represent, so `native_supported()` / `compile_*_program()` refuse it to GDScript (gate `[F]`).
+   * **Per-solver freeze.** A solver carries its OWN in-memory frozen cache (a `Bake` button + stale warning),
+     keyed by a hash of its input surface — so tuning a node DOWNSTREAM of an expensive solve does not
+     re-solve it (what the host's whole-graph `content_key` cache cannot give). Scree is cheap, so it defaults
+     to LIVE; the heavier Erosion defaults to FROZEN. The `Bake` button lives both in the Inspector
+     (`@export_tool_button`) AND inline on the node in the graph canvas (a `Bake` button in the GraphNode
+     titlebar for any `Role.SOLVER`, amber when the node is FROZEN-and-stale), so a solver is re-baked without
+     leaving the graph. Gate `bench/GraphSolverNodeGate` (A–F, controls throughout: field parity, multi-output
+     mask routing, freeze/stale/Bake, NaN, native refusal).
+   * **DEFERRED — bundled channels socket.** A future top output socket on a solver that carries all channels
+     as one bundle, understood by the `Output` node (so a downstream graph can consume a solver's whole field
+     context in one wire rather than per-channel). Not built; the per-channel ports above are the shipping form.
+7. **Erosion solver — BUILT (2026-08-26).** The multi-output case that motivated all of item 6:
+   `pasture3d_graph_node_erosion.gd`, op `&"erosion"`, `Role.SOLVER`, a grid node with **five outputs**
+   `[height HEIGHT, flow MASK, erosion MASK, deposition MASK, wetness MASK]` — the same four channels the
+   brush erosion modifier publishes, plus the eroded surface as the primary port.
+   * **One solver, reached natively.** It runs the SAME stream-power `erosion_solve` the brush modifier and
+     `Pasture3DSim` use — no reimplementation — through a new binding `Pasture3DUtil.erosion_solve_grid(z, gw,
+     gh, cell_size, params, erodability)` (`src/pasture_3d_util.{h,cpp}`), which wraps `godot::erosion_solve`,
+     restores input-NaN cells as NaN in the height (the brush-loop boundary the solver would otherwise fill),
+     and splits the result into `{ ok, z, flow, ero, dep, wet }` with the modifier's exact channel algebra
+     (`ero = max(-(z−z₀),0)`, `dep = max(z−z₀,0)`, `wet = lake_depth`). `cell_size` handed to the solver is
+     `sqrt(dx·dz)` — the side of a square with the grid cell's true area, which is what the drainage-area
+     term needs.
+   * **Params** mirror the modifier (`iterations`, `erosion_rate` K, `area_exponent` m, `hillslope_diffusion`
+     D, `deposition` G) so a value tuned on a Sim or a brush transfers by reading one inspector. The erodability
+     LUT is not yet exposed on the graph node (uniform rock); it is the one deferred parameter.
+   * **Defaults to FROZEN** (a solve is the one graph op too expensive to re-run per evaluation), with the same
+     per-solver cache/stale/Bake as Scree and the inline canvas Bake button.
+   * Gate `bench/GraphErosionNodeGate` (A–F, **needs the freshly built DLL**, fails loudly if the binding is
+     unbound): five outputs; a solve that cuts (control: rate=0, diffusion=0 changes nothing); the binding's
+     channel algebra and a flow floor of one cell area; FROZEN serve/stale/Bake; NaN passthrough; the erosion
+     channel gating a Blend mask. The native solve itself is already covered by the SimPhase gates, so this
+     gate is scoped to the graph plumbing, not a stream-power re-derivation.
+8. **DLA solver — BUILT (2026-08-26).** A mountain grown by diffusion-limited aggregation:
+   `pasture3d_graph_node_dla.gd`, op `&"dla"`, `Role.SOLVER`, a grid node with **two outputs**
+   `[height HEIGHT, mask MASK]` (the massif in metres + its normalised footprint for a downstream Blend).
+   * **Composes the growth engine, does not reimplement it.** The ~600-line tuned growth lives on
+     `Pasture3DReliefDLA` (six documented growth bugs in its history); this node OWNS a configured engine
+     instance and drives its `grow_into(state)` hook — which grows the cluster into a state Dictionary and
+     touches nothing on the material — so the entire growth path is reused byte-for-byte. Only the thin
+     adapter is new: mirror the params, hand the engine the rect's half-extents + (when seeding) the input
+     surface as the seed frame, and bilinear-sample its normalised field onto the output grid. (A DLA needs
+     a grid at COMPILE time only and is a point operator where it counts — so it is a graph node, never a
+     brush modifier; see the DLA memory.)
+   * **Optional seed input (what makes it a SOLVER, not a bare generator).** With Ridge Seeding on, the wired
+     input's crest lines become the cluster's starting skeleton — the `Input → Erosion → DLA` workflow, where
+     the ridge network grows along what erosion actually cut. Unwired (or seeding off) it grows from a single
+     central seed, a pure generator.
+   * **Defaults to FROZEN** (growing a cluster is seconds of GDScript) with the same per-solver
+     cache/stale/Bake as Erosion and the inline canvas Bake button.
+   * Gate `bench/GraphDLANodeGate` (A–E, pure GDScript, small 64² grow): two outputs; a real massif with an
+     INTERIOR peak (not the hollow-ring failure), zero at the rect corners (not cut off at the loop edge),
+     `height == amplitude·mask`, deterministic for a fixed seed; ridge seeding that uses the input (control:
+     a flat input falls back to the central seed); FROZEN serve/stale/Bake; the footprint mask gating a
+     Blend. The growth's own appearance stays covered by `DLAGate`.
+
+   **All three solver categories are now built — Scree, Erosion, DLA — and the clean-category split
+   (Generators / Filters / Solvers, each doing ONE job) is complete for the shipping node set.**
 
 ---
 
