@@ -410,12 +410,12 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 
 	# 2D Heightmap Preview Thumbnail (if enabled and not collapsed)
 	if _show_previews and not p_node.collapsed:
-		var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, p_index, 256)
+		var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, p_index, 128)
 		if tex != null:
 			var center_box := CenterContainer.new()
 			var trect := TextureRect.new()
 			trect.texture = tex
-			trect.custom_minimum_size = Vector2(256, 256)
+			trect.custom_minimum_size = Vector2(128, 128)
 			trect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			trect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			center_box.add_child(trect)

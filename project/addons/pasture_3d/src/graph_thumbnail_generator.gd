@@ -8,7 +8,7 @@ extends RefCounted
 
 
 ## Generates an ImageTexture thumbnail for a given node in the graph.
-static func generate_thumbnail(p_graph: Pasture3DTerrainGraph, p_node_index: int, p_size: int = 256) -> ImageTexture:
+static func generate_thumbnail(p_graph: Pasture3DTerrainGraph, p_node_index: int, p_size: int = 128) -> ImageTexture:
 	if p_graph == null or p_node_index < 0 or p_node_index >= p_graph.nodes.size():
 		return null
 	var node: Pasture3DGraphNode = p_graph.nodes[p_node_index]
