@@ -199,7 +199,7 @@ failures) ===`.
      `Reroute`. **BUILT.** Gate `bench/GraphReliefNodeGate` (Furrows generator + Terrace filter, each vs an
      independent re-derivation reusing the vetted relief statics `_furrows`/`_dunes`/`_crater`/`_scree`).
    * **Solvers** (`Role.SOLVER`, a grid node that reads an input field and routes/iterates a simulation over
-     it): **Scree BUILT; DLA, Erosion queued (item 6).**
+     it): **Scree and Erosion BUILT; DLA queued (item 6).**
    A generator that shares a stack op's name computes the same thing (delegates to the relief static); a
    filter bands EXACTLY its input (flat in → flat out).
 6. **Solvers, multi-output & the Scree slice — Scree BUILT (2026-08-26).** The solver category brought three
@@ -221,15 +221,38 @@ failures) ===`.
    * **Per-solver freeze.** A solver carries its OWN in-memory frozen cache (a `Bake` button + stale warning),
      keyed by a hash of its input surface — so tuning a node DOWNSTREAM of an expensive solve does not
      re-solve it (what the host's whole-graph `content_key` cache cannot give). Scree is cheap, so it defaults
-     to LIVE; the mechanism is in place for DLA/Erosion. Gate `bench/GraphSolverNodeGate` (A–F, controls
-     throughout: field parity, multi-output mask routing, freeze/stale/Bake, NaN, native refusal).
+     to LIVE; the heavier Erosion defaults to FROZEN. The `Bake` button lives both in the Inspector
+     (`@export_tool_button`) AND inline on the node in the graph canvas (a `Bake` button in the GraphNode
+     titlebar for any `Role.SOLVER`, amber when the node is FROZEN-and-stale), so a solver is re-baked without
+     leaving the graph. Gate `bench/GraphSolverNodeGate` (A–F, controls throughout: field parity, multi-output
+     mask routing, freeze/stale/Bake, NaN, native refusal).
    * **DEFERRED — bundled channels socket.** A future top output socket on a solver that carries all channels
      as one bundle, understood by the `Output` node (so a downstream graph can consume a solver's whole field
      context in one wire rather than per-channel). Not built; the per-channel ports above are the shipping form.
-   * **Queued solvers:** **DLA** (baked-field growth, `pasture3d_relief_dla.gd`) and **Erosion** (stream-power
-     fluvial, `pasture3d_mod_erosion.gd` + native `erosion_solve`). Erosion is the multi-output case that
-     motivated all of the above — it publishes flow / erosion / deposition / wetness channels — and will
-     reuse the native `erosion_solve` with the modifier's own solve as the A/B oracle.
+7. **Erosion solver — BUILT (2026-08-26).** The multi-output case that motivated all of item 6:
+   `pasture3d_graph_node_erosion.gd`, op `&"erosion"`, `Role.SOLVER`, a grid node with **five outputs**
+   `[height HEIGHT, flow MASK, erosion MASK, deposition MASK, wetness MASK]` — the same four channels the
+   brush erosion modifier publishes, plus the eroded surface as the primary port.
+   * **One solver, reached natively.** It runs the SAME stream-power `erosion_solve` the brush modifier and
+     `Pasture3DSim` use — no reimplementation — through a new binding `Pasture3DUtil.erosion_solve_grid(z, gw,
+     gh, cell_size, params, erodability)` (`src/pasture_3d_util.{h,cpp}`), which wraps `godot::erosion_solve`,
+     restores input-NaN cells as NaN in the height (the brush-loop boundary the solver would otherwise fill),
+     and splits the result into `{ ok, z, flow, ero, dep, wet }` with the modifier's exact channel algebra
+     (`ero = max(-(z−z₀),0)`, `dep = max(z−z₀,0)`, `wet = lake_depth`). `cell_size` handed to the solver is
+     `sqrt(dx·dz)` — the side of a square with the grid cell's true area, which is what the drainage-area
+     term needs.
+   * **Params** mirror the modifier (`iterations`, `erosion_rate` K, `area_exponent` m, `hillslope_diffusion`
+     D, `deposition` G) so a value tuned on a Sim or a brush transfers by reading one inspector. The erodability
+     LUT is not yet exposed on the graph node (uniform rock); it is the one deferred parameter.
+   * **Defaults to FROZEN** (a solve is the one graph op too expensive to re-run per evaluation), with the same
+     per-solver cache/stale/Bake as Scree and the inline canvas Bake button.
+   * Gate `bench/GraphErosionNodeGate` (A–F, **needs the freshly built DLL**, fails loudly if the binding is
+     unbound): five outputs; a solve that cuts (control: rate=0, diffusion=0 changes nothing); the binding's
+     channel algebra and a flow floor of one cell area; FROZEN serve/stale/Bake; NaN passthrough; the erosion
+     channel gating a Blend mask. The native solve itself is already covered by the SimPhase gates, so this
+     gate is scoped to the graph plumbing, not a stream-power re-derivation.
+8. **Queued solver:** **DLA** (baked-field growth, `pasture3d_relief_dla.gd`) — the remaining solver, growth
+   currently frozen (see the DLA memory); to follow the Scree/Erosion pattern as its own graph node.
 
 ---
 

@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/time.hpp>
 
 #include "logger.h"
+#include "pasture_3d_erosion.h"
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_util.h"
@@ -1164,6 +1165,74 @@ PackedFloat32Array Pasture3DUtil::graph_eval_grid_gpu(const Dictionary &p_progra
 	return out;
 }
 
+Dictionary Pasture3DUtil::erosion_solve_grid(const PackedFloat32Array &p_z, const int p_gw,
+		const int p_gh, const double p_cell_size, const Dictionary &p_params,
+		const PackedFloat32Array &p_erodability) {
+	Dictionary out;
+	out["ok"] = false;
+	const int n = p_gw * p_gh;
+	if (n <= 0 || p_z.size() != n) {
+		return out; // ok stays false: a shape mismatch is the caller's bug, not a silent zero-solve
+	}
+
+	// The grid shape and cell size come from the array we were handed, not from the params dict — a
+	// dict that disagreed with p_z would route on the wrong topology. want_diagnostics is forced on
+	// because the four published channels ARE the diagnostics (flow, lake_depth).
+	godot::ErosionParams params = godot::erosion_params_from_dict(p_params);
+	params.gw = p_gw;
+	params.gh = p_gh;
+	params.cell_size = p_cell_size;
+	params.want_diagnostics = true;
+
+	std::vector<float> z0(n);
+	for (int i = 0; i < n; ++i) {
+		z0[i] = p_z[i];
+	}
+
+	godot::ErosionResult res = godot::erosion_solve(z0, params, p_erodability);
+	if (!res.ok || (int)res.z.size() != n) {
+		return out; // ok stays false
+	}
+
+	// Channel conversions match the brush erosion modifier (pasture_3d_brush_raster brush_mod_erode) so
+	// the graph node and the modifier publish the same units: flow m², ero/dep positive metres removed /
+	// laid down, wet = lake depth. A cell that was NaN on input is restored as NaN in the height so the
+	// graph's brush-loop boundary survives the solve (the solver treats NaN as a no-data outlet and fills
+	// it with a finite value, which we do not want leaking back into the surface).
+	PackedFloat32Array height, flow, ero, dep, wet;
+	height.resize(n);
+	flow.resize(n);
+	ero.resize(n);
+	dep.resize(n);
+	wet.resize(n);
+	for (int i = 0; i < n; ++i) {
+		const float z_in = p_z[i];
+		if (Math::is_nan(z_in)) {
+			height[i] = z_in; // stays NaN
+			flow[i] = 0.0f;
+			ero[i] = 0.0f;
+			dep[i] = 0.0f;
+			wet[i] = 0.0f;
+			continue;
+		}
+		const float z_out = res.z[i];
+		height[i] = z_out;
+		flow[i] = (i < (int)res.flow.size()) ? res.flow[i] : 0.0f;
+		const float d = z_out - z_in;
+		ero[i] = (d < 0.0f) ? -d : 0.0f; // positive metres removed
+		dep[i] = (d > 0.0f) ? d : 0.0f; // positive metres laid down
+		wet[i] = (i < (int)res.lake_depth.size()) ? res.lake_depth[i] : 0.0f;
+	}
+
+	out["ok"] = true;
+	out["z"] = height;
+	out["flow"] = flow;
+	out["ero"] = ero;
+	out["dep"] = dep;
+	out["wet"] = wet;
+	return out;
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1228,4 +1297,9 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("graph_eval_grid_gpu", "program", "gw", "gh", "rect", "input"),
 			&Pasture3DUtil::graph_eval_grid_gpu);
+	// Terrain graph — the Erosion SOLVER node's stream-power solve (native erosion_solve); returns
+	// { ok, z, flow, ero, dep, wet } or { ok:false }.
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("erosion_solve_grid", "z", "gw", "gh", "cell_size", "params", "erodability"),
+			&Pasture3DUtil::erosion_solve_grid);
 }

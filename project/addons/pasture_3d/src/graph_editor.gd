@@ -394,6 +394,18 @@ func _make_graphnode(p_index: int, p_node: Pasture3DGraphNode) -> GraphNode:
 		out_btn.pressed.connect(func(): _action_set_output(p_index))
 		thbox.add_child(out_btn)
 
+	# Bake button — a SOLVER carries its own frozen cache, so it can be re-solved from the canvas without
+	# opening the Inspector. Runs the same clear_cache() the "Bake" inspector button does. Highlighted amber
+	# when the node is FROZEN-and-stale so a graph showing an old solve advertises the fix.
+	if p_node.role() == Pasture3DGraphNode.Role.SOLVER and p_node.has_method("clear_cache"):
+		var bake_btn := Button.new()
+		bake_btn.text = "Bake"
+		bake_btn.tooltip_text = "Re-solve this solver (clears its frozen cache)"
+		if bool(p_node.get("_stale")):
+			bake_btn.modulate = Color(1.0, 0.75, 0.3)
+		bake_btn.pressed.connect(func(): _action_bake_solver(p_index))
+		thbox.add_child(bake_btn)
+
 	# Populate Slots & Inline Controls
 	_populate_node_slots_and_controls(gn, p_index, p_node)
 	return gn
@@ -406,27 +418,48 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 	var in_types := p_node.input_port_types()
 	var out_type := p_node.output_port_type()
 	var out_color: Color = PORT_COLORS[out_type % PORT_COLORS.size()]
-	
+	# Multi-output ports (Scree, Erosion, …): one right slot per channel, each on its own row. Ports are
+	# enabled contiguously from row 0, so GraphEdit's sequential-among-enabled port index equals the
+	# channel index the connection stores. A single-output node keeps exactly its old one-slot layout.
+	var out_names := p_node.output_names()
+	var out_types := p_node.output_port_types()
+	var n_out := p_node.output_count() if has_right else 0
+	var multi_out := n_out > 1
+
 	# Find wired input port indices
 	var wired_inputs: Dictionary = {}
 	for c in graph.connections:
 		if int(c[2]) == p_index:
 			wired_inputs[int(c[3])] = int(c[0])
-			
-	var rows := maxi(n_in, 1)
+
+	var rows := maxi(maxi(n_in, n_out), 1)
 	for r in range(rows):
 		var row_box := HBoxContainer.new()
 		row_box.custom_minimum_size = Vector2(0, 22)
-		
+
 		var lbl := Label.new()
 		lbl.text = names[r] if r < n_in else " "
 		row_box.add_child(lbl)
-		
+
+		# Label each output channel on the right so a multi-output node's ports are told apart.
+		if multi_out and r < n_out:
+			var spacer := Control.new()
+			spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row_box.add_child(spacer)
+			var out_lbl := Label.new()
+			out_lbl.text = out_names[r] if r < out_names.size() else "out"
+			out_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			out_lbl.modulate = Color(0.8, 0.85, 0.95, 0.9)
+			row_box.add_child(out_lbl)
+
 		var in_type: int = in_types[r] if r < in_types.size() else 0
 		var in_color: Color = PORT_COLORS[in_type % PORT_COLORS.size()]
-		
+		var row_out_type: int = out_types[r] if r < out_types.size() else out_type
+		var row_out_color: Color = PORT_COLORS[row_out_type % PORT_COLORS.size()]
+
 		p_gn.add_child(row_box)
-		p_gn.set_slot(r, r < n_in, in_type, in_color, has_right and r == 0, out_type, out_color)
+		p_gn.set_slot(r, r < n_in, in_type, in_color, r < n_out, row_out_type, row_out_color)
 
 	# 2D Heightmap Preview Thumbnail (if enabled and not collapsed)
 	if _show_previews and not p_node.collapsed:
@@ -864,6 +897,17 @@ func _action_set_output(p_index: int) -> void:
 	_ur_add_undo_property(graph, &"output_override", old_override)
 	_ur_add_undo_property(graph, &"output_node", old_out)
 	_ur_commit()
+
+
+## Re-solve a solver from the canvas — the same clear_cache() the node's inspector "Bake" button runs.
+## NOT an undo/redo action: it drops an in-memory cache and re-solves to the SAME result the graph would
+## produce live, so there is nothing to undo. The node emits `changed`, which re-bakes the host.
+func _action_bake_solver(p_index: int) -> void:
+	if graph == null or p_index < 0 or p_index >= graph.nodes.size():
+		return
+	var node: Pasture3DGraphNode = graph.nodes[p_index]
+	if node != null and node.has_method("clear_cache"):
+		node.clear_cache()
 
 
 func _action_set_node_muted(p_index: int, p_muted: bool) -> void:

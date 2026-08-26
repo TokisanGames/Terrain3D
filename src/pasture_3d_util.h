@@ -117,6 +117,18 @@ public:
 	static PackedFloat32Array graph_eval_grid_gpu(const Dictionary &p_program, const int p_gw, const int p_gh,
 			const Rect2 &p_rect, const PackedFloat32Array &p_input);
 
+	// Stream-power fluvial erosion for the graph-native Erosion SOLVER node. A thin binding over the native
+	// erosion_solve (the same solver the brush erosion modifier and Pasture3DSim run — one implementation),
+	// so the GDScript Erosion node can solve without reimplementing it. `p_z` is the absolute surface
+	// (gw*gh, row-major); a NaN cell is a no-data outlet (water leaves there), and it is restored as NaN in
+	// the returned height so the graph's brush-loop boundary survives. `p_params` is read by
+	// erosion_params_from_dict (iterations / erosion_rate / area_exponent / diffusion / deposition /
+	// erodability_*). Returns { ok:bool, z, flow, ero, dep, wet } — the eroded height plus the four channels
+	// in the units the brush publishes (flow m², ero/dep positive metres, wet = lake depth). An empty/failed
+	// solve returns { ok:false }.
+	static Dictionary erosion_solve_grid(const PackedFloat32Array &p_z, const int p_gw, const int p_gh,
+			const double p_cell_size, const Dictionary &p_params, const PackedFloat32Array &p_erodability);
+
 protected:
 	static void _bind_methods();
 };

@@ -139,6 +139,17 @@ bench/GraphUsabilityGate.tscn
 # Controls throughout. First slice of the graph-native solver work.
 bench/GraphSolverNodeGate.tscn
 
+# --- Terrain graph, graph-native SOLVER: Erosion (stream-power fluvial) + its multi-output channels ---
+# Needs the freshly built DLL — the node reaches native erosion_solve through the new
+# Pasture3DUtil.erosion_solve_grid binding, and the gate fails loudly with a "DLL is stale" line if the
+# extension was not rebuilt. The native solve itself is already covered by the SimPhase gates, so this one
+# tests the GRAPH plumbing around it: five declared outputs (height + flow/erosion/deposition/wetness), a
+# solve that actually cuts (control: rate=0, diffusion=0 changes nothing), the binding's channel algebra
+# (ero/dep re-derived from the height delta, flow floored at one cell's area), per-solver FROZEN serving a
+# cached solve until Bake, NaN passthrough, and the erosion channel gating a Blend's mask input.
+# Controls throughout.
+bench/GraphErosionNodeGate.tscn
+
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 # Watched green 2026-08-23, 8/8. It reaches across three files — the Pond, the Add Water hook on
 # Pasture3DTerrainBrush, and level_to_spline() on Pasture3DWaterBody — so it is the gate that notices
