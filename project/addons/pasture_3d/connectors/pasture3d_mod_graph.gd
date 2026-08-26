@@ -11,12 +11,17 @@
 # rasteriser (`Pasture3DTerrainBrush._native_raster` -> `_stack_forces_gdscript`); the graph itself is
 # pure GDScript today.
 #
-# ---- Evaluation is LIVE in this increment ----
+# ---- FROZEN by default (mirrors Pasture3DNodeErosion) ----
 #
-# Unlike Pasture3DNodeErosion this does NOT default to FROZEN yet: the frozen cache (keyed by grid extent
-# and the input surface, with a Bake button and a stale warning) is the next optimisation, reusing the
-# erosion modifier's cache pattern verbatim. Until then a graph re-evaluates on every refresh, so keep
-# graphs modest while dragging. See PASTURE3D_TERRAIN_GRAPH_SPEC.md, build order.
+# A graph over a terrain-spanning footprint is expensive, and auto_refresh re-bakes on every spline drag,
+# so this defaults to FROZEN: its raw output is cached per grid EXTENT and re-evaluated only on a cache
+# miss (a new extent, or reopening a scene) or an explicit Bake. While frozen, ANY change — a node param,
+# the wiring, the graph swapped — leaves the cached output in place and raises a stale warning until you
+# press Bake Graph. Set Evaluation to Live on a small graph to watch it update per drag.
+#
+# The cache stores the RAW graph output (before strength and the interior profile), which is why it stays
+# valid as the spline drags WITHIN an extent: the graph is world-fixed, and only strength and the profile
+# — applied per bake in _apply_graph_step — move with the footprint. So editing Strength never invalidates.
 @tool
 class_name Pasture3DNodeGraph
 extends Pasture3DNode
@@ -39,6 +44,62 @@ extends Pasture3DNode
 	set(v):
 		strength = v
 		_touch()
+
+
+# ---- The frozen cache (mirrors Pasture3DNodeErosion §6.3) --------------------------------------------
+#
+# IN MEMORY ONLY and keyed by grid EXTENT: the baked heights already persist in the layer, so the cache
+# only saves re-evaluating after a reload, and several loops bake several grids that must not thrash one
+# slot. Each entry is `{key, grid}` — `key` is the graph's content revision at bake time, the staleness
+# signal. The host (Pasture3DTerrainBrush._compile_modifiers / _commit_modifier_caches) drives all of it;
+# these methods are the storage it calls, the same contract the erosion modifier uses.
+var _cache: Dictionary = {}
+var _stale: bool = false
+
+@export_tool_button("Bake Graph") var _bake_btn = clear_cache
+
+
+## Graph steps default to FROZEN — a solve per drag is unusable over a big footprint. See the header.
+func _init() -> void:
+	evaluation = Evaluation.FROZEN
+
+
+func _supports_freezing() -> bool:
+	return true
+
+
+## Drop every cached evaluation, so the next refresh recomputes. This is the explicit Bake.
+func clear_cache() -> void:
+	if _cache.is_empty() and not _stale:
+		return
+	_cache.clear()
+	_stale = false
+	_touch()
+
+
+func cache_bytes() -> int:
+	var n := 0
+	for k in _cache:
+		n += (_cache[k].get("grid", PackedFloat32Array()) as PackedFloat32Array).size() * 4
+	return n
+
+
+func cache_for(p_extent: String) -> Dictionary:
+	return _cache.get(p_extent, {})
+
+
+func store_cache(p_extent: String, p_entry: Dictionary) -> void:
+	_cache[p_extent] = p_entry
+
+
+## Record whether the last bake served a cache the graph has since changed under. Set DURING a bake, so it
+## deliberately does not `_touch()` (that would re-bake from inside a bake); it only refreshes warnings.
+func set_stale(p_stale: bool) -> void:
+	if _stale == p_stale:
+		return
+	_stale = p_stale
+	if Engine.is_editor_hint():
+		emit_changed.call_deferred()
 
 
 func op() -> StringName:
@@ -66,5 +127,11 @@ func modifier_warnings(_p_host) -> PackedStringArray:
 		return w
 	if is_zero_approx(strength):
 		w.append("%s: Strength is 0 m, so the graph contributes nothing." % display_name())
+	if _stale:
+		w.append(("%s is FROZEN and the graph has changed since it was baked, so the terrain is showing "
+			+ "the OLD graph. Press Bake Graph to re-evaluate, or set Evaluation to Live.") % display_name())
+	if evaluation == Evaluation.FROZEN and not _cache.is_empty():
+		w.append("%s holds %.1f MB of cached graph output. Press Bake Graph to re-evaluate it."
+			% [display_name(), cache_bytes() / 1048576.0])
 	w.append_array(graph.graph_warnings())
 	return w

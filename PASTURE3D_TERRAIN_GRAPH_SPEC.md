@@ -1,8 +1,8 @@
 # Pasture3D Terrain Graph — Spec
 
-**Status:** Increments 1–3 built (2026-08-25) — the headless evaluator core, the brush **stack mount**
-(`Pasture3DNodeGraph`), and the **visual GraphEdit editor** (`Pasture3DGraphEditor`). No C++/GPU yet
-(see Build order). Target: Godot 4.7, Pasture3D.
+**Status:** Increments 1–4 built (2026-08-25) — the headless evaluator core, the brush **stack mount**
+(`Pasture3DNodeGraph`, FROZEN by default), and the **visual GraphEdit editor** (`Pasture3DGraphEditor`).
+No C++/GPU yet (see Build order). Target: Godot 4.7, Pasture3D.
 **Builds on:** `PASTURE3D_NODE_VOCABULARY.md` (node / op() / cell·grid), the relief op-program
 (`pasture3d_relief_material.gd`), and the brush node stack (`pasture3d_terrain_brush.gd`).
 
@@ -98,8 +98,12 @@ failures) ===`.
    per-cell world grid (`min_x + ix*vs`, a half-cell-shifted rect into `cell_to_world`), adds it feathered
    by the interior profile, and forces the GDScript rasteriser when a graph op is present
    (`_stack_forces_gdscript`, since native cannot run `&"graph"`). Gate: `bench/GraphMountGate`.
-   **Still LIVE** — the FROZEN cache (reusing the erosion modifier's extent/surface-keyed cache, a Bake
-   button and a stale warning) is the immediate next step so a graph does not re-evaluate on every drag.
+   **FROZEN by default (increment 4).** It caches its RAW output per grid extent (a Bake Graph button +
+   stale warning, via the erosion modifier's `_compile_modifiers`/`_commit_modifier_caches` contract);
+   `Pasture3DTerrainGraph.content_key()` (a revision counter) is the staleness key. The raw output is
+   world-fixed, so a cached grid stays valid as the spline drags within an extent — only `strength` and
+   the interior profile move, applied per bake. Nodes forward nested-resource `changed` (Noise → its
+   FastNoiseLite) so an Inspector edit re-bakes and bumps the revision. Gate: `bench/GraphFreezeGate`.
 2. **GraphEdit UI — BUILT (increment 3).** `Pasture3DGraphEditor` (`src/graph_editor.gd`), a bottom
    panel mapping `nodes`/`connections` onto `GraphEdit`, opened by the "Edit in Graph Editor" button an
    `EditorInspectorPlugin` (`src/graph_inspector_plugin.gd`) adds to a graph / graph modifier. Topology

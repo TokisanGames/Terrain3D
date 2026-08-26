@@ -67,6 +67,22 @@ func _on_node_changed() -> void:
 	emit_changed()
 
 
+## Monotonic content revision, bumped on every `changed` (any node param, wiring, or output). A host's
+## frozen cache stores the revision it baked at; a served entry whose revision differs is stale. Absolute
+## value does not matter — only that it changes on an edit — so resetting to 0 on reload is fine, because
+## the in-memory cache is empty then too.
+var _revision: int = 0
+
+
+func _init() -> void:
+	changed.connect(func(): _revision += 1)
+
+
+## The current content revision — a host reads this as the staleness key for a frozen bake.
+func content_key() -> int:
+	return _revision
+
+
 # ---- Editing API -------------------------------------------------------------------------------------
 #
 # The seam the graph editor drives and the gate tests. Every mutation keeps `connections` and
