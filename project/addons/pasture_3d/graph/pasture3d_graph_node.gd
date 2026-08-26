@@ -1,0 +1,98 @@
+# Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
+#
+# Pasture3DGraphNode — abstract base for one node of a Pasture3DTerrainGraph. A node reads zero or more
+# input height grids and produces one output height grid; the graph wires them into a DAG and evaluates
+# in topological order (Pasture3DTerrainGraph.evaluate).
+#
+# ---- CELL vs GRID, the same split the brush node stack rests on ----
+#
+# The distinction is `needs_grid()`, lifted from Pasture3DNode (see PASTURE3D_NODE_VOCABULARY.md):
+#
+#   A CELL node is point-evaluable: `eval_cell(wx, wz, inputs)` sees one cell — its world XZ and its
+#   inputs' values THERE — and returns that cell's output. Noise, Const and Blend are cell nodes. A run
+#   of them can (later) fold into one loop, exactly as the stack folds a run of cell modifiers.
+#
+#   A GRID node needs the whole grid: `eval_grid(inputs, gw, gh, mask)` reads neighbours or routes across
+#   the field — a blur, an erosion solve. It cannot be expressed per-cell, which is the structural reason
+#   the two entry points exist.
+#
+# In increment 1 the evaluator materialises one grid per node either way (it loops cells calling
+# eval_cell for a cell node, or calls eval_grid once for a grid node). The FOLD — fusing a run of cell
+# nodes into a single pass, then a C++/GPU backend — is a later optimisation, not a correctness concern.
+#
+# ---- op() is the dispatch tag, a SUPERSET of the stack's ----
+#
+# `op()` names the operation the way Pasture3DNode.op() does (&"noise", &"smooth", …). The graph's op
+# vocabulary is deliberately a superset of the stack's so the two collapse into one system rather than
+# diverging; a node that shares a stack op's name must compute the same thing.
+@tool
+class_name Pasture3DGraphNode
+extends Resource
+
+## What a node does to the field, so the editor palette and the (later) fold can group nodes without
+## parsing their op. GENERATOR takes no input and makes a field; FILTER transforms one input; COMBINER
+## merges several. SOLVER (erosion) is a FILTER that iterates — folded in when it arrives.
+enum Role { GENERATOR, FILTER, COMBINER }
+
+## A view onto `resource_name`, so a graph of three Blend nodes does not read as three identical rows in
+## the editor. EDITOR-only, not stored twice: `resource_name` already serialises. Mirrors
+## Pasture3DNode.label.
+@export_custom(PROPERTY_HINT_NONE, "", PROPERTY_USAGE_EDITOR) var label: String:
+	set(v):
+		resource_name = v
+	get:
+		return resource_name
+
+
+## The dispatch tag. MUST match the string any equivalent stack op / native backend tests.
+func op() -> StringName:
+	return &""
+
+
+## Which palette group this node belongs to. Drives nothing in the evaluator; it is authoring metadata.
+func role() -> Role:
+	return Role.FILTER
+
+
+## True when this node needs the whole grid (reads neighbours or routes across it). False = a cell node,
+## evaluated per cell through `eval_cell`. See the header.
+func needs_grid() -> bool:
+	return false
+
+
+## How many input ports this node reads. GENERATOR = 0; a FILTER = 1; Blend = 2.
+func input_count() -> int:
+	return 1
+
+
+## Port labels, for the editor and for configuration warnings. Length should match `input_count()`.
+func input_names() -> PackedStringArray:
+	return PackedStringArray(["in"])
+
+
+## CELL node entry point. `p_wx` / `p_wz` are this cell's WORLD XZ (so noise stays continuous where two
+## graphs or brushes meet). `p_inputs` holds each input port's value AT THIS CELL, in port order. Returns
+## the cell's output height. Default = pass the first input through (a no-op filter).
+func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> float:
+	return p_inputs[0] if p_inputs.size() > 0 else 0.0
+
+
+## GRID node entry point. `p_inputs` is one grid (PackedFloat32Array, row-major `p_gw * p_gh`) per input
+## port, in port order; `p_mask` is an optional [0,1] grid of the same shape, or null. Returns the output
+## grid. Default = pass the first input through. Only called when `needs_grid()` is true.
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask) -> PackedFloat32Array:
+	return (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 else Pasture3DGraphOps.zeros(p_gw * p_gh)
+
+
+## Problems worth surfacing in the graph's configuration warnings (an unassigned noise, a zero pass
+## count). Empty = nothing to say.
+func node_warnings() -> PackedStringArray:
+	return PackedStringArray()
+
+
+## Human-readable name for warnings: the user's label, else the class name with the Pasture3DGraphNode
+## prefix stripped.
+func display_name() -> String:
+	if not resource_name.is_empty():
+		return resource_name
+	return String(get_script().get_global_name()).trim_prefix("Pasture3DGraphNode")
