@@ -29,6 +29,7 @@
 [ext_resource type="Script" uid="uid://bindlf2awqi6e" path="res://addons/pasture_3d/graph/pasture3d_graph_node_blend.gd" id="15_b2p0t"]
 [ext_resource type="Script" uid="uid://di4sl8ruaafhp" path="res://addons/pasture_3d/connectors/pasture3d_sim_pass.gd" id="15_sy2cg"]
 [ext_resource type="Script" uid="uid://bk0hkjsuk8l6e" path="res://addons/pasture_3d/graph/pasture3d_graph_node_terrace.gd" id="16_aw4eb"]
+[ext_resource type="Script" uid="uid://s72mh0lpjr3l" path="res://addons/pasture_3d/graph/pasture3d_graph_node_scree.gd" id="17_b2p0t"]
 [ext_resource type="Script" uid="uid://bl6s71hjqixse" path="res://addons/pasture_3d/connectors/pasture3d_relief_terraces.gd" id="20_60p45"]
 [ext_resource type="Script" uid="uid://btghvibxcxh6p" path="res://addons/pasture_3d/connectors/pasture3d_mod_erosion.gd" id="24_ce53t"]
 [ext_resource type="Script" uid="uid://bn5t60kllucu2" path="res://addons/pasture_3d/connectors/pasture3d_stream.gd" id="26_ai4gw"]
@@ -142,36 +143,47 @@ point_count = 4
 
 [sub_resource type="Resource" id="Resource_b2p0t"]
 script = ExtResource("33_b2p0t")
-graph_position = Vector2(620, 320)
+graph_position = Vector2(1640, 240)
 
 [sub_resource type="Resource" id="Resource_7gm2g"]
 script = ExtResource("32_iib3d")
-graph_position = Vector2(-60, 320)
+graph_position = Vector2(-400, 300)
 
 [sub_resource type="Resource" id="Resource_p2tw1"]
 script = ExtResource("34_aw4eb")
 passes = 8
-graph_position = Vector2(100, 320)
+graph_position = Vector2(-40, 300)
 
 [sub_resource type="Resource" id="Resource_brjue"]
 script = ExtResource("14_iib3d")
 amplitude = 10.0
 spacing = 40.0
-graph_position = Vector2(260, 420)
+graph_position = Vector2(960, 560)
 
 [sub_resource type="Resource" id="Resource_blwd5"]
 script = ExtResource("15_b2p0t")
-graph_position = Vector2(480, 320)
+graph_position = Vector2(1320, 400)
+muted = true
 
 [sub_resource type="Resource" id="Resource_v53yu"]
 script = ExtResource("16_aw4eb")
 hardness = 0.77
-graph_position = Vector2(260, 320)
+graph_position = Vector2(380, 240)
+
+[sub_resource type="Resource" id="Resource_caxwn"]
+script = ExtResource("17_b2p0t")
+min_slope_degrees = 17.0
+graph_position = Vector2(660, 420)
+
+[sub_resource type="Resource" id="Resource_3qvix"]
+script = ExtResource("15_b2p0t")
+graph_position = Vector2(980, 220)
 
 [sub_resource type="Resource" id="Resource_x20uv"]
 script = ExtResource("14_b2p0t")
-nodes = Array[ExtResource("10_2a5dl")]([SubResource("Resource_b2p0t"), SubResource("Resource_7gm2g"), SubResource("Resource_p2tw1"), SubResource("Resource_brjue"), SubResource("Resource_blwd5"), SubResource("Resource_v53yu")])
-connections = [PackedInt32Array(1, 0, 2, 0), PackedInt32Array(3, 0, 4, 1), PackedInt32Array(4, 0, 0, 0), PackedInt32Array(5, 0, 4, 0), PackedInt32Array(2, 0, 5, 0)]
+nodes = Array[ExtResource("10_2a5dl")]([SubResource("Resource_b2p0t"), SubResource("Resource_7gm2g"), SubResource("Resource_p2tw1"), SubResource("Resource_brjue"), SubResource("Resource_blwd5"), SubResource("Resource_v53yu"), SubResource("Resource_caxwn"), SubResource("Resource_3qvix")])
+connections = [PackedInt32Array(1, 0, 2, 0), PackedInt32Array(3, 0, 4, 1), PackedInt32Array(4, 0, 0, 0), PackedInt32Array(2, 0, 5, 0), PackedInt32Array(5, 0, 7, 0), PackedInt32Array(5, 0, 6, 0), PackedInt32Array(6, 0, 7, 1), PackedInt32Array(7, 0, 4, 0)]
+output_node = 0
 metadata/_custom_type_script = "uid://dr7vsokvx1xjs"
 
 [sub_resource type="Resource" id="Resource_ppi2w"]
