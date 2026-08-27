@@ -189,3 +189,13 @@ func _paint_spline(path: Path3D) -> void:
 			var ctrl: int = Pasture3DUtil.enc_base(base_id) | Pasture3DUtil.enc_overlay(material) \
 				| Pasture3DUtil.enc_blend(blend_int) | uv_bits | (cur & 0x6)  # preserve nav + hole bits
 			_paint_control(pos, ctrl, 1.0)
+
+
+func _brush_param_signature() -> Array:
+	return [
+		super._brush_param_signature(),
+		material, strength, preserve_base, uv_scale, uv_rotation,
+		falloff_width, edge_offset, noise_strength,
+		falloff_curve.get_baked_points() if falloff_curve != null else []
+	]
+

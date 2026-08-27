@@ -375,6 +375,7 @@ func _paint_spline(path: Path3D) -> void:
 	})
 	_commit_modifier_caches(stack, extent,
 			[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
+	_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, vals, _spline_footprint_aabb(path))
 
 	for iz in range(gh):
 		var z := min_z + iz * vs
@@ -388,6 +389,15 @@ func _paint_spline(path: Path3D) -> void:
 				_paint_height(pos, 0.0, v)
 			else:
 				_paint_height(pos, v, 0.0)
+
+
+func _brush_param_signature() -> Array:
+	return [
+		super._brush_param_signature(),
+		height, capped, blend_mode, invert, relative_to_terrain,
+		flank_mode, falloff_width, slope_angle, edge_offset,
+		falloff_curve.get_baked_points() if falloff_curve != null else []
+	]
 
 
 ## True when the stack holds at least one active Relief modifier, i.e. when the oriented loop frame is

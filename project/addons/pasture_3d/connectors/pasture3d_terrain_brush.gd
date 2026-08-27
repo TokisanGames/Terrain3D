@@ -131,6 +131,7 @@ var _last_baked_xform: Transform3D = Transform3D() # Global xform baked into the
 var _clip_aabb: AABB = AABB()   # When non-empty, _paint_* writes only cells inside this world box (dirty-rect)
 var _defer_composite: bool = false # When true, _paint_* write samples without compositing (caller composites the box once)
 var _curve_cache: Dictionary = {}   # spline instance_id -> PackedVector3Array of point positions at last bake
+var _stamp_cache: Dictionary = {}   # spline instance_id -> { key, min_x, min_z, vs, gw, gh, vals, bounds }
 var _suspend_auto: bool = false # Blocks auto-refresh while we mutate curves programmatically (undo)
 var _ready_done: bool = false   # True once _ready ran — gates re-parent auto-assign off scene-load
 var _tree_settling: bool = false # True during the node's own tree enter/exit churn (tab switch) — suppresses no-op child-refresh
@@ -310,6 +311,9 @@ var _growth_defer: bool = false
 ## grown field belongs to the material and a brush with four loops must not grow the same mountain four
 ## times.
 var _pending_growth: Array = []
+## Deferred driver support for Pasture3DNodeGraph (evaluates graphs off-thread).
+var _graph_defer: bool = false
+var _pending_graph: Array = []
 ## Guards the three-pass driver against re-entry — a refresh scheduled by pass 1 must not start a second
 ## driver on top of this one. `_running` is not enough: a Pasture3DSim uses that for its own solve.
 var _erosion_running: bool = false
@@ -436,6 +440,7 @@ func _detach_from_current() -> void:
 	_refresh_owner(saved_owner, false, _own_footprints())
 	_layer_owner = saved_owner
 	_last_paint_aabb.clear()
+	_stamp_cache.clear()
 
 
 func _get_configuration_warnings() -> PackedStringArray:
@@ -571,6 +576,8 @@ func _on_inspector_property_edited(_property: StringName) -> void:
 		return
 	var inspector := EditorInterface.get_inspector()
 	if inspector and inspector.get_edited_object() == self:
+		for s in _get_splines():
+			_dirty_splines[s.get_instance_id()] = true
 		_schedule_refresh()
 
 
@@ -922,13 +929,17 @@ func _wants_deferred_bake() -> bool:
 		return false
 	if not is_inside_tree():
 		return false # `_solve_on_worker` yields on the scene tree, and a detached node has none
-	for m in erosion_modifiers():
-		if m.evaluation == Pasture3DNode.Evaluation.FROZEN:
+	for s in _tools_on_owner(_layer_owner):
+		if not is_instance_valid(s):
+			continue
+		for m in s.erosion_modifiers():
+			if m.evaluation == Pasture3DNode.Evaluation.FROZEN:
+				return true
+		if s._has_growing_relief():
 			return true
-	# §9.9. Not gated on the material's own Evaluation, unlike erosion above: a LIVE DLA is the one that
-	# regrows most often, and the driver is what keeps even that off the main thread. FROZEN only narrows
-	# how often there is anything to do, which pass 1 discovers for free.
-	return _has_growing_relief()
+		if s._has_graph_modifier():
+			return true
+	return false
 
 
 ## True when any relief modifier here carries a material with an expensive build in it (a DLA, at any
@@ -938,6 +949,16 @@ func _has_growing_relief() -> bool:
 		return false
 	for m in modifiers:
 		if m is Pasture3DNodeRelief and m.enabled and m.material != null and m.material.has_growth():
+			return true
+	return false
+
+
+## True when any active modifier here is a Pasture3DNodeGraph.
+func _has_graph_modifier() -> bool:
+	if not _supports_modifiers():
+		return false
+	for m in modifiers:
+		if m is Pasture3DNodeGraph and m.is_active():
 			return true
 	return false
 
@@ -956,26 +977,24 @@ func _bake_deferred(p_bake: Callable, p_owner: String, p_record_undo: bool) -> v
 	var can_undo := p_record_undo and _layers_api_available()
 	var before: Dictionary = _snapshot_owner(p_owner) if can_undo else {}
 
-	# ---- Phase A: grow every outstanding relief field, BEFORE the erosion pass 1 that will hash the
-	# surface. A DLA that deferred compiles to nothing, so a pass 1 run alongside it would hand the solver
-	# a mountainless surface, key it, and then find that key stale the moment the mountain arrived. Grow
-	# first, bake again, and the surface pass 1 hashes is the finished one.
-	#
-	# A LOOP rather than one pass, because growing one material can produce another request: a seeded DLA
-	# is handed its surface by the bake, and the layer below it is grown from what the layer above it just
-	# became. Bounded, because a pass that asks for nothing new ends it and each material can only be
-	# outstanding once — the cap is belt and braces against a material that never reports satisfied.
-	var pending: Array = []
+	# ---- Phase A: grow every outstanding relief field & collect graph solves
+	var pending_erosion: Array = []
+	var pending_graph: Array = []
 	for _round in range(GROWTH_ROUNDS):
 		_pending_erosion = []
 		_pending_growth = []
+		_pending_graph = []
 		_erosion_defer = true
 		_growth_defer = true
+		_graph_defer = true
 		p_bake.call()
 		_erosion_defer = false
 		_growth_defer = false
-		pending = _pending_erosion
+		_graph_defer = false
+		pending_erosion = _pending_erosion
+		pending_graph = _pending_graph
 		_pending_erosion = []
+		_pending_graph = []
 		var grows := _dedup_growth(_pending_growth)
 		_pending_growth = []
 		if grows.is_empty():
@@ -986,17 +1005,28 @@ func _bake_deferred(p_bake: Callable, p_owner: String, p_record_undo: bool) -> v
 			print("%s: growth cancelled — the brush is showing the mountain it already had." % name)
 			return
 
-	# ---- Phase B: the erosion solve, against the surface phase A finished.
-	if pending.is_empty():
-		# Every erosion step served a cache, so pass 1 WAS the bake. This is the common case on any
-		# refresh that is not the first one after a change.
+	# ---- Phase B: solve pending graphs on worker thread
+	if not pending_graph.is_empty():
+		var ok_graph := await _solve_graph_pending(pending_graph)
+		if ok_graph:
+			for st: Dictionary in pending_graph:
+				if st.has("zo"):
+					(st["mod"] as Pasture3DNodeGraph).store_cache(st["extent"], {
+						"key": st["key"],
+						"grid": st["zo"],
+					})
+
+	# ---- Phase C: the erosion solve, against the surface phase A & B finished.
+	if pending_erosion.is_empty():
+		if not pending_graph.is_empty():
+			p_bake.call()
 		_erosion_running = false
 		_commit_deferred_undo(p_owner, before, can_undo)
 		return
 
-	var ok := await _solve_erosion_pending(pending)
+	var ok := await _solve_erosion_pending(pending_erosion)
 	if ok:
-		for st: Dictionary in pending:
+		for st: Dictionary in pending_erosion:
 			_store_solved_erosion(st)
 	p_bake.call()
 	_erosion_running = false
@@ -1093,6 +1123,29 @@ func _grow_one(p_state: Dictionary) -> bool:
 	if int(p_state["done"]) > 0:
 		return true
 	(p_state["mat"] as Pasture3DReliefMaterial).grow_into(p_state)
+	p_state["done"] = 1
+	return true
+
+
+## Run every pending terrain graph solve on a worker, yielding frames here.
+func _solve_graph_pending(p_pending: Array) -> bool:
+	print("%s: evaluating terrain graph on %d grid(s)…" % [name, p_pending.size()])
+	var t0 := Time.get_ticks_msec()
+	_cancel = false
+	_running = true
+	var ok: bool = await _solve_on_worker(p_pending, "%s: evaluating graph" % name,
+			Callable(), _graph_solve_one)
+	_running = false
+	if ok:
+		print("%s: evaluated %d terrain graph grid(s), %d ms." % [name, p_pending.size(), Time.get_ticks_msec() - t0])
+	return ok
+
+
+func _graph_solve_one(p_state: Dictionary) -> bool:
+	if int(p_state.get("done", 0)) > 0:
+		return true
+	var g: Pasture3DTerrainGraph = p_state["graph"]
+	p_state["zo"] = g.evaluate(p_state["gw"], p_state["gh"], p_state["rect"], null, p_state["z"])
 	p_state["done"] = 1
 	return true
 
@@ -1444,9 +1497,62 @@ func _paint_into(layer_id: int, blend: int) -> void:
 		# whole rasterise (its cached footprint outside the box is untouched and stays valid).
 		if clipping and not _spline_footprint_aabb(path).intersects(_clip_aabb):
 			continue
+		var sid: int = path.get_instance_id()
+		var skey: int = _compute_stamp_key(path)
+		var sc: Dictionary = _stamp_cache.get(sid, {})
+		if not clipping and layer_id >= 0 and not sc.is_empty() and not _dirty_splines.has(sid) and int(sc.get("key", 0)) == skey:
+			terrain.data.apply_sim_block(layer_id, sc["min_x"], sc["min_z"], sc["vs"], sc["gw"], sc["gh"], sc["vals"], blend)
+			_last_paint_aabb[sid] = sc["bounds"]
+			continue
 		_paint_spline(path)
 		if layer_id >= 0:
 			_last_paint_aabb[path.get_instance_id()] = _spline_footprint_aabb(path)
+
+
+## ---- Brush Stamp Caching ----
+
+func _compute_stamp_key(path: Path3D) -> int:
+	if not is_instance_valid(path) or path.curve == null:
+		return 0
+	return hash([
+		global_transform,
+		path.curve.get_baked_points(),
+		_brush_param_signature(),
+		_modifier_signature()
+	])
+
+
+func _brush_param_signature() -> Array:
+	return [snap_to_surface, surface_offset]
+
+
+func _modifier_signature() -> Array:
+	var sig := []
+	if _supports_modifiers():
+		for m in modifiers:
+			if m != null and m.is_active():
+				var ck: int = m.content_key() if m.has_method("content_key") else 0
+				sig.append([m.display_name(), m.to_params(), ck])
+	return sig
+
+
+func _store_stamp_cache(path: Path3D, p_key: int, p_min_x: float, p_min_z: float, p_vs: float, p_gw: int, p_gh: int, p_vals: PackedFloat32Array, p_bounds: AABB) -> void:
+	if not is_instance_valid(path) or p_vals.is_empty():
+		return
+	_stamp_cache[path.get_instance_id()] = {
+		"key": p_key,
+		"min_x": p_min_x,
+		"min_z": p_min_z,
+		"vs": p_vs,
+		"gw": p_gw,
+		"gh": p_gh,
+		"vals": p_vals,
+		"bounds": p_bounds,
+	}
+
+
+func clear_stamp_cache() -> void:
+	_stamp_cache.clear()
 
 
 ## Every brush node bound to `owner` (same terrain). Includes self when `owner` is our binding.
@@ -3383,6 +3489,8 @@ func _on_modifier_changed() -> void:
 	if now != _stack_ui_signature:
 		_stack_ui_signature = now
 		notify_property_list_changed()
+	for s in _get_splines():
+		_dirty_splines[s.get_instance_id()] = true
 	_queue_mask_preview()
 	_schedule_refresh()
 	update_configuration_warnings()
@@ -3882,6 +3990,23 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	if zo.size() == n:
 		_composite_graph(p_vals, z, zo, profile, amount, basey, add, n)
 		out_slot["stale"] = int(entry.get("key", 0)) != key
+		out_slot["served"] = true
+		return p_vals
+
+	# Deferred driver pass 1: queue the solve for worker thread and return current surface
+	if _graph_defer and frozen:
+		_pending_graph.append({
+			"mod": m,
+			"graph": g,
+			"gw": gw,
+			"gh": gh,
+			"rect": rect,
+			"z": z.duplicate(),
+			"key": key,
+			"extent": extent,
+			"done": 0,
+		})
+		out_slot["stale"] = false
 		out_slot["served"] = true
 		return p_vals
 

@@ -250,6 +250,7 @@ func _paint_spline(path: Path3D) -> void:
 
 	# NaN-aware separable 3-tap Gaussian blur (shared helper; same as C++ path).
 	delta_vals = _blur_grid(delta_vals, gw, gh, smooth_passes)
+	_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, delta_vals, _spline_footprint_aabb(path))
 
 	# Write-back: ground + blurred delta.
 	for iz in range(gh):
@@ -264,3 +265,14 @@ func _paint_spline(path: Path3D) -> void:
 			var ground: float = _base_height_below(pos)
 			# ADD writes the delta above the ground; the absolute paths write the draped height.
 			_paint_height(pos, ground + delta, delta)
+
+
+func _brush_param_signature() -> Array:
+	return [
+		super._brush_param_signature(),
+		crest_height, width, flank_mode, slope_angle, blend_mode, invert,
+		falloff, follow_spline_height, noise_strength, smooth_passes,
+		profile.get_baked_points() if profile != null else [],
+		width_curve.get_baked_points() if width_curve != null else []
+	]
+

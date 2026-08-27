@@ -664,6 +664,7 @@ func _paint_spline(path: Path3D) -> void:
 		_commit_modifier_caches(stack, extent, [fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
 
 	vals = _blur_grid(vals, gw, gh, smooth_passes)
+	_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, vals, _spline_footprint_aabb(path))
 
 	for iz in range(gh):
 		var z := min_z + iz * vs
@@ -677,6 +678,16 @@ func _paint_spline(path: Path3D) -> void:
 				_paint_height(pos, 0.0, wv)
 			else:
 				_paint_height(pos, wv, 0.0)
+
+
+func _brush_param_signature() -> Array:
+	return [
+		super._brush_param_signature(),
+		source, mapping, height_scale, height_offset, blend_mode, relative_to_terrain,
+		tile_size, falloff_width, smooth_passes,
+		falloff_curve.get_baked_points() if falloff_curve != null else []
+	]
+
 
 
 ## Sample the active source at world XZ, normalised to [0,1]. NOISE maps [-1,1]→[0,1]; TEXTURE/MATERIAL

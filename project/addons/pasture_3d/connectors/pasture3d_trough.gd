@@ -259,6 +259,7 @@ func _paint_spline(path: Path3D) -> void:
 			vals[i] = (h - ground) if add else h
 
 	vals = _blur_grid(vals, gw, gh, smooth_passes)
+	_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, vals, _spline_footprint_aabb(path))
 
 	for iz in range(gh):
 		var z := min_z + iz * vs
@@ -272,6 +273,17 @@ func _paint_spline(path: Path3D) -> void:
 				_paint_height(pos, 0.0, v)
 			else:
 				_paint_height(pos, v, 0.0)
+
+
+func _brush_param_signature() -> Array:
+	return [
+		super._brush_param_signature(),
+		depth, bed_half_width, flat_bed, flank_mode, slope_angle, blend_mode,
+		bank_width, falloff, follow_spline_height, noise_strength, smooth_passes,
+		bank_profile.get_baked_points() if bank_profile != null else [],
+		width_curve.get_baked_points() if width_curve != null else []
+	]
+
 
 
 func make_descend() -> void:

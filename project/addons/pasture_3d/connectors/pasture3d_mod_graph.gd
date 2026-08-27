@@ -126,6 +126,11 @@ func is_active() -> bool:
 	return enabled and graph != null and not is_zero_approx(strength) and graph.output_index() >= 0
 
 
+func content_key() -> int:
+	var ck := graph.content_key() if graph != null else 0
+	return hash([ck, strength, enabled])
+
+
 func modifier_warnings(_p_host) -> PackedStringArray:
 	var w := PackedStringArray()
 	if not enabled:
