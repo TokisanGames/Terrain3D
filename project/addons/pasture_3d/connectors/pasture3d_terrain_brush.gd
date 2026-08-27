@@ -3334,6 +3334,13 @@ func _supports_modifiers() -> bool:
 	return false
 
 
+func _has_relief_modifier() -> bool:
+	for m in modifiers:
+		if m is Pasture3DNodeRelief and m.is_active():
+			return true
+	return false
+
+
 ## Connect or disconnect every modifier's `changed`, so editing one re-bakes. Nested resources do not
 ## propagate `changed` on their own; each modifier forwards its own children's (a Relief modifier's
 ## material, a Noise modifier's FastNoiseLite) through `_touch`.
