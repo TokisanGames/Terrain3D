@@ -4512,13 +4512,16 @@ func _chamfer(arr: PackedFloat32Array, gw: int, gh: int, a: float, b: float) -> 
 
 
 ## Signed distance field of a closed world polygon over a grid: positive inside, negative outside, in
-## metres. Returns [PackedFloat32Array field, float max_inside_distance]. Inside is found with one
-## scanline fill (O(rows × edges)); both sides get a chamfer DT (O(cells)). The whole thing is O(cells)
-## instead of the old O(cells × edges) per-pixel polygon distance.
+## Exact analytic signed distance field of a closed world-space polygon over the grid. Positive inside,
+## negative outside, in metres. Returns [PackedFloat32Array field, float max_inside_distance]. Inside is
+## determined via exact scanline fill, and Euclidean boundary distances are evaluated analytically per cell,
+## eliminating discrete chamfer discretization banding and octagonal facets.
 func _signed_distance_field(poly: PackedVector2Array, min_x: float, min_z: float, vs: float, gw: int, gh: int) -> Array:
 	var n := gw * gh
 	var pc := poly.size()
-	const BIG := 1.0e9
+	if pc < 3 or gw < 1 or gh < 1:
+		return [Pasture3DGraphOps.zeros(n), 0.0]
+
 	var inside := PackedByteArray()
 	inside.resize(n)
 	# Even-odd scanline fill (half-open edge rule avoids double-counting shared vertices).
@@ -4544,30 +4547,66 @@ func _signed_distance_field(poly: PackedVector2Array, min_x: float, min_z: float
 			for ix in range(ix0, ix1 + 1):
 				inside[row + ix] = 1
 			k += 2
-	var din := PackedFloat32Array()
-	var dout := PackedFloat32Array()
-	din.resize(n)
-	dout.resize(n)
-	for i in range(n):
-		if inside[i] == 1:
-			din[i] = BIG
-			dout[i] = 0.0
-		else:
-			din[i] = 0.0
-			dout[i] = BIG
-	var diag := vs * 1.4142135624
-	_chamfer(din, gw, gh, vs, diag)
-	_chamfer(dout, gw, gh, vs, diag)
+
+	# Precompute box-local polygon segments for fast analytic distance evaluation
+	var seg_ax := PackedFloat32Array()
+	var seg_ay := PackedFloat32Array()
+	var seg_abx := PackedFloat32Array()
+	var seg_aby := PackedFloat32Array()
+	var seg_inv_len2 := PackedFloat32Array()
+	seg_ax.resize(pc)
+	seg_ay.resize(pc)
+	seg_abx.resize(pc)
+	seg_aby.resize(pc)
+	seg_inv_len2.resize(pc)
+
+	for e in range(pc):
+		var pa := poly[e]
+		var pb := poly[(e + 1) % pc]
+		var ax := float(pa.x - min_x)
+		var ay := float(pa.y - min_z)
+		var abx := float(pb.x - pa.x)
+		var aby := float(pb.y - pa.y)
+		var len2 := abx * abx + aby * aby
+		seg_ax[e] = ax
+		seg_ay[e] = ay
+		seg_abx[e] = abx
+		seg_aby[e] = aby
+		seg_inv_len2[e] = 1.0 / len2 if len2 > 1e-12 else 0.0
+
 	var field := PackedFloat32Array()
 	field.resize(n)
 	var max_inside := 0.0
-	for i in range(n):
-		if inside[i] == 1:
-			field[i] = din[i]
-			if din[i] < BIG and din[i] > max_inside:
-				max_inside = din[i]
-		else:
-			field[i] = -dout[i]
+
+	# Exact analytic Euclidean distance per cell
+	for iz in range(gh):
+		var qy := float(iz * vs)
+		var row := iz * gw
+		for ix in range(gw):
+			var qx := float(ix * vs)
+			var i := row + ix
+			var min_d2 := 1.0e30
+
+			for e in range(pc):
+				var abx := seg_abx[e]
+				var aby := seg_aby[e]
+				var qax := qx - seg_ax[e]
+				var qay := qy - seg_ay[e]
+				var t := clampf((qax * abx + qay * aby) * seg_inv_len2[e], 0.0, 1.0)
+				var dx := qax - t * abx
+				var dy := qay - t * aby
+				var d2 := dx * dx + dy * dy
+				if d2 < min_d2:
+					min_d2 = d2
+
+			var d := sqrt(min_d2)
+			if inside[i] == 1:
+				field[i] = d
+				if d > max_inside:
+					max_inside = d
+			else:
+				field[i] = -d
+
 	return [field, max_inside]
 
 

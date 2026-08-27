@@ -36,6 +36,11 @@ var _title: Label
 var _hint: Label
 
 var _show_previews: bool = false
+var _preview_textures: Dictionary = {}
+var _preview_rects: Dictionary = {}
+var _preview_queue: Array[int] = []
+var _preview_timer: Timer = null
+var _last_structure_hash: int = 0
 
 ## Standalone fallback when running without EditorPlugin (e.g. tests)
 var _local_undo_redo: UndoRedo = UndoRedo.new()
@@ -71,14 +76,176 @@ func edit_graph(p_graph: Pasture3DTerrainGraph, p_mod: Pasture3DNodeGraph = null
 		host_modifier = null
 		
 	if graph == p_graph:
+		_on_graph_changed()
+		return
+	if graph != null and graph.changed.is_connected(_on_graph_changed):
+		graph.changed.disconnect(_on_graph_changed)
+	graph = p_graph
+	if graph != null and not graph.changed.is_connected(_on_graph_changed):
+		graph.changed.connect(_on_graph_changed)
+	_last_structure_hash = _structure_hash()
+	_rebuild()
+
+
+func _structure_hash() -> int:
+	if graph == null:
+		return 0
+	var h: int = graph.nodes.size() ^ (graph.connections.size() << 4) ^ (graph.frames.size() << 8)
+	for i in range(graph.nodes.size()):
+		var nd: Pasture3DGraphNode = graph.nodes[i]
+		if nd != null:
+			h = h ^ (nd.op().hash() << (i % 16))
+	for c in graph.connections:
+		if c.size() >= 4:
+			var conn_hash := int(c[0]) | (int(c[1]) << 8) | (int(c[2]) << 16) | (int(c[3]) << 24)
+			h = h ^ (conn_hash * 2654435761)
+	return h
+
+
+func _on_graph_changed() -> void:
+	if graph == null:
 		_rebuild()
 		return
-	if graph != null and graph.changed.is_connected(_rebuild):
-		graph.changed.disconnect(_rebuild)
-	graph = p_graph
-	if graph != null and not graph.changed.is_connected(_rebuild):
-		graph.changed.connect(_rebuild)
-	_rebuild()
+	var sh := _structure_hash()
+	if sh != _last_structure_hash:
+		_last_structure_hash = sh
+		_rebuild()
+	else:
+		_refresh_nodes_state()
+		if _show_previews:
+			_queue_all_previews()
+
+
+func _refresh_nodes_state() -> void:
+	if graph == null or _graphedit == null:
+		return
+	for i in range(graph.nodes.size()):
+		var node: Pasture3DGraphNode = graph.nodes[i]
+		if node == null:
+			continue
+		var gn_name := "n%d" % i
+		if _graphedit.has_node(gn_name):
+			var gn: GraphNode = _graphedit.get_node(gn_name) as GraphNode
+			if gn != null:
+				var is_out := i == graph.output_index()
+				var is_solo := graph.output_override == i
+				gn.title = node.display_name() + ("  ★ SOLO" if is_solo else ("  ● OUT" if is_out else ""))
+				if is_solo:
+					gn.modulate = Color(1.0, 0.9, 0.5)
+				elif is_out:
+					gn.modulate = Color(0.8, 1.0, 0.85)
+				elif node.muted:
+					gn.modulate = Color(0.65, 0.65, 0.7, 0.6)
+				else:
+					gn.modulate = Color.WHITE
+
+
+func _queue_preview_update(p_index: int) -> void:
+	if not _show_previews or graph == null:
+		return
+	if not _preview_queue.has(p_index):
+		_preview_queue.append(p_index)
+	_start_preview_processing()
+
+
+func _queue_all_previews() -> void:
+	if not _show_previews or graph == null:
+		return
+	for i in range(graph.nodes.size()):
+		if not _preview_queue.has(i):
+			_preview_queue.append(i)
+	_start_preview_processing()
+
+
+func _start_preview_processing() -> void:
+	if _preview_timer == null:
+		_preview_timer = Timer.new()
+		_preview_timer.one_shot = true
+		_preview_timer.wait_time = 0.05
+		_preview_timer.timeout.connect(_process_preview_queue)
+		add_child(_preview_timer)
+	if _preview_timer.is_stopped():
+		_preview_timer.start()
+
+
+func _process_preview_queue() -> void:
+	if graph == null or not _show_previews:
+		_preview_queue.clear()
+		return
+	var mod := _find_host_modifier()
+	var in_grid := mod.last_input_surface if mod != null else PackedFloat32Array()
+	var in_gw := mod.last_gw if mod != null else 0
+	var in_gh := mod.last_gh if mod != null else 0
+	var in_rect := mod.last_rect if mod != null and mod.last_rect.size.x > 0 else Rect2(-50.0, -50.0, 100.0, 100.0)
+
+	while not _preview_queue.is_empty():
+		var idx: int = _preview_queue.pop_front()
+		if idx >= 0 and idx < graph.nodes.size():
+			var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, idx, 128, in_grid, in_gw, in_gh, in_rect)
+			if tex != null:
+				_preview_textures[idx] = tex
+				if _preview_rects.has(idx) and is_instance_valid(_preview_rects[idx]):
+					(_preview_rects[idx] as TextureRect).texture = tex
+
+
+func _auto_fit_node_range(p_index: int) -> void:
+	if graph == null or p_index < 0 or p_index >= graph.nodes.size():
+		return
+	var node: Pasture3DGraphNode = graph.nodes[p_index]
+	if node == null:
+		return
+	
+	# Find what is wired into input port 0 of this node
+	var src_node := -1
+	for c in graph.connections:
+		if int(c[2]) == p_index and int(c[3]) == 0:
+			src_node = int(c[0])
+			break
+			
+	var mod := _find_host_modifier()
+	var in_grid := mod.last_input_surface if mod != null else PackedFloat32Array()
+	var in_gw := mod.last_gw if mod != null else 0
+	var in_gh := mod.last_gh if mod != null else 0
+	var in_rect := mod.last_rect if mod != null and mod.last_rect.size.x > 0 else Rect2(-50.0, -50.0, 100.0, 100.0)
+	var sample_input: PackedFloat32Array
+	if in_grid.size() == 128 * 128 and in_gw == 128 and in_gh == 128:
+		sample_input = in_grid
+	else:
+		sample_input = ThumbnailGenScript.generate_sample_brush_input(128, 128, in_rect)
+		
+	var field: PackedFloat32Array
+	if src_node >= 0:
+		field = graph.evaluate(128, 128, in_rect, null, sample_input, src_node)
+	else:
+		field = sample_input
+		
+	var min_val := INF
+	var max_val := -INF
+	for v in field:
+		if is_finite(v):
+			min_val = minf(min_val, v)
+			max_val = maxf(max_val, v)
+			
+	if is_inf(min_val) or is_inf(max_val) or max_val - min_val < 0.001:
+		min_val = 0.0
+		max_val = 100.0
+	else:
+		min_val = floorf(min_val * 10.0) / 10.0
+		max_val = ceilf(max_val * 10.0) / 10.0
+		
+	_ur_create_action("Auto Fit Range")
+	if node.op() == &"curve":
+		_ur_add_do_property(node, &"input_min", min_val)
+		_ur_add_do_property(node, &"input_max", max_val)
+		_ur_add_undo_property(node, &"input_min", node.get("input_min"))
+		_ur_add_undo_property(node, &"input_max", node.get("input_max"))
+	elif node.op() == &"remap":
+		_ur_add_do_property(node, &"in_min", min_val)
+		_ur_add_do_property(node, &"in_max", max_val)
+		_ur_add_undo_property(node, &"in_min", node.get("in_min"))
+		_ur_add_undo_property(node, &"in_max", node.get("in_max"))
+	_ur_commit()
+	_refresh_nodes_state()
 
 
 func _find_host_modifier() -> Pasture3DNodeGraph:
@@ -117,6 +284,9 @@ func _build_ui() -> void:
 	popup.add_item("Impact Crater Field (Crater + Relief)", 2)
 	popup.add_item("Terraced Valley (Input + Terraces)", 3)
 	popup.add_item("Steep Flank Mask (Slope Gate + Noise)", 4)
+	popup.add_item("Eroded Alpine Massif (Noise + Hydraulic + Thermal + Ridge)", 5)
+	popup.add_item("Sedimentary Canyon (Strata + Curvature + Curve Remap)", 6)
+	popup.add_item("Glacial Valley (Domain Warp + Furrows + Hydraulic Erosion)", 7)
 	popup.id_pressed.connect(_on_preset_selected)
 	bar.add_child(_presets_button)
 	
@@ -327,6 +497,8 @@ func _rebuild() -> void:
 
 
 func _clear() -> void:
+	_preview_rects.clear()
+	_preview_queue.clear()
 	_graphedit.clear_connections()
 	for c in _graphedit.get_children():
 		if c is GraphElement:
@@ -481,10 +653,10 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 
 	# Inline parameter controls (if node is not collapsed)
 	if not p_node.collapsed:
-		_add_inline_node_controls(p_gn, p_node)
+		_add_inline_node_controls(p_gn, p_index, p_node)
 
 
-func _add_inline_node_controls(p_gn: GraphNode, p_node: Pasture3DGraphNode) -> void:
+func _add_inline_node_controls(p_gn: GraphNode, p_index: int, p_node: Pasture3DGraphNode) -> void:
 	var op := p_node.op()
 	match op:
 		&"blend":
@@ -564,51 +736,251 @@ func _add_inline_node_controls(p_gn: GraphNode, p_node: Pasture3DGraphNode) -> v
 			h_sb.value_changed.connect(func(val: float): p_node.set("hardness", val))
 			h_row.add_child(h_lbl); h_row.add_child(h_sb)
 			p_gn.add_child(h_row)
-			
+
 		&"furrows":
-			var s_row := HBoxContainer.new()
-			var s_lbl := Label.new(); s_lbl.text = "Space:"
-			var s_sb := SpinBox.new(); s_sb.min_value = 0.5; s_sb.max_value = 200.0; s_sb.step = 0.5
+			var row := HBoxContainer.new()
+			var a_lbl := Label.new(); a_lbl.text = "Amp:"
+			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
+			a_sb.value = float(p_node.get("amplitude"))
+			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+			var s_lbl := Label.new(); s_lbl.text = "Spc:"
+			var s_sb := SpinBox.new(); s_sb.min_value = 1.0; s_sb.max_value = 500.0; s_sb.step = 1.0
 			s_sb.value = float(p_node.get("spacing"))
 			s_sb.value_changed.connect(func(val: float): p_node.set("spacing", val))
-			s_row.add_child(s_lbl); s_row.add_child(s_sb)
-			p_gn.add_child(s_row)
-			
-			var a_row := HBoxContainer.new()
-			var a_lbl := Label.new(); a_lbl.text = "Amp:"
-			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
-			a_sb.value = float(p_node.get("amplitude"))
-			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
-			a_row.add_child(a_lbl); a_row.add_child(a_sb)
-			p_gn.add_child(a_row)
+			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(s_lbl); row.add_child(s_sb)
+			p_gn.add_child(row)
 
 		&"dunes":
-			var w_row := HBoxContainer.new()
-			var w_lbl := Label.new(); w_lbl.text = "Wave:"
-			var w_sb := SpinBox.new(); w_sb.min_value = 1.0; w_sb.max_value = 256.0; w_sb.step = 1.0
-			w_sb.value = float(p_node.get("wavelength"))
-			w_sb.value_changed.connect(func(val: float): p_node.set("wavelength", val))
-			w_row.add_child(w_lbl); w_row.add_child(w_sb)
-			p_gn.add_child(w_row)
-			
-			var a_row := HBoxContainer.new()
+			var row := HBoxContainer.new()
 			var a_lbl := Label.new(); a_lbl.text = "Amp:"
 			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
 			a_sb.value = float(p_node.get("amplitude"))
 			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
-			a_row.add_child(a_lbl); a_row.add_child(a_sb)
-			p_gn.add_child(a_row)
+			var w_lbl := Label.new(); w_lbl.text = "Len:"
+			var w_sb := SpinBox.new(); w_sb.min_value = 1.0; w_sb.max_value = 500.0; w_sb.step = 1.0
+			w_sb.value = float(p_node.get("wavelength"))
+			w_sb.value_changed.connect(func(val: float): p_node.set("wavelength", val))
+			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(w_lbl); row.add_child(w_sb)
+			p_gn.add_child(row)
+
+		&"crater":
+			var row := HBoxContainer.new()
+			var r_lbl := Label.new(); r_lbl.text = "Rad:"
+			var r_sb := SpinBox.new(); r_sb.min_value = 1.0; r_sb.max_value = 1000.0; r_sb.step = 1.0
+			r_sb.value = float(p_node.get("radius"))
+			r_sb.value_changed.connect(func(val: float): p_node.set("radius", val))
+			var d_lbl := Label.new(); d_lbl.text = "Dep:"
+			var d_sb := SpinBox.new(); d_sb.min_value = 0.0; d_sb.max_value = 500.0; d_sb.step = 0.5
+			d_sb.value = float(p_node.get("depth"))
+			d_sb.value_changed.connect(func(val: float): p_node.set("depth", val))
+			row.add_child(r_lbl); row.add_child(r_sb); row.add_child(d_lbl); row.add_child(d_sb)
+			p_gn.add_child(row)
 
 		&"mask":
-			var m_row := HBoxContainer.new()
+			var row := HBoxContainer.new()
 			var opt := OptionButton.new()
-			opt.add_item("Slope", 0)
-			opt.add_item("Altitude", 1)
+			opt.add_item("Slope (deg)", 0)
+			opt.add_item("Elevation (m)", 1)
 			opt.add_item("Curvature", 2)
 			opt.selected = int(p_node.get("property"))
-			opt.item_selected.connect(func(idx: int): p_node.set("property", idx))
-			m_row.add_child(opt)
-			p_gn.add_child(m_row)
+			opt.item_selected.connect(func(id: int): p_node.set("property", id))
+			row.add_child(opt)
+			p_gn.add_child(row)
+
+		&"scree":
+			var row := HBoxContainer.new()
+			var a_lbl := Label.new(); a_lbl.text = "Amp:"
+			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 100.0; a_sb.step = 0.5
+			a_sb.value = float(p_node.get("amplitude"))
+			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+			var g_lbl := Label.new(); g_lbl.text = "Grain:"
+			var g_sb := SpinBox.new(); g_sb.min_value = 0.1; g_sb.max_value = 20.0; g_sb.step = 0.1
+			g_sb.value = float(p_node.get("grain"))
+			g_sb.value_changed.connect(func(val: float): p_node.set("grain", val))
+			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(g_lbl); row.add_child(g_sb)
+			p_gn.add_child(row)
+
+		&"dla":
+			var row := HBoxContainer.new()
+			var a_lbl := Label.new(); a_lbl.text = "Amp:"
+			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 1.0
+			a_sb.value = float(p_node.get("amplitude"))
+			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+			var it_lbl := Label.new(); it_lbl.text = "Steps:"
+			var it_sb := SpinBox.new(); it_sb.min_value = 10; it_sb.max_value = 2000; it_sb.step = 10
+			it_sb.value = int(p_node.get("iterations"))
+			it_sb.value_changed.connect(func(val: float): p_node.set("iterations", int(val)))
+			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(it_lbl); row.add_child(it_sb)
+			p_gn.add_child(row)
+
+		&"warp":
+			var f_row := HBoxContainer.new()
+			var f_lbl := Label.new(); f_lbl.text = "Freq:"
+			var f_sb := SpinBox.new(); f_sb.min_value = 0.0001; f_sb.max_value = 0.5; f_sb.step = 0.001
+			f_sb.value = float(p_node.get("frequency"))
+			f_sb.value_changed.connect(func(val: float): p_node.set("frequency", val))
+			f_row.add_child(f_lbl); f_row.add_child(f_sb)
+			p_gn.add_child(f_row)
+
+			var s_row := HBoxContainer.new()
+			var s_lbl := Label.new(); s_lbl.text = "Str:"
+			var s_sb := SpinBox.new(); s_sb.min_value = 0.0; s_sb.max_value = 200.0; s_sb.step = 1.0
+			s_sb.value = float(p_node.get("strength"))
+			s_sb.value_changed.connect(func(val: float): p_node.set("strength", val))
+			var a_lbl := Label.new(); a_lbl.text = "Amp:"
+			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 200.0; a_sb.step = 1.0
+			a_sb.value = float(p_node.get("amplitude"))
+			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+			s_row.add_child(s_lbl); s_row.add_child(s_sb); s_row.add_child(a_lbl); s_row.add_child(a_sb)
+			p_gn.add_child(s_row)
+
+		&"remap":
+			var in_row := HBoxContainer.new()
+			var in_lbl := Label.new(); in_lbl.text = "In:"
+			var in_min_sb := SpinBox.new(); in_min_sb.min_value = -10000.0; in_min_sb.max_value = 10000.0; in_min_sb.step = 1.0
+			in_min_sb.value = float(p_node.get("in_min"))
+			in_min_sb.value_changed.connect(func(val: float): p_node.set("in_min", val))
+			var in_max_sb := SpinBox.new(); in_max_sb.min_value = -10000.0; in_max_sb.max_value = 10000.0; in_max_sb.step = 1.0
+			in_max_sb.value = float(p_node.get("in_max"))
+			in_max_sb.value_changed.connect(func(val: float): p_node.set("in_max", val))
+			var auto_btn := Button.new(); auto_btn.text = "Auto"; auto_btn.tooltip_text = "Auto fit to input terrain range"
+			auto_btn.pressed.connect(func():
+				_auto_fit_node_range(p_index)
+				in_min_sb.value = float(p_node.get("in_min"))
+				in_max_sb.value = float(p_node.get("in_max"))
+			)
+			in_row.add_child(in_lbl); in_row.add_child(in_min_sb); in_row.add_child(in_max_sb); in_row.add_child(auto_btn)
+			p_gn.add_child(in_row)
+
+			var out_row := HBoxContainer.new()
+			var out_lbl := Label.new(); out_lbl.text = "Out:"
+			var out_min_sb := SpinBox.new(); out_min_sb.min_value = -10000.0; out_min_sb.max_value = 10000.0; out_min_sb.step = 0.1
+			out_min_sb.value = float(p_node.get("out_min"))
+			out_min_sb.value_changed.connect(func(val: float): p_node.set("out_min", val))
+			var out_max_sb := SpinBox.new(); out_max_sb.min_value = -10000.0; out_max_sb.max_value = 10000.0; out_max_sb.step = 0.1
+			out_max_sb.value = float(p_node.get("out_max"))
+			out_max_sb.value_changed.connect(func(val: float): p_node.set("out_max", val))
+			out_row.add_child(out_lbl); out_row.add_child(out_min_sb); out_row.add_child(out_max_sb)
+			p_gn.add_child(out_row)
+
+		&"curve":
+			var in_row := HBoxContainer.new()
+			var in_lbl := Label.new(); in_lbl.text = "In:"
+			var in_min_sb := SpinBox.new(); in_min_sb.min_value = -10000.0; in_min_sb.max_value = 10000.0; in_min_sb.step = 1.0
+			in_min_sb.value = float(p_node.get("input_min"))
+			in_min_sb.value_changed.connect(func(val: float): p_node.set("input_min", val))
+			var in_max_sb := SpinBox.new(); in_max_sb.min_value = -10000.0; in_max_sb.max_value = 10000.0; in_max_sb.step = 1.0
+			in_max_sb.value = float(p_node.get("input_max"))
+			in_max_sb.value_changed.connect(func(val: float): p_node.set("input_max", val))
+			var auto_btn := Button.new(); auto_btn.text = "Auto"; auto_btn.tooltip_text = "Auto fit to input terrain range"
+			auto_btn.pressed.connect(func():
+				_auto_fit_node_range(p_index)
+				in_min_sb.value = float(p_node.get("input_min"))
+				in_max_sb.value = float(p_node.get("input_max"))
+			)
+			in_row.add_child(in_lbl); in_row.add_child(in_min_sb); in_row.add_child(in_max_sb); in_row.add_child(auto_btn)
+			p_gn.add_child(in_row)
+
+			var out_row := HBoxContainer.new()
+			var out_lbl := Label.new(); out_lbl.text = "Out:"
+			var out_min_sb := SpinBox.new(); out_min_sb.min_value = -10000.0; out_min_sb.max_value = 10000.0; out_min_sb.step = 1.0
+			out_min_sb.value = float(p_node.get("output_min"))
+			out_min_sb.value_changed.connect(func(val: float): p_node.set("output_min", val))
+			var out_max_sb := SpinBox.new(); out_max_sb.min_value = -10000.0; out_max_sb.max_value = 10000.0; out_max_sb.step = 1.0
+			out_max_sb.value = float(p_node.get("output_max"))
+			out_max_sb.value_changed.connect(func(val: float): p_node.set("output_max", val))
+			out_row.add_child(out_lbl); out_row.add_child(out_min_sb); out_row.add_child(out_max_sb)
+			p_gn.add_child(out_row)
+
+		&"strata":
+			var b_row := HBoxContainer.new()
+			var b_lbl := Label.new(); b_lbl.text = "Step:"
+			var b_sb := SpinBox.new(); b_sb.min_value = 0.5; b_sb.max_value = 200.0; b_sb.step = 0.5
+			b_sb.value = float(p_node.get("band_height"))
+			b_sb.value_changed.connect(func(val: float): p_node.set("band_height", val))
+			var h_lbl := Label.new(); h_lbl.text = "Hard:"
+			var h_sb := SpinBox.new(); h_sb.min_value = 0.0; h_sb.max_value = 1.0; h_sb.step = 0.05
+			h_sb.value = float(p_node.get("hardness"))
+			h_sb.value_changed.connect(func(val: float): p_node.set("hardness", val))
+			b_row.add_child(b_lbl); b_row.add_child(b_sb); b_row.add_child(h_lbl); b_row.add_child(h_sb)
+			p_gn.add_child(b_row)
+
+			var d_row := HBoxContainer.new()
+			var d_lbl := Label.new(); d_lbl.text = "Dip:"
+			var d_sb := SpinBox.new(); d_sb.min_value = -45.0; d_sb.max_value = 45.0; d_sb.step = 0.5
+			d_sb.value = float(p_node.get("dip"))
+			d_sb.value_changed.connect(func(val: float): p_node.set("dip", val))
+			var a_lbl := Label.new(); a_lbl.text = "Dir:"
+			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 360.0; a_sb.step = 5.0
+			a_sb.value = float(p_node.get("dip_direction_degrees"))
+			a_sb.value_changed.connect(func(val: float): p_node.set("dip_direction_degrees", val))
+			d_row.add_child(d_lbl); d_row.add_child(d_sb); d_row.add_child(a_lbl); d_row.add_child(a_sb)
+			p_gn.add_child(d_row)
+
+		&"erosion_hydraulic":
+			var row1 := HBoxContainer.new()
+			var it_lbl := Label.new(); it_lbl.text = "Iter:"
+			var it_sb := SpinBox.new(); it_sb.min_value = 1; it_sb.max_value = 100; it_sb.step = 1
+			it_sb.value = int(p_node.get("iterations"))
+			it_sb.value_changed.connect(func(val: float): p_node.set("iterations", int(val)))
+			var r_lbl := Label.new(); r_lbl.text = "Rain:"
+			var r_sb := SpinBox.new(); r_sb.min_value = 0.001; r_sb.max_value = 0.1; r_sb.step = 0.005
+			r_sb.value = float(p_node.get("rain_rate"))
+			r_sb.value_changed.connect(func(val: float): p_node.set("rain_rate", val))
+			row1.add_child(it_lbl); row1.add_child(it_sb); row1.add_child(r_lbl); row1.add_child(r_sb)
+			p_gn.add_child(row1)
+
+			var row2 := HBoxContainer.new()
+			var e_lbl := Label.new(); e_lbl.text = "Erode:"
+			var e_sb := SpinBox.new(); e_sb.min_value = 0.0; e_sb.max_value = 1.0; e_sb.step = 0.05
+			e_sb.value = float(p_node.get("erosion_speed"))
+			e_sb.value_changed.connect(func(val: float): p_node.set("erosion_speed", val))
+			var d_lbl := Label.new(); d_lbl.text = "Dep:"
+			var d_sb := SpinBox.new(); d_sb.min_value = 0.0; d_sb.max_value = 1.0; d_sb.step = 0.05
+			d_sb.value = float(p_node.get("deposition_speed"))
+			d_sb.value_changed.connect(func(val: float): p_node.set("deposition_speed", val))
+			row2.add_child(e_lbl); row2.add_child(e_sb); row2.add_child(d_lbl); row2.add_child(d_sb)
+			p_gn.add_child(row2)
+
+		&"erosion_thermal":
+			var row := HBoxContainer.new()
+			var a_lbl := Label.new(); a_lbl.text = "Talus:"
+			var a_sb := SpinBox.new(); a_sb.min_value = 5.0; a_sb.max_value = 85.0; a_sb.step = 1.0
+			a_sb.value = float(p_node.get("talus_angle"))
+			a_sb.value_changed.connect(func(val: float): p_node.set("talus_angle", val))
+			var it_lbl := Label.new(); it_lbl.text = "Iter:"
+			var it_sb := SpinBox.new(); it_sb.min_value = 1; it_sb.max_value = 100; it_sb.step = 1
+			it_sb.value = int(p_node.get("iterations"))
+			it_sb.value_changed.connect(func(val: float): p_node.set("iterations", int(val)))
+			var s_lbl := Label.new(); s_lbl.text = "Rate:"
+			var s_sb := SpinBox.new(); s_sb.min_value = 0.0; s_sb.max_value = 1.0; s_sb.step = 0.05
+			s_sb.value = float(p_node.get("settling_rate"))
+			s_sb.value_changed.connect(func(val: float): p_node.set("settling_rate", val))
+			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(it_lbl); row.add_child(it_sb); row.add_child(s_lbl); row.add_child(s_sb)
+			p_gn.add_child(row)
+
+		&"curvature":
+			var row := HBoxContainer.new()
+			var opt := OptionButton.new()
+			opt.add_item("Ridge (Convex)", 0)
+			opt.add_item("Valley (Concave)", 1)
+			opt.add_item("Total Curvature", 2)
+			opt.selected = int(p_node.get("mode"))
+			opt.item_selected.connect(func(id: int): p_node.set("mode", id))
+			row.add_child(opt)
+
+			var r_lbl := Label.new(); r_lbl.text = "Rad:"
+			var r_sb := SpinBox.new(); r_sb.min_value = 1; r_sb.max_value = 16; r_sb.step = 1
+			r_sb.value = int(p_node.get("radius"))
+			r_sb.value_changed.connect(func(val: float): p_node.set("radius", int(val)))
+			row.add_child(r_lbl); row.add_child(r_sb)
+
+			var c_lbl := Label.new(); c_lbl.text = "Gain:"
+			var c_sb := SpinBox.new(); c_sb.min_value = 0.1; c_sb.max_value = 10.0; c_sb.step = 0.1
+			c_sb.value = float(p_node.get("contrast"))
+			c_sb.value_changed.connect(func(val: float): p_node.set("contrast", val))
+			row.add_child(c_lbl); row.add_child(c_sb)
+			p_gn.add_child(row)
 
 
 func _graph_has_sink() -> bool:
@@ -731,6 +1103,109 @@ func _insert_preset(p_id: int, p_pos: Vector2) -> void:
 			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 3, 0])
 			_ur_add_do_method(graph, &"connect_ports", [base_idx + 2, 0, base_idx + 3, 1])
 			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2, base_idx + 3], "Steep Flank Mask"])
+
+		5: # Eroded Alpine Massif (Noise + Hydraulic + Thermal + Ridge)
+			var nz = Pasture3DGraphNodeRegistry.create(&"noise")
+			nz.set("amplitude", 45.0)
+			var fnz = FastNoiseLite.new()
+			fnz.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+			fnz.frequency = 0.006
+			fnz.fractal_octaves = 5
+			nz.set("noise", fnz)
+
+			var hydro = Pasture3DGraphNodeRegistry.create(&"erosion_hydraulic")
+			hydro.set("iterations", 15)
+			hydro.set("rain_rate", 0.02)
+			hydro.set("erosion_speed", 0.35)
+			hydro.set("deposition_speed", 0.25)
+
+			var therm = Pasture3DGraphNodeRegistry.create(&"erosion_thermal")
+			therm.set("talus_angle", 30.0)
+			therm.set("iterations", 12)
+			therm.set("settling_rate", 0.45)
+
+			var curv = Pasture3DGraphNodeRegistry.create(&"curvature")
+			curv.set("mode", 0) # Ridge
+			curv.set("radius", 2)
+			curv.set("contrast", 1.5)
+
+			_ur_add_do_method(graph, &"add_node", [nz, p_pos])
+			_ur_add_do_method(graph, &"add_node", [hydro, p_pos + Vector2(220, 0)])
+			_ur_add_do_method(graph, &"add_node", [therm, p_pos + Vector2(440, 0)])
+			_ur_add_do_method(graph, &"add_node", [curv, p_pos + Vector2(660, 0)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 2, 0, base_idx + 3, 0])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2, base_idx + 3], "Eroded Alpine Massif"])
+
+		6: # Sedimentary Canyon (Strata + Curvature + Curve Remap)
+			var nz = Pasture3DGraphNodeRegistry.create(&"noise")
+			nz.set("amplitude", 30.0)
+			var fnz = FastNoiseLite.new()
+			fnz.frequency = 0.005
+			nz.set("noise", fnz)
+
+			var strata = Pasture3DGraphNodeRegistry.create(&"strata")
+			strata.set("band_height", 6.0)
+			strata.set("hardness", 0.8)
+			strata.set("dip", 5.0)
+			strata.set("dip_direction_degrees", 60.0)
+
+			var curv = Pasture3DGraphNodeRegistry.create(&"curvature")
+			curv.set("mode", 1) # Valley
+			curv.set("radius", 1)
+			curv.set("contrast", 1.8)
+
+			var curve_node = Pasture3DGraphNodeRegistry.create(&"curve")
+			var c = Curve.new()
+			c.add_point(Vector2(0, 0))
+			c.add_point(Vector2(0.5, 0.3))
+			c.add_point(Vector2(1.0, 1.0))
+			curve_node.set("curve", c)
+			curve_node.set("input_min", 0.0)
+			curve_node.set("input_max", 50.0)
+			curve_node.set("output_min", 0.0)
+			curve_node.set("output_max", 60.0)
+
+			_ur_add_do_method(graph, &"add_node", [nz, p_pos])
+			_ur_add_do_method(graph, &"add_node", [strata, p_pos + Vector2(220, 0)])
+			_ur_add_do_method(graph, &"add_node", [curve_node, p_pos + Vector2(440, 0)])
+			_ur_add_do_method(graph, &"add_node", [curv, p_pos + Vector2(440, 160)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 3, 0])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2, base_idx + 3], "Sedimentary Canyon"])
+
+		7: # Glacial Valley (Domain Warp + Furrows + Hydraulic Erosion)
+			var furrows = Pasture3DGraphNodeRegistry.create(&"furrows")
+			furrows.set("amplitude", 20.0)
+			furrows.set("spacing", 120.0)
+
+			var warp = Pasture3DGraphNodeRegistry.create(&"warp")
+			warp.set("strength", 35.0)
+			warp.set("frequency", 0.008)
+			warp.set("amplitude", 10.0)
+
+			var hydro = Pasture3DGraphNodeRegistry.create(&"erosion_hydraulic")
+			hydro.set("iterations", 18)
+			hydro.set("rain_rate", 0.015)
+			hydro.set("erosion_speed", 0.4)
+
+			var remap = Pasture3DGraphNodeRegistry.create(&"remap")
+			remap.set("in_min", -10.0)
+			remap.set("in_max", 50.0)
+			remap.set("out_min", 0.0)
+			remap.set("out_max", 40.0)
+			remap.set("soft_knee", 0.2)
+
+			_ur_add_do_method(graph, &"add_node", [furrows, p_pos])
+			_ur_add_do_method(graph, &"add_node", [warp, p_pos + Vector2(220, 0)])
+			_ur_add_do_method(graph, &"add_node", [hydro, p_pos + Vector2(440, 0)])
+			_ur_add_do_method(graph, &"add_node", [remap, p_pos + Vector2(660, 0)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 2, 0, base_idx + 3, 0])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2, base_idx + 3], "Glacial Valley"])
 			
 	_ur_add_undo_property(graph, &"nodes", old_nodes)
 	_ur_add_undo_property(graph, &"connections", old_conns)

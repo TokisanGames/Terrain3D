@@ -168,9 +168,16 @@ bench/GraphDLANodeGate.tscn
 bench/GraphJordanNoiseGate.tscn
 bench/GraphSwissNoiseGate.tscn
 
+# --- Terrain graph, morphological & frequency filters: Talus Projection & Spectral Equalizer (PASTURE3D_TERRAIN_GRAPH_EXPANSION_SPEC.md) ---
+# Tests iterative angle-of-repose slope relaxation (Talus) with volume conservation, and 3-band Laplacian
+# spatial frequency equalization (Spectral) with bit-exact mathematical identity energy conservation.
+bench/GraphTalusGate.tscn
+bench/GraphSpectralGate.tscn
+
 # --- Terrain graph, high-fidelity terrain generation and shaping nodes suite ---
 bench/TerrainRealismNodesGate.tscn
 
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 bench/PondWaterOffsetCheck.tscn
+
 

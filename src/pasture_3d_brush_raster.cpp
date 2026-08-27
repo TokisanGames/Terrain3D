@@ -139,9 +139,15 @@ void raster_chamfer(std::vector<float> &arr, int gw, int gh, float a, float b) {
 
 // Signed distance field of a closed world polygon over the grid (port of _signed_distance_field).
 // Fills `field` (gw*gh, positive inside / negative outside, metres); returns max interior distance.
+// Uses exact analytic segment Euclidean distance matching the GPU shader to eliminate discretization banding.
 float raster_sdf(const PackedVector2Array &poly, double min_x, double min_z, double vs, int gw, int gh, std::vector<float> &field) {
 	const int n = gw * gh;
-	const int pc = poly.size();
+	const int pc = (int)poly.size();
+	field.assign(n, 0.f);
+	if (pc < 3 || gw < 1 || gh < 1) {
+		return 0.f;
+	}
+
 	std::vector<uint8_t> inside(n, 0);
 	std::vector<float> xs;
 	for (int iz = 0; iz < gh; iz++) {
@@ -173,29 +179,60 @@ float raster_sdf(const PackedVector2Array &poly, double min_x, double min_z, dou
 			k += 2;
 		}
 	}
-	std::vector<float> din(n), dout(n);
-	for (int i = 0; i < n; i++) {
-		if (inside[i]) {
-			din[i] = RBIG;
-			dout[i] = 0.f;
-		} else {
-			din[i] = 0.f;
-			dout[i] = RBIG;
-		}
+
+	struct Seg {
+		float ax, ay, abx, aby, denom;
+	};
+	std::vector<Seg> segs(pc);
+	for (int i = 0; i < pc; i++) {
+		int j = (i + 1) % pc;
+		float ax = (float)((double)poly[i].x - min_x);
+		float ay = (float)((double)poly[i].y - min_z);
+		float bx = (float)((double)poly[j].x - min_x);
+		float by = (float)((double)poly[j].y - min_z);
+		float abx = bx - ax;
+		float aby = by - ay;
+		float denom = abx * abx + aby * aby;
+		segs[i] = { ax, ay, abx, aby, denom > 1e-12f ? (1.0f / denom) : 0.0f };
 	}
-	const float diag = (float)(vs * 1.4142135624);
-	raster_chamfer(din, gw, gh, (float)vs, diag);
-	raster_chamfer(dout, gw, gh, (float)vs, diag);
-	field.assign(n, 0.f);
+
 	float max_inside = 0.f;
-	for (int i = 0; i < n; i++) {
-		if (inside[i]) {
-			field[i] = din[i];
-			if (din[i] < RBIG && din[i] > max_inside) {
-				max_inside = din[i];
+	for (int iz = 0; iz < gh; iz++) {
+		const float qy = (float)(iz * vs);
+		const int row = iz * gw;
+		for (int ix = 0; ix < gw; ix++) {
+			const float qx = (float)(ix * vs);
+			const int i = row + ix;
+
+			float min_d2 = 1.0e30f;
+			for (int s = 0; s < pc; s++) {
+				const float abx = segs[s].abx;
+				const float aby = segs[s].aby;
+				const float qax = qx - segs[s].ax;
+				const float qay = qy - segs[s].ay;
+				float t = (qax * abx + qay * aby) * segs[s].denom;
+				if (t < 0.0f) {
+					t = 0.0f;
+				} else if (t > 1.0f) {
+					t = 1.0f;
+				}
+				const float dx = qax - t * abx;
+				const float dy = qay - t * aby;
+				const float d2 = dx * dx + dy * dy;
+				if (d2 < min_d2) {
+					min_d2 = d2;
+				}
 			}
-		} else {
-			field[i] = -dout[i];
+
+			const float d = std::sqrt(min_d2);
+			if (inside[i]) {
+				field[i] = d;
+				if (d > max_inside) {
+					max_inside = d;
+				}
+			} else {
+				field[i] = -d;
+			}
 		}
 	}
 	return max_inside;

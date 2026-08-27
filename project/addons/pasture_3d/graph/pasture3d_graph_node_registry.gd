@@ -18,6 +18,8 @@ const DunesScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_
 const CraterScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_crater.gd")
 const BlendScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_blend.gd")
 const SmoothScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_smooth.gd")
+const TalusProjectionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_talus_projection.gd")
+const SpectralEqualizerScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_spectral_equalizer.gd")
 const TerraceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_terrace.gd")
 const StrataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_strata.gd")
 const CurveScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_curve.gd")
@@ -48,6 +50,8 @@ static func entries() -> Array[Dictionary]:
 		{"op": &"crater", "title": "Crater", "role": "Generator", "script": CraterScript, "tags": ["meteor", "hole", "impact", "ring", "caldera"], "description": "Impact crater with raised rim and central cavity."},
 		{"op": &"blend", "title": "Blend", "role": "Combiner", "script": BlendScript, "tags": ["math", "add", "sub", "mul", "max", "min", "combine", "mix"], "description": "Combines two input heightfields with math blend modes."},
 		{"op": &"smooth", "title": "Smooth", "role": "Filter", "script": SmoothScript, "tags": ["blur", "gaussian", "average", "filter", "soften"], "description": "Smooths / blurs terrain height variations."},
+		{"op": &"talus_projection", "title": "Talus Projection", "role": "Filter", "script": TalusProjectionScript, "tags": ["talus", "scree", "repose", "cliff", "relaxation", "slope", "angle", "apron", "rubble"], "description": "Relaxes slopes exceeding a critical angle of repose to deposit natural scree aprons."},
+		{"op": &"spectral_equalizer", "title": "Spectral Equalizer", "role": "Filter", "script": SpectralEqualizerScript, "tags": ["spectral", "equalizer", "frequency", "macro", "meso", "micro", "laplacian", "pyramid", "filter", "detail"], "description": "3-band spatial frequency equalizer for macro mountain mass, meso ridges, and micro crags."},
 		{"op": &"terrace", "title": "Terrace", "role": "Filter", "script": TerraceScript, "tags": ["steps", "bands", "quantize", "contour", "ledges"], "description": "Quantizes elevation into stepped terraces."},
 		{"op": &"strata", "title": "Strata", "role": "Filter", "script": StrataScript, "tags": ["layers", "geology", "bands", "sediment", "dip", "strike", "cliff"], "description": "Applies tilted geological sedimentary layering to slopes."},
 		{"op": &"curve", "title": "Curve", "role": "Filter", "script": CurveScript, "tags": ["remap", "ramp", "profile", "transfer", "shaping", "spline"], "description": "Remaps input heights through a custom Curve resource."},
