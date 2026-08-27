@@ -1388,6 +1388,7 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 			vals[k] = std::isnan(amp[k]) ? (float)NAN : (float)(add ? amp[k] : (double)basey[k] + amp[k]);
 		}
 	}
+	nan_blur(vals, gw, gh, (int)p_params.get("smooth_passes", 0));
 
 	if (batched) {
 		const int min_px = (int)std::lround(min_x / vs);

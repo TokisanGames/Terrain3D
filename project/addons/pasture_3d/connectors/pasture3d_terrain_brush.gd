@@ -1555,6 +1555,11 @@ func clear_stamp_cache() -> void:
 	_stamp_cache.clear()
 
 
+## Generate a 2D preview height grid [grid, w, h, rect] representing this brush's base spline shape.
+func generate_preview_surface(w: int, h: int) -> Array:
+	return []
+
+
 ## Every brush node bound to `owner` (same terrain). Includes self when `owner` is our binding.
 func _tools_on_owner(owner: String) -> Array:
 	var out: Array = []

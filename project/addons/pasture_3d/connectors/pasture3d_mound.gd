@@ -52,18 +52,18 @@ enum FlankMode { FIXED_WIDTH, SLOPE_ANGLE }
 @export var falloff_curve: Curve
 ## Expand (+) or contract (−) the effective boundary off the spline, in metres.
 @export var edge_offset: float = 0.0
+## Smoothing passes applied to the base shape from the spline before modifiers (eliminates facet banding).
+@export_range(0, 10, 1) var smooth_passes: int = 1:
+	set(v):
+		smooth_passes = clampi(v, 0, 10)
+		_schedule_refresh()
 
 # ---- Legacy property migration (PASTURE3D_BRUSH_EROSION_SPEC.md §6.6) ------------------------------
 #
-# `noise`, `noise_strength`, `relief`, `relief_strength` and `smooth_passes` were deleted at the end of
+# `noise`, `noise_strength`, `relief`, `relief_strength` were deleted at the end of
 # phase 3a; the Modifiers stack replaces them. Scenes saved before that still carry the old keys, so
 # loading one would otherwise drop a mound's relief on the floor without a word.
-#
-# This is a ONE-WAY MIGRATION, not a second spelling of the same thing. There is no getter, the
-# properties are absent from `_get_property_list` so nothing re-saves them, and a `set()` after the node
-# is in the tree is an error rather than a quiet no-op. Delete this block once the scenes in the repo
-# have been opened and saved.
-const _LEGACY_PROPS := ["noise", "noise_strength", "relief", "relief_strength", "smooth_passes"]
+const _LEGACY_PROPS := ["noise", "noise_strength", "relief", "relief_strength"]
 
 ## Legacy values seen during scene load, flushed into `modifiers` by `_ready`. Not exported, so nothing
 ## about it survives a save.
@@ -183,16 +183,18 @@ func _make_starter_curve() -> Curve3D:
 	c.add_point(Vector3(r, 0.0, -r))
 	c.add_point(Vector3(r, 0.0, r))
 	c.add_point(Vector3(-r, 0.0, r))
+	c.add_point(Vector3(-r, 0.0, -r))
 	return c
 
 
-## Loop projected to world XZ and decimated to ~terrain resolution (the raw Curve3D bake is far finer
-## than the grid and would make the scanline fill needlessly slow).
+## Loop projected to world XZ. Uses fine sampling to preserve genuine spline curvature
+## and prevent polygonal faceted angle seams across slopes.
 func _polygon_xz(path: Path3D) -> PackedVector2Array:
 	var raw := PackedVector2Array()
 	for p in _baked_world_points(path):
 		raw.append(Vector2(p.x, p.z))
-	return _decimate(raw, maxf(terrain.vertex_spacing, 0.25))
+	var vs: float = terrain.vertex_spacing if terrain else 1.0
+	return _decimate(raw, minf(vs * 0.25, 0.25))
 
 
 func _paint_spline(path: Path3D) -> void:
@@ -256,6 +258,7 @@ func _paint_spline(path: Path3D) -> void:
 				"slope_safety": _region_safety_height(),
 				"relative_to_terrain": relative_to_terrain, "plane_y": global_position.y,
 			"blend": _blend, "composite": not _defer_composite,
+			"smooth_passes": smooth_passes,
 			# The stack, and the ONE selector block every relief modifier in it indexes into.
 			"modifiers": stack["list"], "op_selectors": op_selectors,
 			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
@@ -350,6 +353,7 @@ func _paint_spline(path: Path3D) -> void:
 	profile.resize(gw * gh)
 	var basey := PackedFloat32Array()
 	basey.resize(gw * gh)
+
 	for iz in range(gh):
 		var z := min_z + iz * vs
 		var row := iz * gw
@@ -373,6 +377,8 @@ func _paint_spline(path: Path3D) -> void:
 		"host_fields": host_fields, "host_measured": host_measured, "host_div": host_div,
 		"extent": extent,
 	})
+	if smooth_passes > 0:
+		vals = _blur_grid(vals, gw, gh, smooth_passes)
 	_commit_modifier_caches(stack, extent,
 			[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
 	_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, vals, _spline_footprint_aabb(path))
@@ -391,11 +397,62 @@ func _paint_spline(path: Path3D) -> void:
 				_paint_height(pos, v, 0.0)
 
 
+## Generate a 2D preview height grid representing this mound's base spline shape.
+func generate_preview_surface(w: int, h: int) -> Array:
+	var splines := _get_splines()
+	if splines.is_empty():
+		return []
+	var path: Path3D = splines[0]
+	var poly := _polygon_xz(path)
+	if poly.size() < 3:
+		return []
+	var fp := _spline_footprint_aabb(path)
+	if fp.size.x <= 0.0 or fp.size.z <= 0.0:
+		return []
+	var min_x := fp.position.x
+	var min_z := fp.position.z
+	var vs := maxf(fp.size.x / float(maxi(w - 1, 1)), fp.size.z / float(maxi(h - 1, 1)))
+	var sdf := _signed_distance_field(poly, min_x, min_z, vs, w, h)
+	var field: PackedFloat32Array = sdf[0]
+	var max_inside: float = sdf[1]
+	var sign_val := -1.0 if invert else 1.0
+	var dome_denom := maxf(max_inside + edge_offset, 0.001)
+	var ramp_denom := maxf(falloff_width, 0.001)
+	var slope_tan := maxf(tan(deg_to_rad(slope_angle)), 0.0001)
+	var use_angle := flank_mode == FlankMode.SLOPE_ANGLE
+	var cone := use_angle and not capped
+	var safety_max := _region_safety_height()
+	if use_angle and capped:
+		ramp_denom = maxf(absf(height) / slope_tan, 0.001)
+
+	var host_profile_at := func(signed_d: float) -> float:
+		if signed_d <= 0.0:
+			return 0.0
+		if cone:
+			return sign_val * minf(slope_tan * signed_d, safety_max)
+		var pr := _ramp(falloff_curve, signed_d / (ramp_denom if capped else dome_denom))
+		if pr <= 0.0:
+			return 0.0
+		return sign_val * height * pr
+
+	var n := w * h
+	var vals := PackedFloat32Array()
+	vals.resize(n)
+	for i in range(n):
+		var sd := field[i] + edge_offset
+		vals[i] = host_profile_at.call(sd)
+
+	if smooth_passes > 0:
+		vals = _blur_grid(vals, w, h, smooth_passes)
+
+	return [vals, w, h, Rect2(min_x, min_z, float(w) * vs, float(h) * vs)]
+
+
 func _brush_param_signature() -> Array:
 	return [
 		super._brush_param_signature(),
 		height, capped, blend_mode, invert, relative_to_terrain,
-		flank_mode, falloff_width, slope_angle, edge_offset,
+		flank_mode, falloff_width, slope_angle, edge_offset, smooth_passes,
 		falloff_curve.get_baked_points() if falloff_curve != null else []
 	]
 

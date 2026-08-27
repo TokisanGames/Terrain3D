@@ -60,6 +60,14 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	_build_ui()
 	if plugin:
 		plugin.add_control_to_bottom_panel(self, "Terrain Graph")
+		var sel := EditorInterface.get_selection()
+		if sel != null and not sel.selection_changed.is_connected(_on_editor_selection_changed):
+			sel.selection_changed.connect(_on_editor_selection_changed)
+
+
+func _on_editor_selection_changed() -> void:
+	if _show_previews and graph != null:
+		_queue_all_previews()
 
 
 func remove_dock() -> void:
@@ -184,11 +192,11 @@ func _process_preview_queue() -> void:
 	if graph == null or not _show_previews:
 		_preview_queue.clear()
 		return
-	var mod := _find_host_modifier()
-	var in_grid := mod.last_input_surface if mod != null else PackedFloat32Array()
-	var in_gw := mod.last_gw if mod != null else 0
-	var in_gh := mod.last_gh if mod != null else 0
-	var in_rect := mod.last_rect if mod != null and mod.last_rect.size.x > 0 else Rect2(-50.0, -50.0, 100.0, 100.0)
+	var input_data := _get_preview_input_data()
+	var in_grid: PackedFloat32Array = input_data.get("grid", PackedFloat32Array())
+	var in_gw: int = input_data.get("gw", 0)
+	var in_gh: int = input_data.get("gh", 0)
+	var in_rect: Rect2 = input_data.get("rect", Rect2(-50.0, -50.0, 100.0, 100.0))
 
 	while not _preview_queue.is_empty():
 		var idx: int = _preview_queue.pop_front()
@@ -214,14 +222,16 @@ func _auto_fit_node_range(p_index: int) -> void:
 			src_node = int(c[0])
 			break
 			
-	var mod := _find_host_modifier()
-	var in_grid := mod.last_input_surface if mod != null else PackedFloat32Array()
-	var in_gw := mod.last_gw if mod != null else 0
-	var in_gh := mod.last_gh if mod != null else 0
-	var in_rect := mod.last_rect if mod != null and mod.last_rect.size.x > 0 else Rect2(-50.0, -50.0, 100.0, 100.0)
+	var input_data := _get_preview_input_data()
+	var in_grid: PackedFloat32Array = input_data.get("grid", PackedFloat32Array())
+	var in_gw: int = input_data.get("gw", 0)
+	var in_gh: int = input_data.get("gh", 0)
+	var in_rect: Rect2 = input_data.get("rect", Rect2(-50.0, -50.0, 100.0, 100.0))
 	var sample_input: PackedFloat32Array
 	if in_grid.size() == 128 * 128 and in_gw == 128 and in_gh == 128:
 		sample_input = in_grid
+	elif not in_grid.is_empty() and in_gw > 0 and in_gh > 0:
+		sample_input = ThumbnailGenScript.resample_grid(in_grid, in_gw, in_gh, 128, 128)
 	else:
 		sample_input = ThumbnailGenScript.generate_sample_brush_input(128, 128, in_rect)
 		
@@ -260,18 +270,74 @@ func _auto_fit_node_range(p_index: int) -> void:
 	_refresh_nodes_state()
 
 
-func _find_host_modifier() -> Pasture3DNodeGraph:
-	if host_modifier != null and host_modifier.graph == graph:
-		return host_modifier
-	if plugin != null and graph != null:
+func _find_brush_for_modifier(p_mod: Pasture3DNodeGraph) -> Pasture3DTerrainBrush:
+	if p_mod == null or not is_inside_tree():
+		return null
+	var sel := EditorInterface.get_selection().get_selected_nodes()
+	for nd in sel:
+		if nd is Pasture3DTerrainBrush and (nd as Pasture3DTerrainBrush).modifiers.has(p_mod):
+			return nd as Pasture3DTerrainBrush
+	for b in get_tree().get_nodes_in_group("pasture3d_brushes"):
+		if b is Pasture3DTerrainBrush and b.modifiers.has(p_mod):
+			return b
+	return null
+
+
+func _find_host_brush() -> Pasture3DTerrainBrush:
+	if host_modifier != null:
+		var b := _find_brush_for_modifier(host_modifier)
+		if b != null:
+			return b
+	if plugin != null and graph != null and is_inside_tree():
 		var sel := EditorInterface.get_selection().get_selected_nodes()
 		for nd in sel:
 			if nd is Pasture3DTerrainBrush:
 				for m in (nd as Pasture3DTerrainBrush).modifiers:
 					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
-						host_modifier = m
-						return m
+						return nd as Pasture3DTerrainBrush
+		for b in get_tree().get_nodes_in_group("pasture3d_brushes"):
+			if b is Pasture3DTerrainBrush:
+				for m in b.modifiers:
+					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
+						return b
+		for nd in sel:
+			if nd is Pasture3DTerrainBrush:
+				return nd as Pasture3DTerrainBrush
 	return null
+
+
+func _find_host_modifier() -> Pasture3DNodeGraph:
+	if host_modifier != null and host_modifier.graph == graph:
+		return host_modifier
+	var brush := _find_host_brush()
+	if brush != null:
+		for m in brush.modifiers:
+			if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
+				host_modifier = m
+				return m
+	return null
+
+
+func _get_preview_input_data() -> Dictionary:
+	var mod := _find_host_modifier()
+	if mod != null and not mod.last_input_surface.is_empty():
+		return {
+			"grid": mod.last_input_surface,
+			"gw": mod.last_gw,
+			"gh": mod.last_gh,
+			"rect": mod.last_rect,
+		}
+	var brush := _find_host_brush()
+	if brush != null and brush.has_method("generate_preview_surface"):
+		var ps: Array = brush.generate_preview_surface(128, 128)
+		if not ps.is_empty() and ps[0].size() == 128 * 128:
+			return {
+				"grid": ps[0],
+				"gw": ps[1],
+				"gh": ps[2],
+				"rect": ps[3],
+			}
+	return {}
 
 
 func _build_ui() -> void:
@@ -647,11 +713,11 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 
 	# 2D Heightmap Preview Thumbnail (if enabled and not collapsed)
 	if _show_previews and not p_node.collapsed:
-		var mod := _find_host_modifier()
-		var in_grid := mod.last_input_surface if mod != null else PackedFloat32Array()
-		var in_gw := mod.last_gw if mod != null else 0
-		var in_gh := mod.last_gh if mod != null else 0
-		var in_rect := mod.last_rect if mod != null and mod.last_rect.size.x > 0 else Rect2(-50.0, -50.0, 100.0, 100.0)
+		var input_data := _get_preview_input_data()
+		var in_grid: PackedFloat32Array = input_data.get("grid", PackedFloat32Array())
+		var in_gw: int = input_data.get("gw", 0)
+		var in_gh: int = input_data.get("gh", 0)
+		var in_rect: Rect2 = input_data.get("rect", Rect2(-50.0, -50.0, 100.0, 100.0))
 		var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, p_index, 128, in_grid, in_gw, in_gh, in_rect)
 		if tex != null:
 			var center_box := CenterContainer.new()
