@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DGraphNodeGeologicalPrimitive — a GENERATOR cell node: parametric macro landforms.
+# Pasture3DGraphNodeGeologicalPrimitive — a GENERATOR node: parametric macro landforms.
 #
 # Generates solitary geological structures and landforms via continuous analytic radial distance and
 # morphological profiling:
@@ -9,7 +9,8 @@
 #   2. VOLCANIC_CALDERA: Volcanic shield dome with a central collapsed caldera crater.
 #   3. CUESTA_BADLANDS: Asymmetric geological ridge with a gentle dip slope and a steep scarp cliff face.
 #
-# Point-evaluable per cell at world (wx, wz) with zero intermediate allocations.
+# Supports FIT_FRAME mapping (automatically scales to fill the brush / evaluation frame) and METRIC_WORLD
+# mapping (absolute metric radius in world space).
 @tool
 class_name Pasture3DGraphNodeGeologicalPrimitive
 extends Pasture3DGraphNode
@@ -20,22 +21,34 @@ enum PrimitiveType {
 	CUESTA_BADLANDS,   ## Asymmetric ridge with gentle dip slope and steep scarp face.
 }
 
+enum Mapping {
+	FIT_FRAME,     ## Scales the landform to fit within the brush / evaluation frame bounds.
+	METRIC_WORLD,  ## Evaluates the landform with absolute world-metre radius and offset.
+}
+
 ## Macro geological landform archetype.
 @export var primitive_type: PrimitiveType = PrimitiveType.INSELBERG:
 	set(v):
 		primitive_type = v
 		emit_changed()
 
-## Base footprint radius in metres.
-@export_range(10.0, 500.0, 5.0, "or_greater") var radius: float = 100.0:
+## Coordinate mapping mode: FIT_FRAME scales to the brush/rect footprint, METRIC_WORLD uses absolute metres.
+@export var mapping: Mapping = Mapping.FIT_FRAME:
 	set(v):
-		radius = maxf(v, 1.0)
+		mapping = v
 		emit_changed()
+		notify_property_list_changed()
 
 ## Maximum peak elevation in metres.
 @export_range(-200.0, 500.0, 1.0) var height: float = 60.0:
 	set(v):
 		height = v
+		emit_changed()
+
+## Size factor: footprint radius scale in FIT_FRAME mode (0.1..2.0), or absolute radius in metres in METRIC_WORLD.
+@export_range(0.1, 500.0, 0.05, "or_greater") var radius: float = 1.0:
+	set(v):
+		radius = maxf(v, 0.01)
 		emit_changed()
 
 ## Flank curvature steepness exponent.
@@ -56,7 +69,7 @@ enum PrimitiveType {
 		azimuth_degrees = v
 		emit_changed()
 
-## World horizontal offset (metres) from region origin.
+## Horizontal offset: normalized [-1, 1] offset in FIT_FRAME, or world metres in METRIC_WORLD.
 @export var center_offset: Vector2 = Vector2.ZERO:
 	set(v):
 		center_offset = v
@@ -72,11 +85,53 @@ func role() -> Role:
 
 
 func needs_grid() -> bool:
-	return false
+	return mapping == Mapping.FIT_FRAME
 
 
 func input_count() -> int:
 	return 0
+
+
+func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	var n := p_gw * p_gh
+	var out := PackedFloat32Array()
+	out.resize(n)
+
+	if mapping == Mapping.METRIC_WORLD:
+		for iz in range(p_gh):
+			var row := iz * p_gw
+			for ix in range(p_gw):
+				var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, p_gw, p_gh, p_rect)
+				out[row + ix] = eval_cell(w.x, w.y, PackedFloat32Array())
+		return out
+
+	# FIT_FRAME mapping: center is frame center + normalized offset
+	var cx := p_rect.position.x + p_rect.size.x * 0.5 + center_offset.x * (p_rect.size.x * 0.5)
+	var cz := p_rect.position.y + p_rect.size.y * 0.5 + center_offset.y * (p_rect.size.y * 0.5)
+	var half_ex := maxf(p_rect.size.x * 0.5 * radius, 0.001)
+	var half_ez := maxf(p_rect.size.y * 0.5 * radius * eccentricity, 0.001)
+
+	var rad := deg_to_rad(azimuth_degrees)
+	var cos_a := cos(rad)
+	var sin_a := sin(rad)
+
+	for iz in range(p_gh):
+		var row := iz * p_gw
+		for ix in range(p_gw):
+			var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, p_gw, p_gh, p_rect)
+			var rx := w.x - cx
+			var rz := w.y - cz
+
+			var lx := rx * cos_a + rz * sin_a
+			var lz := -rx * sin_a + rz * cos_a
+
+			var norm_x := lx / half_ex
+			var norm_z := lz / half_ez
+			var d := sqrt(norm_x * norm_x + norm_z * norm_z)
+
+			out[row + ix] = _profile_at(d, norm_x)
+
+	return out
 
 
 func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:
@@ -97,44 +152,40 @@ func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float
 	var norm_z := (lz * inv_r) / maxf(eccentricity, 0.01)
 	var d := sqrt(norm_x * norm_x + norm_z * norm_z)
 
+	return _profile_at(d, norm_x)
+
+
+func _profile_at(d: float, norm_x: float) -> float:
 	match primitive_type:
 		PrimitiveType.INSELBERG:
-			# Bornhardt / Monadnock: exponential / hyperbolic profile with concave pediment toe
 			if d >= 1.0:
 				return 0.0
 			var t := 1.0 - d
-			# Hyperbolic dome profile
 			var profile := pow(t, steepness) * (1.0 + 0.5 * (1.0 - pow(d, 2.0)))
 			return height * clampf(profile, 0.0, 1.0)
 
 		PrimitiveType.VOLCANIC_CALDERA:
-			# Volcanic shield dome with central collapsed crater
 			if d >= 1.0:
 				return 0.0
 			var rim_pos := 0.4
-			var caldera_depth := 0.6 # fraction of height
+			var caldera_depth := 0.6
 			if d < rim_pos:
-				# Inside caldera basin
 				var basin_t := d / rim_pos
 				var basin_profile := (1.0 - caldera_depth) + caldera_depth * pow(basin_t, steepness)
 				return height * basin_profile
 			else:
-				# Outer shield flank
 				var flank_t := (1.0 - d) / (1.0 - rim_pos)
 				return height * pow(clampf(flank_t, 0.0, 1.0), steepness)
 
 		PrimitiveType.CUESTA_BADLANDS:
-			# Asymmetric cuesta: gentle dip slope along +lx, steep scarp face along -lx
 			if d >= 1.0:
 				return 0.0
-			var envelope := pow(1.0 - d, 0.8) # radial boundary envelope
-			var scarp_steepness := 0.25 # width of steep scarp
+			var envelope := pow(1.0 - d, 0.8)
+			var scarp_steepness := 0.25
 			var dip_factor := 0.0
 			if norm_x < 0.0:
-				# Steep scarp face
 				dip_factor = 1.0 - pow(clampf(-norm_x / scarp_steepness, 0.0, 1.0), steepness)
 			else:
-				# Gentle dip slope
 				dip_factor = 1.0 - pow(clampf(norm_x, 0.0, 1.0), 0.7)
 			return height * clampf(dip_factor * envelope, 0.0, 1.0)
 

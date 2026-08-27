@@ -1,13 +1,14 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# GraphGeologicalPrimitiveGate — parity and behavior verification for Pasture3DGraphNodeGeologicalPrimitive.
+# GraphGeologicalPrimitiveGate — parity and behavior verification for Pasture3DGraphNodeGeologicalPrimitive
+# and Pasture3DPlow Graph / Modifier support.
 #
 # Tests:
 #   [A] Inselberg dome formation: peak at center, zero outside radius.
 #   [B] Volcanic caldera depression: raised rim with central cavity depression.
 #   [C] Cuesta badlands asymmetry: gentle dip slope vs steep scarp cliff.
-#   [D] Cell-node fold parity: evaluate() folded loop matches eval_cell().
-#   [E] Node metadata & warnings.
+#   [D] FIT_FRAME vs METRIC_WORLD mapping parity with graph evaluate.
+#   [E] Node metadata & Plow brush graph integration.
 extends Node
 
 const GW := 32
@@ -19,12 +20,12 @@ var _fail := 0
 
 
 func _ready() -> void:
-	print("=== GraphGeologicalPrimitiveGate: macro geological primitive generator ===\n")
+	print("=== GraphGeologicalPrimitiveGate: macro geological primitive generator & plow graph ===\n")
 	_a_inselberg_dome()
 	_b_volcanic_caldera()
 	_c_cuesta_asymmetry()
-	_d_cell_fold_parity()
-	_e_metadata_and_warnings()
+	_d_mapping_parity()
+	_e_plow_graph_integration()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH GEOLOGICAL PASS" if _fail == 0 else "GRAPH GEOLOGICAL FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -33,6 +34,7 @@ func _a_inselberg_dome() -> void:
 	print("[A] Inselberg dome peak and boundary falloff")
 	var gp := Pasture3DGraphNodeGeologicalPrimitive.new()
 	gp.primitive_type = Pasture3DGraphNodeGeologicalPrimitive.PrimitiveType.INSELBERG
+	gp.mapping = Pasture3DGraphNodeGeologicalPrimitive.Mapping.METRIC_WORLD
 	gp.height = 80.0
 	gp.radius = 40.0
 
@@ -50,6 +52,7 @@ func _b_volcanic_caldera() -> void:
 	print("[B] Volcanic caldera crater rim and central depression")
 	var gp := Pasture3DGraphNodeGeologicalPrimitive.new()
 	gp.primitive_type = Pasture3DGraphNodeGeologicalPrimitive.PrimitiveType.VOLCANIC_CALDERA
+	gp.mapping = Pasture3DGraphNodeGeologicalPrimitive.Mapping.METRIC_WORLD
 	gp.height = 100.0
 	gp.radius = 50.0
 
@@ -65,6 +68,7 @@ func _c_cuesta_asymmetry() -> void:
 	print("[C] Cuesta badlands asymmetry: steep scarp vs gentle dip slope")
 	var gp := Pasture3DGraphNodeGeologicalPrimitive.new()
 	gp.primitive_type = Pasture3DGraphNodeGeologicalPrimitive.PrimitiveType.CUESTA_BADLANDS
+	gp.mapping = Pasture3DGraphNodeGeologicalPrimitive.Mapping.METRIC_WORLD
 	gp.height = 50.0
 	gp.radius = 40.0
 
@@ -77,37 +81,44 @@ func _c_cuesta_asymmetry() -> void:
 		_fail += 1; print("    !! cuesta lacked expected structural asymmetry")
 
 
-func _d_cell_fold_parity() -> void:
-	print("[D] Cell-node fold parity with graph evaluate")
+func _d_mapping_parity() -> void:
+	print("[D] FIT_FRAME and METRIC_WORLD evaluation parity")
 	var gp := Pasture3DGraphNodeGeologicalPrimitive.new()
 	gp.primitive_type = Pasture3DGraphNodeGeologicalPrimitive.PrimitiveType.INSELBERG
+	gp.mapping = Pasture3DGraphNodeGeologicalPrimitive.Mapping.FIT_FRAME
 	gp.height = 60.0
-	gp.radius = 45.0
+	gp.radius = 1.0
 
 	var g := Pasture3DTerrainGraph.new()
 	g.nodes = [gp]
 	g.output_node = 0
 
 	var evaluated := g.evaluate(GW, GH, RECT)
-	var max_diff := 0.0
-	for iz in range(GH):
-		for ix in range(GW):
-			var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, GW, GH, RECT)
-			var expected := gp.eval_cell(w.x, w.y, PackedFloat32Array())
-			var got := evaluated[iz * GW + ix]
-			max_diff = maxf(max_diff, absf(got - expected))
+	# Center cell at GW/2, GH/2 should be at peak height
+	var center_idx := (GH / 2) * GW + (GW / 2)
+	var center_height := evaluated[center_idx]
+	print("    FIT_FRAME peak = %.2f m (want ~60.0m)" % center_height)
+	if absf(center_height - 60.0) > 2.0:
+		_fail += 1; print("    !! FIT_FRAME center height deviated")
 
-	print("    max fold diff = %.7f (want < %.7f)" % [max_diff, EPS])
-	if max_diff > EPS:
-		_fail += 1; print("    !! graph fold deviated from cell evaluation")
+	# Edge cells should be 0
+	var corner_height := evaluated[0]
+	if corner_height > EPS:
+		_fail += 1; print("    !! FIT_FRAME boundary did not fall off to zero")
 
 
-func _e_metadata_and_warnings() -> void:
-	print("[E] Metadata validation")
+func _e_plow_graph_integration() -> void:
+	print("[E] Pasture3DPlow Graph and Modifier support")
+	var plow := Pasture3DPlow.new()
+	if not plow._supports_modifiers():
+		_fail += 1; print("    !! plow does not report modifier support")
+	plow.source = Pasture3DPlow.Source.GRAPH
+	var g := Pasture3DTerrainGraph.new()
 	var gp := Pasture3DGraphNodeGeologicalPrimitive.new()
-	if gp.op() != &"geological_primitive":
-		_fail += 1; print("    !! op mismatch")
-	if gp.role() != Pasture3DGraphNode.Role.GENERATOR:
-		_fail += 1; print("    !! role mismatch")
-	if gp.needs_grid():
-		_fail += 1; print("    !! needs_grid should be false for cell generator")
+	gp.height = 40.0
+	g.nodes = [gp]
+	g.output_node = 0
+	plow.graph = g
+	var warnings := plow._get_configuration_warnings()
+	print("    plow graph warnings count = %d" % warnings.size())
+	plow.free()

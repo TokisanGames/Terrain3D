@@ -14,7 +14,7 @@
 class_name Pasture3DPlow
 extends Pasture3DTerrainBrush
 
-enum Source { NOISE, TEXTURE, MATERIAL, RELIEF }
+enum Source { NOISE, TEXTURE, MATERIAL, RELIEF, GRAPH }
 enum BlendMode { REPLACE, ADD, MAX, MIN }
 ## How the source is laid out across the loop. TILE repeats across world space (craggy sections, strata);
 ## FIT maps the source once onto the loop's oriented bounding rect (one crater per loop); SCATTER places
@@ -74,6 +74,15 @@ const _LUT_MAX := 256
 		notify_property_list_changed() # the Mask Preview Source list is built from this material
 		_queue_mask_preview()
 		update_configuration_warnings()
+		_schedule_refresh()
+## Source.GRAPH — a Pasture3DTerrainGraph procedural node graph (generators, geological primitives, filters).
+@export var graph: Pasture3DTerrainGraph:
+	set(v):
+		if graph != null and graph.changed.is_connected(_schedule_refresh):
+			graph.changed.disconnect(_schedule_refresh)
+		graph = v
+		if graph != null and not graph.changed.is_connected(_schedule_refresh):
+			graph.changed.connect(_schedule_refresh)
 		_schedule_refresh()
 ## How the source is laid out across the loop (TILE repeats; FIT maps it once onto the loop's oriented
 ## rect). Craters need FIT. Hidden for NOISE, which is world-space by definition.
@@ -197,6 +206,10 @@ func _min_points() -> int:
 	return 3
 
 
+func _supports_modifiers() -> bool:
+	return true
+
+
 func _spline_basename() -> String:
 	return "Area"
 
@@ -220,16 +233,19 @@ func _validate_property(property: Dictionary) -> void:
 		"relief":
 			if source != Source.RELIEF:
 				property.usage &= ~PROPERTY_USAGE_EDITOR
+		"graph":
+			if source != Source.GRAPH:
+				property.usage &= ~PROPERTY_USAGE_EDITOR
 		"mapping":
-			if source == Source.NOISE: # world-space by definition; nothing to lay out
+			if source == Source.NOISE or source == Source.GRAPH: # world/graph-defined; nothing to lay out
 				property.usage &= ~PROPERTY_USAGE_EDITOR
 		"height_offset":
-			if source == Source.RELIEF: # relief materials output a signed value already
+			if source == Source.RELIEF or source == Source.GRAPH: # signed value already
 				property.usage &= ~PROPERTY_USAGE_EDITOR
 		"tile_size":
 			# NOISE tiles via its own frequency, relief ops carry their own feature size, and FIT maps
 			# the source exactly once — in none of those cases does a metres-per-repeat mean anything.
-			if source == Source.NOISE or source == Source.RELIEF or mapping != Mapping.TILE:
+			if source == Source.NOISE or source == Source.RELIEF or source == Source.GRAPH or mapping != Mapping.TILE:
 				property.usage &= ~PROPERTY_USAGE_EDITOR
 		"scatter_count", "scatter_seed", "scatter_radius_min", "scatter_radius_max", \
 		"scatter_rotation_jitter", "scatter_scale_jitter", "scatter_overlap", "scatter_blend":
@@ -261,6 +277,11 @@ func _get_configuration_warnings() -> PackedStringArray:
 			if mapping == Mapping.TILE and loop_sized != "":
 				warnings.append(("This Relief Material contains a %s, which is sized by the loop. " % loop_sized
 					+ "With Mapping = Tile it repeats once per tile; set Mapping = Fit for a single one."))
+	elif source == Source.GRAPH:
+		if graph == null:
+			warnings.append("Source is Graph but no Terrain Graph is assigned — nothing will be stamped.")
+		else:
+			warnings.append_array(graph.graph_warnings())
 	elif mapping == Mapping.SCATTER:
 		warnings.append(("Mapping = Scatter only applies to Source = Relief; this source will tile "
 			+ "instead. Switch the source, or pick Tile / Fit."))
@@ -409,7 +430,11 @@ func _paint_spline(path: Path3D) -> void:
 	#
 	# Computed before the source is resolved, because a relief material with a BAKED FIELD (a DLA) grows
 	# that field to the loop's proportions inside compile() and so has to be told them first.
-	var frame := _loop_frame(poly)
+	var extent := _extent_key(min_x, min_z, vs, gw, gh)
+	var wants_frame := _has_relief_modifier() or source == Source.RELIEF
+	var frame: Array = _loop_frame(poly) if wants_frame else [0.0, 0.0, 1.0, 0.0, 1.0, 1.0]
+	var stack := _compile_modifiers(extent, frame[4], frame[5])
+	var op_selectors: PackedFloat32Array = stack["op_selectors"]
 	var fcx: float = frame[0]
 	var fcz: float = frame[1]
 	var fcos: float = frame[2]
@@ -430,10 +455,16 @@ func _paint_spline(path: Path3D) -> void:
 	var op_luts := PackedFloat32Array()
 	var op_fields := PackedFloat32Array()
 	var op_field_meta := PackedInt32Array()
-	var op_selectors := PackedFloat32Array()
+	var graph_grid := PackedFloat32Array()
 	if source == Source.NOISE:
 		if noise == null:
 			return
+	elif source == Source.GRAPH:
+		if graph == null:
+			return
+		var rect := Rect2(min_x, min_z, maxf((gw - 1) * vs, 1.0), maxf((gh - 1) * vs, 1.0))
+		var base_for_graph: PackedFloat32Array = _base_below_grid(min_x, min_z, vs, gw, gh) if (relative_to_terrain or graph.reads_input()) else PackedFloat32Array()
+		graph_grid = graph.evaluate(gw, gh, rect, null, base_for_graph)
 	elif source == Source.RELIEF:
 		if relief == null:
 			return
@@ -471,7 +502,7 @@ func _paint_spline(path: Path3D) -> void:
 	# Terrain-aware selectors and SCREE read the ground below this brush's layer. Built once per bake,
 	# and only when the compiled program actually reads them.
 	var fields: Array = []
-	var use_fields := source == Source.RELIEF and _needs_terrain_fields(ops)
+	var use_fields := (source == Source.RELIEF and _needs_terrain_fields(ops)) or bool(stack["need_fields"])
 	# §21.6: plus the wider grids any selector's `measure_radius` asks for, indexed by selector id. Empty
 	# when every selector left it at 0, which is the default and costs nothing.
 	var measured: Array = []
@@ -481,7 +512,7 @@ func _paint_spline(path: Path3D) -> void:
 	# The sim channels the FLOW / EROSION / DEPOSITION / WETNESS Filter Types read (spec §9). Resampled from the
 	# Pasture3DSimResult's own extent, which is at SIM resolution over the SIMULATED area and shares
 	# nothing with this bake grid. Only when a selector actually asks for them.
-	var sim_res := _sim_result_for() if use_fields else null
+	var sim_res: Pasture3DSimResult = stack["sim"] if stack["sim"] != null else (_sim_result_for() if use_fields else null)
 	var sim_fields: Array = []
 	var sim_dict := {}
 	if sim_res != null and sim_res.is_valid():
@@ -500,7 +531,7 @@ func _paint_spline(path: Path3D) -> void:
 		update_configuration_warnings()
 
 	# Native rasteriser (Round 2): same SDF + source-sample + relief math in C++.
-	if _native_raster("stamp_plow_loop"):
+	if _native_raster("stamp_plow_loop") and source != Source.GRAPH and stack["list"].is_empty():
 		var params := {
 			"min_x": min_x, "min_z": min_z, "vs": vs, "gw": gw, "gh": gh,
 			"height_scale": height_scale, "height_offset": height_offset,
@@ -586,6 +617,9 @@ func _paint_spline(path: Path3D) -> void:
 							f_alt, f_slope, f_curv, f_gx, f_gz, f_flow, f_ero, f_dep, f_wet,
 							measured, row + ix if use_fields else -1)
 				amp = height_scale * rv * mask * src_strength
+			elif source == Source.GRAPH:
+				var gv := graph_grid[row + ix] if not graph_grid.is_empty() else 0.0
+				amp = height_scale * gv * mask * src_strength
 			else:
 				var v := _sample01(x, z, lx * inv_ex, lz * inv_ez, fit, data, lut_w, lut_h)
 				amp = height_scale * (v - height_offset) * mask * src_strength
@@ -594,6 +628,26 @@ func _paint_spline(path: Path3D) -> void:
 			var pos := Vector3(x, 0.0, z)
 			var base_y: float = _base_height_below(pos) if relative_to_terrain else global_position.y
 			vals[row + ix] = amp if add else base_y + amp
+
+	if not stack["gd"].is_empty():
+		var p_amp := PackedFloat64Array()
+		var p_prof := PackedFloat64Array()
+		p_amp.resize(gw * gh)
+		p_prof.resize(gw * gh)
+		var base_below_grid := _base_below_grid(min_x, min_z, vs, gw, gh)
+		for k in range(gw * gh):
+			var cv := vals[k]
+			p_amp[k] = (cv if add else cv - base_below_grid[k]) if is_finite(cv) else NAN
+			p_prof[k] = 1.0
+		var ctx := {
+			"gw": gw, "gh": gh, "min_x": min_x, "min_z": min_z, "vs": vs, "add": add,
+			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
+			"inv_ex": inv_ex, "inv_ez": inv_ez,
+			"fields": fields, "sim_fields": sim_fields, "host_fields": [],
+			"measured": measured, "host_measured": [], "host_div": 1.0,
+		}
+		vals = _run_modifier_stack(stack["gd"], p_amp, p_prof, base_below_grid, ctx)
+		_commit_modifier_caches(stack, extent, [fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
 
 	vals = _blur_grid(vals, gw, gh, smooth_passes)
 
