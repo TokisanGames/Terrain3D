@@ -165,6 +165,16 @@ func _surface_hash(p_surface: PackedFloat32Array, p_hardness: PackedFloat32Array
 
 
 func _solve(p_surface: PackedFloat32Array, p_hardness: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
+	if ClassDB.class_has_method("Pasture3DUtil", "erosion_thermal_solve_grid"):
+		var res: Dictionary = Pasture3DUtil.erosion_thermal_solve_grid(p_surface, p_hardness, p_gw, p_gh,
+				p_rect, talus_angle, iterations, settling_rate)
+		if bool(res.get("ok", false)):
+			return [res["height"], res["talus"]]
+
+	return _solve_gdscript(p_surface, p_hardness, p_gw, p_gh, p_rect)
+
+
+func _solve_gdscript(p_surface: PackedFloat32Array, p_hardness: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
 	var height := p_surface.duplicate()
 	var talus_accum := PackedFloat32Array(); talus_accum.resize(n); talus_accum.fill(0.0)

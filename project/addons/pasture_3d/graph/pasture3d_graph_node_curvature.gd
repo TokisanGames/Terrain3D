@@ -74,6 +74,16 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -
 	if surface.size() != n:
 		surface = Pasture3DGraphOps.zeros(n)
 
+	if ClassDB.class_has_method("Pasture3DUtil", "curvature_grid"):
+		var res: PackedFloat32Array = Pasture3DUtil.curvature_grid(surface, p_gw, p_gh, int(mode), radius, contrast)
+		if res.size() == n:
+			return res
+
+	return _eval_grid_gdscript(surface, p_gw, p_gh)
+
+
+func _eval_grid_gdscript(surface: PackedFloat32Array, p_gw: int, p_gh: int) -> PackedFloat32Array:
+	var n := p_gw * p_gh
 	var result := PackedFloat32Array()
 	result.resize(n)
 	result.fill(0.0)

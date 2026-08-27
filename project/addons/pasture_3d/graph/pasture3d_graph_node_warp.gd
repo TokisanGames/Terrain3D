@@ -111,6 +111,23 @@ func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
 	return base_in + generated_h
 
 
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	var n := p_gw * p_gh
+	var in_grid: PackedFloat32Array
+	if p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array and (p_inputs[0] as PackedFloat32Array).size() == n:
+		in_grid = p_inputs[0]
+	else:
+		in_grid = Pasture3DGraphOps.zeros(n)
+
+	if ClassDB.class_has_method("Pasture3DUtil", "warp_grid"):
+		var res: PackedFloat32Array = Pasture3DUtil.warp_grid(in_grid, p_gw, p_gh, p_rect, int(warp_type),
+				frequency, strength, octaves, amplitude, roughness, seed)
+		if res.size() == n:
+			return res
+
+	return super.eval_grid(p_inputs, p_gw, p_gh, _p_mask, p_rect)
+
+
 func node_warnings() -> PackedStringArray:
 	var w := PackedStringArray()
 	if is_zero_approx(strength) and is_zero_approx(amplitude):

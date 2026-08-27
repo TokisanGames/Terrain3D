@@ -80,6 +80,17 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	else:
 		mask = Pasture3DGraphOps.filled(n, 1.0)
 
+	if ClassDB.class_has_method("Pasture3DUtil", "talus_projection_grid"):
+		var res: PackedFloat32Array = Pasture3DUtil.talus_projection_grid(in_grid, mask, p_gw, p_gh, p_rect,
+				talus_angle_deg, iterations, transfer_rate, amount)
+		if res.size() == n:
+			return res
+
+	return _eval_grid_gdscript(in_grid, mask, p_gw, p_gh, p_rect)
+
+
+func _eval_grid_gdscript(in_grid: PackedFloat32Array, mask: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> PackedFloat32Array:
+	var n := p_gw * p_gh
 	var h := in_grid.duplicate()
 	var dx := p_rect.size.x / maxf(float(p_gw - 1), 1.0) if (p_rect.size.x > 0.0 and p_gw > 1) else 2.0
 	var dz := p_rect.size.y / maxf(float(p_gh - 1), 1.0) if (p_rect.size.y > 0.0 and p_gh > 1) else 2.0

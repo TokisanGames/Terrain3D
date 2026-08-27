@@ -98,6 +98,17 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -
 	else:
 		mask = Pasture3DGraphOps.filled(n, 1.0)
 
+	if ClassDB.class_has_method("Pasture3DUtil", "spectral_equalizer_grid"):
+		var res: PackedFloat32Array = Pasture3DUtil.spectral_equalizer_grid(in_grid, mask, p_gw, p_gh,
+				macro_gain, meso_gain, micro_gain, macro_passes, meso_passes, amount)
+		if res.size() == n:
+			return res
+
+	return _eval_grid_gdscript(in_grid, mask, p_gw, p_gh)
+
+
+func _eval_grid_gdscript(in_grid: PackedFloat32Array, mask: PackedFloat32Array, p_gw: int, p_gh: int) -> PackedFloat32Array:
+	var n := p_gw * p_gh
 	var p_meso := mini(meso_passes, macro_passes)
 	var p_macro := maxi(macro_passes, meso_passes)
 

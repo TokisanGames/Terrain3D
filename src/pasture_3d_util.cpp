@@ -9,14 +9,18 @@
 #include <godot_cpp/classes/time.hpp>
 
 #include "logger.h"
+#include "pasture_3d_curvature.h"
 #include "pasture_3d_depression_filling.h"
 #include "pasture_3d_erosion.h"
 #include "pasture_3d_erosion_hydraulic.h"
+#include "pasture_3d_erosion_thermal.h"
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_lake_flooding.h"
+#include "pasture_3d_spectral_equalizer.h"
 #include "pasture_3d_stream_extraction.h"
 #include "pasture_3d_util.h"
+#include "pasture_3d_warp.h"
 
 ///////////////////////////
 // Private Functions
@@ -1286,6 +1290,40 @@ Dictionary Pasture3DUtil::stream_extraction_grid(const PackedFloat32Array &p_sur
 	return res.to_dict();
 }
 
+Dictionary Pasture3DUtil::erosion_thermal_solve_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_hardness,
+		const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
+		const int p_iterations, const double p_settling_rate) {
+	godot::ErosionThermalResult res = godot::erosion_thermal_solve(p_surface, p_hardness, p_gw, p_gh, p_rect,
+			p_talus_angle_deg, p_iterations, p_settling_rate);
+	return res.to_dict();
+}
+
+PackedFloat32Array Pasture3DUtil::talus_projection_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
+		const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
+		const int p_iterations, const double p_transfer_rate, const double p_amount) {
+	return godot::talus_projection_solve(p_surface, p_mask, p_gw, p_gh, p_rect, p_talus_angle_deg,
+			p_iterations, p_transfer_rate, p_amount);
+}
+
+PackedFloat32Array Pasture3DUtil::spectral_equalizer_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
+		const int p_gw, const int p_gh, const double p_macro_gain, const double p_meso_gain,
+		const double p_micro_gain, const int p_macro_passes, const int p_meso_passes, const double p_amount) {
+	return godot::spectral_equalizer_solve(p_surface, p_mask, p_gw, p_gh, p_macro_gain, p_meso_gain,
+			p_micro_gain, p_macro_passes, p_meso_passes, p_amount);
+}
+
+PackedFloat32Array Pasture3DUtil::curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+		const int p_mode, const int p_radius, const double p_contrast) {
+	return godot::curvature_solve(p_surface, p_gw, p_gh, (godot::CurvatureMode)p_mode, p_radius, p_contrast);
+}
+
+PackedFloat32Array Pasture3DUtil::warp_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const int p_warp_type, const double p_frequency, const double p_strength,
+		const int p_octaves, const double p_amplitude, const double p_roughness, const int p_seed) {
+	return godot::warp_solve_grid(p_surface, p_gw, p_gh, p_rect, (godot::WarpNoiseType)p_warp_type,
+			p_frequency, p_strength, p_octaves, p_amplitude, p_roughness, p_seed);
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1375,4 +1413,20 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("stream_extraction_grid", "surface", "gw", "gh", "rect", "min_catchment_cells", "carve_depth", "channel_width", "bank_falloff"),
 			&Pasture3DUtil::stream_extraction_grid);
+	// Terrain graph — Geomorphology & Structural Shaping (Thermal Erosion, Talus Projection, Spectral Equalizer, Curvature, Warp).
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("erosion_thermal_solve_grid", "surface", "hardness", "gw", "gh", "rect", "talus_angle_deg", "iterations", "settling_rate"),
+			&Pasture3DUtil::erosion_thermal_solve_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("talus_projection_grid", "surface", "mask", "gw", "gh", "rect", "talus_angle_deg", "iterations", "transfer_rate", "amount"),
+			&Pasture3DUtil::talus_projection_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("spectral_equalizer_grid", "surface", "mask", "gw", "gh", "macro_gain", "meso_gain", "micro_gain", "macro_passes", "meso_passes", "amount"),
+			&Pasture3DUtil::spectral_equalizer_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("curvature_grid", "surface", "gw", "gh", "mode", "radius", "contrast"),
+			&Pasture3DUtil::curvature_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("warp_grid", "surface", "gw", "gh", "rect", "warp_type", "frequency", "strength", "octaves", "amplitude", "roughness", "seed"),
+			&Pasture3DUtil::warp_grid);
 }

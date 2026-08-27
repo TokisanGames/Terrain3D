@@ -156,6 +156,30 @@ public:
 			const Rect2 &p_rect, const double p_min_catchment_cells, const double p_carve_depth,
 			const double p_channel_width, const double p_bank_falloff);
 
+	// Native Thermal Erosion solver. Returns { ok:bool, height, talus }.
+	static Dictionary erosion_thermal_solve_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_hardness,
+			const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
+			const int p_iterations, const double p_settling_rate);
+
+	// Native Angle-of-Repose Talus Projection filter.
+	static PackedFloat32Array talus_projection_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
+			const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
+			const int p_iterations, const double p_transfer_rate, const double p_amount);
+
+	// Native 3-Band Spatial Spectral Equalizer filter.
+	static PackedFloat32Array spectral_equalizer_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
+			const int p_gw, const int p_gh, const double p_macro_gain, const double p_meso_gain,
+			const double p_micro_gain, const int p_macro_passes, const int p_meso_passes, const double p_amount);
+
+	// Native Curvature Discrete Laplacian filter.
+	static PackedFloat32Array curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+			const int p_mode, const int p_radius, const double p_contrast);
+
+	// Native Warp Coordinate Distortion Evaluator.
+	static PackedFloat32Array warp_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const int p_warp_type, const double p_frequency, const double p_strength,
+			const int p_octaves, const double p_amplitude, const double p_roughness, const int p_seed);
+
 protected:
 	static void _bind_methods();
 };
