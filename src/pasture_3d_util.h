@@ -129,6 +129,18 @@ public:
 	static Dictionary erosion_solve_grid(const PackedFloat32Array &p_z, const int p_gw, const int p_gh,
 			const double p_cell_size, const Dictionary &p_params, const PackedFloat32Array &p_erodability);
 
+	// Native Hydraulic Erosion solver (hydrodynamic shallow-water). Returns { ok:bool, height, sediment, flow }.
+	static Dictionary erosion_hydraulic_solve_grid(const PackedFloat32Array &p_surface, const int p_gw,
+			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+
+	// GPU-accelerated Hydraulic Erosion solver (RenderingDevice compute shader). Returns { ok:bool, height, sediment, flow } or { ok:false }.
+	static Dictionary erosion_hydraulic_solve_grid_gpu(const PackedFloat32Array &p_surface, const int p_gw,
+			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+
+	// Automatic 3-tier best Hydraulic Erosion solver (GPU -> C++ -> GDScript fallback).
+	static Dictionary erosion_hydraulic_solve_grid_best(const PackedFloat32Array &p_surface, const int p_gw,
+			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+
 protected:
 	static void _bind_methods();
 };

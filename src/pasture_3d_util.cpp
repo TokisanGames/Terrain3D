@@ -10,6 +10,7 @@
 
 #include "logger.h"
 #include "pasture_3d_erosion.h"
+#include "pasture_3d_erosion_hydraulic.h"
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_util.h"
@@ -1233,6 +1234,33 @@ Dictionary Pasture3DUtil::erosion_solve_grid(const PackedFloat32Array &p_z, cons
 	return out;
 }
 
+Dictionary Pasture3DUtil::erosion_hydraulic_solve_grid(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::ErosionHydraulicParams params = godot::ErosionHydraulicParams::from_dict(p_params);
+	godot::ErosionHydraulicResult res = godot::erosion_hydraulic_solve(p_surface, p_gw, p_gh, p_rect, params);
+	return res.to_dict();
+}
+
+Dictionary Pasture3DUtil::erosion_hydraulic_solve_grid_gpu(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	static Pasture3DGraphGPU s_gpu;
+	godot::ErosionHydraulicParams params = godot::ErosionHydraulicParams::from_dict(p_params);
+	godot::ErosionHydraulicResult res;
+	if (s_gpu.eval_hydraulic(p_surface, p_gw, p_gh, p_rect, params, res)) {
+		return res.to_dict();
+	}
+	Dictionary d;
+	d["ok"] = false;
+	return d;
+}
+
+Dictionary Pasture3DUtil::erosion_hydraulic_solve_grid_best(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::ErosionHydraulicParams params = godot::ErosionHydraulicParams::from_dict(p_params);
+	godot::ErosionHydraulicResult res = godot::erosion_hydraulic_solve_best(p_surface, p_gw, p_gh, p_rect, params);
+	return res.to_dict();
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1302,4 +1330,14 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("erosion_solve_grid", "z", "gw", "gh", "cell_size", "params", "erodability"),
 			&Pasture3DUtil::erosion_solve_grid);
+	// Terrain graph — Hydraulic Erosion solver (C++ native, GPU, and best 3-tier router).
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("erosion_hydraulic_solve_grid", "surface", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::erosion_hydraulic_solve_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("erosion_hydraulic_solve_grid_gpu", "surface", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::erosion_hydraulic_solve_grid_gpu);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("erosion_hydraulic_solve_grid_best", "surface", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::erosion_hydraulic_solve_grid_best);
 }

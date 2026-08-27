@@ -177,11 +177,50 @@ func _surface_hash(p_surface: PackedFloat32Array, p_gw: int, p_gh: int) -> int:
 
 
 func _solve(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
+	var params := {
+		"iterations": iterations,
+		"rain_rate": rain_rate,
+		"evaporation_rate": evaporation_rate,
+		"sediment_capacity": sediment_capacity,
+		"erosion_speed": erosion_speed,
+		"deposition_speed": deposition_speed,
+		"min_slope": min_slope,
+	}
+	if ClassDB.class_has_method("Pasture3DUtil", "erosion_hydraulic_solve_grid_best"):
+		var res: Dictionary = Pasture3DUtil.erosion_hydraulic_solve_grid_best(p_surface, p_gw, p_gh, p_rect, params)
+		if bool(res.get("ok", false)):
+			return [res["height"], res["sediment"], res["flow"]]
+	return _solve_gdscript(p_surface, p_gw, p_gh, p_rect)
+
+
+func _solve_gdscript(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
+	var params := {
+		"iterations": iterations,
+		"rain_rate": rain_rate,
+		"evaporation_rate": evaporation_rate,
+		"sediment_capacity": sediment_capacity,
+		"erosion_speed": erosion_speed,
+		"deposition_speed": deposition_speed,
+		"min_slope": min_slope,
+	}
+	return solve_oracle(p_surface, p_gw, p_gh, p_rect, params)
+
+
+## Tier 1 GDScript reference oracle for parity testing and baseline comparison.
+static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_params: Dictionary) -> Array:
 	var n := p_gw * p_gh
 	var height := p_surface.duplicate()
 	var sediment := PackedFloat32Array(); sediment.resize(n); sediment.fill(0.0)
 	var water := PackedFloat32Array(); water.resize(n); water.fill(0.0)
 	var flow_accum := PackedFloat32Array(); flow_accum.resize(n); flow_accum.fill(0.0)
+
+	var p_iterations: int = maxi(int(p_params.get("iterations", 25)), 1)
+	var p_rain: float = maxf(float(p_params.get("rain_rate", 0.05)), 0.0)
+	var p_evap: float = clampf(float(p_params.get("evaporation_rate", 0.02)), 0.0, 1.0)
+	var p_cap: float = maxf(float(p_params.get("sediment_capacity", 8.0)), 0.0)
+	var p_ero_spd: float = clampf(float(p_params.get("erosion_speed", 0.5)), 0.0, 1.0)
+	var p_dep_spd: float = clampf(float(p_params.get("deposition_speed", 0.4)), 0.0, 1.0)
+	var p_min_slope: float = maxf(float(p_params.get("min_slope", 0.01)), 0.0)
 
 	var dx: float = p_rect.size.x / float(maxi(p_gw, 1))
 	var dz: float = p_rect.size.y / float(maxi(p_gh, 1))
@@ -191,12 +230,12 @@ func _solve(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) 
 	var n_dz: Array[int] = [0, 0, -1, 1]
 	var n_dist: Array[float] = [dx, dx, dz, dz]
 
-	for _pass in range(iterations):
+	for _pass in range(p_iterations):
 		# 1. Rain
 		for i in range(n):
 			if is_finite(height[i]):
-				water[i] += rain_rate
-				flow_accum[i] += rain_rate
+				water[i] += p_rain
+				flow_accum[i] += p_rain
 
 		var next_water := water.duplicate()
 		var next_sediment := sediment.duplicate()
@@ -239,10 +278,10 @@ func _solve(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) 
 				if total_diff > 0.0:
 					# Fluvial stream power capacity:
 					# Scales with slope gradient, water volume, and upstream drainage area
-					var eff_slope: float = maxf(max_slope, min_slope)
+					var eff_slope: float = maxf(max_slope, p_min_slope)
 					var vel: float = sqrt(clampf(eff_slope * cell_dist, 0.05, 50.0))
 					var flow_factor: float = log(1.0 + flow_accum[i] * 10.0) + 1.0
-					var cap: float = sediment_capacity * eff_slope * vel * w_c * flow_factor * 0.5
+					var cap: float = p_cap * eff_slope * vel * w_c * flow_factor * 0.5
 
 					var sed_c: float = sediment[i]
 					# Maximum allowable cut bounded strictly to fraction of downhill drop
@@ -250,11 +289,11 @@ func _solve(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) 
 					var max_dep: float = min_downhill_diff * 0.4
 
 					if sed_c < cap:
-						var erode_amt: float = clampf((cap - sed_c) * erosion_speed * 0.4, 0.0, max_erode)
+						var erode_amt: float = clampf((cap - sed_c) * p_ero_spd * 0.4, 0.0, max_erode)
 						next_height[i] -= erode_amt
 						sed_c += erode_amt
 					elif sed_c > cap:
-						var dep_amt: float = clampf((sed_c - cap) * deposition_speed * 0.4, 0.0, max_dep)
+						var dep_amt: float = clampf((sed_c - cap) * p_dep_spd * 0.4, 0.0, max_dep)
 						next_height[i] += dep_amt
 						sed_c -= dep_amt
 
@@ -278,7 +317,7 @@ func _solve(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) 
 		# 3. Evaporation
 		for i in range(n):
 			if is_finite(next_height[i]):
-				next_water[i] *= (1.0 - evaporation_rate)
+				next_water[i] *= (1.0 - p_evap)
 
 		water = next_water
 		sediment = next_sediment

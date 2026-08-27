@@ -3,22 +3,15 @@
 
 // GPU backend for the terrain graph (PASTURE3D_TERRAIN_GRAPH_SPEC.md §6, the RenderingDevice path).
 //
-// Owns a *local* RenderingDevice and one compute shader that runs the graph's GRID passes — Blend, Smooth
-// (the NaN-aware separable blur), and Output — over resident storage buffers, one buffer per node, with a
-// single readback of the output at the end. The GENERATORS (Input, Noise, Const) are evaluated on the CPU
-// and uploaded: FastNoiseLite cannot be reproduced in GLSL to the parity tolerance, so the noise is the
-// exact same bytes graph_eval_grid computes, and only the grid arithmetic moves to the GPU. That is where
-// the win is anyway — Smooth is multi-pass, and future grid nodes (erosion) are the expensive ones.
-//
-// The CPU whole-graph evaluator (graph_eval_grid, pasture_3d_graph_ops) is the A/B oracle: this must match
-// it within a documented epsilon (GraphGpuParityGate, run NON-headless — the dummy headless driver has no
-// local RenderingDevice). Self-contained and side-effect-free; the caller falls back to the CPU path when
-// `available()` is false or `eval_grid` returns false (three-tier GPU -> C++ -> GDScript, as the SDF raster).
+// Owns a *local* RenderingDevice and compute shaders that run the graph's GRID passes — Blend, Smooth
+// (the NaN-aware separable blur), Output, and Hydrodynamic Hydraulic Erosion — over resident storage buffers,
+// with minimal host-device roundtrips.
 
 #include <godot_cpp/classes/rendering_device.hpp>
 #include <godot_cpp/variant/packed_float32_array.hpp>
 #include <godot_cpp/variant/rect2.hpp>
 
+#include "pasture_3d_erosion_hydraulic.h"
 #include "pasture_3d_graph_ops.h"
 
 using namespace godot;
@@ -37,13 +30,21 @@ public:
 	bool eval_grid(const godot::GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
 			const PackedFloat32Array &p_input, PackedFloat32Array &r_out);
 
+	// Evaluate hydraulic erosion on the GPU using ping-pong SSBO buffers. Returns true on success.
+	bool eval_hydraulic(const PackedFloat32Array &p_surface, int p_gw, int p_gh, const Rect2 &p_rect,
+			const ErosionHydraulicParams &p_params, ErosionHydraulicResult &r_out);
+
 private:
 	RenderingDevice *_rd = nullptr;
 	RID _shader;
 	RID _pipeline;
+	RID _shader_hydraulic;
+	RID _pipeline_hydraulic;
 	bool _init_failed = false;
+	bool _init_hydraulic_failed = false;
 
 	bool _ensure_init();
+	bool _ensure_init_hydraulic();
 };
 
 namespace godot {
@@ -59,6 +60,10 @@ int graph_gpu_threshold();
 // raster uses. One persistent Pasture3DGraphGPU, so the shader compiles once across bakes.
 PackedFloat32Array graph_eval_grid_best(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
 		const PackedFloat32Array &p_input);
+
+// Production hydraulic erosion solver: GPU accelerated when available and >= threshold, else native C++.
+ErosionHydraulicResult erosion_hydraulic_solve_best(const PackedFloat32Array &p_surface,
+		int p_gw, int p_gh, const Rect2 &p_rect, const ErosionHydraulicParams &p_params);
 
 } // namespace godot
 
