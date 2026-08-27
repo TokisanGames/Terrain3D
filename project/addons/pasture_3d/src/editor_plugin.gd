@@ -9,6 +9,7 @@ const Pasture3DUI: Script = preload("res://addons/pasture_3d/src/ui.gd")
 const Pasture3DLayersDock: Script = preload("res://addons/pasture_3d/src/layers_dock.gd")
 const Pasture3DBrushGizmo: Script = preload("res://addons/pasture_3d/src/brush_gizmo.gd")
 const Pasture3DPoolGizmo: Script = preload("res://addons/pasture_3d/src/pool_gizmo.gd")
+const ReliefFractalScript: Script = preload("res://addons/pasture_3d/connectors/pasture3d_relief_fractal.gd")
 const ASSET_DOCK: String = "res://addons/pasture_3d/src/asset_dock.tscn"
 const ASSET_DOCK_45: String = "res://addons/pasture_3d/src/asset_dock_45.tscn"
 

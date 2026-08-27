@@ -30,6 +30,7 @@ enum ScatterBlend { STRONGEST, ADD, MAX, MIN }
 # relief goes up AND down. Cap the LUT resolution: terrain relief never needs more than this per tile,
 # and it keeps the per-bake image read fast regardless of source texture size.
 const _LUT_MAX := 256
+const ReliefFractalScript: Script = preload("res://addons/pasture_3d/connectors/pasture3d_relief_fractal.gd")
 
 @export_group("Relief")
 ## Which displacement source deforms the ground (see spec §3). The matching input appears just below.
@@ -464,16 +465,20 @@ func _paint_spline(path: Path3D) -> void:
 	var graph_grid := PackedFloat32Array()
 	if source == Source.NOISE:
 		if noise == null:
-			return
+			noise = FastNoiseLite.new()
 	elif source == Source.GRAPH:
 		if graph == null:
-			return
+			graph = Pasture3DTerrainGraph.new()
+			var gp := Pasture3DGraphNodeGeologicalPrimitive.new()
+			gp.height = 40.0
+			graph.nodes = [gp]
+			graph.output_node = 0
 		var rect := Rect2(min_x, min_z, maxf((gw - 1) * vs, 1.0), maxf((gh - 1) * vs, 1.0))
 		var base_for_graph: PackedFloat32Array = _base_below_grid(min_x, min_z, vs, gw, gh) if (relative_to_terrain or graph.reads_input()) else PackedFloat32Array()
 		graph_grid = graph.evaluate(gw, gh, rect, null, base_for_graph)
 	elif source == Source.RELIEF:
 		if relief == null:
-			return
+			relief = ReliefFractalScript.new()
 		# SCATTER evaluates each instance in its OWN radius-normalised frame — a disc, whatever shape the
 		# loop is — so a baked field there must be grown round. Under TILE and FIT the loop's rectangle is
 		# the frame, and its proportions are what the field has to match.
