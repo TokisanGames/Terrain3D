@@ -202,6 +202,12 @@ func _raise_inverted() -> bool:
 	return false
 
 
+func _init() -> void:
+	super._init()
+	if noise == null:
+		noise = FastNoiseLite.new()
+
+
 func _min_points() -> int:
 	return 3
 

@@ -534,7 +534,10 @@ func _instantiate_placement_brush() -> Node3D:
 ## reason. See PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md §11.
 func _apply_placement_defaults(node: Node3D) -> void:
 	if node is Pasture3DPlow:
-		(node as Pasture3DPlow).source = Pasture3DPlow.Source.RELIEF
+		var plow := node as Pasture3DPlow
+		plow.source = Pasture3DPlow.Source.RELIEF
+		if plow.relief == null:
+			plow.relief = Pasture3DReliefFractal.new()
 
 
 ## Place a new landscape brush at `world_pos`, as ONE undoable action: do = add the node under the
