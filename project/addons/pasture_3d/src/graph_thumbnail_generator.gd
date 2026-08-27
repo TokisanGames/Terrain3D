@@ -97,7 +97,7 @@ static func generate_thumbnail(p_graph: Pasture3DTerrainGraph, p_node_index: int
 	var field := PackedFloat32Array()
 	field.resize(n)
 	
-	if node.role() == Pasture3DGraphNode.Role.GENERATOR and node.input_count() == 0 and node.op() != &"input":
+	if node.role() == Pasture3DGraphNode.Role.GENERATOR and node.input_count() == 0 and node.op() != &"input" and not node.needs_grid():
 		# Pure generator: evaluate directly cell by cell
 		for iz in range(h):
 			var row := iz * w

@@ -160,8 +160,12 @@ func _profile_at(d: float, norm_x: float) -> float:
 		PrimitiveType.INSELBERG:
 			if d >= 1.0:
 				return 0.0
-			var dome := pow(cos(d * PI * 0.5), steepness)
-			return height * dome
+			# Monolithic bornhardt / inselberg:
+			# Broad rounded bedrock summit, steep sheer cliff walls, and a concave basal pediment skirt.
+			var cliff_r := 0.55
+			var cliff := 1.0 / (1.0 + pow(d / cliff_r, 2.5 * maxf(steepness, 0.2)))
+			var pediment := smoothstep(1.0, 0.75, d)
+			return height * (cliff * pediment)
 
 		PrimitiveType.VOLCANIC_CALDERA:
 			if d >= 1.0:
