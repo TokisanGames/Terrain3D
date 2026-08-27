@@ -7,8 +7,7 @@
 # METRIC domain and range (matching the Terrace node's height-domain model): the input window
 # [input_min, input_max] metres maps onto the curve's X in [0, 1], the curve's Y in [0, 1] maps back onto
 # [output_min, output_max] metres, and `amount` cross-fades input against the remap. Values outside the
-# input window clamp to the window edges. This is the graph-native counterpart of the relief CURVE op,
-# which remaps a normalised accumulator — here it remaps metres, so it needs an explicit window.
+# input window clamp to the window edges.
 @tool
 class_name Pasture3DGraphNodeCurve
 extends Pasture3DGraphNode
@@ -29,11 +28,20 @@ extends Pasture3DGraphNode
 	set(v):
 		input_min = v
 		emit_changed()
+
+var in_min: float:
+	get: return input_min
+	set(v): input_min = v
+
 ## Input height mapped to the curve's right edge (X = 1).
 @export var input_max: float = 100.0:
 	set(v):
 		input_max = v
 		emit_changed()
+
+var in_max: float:
+	get: return input_max
+	set(v): input_max = v
 
 @export_group("Output range (curve Y → metres)")
 ## Height the curve's Y = 0 maps to.
@@ -41,17 +49,34 @@ extends Pasture3DGraphNode
 	set(v):
 		output_min = v
 		emit_changed()
+
+var out_min: float:
+	get: return output_min
+	set(v): output_min = v
+
 ## Height the curve's Y = 1 maps to.
 @export var output_max: float = 100.0:
 	set(v):
 		output_max = v
 		emit_changed()
 
+var out_max: float:
+	get: return output_max
+	set(v): output_max = v
+
 ## Cross-fade between the input (0) and the remapped field (1).
 @export_range(0.0, 1.0, 0.01) var amount: float = 1.0:
 	set(v):
 		amount = clampf(v, 0.0, 1.0)
 		emit_changed()
+
+@export_tool_button("Auto Fit Range") var _auto_btn = auto_fit_range
+
+
+func auto_fit_range(p_min: float = 0.0, p_max: float = 100.0) -> void:
+	input_min = p_min
+	input_max = p_max
+	emit_changed()
 
 
 func op() -> StringName:

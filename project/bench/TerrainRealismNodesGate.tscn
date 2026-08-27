@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/TerrainRealismNodesGate.gd" id="1_trng"]
+
+[node name="TerrainRealismNodesGate" type="Node"]
+script = ExtResource("1_trng")
