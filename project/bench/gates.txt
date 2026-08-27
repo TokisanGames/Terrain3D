@@ -181,11 +181,17 @@ bench/GraphDepressionGate.tscn
 bench/GraphLakeSolverGate.tscn
 bench/GraphStreamExtractionGate.tscn
 
+# --- Terrain graph, macro geological primitives: Inselberg, Caldera, Cuesta (PASTURE3D_TERRAIN_GRAPH_EXPANSION_SPEC.md) ---
+# Tests parametric macro-landform generators, radial boundary decays, crater depressions, structural asymmetry,
+# and cell-node fold parity.
+bench/GraphGeologicalPrimitiveGate.tscn
+
 # --- Terrain graph, high-fidelity terrain generation and shaping nodes suite ---
 bench/TerrainRealismNodesGate.tscn
 
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 bench/PondWaterOffsetCheck.tscn
+
 
 
 

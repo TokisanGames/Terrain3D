@@ -16,6 +16,7 @@ const ConstScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_
 const FurrowsScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_furrows.gd")
 const DunesScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dunes.gd")
 const CraterScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_crater.gd")
+const GeologicalPrimitiveScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_geological_primitive.gd")
 const BlendScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_blend.gd")
 const SmoothScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_smooth.gd")
 const TalusProjectionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_talus_projection.gd")
@@ -51,6 +52,7 @@ static func entries() -> Array[Dictionary]:
 		{"op": &"furrows", "title": "Furrows", "role": "Generator", "script": FurrowsScript, "tags": ["ridges", "grooves", "stripes", "waves", "corrugation"], "description": "Directional corrugated ridge and furrow waves."},
 		{"op": &"dunes", "title": "Dunes", "role": "Generator", "script": DunesScript, "tags": ["sand", "wind", "waves", "desert"], "description": "Asymmetric sand dune wave patterns."},
 		{"op": &"crater", "title": "Crater", "role": "Generator", "script": CraterScript, "tags": ["meteor", "hole", "impact", "ring", "caldera"], "description": "Impact crater with raised rim and central cavity."},
+		{"op": &"geological_primitive", "title": "Geological Primitive", "role": "Generator", "script": GeologicalPrimitiveScript, "tags": ["inselberg", "monadnock", "bornhardt", "caldera", "volcano", "dome", "cuesta", "badlands", "primitive", "landform", "macro"], "description": "Parametric macro geological landforms: solitary inselberg domes, volcanic calderas, and cuesta badland ridges."},
 		{"op": &"blend", "title": "Blend", "role": "Combiner", "script": BlendScript, "tags": ["math", "add", "sub", "mul", "max", "min", "combine", "mix"], "description": "Combines two input heightfields with math blend modes."},
 		{"op": &"smooth", "title": "Smooth", "role": "Filter", "script": SmoothScript, "tags": ["blur", "gaussian", "average", "filter", "soften"], "description": "Smooths / blurs terrain height variations."},
 		{"op": &"talus_projection", "title": "Talus Projection", "role": "Filter", "script": TalusProjectionScript, "tags": ["talus", "scree", "repose", "cliff", "relaxation", "slope", "angle", "apron", "rubble"], "description": "Relaxes slopes exceeding a critical angle of repose to deposit natural scree aprons."},
