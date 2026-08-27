@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/GraphDepressionGate.gd" id="1_dep"]
+
+[node name="GraphDepressionGate" type="Node"]
+script = ExtResource("1_dep")

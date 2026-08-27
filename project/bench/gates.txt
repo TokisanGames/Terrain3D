@@ -174,10 +174,18 @@ bench/GraphSwissNoiseGate.tscn
 bench/GraphTalusGate.tscn
 bench/GraphSpectralGate.tscn
 
+# --- Terrain graph, hydrology solvers: Depression Filling, Lake Flooding & Stream Extraction (PASTURE3D_TERRAIN_GRAPH_EXPANSION_SPEC.md) ---
+# Tests Priority-Flood depression pit filling, multi-output lake flooding solver with water depth & shoreline
+# channels, and runoff flow routing & channel extraction solver with frozen caching.
+bench/GraphDepressionGate.tscn
+bench/GraphLakeSolverGate.tscn
+bench/GraphStreamExtractionGate.tscn
+
 # --- Terrain graph, high-fidelity terrain generation and shaping nodes suite ---
 bench/TerrainRealismNodesGate.tscn
 
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 bench/PondWaterOffsetCheck.tscn
+
 
 

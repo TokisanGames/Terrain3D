@@ -20,12 +20,15 @@ const BlendScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_
 const SmoothScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_smooth.gd")
 const TalusProjectionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_talus_projection.gd")
 const SpectralEqualizerScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_spectral_equalizer.gd")
+const DepressionFillingScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_depression_filling.gd")
 const TerraceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_terrace.gd")
 const StrataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_strata.gd")
 const CurveScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_curve.gd")
 const RemapScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_remap.gd")
 const MaskScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_mask.gd")
 const CurvatureScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_curvature.gd")
+const LakeFloodingScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_lake_flooding.gd")
+const StreamExtractionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_stream_extraction.gd")
 const ErosionHydraulicScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_erosion_hydraulic.gd")
 const ErosionThermalScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_erosion_thermal.gd")
 const ScreeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_scree.gd")
@@ -52,12 +55,15 @@ static func entries() -> Array[Dictionary]:
 		{"op": &"smooth", "title": "Smooth", "role": "Filter", "script": SmoothScript, "tags": ["blur", "gaussian", "average", "filter", "soften"], "description": "Smooths / blurs terrain height variations."},
 		{"op": &"talus_projection", "title": "Talus Projection", "role": "Filter", "script": TalusProjectionScript, "tags": ["talus", "scree", "repose", "cliff", "relaxation", "slope", "angle", "apron", "rubble"], "description": "Relaxes slopes exceeding a critical angle of repose to deposit natural scree aprons."},
 		{"op": &"spectral_equalizer", "title": "Spectral Equalizer", "role": "Filter", "script": SpectralEqualizerScript, "tags": ["spectral", "equalizer", "frequency", "macro", "meso", "micro", "laplacian", "pyramid", "filter", "detail"], "description": "3-band spatial frequency equalizer for macro mountain mass, meso ridges, and micro crags."},
+		{"op": &"depression_filling", "title": "Depression Filling", "role": "Filter", "script": DepressionFillingScript, "tags": ["depression", "filling", "sink", "pit", "spillway", "planchon", "darboux", "priority", "flood", "hydrology"], "description": "Fills enclosed pits and sinks up to their spillway elevation for monotonic drainage routing."},
 		{"op": &"terrace", "title": "Terrace", "role": "Filter", "script": TerraceScript, "tags": ["steps", "bands", "quantize", "contour", "ledges"], "description": "Quantizes elevation into stepped terraces."},
 		{"op": &"strata", "title": "Strata", "role": "Filter", "script": StrataScript, "tags": ["layers", "geology", "bands", "sediment", "dip", "strike", "cliff"], "description": "Applies tilted geological sedimentary layering to slopes."},
 		{"op": &"curve", "title": "Curve", "role": "Filter", "script": CurveScript, "tags": ["remap", "ramp", "profile", "transfer", "shaping", "spline"], "description": "Remaps input heights through a custom Curve resource."},
 		{"op": &"remap", "title": "Remap", "role": "Filter", "script": RemapScript, "tags": ["remap", "range", "clamp", "softknee", "invert", "scale", "normalize", "shaping"], "description": "Linearly remaps elevation ranges with soft-knee clamping and inversion."},
 		{"op": &"mask", "title": "Mask", "role": "Filter", "script": MaskScript, "tags": ["selector", "slope", "altitude", "weight", "gate"], "description": "Gates height by slope, elevation, or curvature masks."},
 		{"op": &"curvature", "title": "Curvature Mask", "role": "Filter", "script": CurvatureScript, "tags": ["curvature", "convexity", "concavity", "ridge", "valley", "basin", "laplacian", "hessian", "mask", "crests"], "description": "Calculates local terrain convexity/concavity to mask mountain ridges vs valley basins."},
+		{"op": &"lake_flooding", "title": "Lake Flooding", "role": "Solver", "script": LakeFloodingScript, "tags": ["lake", "pond", "water", "basin", "flood", "spillway", "depth", "shoreline", "pool", "hydrology"], "description": "Floods closed basins or fills water levels; outputs lake surface + water depth + shoreline masks and spawns Pasture3DPond bodies."},
+		{"op": &"stream_extraction", "title": "Stream Extraction", "role": "Solver", "script": StreamExtractionScript, "tags": ["stream", "river", "thalweg", "drainage", "catchment", "flow", "runoff", "channel", "carve", "hydrology"], "description": "Calculates surface runoff drainage accumulation, carves riverbeds, and spawns Pasture3DStream splines."},
 		{"op": &"erosion_hydraulic", "title": "Hydraulic Erosion", "role": "Solver", "script": ErosionHydraulicScript, "tags": ["hydraulic", "erosion", "rain", "fluvial", "water", "flow", "sediment", "deposition", "channel", "meander"], "description": "Simulates continuous rainfall, water routing, sediment pickup, transport, and deposition."},
 		{"op": &"erosion_thermal", "title": "Thermal Erosion", "role": "Solver", "script": ErosionThermalScript, "tags": ["thermal", "erosion", "talus", "scree", "weathering", "cliff", "repose", "slippage", "rock"], "description": "Simulates rock weathering and gravitational talus scree accumulation along steep slopes."},
 		{"op": &"scree", "title": "Scree", "role": "Solver", "script": ScreeScript, "tags": ["talus", "rubble", "rock", "slope", "erosion", "deposition"], "description": "Sheds loose rock off steep ground; outputs height + a shed mask."},
