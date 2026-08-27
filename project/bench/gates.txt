@@ -161,8 +161,16 @@ bench/GraphErosionNodeGate.tscn
 # footprint mask gating a Blend. Controls throughout. Small 64^2 grow so it runs fast.
 bench/GraphDLANodeGate.tscn
 
+# --- Terrain graph, advanced fractal noise generators: Jordan & Swiss noise (PASTURE3D_TERRAIN_GRAPH_EXPANSION_SPEC.md) ---
+# Tests derivative-feedback fBm noise (Jordan) and Swiss Alps ridge fractal noise (Swiss): seed
+# determinism, non-zero spatial variance, gradient warp & slope damping control deltas, amplitude scaling
+# linearity, cell-node fold parity, and category metadata invariants.
+bench/GraphJordanNoiseGate.tscn
+bench/GraphSwissNoiseGate.tscn
+
+# --- Terrain graph, high-fidelity terrain generation and shaping nodes suite ---
+bench/TerrainRealismNodesGate.tscn
+
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
-# Watched green 2026-08-23, 8/8. It reaches across three files — the Pond, the Add Water hook on
-# Pasture3DTerrainBrush, and level_to_spline() on Pasture3DWaterBody — so it is the gate that notices
-# if any one of them drifts away from the other two.
 bench/PondWaterOffsetCheck.tscn
+
