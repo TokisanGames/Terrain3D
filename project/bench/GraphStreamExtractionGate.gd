@@ -104,7 +104,8 @@ func _d_frozen_cache() -> void:
 
 	stream.clear_cache()
 	var ch3 := stream.eval_grid_channels([valley], GW, GH, null, RECT)
-	var delta_new := valley[30 * GW + 16] - ch3[0][30 * GW + 16]
+	var carved_h3: PackedFloat32Array = ch3[0]
+	var delta_new: float = float(valley[30 * GW + 16]) - float(carved_h3[30 * GW + 16])
 	print("    carve depth after bake = %.2f m (want > 3.0 m)" % delta_new)
 	if delta_new < 3.0:
 		_fail += 1; print("    !! clear_cache did not re-solve with new carve depth")

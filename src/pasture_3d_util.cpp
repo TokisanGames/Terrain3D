@@ -9,10 +9,13 @@
 #include <godot_cpp/classes/time.hpp>
 
 #include "logger.h"
+#include "pasture_3d_depression_filling.h"
 #include "pasture_3d_erosion.h"
 #include "pasture_3d_erosion_hydraulic.h"
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
+#include "pasture_3d_lake_flooding.h"
+#include "pasture_3d_stream_extraction.h"
 #include "pasture_3d_util.h"
 
 ///////////////////////////
@@ -1261,6 +1264,28 @@ Dictionary Pasture3DUtil::erosion_hydraulic_solve_grid_best(const PackedFloat32A
 	return res.to_dict();
 }
 
+PackedFloat32Array Pasture3DUtil::depression_filling_grid(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const double p_epsilon_slope, const double p_fill_depth_limit,
+		const double p_amount) {
+	return godot::depression_filling_solve(p_surface, p_gw, p_gh, p_rect, p_epsilon_slope, p_fill_depth_limit, p_amount);
+}
+
+Dictionary Pasture3DUtil::lake_flooding_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const int p_flood_mode, const double p_water_elevation,
+		const double p_flood_percent, const double p_shoreline_width) {
+	godot::LakeFloodingResult res = godot::lake_flooding_solve(p_surface, p_gw, p_gh, p_rect,
+			(godot::LakeFloodMode)p_flood_mode, p_water_elevation, p_flood_percent, p_shoreline_width);
+	return res.to_dict();
+}
+
+Dictionary Pasture3DUtil::stream_extraction_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const double p_min_catchment_cells, const double p_carve_depth,
+		const double p_channel_width, const double p_bank_falloff) {
+	godot::StreamExtractionResult res = godot::stream_extraction_solve(p_surface, p_gw, p_gh, p_rect,
+			p_min_catchment_cells, p_carve_depth, p_channel_width, p_bank_falloff);
+	return res.to_dict();
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1340,4 +1365,14 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("erosion_hydraulic_solve_grid_best", "surface", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::erosion_hydraulic_solve_grid_best);
+	// Terrain graph — Hydrology solvers (Depression Filling, Lake Flooding, Stream Extraction).
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("depression_filling_grid", "surface", "gw", "gh", "rect", "epsilon_slope", "fill_depth_limit", "amount"),
+			&Pasture3DUtil::depression_filling_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("lake_flooding_grid", "surface", "gw", "gh", "rect", "flood_mode", "water_elevation", "flood_percent", "shoreline_width"),
+			&Pasture3DUtil::lake_flooding_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("stream_extraction_grid", "surface", "gw", "gh", "rect", "min_catchment_cells", "carve_depth", "channel_width", "bank_falloff"),
+			&Pasture3DUtil::stream_extraction_grid);
 }

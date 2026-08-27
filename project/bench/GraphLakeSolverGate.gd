@@ -103,6 +103,7 @@ func _d_frozen_cache() -> void:
 	print("[D] Frozen cache and Bake operation")
 	var bed := _make_bowl_grid(GW, GH, 0.0, 20.0)
 	var lake := Pasture3DGraphNodeLakeFlooding.new()
+	lake.flood_mode = Pasture3DGraphNodeLakeFlooding.FloodMode.GLOBAL_ELEVATION
 	lake.evaluation = Pasture3DGraphNodeLakeFlooding.Evaluation.FROZEN
 	lake.water_elevation = 10.0
 

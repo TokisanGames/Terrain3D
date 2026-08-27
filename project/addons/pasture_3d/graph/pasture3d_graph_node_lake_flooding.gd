@@ -151,6 +151,22 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> 
 # ---- Solver Logic ----------------------------------------------------------------------------------
 
 func _solve(p_h: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
+	_last_water_level = water_elevation if flood_mode == FloodMode.GLOBAL_ELEVATION else 0.0
+	if ClassDB.class_has_method("Pasture3DUtil", "lake_flooding_grid"):
+		var res: Dictionary = Pasture3DUtil.lake_flooding_grid(p_h, p_gw, p_gh, p_rect, int(flood_mode),
+				water_elevation, flood_percent, shoreline_width)
+		if bool(res.get("ok", false)):
+			_last_lake_polys.clear()
+			var polys: Array = res.get("contours", [])
+			for poly in polys:
+				if poly is PackedVector2Array:
+					_last_lake_polys.append(poly)
+			return [res["height"], res["water_depth"], res["shoreline"]]
+
+	return _solve_gdscript(p_h, p_gw, p_gh, p_rect)
+
+
+func _solve_gdscript(p_h: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
 	var out_h := PackedFloat32Array()
 	var out_depth := PackedFloat32Array()

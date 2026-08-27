@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://df728362bca98"]
+
+[ext_resource type="Script" path="res://bench/GraphHydrologyAccelerationGate.gd" id="1_hydrology"]
+
+[node name="GraphHydrologyAccelerationGate" type="Node"]
+script = ExtResource("1_hydrology")

@@ -141,6 +141,21 @@ public:
 	static Dictionary erosion_hydraulic_solve_grid_best(const PackedFloat32Array &p_surface, const int p_gw,
 			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
 
+	// Native Priority-Flood depression filling filter.
+	static PackedFloat32Array depression_filling_grid(const PackedFloat32Array &p_surface, const int p_gw,
+			const int p_gh, const Rect2 &p_rect, const double p_epsilon_slope, const double p_fill_depth_limit,
+			const double p_amount);
+
+	// Native Lake Flooding & Shoreline extraction solver. Returns { ok:bool, height, water_depth, shoreline, contours }.
+	static Dictionary lake_flooding_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const int p_flood_mode, const double p_water_elevation,
+			const double p_flood_percent, const double p_shoreline_width);
+
+	// Native Stream Extraction & Thalweg routing solver. Returns { ok:bool, height, channel_mask, flow_rate, stream_points }.
+	static Dictionary stream_extraction_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const double p_min_catchment_cells, const double p_carve_depth,
+			const double p_channel_width, const double p_bank_falloff);
+
 protected:
 	static void _bind_methods();
 };

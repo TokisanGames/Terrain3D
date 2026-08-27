@@ -63,6 +63,17 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	if is_zero_approx(amount):
 		return in_grid.duplicate()
 
+	if ClassDB.class_has_method("Pasture3DUtil", "depression_filling_grid"):
+		var res: PackedFloat32Array = Pasture3DUtil.depression_filling_grid(in_grid, p_gw, p_gh, p_rect,
+				epsilon_slope, fill_depth_limit, amount)
+		if res.size() == n:
+			return res
+
+	return _eval_grid_gdscript(in_grid, p_gw, p_gh, p_rect)
+
+
+func _eval_grid_gdscript(in_grid: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> PackedFloat32Array:
+	var n := p_gw * p_gh
 	var dx := p_rect.size.x / maxf(float(p_gw - 1), 1.0) if (p_rect.size.x > 0.0 and p_gw > 1) else 2.0
 	var dz := p_rect.size.y / maxf(float(p_gh - 1), 1.0) if (p_rect.size.y > 0.0 and p_gh > 1) else 2.0
 
@@ -152,13 +163,14 @@ static func _priority_flood_fill(p_h: PackedFloat32Array, p_gw: int, p_gh: int, 
 				continue
 
 			var min_spill := spill_z + p_eps * off.z
-			var new_z := maxf(raw_z, min_spill)
+			var spill_elev := maxf(raw_z, min_spill)
+			heap.push(spill_elev, n_idx)
 
-			if p_depth_limit > 0.0 and (new_z - raw_z) > p_depth_limit:
-				new_z = raw_z + p_depth_limit
+			var filled_z := spill_elev
+			if p_depth_limit > 0.0 and (filled_z - raw_z) > p_depth_limit:
+				filled_z = raw_z + p_depth_limit
 
-			filled[n_idx] = new_z
-			heap.push(new_z, n_idx)
+			filled[n_idx] = filled_z
 
 	return filled
 
