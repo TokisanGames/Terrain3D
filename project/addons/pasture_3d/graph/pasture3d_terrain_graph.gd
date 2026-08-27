@@ -22,6 +22,9 @@ extends Resource
 
 const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_frame_data.gd")
 
+## Emitted when a specific node's parameters change, carrying that node's index and all its downstream dependents.
+signal node_updated(node_idx: int, downstream_indices: Array[int])
+
 ## The nodes. Order here is authoring order only — evaluation order is derived from `connections`.
 @export var nodes: Array[Pasture3DGraphNode] = []:
 	set(v):
@@ -64,10 +67,9 @@ const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_f
 
 # ---- Change forwarding -------------------------------------------------------------------------------
 #
-# A node's own property setters emit `changed` on the node; the graph re-emits it so a host (the mounted
-# Pasture3DNodeGraph -> the brush) re-bakes when a node's params are edited in the Inspector. Without this
-# editing a Noise node's amplitude would change nothing until the graph itself was touched. `graph_position`
-# is the one node property that does not emit, so dragging a node on the canvas never triggers a re-bake.
+# A node's own property setters emit `changed` on the node; the graph checks if that node feeds the active
+# output. If connected, the graph re-emits `changed` so the host brush re-bakes. If disconnected, only
+# `node_updated` is fired to update local canvas previews without triggering unnecessary terrain bakes.
 
 func _bind_nodes(p_list: Array, p_connect: bool) -> void:
 	for n in p_list:
@@ -75,13 +77,42 @@ func _bind_nodes(p_list: Array, p_connect: bool) -> void:
 			continue
 		if p_connect:
 			if not n.changed.is_connected(_on_node_changed):
-				n.changed.connect(_on_node_changed)
+				n.changed.connect(_on_node_changed.bind(n))
 		elif n.changed.is_connected(_on_node_changed):
 			n.changed.disconnect(_on_node_changed)
 
 
-func _on_node_changed() -> void:
-	emit_changed()
+func _on_node_changed(p_node: Pasture3DGraphNode = null) -> void:
+	var n_idx := -1
+	if p_node != null:
+		n_idx = nodes.find(p_node)
+	
+	var affects_output := true
+	if n_idx >= 0:
+		var downstream := get_downstream_nodes(n_idx)
+		var out_idx := output_index()
+		affects_output = (out_idx >= 0 and downstream.has(out_idx))
+		node_updated.emit(n_idx, downstream)
+	
+	if affects_output:
+		emit_changed()
+
+
+## Returns all downstream node indices that depend on `p_start_node` (including `p_start_node` itself).
+func get_downstream_nodes(p_start_node: int) -> Array[int]:
+	var result: Array[int] = [p_start_node]
+	var frontier: Array[int] = [p_start_node]
+	var visited := {p_start_node: true}
+	while not frontier.is_empty():
+		var cur: int = frontier.pop_back()
+		for c in connections:
+			if c.size() >= 4 and int(c[0]) == cur:
+				var to := int(c[2])
+				if to >= 0 and to < nodes.size() and not visited.has(to):
+					visited[to] = true
+					result.append(to)
+					frontier.push_back(to)
+	return result
 
 
 func _bind_frames(p_list: Array, p_connect: bool) -> void:
@@ -219,12 +250,25 @@ func group_nodes_in_frame(p_indices: Array, p_title: String = "Group", p_tint: C
 
 
 ## Splits an existing connection `(from:from_port -> to:to_port)` by inserting `p_node` at `p_pos`.
-## Returns the newly inserted node's index.
+## Returns the newly inserted node's index. Performs insertion and rewiring atomically.
 func split_connection_with_node(p_from: int, p_from_port: int, p_to: int, p_to_port: int, p_node: Pasture3DGraphNode, p_pos: Vector2) -> int:
-	disconnect_ports(p_from, p_from_port, p_to, p_to_port)
-	var new_idx := add_node(p_node, p_pos)
-	connect_ports(p_from, p_from_port, new_idx, 0)
-	connect_ports(new_idx, 0, p_to, p_to_port)
+	p_node.graph_position = p_pos
+	var arr := nodes.duplicate()
+	arr.append(p_node)
+	var new_idx := arr.size() - 1
+	
+	var new_conns: Array = []
+	for c in connections:
+		if int(c[0]) == p_from and int(c[1]) == p_from_port \
+				and int(c[2]) == p_to and int(c[3]) == p_to_port:
+			continue
+		new_conns.append(c)
+	new_conns.append(PackedInt32Array([p_from, p_from_port, new_idx, 0]))
+	new_conns.append(PackedInt32Array([new_idx, 0, p_to, p_to_port]))
+	
+	_bind_nodes([p_node], true)
+	nodes = arr
+	connections = new_conns
 	return new_idx
 
 

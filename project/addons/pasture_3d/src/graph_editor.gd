@@ -80,9 +80,14 @@ func edit_graph(p_graph: Pasture3DTerrainGraph, p_mod: Pasture3DNodeGraph = null
 		return
 	if graph != null and graph.changed.is_connected(_on_graph_changed):
 		graph.changed.disconnect(_on_graph_changed)
+	if graph != null and graph.has_signal(&"node_updated") and graph.node_updated.is_connected(_on_node_updated):
+		graph.node_updated.disconnect(_on_node_updated)
 	graph = p_graph
-	if graph != null and not graph.changed.is_connected(_on_graph_changed):
-		graph.changed.connect(_on_graph_changed)
+	if graph != null:
+		if not graph.changed.is_connected(_on_graph_changed):
+			graph.changed.connect(_on_graph_changed)
+		if graph.has_signal(&"node_updated") and not graph.node_updated.is_connected(_on_node_updated):
+			graph.node_updated.connect(_on_node_updated)
 	_last_structure_hash = _structure_hash()
 	_rebuild()
 
@@ -110,10 +115,17 @@ func _on_graph_changed() -> void:
 	if sh != _last_structure_hash:
 		_last_structure_hash = sh
 		_rebuild()
-	else:
-		_refresh_nodes_state()
 		if _show_previews:
 			_queue_all_previews()
+	else:
+		_refresh_nodes_state()
+
+
+func _on_node_updated(_p_node_idx: int, p_downstream: Array[int]) -> void:
+	if not _show_previews or graph == null:
+		return
+	for idx in p_downstream:
+		_queue_preview_update(idx)
 
 
 func _refresh_nodes_state() -> void:
