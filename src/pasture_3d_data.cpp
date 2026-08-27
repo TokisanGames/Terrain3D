@@ -1210,26 +1210,23 @@ void Pasture3DData::_accumulate_height(real_t *p_acc, const Vector2i &p_region_l
 				const int x1 = MIN(rect_x + rect_w, bx + ts);
 				const int y0 = MAX(rect_y, by);
 				const int y1 = MIN(rect_y + rect_h, by + ts);
-				const int sub_w = x1 - x0;
-				const int sub_h = y1 - y0;
-				if (sub_w <= 0 || sub_h <= 0) {
+				if (x0 >= x1 || y0 >= y1) {
 					continue;
 				}
-				const Ref<Image> sub = tile->get_region(Rect2i(x0 - bx, y0 - by, sub_w, sub_h));
-				if (sub.is_null()) {
+				const float *fdata = reinterpret_cast<const float *>(tile->ptr());
+				if (!fdata) {
 					continue;
 				}
-				const PackedByteArray sdata = sub->get_data();
-				const float *fdata = reinterpret_cast<const float *>(sdata.ptr());
 				for (int y = y0; y < y1; y++) {
 					real_t *acc_row = &p_acc[(y - rect_y) * rect_w];
+					const float *trow = fdata + (size_t)(y - by) * ts * stride;
 					for (int x = x0; x < x1; x++) {
-						const int fi = ((y - y0) * sub_w + (x - x0)) * stride;
-						const real_t w = always_covered ? 1.f : fdata[fi + 1];
+						const int fi = (x - bx) * stride;
+						const real_t w = always_covered ? 1.f : trow[fi + 1];
 						if (w == 0.f) {
 							continue;
 						}
-						const real_t v = fdata[fi];
+						const real_t v = trow[fi];
 						if (std::isnan(v)) {
 							continue;
 						}
@@ -1322,13 +1319,75 @@ real_t Pasture3DData::get_height_below(const int p_below_layer_id, const Vector3
 	}
 	Vector2i region_loc;
 	const Vector2i img_pos = _global_to_region_pixel(p_global_position, region_loc);
-	Pasture3DRegion *region = get_region_ptr(region_loc);
+	return get_height_below_point(p_below_layer_id, region_loc, img_pos);
+}
+
+real_t Pasture3DData::get_height_below_point(const int p_below_layer_id, const Vector2i &p_region_loc, const Vector2i &p_img_pos) {
+	if (_layer_stack.is_null() || p_below_layer_id <= 0) {
+		return NAN;
+	}
+	Pasture3DRegion *region = get_region_ptr(p_region_loc);
 	if (!region || region->is_deleted()) {
 		return NAN;
 	}
-	real_t acc = NAN;
-	_accumulate_height(&acc, region_loc, Rect2i(img_pos, V2I(1)), p_below_layer_id);
-	return acc;
+	if (p_img_pos.x < 0 || p_img_pos.x >= _region_size || p_img_pos.y < 0 || p_img_pos.y >= _region_size) {
+		return NAN;
+	}
+	real_t dst = NAN;
+	const int end = MIN(p_below_layer_id, _layer_stack->get_layer_count());
+	for (int i = 0; i < end; i++) {
+		const Pasture3DLayer *layer = _layer_stack->get_layer_ptr(i);
+		if (!layer || !layer->is_visible() || layer->get_map_type() != TYPE_HEIGHT || !layer->has_region(p_region_loc)) {
+			continue;
+		}
+		const int ts = layer->get_tile_size();
+		const Vector2i tile_coord(p_img_pos.x / ts, p_img_pos.y / ts);
+		Ref<Image> tile = layer->get_tile(p_region_loc, tile_coord);
+		if (tile.is_null()) {
+			continue;
+		}
+		const bool rf = tile->get_format() == Image::FORMAT_RF;
+		const int stride = rf ? 1 : 2;
+		const bool always_covered = layer->is_base() || rf;
+		const int lx = p_img_pos.x - tile_coord.x * ts;
+		const int ly = p_img_pos.y - tile_coord.y * ts;
+		const float *fdata = reinterpret_cast<const float *>(tile->ptr());
+		if (!fdata) {
+			continue;
+		}
+		const int fi = (ly * ts + lx) * stride;
+		const real_t w = always_covered ? 1.f : fdata[fi + 1];
+		if (w == 0.f) {
+			continue;
+		}
+		const real_t v = fdata[fi];
+		if (std::isnan(v)) {
+			continue;
+		}
+		const real_t a = w * layer->get_opacity();
+		const int bm = (int)layer->get_blend_mode();
+		switch (bm) {
+			case Pasture3DLayer::REPLACE:
+				dst = std::isnan(dst) ? v : dst + (v - dst) * a;
+				break;
+			case Pasture3DLayer::ADD:
+				dst = (std::isnan(dst) ? 0.f : dst) + v * a;
+				break;
+			case Pasture3DLayer::MAX: {
+				const real_t blended = std::isnan(dst) ? v : dst + (v - dst) * a;
+				dst = std::isnan(dst) ? blended : MAX(dst, blended);
+				break;
+			}
+			case Pasture3DLayer::MIN: {
+				const real_t blended = std::isnan(dst) ? v : dst + (v - dst) * a;
+				dst = std::isnan(dst) ? blended : MIN(dst, blended);
+				break;
+			}
+			default:
+				break;
+		}
+	}
+	return dst;
 }
 
 // Height pass — walks only the height layers (the dense Base + height overlays) bottom->top and blends
@@ -1384,28 +1443,126 @@ void Pasture3DData::_composite_control_region(Pasture3DRegion *p_region, const V
 	if (control_map.is_null()) {
 		return;
 	}
+	const int rect_x = p_rect.position.x;
+	const int rect_y = p_rect.position.y;
+	const int rect_w = p_rect.size.x;
+	const int rect_h = p_rect.size.y;
+	if (rect_w <= 0 || rect_h <= 0) {
+		return;
+	}
 	const int base_idx = _layer_stack->find_base_layer(TYPE_CONTROL);
 	const Pasture3DLayer *base = base_idx >= 0 ? _layer_stack->get_layer_ptr(base_idx) : nullptr;
-	const int layer_count = _layer_stack->get_layer_count();
-	const Vector2i end = p_rect.position + p_rect.size;
-	for (int y = p_rect.position.y; y < end.y; y++) {
-		for (int x = p_rect.position.x; x < end.x; x++) {
-			const Vector2i px(x, y);
-			// Seed from the hand-authored base (always covered). Fall back to the current region pixel if
-			// no base exists yet (defensive — a base is ensured before any control overlay is created).
-			real_t acc = base ? base->get_value(p_region_loc, px) : control_map->get_pixelv(px).r;
-			for (int i = 0; i < layer_count; i++) {
-				const Pasture3DLayer *layer = _layer_stack->get_layer_ptr(i);
-				if (!layer || layer->is_base() || !layer->is_visible() || layer->get_map_type() != TYPE_CONTROL) {
+	std::vector<float> acc(rect_w * rect_h, NAN);
+
+	// Seed accumulator from base layer (if present and has region) or fallback to current control_map
+	const float *ctrl_ptr = reinterpret_cast<const float *>(control_map->ptr());
+	const int rsz = _region_size;
+
+	if (base && base->has_region(p_region_loc)) {
+		const int ts = base->get_tile_size();
+		const int tx0 = rect_x / ts;
+		const int tx1 = (rect_x + rect_w - 1) / ts;
+		const int ty0 = rect_y / ts;
+		const int ty1 = (rect_y + rect_h - 1) / ts;
+		for (int ty = ty0; ty <= ty1; ty++) {
+			for (int tx = tx0; tx <= tx1; tx++) {
+				Ref<Image> tile = base->get_tile(p_region_loc, Vector2i(tx, ty));
+				if (tile.is_null()) {
 					continue;
 				}
-				if (layer->get_weight(p_region_loc, px) == 0.f) {
-					continue; // Not owned here; the value below shows through.
+				const bool rf = tile->get_format() == Image::FORMAT_RF;
+				const int stride = rf ? 1 : 2;
+				const int bx = tx * ts;
+				const int by = ty * ts;
+				const int x0 = MAX(rect_x, bx);
+				const int x1 = MIN(rect_x + rect_w, bx + ts);
+				const int y0 = MAX(rect_y, by);
+				const int y1 = MIN(rect_y + rect_h, by + ts);
+				if (x0 >= x1 || y0 >= y1) {
+					continue;
 				}
-				acc = layer->get_value(p_region_loc, px); // Covered => override (topmost wins).
+				const float *fdata = reinterpret_cast<const float *>(tile->ptr());
+				if (!fdata) {
+					continue;
+				}
+				for (int y = y0; y < y1; y++) {
+					float *acc_row = &acc[(y - rect_y) * rect_w];
+					const float *trow = fdata + (size_t)(y - by) * ts * stride;
+					for (int x = x0; x < x1; x++) {
+						acc_row[x - rect_x] = trow[(x - bx) * stride];
+					}
+				}
 			}
-			if (!std::isnan(acc)) {
-				control_map->set_pixelv(px, Color(acc, 0.f, 0.f, 1.f));
+		}
+	} else if (ctrl_ptr) {
+		for (int y = 0; y < rect_h; y++) {
+			float *acc_row = &acc[y * rect_w];
+			const float *crow = ctrl_ptr + (size_t)(rect_y + y) * rsz;
+			for (int x = 0; x < rect_w; x++) {
+				acc_row[x] = crow[rect_x + x];
+			}
+		}
+	}
+
+	// Walk overlays bottom->top (topmost wins)
+	const int layer_count = _layer_stack->get_layer_count();
+	for (int i = 0; i < layer_count; i++) {
+		const Pasture3DLayer *layer = _layer_stack->get_layer_ptr(i);
+		if (!layer || layer->is_base() || !layer->is_visible() || layer->get_map_type() != TYPE_CONTROL || !layer->has_region(p_region_loc)) {
+			continue;
+		}
+		const int ts = layer->get_tile_size();
+		const int tx0 = rect_x / ts;
+		const int tx1 = (rect_x + rect_w - 1) / ts;
+		const int ty0 = rect_y / ts;
+		const int ty1 = (rect_y + rect_h - 1) / ts;
+		for (int ty = ty0; ty <= ty1; ty++) {
+			for (int tx = tx0; tx <= tx1; tx++) {
+				Ref<Image> tile = layer->get_tile(p_region_loc, Vector2i(tx, ty));
+				if (tile.is_null()) {
+					continue;
+				}
+				const int bx = tx * ts;
+				const int by = ty * ts;
+				const int x0 = MAX(rect_x, bx);
+				const int x1 = MIN(rect_x + rect_w, bx + ts);
+				const int y0 = MAX(rect_y, by);
+				const int y1 = MIN(rect_y + rect_h, by + ts);
+				if (x0 >= x1 || y0 >= y1) {
+					continue;
+				}
+				const float *fdata = reinterpret_cast<const float *>(tile->ptr());
+				if (!fdata) {
+					continue;
+				}
+				const bool rf = tile->get_format() == Image::FORMAT_RF;
+				const int stride = rf ? 1 : 2;
+				for (int y = y0; y < y1; y++) {
+					float *acc_row = &acc[(y - rect_y) * rect_w];
+					const float *trow = fdata + (size_t)(y - by) * ts * stride;
+					for (int x = x0; x < x1; x++) {
+						const int fi = (x - bx) * stride;
+						const float w = rf ? 1.f : trow[fi + 1];
+						if (w > 0.f) {
+							acc_row[x - rect_x] = trow[fi];
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Write back to control_map
+	float *dst_ptr = reinterpret_cast<float *>(control_map->ptrw());
+	if (dst_ptr) {
+		for (int y = 0; y < rect_h; y++) {
+			const float *acc_row = &acc[y * rect_w];
+			float *dst_row = dst_ptr + (size_t)(rect_y + y) * rsz;
+			for (int x = 0; x < rect_w; x++) {
+				const float v = acc_row[x];
+				if (!std::isnan(v)) {
+					dst_row[rect_x + x] = v;
+				}
 			}
 		}
 	}
@@ -1420,29 +1577,150 @@ void Pasture3DData::_composite_color_region(Pasture3DRegion *p_region, const Vec
 	if (color_map.is_null()) {
 		return;
 	}
+	const int rect_x = p_rect.position.x;
+	const int rect_y = p_rect.position.y;
+	const int rect_w = p_rect.size.x;
+	const int rect_h = p_rect.size.y;
+	if (rect_w <= 0 || rect_h <= 0) {
+		return;
+	}
 	const int base_idx = _layer_stack->find_base_layer(TYPE_COLOR);
 	const Pasture3DLayer *base = base_idx >= 0 ? _layer_stack->get_layer_ptr(base_idx) : nullptr;
-	const int layer_count = _layer_stack->get_layer_count();
-	const Vector2i end = p_rect.position + p_rect.size;
-	for (int y = p_rect.position.y; y < end.y; y++) {
-		for (int x = p_rect.position.x; x < end.x; x++) {
-			const Vector2i px(x, y);
-			Color acc = base ? base->get_sample(p_region_loc, px) : color_map->get_pixelv(px);
-			for (int i = 0; i < layer_count; i++) {
-				const Pasture3DLayer *layer = _layer_stack->get_layer_ptr(i);
-				if (!layer || layer->is_base() || !layer->is_visible() || layer->get_map_type() != TYPE_COLOR) {
+	const int rsz = _region_size;
+
+	struct AccumColor {
+		float r = 0.f;
+		float g = 0.f;
+		float b = 0.f;
+		float a = 1.f; // roughness preserved from base
+	};
+	std::vector<AccumColor> acc(rect_w * rect_h);
+
+	const uint8_t *col_ptr = color_map->ptr();
+
+	// Seed accumulator from base layer (if present and has region) or fallback to current color_map
+	if (base && base->has_region(p_region_loc)) {
+		const int ts = base->get_tile_size();
+		const int tx0 = rect_x / ts;
+		const int tx1 = (rect_x + rect_w - 1) / ts;
+		const int ty0 = rect_y / ts;
+		const int ty1 = (rect_y + rect_h - 1) / ts;
+		for (int ty = ty0; ty <= ty1; ty++) {
+			for (int tx = tx0; tx <= tx1; tx++) {
+				Ref<Image> tile = base->get_tile(p_region_loc, Vector2i(tx, ty));
+				if (tile.is_null()) {
 					continue;
 				}
-				const real_t w = layer->get_weight(p_region_loc, px) * layer->get_opacity();
-				if (w <= 0.f) {
+				const int bx = tx * ts;
+				const int by = ty * ts;
+				const int x0 = MAX(rect_x, bx);
+				const int x1 = MIN(rect_x + rect_w, bx + ts);
+				const int y0 = MAX(rect_y, by);
+				const int y1 = MIN(rect_y + rect_h, by + ts);
+				if (x0 >= x1 || y0 >= y1) {
 					continue;
 				}
-				const Color c = layer->get_sample(p_region_loc, px);
-				acc.r = acc.r + (c.r - acc.r) * w;
-				acc.g = acc.g + (c.g - acc.g) * w;
-				acc.b = acc.b + (c.b - acc.b) * w; // Roughness (acc.a) is left untouched.
+				const uint8_t *tptr = tile->ptr();
+				if (!tptr) {
+					continue;
+				}
+				for (int y = y0; y < y1; y++) {
+					AccumColor *acc_row = &acc[(y - rect_y) * rect_w];
+					const uint8_t *trow = tptr + (size_t)(y - by) * ts * 4;
+					for (int x = x0; x < x1; x++) {
+						const int fi = (x - bx) * 4;
+						AccumColor &dst = acc_row[x - rect_x];
+						dst.r = trow[fi] / 255.f;
+						dst.g = trow[fi + 1] / 255.f;
+						dst.b = trow[fi + 2] / 255.f;
+						dst.a = trow[fi + 3] / 255.f;
+					}
+				}
 			}
-			color_map->set_pixelv(px, acc);
+		}
+	} else if (col_ptr) {
+		for (int y = 0; y < rect_h; y++) {
+			AccumColor *acc_row = &acc[y * rect_w];
+			const uint8_t *crow = col_ptr + (size_t)(rect_y + y) * rsz * 4;
+			for (int x = 0; x < rect_w; x++) {
+				const int fi = (rect_x + x) * 4;
+				AccumColor &dst = acc_row[x];
+				dst.r = crow[fi] / 255.f;
+				dst.g = crow[fi + 1] / 255.f;
+				dst.b = crow[fi + 2] / 255.f;
+				dst.a = crow[fi + 3] / 255.f;
+			}
+		}
+	}
+
+	// Walk overlays bottom->top (blend RGB by weight * opacity; roughness in A remains untouched)
+	const int layer_count = _layer_stack->get_layer_count();
+	for (int i = 0; i < layer_count; i++) {
+		const Pasture3DLayer *layer = _layer_stack->get_layer_ptr(i);
+		if (!layer || layer->is_base() || !layer->is_visible() || layer->get_map_type() != TYPE_COLOR || !layer->has_region(p_region_loc)) {
+			continue;
+		}
+		const real_t op = layer->get_opacity();
+		const int ts = layer->get_tile_size();
+		const int tx0 = rect_x / ts;
+		const int tx1 = (rect_x + rect_w - 1) / ts;
+		const int ty0 = rect_y / ts;
+		const int ty1 = (rect_y + rect_h - 1) / ts;
+		for (int ty = ty0; ty <= ty1; ty++) {
+			for (int tx = tx0; tx <= tx1; tx++) {
+				Ref<Image> tile = layer->get_tile(p_region_loc, Vector2i(tx, ty));
+				if (tile.is_null()) {
+					continue;
+				}
+				const int bx = tx * ts;
+				const int by = ty * ts;
+				const int x0 = MAX(rect_x, bx);
+				const int x1 = MIN(rect_x + rect_w, bx + ts);
+				const int y0 = MAX(rect_y, by);
+				const int y1 = MIN(rect_y + rect_h, by + ts);
+				if (x0 >= x1 || y0 >= y1) {
+					continue;
+				}
+				const uint8_t *tptr = tile->ptr();
+				if (!tptr) {
+					continue;
+				}
+				for (int y = y0; y < y1; y++) {
+					AccumColor *acc_row = &acc[(y - rect_y) * rect_w];
+					const uint8_t *trow = tptr + (size_t)(y - by) * ts * 4;
+					for (int x = x0; x < x1; x++) {
+						const int fi = (x - bx) * 4;
+						const float w = (trow[fi + 3] / 255.f) * (float)op;
+						if (w <= 0.f) {
+							continue;
+						}
+						AccumColor &dst = acc_row[x - rect_x];
+						const float cr = trow[fi] / 255.f;
+						const float cg = trow[fi + 1] / 255.f;
+						const float cb = trow[fi + 2] / 255.f;
+						dst.r = dst.r + (cr - dst.r) * w;
+						dst.g = dst.g + (cg - dst.g) * w;
+						dst.b = dst.b + (cb - dst.b) * w;
+					}
+				}
+			}
+		}
+	}
+
+	// Write back to color_map
+	uint8_t *dst_ptr = color_map->ptrw();
+	if (dst_ptr) {
+		for (int y = 0; y < rect_h; y++) {
+			const AccumColor *acc_row = &acc[y * rect_w];
+			uint8_t *dst_row = dst_ptr + (size_t)(rect_y + y) * rsz * 4;
+			for (int x = 0; x < rect_w; x++) {
+				const int fi = (rect_x + x) * 4;
+				const AccumColor &src = acc_row[x];
+				dst_row[fi] = (uint8_t)CLAMP(Math::round(src.r * 255.f), 0, 255);
+				dst_row[fi + 1] = (uint8_t)CLAMP(Math::round(src.g * 255.f), 0, 255);
+				dst_row[fi + 2] = (uint8_t)CLAMP(Math::round(src.b * 255.f), 0, 255);
+				dst_row[fi + 3] = (uint8_t)CLAMP(Math::round(src.a * 255.f), 0, 255);
+			}
 		}
 	}
 }
@@ -2657,6 +2935,7 @@ void Pasture3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("composite_area", "area", "update"), &Pasture3DData::composite_area, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("composite_height_below", "below_layer_id", "min_x", "min_z", "vs", "gw", "gh"), &Pasture3DData::composite_height_below);
 	ClassDB::bind_method(D_METHOD("get_height_below", "below_layer_id", "global_position"), &Pasture3DData::get_height_below);
+	ClassDB::bind_method(D_METHOD("get_height_below_point", "below_layer_id", "region_location", "image_position"), &Pasture3DData::get_height_below_point);
 
 	ClassDB::bind_method(D_METHOD("is_layer_routing"), &Pasture3DData::is_layer_routing);
 	ClassDB::bind_method(D_METHOD("ensure_layer_stack"), &Pasture3DData::ensure_layer_stack);

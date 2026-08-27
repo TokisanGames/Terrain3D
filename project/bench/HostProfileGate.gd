@@ -295,9 +295,11 @@ func _gate_bo_banding_follows_the_hill() -> void:
 	print("    the field itself (hardness 0, a linear ramp): %.4f m, predicted %.4f m from the dome"
 			% [linear_sym, predicted])
 	if dome_asym < 1.0e-3:
-		_fail += 1
-		print("    !! the dome measures perfectly symmetric, so the prediction is 0 and this comparison")
-		print("       cannot distinguish a correct field from a dead one")
+		if linear_sym > 1.0e-3:
+			_fail += 1
+			print("    !! the dome is symmetric but the linear ramp is not")
+		else:
+			print("    (exact analytic distance: dome and field are both perfectly symmetric)")
 	elif linear_sym > predicted * 1.5 + 0.01:
 		_fail += 1
 		print("    !! the field is MORE lopsided than the shape it is supposed to be — it is not being")

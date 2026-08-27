@@ -34,6 +34,7 @@ enum GraphCellOpType {
 	GRAPH_OP_NOISE = 1, // GENERATOR cell: params[slot] * noise[slot].get_noise_2d(wx, wz)
 	GRAPH_OP_CONST = 2, // GENERATOR cell: params[slot]
 	GRAPH_OP_BLEND = 3, // COMBINER cell: in_a (o) in_b, o = params[slot] cast to GraphBlendMode
+	GRAPH_OP_TERRACE = 4, // FILTER cell: terrace in_a, band_height=params, hardness=params_b, amount=params_c, jitter=params_d
 	GRAPH_OP_INPUT = 10, // SOURCE grid: the surface handed to the graph (or a flat 0)
 	GRAPH_OP_SMOOTH = 11, // FILTER grid: NaN-aware blur of in0, params[slot] passes
 	GRAPH_OP_OUTPUT = 12, // SINK: passes in0 through (the graph's result)
@@ -58,10 +59,13 @@ constexpr int GRAPH_CELL_SRC_ZERO = -1;
 // op but NOISE. Built once per bake, evaluated per cell.
 struct GraphCellProgram {
 	PackedInt32Array ops; // one GraphCellOpType per slot
-	PackedFloat32Array params; // one scalar per slot: amplitude | value | blend-mode
+	PackedFloat32Array params; // one scalar per slot: amplitude | value | blend-mode | band_height
+	PackedFloat32Array params_b; // secondary scalar: hardness
+	PackedFloat32Array params_c; // tertiary scalar: amount
+	PackedFloat32Array params_d; // quaternary scalar: jitter
 	PackedInt32Array in_a; // input A source slot, or GRAPH_CELL_SRC_ZERO
 	PackedInt32Array in_b; // input B source slot (BLEND only), or GRAPH_CELL_SRC_ZERO
-	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless the op is NOISE
+	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless the op is NOISE or JITTER
 	int output = -1; // the slot whose value is the graph's output
 	int count = 0;
 	bool is_empty() const { return count == 0 || output < 0 || output >= count; }
@@ -100,10 +104,13 @@ void graph_nan_blur(std::vector<float> &r_vals, int p_gw, int p_gh, int p_passes
 // fold is a GDScript-only optimisation, so this materialises every node rather than reproducing it.
 struct GraphProgram {
 	PackedInt32Array ops; // one GraphCellOpType per slot, topological order
-	PackedFloat32Array params; // amplitude | value | blend-mode | smooth-passes (0 for input/output)
+	PackedFloat32Array params; // amplitude | value | blend-mode | smooth-passes | band_height
+	PackedFloat32Array params_b; // hardness
+	PackedFloat32Array params_c; // amount
+	PackedFloat32Array params_d; // jitter
 	PackedInt32Array in0; // first input's source slot, or -1 unwired
 	PackedInt32Array in1; // second input's source slot (BLEND), or -1
-	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless NOISE
+	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless NOISE or JITTER
 	int output = -1; // the slot whose grid is the graph output
 	int count = 0;
 	bool is_empty() const { return count == 0 || output < 0 || output >= count; }

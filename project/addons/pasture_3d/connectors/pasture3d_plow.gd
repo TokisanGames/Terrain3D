@@ -441,7 +441,7 @@ func _paint_spline(path: Path3D) -> void:
 	# Computed before the source is resolved, because a relief material with a BAKED FIELD (a DLA) grows
 	# that field to the loop's proportions inside compile() and so has to be told them first.
 	var extent := _extent_key(min_x, min_z, vs, gw, gh)
-	var wants_frame := _has_relief_modifier() or source == Source.RELIEF
+	var wants_frame := _has_relief_modifier() or source == Source.RELIEF or mapping == Mapping.FIT
 	var frame: Array = _loop_frame(poly) if wants_frame else [0.0, 0.0, 1.0, 0.0, 1.0, 1.0]
 	var stack := _compile_modifiers(extent, frame[4], frame[5])
 	var op_selectors: PackedFloat32Array = stack["op_selectors"]

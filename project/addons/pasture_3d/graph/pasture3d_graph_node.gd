@@ -58,10 +58,7 @@ enum Role { GENERATOR, FILTER, COMBINER, SOLVER }
 		emit_changed()
 
 ## When collapsed, the editor hides internal inline controls, displaying a compact header with port slots.
-@export var collapsed: bool = false:
-	set(v):
-		collapsed = v
-		emit_changed()
+@export var collapsed: bool = false
 
 
 ## The dispatch tag. MUST match the string any equivalent stack op / native backend tests.

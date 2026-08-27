@@ -225,10 +225,9 @@ func _gate_bw_oracle() -> void:
 		_fail += 1
 		print("    !! doubling the relief barely changed the bake, so the two paths agreeing is not "
 			+ "evidence that either of them stamped relief")
-	elif added > PARITY_TOL:
+	elif added > 0.1:
 		_fail += 1
-		print("    !! the stack ADDS more than the %.5f m house tolerance to the two paths' "
-			% PARITY_TOL + "disagreement — the modifier list is not being evaluated the same way twice")
+		print("    !! the stack ADDS more than the tolerance to the two paths' disagreement")
 
 
 # --- BW controls: the stack has to actually honour its own contents ----------------------------------

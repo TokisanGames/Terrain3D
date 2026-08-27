@@ -246,6 +246,7 @@ public:
 	// of layers [0, below_layer_id); NaN where uncovered. get_height_below is the single-point version (snap).
 	PackedFloat32Array composite_height_below(const int p_below_layer_id, const double p_min_x, const double p_min_z, const double p_vs, const int p_gw, const int p_gh);
 	real_t get_height_below(const int p_below_layer_id, const Vector3 &p_global_position);
+	real_t get_height_below_point(const int p_below_layer_id, const Vector2i &p_region_loc, const Vector2i &p_img_pos);
 
 	// Tool API (PASTURE3D_LAYERS_GUIDE.md §8). Lets generator/tool nodes (RoadPastureConnector) draw
 	// into a reserved layer of their own instead of writing the Base destructively, so re-running them

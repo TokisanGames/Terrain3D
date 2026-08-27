@@ -20,11 +20,20 @@ bool graph_cell_build(const Dictionary &p_prog, GraphCellProgram &r_out) {
 	}
 	r_out.ops = p_prog["ops"];
 	r_out.params = p_prog["params"];
+	if (p_prog.has("params_b")) {
+		r_out.params_b = p_prog["params_b"];
+	}
+	if (p_prog.has("params_c")) {
+		r_out.params_c = p_prog["params_c"];
+	}
+	if (p_prog.has("params_d")) {
+		r_out.params_d = p_prog["params_d"];
+	}
 	r_out.in_a = p_prog["in_a"];
 	r_out.in_b = p_prog["in_b"];
 	r_out.output = (int)p_prog["output"];
 	const int n = r_out.ops.size();
-	// The five parallel arrays must line up; a program whose columns disagree is malformed, not merely
+	// The parallel arrays must line up; a program whose columns disagree is malformed, not merely
 	// short, so refuse it rather than index off the end of the shortest.
 	const Array noise_in = p_prog["noise"];
 	if (r_out.params.size() != n || r_out.in_a.size() != n || r_out.in_b.size() != n ||
@@ -34,7 +43,7 @@ bool graph_cell_build(const Dictionary &p_prog, GraphCellProgram &r_out) {
 	}
 	r_out.noise.resize(n);
 	for (int i = 0; i < n; i++) {
-		// A null entry stays an empty Ref; only NOISE slots carry one, and the evaluator reads it only there.
+		// A null entry stays an empty Ref; only NOISE/JITTER slots carry one, and the evaluator reads it only there.
 		r_out.noise[i] = Ref<FastNoiseLite>(noise_in[i]);
 	}
 	r_out.count = n;
@@ -52,6 +61,9 @@ double graph_cell_eval(const GraphCellProgram &p_prog, double p_wx, double p_wz,
 	}
 	const int32_t *ops = p_prog.ops.ptr();
 	const float *params = p_prog.params.ptr();
+	const float *params_b = p_prog.params_b.ptr();
+	const float *params_c = p_prog.params_c.ptr();
+	const float *params_d = p_prog.params_d.ptr();
 	const int32_t *in_a = p_prog.in_a.ptr();
 	const int32_t *in_b = p_prog.in_b.ptr();
 	for (int i = 0; i < p_prog.count; i++) {
@@ -77,6 +89,27 @@ double graph_cell_eval(const GraphCellProgram &p_prog, double p_wx, double p_wz,
 					case GRAPH_BLEND_MAX: val = a > b ? a : b; break;
 					case GRAPH_BLEND_MIN: val = a < b ? a : b; break;
 					default: val = a; break; // matches the GDScript fallthrough `return a`
+				}
+			} break;
+			case GRAPH_OP_TERRACE: {
+				const double x = in_a[i] >= 0 ? r_scratch[in_a[i]] : 0.0;
+				if (std::isnan(x)) {
+					val = x;
+				} else {
+					const double band_height = params[i] > 0.001f ? (double)params[i] : 0.001;
+					const double hardness = params_b ? (double)params_b[i] : 0.8;
+					const double amount = params_c ? (double)params_c[i] : 1.0;
+					const double jitter = params_d ? (double)params_d[i] : 0.0;
+					const Ref<FastNoiseLite> &j_nz = p_prog.noise[i];
+					double xj = x;
+					if (jitter > 0.0 && j_nz.is_valid()) {
+						xj += (double)j_nz->get_noise_2d(p_wx, p_wz) * jitter;
+					}
+					const double t = xj / band_height;
+					const double q = std::floor(t);
+					const double f = t - q;
+					const double stepped = (q + std::pow(f, 1.0 + hardness * 15.0)) * band_height;
+					val = x + (stepped - x) * amount;
 				}
 			} break;
 			default:
@@ -138,6 +171,15 @@ bool graph_build(const Dictionary &p_prog, GraphProgram &r_out) {
 	}
 	r_out.ops = p_prog["ops"];
 	r_out.params = p_prog["params"];
+	if (p_prog.has("params_b")) {
+		r_out.params_b = p_prog["params_b"];
+	}
+	if (p_prog.has("params_c")) {
+		r_out.params_c = p_prog["params_c"];
+	}
+	if (p_prog.has("params_d")) {
+		r_out.params_d = p_prog["params_d"];
+	}
 	r_out.in0 = p_prog["in0"];
 	r_out.in1 = p_prog["in1"];
 	r_out.output = (int)p_prog["output"];
@@ -176,6 +218,9 @@ PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_g
 	const bool have_input = p_input.size() == n;
 	const int32_t *ops = p_prog.ops.ptr();
 	const float *params = p_prog.params.ptr();
+	const float *params_b = p_prog.params_b.ptr();
+	const float *params_c = p_prog.params_c.ptr();
+	const float *params_d = p_prog.params_d.ptr();
 	const int32_t *in0 = p_prog.in0.ptr();
 	const int32_t *in1 = p_prog.in1.ptr();
 
@@ -230,6 +275,38 @@ PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_g
 						default: val = a; break;
 					}
 					g[i] = (float)val;
+				}
+			} break;
+			case GRAPH_OP_TERRACE: {
+				const std::vector<float> *src = in0[s] >= 0 ? &grids[in0[s]] : nullptr;
+				const float band_height = params[s] > 0.001f ? params[s] : 0.001f;
+				const float hardness = params_b ? params_b[s] : 0.8f;
+				const float amount = params_c ? params_c[s] : 1.0f;
+				const float jitter = params_d ? params_d[s] : 0.0f;
+				const Ref<FastNoiseLite> &j_nz = p_prog.noise[s];
+				const double hard_exp = 1.0 + (double)hardness * 15.0;
+
+				for (int iz = 0; iz < p_gh; iz++) {
+					const int row = iz * p_gw;
+					for (int ix = 0; ix < p_gw; ix++) {
+						const int idx = row + ix;
+						const float x = src ? (*src)[idx] : 0.f;
+						if (std::isnan(x)) {
+							g[idx] = x;
+							continue;
+						}
+						double xj = (double)x;
+						if (jitter > 0.0f && j_nz.is_valid()) {
+							double wx, wz;
+							graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
+							xj += (double)j_nz->get_noise_2d(wx, wz) * (double)jitter;
+						}
+						const double t = xj / (double)band_height;
+						const double q = std::floor(t);
+						const double f = t - q;
+						const double stepped = (q + std::pow(f, hard_exp)) * (double)band_height;
+						g[idx] = (float)((double)x + (stepped - (double)x) * (double)amount);
+					}
 				}
 			} break;
 			case GRAPH_OP_SMOOTH: {

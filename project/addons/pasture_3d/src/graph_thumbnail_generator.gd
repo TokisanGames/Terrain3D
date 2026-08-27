@@ -123,8 +123,11 @@ static func generate_thumbnail(p_graph: Pasture3DTerrainGraph, p_node_index: int
 			
 	var h_range: float = maxf(max_h - min_h, 0.001)
 	
-	# Render 2D image with hillshade relief shading (light from North-West)
-	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	# Render 2D image with hillshade relief shading (light from North-West) via byte buffer
+	var raw_bytes := PackedByteArray()
+	raw_bytes.resize(w * h * 4)
+	var ptr := 0
+	var is_mask: bool = node.output_port_type() == Pasture3DGraphNode.PortType.MASK
 	var lx: float = -0.577
 	var lz: float = -0.577
 	var ly: float = 0.577
@@ -139,7 +142,11 @@ static func generate_thumbnail(p_graph: Pasture3DTerrainGraph, p_node_index: int
 			
 			var val: float = field[row + ix]
 			if is_nan(val):
-				img.set_pixel(ix, iz, Color(0.08, 0.08, 0.1, 0.5))
+				raw_bytes[ptr] = 20
+				raw_bytes[ptr + 1] = 20
+				raw_bytes[ptr + 2] = 26
+				raw_bytes[ptr + 3] = 128
+				ptr += 4
 				continue
 				
 			var norm_h: float = clampf((val - min_h) / h_range, 0.0, 1.0)
@@ -159,13 +166,18 @@ static func generate_thumbnail(p_graph: Pasture3DTerrainGraph, p_node_index: int
 			var shade: float = clampf(0.5 + 0.5 * (-dx * lx - dz * lz + ly), 0.1, 1.0)
 			
 			# If node produces mask weights (0..1), tint amber, else earth terrain gradient
-			var col: Color
-			if node.output_port_type() == Pasture3DGraphNode.PortType.MASK:
-				col = Color(0.95 * shade * norm_h, 0.6 * shade * norm_h, 0.1 * shade * norm_h, 1.0)
+			if is_mask:
+				raw_bytes[ptr] = int(clampf(0.95 * shade * norm_h * 255.0, 0.0, 255.0))
+				raw_bytes[ptr + 1] = int(clampf(0.6 * shade * norm_h * 255.0, 0.0, 255.0))
+				raw_bytes[ptr + 2] = int(clampf(0.1 * shade * norm_h * 255.0, 0.0, 255.0))
+				raw_bytes[ptr + 3] = 255
 			else:
 				var lum: float = norm_h * shade
-				col = Color(lum * 0.85 + 0.1, lum * 0.9 + 0.08, lum * 0.8 + 0.05, 1.0)
-				
-			img.set_pixel(ix, iz, col)
+				raw_bytes[ptr] = int(clampf((lum * 0.85 + 0.1) * 255.0, 0.0, 255.0))
+				raw_bytes[ptr + 1] = int(clampf((lum * 0.9 + 0.08) * 255.0, 0.0, 255.0))
+				raw_bytes[ptr + 2] = int(clampf((lum * 0.8 + 0.05) * 255.0, 0.0, 255.0))
+				raw_bytes[ptr + 3] = 255
+			ptr += 4
 			
+	var img := Image.create_from_data(w, h, false, Image.FORMAT_RGBA8, raw_bytes)
 	return ImageTexture.create_from_image(img)

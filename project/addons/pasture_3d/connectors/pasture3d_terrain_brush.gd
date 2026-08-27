@@ -817,6 +817,17 @@ func refresh(record_undo: bool = false) -> void:
 	_refresh_owner(_layer_owner, record_undo, [])
 
 
+## Force every child spline to repaint and re-evaluate modifiers immediately.
+func force_bake_modifiers() -> void:
+	if not Engine.is_editor_hint() or not is_configured():
+		return
+	for s in _get_splines():
+		if is_instance_valid(s):
+			_dirty_splines[s.get_instance_id()] = true
+	_stamp_cache.clear()
+	refresh(false)
+
+
 ## Refresh a whole tool layer: clear every bound tool's footprints (+ any extras), repaint every bound
 ## tool's splines, then one GPU push. Sharing means editing one tool must repaint its layer-mates so an
 ## overlapping mate isn't left wiped (the road-connector partial-refresh hazard); with the O(cells)
@@ -953,12 +964,14 @@ func _has_growing_relief() -> bool:
 	return false
 
 
-## True when any active modifier here is a Pasture3DNodeGraph.
+## True when any active modifier here is a Pasture3DNodeGraph that requires deferred solving.
 func _has_graph_modifier() -> bool:
 	if not _supports_modifiers():
 		return false
 	for m in modifiers:
 		if m is Pasture3DNodeGraph and m.is_active():
+			if m.evaluation == Pasture3DNode.Evaluation.FROZEN and m.has_cache():
+				continue
 			return true
 	return false
 
@@ -1500,7 +1513,7 @@ func _paint_into(layer_id: int, blend: int) -> void:
 		var sid: int = path.get_instance_id()
 		var skey: int = _compute_stamp_key(path)
 		var sc: Dictionary = _stamp_cache.get(sid, {})
-		if not clipping and layer_id >= 0 and not sc.is_empty() and not _dirty_splines.has(sid) and int(sc.get("key", 0)) == skey:
+		if layer_id >= 0 and not sc.is_empty() and not _dirty_splines.has(sid) and int(sc.get("key", 0)) == skey:
 			terrain.data.apply_sim_block(layer_id, sc["min_x"], sc["min_z"], sc["vs"], sc["gw"], sc["gh"], sc["vals"], blend)
 			_last_paint_aabb[sid] = sc["bounds"]
 			continue
@@ -1523,7 +1536,7 @@ func _compute_stamp_key(path: Path3D) -> int:
 
 
 func _brush_param_signature() -> Array:
-	return [snap_to_surface, surface_offset]
+	return [snap_to_surface, surface_offset, force_gdscript_raster]
 
 
 func _modifier_signature() -> Array:
@@ -3495,9 +3508,10 @@ func _on_modifier_changed() -> void:
 		_stack_ui_signature = now
 		notify_property_list_changed()
 	for s in _get_splines():
-		_dirty_splines[s.get_instance_id()] = true
+		if is_instance_valid(s):
+			_dirty_splines[s.get_instance_id()] = true
 	_queue_mask_preview()
-	_schedule_refresh()
+	_arm_refresh_timer()
 	update_configuration_warnings()
 
 
@@ -3727,14 +3741,27 @@ func _commit_modifier_caches(p_stack: Dictionary, p_extent: String, p_frame: Arr
 		if out.has("pending"):
 			# §14 pass 1. Nothing was solved; the surface that WOULD have been is waiting here, with the
 			# key it will be stored under. Recorded rather than solved because this is still the bake.
-			_pending_erosion.append({
-				"mod": m, "extent": p_extent,
-				"z0": out["pending"], "z": out["pending"], "key": int(out["pending_key"]),
-				"gw": int(out["pending_gw"]), "gh": int(out["pending_gh"]),
-				"iterations": maxi(m.iterations, 1), "done": 0, "failed": false,
-				"want_diagnostics": m.publish_fields, "res": {},
-				"params": m.to_params(), "erod": PackedFloat32Array(),
-			})
+			if m is Pasture3DNodeErosion:
+				_pending_erosion.append({
+					"mod": m, "extent": p_extent,
+					"z0": out["pending"], "z": out["pending"], "key": int(out["pending_key"]),
+					"gw": int(out["pending_gw"]), "gh": int(out["pending_gh"]),
+					"iterations": maxi(m.iterations, 1), "done": 0, "failed": false,
+					"want_diagnostics": m.publish_fields, "res": {},
+					"params": m.to_params(), "erod": PackedFloat32Array(),
+				})
+			elif m is Pasture3DNodeGraph and m.graph != null:
+				_pending_graph.append({
+					"mod": m,
+					"graph": m.graph,
+					"gw": int(out["pending_gw"]),
+					"gh": int(out["pending_gh"]),
+					"rect": out.get("pending_rect", m.last_rect),
+					"z": out["pending"],
+					"key": int(out["pending_key"]),
+					"extent": p_extent,
+					"done": 0,
+				})
 		if out.has("grid"):
 			m.store_cache(p_extent, {
 				"key": out["key"], "grid": out["grid"],
@@ -3999,7 +4026,14 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		return p_vals
 
 	# Deferred driver pass 1: queue the solve for worker thread and return current surface
-	if _graph_defer and frozen:
+	if (bool(p_step.get("defer", false)) or _graph_defer) and frozen:
+		out_slot["pending"] = z.duplicate()
+		out_slot["pending_key"] = key
+		out_slot["pending_gw"] = gw
+		out_slot["pending_gh"] = gh
+		out_slot["pending_rect"] = rect
+		out_slot["stale"] = false
+		out_slot["served"] = true
 		_pending_graph.append({
 			"mod": m,
 			"graph": g,
@@ -4011,8 +4045,6 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 			"extent": extent,
 			"done": 0,
 		})
-		out_slot["stale"] = false
-		out_slot["served"] = true
 		return p_vals
 
 	# MISS: evaluate, handing the graph the absolute surface for its Input node.

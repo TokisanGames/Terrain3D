@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://br5raorbyrwhw" path="res://addons/pasture_3d/connectors/pasture3d_mound.gd" id="1_udp3a"]
 [ext_resource type="Script" uid="uid://df3c8nn775sir" path="res://addons/pasture_3d/connectors/pasture3d_brush_modifier.gd" id="2_qr31a"]
 [ext_resource type="Script" uid="uid://b76lupc5lsgrt" path="res://addons/pasture_3d/connectors/pasture3d_relief_dla.gd" id="3_63avy"]
-[ext_resource type="Script" uid="uid://jxrk4fox2cgd" path="res://addons/pasture_3d/connectors/pasture3d_sim_manager.gd" id="3_qr31a"]
+[ext_resource type="Script" uid="uid://717mgmmlrimi" path="res://addons/pasture_3d/connectors/pasture3d_mod_graph.gd" id="3_yiff6"]
 [ext_resource type="Script" uid="uid://5aqm0epy240i" path="res://addons/pasture_3d/connectors/pasture3d_mod_relief.gd" id="4_yiff6"]
 [ext_resource type="Script" uid="uid://btghvibxcxh6p" path="res://addons/pasture_3d/connectors/pasture3d_mod_erosion.gd" id="5_brp7g"]
 [ext_resource type="Script" uid="uid://b4reut2qigpsv" path="res://addons/pasture_3d/connectors/pasture3d_relief_fractal.gd" id="6_iofxm"]
@@ -44,16 +44,15 @@ lod0_range = 128.0
 [sub_resource type="Pasture3DAssets" id="Pasture3DAssets_nst3q"]
 mesh_list = Array[Pasture3DMeshAsset]([SubResource("Pasture3DMeshAsset_huwax")])
 
-[sub_resource type="Resource" id="Resource_brp7g"]
-script = ExtResource("5_brp7g")
-hillslope_diffusion = 1.2
+[sub_resource type="Resource" id="Resource_63avy"]
+script = ExtResource("3_yiff6")
 evaluation = 1
-metadata/_custom_type_script = "uid://btghvibxcxh6p"
+metadata/_custom_type_script = "uid://717mgmmlrimi"
 
 [sub_resource type="Curve3D" id="Curve3D_63avy"]
 closed = true
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 336.96115, 1, -5.119138, 0, 0, 0, 0, 0, 0, 161.17545, 1, 511.39377, 0, 0, 0, 0, 0, 0, -11.9964485, 1, 725.49084, 0, 0, 0, 0, 0, 0, -184.15488, 1, 513.96027, 0, 0, 0, 0, 0, 0, -323.7588, 1, -14.6604595, 0, 0, 0, 0, 0, 0, -228.51663, 1, -563.8796, 0, 0, 0, 0, 0, 0, -15.700902, 1, -727.7855, 0, 0, 0, 0, 0, 0, 201.0504, 1, -344.23352),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 336.96115, 1, -5.119138, 0, 0, 0, 0, 0, 0, 161.17545, 1, 511.39377, 0, 0, 0, 0, 0, 0, -11.9964485, 1, 725.49084, 0, 0, 0, 0, 0, 0, -184.15488, 1, 513.96027, 0, 0, 0, 0, 0, 0, -323.7588, 1, -14.6604595, 0, 0, 0, 0, 0, 0, -228.51663, 1, -563.8796, 0, 0, 0, 0, 0, 0, -15.700902, 1, -727.7855, 0, 0, 0, 0, 0, 0, 219.14789, 1, -360.6259),
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0)
 }
 point_count = 8
@@ -92,14 +91,14 @@ field_source = 1
 sim_result = SubResource("Resource_xqnwq")
 metadata/_custom_type_script = "uid://nw2i8ancr82j"
 
-[sub_resource type="Resource" id="Resource_63avy"]
+[sub_resource type="Resource" id="Resource_brp7g"]
 script = ExtResource("6_iofxm")
 selector = SubResource("Resource_yiff6")
 metadata/_custom_type_script = "uid://b4reut2qigpsv"
 
 [sub_resource type="Resource" id="Resource_nst3q"]
 script = ExtResource("4_yiff6")
-material = SubResource("Resource_63avy")
+material = SubResource("Resource_brp7g")
 strength = 10.0
 metadata/_custom_type_script = "uid://5aqm0epy240i"
 
@@ -142,7 +141,7 @@ script = ExtResource("1_udp3a")
 flank_mode = 1
 terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Mounds"
-modifiers = Array[ExtResource("2_qr31a")]([SubResource("Resource_brp7g")])
+modifiers = Array[ExtResource("2_qr31a")]([SubResource("Resource_63avy")])
 
 [node name="Loop1" type="Path3D" parent="Pasture3D/Mound" unique_id=421386812]
 curve = SubResource("Curve3D_63avy")
@@ -168,10 +167,3 @@ modifiers = Array[ExtResource("2_qr31a")]([SubResource("Resource_iofxm")])
 
 [node name="Loop1" type="Path3D" parent="Pasture3D/Mound2" unique_id=1373276714]
 curve = SubResource("Curve3D_brp7g")
-
-[node name="Pasture3DSimManager" type="Node3D" parent="." unique_id=474626800 node_paths=PackedStringArray("terrain")]
-script = ExtResource("3_qr31a")
-eroding_brushes = Array[NodePath]([NodePath("../Pasture3D/Mound1"), NodePath("../Pasture3D/Mound"), NodePath("../Pasture3D/Mound2")])
-terrain = NodePath("../Pasture3D")
-_layer_owner = "pasture3d_brush:Erosion"
-metadata/_custom_type_script = "uid://jxrk4fox2cgd"

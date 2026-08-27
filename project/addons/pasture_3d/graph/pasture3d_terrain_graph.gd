@@ -25,13 +25,18 @@ const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_f
 ## Emitted when a specific node's parameters change, carrying that node's index and all its downstream dependents.
 signal node_updated(node_idx: int, downstream_indices: Array[int])
 
+## Emitted when graph topology (nodes added/removed, frames, positions) changes for UI canvas synchronization.
+signal structure_changed()
+
 ## The nodes. Order here is authoring order only — evaluation order is derived from `connections`.
 @export var nodes: Array[Pasture3DGraphNode] = []:
 	set(v):
 		_bind_nodes(nodes, false)
 		nodes = v
 		_bind_nodes(nodes, true)
-		emit_changed()
+		structure_changed.emit()
+		if output_index() >= 0:
+			emit_changed()
 
 ## The wires, each a PackedInt32Array `[from_node, from_port, to_node, to_port]` (indices into `nodes`).
 ## `from_port` is reserved for multi-output nodes (always 0 today); `to_port` is the destination input
@@ -40,6 +45,7 @@ signal node_updated(node_idx: int, downstream_indices: Array[int])
 @export var connections: Array = []:
 	set(v):
 		connections = v
+		structure_changed.emit()
 		emit_changed()
 
 ## Index into `nodes` of the node whose grid is the graph's output. -1 (or out of range) = no output, and
@@ -47,6 +53,7 @@ signal node_updated(node_idx: int, downstream_indices: Array[int])
 @export var output_node: int = -1:
 	set(v):
 		output_node = v
+		structure_changed.emit()
 		emit_changed()
 
 ## Temporary editor solo preview override (-1 = normal graph output). When set >= 0, evaluate() routes
@@ -54,6 +61,7 @@ signal node_updated(node_idx: int, downstream_indices: Array[int])
 @export var output_override: int = -1:
 	set(v):
 		output_override = v
+		structure_changed.emit()
 		emit_changed()
 
 ## Comment and grouping boxes organizing subsets of nodes on the visual canvas.
@@ -62,7 +70,7 @@ signal node_updated(node_idx: int, downstream_indices: Array[int])
 		_bind_frames(frames, false)
 		frames = v
 		_bind_frames(frames, true)
-		emit_changed()
+		structure_changed.emit()
 
 
 # ---- Change forwarding -------------------------------------------------------------------------------
@@ -91,7 +99,8 @@ func _on_node_changed(p_node: Pasture3DGraphNode = null) -> void:
 	if n_idx >= 0:
 		var downstream := get_downstream_nodes(n_idx)
 		var out_idx := output_index()
-		affects_output = (out_idx >= 0 and downstream.has(out_idx))
+		if out_idx >= 0:
+			affects_output = downstream.has(out_idx)
 		node_updated.emit(n_idx, downstream)
 	
 	if affects_output:
@@ -127,7 +136,7 @@ func _bind_frames(p_list: Array, p_connect: bool) -> void:
 
 
 func _on_frame_changed() -> void:
-	emit_changed()
+	structure_changed.emit()
 
 
 ## Monotonic content revision, bumped on every `changed` (any node param, wiring, or output). A host's
@@ -634,6 +643,9 @@ func compile_cell_program() -> Dictionary:
 	var inputs_of: Dictionary = _fold_plan()["inputs_of"] # node -> [source node per port, -1 unwired]
 	var ops := PackedInt32Array()
 	var params := PackedFloat32Array()
+	var params_b := PackedFloat32Array()
+	var params_c := PackedFloat32Array()
+	var params_d := PackedFloat32Array()
 	var in_a := PackedInt32Array()
 	var in_b := PackedInt32Array()
 	var noise_tab: Array = []
@@ -644,28 +656,43 @@ func compile_cell_program() -> Dictionary:
 		var srcs: Array = inputs_of[ni]
 		var sa: int = int(srcs[0]) if srcs.size() > 0 else -1
 		var sb: int = int(srcs[1]) if srcs.size() > 1 else -1
+		var op_id := 0
+		var param := 0.0
+		var pb := 0.0
+		var pc := 0.0
+		var pd := 0.0
+		var nz = null
 		match node.op():
 			&"noise":
-				ops.append(1)
-				params.append(float(node.get("amplitude")))
-				noise_tab.append(node.get("noise"))
+				op_id = 1; param = float(node.get("amplitude")); nz = node.get("noise")
 			&"const":
-				ops.append(2)
-				params.append(float(node.get("value")))
-				noise_tab.append(null)
+				op_id = 2; param = float(node.get("value"))
 			&"blend":
 				if srcs.size() > 2 and int(srcs[2]) >= 0:
 					return {} # a masked blend is 3-input; the native cell evaluator only reads a & b
-				ops.append(3)
-				params.append(float(int(node.get("mode"))))
-				noise_tab.append(null)
+				op_id = 3; param = float(int(node.get("mode")))
+			&"terrace":
+				op_id = 4
+				param = float(node.get("band_height"))
+				pb = float(node.get("hardness"))
+				pc = float(node.get("amount"))
+				pd = float(node.get("jitter"))
+				if pd > 0.0 and node.has_method("_jitter_field"):
+					nz = node.call("_jitter_field")
 			_:
 				return {} # an op the native cell evaluator does not implement
+		ops.append(op_id)
+		params.append(param)
+		params_b.append(pb)
+		params_c.append(pc)
+		params_d.append(pd)
+		noise_tab.append(nz)
 		# Generators have no inputs; -1 there is harmless (the native evaluator only reads a blend's ports).
 		in_a.append(int(slot_of[sa]) if sa >= 0 else -1)
 		in_b.append(int(slot_of[sb]) if sb >= 0 else -1)
 	return {
-		"ops": ops, "params": params, "in_a": in_a, "in_b": in_b,
+		"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
+		"in_a": in_a, "in_b": in_b,
 		"noise": noise_tab, "output": int(slot_of[out]),
 	}
 
@@ -678,12 +705,15 @@ func compile_cell_program() -> Dictionary:
 ## or cyclic output, or a node whose op the native evaluator does not implement.
 ##
 ## Program keys, all parallel and one entry per slot except `output`:
-##   ops    [int]     GraphCellOpType — 1 noise, 2 const, 3 blend, 10 input, 11 smooth, 12 output
-##   params [float]   amplitude | value | blend-mode | smooth-passes (0 for input/output)
-##   in0    [int]     first input's source slot, or -1 unwired
-##   in1    [int]     second input's source slot (blend only), or -1
-##   noise  [Variant] the slot's FastNoiseLite (noise ops) or null — passed as-is, never rebuilt
-##   output int       the slot whose grid is the graph output
+##   ops      [int]     GraphCellOpType — 1 noise, 2 const, 3 blend, 4 terrace, 10 input, 11 smooth, 12 output
+##   params   [float]   amplitude | value | blend-mode | smooth-passes | band_height
+##   params_b [float]   hardness
+##   params_c [float]   amount
+##   params_d [float]   jitter
+##   in0      [int]     first input's source slot, or -1 unwired
+##   in1      [int]     second input's source slot (blend only), or -1
+##   noise    [Variant] the slot's FastNoiseLite (noise/jitter ops) or null — passed as-is, never rebuilt
+##   output   int       the slot whose grid is the graph output
 func compile_graph_program() -> Dictionary:
 	var out := output_index()
 	if out < 0 or out >= nodes.size() or nodes[out] == null:
@@ -697,6 +727,9 @@ func compile_graph_program() -> Dictionary:
 	var inputs_of: Dictionary = _fold_plan()["inputs_of"] # node -> [source node per port, -1 unwired]
 	var ops := PackedInt32Array()
 	var params := PackedFloat32Array()
+	var params_b := PackedFloat32Array()
+	var params_c := PackedFloat32Array()
+	var params_d := PackedFloat32Array()
 	var in0 := PackedInt32Array()
 	var in1 := PackedInt32Array()
 	var noise_tab: Array = []
@@ -707,6 +740,9 @@ func compile_graph_program() -> Dictionary:
 		var s1: int = int(srcs[1]) if srcs.size() > 1 else -1
 		var op_id := 0
 		var param := 0.0
+		var pb := 0.0
+		var pc := 0.0
+		var pd := 0.0
 		var nz = null
 		match node.op():
 			&"input":
@@ -719,6 +755,14 @@ func compile_graph_program() -> Dictionary:
 				if srcs.size() > 2 and int(srcs[2]) >= 0:
 					return {} # a masked blend is 3-input; the native whole-graph evaluator reads only in0/in1
 				op_id = 3; param = float(int(node.get("mode")))
+			&"terrace":
+				op_id = 4
+				param = float(node.get("band_height"))
+				pb = float(node.get("hardness"))
+				pc = float(node.get("amount"))
+				pd = float(node.get("jitter"))
+				if pd > 0.0 and node.has_method("_jitter_field"):
+					nz = node.call("_jitter_field")
 			&"smooth":
 				op_id = 11; param = float(int(node.get("passes")))
 			&"output":
@@ -727,11 +771,15 @@ func compile_graph_program() -> Dictionary:
 				return {} # an op the native evaluator does not implement
 		ops.append(op_id)
 		params.append(param)
+		params_b.append(pb)
+		params_c.append(pc)
+		params_d.append(pd)
 		noise_tab.append(nz)
 		in0.append(int(slot_of[s0]) if s0 >= 0 else -1)
 		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
 	return {
-		"ops": ops, "params": params, "in0": in0, "in1": in1,
+		"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
+		"in0": in0, "in1": in1,
 		"noise": noise_tab, "output": int(slot_of[out]),
 	}
 
@@ -746,7 +794,7 @@ func native_supported() -> bool:
 	var order := _eval_order()
 	if order.is_empty():
 		return false
-	const SUPPORTED := [&"input", &"noise", &"const", &"blend", &"smooth", &"output"]
+	const SUPPORTED := [&"input", &"noise", &"const", &"blend", &"smooth", &"terrace", &"output"]
 	for ni in order:
 		if nodes[ni] == null or nodes[ni].muted or not SUPPORTED.has(nodes[ni].op()):
 			return false

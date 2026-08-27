@@ -548,6 +548,7 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			st.graph_reads_input = d.get("reads_input", false);
 			st.graph_content_key = d.get("content_key", (int64_t)0);
 			st.frozen = d.get("frozen", false);
+			st.defer = d.get("defer", false);
 			st.cache_key = d.get("cache_key", (int64_t)0);
 			st.cache = d.get("cache", PackedFloat32Array());
 			st.has_out = d.has("out");
@@ -769,6 +770,20 @@ void brush_mod_graph(BrushModStep &p_step, std::vector<float> &r_vals, const std
 		return;
 	}
 
+	if (p_step.defer && p_step.has_out) {
+		PackedFloat32Array pending;
+		pending.resize((int)n);
+		std::memcpy(pending.ptrw(), z.data(), n * sizeof(float));
+		const Rect2 rect((real_t)(p_min_x - 0.5 * p_vs), (real_t)(p_min_z - 0.5 * p_vs),
+				(real_t)((double)p_gw * p_vs), (real_t)((double)p_gh * p_vs));
+		p_step.out["pending"] = pending;
+		p_step.out["pending_key"] = key;
+		p_step.out["pending_gw"] = p_gw;
+		p_step.out["pending_gh"] = p_gh;
+		p_step.out["pending_rect"] = rect;
+		return;
+	}
+
 	// MISS: evaluate at the brush's own per-cell world coords (a half-cell-shifted rect makes
 	// graph_cell_to_world reproduce min + i*vs), handing the graph the absolute surface for its Input node.
 	const Rect2 rect((real_t)(p_min_x - 0.5 * p_vs), (real_t)(p_min_z - 0.5 * p_vs),
@@ -914,8 +929,10 @@ void Pasture3DData::_apply_stamp_block(Pasture3DLayer *p_layer, const int p_min_
 					if (tile.is_null() || tile->get_format() != Image::FORMAT_RGF) {
 						continue; // batched path is RGF-only; non-RGF shouldn't occur on a non-base overlay
 					}
-					PackedByteArray data = tile->get_data();
-					float *f = reinterpret_cast<float *>(data.ptrw()); // RGF: [r,g] per pixel, stride 2
+					float *f = reinterpret_cast<float *>(tile->ptrw()); // RGF: [r,g] per pixel, stride 2
+					if (!f) {
+						continue;
+					}
 					bool tile_touched = false;
 					for (int py = z0; py < z1; py++) {
 						const int iz = gz + py - p_min_pz; // box-grid row
@@ -944,7 +961,6 @@ void Pasture3DData::_apply_stamp_block(Pasture3DLayer *p_layer, const int p_min_
 						}
 					}
 					if (tile_touched) {
-						tile->set_data(ts, ts, false, Image::FORMAT_RGF, data);
 						region_touched = true;
 					}
 				}
@@ -1012,8 +1028,10 @@ void Pasture3DData::_apply_control_block(Pasture3DLayer *p_layer, const int p_mi
 					if (tile.is_null() || tile->get_format() != Image::FORMAT_RGF) {
 						continue;
 					}
-					PackedByteArray data = tile->get_data();
-					float *f = reinterpret_cast<float *>(data.ptrw());
+					float *f = reinterpret_cast<float *>(tile->ptrw());
+					if (!f) {
+						continue;
+					}
 					bool tile_touched = false;
 					for (int py = z0; py < z1; py++) {
 						const int idx_row = (gz + py - p_min_pz) * p_gw;
@@ -1030,7 +1048,6 @@ void Pasture3DData::_apply_control_block(Pasture3DLayer *p_layer, const int p_mi
 						}
 					}
 					if (tile_touched) {
-						tile->set_data(ts, ts, false, Image::FORMAT_RGF, data);
 						region_touched = true;
 					}
 				}

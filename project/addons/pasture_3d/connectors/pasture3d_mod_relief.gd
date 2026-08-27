@@ -42,6 +42,44 @@ extends Pasture3DNode
 		strength = v
 		_touch()
 
+var _cache: Dictionary = {}
+var _stale: bool = false
+
+
+func _supports_freezing() -> bool:
+	return true
+
+
+func clear_cache() -> void:
+	if _cache.is_empty() and not _stale:
+		return
+	_cache.clear()
+	_stale = false
+	_touch()
+
+
+func cache_bytes() -> int:
+	var n := 0
+	for k in _cache:
+		n += (_cache[k].get("grid", PackedFloat32Array()) as PackedFloat32Array).size() * 4
+	return n
+
+
+func cache_for(p_extent: String) -> Dictionary:
+	return _cache.get(p_extent, {})
+
+
+func store_cache(p_extent: String, p_entry: Dictionary) -> void:
+	_cache[p_extent] = p_entry
+
+
+func set_stale(p_stale: bool) -> void:
+	if _stale == p_stale:
+		return
+	_stale = p_stale
+	if Engine.is_editor_hint():
+		emit_changed.call_deferred()
+
 
 func op() -> StringName:
 	return &"relief"

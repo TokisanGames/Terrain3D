@@ -29,6 +29,7 @@ func _ready() -> void:
 	_b_blend_modes_match_native()
 	_c_grid_node_refuses_to_lower()
 	_d_unwired_input_reads_zero()
+	_e_terrace_matches_native()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH CPP PARITY PASS" if _fail == 0 else "GRAPH CPP PARITY FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -121,6 +122,34 @@ func _d_unwired_input_reads_zero() -> void:
 	print("    control: wiring port B moves the native field by %.3f m (want > 0.05)" % moved)
 	if moved <= 0.05:
 		_fail += 1; print("    !! control dead — the unwired port was not actually empty")
+
+
+# --- E. Terrace node: native C++ == GDScript oracle ---------------------------------------------------
+func _e_terrace_matches_native() -> void:
+	print("[E] terrace node: native == GDScript evaluate")
+	var g := Pasture3DTerrainGraph.new()
+	var noise := _noise(_make_noise(11, 0.04), 25.0)
+	var ter := Pasture3DGraphNodeRegistry.create(&"terrace")
+	ter.set("band_height", 8.0)
+	ter.set("hardness", 0.75)
+	ter.set("amount", 0.9)
+	var nodes: Array[Pasture3DGraphNode] = [noise, ter]
+	g.nodes = nodes
+	g.connections = [PackedInt32Array([0, 0, 1, 0])]
+	g.output_node = 1
+	var gd := g.evaluate(GW, GH, RECT)
+	var nat := _native(g)
+	var d := _max_abs_diff(gd, nat)
+	print("    max |native - gdscript| = %.7f (want < %.6f)" % [d, EPS])
+	if d > EPS:
+		_fail += 1; print("    !! native and oracle disagree on Terrace op")
+	# Whole-graph evaluator parity
+	var prog := g.compile_graph_program()
+	var whole_nat := Pasture3DUtil.graph_eval_grid(prog, GW, GH, RECT, PackedFloat32Array())
+	var d_whole := _max_abs_diff(gd, whole_nat)
+	print("    whole-graph max |native - gdscript| = %.7f (want < %.6f)" % [d_whole, EPS])
+	if d_whole > EPS:
+		_fail += 1; print("    !! whole-graph native and oracle disagree on Terrace op")
 
 
 # ---- helpers ----------------------------------------------------------------------------------------

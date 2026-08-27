@@ -32,6 +32,7 @@ var _frame_button: Button
 var _preview_button: Button
 var _minimap_button: Button
 var _arrange_button: Button
+var _bake_brush_button: Button
 var _title: Label
 var _hint: Label
 
@@ -88,12 +89,16 @@ func edit_graph(p_graph: Pasture3DTerrainGraph, p_mod: Pasture3DNodeGraph = null
 		return
 	if graph != null and graph.changed.is_connected(_on_graph_changed):
 		graph.changed.disconnect(_on_graph_changed)
+	if graph != null and graph.has_signal(&"structure_changed") and graph.structure_changed.is_connected(_on_graph_changed):
+		graph.structure_changed.disconnect(_on_graph_changed)
 	if graph != null and graph.has_signal(&"node_updated") and graph.node_updated.is_connected(_on_node_updated):
 		graph.node_updated.disconnect(_on_node_updated)
 	graph = p_graph
 	if graph != null:
 		if not graph.changed.is_connected(_on_graph_changed):
 			graph.changed.connect(_on_graph_changed)
+		if graph.has_signal(&"structure_changed") and not graph.structure_changed.is_connected(_on_graph_changed):
+			graph.structure_changed.connect(_on_graph_changed)
 		if graph.has_signal(&"node_updated") and not graph.node_updated.is_connected(_on_node_updated):
 			graph.node_updated.connect(_on_node_updated)
 	_last_structure_hash = _structure_hash()
@@ -198,7 +203,8 @@ func _process_preview_queue() -> void:
 	var in_gh: int = input_data.get("gh", 0)
 	var in_rect: Rect2 = input_data.get("rect", Rect2(-50.0, -50.0, 100.0, 100.0))
 
-	while not _preview_queue.is_empty():
+	var processed := 0
+	while not _preview_queue.is_empty() and processed < 2:
 		var idx: int = _preview_queue.pop_front()
 		if idx >= 0 and idx < graph.nodes.size():
 			var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, idx, 128, in_grid, in_gw, in_gh, in_rect)
@@ -206,6 +212,10 @@ func _process_preview_queue() -> void:
 				_preview_textures[idx] = tex
 				if _preview_rects.has(idx) and is_instance_valid(_preview_rects[idx]):
 					(_preview_rects[idx] as TextureRect).texture = tex
+		processed += 1
+
+	if not _preview_queue.is_empty() and _preview_timer != null:
+		_preview_timer.start(0.02)
 
 
 func _auto_fit_node_range(p_index: int) -> void:
@@ -318,6 +328,12 @@ func _find_host_modifier() -> Pasture3DNodeGraph:
 	return null
 
 
+func _on_bake_brush_pressed() -> void:
+	var mod := _find_host_modifier()
+	if mod != null:
+		mod.bake_graph()
+
+
 func _get_preview_input_data() -> Dictionary:
 	var mod := _find_host_modifier()
 	if mod != null and not mod.last_input_surface.is_empty():
@@ -398,6 +414,13 @@ func _build_ui() -> void:
 	_arrange_button.tooltip_text = "Automatically arrange graph nodes into a clean layout"
 	_arrange_button.pressed.connect(func(): if _graphedit: _graphedit.arrange_nodes())
 	bar.add_child(_arrange_button)
+
+	_bake_brush_button = Button.new()
+	_bake_brush_button.text = "Bake to Brush"
+	_bake_brush_button.tooltip_text = "Force full evaluation and bake this graph into the host brush terrain layer"
+	_bake_brush_button.pressed.connect(_on_bake_brush_pressed)
+	_bake_brush_button.visible = false
+	bar.add_child(_bake_brush_button)
 	
 	_title = Label.new()
 	_title.text = "  (no graph)"
@@ -535,6 +558,9 @@ func _rebuild() -> void:
 	if _preview_button != null: _preview_button.disabled = not has
 	if _minimap_button != null: _minimap_button.disabled = not has
 	if _arrange_button != null: _arrange_button.disabled = not has
+	var mod := _find_host_modifier()
+	if _bake_brush_button != null:
+		_bake_brush_button.visible = (has and mod != null)
 	if _title != null: _title.text = "  editing: %s" % _graph_label() if has else "  (no graph)"
 	if _hint != null: _hint.visible = not has
 	if not has:
@@ -713,21 +739,19 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 
 	# 2D Heightmap Preview Thumbnail (if enabled and not collapsed)
 	if _show_previews and not p_node.collapsed:
-		var input_data := _get_preview_input_data()
-		var in_grid: PackedFloat32Array = input_data.get("grid", PackedFloat32Array())
-		var in_gw: int = input_data.get("gw", 0)
-		var in_gh: int = input_data.get("gh", 0)
-		var in_rect: Rect2 = input_data.get("rect", Rect2(-50.0, -50.0, 100.0, 100.0))
-		var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, p_index, 128, in_grid, in_gw, in_gh, in_rect)
+		var center_box := CenterContainer.new()
+		var trect := TextureRect.new()
+		_preview_rects[p_index] = trect
+		var tex: ImageTexture = _preview_textures.get(p_index, null)
 		if tex != null:
-			var center_box := CenterContainer.new()
-			var trect := TextureRect.new()
 			trect.texture = tex
-			trect.custom_minimum_size = Vector2(128, 128)
-			trect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			trect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			center_box.add_child(trect)
-			p_gn.add_child(center_box)
+		else:
+			_queue_preview_update(p_index)
+		trect.custom_minimum_size = Vector2(128, 128)
+		trect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		trect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		center_box.add_child(trect)
+		p_gn.add_child(center_box)
 
 	# Inline parameter controls (if node is not collapsed)
 	if not p_node.collapsed:

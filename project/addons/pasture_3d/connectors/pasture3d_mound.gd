@@ -52,18 +52,13 @@ enum FlankMode { FIXED_WIDTH, SLOPE_ANGLE }
 @export var falloff_curve: Curve
 ## Expand (+) or contract (−) the effective boundary off the spline, in metres.
 @export var edge_offset: float = 0.0
-## Smoothing passes applied to the base shape from the spline before modifiers (eliminates facet banding).
-@export_range(0, 10, 1) var smooth_passes: int = 1:
-	set(v):
-		smooth_passes = clampi(v, 0, 10)
-		_schedule_refresh()
 
 # ---- Legacy property migration (PASTURE3D_BRUSH_EROSION_SPEC.md §6.6) ------------------------------
 #
-# `noise`, `noise_strength`, `relief`, `relief_strength` were deleted at the end of
+# `noise`, `noise_strength`, `relief`, `relief_strength`, `smooth_passes` were deleted at the end of
 # phase 3a; the Modifiers stack replaces them. Scenes saved before that still carry the old keys, so
 # loading one would otherwise drop a mound's relief on the floor without a word.
-const _LEGACY_PROPS := ["noise", "noise_strength", "relief", "relief_strength"]
+const _LEGACY_PROPS := ["noise", "noise_strength", "relief", "relief_strength", "smooth_passes"]
 
 ## Legacy values seen during scene load, flushed into `modifiers` by `_ready`. Not exported, so nothing
 ## about it survives a save.
@@ -258,7 +253,7 @@ func _paint_spline(path: Path3D) -> void:
 				"slope_safety": _region_safety_height(),
 				"relative_to_terrain": relative_to_terrain, "plane_y": global_position.y,
 			"blend": _blend, "composite": not _defer_composite,
-			"smooth_passes": smooth_passes,
+			"smooth_passes": 0,
 			# The stack, and the ONE selector block every relief modifier in it indexes into.
 			"modifiers": stack["list"], "op_selectors": op_selectors,
 			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
@@ -353,22 +348,22 @@ func _paint_spline(path: Path3D) -> void:
 	profile.resize(gw * gh)
 	var basey := PackedFloat32Array()
 	basey.resize(gw * gh)
+	var base_below := _base_below_grid(min_x, min_z, vs, gw, gh) if (relative_to_terrain or use_fields) else PackedFloat32Array()
 
 	for iz in range(gh):
 		var z := min_z + iz * vs
 		var row := iz * gw
 		for ix in range(gw):
-			amp[row + ix] = NAN
-			var signed_d := field[row + ix] + edge_offset
-			if signed_d <= 0.0:
-				continue
-			var hp: Array = host_profile_at.call(signed_d)
-			if hp.is_empty():
-				continue
 			var pos := Vector3(min_x + ix * vs, 0.0, z)
-			amp[row + ix] = hp[0]
-			profile[row + ix] = hp[1]
-			basey[row + ix] = _base_height_below(pos) if relative_to_terrain else global_position.y
+			var sd: float = field[row + ix] + edge_offset
+			var hp: Array = host_profile_at.call(sd)
+			amp[row + ix] = NAN if hp.is_empty() or hp[1] <= 0.0 else hp[0]
+			profile[row + ix] = 0.0 if hp.is_empty() else hp[1]
+			if relative_to_terrain:
+				var bb: float = base_below[row + ix] if not base_below.is_empty() else NAN
+				basey[row + ix] = bb if is_finite(bb) else _base_height_below(pos)
+			else:
+				basey[row + ix] = global_position.y
 	var vals := _run_modifier_stack(stack["gd"], amp, profile, basey, {
 		"gw": gw, "gh": gh, "min_x": min_x, "min_z": min_z, "vs": vs, "add": add,
 		"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
@@ -377,24 +372,25 @@ func _paint_spline(path: Path3D) -> void:
 		"host_fields": host_fields, "host_measured": host_measured, "host_div": host_div,
 		"extent": extent,
 	})
-	if smooth_passes > 0:
-		vals = _blur_grid(vals, gw, gh, smooth_passes)
 	_commit_modifier_caches(stack, extent,
 			[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
 	_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, vals, _spline_footprint_aabb(path))
 
-	for iz in range(gh):
-		var z := min_z + iz * vs
-		var row := iz * gw
-		for ix in range(gw):
-			var v := vals[row + ix]
-			if not is_finite(v):
-				continue
-			var pos := Vector3(min_x + ix * vs, 0.0, z)
-			if add:
-				_paint_height(pos, 0.0, v)
-			else:
-				_paint_height(pos, v, 0.0)
+	if _layer_id >= 0 and terrain.data.has_method("apply_sim_block"):
+		terrain.data.apply_sim_block(_layer_id, min_x, min_z, vs, gw, gh, vals, _blend)
+	else:
+		for iz in range(gh):
+			var z := min_z + iz * vs
+			var row := iz * gw
+			for ix in range(gw):
+				var v := vals[row + ix]
+				if not is_finite(v):
+					continue
+				var pos := Vector3(min_x + ix * vs, 0.0, z)
+				if add:
+					_paint_height(pos, 0.0, v)
+				else:
+					_paint_height(pos, v, 0.0)
 
 
 ## Generate a 2D preview height grid representing this mound's base spline shape.
@@ -442,9 +438,6 @@ func generate_preview_surface(w: int, h: int) -> Array:
 		var sd := field[i] + edge_offset
 		vals[i] = host_profile_at.call(sd)
 
-	if smooth_passes > 0:
-		vals = _blur_grid(vals, w, h, smooth_passes)
-
 	return [vals, w, h, Rect2(min_x, min_z, float(w) * vs, float(h) * vs)]
 
 
@@ -452,7 +445,7 @@ func _brush_param_signature() -> Array:
 	return [
 		super._brush_param_signature(),
 		height, capped, blend_mode, invert, relative_to_terrain,
-		flank_mode, falloff_width, slope_angle, edge_offset, smooth_passes,
+		flank_mode, falloff_width, slope_angle, edge_offset,
 		falloff_curve.get_baked_points() if falloff_curve != null else []
 	]
 
