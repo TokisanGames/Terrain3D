@@ -246,6 +246,9 @@ func _validate_property(property: Dictionary) -> void:
 		"mapping":
 			if source == Source.NOISE or source == Source.GRAPH: # world/graph-defined; nothing to lay out
 				property.usage &= ~PROPERTY_USAGE_EDITOR
+		"height_scale":
+			if source == Source.GRAPH:
+				property.usage &= ~PROPERTY_USAGE_EDITOR
 		"height_offset":
 			if source == Source.RELIEF or source == Source.GRAPH: # signed value already
 				property.usage &= ~PROPERTY_USAGE_EDITOR
@@ -630,7 +633,7 @@ func _paint_spline(path: Path3D) -> void:
 				amp = height_scale * rv * mask * src_strength
 			elif source == Source.GRAPH:
 				var gv := graph_grid[row + ix] if not graph_grid.is_empty() else 0.0
-				amp = height_scale * gv * mask * src_strength
+				amp = gv * mask * src_strength
 			else:
 				var v := _sample01(x, z, lx * inv_ex, lz * inv_ez, fit, data, lut_w, lut_h)
 				amp = height_scale * (v - height_offset) * mask * src_strength

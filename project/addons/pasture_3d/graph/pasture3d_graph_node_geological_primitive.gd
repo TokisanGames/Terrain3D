@@ -160,33 +160,35 @@ func _profile_at(d: float, norm_x: float) -> float:
 		PrimitiveType.INSELBERG:
 			if d >= 1.0:
 				return 0.0
-			var t := 1.0 - d
-			var profile := pow(t, steepness) * (1.0 + 0.5 * (1.0 - pow(d, 2.0)))
-			return height * clampf(profile, 0.0, 1.0)
+			var dome := pow(cos(d * PI * 0.5), steepness)
+			return height * dome
 
 		PrimitiveType.VOLCANIC_CALDERA:
 			if d >= 1.0:
 				return 0.0
-			var rim_pos := 0.4
-			var caldera_depth := 0.6
-			if d < rim_pos:
-				var basin_t := d / rim_pos
-				var basin_profile := (1.0 - caldera_depth) + caldera_depth * pow(basin_t, steepness)
-				return height * basin_profile
+			var rim_pos := 0.45
+			var floor_ratio := 0.35
+			if d <= rim_pos:
+				var bt := d / rim_pos
+				var bowl := floor_ratio + (1.0 - floor_ratio) * pow(sin(bt * PI * 0.5), steepness)
+				return height * bowl
 			else:
-				var flank_t := (1.0 - d) / (1.0 - rim_pos)
-				return height * pow(clampf(flank_t, 0.0, 1.0), steepness)
+				var ft := (1.0 - d) / (1.0 - rim_pos)
+				var flank := pow(sin(ft * PI * 0.5), steepness)
+				return height * flank
 
 		PrimitiveType.CUESTA_BADLANDS:
 			if d >= 1.0:
 				return 0.0
-			var envelope := pow(1.0 - d, 0.8)
-			var scarp_steepness := 0.25
-			var dip_factor := 0.0
+			var envelope := pow(cos(d * PI * 0.5), 0.75)
+			var scarp_factor := 0.25
+			var x_profile := 0.0
 			if norm_x < 0.0:
-				dip_factor = 1.0 - pow(clampf(-norm_x / scarp_steepness, 0.0, 1.0), steepness)
+				var st := clampf(-norm_x / scarp_factor, 0.0, 1.0)
+				x_profile = pow(cos(st * PI * 0.5), steepness)
 			else:
-				dip_factor = 1.0 - pow(clampf(norm_x, 0.0, 1.0), 0.7)
-			return height * clampf(dip_factor * envelope, 0.0, 1.0)
+				var dt := clampf(norm_x, 0.0, 1.0)
+				x_profile = pow(cos(dt * PI * 0.5), 0.6)
+			return height * x_profile * envelope
 
 	return 0.0

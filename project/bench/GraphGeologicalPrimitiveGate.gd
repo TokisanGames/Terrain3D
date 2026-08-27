@@ -57,7 +57,7 @@ func _b_volcanic_caldera() -> void:
 	gp.radius = 50.0
 
 	var center_cavity := gp.eval_cell(0.0, 0.0, PackedFloat32Array())
-	var rim_peak := gp.eval_cell(20.0, 0.0, PackedFloat32Array()) # r = 20m is 0.4*50m = rim
+	var rim_peak := gp.eval_cell(22.5, 0.0, PackedFloat32Array()) # r = 22.5m is 0.45*50m = rim
 
 	print("    caldera center = %.2f m, rim peak = %.2f m (rim > center)" % [center_cavity, rim_peak])
 	if rim_peak <= center_cavity + 10.0:
