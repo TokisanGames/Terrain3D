@@ -34,8 +34,11 @@
 [ext_resource type="Script" uid="uid://btghvibxcxh6p" path="res://addons/pasture_3d/connectors/pasture3d_mod_erosion.gd" id="24_ce53t"]
 [ext_resource type="Script" uid="uid://bn5t60kllucu2" path="res://addons/pasture_3d/connectors/pasture3d_stream.gd" id="26_ai4gw"]
 [ext_resource type="Material" uid="uid://c088g1lo2b37b" path="res://addons/pasture_3d/extras/shaders/water/M_water_river.tres" id="27_7sjga"]
+[ext_resource type="Script" uid="uid://dpb5we4obk521" path="res://addons/pasture_3d/graph/pasture3d_graph_node_noise_jordan.gd" id="31_tqyh8"]
+[ext_resource type="Script" uid="uid://dkwo3nwbq1d7n" path="res://addons/pasture_3d/graph/pasture3d_graph_node_erosion_hydraulic.gd" id="32_6al3s"]
 [ext_resource type="Script" uid="uid://dduqg8qestuvt" path="res://addons/pasture_3d/graph/pasture3d_graph_node_input.gd" id="32_iib3d"]
 [ext_resource type="Script" uid="uid://dvx0o4df24s75" path="res://addons/pasture_3d/graph/pasture3d_graph_node_output.gd" id="33_b2p0t"]
+[ext_resource type="Script" uid="uid://bc0174c1jwufg" path="res://addons/pasture_3d/graph/pasture3d_graph_node_reroute.gd" id="33_ixpov"]
 [ext_resource type="Script" uid="uid://c1fw3sxu0oprh" path="res://addons/pasture_3d/graph/pasture3d_graph_node_smooth.gd" id="34_aw4eb"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_vnp0k"]
@@ -189,6 +192,7 @@ metadata/_custom_type_script = "uid://dr7vsokvx1xjs"
 [sub_resource type="Resource" id="Resource_ppi2w"]
 script = ExtResource("15_aw4eb")
 graph = SubResource("Resource_x20uv")
+evaluation = 1
 metadata/_custom_type_script = "uid://717mgmmlrimi"
 
 [sub_resource type="Curve3D" id="Curve3D_46g7t"]
@@ -337,45 +341,47 @@ _data = {
 }
 point_count = 9
 
-[sub_resource type="Resource" id="Resource_2a5dl"]
-script = ExtResource("5_qex3v")
-passes = 3
+[sub_resource type="Resource" id="Resource_lkta6"]
+script = ExtResource("33_b2p0t")
+graph_position = Vector2(1200, 160)
+muted = true
+
+[sub_resource type="Resource" id="Resource_cj5vh"]
+script = ExtResource("32_iib3d")
+graph_position = Vector2(300, 200)
+
+[sub_resource type="Resource" id="Resource_8aylh"]
+script = ExtResource("31_tqyh8")
+graph_position = Vector2(1220, 440)
+
+[sub_resource type="Resource" id="Resource_0l3s1"]
+script = ExtResource("32_6al3s")
+graph_position = Vector2(660, 340)
+
+[sub_resource type="Resource" id="Resource_r214d"]
+script = ExtResource("33_ixpov")
+graph_position = Vector2(799, 222)
+
+[sub_resource type="Resource" id="Resource_dk421"]
+script = ExtResource("14_b2p0t")
+nodes = Array[ExtResource("10_2a5dl")]([SubResource("Resource_lkta6"), SubResource("Resource_cj5vh"), SubResource("Resource_8aylh"), SubResource("Resource_0l3s1"), SubResource("Resource_r214d")])
+connections = [PackedInt32Array(1, 0, 4, 0), PackedInt32Array(1, 0, 3, 0), PackedInt32Array(3, 0, 0, 0)]
+metadata/_custom_type_script = "uid://dr7vsokvx1xjs"
+
+[sub_resource type="Resource" id="Resource_6kkp6"]
+script = ExtResource("15_aw4eb")
+graph = SubResource("Resource_dk421")
+enabled = false
+evaluation = 1
+metadata/_custom_type_script = "uid://717mgmmlrimi"
 
 [sub_resource type="Curve3D" id="Curve3D_w1nth"]
 closed = true
 _data = {
-"points": PackedVector3Array(-22.610838, 0, 22.768755, 22.610838, 0, -22.768755, -66.84003, 1, -59.364822, 0, 0, 0, 0, 0, 0, -9.798035, 1, -68.070854, 0, 0, 0, 0, 0, 0, -10.792908, 1, -37.26364, 0, 0, 0, 0, 0, 0, -6.6475525, 1, -68.11446, -23.102798, 0, -22.63475, 23.102798, 0, 22.63475, 63.709732, 1, -60.030884, 22.710129, 0, -22.86874, -22.710129, 0, 22.86874, 64.52481, 1, 69.33865, 22.920923, 0, 22.456562, -22.920923, 0, -22.456562, -64.39194, 1, 68.96547),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -26.006805, 1, -69.34888, 0, 0, 0, 0, 0, 0, -10.792908, 1, -37.26364, 0, 0, 0, 0, 0, 0, -6.6475525, 1, -68.11446, -23.102798, 0, -22.63475, 23.102798, 0, 22.63475, 63.709732, 1, -60.030884, 22.710129, 0, -22.86874, -22.710129, 0, 22.86874, 64.52481, 1, 69.33865, 0, 0, 0, 0, 0, 0, -64.39194, 1, 68.96547, -15.916658, 0, 38.672577, 15.916658, 0, -38.672577, -78.270355, 1, -39.278656),
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0)
 }
 point_count = 7
-
-[sub_resource type="Resource" id="Resource_ai4gw"]
-script = ExtResource("11_13rgy")
-filter_type = 3
-range_min = 5.44
-range_max = 1000000000.0
-falloff_low = 2500.0
-falloff_high = 0.0
-metadata/_custom_type_script = "uid://nw2i8ancr82j"
-
-[sub_resource type="Resource" id="Resource_aw4eb"]
-script = ExtResource("3_e657i")
-selector = SubResource("Resource_ai4gw")
-metadata/_custom_type_script = "uid://b4reut2qigpsv"
-
-[sub_resource type="Resource" id="Resource_2k2uo"]
-script = ExtResource("6_unhns")
-layers = Array[ExtResource("3_sy2cg")]([SubResource("Resource_aw4eb")])
-strength = 1.22
-metadata/_custom_type_script = "uid://bohmiy2gws6iy"
-
-[sub_resource type="Curve3D" id="Curve3D_ai4gw"]
-closed = true
-_data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 20, 1, -20, 0, 0, 0, 0, 0, 0, 77.349884, 1.0000001, 16.812096, 0, 0, 0, 0, 0, 0, 81.10388, 1, 159.08899, 0, 0, 0, 0, 0, 0, -87.06546, 1, 159.34149, 0, 0, 0, 0, 0, 0, -78.32242, 1.0000006, 16.617043),
-"tilts": PackedFloat32Array(0, 0, 0, 0, 0)
-}
-point_count = 5
 
 [sub_resource type="Resource" id="Resource_8ey8c"]
 script = ExtResource("14_ls56y")
@@ -411,14 +417,6 @@ _data = {
 }
 point_count = 9
 
-[sub_resource type="Curve3D" id="Curve3D_qex3v"]
-closed = true
-_data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 56.222748, 1, -28.067963, 0, 0, 0, 0, 0, 0, 142.22766, 1, -8.548592, 0, 0, 0, 0, 0, 0, 151.64972, 1, 199.3573, 0, 0, 0, 0, 0, 0, 17.654602, 1, 210.97427, 0, 0, 0, 0, 0, 0, -64.61386, 1, 191.33145, 0, 0, 0, 0, 0, 0, -61.643402, 1, 2.7270737),
-"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0)
-}
-point_count = 6
-
 [sub_resource type="Resource" id="Resource_d10wp"]
 script = ExtResource("14_ls56y")
 min_x = -748.0
@@ -439,14 +437,6 @@ _data = {
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0)
 }
 point_count = 9
-
-[sub_resource type="Curve3D" id="Curve3D_wa04t"]
-closed = true
-_data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 56.222748, 1, -28.067963, 0, 0, 0, 0, 0, 0, 142.22766, 1, -8.548592, 0, 0, 0, 0, 0, 0, 151.64972, 1, 199.3573, 0, 0, 0, 0, 0, 0, 17.654602, 1, 210.97427, 0, 0, 0, 0, 0, 0, -64.61386, 1, 191.33145, 0, 0, 0, 0, 0, 0, -61.643402, 1, 2.7270737),
-"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0)
-}
-point_count = 6
 
 [sub_resource type="Resource" id="Resource_hvsre"]
 script = ExtResource("20_60p45")
@@ -566,6 +556,22 @@ _data = {
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 }
 point_count = 24
+
+[sub_resource type="Curve3D" id="Curve3D_tqyh8"]
+closed = true
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, -20, 0, 0, 0, 0, 0, 0, -20.927795, 1, -90.95591, 0, 0, 0, 0, 0, 0, 2.4034424, 1, -130.57367, 0, 0, 0, 0, 0, 0, 47.282043, 1, -98.26231, 0, 0, 0, 0, 0, 0, 83.49542, 1, -30.052155, 0, 0, 0, 0, 0, 0, 76.57446, 1, 50.23477, 0, 0, 0, 0, 0, 0, -8.5529785, 1, 62.106964, 0, 0, 0, 0, 0, 0, -68.835266, 1, 44.95685, 0, 0, 0, 0, 0, 0, -87.98718, 1, -30.224838, 0, 0, 0, 0, 0, 0, -28.8078, 1, -137.12732, 0, 0, 0, 0, 0, 0, -1.7713623, 1, -83.269295),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+}
+point_count = 12
+
+[sub_resource type="Curve3D" id="Curve3D_6al3s"]
+closed = true
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, -20, 0, 0, 0, 0, 0, 0, 20, 1, 20, 0, 0, 0, 0, 0, 0, -20, 1, 20),
+"tilts": PackedFloat32Array(0, 0, 0, 0)
+}
+point_count = 4
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_4owis"]
 sky_top_color = Color(0.48185542, 0.72736245, 0.79296875, 1)
@@ -746,8 +752,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -821.79785, 0, 190.54002)
 script = ExtResource("4_xlr3q")
 source = 3
 relief = SubResource("Resource_w1nth")
-terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"
+terrain = NodePath("..")
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Plow" unique_id=729599343]
 curve = SubResource("Curve3D_0k6o4")
@@ -757,8 +763,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -896.58466, 0, 113.365906)
 script = ExtResource("4_xlr3q")
 source = 3
 relief = SubResource("Resource_ia2p7")
-terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"
+terrain = NodePath("..")
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Plow1" unique_id=129302651]
 curve = SubResource("Curve3D_ls56y")
@@ -769,8 +775,8 @@ script = ExtResource("4_xlr3q")
 source = 3
 relief = SubResource("Resource_60p45")
 mapping = 1
-terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"
+terrain = NodePath("..")
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Plow2" unique_id=803114151]
 curve = SubResource("Curve3D_60p45")
@@ -780,8 +786,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -137.20859, -7.6293945e-06, 4
 script = ExtResource("4_xlr3q")
 source = 3
 relief = SubResource("Resource_q5mhe")
-terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"
+terrain = NodePath("..")
 metadata/_custom_type_script = "uid://b8grgutmnw7wd"
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Pasture3DPlow" unique_id=444179428]
@@ -794,9 +800,9 @@ source = 3
 relief = SubResource("Resource_oqtft")
 falloff_width = 30.0
 edge_offset = 10.0
-terrain = NodePath("..")
 _mask_preview_layer = 0
 _layer_owner = "pasture3d_brush:Plow"
+terrain = NodePath("..")
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Plow3" unique_id=1496745376]
 curve = SubResource("Curve3D_ia2p7")
@@ -805,26 +811,15 @@ curve = SubResource("Curve3D_ia2p7")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -433.44348, 0, 186.68494)
 script = ExtResource("1_fwsd8")
 height = 50.0
+flank_mode = 1
+slope_angle = 35.0
 terrain = NodePath("..")
 _mask_preview_on = true
 _layer_owner = "pasture3d_brush:Hill"
-modifiers = Array[ExtResource("2_w1nth")]([SubResource("Resource_2a5dl")])
+modifiers = Array[ExtResource("2_w1nth")]([SubResource("Resource_6kkp6")])
 
 [node name="Loop1" type="Path3D" parent="Pasture3D/Hill2" unique_id=2056617793]
 curve = SubResource("Curve3D_w1nth")
-
-[node name="Plow4" type="Node3D" parent="Pasture3D" unique_id=942779097 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -432.5947, 0, 110.11694)
-script = ExtResource("4_xlr3q")
-source = 3
-relief = SubResource("Resource_2k2uo")
-terrain = NodePath("..")
-_mask_preview_layer = 0
-_mask_preview_on = true
-_layer_owner = "pasture3d_brush:Plow"
-
-[node name="Area1" type="Path3D" parent="Pasture3D/Plow4" unique_id=1778984712]
-curve = SubResource("Curve3D_ai4gw")
 
 [node name="Pasture3DSimManager" type="Node3D" parent="Pasture3D" unique_id=319091666 node_paths=PackedStringArray("terrain")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -384.61578, 0, 0)
@@ -851,16 +846,6 @@ metadata/_custom_type_script = "uid://ca5wpjnjnclen"
 [node name="Area1" type="Path3D" parent="Pasture3D/Pasture3DSimManager/Pasture3DSimPass/Pasture3DSim" unique_id=162153076]
 curve = SubResource("Curve3D_d10wp")
 
-[node name="Pasture3DSim3" type="Node3D" parent="Pasture3D/Pasture3DSimManager/Pasture3DSimPass" unique_id=1640228921 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -101.619354, 0, 94.687256)
-script = ExtResource("14_8ey8c")
-terrain = NodePath("../../..")
-_layer_owner = "pasture3d_brush:Erosion"
-metadata/_custom_type_script = "uid://ca5wpjnjnclen"
-
-[node name="Area1" type="Path3D" parent="Pasture3D/Pasture3DSimManager/Pasture3DSimPass/Pasture3DSim3" unique_id=2101083514]
-curve = SubResource("Curve3D_qex3v")
-
 [node name="Pasture3DSimPass2" type="Node3D" parent="Pasture3D/Pasture3DSimManager" unique_id=1246618180]
 script = ExtResource("15_sy2cg")
 sim_result = SubResource("Resource_d10wp")
@@ -877,23 +862,13 @@ metadata/_custom_type_script = "uid://ca5wpjnjnclen"
 [node name="Area1" type="Path3D" parent="Pasture3D/Pasture3DSimManager/Pasture3DSimPass2/Pasture3DSim2" unique_id=1958763769]
 curve = SubResource("Curve3D_ce53t")
 
-[node name="Pasture3DSim4" type="Node3D" parent="Pasture3D/Pasture3DSimManager/Pasture3DSimPass2" unique_id=1164381424 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -101.619354, 0, 94.687256)
-script = ExtResource("14_8ey8c")
-terrain = NodePath("../../..")
-_layer_owner = "pasture3d_brush:Erosion"
-metadata/_custom_type_script = "uid://ca5wpjnjnclen"
-
-[node name="Area1" type="Path3D" parent="Pasture3D/Pasture3DSimManager/Pasture3DSimPass2/Pasture3DSim4" unique_id=1527402196]
-curve = SubResource("Curve3D_wa04t")
-
 [node name="Plow5" type="Node3D" parent="Pasture3D" unique_id=765204841 node_paths=PackedStringArray("terrain")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -720.524, 0, 194.1326)
 script = ExtResource("4_xlr3q")
 source = 3
 relief = SubResource("Resource_hvsre")
-terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"
+terrain = NodePath("..")
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Plow5" unique_id=1846100923]
 curve = SubResource("Curve3D_hvsre")
@@ -902,8 +877,8 @@ curve = SubResource("Curve3D_hvsre")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -721.4599, 0, 142.81921)
 script = ExtResource("4_xlr3q")
 source = 3
-terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"
+terrain = NodePath("..")
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Plow6" unique_id=280389629]
 curve = SubResource("Curve3D_pp151")
@@ -912,8 +887,8 @@ curve = SubResource("Curve3D_pp151")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -726.6037, 0, 93.2532)
 script = ExtResource("4_xlr3q")
 source = 3
-terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"
+terrain = NodePath("..")
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Plow7" unique_id=1844492386]
 curve = SubResource("Curve3D_bt3dr")
@@ -950,12 +925,32 @@ modifiers = Array[ExtResource("2_w1nth")]([SubResource("Resource_aqh6t"), SubRes
 curve = SubResource("Curve3D_tukl7")
 
 [node name="TroughStream" type="Node3D" parent="Pasture3D" unique_id=330465800 node_paths=PackedStringArray("source_spline", "manager")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 440.80914, -10.5, 8.09256)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 441.05048, -10.5, 7.564268)
 script = ExtResource("26_ai4gw")
 source_spline = NodePath("../Trough/Channel1")
 wave_profile = &"river_flow"
 material = ExtResource("27_7sjga")
 manager = NodePath("../../Pasture3DPoolManager")
+
+[node name="Mound5" type="Node3D" parent="Pasture3D" unique_id=1447953961 node_paths=PackedStringArray("terrain")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -606.27344, 0, 201.31348)
+script = ExtResource("1_fwsd8")
+terrain = NodePath("..")
+_layer_owner = "pasture3d_brush:Mounds"
+modifiers = Array[ExtResource("2_w1nth")]([null])
+
+[node name="Loop1" type="Path3D" parent="Pasture3D/Mound5" unique_id=473182319]
+curve = SubResource("Curve3D_tqyh8")
+
+[node name="Mound6" type="Node3D" parent="Pasture3D" unique_id=1648703408 node_paths=PackedStringArray("terrain")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -204.61139, 0, -88.5723)
+script = ExtResource("1_fwsd8")
+terrain = NodePath("..")
+_layer_owner = "pasture3d_brush:Mounds"
+modifiers = Array[ExtResource("2_w1nth")]([])
+
+[node name="Loop1" type="Path3D" parent="Pasture3D/Mound6" unique_id=1498355781]
+curve = SubResource("Curve3D_6al3s")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=2130707292]
 environment = SubResource("Environment_ahg1b")
