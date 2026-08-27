@@ -1,0 +1,14 @@
+[remap]
+
+importer="glsl"
+type="RDShaderFile"
+uid="uid://cnbcq3si7mmyb"
+path="res://.godot/imported/template_graph_compute_shader.glsl-6af1a7958d30482a685df5f7d664d144.res"
+
+[deps]
+
+source_file="res://addons/pasture_3d/graph/templates/template_graph_compute_shader.glsl"
+dest_files=["res://.godot/imported/template_graph_compute_shader.glsl-6af1a7958d30482a685df5f7d664d144.res"]
+
+[params]
+
