@@ -191,7 +191,6 @@ bench/TerrainRealismNodesGate.tscn
 
 # --- The pond's own water level (PASTURE3D_POND_WATER_OFFSET_SPEC.md §7) ---
 bench/PondWaterOffsetCheck.tscn
-
-
-
+# --- Terrain graph, palette categorization, constants & socket expansion ---
+bench/GraphPaletteAndConstantsGate.tscn
 

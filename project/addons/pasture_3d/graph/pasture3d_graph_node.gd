@@ -151,10 +151,15 @@ func has_output() -> bool:
 
 ## Port data types for visual wiring and validation.
 enum PortType {
-	HEIGHT = 0,   # Scalar elevation field (meters) - Sky Blue
-	MASK = 1,     # Normalized scalar [0.0, 1.0] - Amber
-	VECTOR = 2,   # Directional 2D vector / angle field - Purple
-	CURVE = 3,    # Spline / transfer curve - Emerald
+	HEIGHT = 0,       # Scalar elevation field (meters) - Sky Blue
+	MASK = 1,         # Normalized scalar [0.0, 1.0] - Amber
+	VECTOR = 2,       # Directional 2D/3D vector / angle field - Purple
+	CURVE = 3,        # Spline / transfer curve - Emerald
+	FLOAT = 4,        # General scalar float value / factor - Cyan
+	INT = 5,          # Discrete count / integer - Cobalt Blue
+	COLOR = 6,        # RGBA color / tint / gradient band - Magenta/Pink
+	BOOL = 7,         # Boolean toggle / gate switch - Lime Yellow
+	TERRAIN_BUS = 8,  # Bundled multi-channel stream - Warm Gold
 }
 
 

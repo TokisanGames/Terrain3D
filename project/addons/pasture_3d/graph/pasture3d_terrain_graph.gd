@@ -866,6 +866,16 @@ func compile_cell_program() -> Dictionary:
 					op_id = 1; param = float(node.get("amplitude")); nz = node.get("noise")
 				&"const":
 					op_id = 2; param = float(node.get("value"))
+				&"const_int":
+					op_id = 2; param = float(int(node.get("value")))
+				&"const_vector":
+					var cv: Vector2 = node.get("value") if node.get("value") is Vector2 else Vector2.ZERO
+					op_id = 2; param = cv.length()
+				&"const_color":
+					var cc: Color = node.get("value") if node.get("value") is Color else Color.WHITE
+					op_id = 2; param = cc.get_luminance()
+				&"const_bool":
+					op_id = 2; param = 1.0 if bool(node.get("value")) else 0.0
 				&"blend":
 					if srcs.size() > 2 and int(srcs[2]) >= 0:
 						return {} # a masked blend is 3-input; the native cell evaluator only reads a & b
@@ -982,6 +992,23 @@ func compile_graph_program() -> Dictionary:
 					op_id = 1; p0 = _f.call(&"amplitude", 1.0); nz = node.get("noise")
 				&"const":
 					op_id = 2; p0 = _f.call(&"value", 0.0)
+				&"const_int":
+					op_id = 2; p0 = float(_i.call(&"value", 0))
+				&"const_vector":
+					var cv: Vector2 = node.get("value") if node.get("value") is Vector2 else Vector2.ZERO
+					op_id = 2; p0 = cv.length()
+				&"const_color":
+					var cc: Color = node.get("value") if node.get("value") is Color else Color.WHITE
+					op_id = 2; p0 = cc.get_luminance()
+				&"const_bool":
+					op_id = 2; p0 = 1.0 if bool(node.get("value")) else 0.0
+				&"const_curve":
+					op_id = 21; p0 = 0.0; pb = 1.0; pc = 0.0; pd = 1.0; pe = 1.0
+					var c: Curve = node.get("curve")
+					if c != null:
+						lut.resize(256)
+						for li in range(256):
+							lut[li] = c.sample_baked(float(li) / 255.0)
 				&"blend":
 					op_id = 3; p0 = float(_i.call(&"mode", 0))
 				&"terrace":

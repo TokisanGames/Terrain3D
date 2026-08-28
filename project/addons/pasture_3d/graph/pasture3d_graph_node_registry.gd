@@ -14,6 +14,11 @@ const NoiseJordanScript = preload("res://addons/pasture_3d/graph/pasture3d_graph
 const NoiseSwissScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_noise_swiss.gd")
 const WarpScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_warp.gd")
 const ConstScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_const.gd")
+const ConstIntScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_const_int.gd")
+const ConstVectorScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_const_vector.gd")
+const ConstColorScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_const_color.gd")
+const ConstCurveScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_const_curve.gd")
+const ConstBoolScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_const_bool.gd")
 const FurrowsScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_furrows.gd")
 const DunesScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dunes.gd")
 const CraterScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_crater.gd")
@@ -61,40 +66,62 @@ static func is_dev_nodes_enabled() -> bool:
 	return false
 
 
-## Palette entries, in menu order. `title` is the menu/label text; `role` groups them;
+## The standard ordered category names for the palette.
+static func categories() -> Array[String]:
+	return [
+		"Generators",
+		"Filters & Modifiers",
+		"Solvers & Realism",
+		"Math & Combiners",
+		"Constants",
+		"Routing & Structural",
+		"Dev / Reference",
+	]
+
+
+## Palette entries, in menu order. `title` is the menu/label text; `role` / `category` groups them;
 ## `script` is the GDScript class to instance; `tags` supports fuzzy search.
 static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 	var list: Array[Dictionary] = [
-		{"op": &"input", "title": "Input", "role": "Source", "script": InputScript, "tags": ["surface", "incoming", "host", "read"], "description": "Reads the incoming terrain surface handed to the graph."},
-		{"op": &"noise", "title": "Noise", "role": "Generator", "script": NoiseScript, "tags": ["perlin", "simplex", "fractal", "fbm", "height"], "description": "Coherent multi-octave FastNoiseLite terrain generator."},
-		{"op": &"noise_jordan", "title": "Jordan Noise", "role": "Generator", "script": NoiseJordanScript, "tags": ["jordan", "derivative", "gradient", "fbm", "fluting", "warp", "ridges", "mountain"], "description": "Derivative-feedback fractal noise with slope-attenuated octave warping for natural mountain fluting."},
-		{"op": &"noise_swiss", "title": "Swiss Noise", "role": "Generator", "script": NoiseSwissScript, "tags": ["swiss", "ridge", "alps", "cirque", "arete", "glacial", "mountain", "trough"], "description": "Swiss Alps ridge fractal noise with slope-dependent erosion modulation and sharp arêtes."},
-		{"op": &"warp", "title": "Domain Warp", "role": "Generator", "script": WarpScript, "tags": ["warp", "distortion", "coordinate", "vector", "noise", "swirl", "meander", "folds", "glacier", "strata"], "description": "Warps coordinates with vector noise fields for swirling striations and meanders."},
-		{"op": &"const", "title": "Const", "role": "Generator", "script": ConstScript, "tags": ["constant", "flat", "height", "value", "bias"], "description": "Generates a uniform flat height offset."},
-		{"op": &"furrows", "title": "Furrows", "role": "Generator", "script": FurrowsScript, "tags": ["ridges", "grooves", "stripes", "waves", "corrugation"], "description": "Directional corrugated ridge and furrow waves."},
-		{"op": &"dunes", "title": "Dunes", "role": "Generator", "script": DunesScript, "tags": ["sand", "wind", "waves", "desert"], "description": "Asymmetric sand dune wave patterns."},
-		{"op": &"crater", "title": "Crater", "role": "Generator", "script": CraterScript, "tags": ["meteor", "hole", "impact", "ring", "caldera"], "description": "Impact crater with raised rim and central cavity."},
-		{"op": &"geological_primitive", "title": "Geological Primitive", "role": "Generator", "script": GeologicalPrimitiveScript, "tags": ["inselberg", "monadnock", "bornhardt", "caldera", "volcano", "dome", "cuesta", "badlands", "primitive", "landform", "macro"], "description": "Parametric macro geological landforms: solitary inselberg domes, volcanic calderas, and cuesta badland ridges."},
-		{"op": &"blend", "title": "Blend", "role": "Combiner", "script": BlendScript, "tags": ["math", "add", "sub", "mul", "max", "min", "combine", "mix"], "description": "Combines two input heightfields with math blend modes."},
-		{"op": &"smooth", "title": "Smooth", "role": "Filter", "script": SmoothScript, "tags": ["blur", "gaussian", "average", "filter", "soften"], "description": "Smooths / blurs terrain height variations."},
-		{"op": &"talus_projection", "title": "Talus Projection", "role": "Filter", "script": TalusProjectionScript, "tags": ["talus", "scree", "repose", "cliff", "relaxation", "slope", "angle", "apron", "rubble"], "description": "Relaxes slopes exceeding a critical angle of repose to deposit natural scree aprons."},
-		{"op": &"spectral_equalizer", "title": "Spectral Equalizer", "role": "Filter", "script": SpectralEqualizerScript, "tags": ["spectral", "equalizer", "frequency", "macro", "meso", "micro", "laplacian", "pyramid", "filter", "detail"], "description": "3-band spatial frequency equalizer for macro mountain mass, meso ridges, and micro crags."},
-		{"op": &"depression_filling", "title": "Depression Filling", "role": "Filter", "script": DepressionFillingScript, "tags": ["depression", "filling", "sink", "pit", "spillway", "planchon", "darboux", "priority", "flood", "hydrology"], "description": "Fills enclosed pits and sinks up to their spillway elevation for monotonic drainage routing."},
-		{"op": &"terrace", "title": "Terrace", "role": "Filter", "script": TerraceScript, "tags": ["steps", "bands", "quantize", "contour", "ledges"], "description": "Quantizes elevation into stepped terraces."},
-		{"op": &"strata", "title": "Strata", "role": "Filter", "script": StrataScript, "tags": ["layers", "geology", "bands", "sediment", "dip", "strike", "cliff"], "description": "Applies tilted geological sedimentary layering to slopes."},
-		{"op": &"curve", "title": "Curve", "role": "Filter", "script": CurveScript, "tags": ["remap", "ramp", "profile", "transfer", "shaping", "spline"], "description": "Remaps input heights through a custom Curve resource."},
-		{"op": &"remap", "title": "Remap", "role": "Filter", "script": RemapScript, "tags": ["remap", "range", "clamp", "softknee", "invert", "scale", "normalize", "shaping"], "description": "Linearly remaps elevation ranges with soft-knee clamping and inversion."},
-		{"op": &"mask", "title": "Mask", "role": "Filter", "script": MaskScript, "tags": ["selector", "slope", "altitude", "weight", "gate"], "description": "Gates height by slope, elevation, or curvature masks."},
-		{"op": &"curvature", "title": "Curvature Mask", "role": "Filter", "script": CurvatureScript, "tags": ["curvature", "convexity", "concavity", "ridge", "valley", "basin", "laplacian", "hessian", "mask", "crests"], "description": "Calculates local terrain convexity/concavity to mask mountain ridges vs valley basins."},
-		{"op": &"lake_flooding", "title": "Lake Flooding", "role": "Solver", "script": LakeFloodingScript, "tags": ["lake", "pond", "water", "basin", "flood", "spillway", "depth", "shoreline", "pool", "hydrology"], "description": "Floods closed basins or fills water levels; outputs lake surface + water depth + shoreline masks and spawns Pasture3DPond bodies."},
-		{"op": &"stream_extraction", "title": "Stream Extraction", "role": "Solver", "script": StreamExtractionScript, "tags": ["stream", "river", "thalweg", "drainage", "catchment", "flow", "runoff", "channel", "carve", "hydrology"], "description": "Calculates surface runoff drainage accumulation, carves riverbeds, and spawns Pasture3DStream splines."},
-		{"op": &"erosion_hydraulic", "title": "Hydraulic Erosion", "role": "Solver", "script": ErosionHydraulicScript, "tags": ["hydraulic", "erosion", "rain", "fluvial", "water", "flow", "sediment", "deposition", "channel", "meander"], "description": "Simulates continuous rainfall, water routing, sediment pickup, transport, and deposition."},
-		{"op": &"erosion_thermal", "title": "Thermal Erosion", "role": "Solver", "script": ErosionThermalScript, "tags": ["thermal", "erosion", "talus", "scree", "weathering", "cliff", "repose", "slippage", "rock"], "description": "Simulates rock weathering and gravitational talus scree accumulation along steep slopes."},
-		{"op": &"scree", "title": "Scree", "role": "Solver", "script": ScreeScript, "tags": ["talus", "rubble", "rock", "slope", "erosion", "deposition"], "description": "Sheds loose rock off steep ground; outputs height + a shed mask."},
-		{"op": &"erosion", "title": "Erosion", "role": "Solver", "script": ErosionScript, "tags": ["river", "fluvial", "stream", "hydraulic", "water", "valley", "channel", "sediment"], "description": "Stream-power fluvial erosion; outputs eroded height + flow / erosion / deposition / wetness channels."},
-		{"op": &"dla", "title": "DLA", "role": "Solver", "script": DLAScript, "tags": ["mountain", "ridge", "massif", "aggregation", "diffusion", "branch", "peak", "range"], "description": "Diffusion-limited-aggregation mountain; grows a branching ridge massif, outputs height + a footprint mask."},
-		{"op": &"reroute", "title": "Reroute", "role": "Utility", "script": RerouteScript, "tags": ["dot", "relay", "wire", "route", "passthrough", "clean"], "description": "1-in / 1-out transparent wire routing dot."},
-		{"op": &"output", "title": "Output", "role": "Sink", "script": OutputScript, "tags": ["sink", "result", "final", "surface"], "description": "The destination sink representing the graph's output surface."},
+		{"op": &"input", "title": "Input", "category": "Routing & Structural", "role": "Source", "script": InputScript, "tags": ["surface", "incoming", "host", "read"], "description": "Reads the incoming terrain surface handed to the graph."},
+		{"op": &"output", "title": "Output", "category": "Routing & Structural", "role": "Sink", "script": OutputScript, "tags": ["sink", "result", "final", "surface"], "description": "The destination sink representing the graph's output surface."},
+		{"op": &"reroute", "title": "Reroute", "category": "Routing & Structural", "role": "Utility", "script": RerouteScript, "tags": ["dot", "relay", "wire", "route", "passthrough", "clean"], "description": "1-in / 1-out transparent wire routing dot."},
+		
+		{"op": &"noise", "title": "Noise", "category": "Generators", "role": "Generator", "script": NoiseScript, "tags": ["perlin", "simplex", "fractal", "fbm", "height"], "description": "Coherent multi-octave FastNoiseLite terrain generator."},
+		{"op": &"noise_jordan", "title": "Jordan Noise", "category": "Generators", "role": "Generator", "script": NoiseJordanScript, "tags": ["jordan", "derivative", "gradient", "fbm", "fluting", "warp", "ridges", "mountain"], "description": "Derivative-feedback fractal noise with slope-attenuated octave warping for natural mountain fluting."},
+		{"op": &"noise_swiss", "title": "Swiss Noise", "category": "Generators", "role": "Generator", "script": NoiseSwissScript, "tags": ["swiss", "ridge", "alps", "cirque", "arete", "glacial", "mountain", "trough"], "description": "Swiss Alps ridge fractal noise with slope-dependent erosion modulation and sharp arêtes."},
+		{"op": &"warp", "title": "Domain Warp", "category": "Generators", "role": "Generator", "script": WarpScript, "tags": ["warp", "distortion", "coordinate", "vector", "noise", "swirl", "meander", "folds", "glacier", "strata"], "description": "Warps coordinates with vector noise fields for swirling striations and meanders."},
+		{"op": &"const", "title": "Const Float", "category": "Constants", "role": "Constant", "script": ConstScript, "tags": ["constant", "flat", "height", "value", "bias", "float"], "description": "Generates a uniform flat float height offset."},
+		{"op": &"const_int", "title": "Const Int", "category": "Constants", "role": "Constant", "script": ConstIntScript, "tags": ["constant", "int", "integer", "count", "value"], "description": "Generates a discrete integer constant value."},
+		{"op": &"const_vector", "title": "Const Vector", "category": "Constants", "role": "Constant", "script": ConstVectorScript, "tags": ["constant", "vector", "vec2", "direction", "offset"], "description": "Generates a 2D vector / direction constant."},
+		{"op": &"const_color", "title": "Const Color", "category": "Constants", "role": "Constant", "script": ConstColorScript, "tags": ["constant", "color", "tint", "rgba", "palette"], "description": "Generates a Color constant value."},
+		{"op": &"const_curve", "title": "Const Curve", "category": "Constants", "role": "Constant", "script": ConstCurveScript, "tags": ["constant", "curve", "spline", "ramp", "profile"], "description": "Provides a Curve profile resource constant."},
+		{"op": &"const_bool", "title": "Const Bool", "category": "Constants", "role": "Constant", "script": ConstBoolScript, "tags": ["constant", "bool", "boolean", "toggle", "switch", "flag"], "description": "Generates a boolean true/false toggle constant."},
+		{"op": &"furrows", "title": "Furrows", "category": "Generators", "role": "Generator", "script": FurrowsScript, "tags": ["ridges", "grooves", "stripes", "waves", "corrugation"], "description": "Directional corrugated ridge and furrow waves."},
+		{"op": &"dunes", "title": "Dunes", "category": "Generators", "role": "Generator", "script": DunesScript, "tags": ["sand", "wind", "waves", "desert"], "description": "Asymmetric sand dune wave patterns."},
+		{"op": &"crater", "title": "Crater", "category": "Generators", "role": "Generator", "script": CraterScript, "tags": ["meteor", "hole", "impact", "ring", "caldera"], "description": "Impact crater with raised rim and central cavity."},
+		{"op": &"geological_primitive", "title": "Geological Primitive", "category": "Generators", "role": "Generator", "script": GeologicalPrimitiveScript, "tags": ["inselberg", "monadnock", "bornhardt", "caldera", "volcano", "dome", "cuesta", "badlands", "primitive", "landform", "macro"], "description": "Parametric macro geological landforms: solitary inselberg domes, volcanic calderas, and cuesta badland ridges."},
+		
+		{"op": &"smooth", "title": "Smooth", "category": "Filters & Modifiers", "role": "Filter", "script": SmoothScript, "tags": ["blur", "gaussian", "average", "filter", "soften"], "description": "Smooths / blurs terrain height variations."},
+		{"op": &"talus_projection", "title": "Talus Projection", "category": "Filters & Modifiers", "role": "Filter", "script": TalusProjectionScript, "tags": ["talus", "scree", "repose", "cliff", "relaxation", "slope", "angle", "apron", "rubble"], "description": "Relaxes slopes exceeding a critical angle of repose to deposit natural scree aprons."},
+		{"op": &"spectral_equalizer", "title": "Spectral Equalizer", "category": "Filters & Modifiers", "role": "Filter", "script": SpectralEqualizerScript, "tags": ["spectral", "equalizer", "frequency", "macro", "meso", "micro", "laplacian", "pyramid", "filter", "detail"], "description": "3-band spatial frequency equalizer for macro mountain mass, meso ridges, and micro crags."},
+		{"op": &"depression_filling", "title": "Depression Filling", "category": "Filters & Modifiers", "role": "Filter", "script": DepressionFillingScript, "tags": ["depression", "filling", "sink", "pit", "spillway", "planchon", "darboux", "priority", "flood", "hydrology"], "description": "Fills enclosed pits and sinks up to their spillway elevation for monotonic drainage routing."},
+		{"op": &"terrace", "title": "Terrace", "category": "Filters & Modifiers", "role": "Filter", "script": TerraceScript, "tags": ["steps", "bands", "quantize", "contour", "ledges"], "description": "Quantizes elevation into stepped terraces."},
+		{"op": &"strata", "title": "Strata", "category": "Filters & Modifiers", "role": "Filter", "script": StrataScript, "tags": ["layers", "geology", "bands", "sediment", "dip", "strike", "cliff"], "description": "Applies tilted geological sedimentary layering to slopes."},
+		{"op": &"curve", "title": "Curve", "category": "Filters & Modifiers", "role": "Filter", "script": CurveScript, "tags": ["remap", "ramp", "profile", "transfer", "shaping", "spline"], "description": "Remaps input heights through a custom Curve resource."},
+		{"op": &"remap", "title": "Remap", "category": "Filters & Modifiers", "role": "Filter", "script": RemapScript, "tags": ["remap", "range", "clamp", "softknee", "invert", "scale", "normalize", "shaping"], "description": "Linearly remaps elevation ranges with soft-knee clamping and inversion."},
+		{"op": &"mask", "title": "Mask", "category": "Filters & Modifiers", "role": "Filter", "script": MaskScript, "tags": ["selector", "slope", "altitude", "weight", "gate"], "description": "Gates height by slope, elevation, or curvature masks."},
+		{"op": &"curvature", "title": "Curvature Mask", "category": "Filters & Modifiers", "role": "Filter", "script": CurvatureScript, "tags": ["curvature", "convexity", "concavity", "ridge", "valley", "basin", "laplacian", "hessian", "mask", "crests"], "description": "Calculates local terrain convexity/concavity to mask mountain ridges vs valley basins."},
+		
+		{"op": &"blend", "title": "Blend", "category": "Math & Combiners", "role": "Combiner", "script": BlendScript, "tags": ["math", "add", "sub", "mul", "max", "min", "combine", "mix"], "description": "Combines two input heightfields with math blend modes."},
+		
+		{"op": &"lake_flooding", "title": "Lake Flooding", "category": "Solvers & Realism", "role": "Solver", "script": LakeFloodingScript, "tags": ["lake", "pond", "water", "basin", "flood", "spillway", "depth", "shoreline", "pool", "hydrology"], "description": "Floods closed basins or fills water levels; outputs lake surface + water depth + shoreline masks and spawns Pasture3DPond bodies."},
+		{"op": &"stream_extraction", "title": "Stream Extraction", "category": "Solvers & Realism", "role": "Solver", "script": StreamExtractionScript, "tags": ["stream", "river", "thalweg", "drainage", "catchment", "flow", "runoff", "channel", "carve", "hydrology"], "description": "Calculates surface runoff drainage accumulation, carves riverbeds, and spawns Pasture3DStream splines."},
+		{"op": &"erosion_hydraulic", "title": "Hydraulic Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionHydraulicScript, "tags": ["hydraulic", "erosion", "rain", "fluvial", "water", "flow", "sediment", "deposition", "channel", "meander"], "description": "Simulates continuous rainfall, water routing, sediment pickup, transport, and deposition."},
+		{"op": &"erosion_thermal", "title": "Thermal Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionThermalScript, "tags": ["thermal", "erosion", "talus", "scree", "weathering", "cliff", "repose", "slippage", "rock"], "description": "Simulates rock weathering and gravitational talus scree accumulation along steep slopes."},
+		{"op": &"scree", "title": "Scree", "category": "Solvers & Realism", "role": "Solver", "script": ScreeScript, "tags": ["talus", "rubble", "rock", "slope", "erosion", "deposition"], "description": "Sheds loose rock off steep ground; outputs height + a shed mask."},
+		{"op": &"erosion", "title": "Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionScript, "tags": ["river", "fluvial", "stream", "hydraulic", "water", "valley", "channel", "sediment"], "description": "Stream-power fluvial erosion; outputs eroded height + flow / erosion / deposition / wetness channels."},
+		{"op": &"dla", "title": "DLA", "category": "Solvers & Realism", "role": "Solver", "script": DLAScript, "tags": ["mountain", "ridge", "massif", "aggregation", "diffusion", "branch", "peak", "range"], "description": "Diffusion-limited-aggregation mountain; grows a branching ridge massif, outputs height + a footprint mask."},
 	]
 
 	if p_include_dev or is_dev_nodes_enabled():
@@ -106,18 +133,31 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 ## Dedicated developer / reference oracle entries.
 static func _dev_entries() -> Array[Dictionary]:
 	return [
-		{"op": &"dev_erosion_hydraulic", "title": "[Dev/GD] Hydraulic Erosion", "role": "Dev / Reference", "script": DevErosionHydraulicScript, "tags": ["dev", "gdscript", "oracle", "hydraulic", "erosion"], "description": "Pure GDScript reference oracle for hydraulic erosion simulation."},
-		{"op": &"dev_erosion_thermal", "title": "[Dev/GD] Thermal Erosion", "role": "Dev / Reference", "script": DevErosionThermalScript, "tags": ["dev", "gdscript", "oracle", "thermal", "erosion", "talus"], "description": "Pure GDScript reference oracle for thermal weathering & talus scree erosion."},
-		{"op": &"dev_depression_filling", "title": "[Dev/GD] Depression Filling", "role": "Dev / Reference", "script": DevDepressionFillingScript, "tags": ["dev", "gdscript", "oracle", "depression", "sink", "priority", "flood"], "description": "Pure GDScript reference oracle for Priority-Flood depression filling."},
-		{"op": &"dev_lake_flooding", "title": "[Dev/GD] Lake Flooding", "role": "Dev / Reference", "script": DevLakeFloodingScript, "tags": ["dev", "gdscript", "oracle", "lake", "pond", "water", "flood"], "description": "Pure GDScript reference oracle for lake flooding and shoreline extraction."},
-		{"op": &"dev_stream_extraction", "title": "[Dev/GD] Stream Extraction", "role": "Dev / Reference", "script": DevStreamExtractionScript, "tags": ["dev", "gdscript", "oracle", "stream", "river", "thalweg", "flow"], "description": "Pure GDScript reference oracle for stream extraction and thalweg routing."},
-		{"op": &"dev_spectral_equalizer", "title": "[Dev/GD] Spectral Equalizer", "role": "Dev / Reference", "script": DevSpectralEqualizerScript, "tags": ["dev", "gdscript", "oracle", "spectral", "equalizer", "frequency", "blur"], "description": "Pure GDScript reference oracle for 3-band spatial spectral equalizer."},
-		{"op": &"dev_talus_projection", "title": "[Dev/GD] Talus Projection", "role": "Dev / Reference", "script": DevTalusProjectionScript, "tags": ["dev", "gdscript", "oracle", "talus", "scree", "repose"], "description": "Pure GDScript reference oracle for talus projection slope relaxation."},
-		{"op": &"dev_curvature", "title": "[Dev/GD] Curvature Mask", "role": "Dev / Reference", "script": DevCurvatureScript, "tags": ["dev", "gdscript", "oracle", "curvature", "convexity", "concavity", "ridge"], "description": "Pure GDScript reference oracle for discrete Laplacian curvature."},
-		{"op": &"dev_warp", "title": "[Dev/GD] Domain Warp", "role": "Dev / Reference", "script": DevWarpScript, "tags": ["dev", "gdscript", "oracle", "warp", "distortion", "noise"], "description": "Pure GDScript reference oracle for domain warp coordinate distortion."},
-		{"op": &"dev_erosion", "title": "[Dev/GD] Erosion", "role": "Dev / Reference", "script": DevErosionScript, "tags": ["dev", "gdscript", "oracle", "erosion", "river", "fluvial"], "description": "Reference dev erosion node."},
-		{"op": &"dev_dla", "title": "[Dev/GD] DLA", "role": "Dev / Reference", "script": DevDLAScript, "tags": ["dev", "gdscript", "oracle", "dla", "mountain", "massif"], "description": "Pure GDScript reference oracle for DLA massif generation."},
+		{"op": &"dev_erosion_hydraulic", "title": "[Dev/GD] Hydraulic Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevErosionHydraulicScript, "tags": ["dev", "gdscript", "oracle", "hydraulic", "erosion"], "description": "Pure GDScript reference oracle for hydraulic erosion simulation."},
+		{"op": &"dev_erosion_thermal", "title": "[Dev/GD] Thermal Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevErosionThermalScript, "tags": ["dev", "gdscript", "oracle", "thermal", "erosion", "talus"], "description": "Pure GDScript reference oracle for thermal weathering & talus scree erosion."},
+		{"op": &"dev_depression_filling", "title": "[Dev/GD] Depression Filling", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevDepressionFillingScript, "tags": ["dev", "gdscript", "oracle", "depression", "sink", "priority", "flood"], "description": "Pure GDScript reference oracle for Priority-Flood depression filling."},
+		{"op": &"dev_lake_flooding", "title": "[Dev/GD] Lake Flooding", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevLakeFloodingScript, "tags": ["dev", "gdscript", "oracle", "lake", "pond", "water", "flood"], "description": "Pure GDScript reference oracle for lake flooding and shoreline extraction."},
+		{"op": &"dev_stream_extraction", "title": "[Dev/GD] Stream Extraction", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevStreamExtractionScript, "tags": ["dev", "gdscript", "oracle", "stream", "river", "thalweg", "flow"], "description": "Pure GDScript reference oracle for stream extraction and thalweg routing."},
+		{"op": &"dev_spectral_equalizer", "title": "[Dev/GD] Spectral Equalizer", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevSpectralEqualizerScript, "tags": ["dev", "gdscript", "oracle", "spectral", "equalizer", "frequency", "blur"], "description": "Pure GDScript reference oracle for 3-band spatial spectral equalizer."},
+		{"op": &"dev_talus_projection", "title": "[Dev/GD] Talus Projection", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevTalusProjectionScript, "tags": ["dev", "gdscript", "oracle", "talus", "scree", "repose"], "description": "Pure GDScript reference oracle for talus projection slope relaxation."},
+		{"op": &"dev_curvature", "title": "[Dev/GD] Curvature Mask", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevCurvatureScript, "tags": ["dev", "gdscript", "oracle", "curvature", "convexity", "concavity", "ridge"], "description": "Pure GDScript reference oracle for discrete Laplacian curvature."},
+		{"op": &"dev_warp", "title": "[Dev/GD] Domain Warp", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevWarpScript, "tags": ["dev", "gdscript", "oracle", "warp", "distortion", "noise"], "description": "Pure GDScript reference oracle for domain warp coordinate distortion."},
+		{"op": &"dev_erosion", "title": "[Dev/GD] Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevErosionScript, "tags": ["dev", "gdscript", "oracle", "erosion", "river", "fluvial"], "description": "Reference dev erosion node."},
+		{"op": &"dev_dla", "title": "[Dev/GD] DLA", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevDLAScript, "tags": ["dev", "gdscript", "oracle", "dla", "mountain", "massif"], "description": "Pure GDScript reference oracle for DLA massif generation."},
 	]
+
+
+## Returns a Dictionary mapping category name (String) to Array[Dictionary] of entries.
+static func entries_by_category(p_include_dev: bool = false) -> Dictionary:
+	var result: Dictionary = {}
+	for cat in categories():
+		result[cat] = []
+	for e in entries(p_include_dev):
+		var cat: String = e.get("category", "Generators")
+		if not result.has(cat):
+			result[cat] = []
+		(result[cat] as Array).append(e)
+	return result
 
 
 ## A fresh node for `p_op`, or null if the op is unknown.
@@ -129,7 +169,7 @@ static func create(p_op: StringName) -> Pasture3DGraphNode:
 	return null
 
 
-## Searches palette entries matching `p_query` by title, op, role, or tags.
+## Searches palette entries matching `p_query` by title, op, role, category, or tags.
 static func search(p_query: String, p_include_dev: bool = false) -> Array[Dictionary]:
 	var q := p_query.strip_edges().to_lower()
 	var all_entries := entries(p_include_dev)
@@ -144,13 +184,14 @@ static func search(p_query: String, p_include_dev: bool = false) -> Array[Dictio
 		var title: String = String(e.get("title", "")).to_lower()
 		var op_str: String = String(e.get("op", "")).to_lower()
 		var role_str: String = String(e.get("role", "")).to_lower()
+		var cat_str: String = String(e.get("category", "")).to_lower()
 		var tags: Array = e.get("tags", [])
 
 		if title == q or op_str == q:
 			exact_matches.append(e)
 		elif title.begins_with(q) or op_str.begins_with(q):
 			partial_matches.append(e)
-		elif title.contains(q) or op_str.contains(q) or role_str.contains(q):
+		elif title.contains(q) or op_str.contains(q) or role_str.contains(q) or cat_str.contains(q):
 			partial_matches.append(e)
 		else:
 			for tag in tags:

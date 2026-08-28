@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c8y37m86y3k7p"]
+
+[ext_resource type="Script" path="res://bench/GraphPaletteAndConstantsGate.gd" id="1_gate"]
+
+[node name="GraphPaletteAndConstantsGate" type="Node"]
+script = ExtResource("1_gate")

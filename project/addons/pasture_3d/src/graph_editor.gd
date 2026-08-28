@@ -18,6 +18,11 @@ const PORT_COLORS: Array[Color] = [
 	Color(0.95, 0.61, 0.07), # 1: MASK (#f39c12) - Amber
 	Color(0.69, 0.48, 0.77), # 2: VECTOR (#af7ac5) - Purple
 	Color(0.18, 0.80, 0.44), # 3: CURVE (#2ecc71) - Emerald
+	Color(0.00, 0.82, 0.83), # 4: FLOAT (#00d2d3) - Cyan
+	Color(0.18, 0.53, 0.87), # 5: INT (#2e86de) - Cobalt Blue
+	Color(1.00, 0.42, 0.51), # 6: COLOR (#ff6b81) - Magenta/Pink
+	Color(0.66, 0.90, 0.81), # 7: BOOL (#a8e6cf) - Lime Yellow
+	Color(0.95, 0.77, 0.06), # 8: TERRAIN_BUS (#f1c40f) - Warm Gold
 ]
 
 var plugin: EditorPlugin
@@ -782,6 +787,68 @@ func _add_inline_node_controls(p_gn: GraphNode, p_index: int, p_node: Pasture3DG
 			sb.value = float(p_node.get("value"))
 			sb.value_changed.connect(func(val: float): p_node.set("value", val))
 			row.add_child(lbl); row.add_child(sb)
+			p_gn.add_child(row)
+
+		&"const_int":
+			var row := HBoxContainer.new()
+			var lbl := Label.new(); lbl.text = "Int:"
+			var sb := SpinBox.new()
+			sb.min_value = -100000.0; sb.max_value = 100000.0; sb.step = 1.0
+			sb.value = float(p_node.get("value"))
+			sb.value_changed.connect(func(val: float): p_node.set("value", int(val)))
+			row.add_child(lbl); row.add_child(sb)
+			p_gn.add_child(row)
+
+		&"const_vector":
+			var row := HBoxContainer.new()
+			var lbl := Label.new(); lbl.text = "Vec:"
+			var v: Vector2 = p_node.get("value") if p_node.get("value") is Vector2 else Vector2.ZERO
+			var sb_x := SpinBox.new(); sb_x.min_value = -10000.0; sb_x.max_value = 10000.0; sb_x.step = 0.1; sb_x.value = v.x
+			var sb_y := SpinBox.new(); sb_y.min_value = -10000.0; sb_y.max_value = 10000.0; sb_y.step = 0.1; sb_y.value = v.y
+			sb_x.value_changed.connect(func(val: float):
+				var cur: Vector2 = p_node.get("value") if p_node.get("value") is Vector2 else Vector2.ZERO
+				p_node.set("value", Vector2(val, cur.y))
+			)
+			sb_y.value_changed.connect(func(val: float):
+				var cur: Vector2 = p_node.get("value") if p_node.get("value") is Vector2 else Vector2.ZERO
+				p_node.set("value", Vector2(cur.x, val))
+			)
+			row.add_child(lbl); row.add_child(sb_x); row.add_child(sb_y)
+			p_gn.add_child(row)
+
+		&"const_color":
+			var row := HBoxContainer.new()
+			var lbl := Label.new(); lbl.text = "Color:"
+			var cp := ColorPickerButton.new()
+			cp.color = p_node.get("value") if p_node.get("value") is Color else Color.WHITE
+			cp.custom_minimum_size = Vector2(40, 22)
+			cp.color_changed.connect(func(col: Color): p_node.set("value", col))
+			row.add_child(lbl); row.add_child(cp)
+			p_gn.add_child(row)
+
+		&"const_bool":
+			var row := HBoxContainer.new()
+			var cb := CheckBox.new()
+			cb.text = "Enabled"
+			cb.button_pressed = bool(p_node.get("value"))
+			cb.toggled.connect(func(val: bool): p_node.set("value", val))
+			row.add_child(cb)
+			p_gn.add_child(row)
+
+		&"const_curve":
+			var row := HBoxContainer.new()
+			var lbl := Label.new(); lbl.text = "Curve:"
+			var btn := Button.new()
+			btn.text = "Linear / Ease"
+			btn.pressed.connect(func():
+				var c: Curve = p_node.get("curve")
+				if c != null and c.point_count >= 2:
+					c.clear_points()
+					c.add_point(Vector2(0, 0))
+					c.add_point(Vector2(0.5, 0.2))
+					c.add_point(Vector2(1, 1))
+			)
+			row.add_child(lbl); row.add_child(btn)
 			p_gn.add_child(row)
 			
 		&"noise":
