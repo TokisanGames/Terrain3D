@@ -213,7 +213,7 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 					current_sediment[idx] = (float)((double)current_sediment[idx] + incision);
 				}
 
-				// Deposition in flat / low-slope basins
+				// Deposition mask in flat / low-slope basins
 				if (slope < 0.2 && current_sediment[idx] > 0.0f) {
 					double dep = deposition_rate * (double)current_sediment[idx] * (1.0 - slope / 0.2) * m_val;
 					dep_map[idx] += dep;
@@ -222,7 +222,7 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 			}
 		}
 
-		// 4. Apply incision & deposition
+		// 4. Apply incision to surface elevation and record sediment mask
 		std::vector<float> next_height = height;
 		for (int iz = 0; iz < p_gh; iz++) {
 			int row = iz * p_gw;
@@ -234,8 +234,6 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 				}
 
 				double cut = incision_map[idx];
-				double dep = dep_map[idx];
-
 				if (cut > 0.0) {
 					int cx = ix;
 					int cz = iz;
@@ -253,11 +251,10 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 					double max_cut = std::max(0.0, (double)(h_c - min_downhill) + 0.05 * cut);
 					cut = std::min(cut, max_cut);
 					eroded_rock[idx] = (float)((double)eroded_rock[idx] + cut);
+					next_height[idx] = (float)((double)h_c - cut);
 				}
 
-				double h_next = (double)h_c - cut + dep;
-				next_height[idx] = (float)h_next;
-				sediment[idx] = (float)((double)sediment[idx] + dep);
+				sediment[idx] = (float)((double)sediment[idx] + dep_map[idx]);
 			}
 		}
 

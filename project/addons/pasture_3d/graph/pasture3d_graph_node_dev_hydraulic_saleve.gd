@@ -326,13 +326,13 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 					# Add eroded rock to sediment flux
 					current_sediment[idx] += incision
 
-				# Deposition in flat / low-slope basins
+				# Deposition mask in flat / low-slope basins
 				if slope < 0.2 and current_sediment[idx] > 0.0:
 					var dep: float = deposition_rate * current_sediment[idx] * (1.0 - slope / 0.2) * m_val
 					dep_map[idx] += dep
 					current_sediment[idx] = maxf(0.0, current_sediment[idx] - dep)
 
-		# 4. Apply incision & deposition
+		# 4. Apply incision to surface elevation and record sediment mask
 		var next_height := height.duplicate()
 		for iz in range(p_gh):
 			var row: int = iz * p_gw
@@ -343,8 +343,6 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 					continue
 
 				var cut: float = incision_map[idx]
-				var dep: float = dep_map[idx]
-
 				if cut > 0.0:
 					var cx: int = ix
 					var cz: int = iz
@@ -359,10 +357,9 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 					var max_cut: float = maxf(0.0, (h_c - min_downhill) + 0.05 * cut)
 					cut = minf(cut, max_cut)
 					eroded_rock[idx] += cut
+					next_height[idx] = h_c - cut
 
-				var h_next: float = h_c - cut + dep
-				next_height[idx] = h_next
-				sediment[idx] += dep
+				sediment[idx] += dep_map[idx]
 
 		height = next_height
 
