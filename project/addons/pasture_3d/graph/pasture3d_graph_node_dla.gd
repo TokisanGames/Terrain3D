@@ -148,11 +148,29 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 1
+	return 4
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["seed"])
+	return PackedStringArray(["in", "amplitude", "coverage", "detail_size"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return amplitude
+		2: return coverage
+		3: return detail_size
+		_: return 0.0
 
 
 func output_count() -> int:
@@ -190,8 +208,9 @@ func node_warnings() -> PackedStringArray:
 ## Two channels: [0] massif height (metres), [1] normalised field [0,1]. Applies the per-solver freeze.
 func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
-	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 \
-			else Pasture3DGraphOps.zeros(n)
+	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
+	var a: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else amplitude
+
 	if surface.size() != n:
 		surface = Pasture3DGraphOps.zeros(n)
 
@@ -200,7 +219,12 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 		if not _cache.is_empty():
 			if _dirty_since_bake or key != _cache_key:
 				_set_stale(true)
-			return _cache[_cache_key]
+			var base_cached: Array = _cache[_cache_key]
+			var scaled_h := (base_cached[0] as PackedFloat32Array).duplicate()
+			if not is_equal_approx(a, amplitude) and amplitude > 0.0:
+				var scale := a / amplitude
+				for i in range(scaled_h.size()): scaled_h[i] *= scale
+			return [scaled_h, base_cached[1]]
 		var solved := _solve(surface, p_gw, p_gh, p_rect)
 		_cache = {}
 		_cache_key = key

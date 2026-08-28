@@ -44,11 +44,27 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 1
+	return 3
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field"])
+	return PackedStringArray(["in", "radius", "contrast"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.INT,
+		PortType.FLOAT,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return float(radius)
+		2: return contrast
+		_: return 0.0
 
 
 func output_count() -> int:
@@ -69,8 +85,10 @@ func output_port_types() -> PackedInt32Array:
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
 	var n := p_gw * p_gh
-	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 \
-			else Pasture3DGraphOps.zeros(n)
+	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
+	var rad: int = int(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else radius
+	var cont: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else contrast
+
 	if surface.size() != n:
 		surface = Pasture3DGraphOps.zeros(n)
 
@@ -78,7 +96,7 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -
 		push_error("[Pasture3D] Pasture3DUtil.curvature_grid is not bound. Rebuild GDExtension.")
 		return Pasture3DGraphOps.zeros(n)
 
-	var res: PackedFloat32Array = Pasture3DUtil.curvature_grid(surface, p_gw, p_gh, int(mode), radius, contrast)
+	var res: PackedFloat32Array = Pasture3DUtil.curvature_grid(surface, p_gw, p_gh, int(mode), rad, cont)
 	if res.size() != n:
 		push_error("[Pasture3D] Curvature native solve returned invalid grid size.")
 		return Pasture3DGraphOps.zeros(n)

@@ -86,11 +86,31 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 1
+	return 5
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field"])
+	return PackedStringArray(["in", "iterations", "rain_rate", "erosion_speed", "deposition_speed"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.INT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return float(iterations)
+		2: return rain_rate
+		3: return erosion_speed
+		4: return deposition_speed
+		_: return 0.0
 
 
 func output_count() -> int:
@@ -125,8 +145,12 @@ func node_warnings() -> PackedStringArray:
 
 func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
-	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 \
-			else Pasture3DGraphOps.zeros(n)
+	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
+	var iters: int = int(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else iterations
+	var rr: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else rain_rate
+	var es: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else erosion_speed
+	var ds: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else deposition_speed
+
 	if surface.size() != n:
 		surface = Pasture3DGraphOps.zeros(n)
 
@@ -136,7 +160,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 			if _dirty_since_bake or key != _cache_key:
 				_set_stale(true)
 			return _cache[_cache_key]
-		var solved := _solve(surface, p_gw, p_gh, p_rect)
+		var solved := _solve_dynamic(surface, p_gw, p_gh, p_rect, iters, rr, es, ds)
 		_cache = {}
 		_cache_key = key
 		_cache[key] = solved
@@ -147,7 +171,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 	if not _cache.is_empty():
 		_cache.clear()
 	_set_stale(false)
-	return _solve(surface, p_gw, p_gh, p_rect)
+	return _solve_dynamic(surface, p_gw, p_gh, p_rect, iters, rr, es, ds)
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:
@@ -176,15 +200,15 @@ func _surface_hash(p_surface: PackedFloat32Array, p_gw: int, p_gh: int) -> int:
 	return h
 
 
-func _solve(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
+func _solve_dynamic(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_iters: int, p_rr: float, p_es: float, p_ds: float) -> Array:
 	var n := p_gw * p_gh
 	var params := {
-		"iterations": iterations,
-		"rain_rate": rain_rate,
+		"iterations": p_iters,
+		"rain_rate": p_rr,
 		"evaporation_rate": evaporation_rate,
 		"sediment_capacity": sediment_capacity,
-		"erosion_speed": erosion_speed,
-		"deposition_speed": deposition_speed,
+		"erosion_speed": p_es,
+		"deposition_speed": p_ds,
 		"min_slope": min_slope,
 	}
 	if not ClassDB.class_has_method("Pasture3DUtil", "erosion_hydraulic_solve_grid_best"):

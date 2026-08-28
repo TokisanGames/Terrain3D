@@ -197,3 +197,5 @@ bench/GraphPaletteAndConstantsGate.tscn
 bench/GraphHybridSocketsGate.tscn
 # --- Terrain graph, multi-channel terrain bus (merge & split) ---
 bench/GraphTerrainBusGate.tscn
+# --- Terrain graph, universal node parameter sockets & inline controls ---
+bench/GraphAllNodeSocketsGate.tscn

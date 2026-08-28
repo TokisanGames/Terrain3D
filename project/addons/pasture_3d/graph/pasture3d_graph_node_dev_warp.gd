@@ -83,7 +83,7 @@ func input_unwired_default(_p_port: int) -> float:
 
 
 func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
-	var base_in := p_inputs[0] if p_inputs.size() > 0 else 0.0
+	var base_in: float = p_inputs[0] if p_inputs.size() > 0 else 0.0
 	if is_nan(base_in):
 		return NAN
 

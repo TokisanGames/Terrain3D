@@ -98,11 +98,29 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 1
+	return 4
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field"])
+	return PackedStringArray(["in", "iterations", "erosion_rate", "diffusion"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.INT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return float(iterations)
+		2: return erosion_rate
+		3: return hillslope_diffusion
+		_: return 0.0
 
 
 func output_count() -> int:
@@ -145,19 +163,21 @@ func node_warnings() -> PackedStringArray:
 ## the per-solver freeze.
 func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
-	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 \
-			else Pasture3DGraphOps.zeros(n)
+	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
+	var iters: int = int(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else iterations
+	var er: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else erosion_rate
+	var diff: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else hillslope_diffusion
+
 	if surface.size() != n:
 		surface = Pasture3DGraphOps.zeros(n)
 
 	if evaluation == Evaluation.FROZEN:
 		var key := _surface_hash(surface, p_gw, p_gh)
 		if not _cache.is_empty():
-			# Serve the cache; flag stale if anything moved since the bake, but do NOT re-solve.
 			if _dirty_since_bake or key != _cache_key:
 				_set_stale(true)
 			return _cache[_cache_key]
-		var solved := _solve(surface, p_gw, p_gh, p_rect)
+		var solved := _solve_dynamic(surface, p_gw, p_gh, p_rect, iters, er, diff)
 		_cache = {}
 		_cache_key = key
 		_cache[key] = solved
@@ -169,7 +189,34 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 	if not _cache.is_empty():
 		_cache.clear()
 	_set_stale(false)
-	return _solve(surface, p_gw, p_gh, p_rect)
+	return _solve_dynamic(surface, p_gw, p_gh, p_rect, iters, er, diff)
+
+
+func _solve_dynamic(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_iters: int, p_er: float, p_diff: float) -> Array:
+	var n := p_gw * p_gh
+	var dx := p_rect.size.x / float(maxi(p_gw, 1))
+	var dz := p_rect.size.y / float(maxi(p_gh, 1))
+	var cell_size := sqrt(maxf(dx * dz, 1e-12))
+	var params := {
+		"iterations": p_iters,
+		"erosion_rate": p_er,
+		"area_exponent": area_exponent,
+		"diffusion": p_diff,
+		"deposition": deposition,
+	}
+
+	if not ClassDB.class_has_method("Pasture3DUtil", "erosion_solve_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.erosion_solve_grid is not bound. Rebuild GDExtension.")
+		var z := Pasture3DGraphOps.zeros(n)
+		return [p_surface.duplicate(), z, z, z, z]
+
+	var res: Dictionary = Pasture3DUtil.erosion_solve_grid(p_surface, p_gw, p_gh, cell_size, params,
+			PackedFloat32Array())
+	if res.is_empty() or not bool(res.get("ok", false)):
+		var z := Pasture3DGraphOps.zeros(n)
+		return [p_surface.duplicate(), z, z, z, z]
+
+	return [res["height"], res["flow"], res["erosion"], res["deposition"], res["wetness"]]
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:

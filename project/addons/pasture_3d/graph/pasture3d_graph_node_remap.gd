@@ -96,22 +96,22 @@ func input_unwired_default(p_port: int) -> float:
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
 	var s: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 else Pasture3DGraphOps.zeros(p_gw * p_gh)
-	var imin := p_inputs[1][0] if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else in_min
-	var imax := p_inputs[2][0] if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else in_max
-	var omin := p_inputs[3][0] if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else out_min
-	var omax := p_inputs[4][0] if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else out_max
+	var imin: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else in_min
+	var imax: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else in_max
+	var omin: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else out_min
+	var omax: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else out_max
 	return Pasture3DUtil.remap_grid(s, imin, imax, omin, omax, clamp_output, soft_knee, invert)
 
 
 func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> float:
-	var x := p_inputs[0] if p_inputs.size() > 0 else 0.0
+	var x: float = p_inputs[0] if p_inputs.size() > 0 else 0.0
 	if is_nan(x):
 		return NAN
 
-	var imin := p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else in_min
-	var imax := p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else in_max
-	var omin := p_inputs[3] if (p_inputs.size() > 3 and not is_nan(p_inputs[3])) else out_min
-	var omax := p_inputs[4] if (p_inputs.size() > 4 and not is_nan(p_inputs[4])) else out_max
+	var imin: float = p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else in_min
+	var imax: float = p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else in_max
+	var omin: float = p_inputs[3] if (p_inputs.size() > 3 and not is_nan(p_inputs[3])) else out_min
+	var omax: float = p_inputs[4] if (p_inputs.size() > 4 and not is_nan(p_inputs[4])) else out_max
 
 	var span := imax - imin
 	var t: float = (x - imin) / span if absf(span) > 1e-9 else 0.0

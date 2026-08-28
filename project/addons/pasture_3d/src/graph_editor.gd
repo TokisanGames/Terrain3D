@@ -773,16 +773,14 @@ func _append_slot_inline_widget(p_row: HBoxContainer, p_node: Pasture3DGraphNode
 	match op:
 		&"const":
 			if p_port == 0:
-				var sb := SpinBox.new()
-				sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5
 				sb.value = float(p_node.get("value"))
 				sb.value_changed.connect(func(val: float): p_node.set("value", val))
 				p_row.add_child(sb)
 
 		&"const_int":
 			if p_port == 0:
-				var sb := SpinBox.new()
-				sb.min_value = -100000.0; sb.max_value = 100000.0; sb.step = 1.0
+				var sb := SpinBox.new(); sb.min_value = -100000.0; sb.max_value = 100000.0; sb.step = 1.0
 				sb.value = float(p_node.get("value"))
 				sb.value_changed.connect(func(val: float): p_node.set("value", int(val)))
 				p_row.add_child(sb)
@@ -812,16 +810,14 @@ func _append_slot_inline_widget(p_row: HBoxContainer, p_node: Pasture3DGraphNode
 
 		&"const_bool":
 			if p_port == 0:
-				var cb := CheckBox.new()
-				cb.text = "Enabled"
+				var cb := CheckBox.new(); cb.text = "Enabled"
 				cb.button_pressed = bool(p_node.get("value"))
 				cb.toggled.connect(func(val: bool): p_node.set("value", val))
 				p_row.add_child(cb)
 
 		&"const_curve":
 			if p_port == 0:
-				var btn := Button.new()
-				btn.text = "Linear / Ease"
+				var btn := Button.new(); btn.text = "Linear / Ease"
 				btn.pressed.connect(func():
 					var c: Curve = p_node.get("curve")
 					if c != null and c.point_count >= 2:
@@ -838,14 +834,188 @@ func _append_slot_inline_widget(p_row: HBoxContainer, p_node: Pasture3DGraphNode
 				a_sb.value = float(p_node.get("amplitude"))
 				a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
 				p_row.add_child(a_sb)
-				var seed_btn := Button.new()
-				seed_btn.text = "🎲"
-				seed_btn.tooltip_text = "Randomize noise seed"
+				var seed_btn := Button.new(); seed_btn.text = "🎲"; seed_btn.tooltip_text = "Randomize seed"
 				seed_btn.pressed.connect(func():
 					var n: FastNoiseLite = p_node.get("noise")
 					if n != null: n.seed = randi() % 100000
 				)
 				p_row.add_child(seed_btn)
+
+		&"noise_swiss":
+			if p_port == 0:
+				var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 2000.0; a_sb.step = 1.0
+				a_sb.value = float(p_node.get("amplitude"))
+				a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+				p_row.add_child(a_sb)
+				var seed_btn := Button.new(); seed_btn.text = "🎲"; seed_btn.tooltip_text = "Randomize seed"
+				seed_btn.pressed.connect(func(): p_node.set("seed", randi() % 100000))
+				p_row.add_child(seed_btn)
+			elif p_port == 1:
+				var ro_sb := SpinBox.new(); ro_sb.min_value = 0.1; ro_sb.max_value = 5.0; ro_sb.step = 0.05
+				ro_sb.value = float(p_node.get("ridge_offset"))
+				ro_sb.value_changed.connect(func(val: float): p_node.set("ridge_offset", val))
+				p_row.add_child(ro_sb)
+			elif p_port == 2:
+				var ea_sb := SpinBox.new(); ea_sb.min_value = 0.0; ea_sb.max_value = 1.0; ea_sb.step = 0.01
+				ea_sb.value = float(p_node.get("erosion_accent"))
+				ea_sb.value_changed.connect(func(val: float): p_node.set("erosion_accent", val))
+				p_row.add_child(ea_sb)
+			elif p_port == 3:
+				var g_sb := SpinBox.new(); g_sb.min_value = 0.01; g_sb.max_value = 2.0; g_sb.step = 0.05
+				g_sb.value = float(p_node.get("gain"))
+				g_sb.value_changed.connect(func(val: float): p_node.set("gain", val))
+				p_row.add_child(g_sb)
+			elif p_port == 4:
+				var f_sb := SpinBox.new(); f_sb.min_value = 0.0001; f_sb.max_value = 0.1; f_sb.step = 0.0005
+				f_sb.value = float(p_node.get("frequency"))
+				f_sb.value_changed.connect(func(val: float): p_node.set("frequency", val))
+				p_row.add_child(f_sb)
+
+		&"noise_jordan":
+			if p_port == 0:
+				var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 2000.0; a_sb.step = 1.0
+				a_sb.value = float(p_node.get("amplitude"))
+				a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+				p_row.add_child(a_sb)
+				var seed_btn := Button.new(); seed_btn.text = "🎲"; seed_btn.tooltip_text = "Randomize seed"
+				seed_btn.pressed.connect(func(): p_node.set("seed", randi() % 100000))
+				p_row.add_child(seed_btn)
+			elif p_port == 1:
+				var ws_sb := SpinBox.new(); ws_sb.min_value = 0.0; ws_sb.max_value = 2.0; ws_sb.step = 0.05
+				ws_sb.value = float(p_node.get("warp_strength"))
+				ws_sb.value_changed.connect(func(val: float): p_node.set("warp_strength", val))
+				p_row.add_child(ws_sb)
+			elif p_port == 2:
+				var ds_sb := SpinBox.new(); ds_sb.min_value = 0.0; ds_sb.max_value = 2.0; ds_sb.step = 0.05
+				ds_sb.value = float(p_node.get("damp_strength"))
+				ds_sb.value_changed.connect(func(val: float): p_node.set("damp_strength", val))
+				p_row.add_child(ds_sb)
+			elif p_port == 3:
+				var g_sb := SpinBox.new(); g_sb.min_value = 0.01; g_sb.max_value = 2.0; g_sb.step = 0.05
+				g_sb.value = float(p_node.get("gain"))
+				g_sb.value_changed.connect(func(val: float): p_node.set("gain", val))
+				p_row.add_child(g_sb)
+			elif p_port == 4:
+				var f_sb := SpinBox.new(); f_sb.min_value = 0.0001; f_sb.max_value = 0.1; f_sb.step = 0.0005
+				f_sb.value = float(p_node.get("frequency"))
+				f_sb.value_changed.connect(func(val: float): p_node.set("frequency", val))
+				p_row.add_child(f_sb)
+
+		&"furrows":
+			if p_port == 0:
+				var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
+				a_sb.value = float(p_node.get("amplitude"))
+				a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+				p_row.add_child(a_sb)
+				var seed_btn := Button.new(); seed_btn.text = "🎲"; seed_btn.tooltip_text = "Randomize seed"
+				seed_btn.pressed.connect(func(): p_node.set("seed", randi() % 100000))
+				p_row.add_child(seed_btn)
+			elif p_port == 1:
+				var sp_sb := SpinBox.new(); sp_sb.min_value = 1.0; sp_sb.max_value = 500.0; sp_sb.step = 1.0
+				sp_sb.value = float(p_node.get("spacing"))
+				sp_sb.value_changed.connect(func(val: float): p_node.set("spacing", val))
+				p_row.add_child(sp_sb)
+			elif p_port == 2:
+				var dir_sb := SpinBox.new(); dir_sb.min_value = 0.0; dir_sb.max_value = 360.0; dir_sb.step = 1.0
+				dir_sb.value = float(p_node.get("direction_degrees"))
+				dir_sb.value_changed.connect(func(val: float): p_node.set("direction_degrees", val))
+				p_row.add_child(dir_sb)
+			elif p_port == 3:
+				var wob_sb := SpinBox.new(); wob_sb.min_value = 0.0; wob_sb.max_value = 50.0; wob_sb.step = 0.5
+				wob_sb.value = float(p_node.get("wobble_amount"))
+				wob_sb.value_changed.connect(func(val: float): p_node.set("wobble_amount", val))
+				p_row.add_child(wob_sb)
+
+		&"dunes":
+			if p_port == 0:
+				var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
+				a_sb.value = float(p_node.get("amplitude"))
+				a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+				p_row.add_child(a_sb)
+				var seed_btn := Button.new(); seed_btn.text = "🎲"; seed_btn.tooltip_text = "Randomize seed"
+				seed_btn.pressed.connect(func(): p_node.set("seed", randi() % 100000))
+				p_row.add_child(seed_btn)
+			elif p_port == 1:
+				var wl_sb := SpinBox.new(); wl_sb.min_value = 1.0; wl_sb.max_value = 500.0; wl_sb.step = 1.0
+				wl_sb.value = float(p_node.get("wavelength"))
+				wl_sb.value_changed.connect(func(val: float): p_node.set("wavelength", val))
+				p_row.add_child(wl_sb)
+			elif p_port == 2:
+				var dir_sb := SpinBox.new(); dir_sb.min_value = 0.0; dir_sb.max_value = 360.0; dir_sb.step = 1.0
+				dir_sb.value = float(p_node.get("direction_degrees"))
+				dir_sb.value_changed.connect(func(val: float): p_node.set("direction_degrees", val))
+				p_row.add_child(dir_sb)
+			elif p_port == 3:
+				var asym_sb := SpinBox.new(); asym_sb.min_value = 0.0; asym_sb.max_value = 1.0; asym_sb.step = 0.05
+				asym_sb.value = float(p_node.get("asymmetry"))
+				asym_sb.value_changed.connect(func(val: float): p_node.set("asymmetry", val))
+				p_row.add_child(asym_sb)
+			elif p_port == 4:
+				var sh_sb := SpinBox.new(); sh_sb.min_value = 0.0; sh_sb.max_value = 1.0; sh_sb.step = 0.05
+				sh_sb.value = float(p_node.get("crest_sharpness"))
+				sh_sb.value_changed.connect(func(val: float): p_node.set("crest_sharpness", val))
+				p_row.add_child(sh_sb)
+
+		&"crater":
+			if p_port == 0:
+				var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 1000.0; a_sb.step = 0.5
+				a_sb.value = float(p_node.get("amplitude"))
+				a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+				p_row.add_child(a_sb)
+			elif p_port == 1:
+				var fd_sb := SpinBox.new(); fd_sb.min_value = 0.0; fd_sb.max_value = 500.0; fd_sb.step = 0.5
+				fd_sb.value = float(p_node.get("floor_depth"))
+				fd_sb.value_changed.connect(func(val: float): p_node.set("floor_depth", val))
+				p_row.add_child(fd_sb)
+			elif p_port == 2:
+				var rh_sb := SpinBox.new(); rh_sb.min_value = 0.0; rh_sb.max_value = 200.0; rh_sb.step = 0.5
+				rh_sb.value = float(p_node.get("rim_height"))
+				rh_sb.value_changed.connect(func(val: float): p_node.set("rim_height", val))
+				p_row.add_child(rh_sb)
+			elif p_port == 3:
+				var rw_sb := SpinBox.new(); rw_sb.min_value = 0.01; rw_sb.max_value = 1.0; rw_sb.step = 0.02
+				rw_sb.value = float(p_node.get("rim_width"))
+				rw_sb.value_changed.connect(func(val: float): p_node.set("rim_width", val))
+				p_row.add_child(rw_sb)
+
+		&"geological_primitive":
+			if p_port == 0:
+				var h_sb := SpinBox.new(); h_sb.min_value = 1.0; h_sb.max_value = 1000.0; h_sb.step = 1.0
+				h_sb.value = float(p_node.get("height"))
+				h_sb.value_changed.connect(func(val: float): p_node.set("height", val))
+				p_row.add_child(h_sb)
+			elif p_port == 1:
+				var r_sb := SpinBox.new(); r_sb.min_value = 1.0; r_sb.max_value = 1000.0; r_sb.step = 1.0
+				r_sb.value = float(p_node.get("radius"))
+				r_sb.value_changed.connect(func(val: float): p_node.set("radius", val))
+				p_row.add_child(r_sb)
+			elif p_port == 2:
+				var st_sb := SpinBox.new(); st_sb.min_value = 0.1; st_sb.max_value = 5.0; st_sb.step = 0.1
+				st_sb.value = float(p_node.get("steepness"))
+				st_sb.value_changed.connect(func(val: float): p_node.set("steepness", val))
+				p_row.add_child(st_sb)
+			elif p_port == 3:
+				var ecc_sb := SpinBox.new(); ecc_sb.min_value = 0.0; ecc_sb.max_value = 0.95; ecc_sb.step = 0.05
+				ecc_sb.value = float(p_node.get("eccentricity"))
+				ecc_sb.value_changed.connect(func(val: float): p_node.set("eccentricity", val))
+				p_row.add_child(ecc_sb)
+
+		&"warp":
+			if p_port == 1:
+				var st_sb := SpinBox.new(); st_sb.min_value = 0.0; st_sb.max_value = 200.0; st_sb.step = 0.5
+				st_sb.value = float(p_node.get("strength"))
+				st_sb.value_changed.connect(func(val: float): p_node.set("strength", val))
+				p_row.add_child(st_sb)
+			elif p_port == 2:
+				var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
+				a_sb.value = float(p_node.get("amplitude"))
+				a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+				p_row.add_child(a_sb)
+			elif p_port == 3:
+				var f_sb := SpinBox.new(); f_sb.min_value = 0.0001; f_sb.max_value = 0.1; f_sb.step = 0.001
+				f_sb.value = float(p_node.get("frequency"))
+				f_sb.value_changed.connect(func(val: float): p_node.set("frequency", val))
+				p_row.add_child(f_sb)
 
 		&"blend":
 			if p_port == 0:
@@ -876,6 +1046,55 @@ func _append_slot_inline_widget(p_row: HBoxContainer, p_node: Pasture3DGraphNode
 				amt_sb.value_changed.connect(func(val: float): p_node.set("amount", val))
 				p_row.add_child(amt_sb)
 
+		&"strata":
+			if p_port == 1:
+				var b_sb := SpinBox.new(); b_sb.min_value = 0.1; b_sb.max_value = 200.0; b_sb.step = 0.5
+				b_sb.value = float(p_node.get("band_height"))
+				b_sb.value_changed.connect(func(val: float): p_node.set("band_height", val))
+				p_row.add_child(b_sb)
+			elif p_port == 2:
+				var h_sb := SpinBox.new(); h_sb.min_value = 0.0; h_sb.max_value = 1.0; h_sb.step = 0.05
+				h_sb.value = float(p_node.get("hardness"))
+				h_sb.value_changed.connect(func(val: float): p_node.set("hardness", val))
+				p_row.add_child(h_sb)
+			elif p_port == 3:
+				var d_sb := SpinBox.new(); d_sb.min_value = -45.0; d_sb.max_value = 45.0; d_sb.step = 0.5
+				d_sb.value = float(p_node.get("dip"))
+				d_sb.value_changed.connect(func(val: float): p_node.set("dip", val))
+				p_row.add_child(d_sb)
+			elif p_port == 4:
+				var dir_sb := SpinBox.new(); dir_sb.min_value = 0.0; dir_sb.max_value = 360.0; dir_sb.step = 1.0
+				dir_sb.value = float(p_node.get("dip_direction_degrees"))
+				dir_sb.value_changed.connect(func(val: float): p_node.set("dip_direction_degrees", val))
+				p_row.add_child(dir_sb)
+			elif p_port == 5:
+				var amt_sb := SpinBox.new(); amt_sb.min_value = 0.0; amt_sb.max_value = 1.0; amt_sb.step = 0.05
+				amt_sb.value = float(p_node.get("amount"))
+				amt_sb.value_changed.connect(func(val: float): p_node.set("amount", val))
+				p_row.add_child(amt_sb)
+
+		&"curve":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("input_min"))
+				sb.value_changed.connect(func(v: float): p_node.set("input_min", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("input_max"))
+				sb.value_changed.connect(func(v: float): p_node.set("input_max", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("output_min"))
+				sb.value_changed.connect(func(v: float): p_node.set("output_min", v))
+				p_row.add_child(sb)
+			elif p_port == 4:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("output_max"))
+				sb.value_changed.connect(func(v: float): p_node.set("output_max", v))
+				p_row.add_child(sb)
+			elif p_port == 5:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 1.0; sb.step = 0.05; sb.value = float(p_node.get("amount"))
+				sb.value_changed.connect(func(v: float): p_node.set("amount", v))
+				p_row.add_child(sb)
+
 		&"remap":
 			if p_port == 1:
 				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("in_min"))
@@ -894,267 +1113,218 @@ func _append_slot_inline_widget(p_row: HBoxContainer, p_node: Pasture3DGraphNode
 				sb.value_changed.connect(func(v: float): p_node.set("out_max", v))
 				p_row.add_child(sb)
 
+		&"mask":
+			if p_port == 0:
+				var opt := OptionButton.new()
+				opt.add_item("Slope (deg)", 0); opt.add_item("Elevation (m)", 1); opt.add_item("Curvature", 2)
+				opt.selected = int(p_node.get("property"))
+				opt.item_selected.connect(func(id: int): p_node.set("property", id))
+				p_row.add_child(opt)
+			elif p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("band_min"))
+				sb.value_changed.connect(func(v: float): p_node.set("band_min", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("band_max"))
+				sb.value_changed.connect(func(v: float): p_node.set("band_max", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 500.0; sb.step = 0.5; sb.value = float(p_node.get("falloff_lo"))
+				sb.value_changed.connect(func(v: float): p_node.set("falloff_lo", v))
+				p_row.add_child(sb)
+			elif p_port == 4:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 500.0; sb.step = 0.5; sb.value = float(p_node.get("falloff_hi"))
+				sb.value_changed.connect(func(v: float): p_node.set("falloff_hi", v))
+				p_row.add_child(sb)
+			elif p_port == 5:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 1.0; sb.step = 0.05; sb.value = float(p_node.get("strength"))
+				sb.value_changed.connect(func(v: float): p_node.set("strength", v))
+				p_row.add_child(sb)
+
+		&"curvature":
+			if p_port == 0:
+				var opt := OptionButton.new()
+				opt.add_item("Total", 0); opt.add_item("Convexity", 1); opt.add_item("Concavity", 2)
+				opt.selected = int(p_node.get("mode"))
+				opt.item_selected.connect(func(id: int): p_node.set("mode", id))
+				p_row.add_child(opt)
+			elif p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = 1; sb.max_value = 10; sb.step = 1; sb.value = int(p_node.get("radius"))
+				sb.value_changed.connect(func(v: float): p_node.set("radius", int(v)))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 0.1; sb.max_value = 10.0; sb.step = 0.1; sb.value = float(p_node.get("contrast"))
+				sb.value_changed.connect(func(v: float): p_node.set("contrast", v))
+				p_row.add_child(sb)
+
+		&"talus_projection":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = 5.0; sb.max_value = 80.0; sb.step = 0.5; sb.value = float(p_node.get("talus_angle_deg"))
+				sb.value_changed.connect(func(v: float): p_node.set("talus_angle_deg", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 1; sb.max_value = 100; sb.step = 1; sb.value = int(p_node.get("iterations"))
+				sb.value_changed.connect(func(v: float): p_node.set("iterations", int(v)))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 0.01; sb.max_value = 1.0; sb.step = 0.05; sb.value = float(p_node.get("transfer_rate"))
+				sb.value_changed.connect(func(v: float): p_node.set("transfer_rate", v))
+				p_row.add_child(sb)
+			elif p_port == 4:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 1.0; sb.step = 0.05; sb.value = float(p_node.get("amount"))
+				sb.value_changed.connect(func(v: float): p_node.set("amount", v))
+				p_row.add_child(sb)
+
+		&"spectral_equalizer":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 5.0; sb.step = 0.05; sb.value = float(p_node.get("macro_gain"))
+				sb.value_changed.connect(func(v: float): p_node.set("macro_gain", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 5.0; sb.step = 0.05; sb.value = float(p_node.get("meso_gain"))
+				sb.value_changed.connect(func(v: float): p_node.set("meso_gain", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 5.0; sb.step = 0.05; sb.value = float(p_node.get("micro_gain"))
+				sb.value_changed.connect(func(v: float): p_node.set("micro_gain", v))
+				p_row.add_child(sb)
+			elif p_port == 4:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 1.0; sb.step = 0.05; sb.value = float(p_node.get("amount"))
+				sb.value_changed.connect(func(v: float): p_node.set("amount", v))
+				p_row.add_child(sb)
+
+		&"depression_filling":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 500.0; sb.step = 0.5; sb.value = float(p_node.get("fill_depth_limit"))
+				sb.value_changed.connect(func(v: float): p_node.set("fill_depth_limit", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 1.0; sb.step = 0.05; sb.value = float(p_node.get("amount"))
+				sb.value_changed.connect(func(v: float): p_node.set("amount", v))
+				p_row.add_child(sb)
+
+		&"erosion_hydraulic":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = 1; sb.max_value = 200; sb.step = 1; sb.value = int(p_node.get("iterations"))
+				sb.value_changed.connect(func(v: float): p_node.set("iterations", int(v)))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 0.001; sb.max_value = 1.0; sb.step = 0.01; sb.value = float(p_node.get("rain_rate"))
+				sb.value_changed.connect(func(v: float): p_node.set("rain_rate", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 0.01; sb.max_value = 2.0; sb.step = 0.05; sb.value = float(p_node.get("erosion_speed"))
+				sb.value_changed.connect(func(v: float): p_node.set("erosion_speed", v))
+				p_row.add_child(sb)
+			elif p_port == 4:
+				var sb := SpinBox.new(); sb.min_value = 0.01; sb.max_value = 2.0; sb.step = 0.05; sb.value = float(p_node.get("deposition_speed"))
+				sb.value_changed.connect(func(v: float): p_node.set("deposition_speed", v))
+				p_row.add_child(sb)
+
+		&"erosion_thermal":
+			if p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 5.0; sb.max_value = 80.0; sb.step = 0.5; sb.value = float(p_node.get("talus_angle"))
+				sb.value_changed.connect(func(v: float): p_node.set("talus_angle", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 1; sb.max_value = 200; sb.step = 1; sb.value = int(p_node.get("iterations"))
+				sb.value_changed.connect(func(v: float): p_node.set("iterations", int(v)))
+				p_row.add_child(sb)
+			elif p_port == 4:
+				var sb := SpinBox.new(); sb.min_value = 0.01; sb.max_value = 1.0; sb.step = 0.05; sb.value = float(p_node.get("settling_rate"))
+				sb.value_changed.connect(func(v: float): p_node.set("settling_rate", v))
+				p_row.add_child(sb)
+
+		&"erosion":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = 1; sb.max_value = 200; sb.step = 1; sb.value = int(p_node.get("iterations"))
+				sb.value_changed.connect(func(v: float): p_node.set("iterations", int(v)))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 0.001; sb.max_value = 1.0; sb.step = 0.01; sb.value = float(p_node.get("erosion_rate"))
+				sb.value_changed.connect(func(v: float): p_node.set("erosion_rate", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 2.0; sb.step = 0.05; sb.value = float(p_node.get("hillslope_diffusion"))
+				sb.value_changed.connect(func(v: float): p_node.set("hillslope_diffusion", v))
+				p_row.add_child(sb)
+
+		&"scree":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 100.0; sb.step = 0.5; sb.value = float(p_node.get("amplitude"))
+				sb.value_changed.connect(func(v: float): p_node.set("amplitude", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 0.01; sb.max_value = 10.0; sb.step = 0.05; sb.value = float(p_node.get("grain_size"))
+				sb.value_changed.connect(func(v: float): p_node.set("grain_size", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 5.0; sb.max_value = 60.0; sb.step = 0.5; sb.value = float(p_node.get("min_slope_degrees"))
+				sb.value_changed.connect(func(v: float): p_node.set("min_slope_degrees", v))
+				p_row.add_child(sb)
+
+		&"dla":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 500.0; sb.step = 1.0; sb.value = float(p_node.get("amplitude"))
+				sb.value_changed.connect(func(v: float): p_node.set("amplitude", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 0.2; sb.max_value = 1.0; sb.step = 0.05; sb.value = float(p_node.get("coverage"))
+				sb.value_changed.connect(func(v: float): p_node.set("coverage", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 0.03; sb.max_value = 0.50; sb.step = 0.01; sb.value = float(p_node.get("detail_size"))
+				sb.value_changed.connect(func(v: float): p_node.set("detail_size", v))
+				p_row.add_child(sb)
+
+		&"lake_flooding":
+			if p_port == 0:
+				var opt := OptionButton.new()
+				opt.add_item("Global Elevation", 0); opt.add_item("Local Depressions", 1)
+				opt.selected = int(p_node.get("flood_mode"))
+				opt.item_selected.connect(func(id: int): p_node.set("flood_mode", id))
+				p_row.add_child(opt)
+			elif p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = -1000.0; sb.max_value = 2000.0; sb.step = 0.5; sb.value = float(p_node.get("water_elevation"))
+				sb.value_changed.connect(func(v: float): p_node.set("water_elevation", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 1.0; sb.step = 0.02; sb.value = float(p_node.get("flood_percent"))
+				sb.value_changed.connect(func(v: float): p_node.set("flood_percent", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 50.0; sb.step = 0.5; sb.value = float(p_node.get("shoreline_width"))
+				sb.value_changed.connect(func(v: float): p_node.set("shoreline_width", v))
+				p_row.add_child(sb)
+
+		&"stream_extraction":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = 1.0; sb.max_value = 500.0; sb.step = 1.0; sb.value = float(p_node.get("min_catchment_cells"))
+				sb.value_changed.connect(func(v: float): p_node.set("min_catchment_cells", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = 0.0; sb.max_value = 50.0; sb.step = 0.2; sb.value = float(p_node.get("carve_depth"))
+				sb.value_changed.connect(func(v: float): p_node.set("carve_depth", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = 1.0; sb.max_value = 50.0; sb.step = 0.5; sb.value = float(p_node.get("channel_width"))
+				sb.value_changed.connect(func(v: float): p_node.set("channel_width", v))
+				p_row.add_child(sb)
+
 
 func _add_inline_node_controls(p_gn: GraphNode, p_index: int, p_node: Pasture3DGraphNode) -> void:
 	var op := p_node.op()
 	match op:
-		&"noise":
-			var f_row := HBoxContainer.new()
-			var f_lbl := Label.new(); f_lbl.text = "Freq:"
-			var f_sb := SpinBox.new(); f_sb.min_value = 0.0001; f_sb.max_value = 1.0; f_sb.step = 0.001
-			var nz: FastNoiseLite = p_node.get("noise")
-			f_sb.value = nz.frequency if nz != null else 0.01
-			f_sb.value_changed.connect(func(val: float): 
-				var n: FastNoiseLite = p_node.get("noise")
-				if n != null: n.frequency = val
-			)
-			f_row.add_child(f_lbl); f_row.add_child(f_sb)
-			p_gn.add_child(f_row)
-
-		&"furrows":
-			var row := HBoxContainer.new()
-			var a_lbl := Label.new(); a_lbl.text = "Amp:"
-			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
-			a_sb.value = float(p_node.get("amplitude"))
-			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
-			var s_lbl := Label.new(); s_lbl.text = "Spc:"
-			var s_sb := SpinBox.new(); s_sb.min_value = 1.0; s_sb.max_value = 500.0; s_sb.step = 1.0
-			s_sb.value = float(p_node.get("spacing"))
-			s_sb.value_changed.connect(func(val: float): p_node.set("spacing", val))
-			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(s_lbl); row.add_child(s_sb)
-			p_gn.add_child(row)
-
-		&"dunes":
-			var row := HBoxContainer.new()
-			var a_lbl := Label.new(); a_lbl.text = "Amp:"
-			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 0.5
-			a_sb.value = float(p_node.get("amplitude"))
-			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
-			var w_lbl := Label.new(); w_lbl.text = "Len:"
-			var w_sb := SpinBox.new(); w_sb.min_value = 1.0; w_sb.max_value = 500.0; w_sb.step = 1.0
-			w_sb.value = float(p_node.get("wavelength"))
-			w_sb.value_changed.connect(func(val: float): p_node.set("wavelength", val))
-			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(w_lbl); row.add_child(w_sb)
-			p_gn.add_child(row)
-
-		&"crater":
-			var row := HBoxContainer.new()
-			var r_lbl := Label.new(); r_lbl.text = "Rad:"
-			var r_sb := SpinBox.new(); r_sb.min_value = 1.0; r_sb.max_value = 1000.0; r_sb.step = 1.0
-			r_sb.value = float(p_node.get("radius"))
-			r_sb.value_changed.connect(func(val: float): p_node.set("radius", val))
-			var d_lbl := Label.new(); d_lbl.text = "Dep:"
-			var d_sb := SpinBox.new(); d_sb.min_value = 0.0; d_sb.max_value = 500.0; d_sb.step = 0.5
-			d_sb.value = float(p_node.get("depth"))
-			d_sb.value_changed.connect(func(val: float): p_node.set("depth", val))
-			row.add_child(r_lbl); row.add_child(r_sb); row.add_child(d_lbl); row.add_child(d_sb)
-			p_gn.add_child(row)
-
-		&"mask":
-			var row := HBoxContainer.new()
-			var opt := OptionButton.new()
-			opt.add_item("Slope (deg)", 0)
-			opt.add_item("Elevation (m)", 1)
-			opt.add_item("Curvature", 2)
-			opt.selected = int(p_node.get("property"))
-			opt.item_selected.connect(func(id: int): p_node.set("property", id))
-			row.add_child(opt)
-			p_gn.add_child(row)
-
-		&"scree":
-			var row := HBoxContainer.new()
-			var a_lbl := Label.new(); a_lbl.text = "Amp:"
-			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 100.0; a_sb.step = 0.5
-			a_sb.value = float(p_node.get("amplitude"))
-			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
-			var g_lbl := Label.new(); g_lbl.text = "Grain:"
-			var g_sb := SpinBox.new(); g_sb.min_value = 0.1; g_sb.max_value = 20.0; g_sb.step = 0.1
-			g_sb.value = float(p_node.get("grain"))
-			g_sb.value_changed.connect(func(val: float): p_node.set("grain", val))
-			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(g_lbl); row.add_child(g_sb)
-			p_gn.add_child(row)
-
-		&"dla":
-			var row := HBoxContainer.new()
-			var a_lbl := Label.new(); a_lbl.text = "Amp:"
-			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 500.0; a_sb.step = 1.0
-			a_sb.value = float(p_node.get("amplitude"))
-			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
-			var it_lbl := Label.new(); it_lbl.text = "Steps:"
-			var it_sb := SpinBox.new(); it_sb.min_value = 10; it_sb.max_value = 2000; it_sb.step = 10
-			it_sb.value = int(p_node.get("iterations"))
-			it_sb.value_changed.connect(func(val: float): p_node.set("iterations", int(val)))
-			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(it_lbl); row.add_child(it_sb)
-			p_gn.add_child(row)
-
-		&"warp":
-			var f_row := HBoxContainer.new()
-			var f_lbl := Label.new(); f_lbl.text = "Freq:"
-			var f_sb := SpinBox.new(); f_sb.min_value = 0.0001; f_sb.max_value = 0.5; f_sb.step = 0.001
-			f_sb.value = float(p_node.get("frequency"))
-			f_sb.value_changed.connect(func(val: float): p_node.set("frequency", val))
-			f_row.add_child(f_lbl); f_row.add_child(f_sb)
-			p_gn.add_child(f_row)
-
-			var s_row := HBoxContainer.new()
-			var s_lbl := Label.new(); s_lbl.text = "Str:"
-			var s_sb := SpinBox.new(); s_sb.min_value = 0.0; s_sb.max_value = 200.0; s_sb.step = 1.0
-			s_sb.value = float(p_node.get("strength"))
-			s_sb.value_changed.connect(func(val: float): p_node.set("strength", val))
-			var a_lbl := Label.new(); a_lbl.text = "Amp:"
-			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 200.0; a_sb.step = 1.0
-			a_sb.value = float(p_node.get("amplitude"))
-			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
-			s_row.add_child(s_lbl); s_row.add_child(s_sb); s_row.add_child(a_lbl); s_row.add_child(a_sb)
-			p_gn.add_child(s_row)
-
-		&"remap":
-			var in_row := HBoxContainer.new()
-			var in_lbl := Label.new(); in_lbl.text = "In:"
-			var in_min_sb := SpinBox.new(); in_min_sb.min_value = -10000.0; in_min_sb.max_value = 10000.0; in_min_sb.step = 1.0
-			in_min_sb.value = float(p_node.get("in_min"))
-			in_min_sb.value_changed.connect(func(val: float): p_node.set("in_min", val))
-			var in_max_sb := SpinBox.new(); in_max_sb.min_value = -10000.0; in_max_sb.max_value = 10000.0; in_max_sb.step = 1.0
-			in_max_sb.value = float(p_node.get("in_max"))
-			in_max_sb.value_changed.connect(func(val: float): p_node.set("in_max", val))
-			var auto_btn := Button.new(); auto_btn.text = "Auto"; auto_btn.tooltip_text = "Auto fit to input terrain range"
+		&"remap", &"curve":
+			var btn_row := HBoxContainer.new()
+			var auto_btn := Button.new()
+			auto_btn.text = "Auto Fit Range"
+			auto_btn.tooltip_text = "Auto fit in_min and in_max to upstream terrain range"
 			auto_btn.pressed.connect(func():
 				_auto_fit_node_range(p_index)
-				in_min_sb.value = float(p_node.get("in_min"))
-				in_max_sb.value = float(p_node.get("in_max"))
 			)
-			in_row.add_child(in_lbl); in_row.add_child(in_min_sb); in_row.add_child(in_max_sb); in_row.add_child(auto_btn)
-			p_gn.add_child(in_row)
-
-			var out_row := HBoxContainer.new()
-			var out_lbl := Label.new(); out_lbl.text = "Out:"
-			var out_min_sb := SpinBox.new(); out_min_sb.min_value = -10000.0; out_min_sb.max_value = 10000.0; out_min_sb.step = 0.1
-			out_min_sb.value = float(p_node.get("out_min"))
-			out_min_sb.value_changed.connect(func(val: float): p_node.set("out_min", val))
-			var out_max_sb := SpinBox.new(); out_max_sb.min_value = -10000.0; out_max_sb.max_value = 10000.0; out_max_sb.step = 0.1
-			out_max_sb.value = float(p_node.get("out_max"))
-			out_max_sb.value_changed.connect(func(val: float): p_node.set("out_max", val))
-			out_row.add_child(out_lbl); out_row.add_child(out_min_sb); out_row.add_child(out_max_sb)
-			p_gn.add_child(out_row)
-
-		&"curve":
-			var in_row := HBoxContainer.new()
-			var in_lbl := Label.new(); in_lbl.text = "In:"
-			var in_min_sb := SpinBox.new(); in_min_sb.min_value = -10000.0; in_min_sb.max_value = 10000.0; in_min_sb.step = 1.0
-			in_min_sb.value = float(p_node.get("input_min"))
-			in_min_sb.value_changed.connect(func(val: float): p_node.set("input_min", val))
-			var in_max_sb := SpinBox.new(); in_max_sb.min_value = -10000.0; in_max_sb.max_value = 10000.0; in_max_sb.step = 1.0
-			in_max_sb.value = float(p_node.get("input_max"))
-			in_max_sb.value_changed.connect(func(val: float): p_node.set("input_max", val))
-			var auto_btn := Button.new(); auto_btn.text = "Auto"; auto_btn.tooltip_text = "Auto fit to input terrain range"
-			auto_btn.pressed.connect(func():
-				_auto_fit_node_range(p_index)
-				in_min_sb.value = float(p_node.get("input_min"))
-				in_max_sb.value = float(p_node.get("input_max"))
-			)
-			in_row.add_child(in_lbl); in_row.add_child(in_min_sb); in_row.add_child(in_max_sb); in_row.add_child(auto_btn)
-			p_gn.add_child(in_row)
-
-			var out_row := HBoxContainer.new()
-			var out_lbl := Label.new(); out_lbl.text = "Out:"
-			var out_min_sb := SpinBox.new(); out_min_sb.min_value = -10000.0; out_min_sb.max_value = 10000.0; out_min_sb.step = 1.0
-			out_min_sb.value = float(p_node.get("output_min"))
-			out_min_sb.value_changed.connect(func(val: float): p_node.set("output_min", val))
-			var out_max_sb := SpinBox.new(); out_max_sb.min_value = -10000.0; out_max_sb.max_value = 10000.0; out_max_sb.step = 1.0
-			out_max_sb.value = float(p_node.get("output_max"))
-			out_max_sb.value_changed.connect(func(val: float): p_node.set("output_max", val))
-			out_row.add_child(out_lbl); out_row.add_child(out_min_sb); out_row.add_child(out_max_sb)
-			p_gn.add_child(out_row)
-
-		&"strata":
-			var b_row := HBoxContainer.new()
-			var b_lbl := Label.new(); b_lbl.text = "Step:"
-			var b_sb := SpinBox.new(); b_sb.min_value = 0.5; b_sb.max_value = 200.0; b_sb.step = 0.5
-			b_sb.value = float(p_node.get("band_height"))
-			b_sb.value_changed.connect(func(val: float): p_node.set("band_height", val))
-			var h_lbl := Label.new(); h_lbl.text = "Hard:"
-			var h_sb := SpinBox.new(); h_sb.min_value = 0.0; h_sb.max_value = 1.0; h_sb.step = 0.05
-			h_sb.value = float(p_node.get("hardness"))
-			h_sb.value_changed.connect(func(val: float): p_node.set("hardness", val))
-			b_row.add_child(b_lbl); b_row.add_child(b_sb); b_row.add_child(h_lbl); b_row.add_child(h_sb)
-			p_gn.add_child(b_row)
-
-			var d_row := HBoxContainer.new()
-			var d_lbl := Label.new(); d_lbl.text = "Dip:"
-			var d_sb := SpinBox.new(); d_sb.min_value = -45.0; d_sb.max_value = 45.0; d_sb.step = 0.5
-			d_sb.value = float(p_node.get("dip"))
-			d_sb.value_changed.connect(func(val: float): p_node.set("dip", val))
-			var a_lbl := Label.new(); a_lbl.text = "Dir:"
-			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 360.0; a_sb.step = 5.0
-			a_sb.value = float(p_node.get("dip_direction_degrees"))
-			a_sb.value_changed.connect(func(val: float): p_node.set("dip_direction_degrees", val))
-			d_row.add_child(d_lbl); d_row.add_child(d_sb); d_row.add_child(a_lbl); d_row.add_child(a_sb)
-			p_gn.add_child(d_row)
-
-		&"erosion_hydraulic":
-			var row1 := HBoxContainer.new()
-			var it_lbl := Label.new(); it_lbl.text = "Iter:"
-			var it_sb := SpinBox.new(); it_sb.min_value = 1; it_sb.max_value = 100; it_sb.step = 1
-			it_sb.value = int(p_node.get("iterations"))
-			it_sb.value_changed.connect(func(val: float): p_node.set("iterations", int(val)))
-			var r_lbl := Label.new(); r_lbl.text = "Rain:"
-			var r_sb := SpinBox.new(); r_sb.min_value = 0.001; r_sb.max_value = 0.1; r_sb.step = 0.005
-			r_sb.value = float(p_node.get("rain_rate"))
-			r_sb.value_changed.connect(func(val: float): p_node.set("rain_rate", val))
-			row1.add_child(it_lbl); row1.add_child(it_sb); row1.add_child(r_lbl); row1.add_child(r_sb)
-			p_gn.add_child(row1)
-
-			var row2 := HBoxContainer.new()
-			var e_lbl := Label.new(); e_lbl.text = "Erode:"
-			var e_sb := SpinBox.new(); e_sb.min_value = 0.0; e_sb.max_value = 1.0; e_sb.step = 0.05
-			e_sb.value = float(p_node.get("erosion_speed"))
-			e_sb.value_changed.connect(func(val: float): p_node.set("erosion_speed", val))
-			var d_lbl := Label.new(); d_lbl.text = "Dep:"
-			var d_sb := SpinBox.new(); d_sb.min_value = 0.0; d_sb.max_value = 1.0; d_sb.step = 0.05
-			d_sb.value = float(p_node.get("deposition_speed"))
-			d_sb.value_changed.connect(func(val: float): p_node.set("deposition_speed", val))
-			row2.add_child(e_lbl); row2.add_child(e_sb); row2.add_child(d_lbl); row2.add_child(d_sb)
-			p_gn.add_child(row2)
-
-		&"erosion_thermal":
-			var row := HBoxContainer.new()
-			var a_lbl := Label.new(); a_lbl.text = "Talus:"
-			var a_sb := SpinBox.new(); a_sb.min_value = 5.0; a_sb.max_value = 85.0; a_sb.step = 1.0
-			a_sb.value = float(p_node.get("talus_angle"))
-			a_sb.value_changed.connect(func(val: float): p_node.set("talus_angle", val))
-			var it_lbl := Label.new(); it_lbl.text = "Iter:"
-			var it_sb := SpinBox.new(); it_sb.min_value = 1; it_sb.max_value = 100; it_sb.step = 1
-			it_sb.value = int(p_node.get("iterations"))
-			it_sb.value_changed.connect(func(val: float): p_node.set("iterations", int(val)))
-			var s_lbl := Label.new(); s_lbl.text = "Rate:"
-			var s_sb := SpinBox.new(); s_sb.min_value = 0.0; s_sb.max_value = 1.0; s_sb.step = 0.05
-			s_sb.value = float(p_node.get("settling_rate"))
-			s_sb.value_changed.connect(func(val: float): p_node.set("settling_rate", val))
-			row.add_child(a_lbl); row.add_child(a_sb); row.add_child(it_lbl); row.add_child(it_sb); row.add_child(s_lbl); row.add_child(s_sb)
-			p_gn.add_child(row)
-
-		&"curvature":
-			var row := HBoxContainer.new()
-			var opt := OptionButton.new()
-			opt.add_item("Ridge (Convex)", 0)
-			opt.add_item("Valley (Concave)", 1)
-			opt.add_item("Total Curvature", 2)
-			opt.selected = int(p_node.get("mode"))
-			opt.item_selected.connect(func(id: int): p_node.set("mode", id))
-			row.add_child(opt)
-
-			var r_lbl := Label.new(); r_lbl.text = "Rad:"
-			var r_sb := SpinBox.new(); r_sb.min_value = 1; r_sb.max_value = 16; r_sb.step = 1
-			r_sb.value = int(p_node.get("radius"))
-			r_sb.value_changed.connect(func(val: float): p_node.set("radius", int(val)))
-			row.add_child(r_lbl); row.add_child(r_sb)
-
-			var c_lbl := Label.new(); c_lbl.text = "Gain:"
-			var c_sb := SpinBox.new(); c_sb.min_value = 0.1; c_sb.max_value = 10.0; c_sb.step = 0.1
-			c_sb.value = float(p_node.get("contrast"))
-			c_sb.value_changed.connect(func(val: float): p_node.set("contrast", val))
-			row.add_child(c_lbl); row.add_child(c_sb)
-			p_gn.add_child(row)
+			btn_row.add_child(auto_btn)
+			p_gn.add_child(btn_row)
 
 
 func _graph_has_sink() -> bool:

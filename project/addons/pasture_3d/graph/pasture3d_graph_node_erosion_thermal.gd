@@ -61,19 +61,31 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 2
+	return 5
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field", "hardness"])
+	return PackedStringArray(["in", "hardness", "talus_angle", "iterations", "settling_rate"])
 
 
 func input_port_types() -> PackedInt32Array:
-	return PackedInt32Array([PortType.HEIGHT, PortType.MASK])
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.MASK,
+		PortType.FLOAT,
+		PortType.INT,
+		PortType.FLOAT,
+	])
 
 
-func input_unwired_default(_p_port: int) -> float:
-	return 0.0
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return 0.0
+		2: return talus_angle
+		3: return float(iterations)
+		4: return settling_rate
+		_: return 0.0
 
 
 func output_count() -> int:
@@ -108,13 +120,14 @@ func node_warnings() -> PackedStringArray:
 
 func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
-	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 \
-			else Pasture3DGraphOps.zeros(n)
+	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
+	var hardness: PackedFloat32Array = (p_inputs[1] as PackedFloat32Array) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
+	var tang: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else talus_angle
+	var iters: int = int(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else iterations
+	var sr: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else settling_rate
+
 	if surface.size() != n:
 		surface = Pasture3DGraphOps.zeros(n)
-
-	var hardness: PackedFloat32Array = (p_inputs[1] as PackedFloat32Array) if p_inputs.size() > 1 \
-			else Pasture3DGraphOps.zeros(n)
 	if hardness.size() != n:
 		hardness = Pasture3DGraphOps.zeros(n)
 
@@ -124,7 +137,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 			if _dirty_since_bake or key != _cache_key:
 				_set_stale(true)
 			return _cache[_cache_key]
-		var solved := _solve(surface, hardness, p_gw, p_gh, p_rect)
+		var solved := _solve_dynamic(surface, hardness, p_gw, p_gh, p_rect, tang, iters, sr)
 		_cache = {}
 		_cache_key = key
 		_cache[key] = solved
@@ -135,7 +148,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 	if not _cache.is_empty():
 		_cache.clear()
 	_set_stale(false)
-	return _solve(surface, hardness, p_gw, p_gh, p_rect)
+	return _solve_dynamic(surface, hardness, p_gw, p_gh, p_rect, tang, iters, sr)
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:
@@ -164,16 +177,14 @@ func _surface_hash(p_surface: PackedFloat32Array, p_hardness: PackedFloat32Array
 	return h
 
 
-func _solve(p_surface: PackedFloat32Array, p_hardness: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
+func _solve_dynamic(p_surface: PackedFloat32Array, p_hardness: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_tang: float, p_iters: int, p_sr: float) -> Array:
 	var n := p_gw * p_gh
 	if not ClassDB.class_has_method("Pasture3DUtil", "erosion_thermal_solve_grid"):
 		push_error("[Pasture3D] Pasture3DUtil.erosion_thermal_solve_grid is not bound. Rebuild GDExtension.")
 		return [p_surface.duplicate(), Pasture3DGraphOps.zeros(n)]
 
 	var res: Dictionary = Pasture3DUtil.erosion_thermal_solve_grid(p_surface, p_hardness, p_gw, p_gh,
-			p_rect, talus_angle, iterations, settling_rate)
+			p_rect, p_tang, p_iters, p_sr)
 	if not bool(res.get("ok", false)):
 		push_error("[Pasture3D] Thermal erosion native solve failed.")
-		return [p_surface.duplicate(), Pasture3DGraphOps.zeros(n)]
-
 	return [res["height"], res["talus"]]

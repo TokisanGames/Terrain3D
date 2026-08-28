@@ -103,11 +103,29 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 1
+	return 4
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field"])
+	return PackedStringArray(["in", "amplitude", "grain_size", "min_slope"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return amplitude
+		2: return grain_size
+		3: return min_slope_degrees
+		_: return 0.0
 
 
 func output_count() -> int:
@@ -138,26 +156,28 @@ func node_warnings() -> PackedStringArray:
 		w.append("%s is FROZEN and the surface or its parameters changed since the bake — it is showing "
 			% display_name() + "the scree it solved for the old shape. Press Bake Scree to re-solve.")
 	if amplitude <= 0.0 and toe_deposition <= 0.0:
-		w.append("%s has no amplitude and no toe deposition, so it deposits nothing." % display_name())
+		w.append("%s: both Amplitude and Toe Deposition are 0, so no talus accumulates." % display_name())
 	return w
 
 
 ## Two channels: [0] deposited height (metres), [1] shed mask [0,1]. Applies the per-solver freeze.
 func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
-	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 \
-			else Pasture3DGraphOps.zeros(n)
+	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
+	var a: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else amplitude
+	var gs: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else grain_size
+	var ms: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else min_slope_degrees
+
 	if surface.size() != n:
 		surface = Pasture3DGraphOps.zeros(n)
 
 	if evaluation == Evaluation.FROZEN:
 		var key := _surface_hash(surface, p_gw, p_gh)
 		if not _cache.is_empty():
-			# Serve the cache; flag stale if anything moved since the bake, but do NOT re-solve.
 			if _dirty_since_bake or key != _cache_key:
 				_set_stale(true)
 			return _cache[_cache_key]
-		var solved := _solve(surface, p_gw, p_gh, p_rect)
+		var solved := _solve_dynamic(surface, p_gw, p_gh, p_rect, a, gs, ms)
 		_cache = {}
 		_cache_key = key
 		_cache[key] = solved
@@ -169,7 +189,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 	if not _cache.is_empty():
 		_cache.clear()
 	_set_stale(false)
-	return _solve(surface, p_gw, p_gh, p_rect)
+	return _solve_dynamic(surface, p_gw, p_gh, p_rect, a, gs, ms)
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:
@@ -206,7 +226,47 @@ func _wobble() -> FastNoiseLite:
 ## the grain + toe are the vetted `_scree`. NaN in the surface (off a brush loop) passes through as NaN in
 ## the height and a 0 in the mask — the boundary is where nothing sheds.
 func _solve(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
-	return Pasture3DUtil.scree_solve_grid(p_surface, p_gw, p_gh, p_rect, amplitude, grain_size, downslope_streak, toe_deposition, min_slope_degrees, slope_falloff_degrees, seed)
+	return _solve_dynamic(p_surface, p_gw, p_gh, p_rect, amplitude, grain_size, min_slope_degrees)
+
+
+func _solve_dynamic(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_a: float, p_gs: float, p_ms: float) -> Array:
+	var n := p_gw * p_gh
+	var height := PackedFloat32Array(); height.resize(n)
+	var shed := PackedFloat32Array(); shed.resize(n)
+	var params := PackedFloat32Array([p_a, 1.0 / maxf(p_gs, 0.01), downslope_streak,
+			toe_deposition, float(seed)])
+	var noise := _wobble()
+	var dx := p_rect.size.x / float(maxi(p_gw, 1))
+	var dz := p_rect.size.y / float(maxi(p_gh, 1))
+	for iz in range(p_gh):
+		var row := iz * p_gw
+		var zm := maxi(iz - 1, 0) * p_gw
+		var zp := mini(iz + 1, p_gh - 1) * p_gw
+		for ix in range(p_gw):
+			var i := row + ix
+			var c := p_surface[i]
+			if is_nan(c):
+				height[i] = NAN
+				shed[i] = 0.0
+				continue
+			var xm := maxi(ix - 1, 0)
+			var xp := mini(ix + 1, p_gw - 1)
+			var hxm := _finite(p_surface[row + xm], c)
+			var hxp := _finite(p_surface[row + xp], c)
+			var hzm := _finite(p_surface[zm + ix], c)
+			var hzp := _finite(p_surface[zp + ix], c)
+			# Gradient (height per metre) and slope angle; curvature = ring mean minus centre (metres,
+			# positive for a hollow, matching the relief system's SCREE curvature convention).
+			var gx := (hxp - hxm) / (2.0 * dx)
+			var gz := (hzp - hzm) / (2.0 * dz)
+			var slope_deg := rad_to_deg(atan(sqrt(gx * gx + gz * gz)))
+			var curv := (hxm + hxp + hzm + hzp) * 0.25 - c
+			var gate := _slope_gate_dynamic(slope_deg, p_ms)
+			var w := cell_to_world_local(ix, iz, p_gw, p_gh, p_rect)
+			var val := ReliefMaterial._scree(w.x, w.y, curv, gx, gz, params, 0, noise)
+			height[i] = gate * val
+			shed[i] = gate
+	return [height, shed]
 
 
 func _finite(p_v: float, p_fallback: float) -> float:
@@ -214,14 +274,18 @@ func _finite(p_v: float, p_fallback: float) -> float:
 
 
 ## Smooth slope band: 0 below `min - falloff`, ramping to 1 at `min_slope_degrees`, 1 up to vertical.
-func _slope_gate(p_slope_deg: float) -> float:
-	var lo := min_slope_degrees
+func _slope_gate_dynamic(p_slope_deg: float, p_ms: float) -> float:
+	var lo := p_ms
 	var fl := slope_falloff_degrees
 	if p_slope_deg >= lo:
 		return 1.0
 	if fl <= 0.0 or p_slope_deg <= lo - fl:
 		return 0.0
 	return smoothstep(lo - fl, lo, p_slope_deg)
+
+
+func _slope_gate(p_slope_deg: float) -> float:
+	return _slope_gate_dynamic(p_slope_deg, min_slope_degrees)
 
 
 ## Cell-centre world XZ, identical to Pasture3DTerrainGraph.cell_to_world (kept local so the node does not

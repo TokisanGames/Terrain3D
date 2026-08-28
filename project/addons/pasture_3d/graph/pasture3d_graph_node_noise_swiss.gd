@@ -78,32 +78,63 @@ func role() -> Role:
 
 
 func input_count() -> int:
-	return 0
+	return 5
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray()
+	return PackedStringArray(["amplitude", "ridge_offset", "erosion_accent", "gain", "frequency"])
 
 
-func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
-	return Pasture3DUtil.noise_swiss_grid(p_gw, p_gh, p_rect, amplitude, frequency, octaves, gain, lacunarity, ridge_offset, erosion_accent, seed)
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
 
 
-func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:
-	if is_zero_approx(amplitude) or octaves <= 0:
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return amplitude
+		1: return ridge_offset
+		2: return erosion_accent
+		3: return gain
+		4: return frequency
+		_: return 0.0
+
+
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	var a: float = float(p_inputs[0][0]) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array and p_inputs[0].size() > 0) else amplitude
+	var ro: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else ridge_offset
+	var ea: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else erosion_accent
+	var g: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else gain
+	var f: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else frequency
+	return Pasture3DUtil.noise_swiss_grid(p_gw, p_gh, p_rect, a, f, octaves, g, lacunarity, ro, ea, seed)
+
+
+func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
+	var a: float = p_inputs[0] if (p_inputs.size() > 0 and not is_nan(p_inputs[0])) else amplitude
+	var ro: float = p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else ridge_offset
+	var ea: float = p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else erosion_accent
+	var g: float = p_inputs[3] if (p_inputs.size() > 3 and not is_nan(p_inputs[3])) else gain
+	var f: float = p_inputs[4] if (p_inputs.size() > 4 and not is_nan(p_inputs[4])) else frequency
+
+	if is_zero_approx(a) or octaves <= 0:
 		return 0.0
 
 	var nz := _get_noise()
 	var total_h := 0.0
 	var cur_amp := 1.0
-	var cur_freq := frequency
+	var cur_freq := f
 	var sum_deriv := Vector2.ZERO
 	var max_amp := 0.0
 
 	const EPS: float = 0.2
 
 	for i in range(octaves):
-		var sample_pos := Vector2(p_wx, p_wz) * cur_freq + sum_deriv * erosion_accent
+		var sample_pos := Vector2(p_wx, p_wz) * cur_freq + sum_deriv * ea
 		var raw_n := nz.get_noise_2d(sample_pos.x, sample_pos.y)
 
 		# Finite-difference derivative of the raw noise basis
@@ -112,21 +143,21 @@ func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float
 		var grad := Vector2(n_dx, n_dz)
 
 		# Inverted ridge shape: (offset - |noise|)^2
-		var ridge_term := maxf(0.0, ridge_offset - absf(raw_n))
+		var ridge_term := maxf(0.0, ro - absf(raw_n))
 		var ridge_val := ridge_term * ridge_term
 
 		# Modulation factor from accumulated derivative
-		var modulation := clampf(1.0 - erosion_accent * sum_deriv.length(), 0.05, 1.0)
+		var modulation := clampf(1.0 - ea * sum_deriv.length(), 0.05, 1.0)
 
 		total_h += cur_amp * ridge_val * modulation
 		sum_deriv += grad * cur_amp * (-2.0 * ridge_term * signf(raw_n)) * modulation
-		max_amp += cur_amp * (ridge_offset * ridge_offset)
+		max_amp += cur_amp * (ro * ro)
 
-		cur_amp *= gain
+		cur_amp *= g
 		cur_freq *= lacunarity
 
 	var normalized := (total_h / maxf(max_amp, 0.0001)) * 2.0 - 1.0
-	return normalized * amplitude
+	return normalized * a
 
 
 func node_warnings() -> PackedStringArray:

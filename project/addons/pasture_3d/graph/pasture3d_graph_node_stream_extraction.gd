@@ -71,11 +71,29 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 1
+	return 4
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["terrain"])
+	return PackedStringArray(["in", "min_catchment", "carve_depth", "channel_width"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return min_catchment_cells
+		2: return carve_depth
+		3: return channel_width
+		_: return 0.0
 
 
 func output_count() -> int:
@@ -119,13 +137,17 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 	else:
 		in_grid = Pasture3DGraphOps.zeros(n)
 
+	var mc: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else min_catchment_cells
+	var cd: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else carve_depth
+	var cw: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else channel_width
+
 	if evaluation == Evaluation.FROZEN:
 		var key := _grid_hash(in_grid)
 		if not _cache.is_empty():
 			if _dirty_since_bake or key != _cache_key:
 				_stale = true
 			return _cache[_cache_key]
-		var solved := _solve(in_grid, p_gw, p_gh, p_rect)
+		var solved := _solve_dynamic(in_grid, p_gw, p_gh, p_rect, mc, cd, cw)
 		_cache = {}
 		_cache_key = key
 		_cache[key] = solved
@@ -137,7 +159,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 	if not _cache.is_empty():
 		_cache.clear()
 	_stale = false
-	return _solve(in_grid, p_gw, p_gh, p_rect)
+	return _solve_dynamic(in_grid, p_gw, p_gh, p_rect, mc, cd, cw)
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:
@@ -146,14 +168,14 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> 
 
 # ---- Solver Logic ----------------------------------------------------------------------------------
 
-func _solve(p_h: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
+func _solve_dynamic(p_h: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_mc: float, p_cd: float, p_cw: float) -> Array:
 	var n := p_gw * p_gh
 	if not ClassDB.class_has_method("Pasture3DUtil", "stream_extraction_grid"):
 		push_error("[Pasture3D] Pasture3DUtil.stream_extraction_grid is not bound. Rebuild GDExtension.")
 		return [p_h.duplicate(), Pasture3DGraphOps.zeros(n), Pasture3DGraphOps.zeros(n)]
 
 	var res: Dictionary = Pasture3DUtil.stream_extraction_grid(p_h, p_gw, p_gh, p_rect,
-			min_catchment_cells, carve_depth, channel_width, bank_falloff)
+			p_mc, p_cd, p_cw, bank_falloff)
 	if not bool(res.get("ok", false)):
 		push_error("[Pasture3D] Stream extraction native solve failed.")
 		return [p_h.duplicate(), Pasture3DGraphOps.zeros(n), Pasture3DGraphOps.zeros(n)]

@@ -45,11 +45,27 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 1
+	return 3
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["input"])
+	return PackedStringArray(["in", "fill_limit", "amount"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.FLOAT,
+		PortType.MASK,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return fill_depth_limit
+		2: return amount
+		_: return 0.0
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
@@ -60,7 +76,10 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	else:
 		return Pasture3DGraphOps.zeros(n)
 
-	if is_zero_approx(amount):
+	var fl: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else fill_depth_limit
+	var amt: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else amount
+
+	if is_zero_approx(amt):
 		return in_grid.duplicate()
 
 	if not ClassDB.class_has_method("Pasture3DUtil", "depression_filling_grid"):
@@ -68,7 +87,7 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 		return in_grid.duplicate()
 
 	var res: PackedFloat32Array = Pasture3DUtil.depression_filling_grid(in_grid, p_gw, p_gh, p_rect,
-			epsilon_slope, fill_depth_limit, amount)
+			epsilon_slope, fl, amt)
 	if res.size() != n:
 		push_error("[Pasture3D] Depression filling native solve returned invalid grid size.")
 		return in_grid.duplicate()

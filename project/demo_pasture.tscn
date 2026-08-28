@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://h6xmhgsg3cl"]
+
+[sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_e2ire"]
+_shader_parameters = {
+&"bias_distance": null,
+&"blend_sharpness": null,
+&"depth_blur": null,
+&"distant_normal_scale": null,
+&"flat_terrain_normals": null,
+&"mipmap_bias": null
+}
+show_checkered = true
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4uucg"]
+transparency = 4
+cull_mode = 2
+vertex_color_use_as_albedo = true
+backlight_enabled = true
+backlight = Color(0.5, 0.5, 0.5, 1)
+distance_fade_mode = 1
+distance_fade_min_distance = 128.0
+distance_fade_max_distance = 96.0
+metadata/pasture3d_generated_material = true
+
+[sub_resource type="Pasture3DMeshAsset" id="Pasture3DMeshAsset_kuo0e"]
+generated_type = 1
+height_offset = 0.5
+density = 10.0
+material_override = SubResource("StandardMaterial3D_4uucg")
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 128.0
+
+[sub_resource type="Pasture3DAssets" id="Pasture3DAssets_t75ii"]
+mesh_list = Array[Pasture3DMeshAsset]([SubResource("Pasture3DMeshAsset_kuo0e")])
+
+[node name="DemoPasture" type="Node3D" unique_id=350914681]
+
+[node name="Pasture3D" type="Pasture3D" parent="." unique_id=1209374057]
+data_directory = "res://demo/data/DemoPasture"
+material = SubResource("Pasture3DMaterial_e2ire")
+assets = SubResource("Pasture3DAssets_t75ii")
+displacement_sharpness = 0.5
+show_checkered = true
+top_level = true
+metadata/_edit_lock_ = true

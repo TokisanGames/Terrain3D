@@ -62,22 +62,34 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 2
+	return 5
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["input", "mask"])
+	return PackedStringArray(["in", "macro_gain", "meso_gain", "micro_gain", "amount"])
 
 
 func input_port_types() -> PackedInt32Array:
-	return PackedInt32Array([PortType.HEIGHT, PortType.MASK])
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.MASK,
+	])
 
 
 func input_unwired_default(p_port: int) -> float:
-	return 1.0 if p_port == 1 else 0.0
+	match p_port:
+		0: return 0.0
+		1: return macro_gain
+		2: return meso_gain
+		3: return micro_gain
+		4: return amount
+		_: return 0.0
 
 
-func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, _p_rect: Rect2) -> PackedFloat32Array:
 	var n := p_gw * p_gh
 	var in_grid: PackedFloat32Array
 	if p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array and (p_inputs[0] as PackedFloat32Array).size() == n:
@@ -85,25 +97,25 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -
 	else:
 		return Pasture3DGraphOps.zeros(n)
 
-	if is_zero_approx(amount):
+	var mac: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else macro_gain
+	var mes: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else meso_gain
+	var mic: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else micro_gain
+	var amt: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else amount
+
+	if is_zero_approx(amt):
 		return in_grid.duplicate()
 
-	# Exact identity optimization when all gains are 1.0
-	if is_equal_approx(macro_gain, 1.0) and is_equal_approx(meso_gain, 1.0) and is_equal_approx(micro_gain, 1.0):
+	if is_equal_approx(mac, 1.0) and is_equal_approx(mes, 1.0) and is_equal_approx(mic, 1.0):
 		return in_grid.duplicate()
 
-	var mask: PackedFloat32Array
-	if p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and (p_inputs[1] as PackedFloat32Array).size() == n:
-		mask = p_inputs[1]
-	else:
-		mask = Pasture3DGraphOps.filled(n, 1.0)
+	var mask: PackedFloat32Array = (p_mask as PackedFloat32Array) if (p_mask is PackedFloat32Array and (p_mask as PackedFloat32Array).size() == n) else Pasture3DGraphOps.filled(n, 1.0)
 
 	if not ClassDB.class_has_method("Pasture3DUtil", "spectral_equalizer_grid"):
 		push_error("[Pasture3D] Pasture3DUtil.spectral_equalizer_grid is not bound. Rebuild GDExtension.")
 		return in_grid.duplicate()
 
 	var res: PackedFloat32Array = Pasture3DUtil.spectral_equalizer_grid(in_grid, mask, p_gw, p_gh,
-			macro_gain, meso_gain, micro_gain, macro_passes, meso_passes, amount)
+			mac, mes, mic, macro_passes, meso_passes, amt)
 	if res.size() != n:
 		push_error("[Pasture3D] Spectral equalizer native solve returned invalid grid size.")
 		return in_grid.duplicate()

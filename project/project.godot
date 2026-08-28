@@ -15,7 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Pasture3D"
-run/main_scene="uid://btse4yobktpbv"
+run/main_scene="uid://rfbs451bkcca"
 config/features=PackedStringArray("4.7")
 config/icon="res://icon.png"
 

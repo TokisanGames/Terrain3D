@@ -66,15 +66,37 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 0
+	return 4
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray()
+	return PackedStringArray(["amplitude", "floor_depth", "rim_height", "rim_width"])
 
 
-func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
-	return Pasture3DUtil.crater_grid(p_gw, p_gh, p_rect, amplitude, floor_depth, rim_height, rim_width, ejecta_falloff, floor_flatness, terrace_steps)
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return amplitude
+		1: return floor_depth
+		2: return rim_height
+		3: return rim_width
+		_: return 0.0
+
+
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	var a: float = float(p_inputs[0][0]) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array and p_inputs[0].size() > 0) else amplitude
+	var fd: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else floor_depth
+	var rh: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else rim_height
+	var rw: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else rim_width
+	return Pasture3DUtil.crater_grid(p_gw, p_gh, p_rect, a, fd, rh, rw, ejecta_falloff, floor_flatness, terrace_steps)
 
 
 func node_warnings() -> PackedStringArray:

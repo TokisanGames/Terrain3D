@@ -74,18 +74,44 @@ func output_port_type() -> int:
 
 
 func input_count() -> int:
-	return 1
+	return 6
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field"])
+	return PackedStringArray(["in", "band_min", "band_max", "falloff_lo", "falloff_hi", "strength"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.MASK,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return band_min
+		2: return band_max
+		3: return falloff_lo
+		4: return falloff_hi
+		5: return strength
+		_: return 0.0
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
 	var n := p_gw * p_gh
-	var h: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 \
-			else Pasture3DGraphOps.zeros(n)
-	return Pasture3DUtil.mask_grid(h, p_gw, p_gh, p_rect, int(property), band_min, band_max, falloff_lo, falloff_hi, invert, strength)
+	var h: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
+	var bmin: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else band_min
+	var bmax: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else band_max
+	var flo: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else falloff_lo
+	var fhi: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else falloff_hi
+	var st: float = float(p_inputs[5][0]) if (p_inputs.size() > 5 and p_inputs[5] is PackedFloat32Array and p_inputs[5].size() > 0) else strength
+	return Pasture3DUtil.mask_grid(h, p_gw, p_gh, p_rect, int(property), bmin, bmax, flo, fhi, invert, st)
 
 
 # The 0..1 band weight for a property value. Byte-for-byte the relief selector's shape

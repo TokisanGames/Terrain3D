@@ -75,19 +75,36 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 1
+	return 4
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field"])
+	return PackedStringArray(["in", "strength", "amplitude", "frequency"])
 
 
-func input_unwired_default(_p_port: int) -> float:
-	return 0.0
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return strength
+		2: return amplitude
+		3: return frequency
+		_: return 0.0
 
 
 func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
-	var base_in := p_inputs[0] if p_inputs.size() > 0 else 0.0
+	var base_in: float = p_inputs[0] if (p_inputs.size() > 0 and not is_nan(p_inputs[0])) else 0.0
+	var st: float = p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else strength
+	var a: float = p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else amplitude
+
 	if is_nan(base_in):
 		return NAN
 
@@ -97,16 +114,16 @@ func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
 	var dx: float = 0.0
 	var dz: float = 0.0
 
-	if strength > 0.0:
-		dx = _noise_x.get_noise_2d(p_wx, p_wz) * strength
-		dz = _noise_z.get_noise_2d(p_wx, p_wz) * strength
+	if st > 0.0:
+		dx = _noise_x.get_noise_2d(p_wx, p_wz) * st
+		dz = _noise_z.get_noise_2d(p_wx, p_wz) * st
 
 	var warped_x := p_wx + dx
 	var warped_z := p_wz + dz
 
 	# Sample distorted noise field at warped coordinates
 	var sample := _noise_out.get_noise_2d(warped_x, warped_z)
-	var generated_h := sample * amplitude
+	var generated_h := sample * a
 
 	return base_in + generated_h
 
@@ -119,12 +136,16 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	else:
 		in_grid = Pasture3DGraphOps.zeros(n)
 
+	var st: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else strength
+	var a: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else amplitude
+	var f: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else frequency
+
 	if not ClassDB.class_has_method("Pasture3DUtil", "warp_grid"):
 		push_error("[Pasture3D] Pasture3DUtil.warp_grid is not bound. Rebuild GDExtension.")
 		return in_grid.duplicate()
 
 	var res: PackedFloat32Array = Pasture3DUtil.warp_grid(in_grid, p_gw, p_gh, p_rect, int(warp_type),
-			frequency, strength, octaves, amplitude, roughness, seed)
+			f, st, octaves, a, roughness, seed)
 	if res.size() != n:
 		push_error("[Pasture3D] Warp native solve returned invalid grid size.")
 		return in_grid.duplicate()

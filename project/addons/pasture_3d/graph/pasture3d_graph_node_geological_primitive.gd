@@ -89,14 +89,45 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 0
+	return 4
 
 
-func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
-	return Pasture3DUtil.geological_primitive_grid(p_gw, p_gh, p_rect, int(primitive_type), int(mapping), height, radius, eccentricity, steepness, azimuth_degrees, center_offset)
+func input_names() -> PackedStringArray:
+	return PackedStringArray(["height", "radius", "steepness", "eccentricity"])
 
 
-func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return height
+		1: return radius
+		2: return steepness
+		3: return eccentricity
+		_: return 0.0
+
+
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	var h: float = float(p_inputs[0][0]) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array and p_inputs[0].size() > 0) else height
+	var r: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else radius
+	var st: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else steepness
+	var ecc: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else eccentricity
+	return Pasture3DUtil.geological_primitive_grid(p_gw, p_gh, p_rect, int(primitive_type), int(mapping), h, r, ecc, st, azimuth_degrees, center_offset)
+
+
+func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
+	var h: float = p_inputs[0] if (p_inputs.size() > 0 and not is_nan(p_inputs[0])) else height
+	var r: float = p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else radius
+	var st: float = p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else steepness
+	var ecc: float = p_inputs[3] if (p_inputs.size() > 3 and not is_nan(p_inputs[3])) else eccentricity
+
 	# Local rotated and scaled coordinates
 	var rx := p_wx - center_offset.x
 	var rz := p_wz - center_offset.y
@@ -109,12 +140,47 @@ func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float
 	var lz := -rx * sin_a + rz * cos_a
 
 	# Elliptical distance metric
-	var inv_r := 1.0 / maxf(radius, 0.001)
+	var inv_r := 1.0 / maxf(r, 0.001)
 	var norm_x := lx * inv_r
-	var norm_z := (lz * inv_r) / maxf(eccentricity, 0.01)
+	var norm_z := (lz * inv_r) / maxf(ecc, 0.01)
 	var d := sqrt(norm_x * norm_x + norm_z * norm_z)
 
-	return _profile_at(d, norm_x)
+	return _profile_at_dynamic(d, norm_x, h, st)
+
+
+func _profile_at_dynamic(d: float, norm_x: float, p_h: float, p_st: float) -> float:
+	match primitive_type:
+		PrimitiveType.INSELBERG:
+			if d >= 1.0:
+				return 0.0
+			var cliff_r := 0.55
+			var cliff := 1.0 / (1.0 + pow(d / cliff_r, 2.5 * maxf(p_st, 0.2)))
+			var pediment := smoothstep(1.0, 0.75, d)
+			return p_h * (cliff * pediment)
+		PrimitiveType.VOLCANIC_CALDERA:
+			if d >= 1.0:
+				return 0.0
+			var rim_center := 0.65
+			var rim_width := 0.25
+			var rim_dist := absf(d - rim_center) / rim_width
+			var rim_height_term := exp(-rim_dist * rim_dist * 3.0)
+			var floor_depth := 0.7
+			var floor_falloff := smoothstep(rim_center, 0.0, d)
+			var caldera_floor := -floor_depth * floor_falloff
+			var outer_flank := smoothstep(1.0, rim_center, d)
+			return p_h * (rim_height_term * outer_flank + caldera_floor)
+		PrimitiveType.CUESTA_BADLANDS:
+			if d >= 1.0:
+				return 0.0
+			var outer_mask := 1.0 - smoothstep(0.8, 1.0, d)
+			var dip_slope := (1.0 - norm_x * 0.5) * 0.5
+			var escarpment_center := 0.4
+			var escarpment_falloff := 1.0 / (1.0 + exp(-10.0 * (norm_x - escarpment_center) * maxf(p_st, 0.2)))
+			var profile := dip_slope * (1.0 - escarpment_falloff)
+			return p_h * profile * outer_mask
+		_:
+			return 0.0
+	return 0.0
 
 
 func _profile_at(d: float, norm_x: float) -> float:

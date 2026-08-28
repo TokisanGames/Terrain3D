@@ -562,14 +562,9 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 			var s0: int = inputs_of[ni][0] if not inputs_of[ni].is_empty() else -1
 			var sp0: int = input_ports_of[ni][0] if not input_ports_of[ni].is_empty() else 0
 			grids[ni] = _read_channel(s0, sp0, grids, aux, n).duplicate()
-		elif node.op() == &"noise_jordan":
-			grids[ni] = Pasture3DUtil.noise_jordan_grid(p_gw, p_gh, p_rect, node.amplitude, node.frequency, node.octaves, node.gain, node.lacunarity, node.warp_strength, node.damp_strength, node.seed)
-		elif node.op() == &"noise_swiss":
-			grids[ni] = Pasture3DUtil.noise_swiss_grid(p_gw, p_gh, p_rect, node.amplitude, node.frequency, node.octaves, node.gain, node.lacunarity, node.ridge_offset, node.erosion_accent, node.seed)
-		elif node.op() == &"furrows":
-			grids[ni] = Pasture3DUtil.furrows_grid(p_gw, p_gh, p_rect, node.amplitude, node.spacing, node.direction_degrees, int(node.profile), node.wobble_amount, node.wobble_size, node.seed)
-		elif node.op() == &"dunes":
-			grids[ni] = Pasture3DUtil.dunes_grid(p_gw, p_gh, p_rect, node.amplitude, node.wavelength, node.direction_degrees, node.asymmetry, node.crest_sharpness, node.wander_amount, node.wander_size, node.seed)
+		elif node.op() == &"noise_jordan" or node.op() == &"noise_swiss" or node.op() == &"furrows" or node.op() == &"dunes":
+			var in_grids := _input_grids(ni, grids, aux, n)
+			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask, p_rect)
 		elif node.needs_grid():
 			var in_grids := _input_grids(ni, grids, aux, n)
 			if node.output_count() > 1:

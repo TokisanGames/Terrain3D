@@ -84,7 +84,7 @@ func input_unwired_default(p_port: int) -> float:
 
 
 func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
-	var x := p_inputs[0] if p_inputs.size() > 0 else 0.0
+	var x: float = p_inputs[0] if p_inputs.size() > 0 else 0.0
 	if is_nan(x):
 		return x
 	var bh_val: float = p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else band_height

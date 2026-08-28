@@ -77,25 +77,56 @@ func role() -> Role:
 
 
 func input_count() -> int:
-	return 0
+	return 5
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray()
+	return PackedStringArray(["amplitude", "warp_strength", "damp_strength", "gain", "frequency"])
 
 
-func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
-	return Pasture3DUtil.noise_jordan_grid(p_gw, p_gh, p_rect, amplitude, frequency, octaves, gain, lacunarity, warp_strength, damp_strength, seed)
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
 
 
-func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:
-	if is_zero_approx(amplitude) or octaves <= 0:
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return amplitude
+		1: return warp_strength
+		2: return damp_strength
+		3: return gain
+		4: return frequency
+		_: return 0.0
+
+
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	var a: float = float(p_inputs[0][0]) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array and p_inputs[0].size() > 0) else amplitude
+	var ws: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else warp_strength
+	var ds: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else damp_strength
+	var g: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else gain
+	var f: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else frequency
+	return Pasture3DUtil.noise_jordan_grid(p_gw, p_gh, p_rect, a, f, octaves, g, lacunarity, ws, ds, seed)
+
+
+func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
+	var a: float = p_inputs[0] if (p_inputs.size() > 0 and not is_nan(p_inputs[0])) else amplitude
+	var ws: float = p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else warp_strength
+	var ds: float = p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else damp_strength
+	var g: float = p_inputs[3] if (p_inputs.size() > 3 and not is_nan(p_inputs[3])) else gain
+	var f: float = p_inputs[4] if (p_inputs.size() > 4 and not is_nan(p_inputs[4])) else frequency
+
+	if is_zero_approx(a) or octaves <= 0:
 		return 0.0
 
 	var nz := _get_noise()
 	var total_h := 0.0
 	var cur_amp := 1.0
-	var cur_freq := frequency
+	var cur_freq := f
 	var sum_grad := Vector2.ZERO
 	var max_amp := 0.0
 
@@ -103,7 +134,7 @@ func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float
 
 	for i in range(octaves):
 		# Warp octave sampling coordinates by accumulated gradient
-		var sample_pos := Vector2(p_wx, p_wz) * cur_freq + sum_grad * warp_strength
+		var sample_pos := Vector2(p_wx, p_wz) * cur_freq + sum_grad * ws
 		var n_val := nz.get_noise_2d(sample_pos.x, sample_pos.y)
 
 		# Analytical finite-difference gradient of the noise basis
@@ -112,17 +143,17 @@ func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float
 		var grad := Vector2(n_dx, n_dz)
 
 		# Damping factor based on accumulated gradient magnitude
-		var damp := 1.0 / (1.0 + damp_strength * sum_grad.length_squared())
+		var damp := 1.0 / (1.0 + ds * sum_grad.length_squared())
 
 		total_h += cur_amp * n_val * damp
 		sum_grad += grad * cur_amp * damp
 		max_amp += cur_amp
 
-		cur_amp *= gain
+		cur_amp *= g
 		cur_freq *= lacunarity
 
 	var normalized := total_h / maxf(max_amp, 0.0001)
-	return normalized * amplitude
+	return normalized * a
 
 
 func node_warnings() -> PackedStringArray:

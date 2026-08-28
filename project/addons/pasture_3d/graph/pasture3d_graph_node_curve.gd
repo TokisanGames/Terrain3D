@@ -88,33 +88,67 @@ func role() -> Role:
 
 
 func input_count() -> int:
-	return 1
+	return 6
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field"])
+	return PackedStringArray(["in", "in_min", "in_max", "out_min", "out_max", "amount"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.HEIGHT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.MASK,
+	])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return 0.0
+		1: return input_min
+		2: return input_max
+		3: return output_min
+		4: return output_max
+		5: return amount
+		_: return 0.0
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
-	var s: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 else Pasture3DGraphOps.zeros(p_gw * p_gh)
+	var s: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(p_gw * p_gh)
+	var imin: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else input_min
+	var imax: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else input_max
+	var omin: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else output_min
+	var omax: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else output_max
+	var amt: float = float(p_inputs[5][0]) if (p_inputs.size() > 5 and p_inputs[5] is PackedFloat32Array and p_inputs[5].size() > 0) else amount
+
 	if curve == null:
 		return s
 	var lut_floats := PackedFloat32Array()
 	lut_floats.resize(256)
 	for i in range(256):
 		lut_floats[i] = curve.sample_baked(float(i) / 255.0)
-	return Pasture3DUtil.curve_grid(s, lut_floats, input_min, input_max, output_min, output_max, amount)
+	return Pasture3DUtil.curve_grid(s, lut_floats, imin, imax, omin, omax, amt)
 
 
 func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> float:
-	var x := p_inputs[0] if p_inputs.size() > 0 else 0.0
+	var x: float = p_inputs[0] if (p_inputs.size() > 0 and not is_nan(p_inputs[0])) else 0.0
+	var imin: float = p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else input_min
+	var imax: float = p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else input_max
+	var omin: float = p_inputs[3] if (p_inputs.size() > 3 and not is_nan(p_inputs[3])) else output_min
+	var omax: float = p_inputs[4] if (p_inputs.size() > 4 and not is_nan(p_inputs[4])) else output_max
+	var amt: float = p_inputs[5] if (p_inputs.size() > 5 and not is_nan(p_inputs[5])) else amount
+
 	if curve == null or is_nan(x):
 		return x
-	var span := input_max - input_min
-	var tx := clampf((x - input_min) / span, 0.0, 1.0) if absf(span) > 1.0e-9 else 0.0
+	var span := imax - imin
+	var tx := clampf((x - imin) / span, 0.0, 1.0) if absf(span) > 1.0e-9 else 0.0
 	var y := curve.sample_baked(tx)
-	var remapped := lerpf(output_min, output_max, y)
-	return lerpf(x, remapped, amount)
+	var remapped := lerpf(omin, omax, y)
+	return lerpf(x, remapped, amt)
 
 
 func node_warnings() -> PackedStringArray:

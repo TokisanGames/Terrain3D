@@ -73,21 +73,47 @@ func role() -> Role:
 
 
 func input_count() -> int:
-	return 0
+	return 4
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray()
+	return PackedStringArray(["amplitude", "spacing", "direction", "wobble"])
 
 
-func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
-	return Pasture3DUtil.furrows_grid(p_gw, p_gh, p_rect, amplitude, spacing, direction_degrees, int(profile), wobble_amount, wobble_size, seed)
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+		PortType.FLOAT,
+	])
 
 
-func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:
-	# Delegate to the canonical corrugation math so a Furrows node never drifts from a relief Furrows op.
-	# params layout as Pasture3DReliefMaterial._furrows reads it: [amp, spacing, dir, profile, _, wobble].
-	return Pasture3DReliefMaterial._furrows(p_wx, p_wz, _params(), 0, _wobble_noise())
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		0: return amplitude
+		1: return spacing
+		2: return direction_degrees
+		3: return wobble_amount
+		_: return 0.0
+
+
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	var a: float = float(p_inputs[0][0]) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array and p_inputs[0].size() > 0) else amplitude
+	var sp: float = float(p_inputs[1][0]) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else spacing
+	var dir: float = float(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else direction_degrees
+	var wob: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else wobble_amount
+	return Pasture3DUtil.furrows_grid(p_gw, p_gh, p_rect, a, sp, dir, int(profile), wob, wobble_size, seed)
+
+
+func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
+	var a: float = p_inputs[0] if (p_inputs.size() > 0 and not is_nan(p_inputs[0])) else amplitude
+	var sp: float = p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else spacing
+	var dir: float = p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else direction_degrees
+	var wob: float = p_inputs[3] if (p_inputs.size() > 3 and not is_nan(p_inputs[3])) else wobble_amount
+
+	var pars := PackedFloat32Array([a, sp, deg_to_rad(dir), float(profile), 0.0, wob, float(seed)])
+	return Pasture3DReliefMaterial._furrows(p_wx, p_wz, pars, 0, _wobble_noise())
 
 
 func node_warnings() -> PackedStringArray:

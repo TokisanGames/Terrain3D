@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c83k9m8j2x0p1"]
+
+[ext_resource type="Script" path="res://bench/GraphAllNodeSocketsGate.gd" id="1_1a2b3"]
+
+[node name="GraphAllNodeSocketsGate" type="Node"]
+script = ExtResource("1_1a2b3")
