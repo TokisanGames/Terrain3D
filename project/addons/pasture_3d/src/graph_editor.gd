@@ -274,22 +274,17 @@ func _on_bake_brush_pressed() -> void:
 		mod.bake_graph()
 
 
-## The surface + world rect a preview (or the curve auto-fit) should evaluate over. Prefers the host brush's
-## LIVE footprint (`generate_preview_surface` — the spline shape at its real world position, so generators
-## sample where the bake actually lands), then the modifier's last baked input surface, then a canonical
-## brush-independent dome. `p_size` is the requested grid resolution; the returned gw/gh may differ (the
-## baked-surface fallback keeps its own size), so a caller at a fixed resolution must resample.
+## The surface + world rect a preview (or the curve auto-fit) should evaluate over.
+##
+## Prefers the modifier's `last_input_surface` — the EXACT absolute surface the graph read on its last bake,
+## at its real world rect (`Pasture3DTerrainBrush._apply_graph_step` writes it every bake, i.e. on the brush
+## DRAW path, which is fast and runs before the graph). Reading that here keeps the preview refresh cheap: no
+## per-refresh footprint raster on the main thread (the earlier `generate_preview_surface` call was what slowed
+## the graph down). When there is no baked surface yet, falls back to a canonical brush-independent dome.
+##
+## `p_size` sizes only the canonical fallback; the cached surface keeps its own bake resolution, so a caller
+## at a fixed resolution must resample (both callers already do).
 func _get_preview_input_data(p_size: int = 128) -> Dictionary:
-	var brush := _find_host_brush()
-	if brush != null and brush.has_method("generate_preview_surface"):
-		var ps: Array = brush.generate_preview_surface(p_size, p_size)
-		if not ps.is_empty() and ps[0].size() == p_size * p_size:
-			return {
-				"grid": ps[0],
-				"gw": ps[1],
-				"gh": ps[2],
-				"rect": ps[3],
-			}
 	var mod := _find_host_modifier()
 	if mod != null and not mod.last_input_surface.is_empty():
 		return {
