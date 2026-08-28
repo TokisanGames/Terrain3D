@@ -19,6 +19,7 @@
 #include "pasture_3d_lake_flooding.h"
 #include "pasture_3d_spectral_equalizer.h"
 #include "pasture_3d_stream_extraction.h"
+#include "pasture_3d_thread_pool.h"
 #include "pasture_3d_util.h"
 #include "pasture_3d_warp.h"
 
@@ -1131,15 +1132,17 @@ PackedFloat32Array Pasture3DUtil::graph_cell_eval_grid(const Dictionary &p_progr
 	if (n == 0 || !graph_cell_build(p_program, prog)) {
 		return out;
 	}
-	std::vector<double> scratch(prog.count);
-	for (int iz = 0; iz < p_gh; iz++) {
-		const int row = iz * p_gw;
-		for (int ix = 0; ix < p_gw; ix++) {
-			double wx, wz;
-			graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
-			w[row + ix] = (float)graph_cell_eval(prog, wx, wz, scratch);
+	Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+		std::vector<double> scratch(prog.count);
+		for (int iz = z0; iz < z1; iz++) {
+			const int row = iz * p_gw;
+			for (int ix = 0; ix < p_gw; ix++) {
+				double wx, wz;
+				graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
+				w[row + ix] = (float)graph_cell_eval(prog, wx, wz, scratch);
+			}
 		}
-	}
+	});
 	return out;
 }
 

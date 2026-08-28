@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://bench/GraphThreadPoolBenchmarkGate.gd" id="1_pool_gate"]
+
+[node name="GraphThreadPoolBenchmarkGate" type="Node"]
+script = ExtResource("1_pool_gate")

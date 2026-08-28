@@ -2,6 +2,7 @@
 
 #include "pasture_3d_spectral_equalizer.h"
 #include "pasture_3d_graph_ops.h"
+#include "pasture_3d_thread_pool.h"
 
 #include <algorithm>
 #include <cmath>
@@ -47,22 +48,24 @@ PackedFloat32Array godot::spectral_equalizer_solve(const PackedFloat32Array &p_s
 	out.resize(n);
 	float *dst = out.ptrw();
 
-	for (int i = 0; i < n; i++) {
-		const float h_orig = src_h[i];
-		if (!std::isfinite(h_orig)) {
-			dst[i] = std::numeric_limits<float>::quiet_NaN();
-			continue;
+	Pasture3DThreadPool::parallel_for_elements(n, 1024, [&](int i0, int i1) {
+		for (int i = i0; i < i1; i++) {
+			const float h_orig = src_h[i];
+			if (!std::isfinite(h_orig)) {
+				dst[i] = std::numeric_limits<float>::quiet_NaN();
+				continue;
+			}
+
+			const double macro_val = (double)l_macro[i];
+			const double meso_band = (double)l_meso[i] - macro_val;
+			const double micro_band = (double)h_orig - (double)l_meso[i];
+
+			const double h_eq = p_macro_gain * macro_val + p_meso_gain * meso_band + p_micro_gain * micro_band;
+			const double m = src_m ? std::clamp((double)src_m[i], 0.0, 1.0) : 1.0;
+
+			dst[i] = (float)((double)h_orig + (h_eq - (double)h_orig) * (p_amount * m));
 		}
-
-		const double macro_val = (double)l_macro[i];
-		const double meso_band = (double)l_meso[i] - macro_val;
-		const double micro_band = (double)h_orig - (double)l_meso[i];
-
-		const double h_eq = p_macro_gain * macro_val + p_meso_gain * meso_band + p_micro_gain * micro_band;
-		const double m = src_m ? std::clamp((double)src_m[i], 0.0, 1.0) : 1.0;
-
-		dst[i] = (float)((double)h_orig + (h_eq - (double)h_orig) * (p_amount * m));
-	}
+	});
 
 	return out;
 }

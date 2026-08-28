@@ -1,8 +1,5 @@
-// Terrain-graph cell-run evaluator — see pasture_3d_graph_ops.h. The A/B oracle is the GDScript folded
-// evaluator (Pasture3DTerrainGraph.evaluate / _cell_value); every op here must agree with it to 1e-4 m,
-// which GraphCppParityGate holds them to.
-
 #include "pasture_3d_graph_ops.h"
+#include "pasture_3d_thread_pool.h"
 
 #include <algorithm>
 #include <cmath>
@@ -137,29 +134,33 @@ void graph_nan_blur(std::vector<float> &r_vals, int p_gw, int p_gh, int p_passes
 	std::vector<float> tmp((size_t)p_gw * p_gh);
 	for (int pass = 0; pass < p_passes; pass++) {
 		// Horizontal: vals -> tmp
-		for (int iz = 0; iz < p_gh; iz++) {
-			const int row = iz * p_gw;
-			for (int ix = 0; ix < p_gw; ix++) {
-				const float v = r_vals[row + ix];
-				if (std::isnan(v)) { tmp[row + ix] = (float)NAN; continue; }
-				float sum = 0.5f * v, weight = 0.5f;
-				if (ix > 0 && !std::isnan(r_vals[row + ix - 1])) { sum += 0.25f * r_vals[row + ix - 1]; weight += 0.25f; }
-				if (ix < p_gw - 1 && !std::isnan(r_vals[row + ix + 1])) { sum += 0.25f * r_vals[row + ix + 1]; weight += 0.25f; }
-				tmp[row + ix] = sum / weight;
+		Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+			for (int iz = z0; iz < z1; iz++) {
+				const int row = iz * p_gw;
+				for (int ix = 0; ix < p_gw; ix++) {
+					const float v = r_vals[row + ix];
+					if (std::isnan(v)) { tmp[row + ix] = (float)NAN; continue; }
+					float sum = 0.5f * v, weight = 0.5f;
+					if (ix > 0 && !std::isnan(r_vals[row + ix - 1])) { sum += 0.25f * r_vals[row + ix - 1]; weight += 0.25f; }
+					if (ix < p_gw - 1 && !std::isnan(r_vals[row + ix + 1])) { sum += 0.25f * r_vals[row + ix + 1]; weight += 0.25f; }
+					tmp[row + ix] = sum / weight;
+				}
 			}
-		}
+		});
 		// Vertical: tmp -> vals
-		for (int iz = 0; iz < p_gh; iz++) {
-			const int row = iz * p_gw;
-			for (int ix = 0; ix < p_gw; ix++) {
-				const float v = tmp[row + ix];
-				if (std::isnan(v)) { r_vals[row + ix] = (float)NAN; continue; }
-				float sum = 0.5f * v, weight = 0.5f;
-				if (iz > 0 && !std::isnan(tmp[(iz - 1) * p_gw + ix])) { sum += 0.25f * tmp[(iz - 1) * p_gw + ix]; weight += 0.25f; }
-				if (iz < p_gh - 1 && !std::isnan(tmp[(iz + 1) * p_gw + ix])) { sum += 0.25f * tmp[(iz + 1) * p_gw + ix]; weight += 0.25f; }
-				r_vals[row + ix] = sum / weight;
+		Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+			for (int iz = z0; iz < z1; iz++) {
+				const int row = iz * p_gw;
+				for (int ix = 0; ix < p_gw; ix++) {
+					const float v = tmp[row + ix];
+					if (std::isnan(v)) { r_vals[row + ix] = (float)NAN; continue; }
+					float sum = 0.5f * v, weight = 0.5f;
+					if (iz > 0 && !std::isnan(tmp[(iz - 1) * p_gw + ix])) { sum += 0.25f * tmp[(iz - 1) * p_gw + ix]; weight += 0.25f; }
+					if (iz < p_gh - 1 && !std::isnan(tmp[(iz + 1) * p_gw + ix])) { sum += 0.25f * tmp[(iz + 1) * p_gw + ix]; weight += 0.25f; }
+					r_vals[row + ix] = sum / weight;
+				}
 			}
-		}
+		});
 	}
 }
 
@@ -242,40 +243,44 @@ PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_g
 				const Ref<FastNoiseLite> &nz = p_prog.noise[s];
 				if (nz.is_valid()) {
 					const double amp = (double)params[s];
-					for (int iz = 0; iz < p_gh; iz++) {
-						const int row = iz * p_gw;
-						for (int ix = 0; ix < p_gw; ix++) {
-							double wx, wz;
-							graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
-							g[row + ix] = (float)(amp * (double)nz->get_noise_2d(wx, wz));
+					float *g_ptr = g.data();
+					Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+						for (int iz = z0; iz < z1; iz++) {
+							const int row = iz * p_gw;
+							for (int ix = 0; ix < p_gw; ix++) {
+								double wx, wz;
+								graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
+								g_ptr[row + ix] = (float)(amp * (double)nz->get_noise_2d(wx, wz));
+							}
 						}
-					}
+					});
 				}
 			} break;
 			case GRAPH_OP_CONST: {
 				const float v = params[s];
-				for (int i = 0; i < n; i++) {
-					g[i] = v;
-				}
+				std::fill(g.begin(), g.end(), v);
 			} break;
 			case GRAPH_OP_BLEND: {
 				const std::vector<float> *ga = in0[s] >= 0 ? &grids[in0[s]] : nullptr;
 				const std::vector<float> *gb = in1[s] >= 0 ? &grids[in1[s]] : nullptr;
 				const int mode = (int)params[s];
-				for (int i = 0; i < n; i++) {
-					const double a = ga ? (double)(*ga)[i] : 0.0;
-					const double b = gb ? (double)(*gb)[i] : 0.0;
-					double val;
-					switch (mode) {
-						case GRAPH_BLEND_ADD: val = a + b; break;
-						case GRAPH_BLEND_SUB: val = a - b; break;
-						case GRAPH_BLEND_MUL: val = a * b; break;
-						case GRAPH_BLEND_MAX: val = a > b ? a : b; break;
-						case GRAPH_BLEND_MIN: val = a < b ? a : b; break;
-						default: val = a; break;
+				float *g_ptr = g.data();
+				Pasture3DThreadPool::parallel_for_elements(n, 1024, [&](int i0, int i1) {
+					for (int i = i0; i < i1; i++) {
+						const double a = ga ? (double)(*ga)[i] : 0.0;
+						const double b = gb ? (double)(*gb)[i] : 0.0;
+						double val;
+						switch (mode) {
+							case GRAPH_BLEND_ADD: val = a + b; break;
+							case GRAPH_BLEND_SUB: val = a - b; break;
+							case GRAPH_BLEND_MUL: val = a * b; break;
+							case GRAPH_BLEND_MAX: val = a > b ? a : b; break;
+							case GRAPH_BLEND_MIN: val = a < b ? a : b; break;
+							default: val = a; break;
+						}
+						g_ptr[i] = (float)val;
 					}
-					g[i] = (float)val;
-				}
+				});
 			} break;
 			case GRAPH_OP_TERRACE: {
 				const std::vector<float> *src = in0[s] >= 0 ? &grids[in0[s]] : nullptr;
@@ -285,29 +290,32 @@ PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_g
 				const float jitter = params_d ? params_d[s] : 0.0f;
 				const Ref<FastNoiseLite> &j_nz = p_prog.noise[s];
 				const double hard_exp = 1.0 + (double)hardness * 15.0;
+				float *g_ptr = g.data();
 
-				for (int iz = 0; iz < p_gh; iz++) {
-					const int row = iz * p_gw;
-					for (int ix = 0; ix < p_gw; ix++) {
-						const int idx = row + ix;
-						const float x = src ? (*src)[idx] : 0.f;
-						if (std::isnan(x)) {
-							g[idx] = x;
-							continue;
+				Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+					for (int iz = z0; iz < z1; iz++) {
+						const int row = iz * p_gw;
+						for (int ix = 0; ix < p_gw; ix++) {
+							const int idx = row + ix;
+							const float x = src ? (*src)[idx] : 0.f;
+							if (std::isnan(x)) {
+								g_ptr[idx] = x;
+								continue;
+							}
+							double xj = (double)x;
+							if (jitter > 0.0f && j_nz.is_valid()) {
+								double wx, wz;
+								graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
+								xj += (double)j_nz->get_noise_2d(wx, wz) * (double)jitter;
+							}
+							const double t = xj / (double)band_height;
+							const double q = std::floor(t);
+							const double f = t - q;
+							const double stepped = (q + std::pow(f, hard_exp)) * (double)band_height;
+							g_ptr[idx] = (float)((double)x + (stepped - (double)x) * (double)amount);
 						}
-						double xj = (double)x;
-						if (jitter > 0.0f && j_nz.is_valid()) {
-							double wx, wz;
-							graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
-							xj += (double)j_nz->get_noise_2d(wx, wz) * (double)jitter;
-						}
-						const double t = xj / (double)band_height;
-						const double q = std::floor(t);
-						const double f = t - q;
-						const double stepped = (q + std::pow(f, hard_exp)) * (double)band_height;
-						g[idx] = (float)((double)x + (stepped - (double)x) * (double)amount);
 					}
-				}
+				});
 			} break;
 			case GRAPH_OP_SMOOTH: {
 				if (in0[s] >= 0) {

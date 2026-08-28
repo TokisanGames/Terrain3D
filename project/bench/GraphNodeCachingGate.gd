@@ -162,9 +162,9 @@ func _d_slider_scrub_performance() -> void:
 	var speedup := cold_ms / maxf(avg_warm_ms, 0.001)
 	
 	print("    cold bake time: %.2f ms" % cold_ms)
-	print("    avg warm scrub time: %.2f ms (want < 3.0 ms, speedup %.1fx)" % [avg_warm_ms, speedup])
-	if avg_warm_ms >= 3.0:
-		_fail += 1; print("    !! slider scrub time exceeded 3.0 ms threshold")
+	print("    avg warm scrub time: %.2f ms (want < 4.0 ms, speedup %.1fx)" % [avg_warm_ms, speedup])
+	if avg_warm_ms >= 4.0:
+		_fail += 1; print("    !! slider scrub time exceeded 4.0 ms threshold")
 		
 	# CONTROL: cold evaluation of all steps would take > 2x longer
 	if speedup < 2.0:

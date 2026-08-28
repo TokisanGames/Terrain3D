@@ -201,24 +201,26 @@ point_count = 4
 
 [sub_resource type="Resource" id="Resource_jc6ve"]
 script = ExtResource("4_v7ey8")
-graph_position = Vector2(-380, 120)
+graph_position = Vector2(-400, 80)
 
 [sub_resource type="Resource" id="Resource_xq5ji"]
 script = ExtResource("5_4khcl")
-graph_position = Vector2(800, 120)
+graph_position = Vector2(420, 80)
 
 [sub_resource type="Resource" id="Resource_x65ay"]
-script = ExtResource("16_6pcwc")
-graph_position = Vector2(-380, 280)
+script = ExtResource("7_ii4qc")
+graph_position = Vector2(20, 200)
 
 [sub_resource type="Resource" id="Resource_mayxm"]
-script = ExtResource("7_ii4qc")
-graph_position = Vector2(120, 120)
+script = ExtResource("16_6pcwc")
+amplitude = 20.0
+frequency = 0.006
+graph_position = Vector2(-440, 300)
 
 [sub_resource type="Resource" id="Resource_h4fvm"]
 script = ExtResource("8_wv1iv")
 nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_jc6ve"), SubResource("Resource_xq5ji"), SubResource("Resource_x65ay"), SubResource("Resource_mayxm")])
-connections = [PackedInt32Array(0, 0, 3, 0), PackedInt32Array(2, 0, 3, 1), PackedInt32Array(3, 0, 1, 0)]
+connections = [PackedInt32Array(3, 0, 2, 1), PackedInt32Array(0, 0, 2, 0), PackedInt32Array(2, 0, 1, 0)]
 
 [sub_resource type="Resource" id="Resource_6f76f"]
 script = ExtResource("9_6pcwc")
