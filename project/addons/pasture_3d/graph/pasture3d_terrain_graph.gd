@@ -913,6 +913,12 @@ func compile_graph_program() -> Dictionary:
 	var order := _eval_order()
 	if order.is_empty():
 		return {}
+	for c in connections:
+		if c.size() >= 4 and int(c[1]) > 0:
+			var to_node := int(c[2])
+			var from_node := int(c[0])
+			if order.has(to_node) and order.has(from_node):
+				return {}
 	var slot_of := {}
 	for k in range(order.size()):
 		slot_of[order[k]] = k
@@ -960,7 +966,7 @@ func compile_graph_program() -> Dictionary:
 		match node.op():
 			&"input":
 				op_id = 10
-			&"output":
+			&"output", &"reroute":
 				op_id = 12
 			&"noise":
 				op_id = 1; p0 = _f.call(&"amplitude", 1.0); nz = node.get("noise")
@@ -1056,7 +1062,7 @@ func native_supported() -> bool:
 	if order.is_empty():
 		return false
 	const SUPPORTED := [
-		&"input", &"output", &"noise", &"const", &"blend", &"smooth", &"terrace",
+		&"input", &"output", &"reroute", &"noise", &"const", &"blend", &"smooth", &"terrace",
 		&"noise_jordan", &"noise_swiss", &"geological_primitive", &"furrows", &"dunes",
 		&"crater", &"warp", &"strata", &"curve", &"remap", &"mask", &"curvature",
 		&"talus_projection", &"spectral_equalizer", &"depression_filling", &"lake_flooding",
@@ -1065,6 +1071,14 @@ func native_supported() -> bool:
 	for ni in order:
 		if nodes[ni] == null or nodes[ni].muted or not SUPPORTED.has(nodes[ni].op()):
 			return false
+	# If any wire in the active DAG feeds from a secondary port (port >= 1, e.g. a solver mask),
+	# stay on the multi-channel GDScript evaluator so the secondary channel is correctly read.
+	for c in connections:
+		if c.size() >= 4 and int(c[1]) > 0:
+			var to_node := int(c[2])
+			var from_node := int(c[0])
+			if order.has(to_node) and order.has(from_node):
+				return false
 	return true
 
 
