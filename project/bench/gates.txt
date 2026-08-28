@@ -195,3 +195,5 @@ bench/PondWaterOffsetCheck.tscn
 bench/GraphPaletteAndConstantsGate.tscn
 # --- Terrain graph, hybrid parameter sockets & smart socket collapse ---
 bench/GraphHybridSocketsGate.tscn
+# --- Terrain graph, multi-channel terrain bus (merge & split) ---
+bench/GraphTerrainBusGate.tscn

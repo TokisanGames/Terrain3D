@@ -986,7 +986,7 @@ func compile_graph_program() -> Dictionary:
 			match node.op():
 				&"input":
 					op_id = 10
-				&"output", &"reroute":
+				&"output", &"reroute", &"terrain_bus_merge", &"terrain_bus_split":
 					op_id = 12
 				&"noise":
 					op_id = 1; p0 = _f.call(&"amplitude", 1.0); nz = node.get("noise")

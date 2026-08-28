@@ -43,6 +43,8 @@ const ErosionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_nod
 const DLAScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dla.gd")
 const RerouteScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_reroute.gd")
 const OutputScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_output.gd")
+const TerrainBusMergeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_terrain_bus_merge.gd")
+const TerrainBusSplitScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_terrain_bus_split.gd")
 
 # --- Developer / Reference [Dev/GD] Node Scripts ---
 const DevErosionHydraulicScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_erosion_hydraulic.gd")
@@ -86,6 +88,8 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 		{"op": &"input", "title": "Input", "category": "Routing & Structural", "role": "Source", "script": InputScript, "tags": ["surface", "incoming", "host", "read"], "description": "Reads the incoming terrain surface handed to the graph."},
 		{"op": &"output", "title": "Output", "category": "Routing & Structural", "role": "Sink", "script": OutputScript, "tags": ["sink", "result", "final", "surface"], "description": "The destination sink representing the graph's output surface."},
 		{"op": &"reroute", "title": "Reroute", "category": "Routing & Structural", "role": "Utility", "script": RerouteScript, "tags": ["dot", "relay", "wire", "route", "passthrough", "clean"], "description": "1-in / 1-out transparent wire routing dot."},
+		{"op": &"terrain_bus_merge", "title": "Terrain Bus Merge", "category": "Routing & Structural", "role": "Combiner", "script": TerrainBusMergeScript, "tags": ["bus", "merge", "pack", "bundle", "channels", "multichannel"], "description": "Bundles individual height, mask, water_depth, sediment, and flow channels into a single TERRAIN_BUS connection."},
+		{"op": &"terrain_bus_split", "title": "Terrain Bus Split", "category": "Routing & Structural", "role": "Filter", "script": TerrainBusSplitScript, "tags": ["bus", "split", "unpack", "unbundle", "channels", "multichannel"], "description": "Unbundles a TERRAIN_BUS wire into separate height, mask, water_depth, sediment, and flow channel outputs."},
 		
 		{"op": &"noise", "title": "Noise", "category": "Generators", "role": "Generator", "script": NoiseScript, "tags": ["perlin", "simplex", "fractal", "fbm", "height"], "description": "Coherent multi-octave FastNoiseLite terrain generator."},
 		{"op": &"noise_jordan", "title": "Jordan Noise", "category": "Generators", "role": "Generator", "script": NoiseJordanScript, "tags": ["jordan", "derivative", "gradient", "fbm", "fluting", "warp", "ridges", "mountain"], "description": "Derivative-feedback fractal noise with slope-attenuated octave warping for natural mountain fluting."},
