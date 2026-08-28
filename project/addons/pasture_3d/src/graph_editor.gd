@@ -274,11 +274,16 @@ func _on_bake_brush_pressed() -> void:
 		mod.bake_graph()
 
 
-func _get_preview_input_data() -> Dictionary:
+## The surface + world rect a preview (or the curve auto-fit) should evaluate over. Prefers the host brush's
+## LIVE footprint (`generate_preview_surface` — the spline shape at its real world position, so generators
+## sample where the bake actually lands), then the modifier's last baked input surface, then a canonical
+## brush-independent dome. `p_size` is the requested grid resolution; the returned gw/gh may differ (the
+## baked-surface fallback keeps its own size), so a caller at a fixed resolution must resample.
+func _get_preview_input_data(p_size: int = 128) -> Dictionary:
 	var brush := _find_host_brush()
 	if brush != null and brush.has_method("generate_preview_surface"):
-		var ps: Array = brush.generate_preview_surface(128, 128)
-		if not ps.is_empty() and ps[0].size() == 128 * 128:
+		var ps: Array = brush.generate_preview_surface(p_size, p_size)
+		if not ps.is_empty() and ps[0].size() == p_size * p_size:
 			return {
 				"grid": ps[0],
 				"gw": ps[1],
@@ -294,10 +299,10 @@ func _get_preview_input_data() -> Dictionary:
 			"rect": mod.last_rect,
 		}
 	return {
-		"grid": Pasture3DUtil.sample_brush_input(128, 128, Rect2(-50.0, -50.0, 100.0, 100.0)),
-		"gw": 128,
-		"gh": 128,
-		"rect": Rect2(-50.0, -50.0, 100.0, 100.0),
+		"grid": Pasture3DUtil.sample_brush_input(p_size, p_size, PREVIEW_RECT),
+		"gw": p_size,
+		"gh": p_size,
+		"rect": PREVIEW_RECT,
 	}
 
 
@@ -1790,20 +1795,30 @@ func _refresh_previews() -> void:
 			slot_is_mask[slot] = graph.nodes[i].output_port_type() == Pasture3DGraphNode.PortType.MASK
 	if tap_slots.is_empty():
 		return
-	var input: PackedFloat32Array = Pasture3DUtil.sample_brush_input(PREVIEW_SIZE, PREVIEW_SIZE, PREVIEW_RECT)
+	# Evaluate over the host brush's ACTUAL footprint (its live spline shape + world rect) so generators
+	# sample where the bake really lands, not a canonical dome. Falls back to the canonical domain when the
+	# graph has no host brush. The input is resampled to PREVIEW_SIZE if the footprint came back at another
+	# resolution (e.g. the baked-surface fallback), so the native pass always sees a square PREVIEW_SIZE grid.
+	var input_data := _get_preview_input_data(PREVIEW_SIZE)
+	var input: PackedFloat32Array = input_data["grid"]
+	var in_gw: int = int(input_data["gw"])
+	var in_gh: int = int(input_data["gh"])
+	var rect: Rect2 = input_data["rect"]
+	if in_gw != PREVIEW_SIZE or in_gh != PREVIEW_SIZE:
+		input = Pasture3DUtil.resample_grid(input, in_gw, in_gh, PREVIEW_SIZE, PREVIEW_SIZE)
 	_preview_token += 1
 	var token := _preview_token
 	WorkerThreadPool.add_task(func():
-		_preview_worker(token, program, input, tap_slots, slot_to_node, slot_is_mask))
+		_preview_worker(token, program, input, rect, tap_slots, slot_to_node, slot_is_mask))
 
 
 ## Worker-thread body: one native tap pass, then a hillshade per tapped buffer. Touches only stateless C++
 ## statics over the plain data captured on the main thread, so it is safe off-thread; results are marshalled
 ## back with call_deferred, guarded by the dispatch token.
-func _preview_worker(p_token: int, p_program: Dictionary, p_input: PackedFloat32Array,
+func _preview_worker(p_token: int, p_program: Dictionary, p_input: PackedFloat32Array, p_rect: Rect2,
 		p_tap_slots: PackedInt32Array, p_slot_to_node: Dictionary, p_slot_is_mask: Dictionary) -> void:
 	var taps: Dictionary = Pasture3DUtil.graph_eval_grid_taps(
-			p_program, PREVIEW_SIZE, PREVIEW_SIZE, PREVIEW_RECT, p_input, p_tap_slots)
+			p_program, PREVIEW_SIZE, PREVIEW_SIZE, p_rect, p_input, p_tap_slots)
 	var results: Dictionary = {}
 	for slot in taps:
 		var field: PackedFloat32Array = taps[slot]
