@@ -988,7 +988,7 @@ modifiers = Array[ExtResource("2_w1nth")]([null])
 curve = SubResource("Curve3D_tqyh8")
 
 [node name="Mound6" type="Node3D" parent="Pasture3D" unique_id=1648703408 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -204.61139, 0, -88.5723)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -223.98921, 0, -88.5723)
 script = ExtResource("1_fwsd8")
 terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Mounds"

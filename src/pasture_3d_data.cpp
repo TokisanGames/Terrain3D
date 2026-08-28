@@ -42,7 +42,7 @@ void Pasture3DData::_clear() {
 int Pasture3DData::_gpu_raster_threshold() const {
 	// Default ~256x256 cells; below it the C++ path wins (no readback latency). 0 disables GPU.
 	ProjectSettings *ps = ProjectSettings::get_singleton();
-	const int dflt = 1048576; // ~1024^2; measured crossover where GPU beats the batched CPU apply (Phase 1b)
+	const int dflt = 65536; // ~256^2; crossover where GPU beats CPU rasterization
 	if (!ps) {
 		return dflt;
 	}

@@ -4723,51 +4723,81 @@ func _signed_distance_field(poly: PackedVector2Array, min_x: float, min_z: float
 	var seg_abx := PackedFloat32Array()
 	var seg_aby := PackedFloat32Array()
 	var seg_inv_len2 := PackedFloat32Array()
+	var seg_min_x := PackedFloat32Array()
+	var seg_min_y := PackedFloat32Array()
+	var seg_max_x := PackedFloat32Array()
+	var seg_max_y := PackedFloat32Array()
 	seg_ax.resize(pc)
 	seg_ay.resize(pc)
 	seg_abx.resize(pc)
 	seg_aby.resize(pc)
 	seg_inv_len2.resize(pc)
+	seg_min_x.resize(pc)
+	seg_min_y.resize(pc)
+	seg_max_x.resize(pc)
+	seg_max_y.resize(pc)
 
 	for e in range(pc):
 		var pa := poly[e]
 		var pb := poly[(e + 1) % pc]
 		var ax := float(pa.x - min_x)
 		var ay := float(pa.y - min_z)
-		var abx := float(pb.x - pa.x)
-		var aby := float(pb.y - pa.y)
+		var bx := float(pb.x - min_x)
+		var by := float(pb.y - min_z)
+		var abx := bx - ax
+		var aby := by - ay
 		var len2 := abx * abx + aby * aby
 		seg_ax[e] = ax
 		seg_ay[e] = ay
 		seg_abx[e] = abx
 		seg_aby[e] = aby
 		seg_inv_len2[e] = 1.0 / len2 if len2 > 1e-12 else 0.0
+		seg_min_x[e] = minf(ax, bx)
+		seg_max_x[e] = maxf(ax, bx)
+		seg_min_y[e] = minf(ay, by)
+		seg_max_y[e] = maxf(ay, by)
 
 	var field := PackedFloat32Array()
 	field.resize(n)
 	var max_inside := 0.0
 
-	# Exact analytic Euclidean distance per cell
+	# Exact analytic Euclidean distance per cell with spatial AABB pruning and neighbor warm-start
+	var last_best_s := 0
 	for iz in range(gh):
 		var qy := float(iz * vs)
 		var row := iz * gw
 		for ix in range(gw):
 			var qx := float(ix * vs)
 			var i := row + ix
-			var min_d2 := 1.0e30
+
+			# Warm-start with previous cell's closest segment
+			var best_s := last_best_s
+			var bqax := qx - seg_ax[best_s]
+			var bqay := qy - seg_ay[best_s]
+			var bt := clampf((bqax * seg_abx[best_s] + bqay * seg_aby[best_s]) * seg_inv_len2[best_s], 0.0, 1.0)
+			var bdx := bqax - bt * seg_abx[best_s]
+			var bdy := bqay - bt * seg_aby[best_s]
+			var min_d2 := bdx * bdx + bdy * bdy
 
 			for e in range(pc):
-				var abx := seg_abx[e]
-				var aby := seg_aby[e]
+				if e == best_s:
+					continue
+				var cdx := maxf(0.0, maxf(seg_min_x[e] - qx, qx - seg_max_x[e]))
+				var cdy := maxf(0.0, maxf(seg_min_y[e] - qy, qy - seg_max_y[e]))
+				if cdx * cdx + cdy * cdy >= min_d2:
+					continue
+
 				var qax := qx - seg_ax[e]
 				var qay := qy - seg_ay[e]
-				var t := clampf((qax * abx + qay * aby) * seg_inv_len2[e], 0.0, 1.0)
-				var dx := qax - t * abx
-				var dy := qay - t * aby
+				var t := clampf((qax * seg_abx[e] + qay * seg_aby[e]) * seg_inv_len2[e], 0.0, 1.0)
+				var dx := qax - t * seg_abx[e]
+				var dy := qay - t * seg_aby[e]
 				var d2 := dx * dx + dy * dy
 				if d2 < min_d2:
 					min_d2 = d2
+					best_s = e
 
+			last_best_s = best_s
 			var d := sqrt(min_d2)
 			if inside[i] == 1:
 				field[i] = d

@@ -11,6 +11,7 @@
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_raster_util.h"
 #include "pasture_3d_relief_ops.h"
+#include "pasture_3d_thread_pool.h"
 #include "pasture_3d_util.h"
 
 #include <godot_cpp/classes/fast_noise_lite.hpp>
@@ -58,37 +59,63 @@ static void nan_blur(std::vector<float> &vals, int gw, int gh, int passes) {
 	if (passes <= 0) {
 		return;
 	}
-	std::vector<float> tmp((size_t)gw * gh);
-	for (int pass = 0; pass < passes; pass++) {
-		// Horizontal: vals -> tmp
+	const size_t n = (size_t)gw * gh;
+	std::vector<float> tmp(n);
+	for (int p = 0; p < passes; p++) {
+		// Horizontal pass: 1 2 1 kernel over finite cells.
 		for (int iz = 0; iz < gh; iz++) {
 			const int row = iz * gw;
 			for (int ix = 0; ix < gw; ix++) {
-				const float v = vals[row + ix];
-				if (std::isnan(v)) { tmp[row + ix] = (float)NAN; continue; }
-				float sum = 0.5f * v, weight = 0.5f;
-				if (ix > 0 && !std::isnan(vals[row + ix - 1])) { sum += 0.25f * vals[row + ix - 1]; weight += 0.25f; }
-				if (ix < gw - 1 && !std::isnan(vals[row + ix + 1])) { sum += 0.25f * vals[row + ix + 1]; weight += 0.25f; }
-				tmp[row + ix] = sum / weight;
+				const int i = row + ix;
+				const float v = vals[i];
+				if (std::isnan(v)) {
+					tmp[i] = (float)NAN;
+					continue;
+				}
+				float wsum = 2.f;
+				float sum = 2.f * v;
+				if (ix > 0 && !std::isnan(vals[i - 1])) {
+					sum += vals[i - 1];
+					wsum += 1.f;
+				}
+				if (ix + 1 < gw && !std::isnan(vals[i + 1])) {
+					sum += vals[i + 1];
+					wsum += 1.f;
+				}
+				tmp[i] = sum / wsum;
 			}
 		}
-		// Vertical: tmp -> vals
+		// Vertical pass: 1 2 1 kernel over finite cells.
 		for (int iz = 0; iz < gh; iz++) {
 			const int row = iz * gw;
 			for (int ix = 0; ix < gw; ix++) {
-				const float v = tmp[row + ix];
-				if (std::isnan(v)) { vals[row + ix] = (float)NAN; continue; }
-				float sum = 0.5f * v, weight = 0.5f;
-				if (iz > 0 && !std::isnan(tmp[(iz - 1) * gw + ix])) { sum += 0.25f * tmp[(iz - 1) * gw + ix]; weight += 0.25f; }
-				if (iz < gh - 1 && !std::isnan(tmp[(iz + 1) * gw + ix])) { sum += 0.25f * tmp[(iz + 1) * gw + ix]; weight += 0.25f; }
-				vals[row + ix] = sum / weight;
+				const int i = row + ix;
+				const float v = tmp[i];
+				if (std::isnan(v)) {
+					vals[i] = (float)NAN;
+					continue;
+				}
+				float wsum = 2.f;
+				float sum = 2.f * v;
+				if (iz > 0 && !std::isnan(tmp[i - gw])) {
+					sum += tmp[i - gw];
+					wsum += 1.f;
+				}
+				if (iz + 1 < gh && !std::isnan(tmp[i + gw])) {
+					sum += tmp[i + gw];
+					wsum += 1.f;
+				}
+				vals[i] = sum / wsum;
 			}
 		}
 	}
 }
 
-// Two-pass chamfer distance transform, in place (port of Pasture3DTerrainBrush._chamfer).
+// 8-neighbor Chamfer Distance Transform on a 2D float grid, in place.
+// `arr` must have 0 at source cells, RBIG everywhere else.
+// `a` is the orthogonal step cost (usually vs), `b` is the diagonal step cost (usually vs * 1.414).
 void raster_chamfer(std::vector<float> &arr, int gw, int gh, float a, float b) {
+	// Forward pass: scan top-left to bottom-right.
 	for (int iz = 0; iz < gh; iz++) {
 		const int row = iz * gw;
 		for (int ix = 0; ix < gw; ix++) {
@@ -96,41 +123,38 @@ void raster_chamfer(std::vector<float> &arr, int gw, int gh, float a, float b) {
 			float d = arr[i];
 			if (iz > 0) {
 				const int up = i - gw;
-				if (arr[up] + a < d) {
-					d = arr[up] + a;
+				d = std::min(d, arr[up] + a);
+				if (ix > 0) {
+					d = std::min(d, arr[up - 1] + b);
 				}
-				if (ix > 0 && arr[up - 1] + b < d) {
-					d = arr[up - 1] + b;
-				}
-				if (ix < gw - 1 && arr[up + 1] + b < d) {
-					d = arr[up + 1] + b;
+				if (ix + 1 < gw) {
+					d = std::min(d, arr[up + 1] + b);
 				}
 			}
-			if (ix > 0 && arr[i - 1] + a < d) {
-				d = arr[i - 1] + a;
+			if (ix > 0) {
+				d = std::min(d, arr[i - 1] + a);
 			}
 			arr[i] = d;
 		}
 	}
+	// Backward pass: scan bottom-right to top-left.
 	for (int iz = gh - 1; iz >= 0; iz--) {
 		const int row = iz * gw;
 		for (int ix = gw - 1; ix >= 0; ix--) {
 			const int i = row + ix;
 			float d = arr[i];
-			if (iz < gh - 1) {
-				const int dn = i + gw;
-				if (arr[dn] + a < d) {
-					d = arr[dn] + a;
+			if (iz + 1 < gh) {
+				const int down = i + gw;
+				d = std::min(d, arr[down] + a);
+				if (ix > 0) {
+					d = std::min(d, arr[down - 1] + b);
 				}
-				if (ix < gw - 1 && arr[dn + 1] + b < d) {
-					d = arr[dn + 1] + b;
-				}
-				if (ix > 0 && arr[dn - 1] + b < d) {
-					d = arr[dn - 1] + b;
+				if (ix + 1 < gw) {
+					d = std::min(d, arr[down + 1] + b);
 				}
 			}
-			if (ix < gw - 1 && arr[i + 1] + a < d) {
-				d = arr[i + 1] + a;
+			if (ix + 1 < gw) {
+				d = std::min(d, arr[i + 1] + a);
 			}
 			arr[i] = d;
 		}
@@ -139,7 +163,7 @@ void raster_chamfer(std::vector<float> &arr, int gw, int gh, float a, float b) {
 
 // Signed distance field of a closed world polygon over the grid (port of _signed_distance_field).
 // Fills `field` (gw*gh, positive inside / negative outside, metres); returns max interior distance.
-// Uses exact analytic segment Euclidean distance matching the GPU shader to eliminate discretization banding.
+// Uses exact analytic segment Euclidean distance matching the GPU shader with AABB pruning and multi-threaded row chunking.
 float raster_sdf(const PackedVector2Array &poly, double min_x, double min_z, double vs, int gw, int gh, std::vector<float> &field) {
 	const int n = gw * gh;
 	const int pc = (int)poly.size();
@@ -182,6 +206,7 @@ float raster_sdf(const PackedVector2Array &poly, double min_x, double min_z, dou
 
 	struct Seg {
 		float ax, ay, abx, aby, denom;
+		float min_x, min_y, max_x, max_y;
 	};
 	std::vector<Seg> segs(pc);
 	for (int i = 0; i < pc; i++) {
@@ -193,49 +218,91 @@ float raster_sdf(const PackedVector2Array &poly, double min_x, double min_z, dou
 		float abx = bx - ax;
 		float aby = by - ay;
 		float denom = abx * abx + aby * aby;
-		segs[i] = { ax, ay, abx, aby, denom > 1e-12f ? (1.0f / denom) : 0.0f };
+		float min_seg_x = std::min(ax, bx);
+		float max_seg_x = std::max(ax, bx);
+		float min_seg_y = std::min(ay, by);
+		float max_seg_y = std::max(ay, by);
+		segs[i] = { ax, ay, abx, aby, denom > 1e-12f ? (1.0f / denom) : 0.0f, min_seg_x, min_seg_y, max_seg_x, max_seg_y };
 	}
 
-	float max_inside = 0.f;
+	float global_max_inside = 0.f;
+	std::vector<float> row_max_inside(gh, 0.f);
+
+	Pasture3DThreadPool::parallel_for_rows(gh, 16, [&](int z0, int z1) {
+		for (int iz = z0; iz < z1; iz++) {
+			const float qy = (float)(iz * vs);
+			const int row = iz * gw;
+			int last_best_s = 0;
+			float local_max_in = 0.f;
+
+			for (int ix = 0; ix < gw; ix++) {
+				const float qx = (float)(ix * vs);
+				const int i = row + ix;
+
+				// Warm-start with previous cell's closest segment (spatial coherence)
+				int best_s = last_best_s;
+				const Seg &bseg = segs[best_s];
+				const float bqax = qx - bseg.ax;
+				const float bqay = qy - bseg.ay;
+				float bt = (bqax * bseg.abx + bqay * bseg.aby) * bseg.denom;
+				if (bt < 0.0f) {
+					bt = 0.0f;
+				} else if (bt > 1.0f) {
+					bt = 1.0f;
+				}
+				const float bdx = bqax - bt * bseg.abx;
+				const float bdy = bqay - bt * bseg.aby;
+				float min_d2 = bdx * bdx + bdy * bdy;
+
+				for (int s = 0; s < pc; s++) {
+					if (s == best_s) {
+						continue;
+					}
+					const Seg &seg = segs[s];
+					const float cdx = std::max(0.0f, std::max(seg.min_x - qx, qx - seg.max_x));
+					const float cdy = std::max(0.0f, std::max(seg.min_y - qy, qy - seg.max_y));
+					if (cdx * cdx + cdy * cdy >= min_d2) {
+						continue;
+					}
+
+					const float qax = qx - seg.ax;
+					const float qay = qy - seg.ay;
+					float t = (qax * seg.abx + qay * seg.aby) * seg.denom;
+					if (t < 0.0f) {
+						t = 0.0f;
+					} else if (t > 1.0f) {
+						t = 1.0f;
+					}
+					const float dx = qax - t * seg.abx;
+					const float dy = qay - t * seg.aby;
+					const float d2 = dx * dx + dy * dy;
+					if (d2 < min_d2) {
+						min_d2 = d2;
+						best_s = s;
+					}
+				}
+				last_best_s = best_s;
+
+				const float d = std::sqrt(min_d2);
+				if (inside[i]) {
+					field[i] = d;
+					if (d > local_max_in) {
+						local_max_in = d;
+					}
+				} else {
+					field[i] = -d;
+				}
+			}
+			row_max_inside[iz] = local_max_in;
+		}
+	});
+
 	for (int iz = 0; iz < gh; iz++) {
-		const float qy = (float)(iz * vs);
-		const int row = iz * gw;
-		for (int ix = 0; ix < gw; ix++) {
-			const float qx = (float)(ix * vs);
-			const int i = row + ix;
-
-			float min_d2 = 1.0e30f;
-			for (int s = 0; s < pc; s++) {
-				const float abx = segs[s].abx;
-				const float aby = segs[s].aby;
-				const float qax = qx - segs[s].ax;
-				const float qay = qy - segs[s].ay;
-				float t = (qax * abx + qay * aby) * segs[s].denom;
-				if (t < 0.0f) {
-					t = 0.0f;
-				} else if (t > 1.0f) {
-					t = 1.0f;
-				}
-				const float dx = qax - t * abx;
-				const float dy = qay - t * aby;
-				const float d2 = dx * dx + dy * dy;
-				if (d2 < min_d2) {
-					min_d2 = d2;
-				}
-			}
-
-			const float d = std::sqrt(min_d2);
-			if (inside[i]) {
-				field[i] = d;
-				if (d > max_inside) {
-					max_inside = d;
-				}
-			} else {
-				field[i] = -d;
-			}
+		if (row_max_inside[iz] > global_max_inside) {
+			global_max_inside = row_max_inside[iz];
 		}
 	}
-	return max_inside;
+	return global_max_inside;
 }
 
 // Chamfer that carries two payloads with the nearest-feature distance (port of _chamfer_payload).
