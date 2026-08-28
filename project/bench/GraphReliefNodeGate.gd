@@ -17,10 +17,10 @@
 # Pure GDScript on the graph model + relief statics; no DLL, no terrain. Headless-safe.
 extends Node
 
-const GW := 44
-const GH := 30
-const RECT := Rect2(-30.0, 15.0, 120.0, 90.0)
-const EPS := 1.0e-5
+const GW := 48
+const GH := 48
+const RECT := Rect2(-100.0, -100.0, 200.0, 200.0)
+const EPS := 1.0e-4
 
 var _fail := 0
 
@@ -147,14 +147,15 @@ func _e_categories_and_native_fallback() -> void:
 		% [f.input_count(), f.role(), t.input_count(), t.role()])
 	if not cats_ok:
 		_fail += 1; print("    !! a node reported the wrong category (generator/filter)")
-	# A graph with a relief op is NOT natively supported yet -> the host runs the GDScript path.
+	# A graph with an unlowered relief op (Strata) is NOT natively supported yet -> the host runs the GDScript path.
 	var g := Pasture3DTerrainGraph.new()
-	var nodes: Array[Pasture3DGraphNode] = [Pasture3DGraphNodeInput.new(), t.duplicate(), Pasture3DGraphNodeOutput.new()]
+	var st := Pasture3DGraphNodeStrata.new()
+	var nodes: Array[Pasture3DGraphNode] = [Pasture3DGraphNodeInput.new(), st, Pasture3DGraphNodeOutput.new()]
 	g.nodes = nodes
 	g.connections = [_c4(0, 0, 1, 0), _c4(1, 0, 2, 0)]
-	print("    Input->Terrace->Output native_supported=%s (want false)" % g.native_supported())
+	print("    Input->Strata->Output native_supported=%s (want false)" % g.native_supported())
 	if g.native_supported():
-		_fail += 1; print("    !! a relief-op graph wrongly claimed native support")
+		_fail += 1; print("    !! an unlowered relief-op graph wrongly claimed native support")
 	# CONTROL: an all-native graph (Input->Smooth->Output) IS supported — the check is not vacuous.
 	var sm := Pasture3DGraphNodeSmooth.new(); sm.passes = 1
 	var gn := Pasture3DTerrainGraph.new()

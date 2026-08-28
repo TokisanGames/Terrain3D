@@ -206,43 +206,7 @@ func _wobble() -> FastNoiseLite:
 ## the grain + toe are the vetted `_scree`. NaN in the surface (off a brush loop) passes through as NaN in
 ## the height and a 0 in the mask — the boundary is where nothing sheds.
 func _solve(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
-	var n := p_gw * p_gh
-	var height := PackedFloat32Array(); height.resize(n)
-	var shed := PackedFloat32Array(); shed.resize(n)
-	var params := PackedFloat32Array([amplitude, 1.0 / maxf(grain_size, 0.01), downslope_streak,
-			toe_deposition, float(seed)])
-	var noise := _wobble()
-	var dx := p_rect.size.x / float(maxi(p_gw, 1))
-	var dz := p_rect.size.y / float(maxi(p_gh, 1))
-	for iz in range(p_gh):
-		var row := iz * p_gw
-		var zm := maxi(iz - 1, 0) * p_gw
-		var zp := mini(iz + 1, p_gh - 1) * p_gw
-		for ix in range(p_gw):
-			var i := row + ix
-			var c := p_surface[i]
-			if is_nan(c):
-				height[i] = NAN
-				shed[i] = 0.0
-				continue
-			var xm := maxi(ix - 1, 0)
-			var xp := mini(ix + 1, p_gw - 1)
-			var hxm := _finite(p_surface[row + xm], c)
-			var hxp := _finite(p_surface[row + xp], c)
-			var hzm := _finite(p_surface[zm + ix], c)
-			var hzp := _finite(p_surface[zp + ix], c)
-			# Gradient (height per metre) and slope angle; curvature = ring mean minus centre (metres,
-			# positive for a hollow, matching the relief system's SCREE curvature convention).
-			var gx := (hxp - hxm) / (2.0 * dx)
-			var gz := (hzp - hzm) / (2.0 * dz)
-			var slope_deg := rad_to_deg(atan(sqrt(gx * gx + gz * gz)))
-			var curv := (hxm + hxp + hzm + hzp) * 0.25 - c
-			var gate := _slope_gate(slope_deg)
-			var w := cell_to_world_local(ix, iz, p_gw, p_gh, p_rect)
-			var val := ReliefMaterial._scree(w.x, w.y, curv, gx, gz, params, 0, noise)
-			height[i] = gate * val
-			shed[i] = gate
-	return [height, shed]
+	return Pasture3DUtil.scree_solve_grid(p_surface, p_gw, p_gh, p_rect, amplitude, grain_size, downslope_streak, toe_deposition, min_slope_degrees, slope_falloff_degrees, seed)
 
 
 func _finite(p_v: float, p_fallback: float) -> float:

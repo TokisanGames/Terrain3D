@@ -198,6 +198,29 @@ public:
 			const double p_eccentricity, const double p_steepness, const double p_azimuth_degrees,
 			const Vector2 &p_center_offset);
 
+	// Native Furrows generator (parallel corrugations).
+	static PackedFloat32Array furrows_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_spacing, const double p_direction_deg,
+			const int p_profile, const double p_wobble_amount, const double p_wobble_size, const int p_seed);
+
+	// Native Dunes generator (asymmetrical dunes).
+	static PackedFloat32Array dunes_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_wavelength, const double p_direction_deg,
+			const double p_asymmetry, const double p_crest_sharpness, const double p_wander_amount,
+			const double p_wander_size, const int p_seed);
+
+	// Native Crater generator (impact craters).
+	static PackedFloat32Array crater_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_floor_depth, const double p_rim_height,
+			const double p_rim_width, const double p_ejecta_falloff, const double p_floor_flatness,
+			const int p_terrace_steps);
+
+	// Native Scree solver (talus shedding).
+	static Array scree_solve_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const double p_amplitude, const double p_grain_size,
+			const double p_downslope_streak, const double p_toe_deposition, const double p_min_slope_deg,
+			const double p_slope_falloff_deg, const int p_seed);
+
 protected:
 	static void _bind_methods();
 };

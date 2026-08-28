@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://bench/GraphSpatialSolversGate.gd" id="1_spatial_gate"]
+
+[node name="GraphSpatialSolversGate" type="Node"]
+script = ExtResource("1_spatial_gate")
