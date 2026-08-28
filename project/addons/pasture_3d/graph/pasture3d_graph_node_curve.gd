@@ -95,6 +95,17 @@ func input_names() -> PackedStringArray:
 	return PackedStringArray(["field"])
 
 
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
+	var s: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 else Pasture3DGraphOps.zeros(p_gw * p_gh)
+	if curve == null:
+		return s
+	var lut_floats := PackedFloat32Array()
+	lut_floats.resize(256)
+	for i in range(256):
+		lut_floats[i] = curve.sample_baked(float(i) / 255.0)
+	return Pasture3DUtil.curve_grid(s, lut_floats, input_min, input_max, output_min, output_max, amount)
+
+
 func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> float:
 	var x := p_inputs[0] if p_inputs.size() > 0 else 0.0
 	if curve == null or is_nan(x):

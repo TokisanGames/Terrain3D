@@ -21,10 +21,12 @@
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_lake_flooding.h"
+#include "pasture_3d_math_ops.h"
 #include "pasture_3d_noise_jordan.h"
 #include "pasture_3d_noise_swiss.h"
 #include "pasture_3d_scree.h"
 #include "pasture_3d_spectral_equalizer.h"
+#include "pasture_3d_strata.h"
 #include "pasture_3d_stream_extraction.h"
 #include "pasture_3d_thread_pool.h"
 #include "pasture_3d_util.h"
@@ -1389,6 +1391,32 @@ Array Pasture3DUtil::scree_solve_grid(const PackedFloat32Array &p_surface, const
 			p_downslope_streak, p_toe_deposition, p_min_slope_deg, p_slope_falloff_deg, p_seed);
 }
 
+PackedFloat32Array Pasture3DUtil::strata_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const double p_band_height, const double p_hardness,
+		const double p_amount, const double p_dip, const double p_dip_direction_deg,
+		const double p_break_amount, const double p_break_size, const int p_seed) {
+	return godot::strata_grid(p_surface, p_gw, p_gh, p_rect, p_band_height, p_hardness,
+			p_amount, p_dip, p_dip_direction_deg, p_break_amount, p_break_size, p_seed);
+}
+
+PackedFloat32Array Pasture3DUtil::curve_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_lut,
+		const double p_in_min, const double p_in_max, const double p_out_min, const double p_out_max, const double p_amount) {
+	return godot::curve_grid(p_surface, p_lut, p_in_min, p_in_max, p_out_min, p_out_max, p_amount);
+}
+
+PackedFloat32Array Pasture3DUtil::remap_grid(const PackedFloat32Array &p_surface,
+		const double p_in_min, const double p_in_max, const double p_out_min, const double p_out_max,
+		const bool p_clamp_output, const double p_soft_knee, const bool p_invert) {
+	return godot::remap_grid(p_surface, p_in_min, p_in_max, p_out_min, p_out_max, p_clamp_output, p_soft_knee, p_invert);
+}
+
+PackedFloat32Array Pasture3DUtil::mask_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const int p_property, const double p_band_min, const double p_band_max,
+		const double p_falloff_lo, const double p_falloff_hi, const bool p_invert, const double p_strength) {
+	return godot::mask_grid(p_surface, p_gw, p_gh, p_rect, p_property, p_band_min, p_band_max,
+			p_falloff_lo, p_falloff_hi, p_invert, p_strength);
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1516,4 +1544,17 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("scree_solve_grid", "surface", "gw", "gh", "rect", "amplitude", "grain_size", "downslope_streak", "toe_deposition", "min_slope_deg", "slope_falloff_deg", "seed"),
 			&Pasture3DUtil::scree_solve_grid);
+	// Terrain graph — Modifiers & Math Operations.
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("strata_grid", "surface", "gw", "gh", "rect", "band_height", "hardness", "amount", "dip", "dip_direction_deg", "break_amount", "break_size", "seed"),
+			&Pasture3DUtil::strata_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("curve_grid", "surface", "lut", "in_min", "in_max", "out_min", "out_max", "amount"),
+			&Pasture3DUtil::curve_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("remap_grid", "surface", "in_min", "in_max", "out_min", "out_max", "clamp_output", "soft_knee", "invert"),
+			&Pasture3DUtil::remap_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mask_grid", "surface", "gw", "gh", "rect", "property", "band_min", "band_max", "falloff_lo", "falloff_hi", "invert", "strength"),
+			&Pasture3DUtil::mask_grid);
 }

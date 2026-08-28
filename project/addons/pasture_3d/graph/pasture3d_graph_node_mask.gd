@@ -85,34 +85,7 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	var n := p_gw * p_gh
 	var h: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 \
 			else Pasture3DGraphOps.zeros(n)
-	var out := PackedFloat32Array()
-	out.resize(n)
-	# World spacing per cell; may be anisotropic. Slope uses it; curvature is a spacing-independent
-	# height deviation (metres over one cell), matching §21.6.
-	var dx := p_rect.size.x / float(maxi(p_gw, 1))
-	var dz := p_rect.size.y / float(maxi(p_gh, 1))
-	var inv2x := 1.0 / (2.0 * maxf(dx, 1.0e-9))
-	var inv2z := 1.0 / (2.0 * maxf(dz, 1.0e-9))
-	for iz in range(p_gh):
-		var row := iz * p_gw
-		var zm := maxi(iz - 1, 0) * p_gw
-		var zp := mini(iz + 1, p_gh - 1) * p_gw
-		for ix in range(p_gw):
-			var xm := maxi(ix - 1, 0)
-			var xp := mini(ix + 1, p_gw - 1)
-			var c := h[row + ix]
-			var x := 0.0
-			match property:
-				Property.ALTITUDE:
-					x = c
-				Property.SLOPE:
-					var gx := (h[row + xp] - h[row + xm]) * inv2x
-					var gz := (h[zp + ix] - h[zm + ix]) * inv2z
-					x = rad_to_deg(atan(sqrt(gx * gx + gz * gz)))
-				Property.CURVATURE:
-					x = (h[row + xp] + h[row + xm] + h[zp + ix] + h[zm + ix] - 4.0 * c) * 0.25
-			out[row + ix] = _weight(x)
-	return out
+	return Pasture3DUtil.mask_grid(h, p_gw, p_gh, p_rect, int(property), band_min, band_max, falloff_lo, falloff_hi, invert, strength)
 
 
 # The 0..1 band weight for a property value. Byte-for-byte the relief selector's shape

@@ -121,6 +121,21 @@ func input_names() -> PackedStringArray:
 	return PackedStringArray(["field"])
 
 
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	var s: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 else Pasture3DGraphOps.zeros(p_gw * p_gh)
+	if terrace_profile != null:
+		# Fallback to per-cell sampling if custom Curve profile is assigned
+		var out := PackedFloat32Array()
+		out.resize(p_gw * p_gh)
+		for iz in range(p_gh):
+			var row := iz * p_gw
+			for ix in range(p_gw):
+				var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, p_gw, p_gh, p_rect)
+				out[row + ix] = eval_cell(w.x, w.y, PackedFloat32Array([s[row + ix]]))
+		return out
+	return Pasture3DUtil.strata_grid(s, p_gw, p_gh, p_rect, band_height, hardness, amount, dip, dip_direction_degrees, break_amount, break_size, seed)
+
+
 func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
 	var x := p_inputs[0] if p_inputs.size() > 0 else 0.0
 	if is_nan(x):
