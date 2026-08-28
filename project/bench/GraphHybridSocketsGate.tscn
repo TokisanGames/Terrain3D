@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b23n81g6f5m9k"]
+
+[ext_resource type="Script" path="res://bench/GraphHybridSocketsGate.gd" id="1_gate"]
+
+[node name="GraphHybridSocketsGate" type="Node"]
+script = ExtResource("1_gate")

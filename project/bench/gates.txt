@@ -193,4 +193,5 @@ bench/TerrainRealismNodesGate.tscn
 bench/PondWaterOffsetCheck.tscn
 # --- Terrain graph, palette categorization, constants & socket expansion ---
 bench/GraphPaletteAndConstantsGate.tscn
-
+# --- Terrain graph, hybrid parameter sockets & smart socket collapse ---
+bench/GraphHybridSocketsGate.tscn

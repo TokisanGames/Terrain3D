@@ -699,9 +699,6 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 	var in_types := p_node.input_port_types()
 	var out_type := p_node.output_port_type()
 	var out_color: Color = PORT_COLORS[out_type % PORT_COLORS.size()]
-	# Multi-output ports (Scree, Erosion, …): one right slot per channel, each on its own row. Ports are
-	# enabled contiguously from row 0, so GraphEdit's sequential-among-enabled port index equals the
-	# channel index the connection stores. A single-output node keeps exactly its old one-slot layout.
 	var out_names := p_node.output_names()
 	var out_types := p_node.output_port_types()
 	var n_out := p_node.output_count() if has_right else 0
@@ -716,11 +713,19 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 	var rows := maxi(maxi(n_in, n_out), 1)
 	for r in range(rows):
 		var row_box := HBoxContainer.new()
-		row_box.custom_minimum_size = Vector2(0, 22)
+		row_box.custom_minimum_size = Vector2(0, 24)
 
-		var lbl := Label.new()
-		lbl.text = names[r] if r < n_in else " "
-		row_box.add_child(lbl)
+		var in_name: String = names[r] if r < n_in else ""
+		if not in_name.is_empty():
+			var lbl := Label.new()
+			lbl.text = in_name
+			row_box.add_child(lbl)
+
+		# Smart Socket Collapse: embed inline parameter widget on unwired socket rows
+		if not p_node.collapsed and r < n_in:
+			var is_wired := wired_inputs.has(r)
+			if not is_wired:
+				_append_slot_inline_widget(row_box, p_node, p_index, r, in_name)
 
 		# Label each output channel on the right so a multi-output node's ports are told apart.
 		if multi_out and r < n_out:
@@ -758,99 +763,141 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 		center_box.add_child(trect)
 		p_gn.add_child(center_box)
 
-	# Inline parameter controls (if node is not collapsed)
+	# Additional node-level inline parameter controls (if node is not collapsed)
 	if not p_node.collapsed:
 		_add_inline_node_controls(p_gn, p_index, p_node)
+
+
+func _append_slot_inline_widget(p_row: HBoxContainer, p_node: Pasture3DGraphNode, p_index: int, p_port: int, p_port_name: String) -> void:
+	var op := p_node.op()
+	match op:
+		&"const":
+			if p_port == 0:
+				var sb := SpinBox.new()
+				sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5
+				sb.value = float(p_node.get("value"))
+				sb.value_changed.connect(func(val: float): p_node.set("value", val))
+				p_row.add_child(sb)
+
+		&"const_int":
+			if p_port == 0:
+				var sb := SpinBox.new()
+				sb.min_value = -100000.0; sb.max_value = 100000.0; sb.step = 1.0
+				sb.value = float(p_node.get("value"))
+				sb.value_changed.connect(func(val: float): p_node.set("value", int(val)))
+				p_row.add_child(sb)
+
+		&"const_vector":
+			if p_port == 0:
+				var v: Vector2 = p_node.get("value") if p_node.get("value") is Vector2 else Vector2.ZERO
+				var sb_x := SpinBox.new(); sb_x.min_value = -10000.0; sb_x.max_value = 10000.0; sb_x.step = 0.1; sb_x.value = v.x
+				var sb_y := SpinBox.new(); sb_y.min_value = -10000.0; sb_y.max_value = 10000.0; sb_y.step = 0.1; sb_y.value = v.y
+				sb_x.value_changed.connect(func(val: float):
+					var cur: Vector2 = p_node.get("value") if p_node.get("value") is Vector2 else Vector2.ZERO
+					p_node.set("value", Vector2(val, cur.y))
+				)
+				sb_y.value_changed.connect(func(val: float):
+					var cur: Vector2 = p_node.get("value") if p_node.get("value") is Vector2 else Vector2.ZERO
+					p_node.set("value", Vector2(cur.x, val))
+				)
+				p_row.add_child(sb_x); p_row.add_child(sb_y)
+
+		&"const_color":
+			if p_port == 0:
+				var cp := ColorPickerButton.new()
+				cp.color = p_node.get("value") if p_node.get("value") is Color else Color.WHITE
+				cp.custom_minimum_size = Vector2(40, 22)
+				cp.color_changed.connect(func(col: Color): p_node.set("value", col))
+				p_row.add_child(cp)
+
+		&"const_bool":
+			if p_port == 0:
+				var cb := CheckBox.new()
+				cb.text = "Enabled"
+				cb.button_pressed = bool(p_node.get("value"))
+				cb.toggled.connect(func(val: bool): p_node.set("value", val))
+				p_row.add_child(cb)
+
+		&"const_curve":
+			if p_port == 0:
+				var btn := Button.new()
+				btn.text = "Linear / Ease"
+				btn.pressed.connect(func():
+					var c: Curve = p_node.get("curve")
+					if c != null and c.point_count >= 2:
+						c.clear_points()
+						c.add_point(Vector2(0, 0))
+						c.add_point(Vector2(0.5, 0.2))
+						c.add_point(Vector2(1, 1))
+				)
+				p_row.add_child(btn)
+
+		&"noise":
+			if p_port == 0:
+				var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 1000.0; a_sb.step = 0.5
+				a_sb.value = float(p_node.get("amplitude"))
+				a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
+				p_row.add_child(a_sb)
+				var seed_btn := Button.new()
+				seed_btn.text = "🎲"
+				seed_btn.tooltip_text = "Randomize noise seed"
+				seed_btn.pressed.connect(func():
+					var n: FastNoiseLite = p_node.get("noise")
+					if n != null: n.seed = randi() % 100000
+				)
+				p_row.add_child(seed_btn)
+
+		&"blend":
+			if p_port == 0:
+				var opt := OptionButton.new()
+				opt.add_item("Add (+)", 0)
+				opt.add_item("Subtract (-)", 1)
+				opt.add_item("Multiply (*)", 2)
+				opt.add_item("Max", 3)
+				opt.add_item("Min", 4)
+				opt.selected = int(p_node.get("mode"))
+				opt.item_selected.connect(func(idx: int): p_node.set("mode", idx))
+				p_row.add_child(opt)
+
+		&"terrace":
+			if p_port == 1:
+				var b_sb := SpinBox.new(); b_sb.min_value = 0.1; b_sb.max_value = 200.0; b_sb.step = 0.5
+				b_sb.value = float(p_node.get("band_height"))
+				b_sb.value_changed.connect(func(val: float): p_node.set("band_height", val))
+				p_row.add_child(b_sb)
+			elif p_port == 2:
+				var h_sb := SpinBox.new(); h_sb.min_value = 0.0; h_sb.max_value = 1.0; h_sb.step = 0.05
+				h_sb.value = float(p_node.get("hardness"))
+				h_sb.value_changed.connect(func(val: float): p_node.set("hardness", val))
+				p_row.add_child(h_sb)
+			elif p_port == 3:
+				var amt_sb := SpinBox.new(); amt_sb.min_value = 0.0; amt_sb.max_value = 1.0; amt_sb.step = 0.05
+				amt_sb.value = float(p_node.get("amount"))
+				amt_sb.value_changed.connect(func(val: float): p_node.set("amount", val))
+				p_row.add_child(amt_sb)
+
+		&"remap":
+			if p_port == 1:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("in_min"))
+				sb.value_changed.connect(func(v: float): p_node.set("in_min", v))
+				p_row.add_child(sb)
+			elif p_port == 2:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("in_max"))
+				sb.value_changed.connect(func(v: float): p_node.set("in_max", v))
+				p_row.add_child(sb)
+			elif p_port == 3:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("out_min"))
+				sb.value_changed.connect(func(v: float): p_node.set("out_min", v))
+				p_row.add_child(sb)
+			elif p_port == 4:
+				var sb := SpinBox.new(); sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5; sb.value = float(p_node.get("out_max"))
+				sb.value_changed.connect(func(v: float): p_node.set("out_max", v))
+				p_row.add_child(sb)
 
 
 func _add_inline_node_controls(p_gn: GraphNode, p_index: int, p_node: Pasture3DGraphNode) -> void:
 	var op := p_node.op()
 	match op:
-		&"blend":
-			var row := HBoxContainer.new()
-			var opt := OptionButton.new()
-			opt.add_item("Add (+)", 0)
-			opt.add_item("Subtract (-)", 1)
-			opt.add_item("Multiply (*)", 2)
-			opt.add_item("Max", 3)
-			opt.add_item("Min", 4)
-			opt.selected = int(p_node.get("mode"))
-			opt.item_selected.connect(func(idx: int): p_node.set("mode", idx))
-			row.add_child(opt)
-			p_gn.add_child(row)
-			
-		&"const":
-			var row := HBoxContainer.new()
-			var lbl := Label.new(); lbl.text = "Val:"
-			var sb := SpinBox.new()
-			sb.min_value = -10000.0; sb.max_value = 10000.0; sb.step = 0.5
-			sb.value = float(p_node.get("value"))
-			sb.value_changed.connect(func(val: float): p_node.set("value", val))
-			row.add_child(lbl); row.add_child(sb)
-			p_gn.add_child(row)
-
-		&"const_int":
-			var row := HBoxContainer.new()
-			var lbl := Label.new(); lbl.text = "Int:"
-			var sb := SpinBox.new()
-			sb.min_value = -100000.0; sb.max_value = 100000.0; sb.step = 1.0
-			sb.value = float(p_node.get("value"))
-			sb.value_changed.connect(func(val: float): p_node.set("value", int(val)))
-			row.add_child(lbl); row.add_child(sb)
-			p_gn.add_child(row)
-
-		&"const_vector":
-			var row := HBoxContainer.new()
-			var lbl := Label.new(); lbl.text = "Vec:"
-			var v: Vector2 = p_node.get("value") if p_node.get("value") is Vector2 else Vector2.ZERO
-			var sb_x := SpinBox.new(); sb_x.min_value = -10000.0; sb_x.max_value = 10000.0; sb_x.step = 0.1; sb_x.value = v.x
-			var sb_y := SpinBox.new(); sb_y.min_value = -10000.0; sb_y.max_value = 10000.0; sb_y.step = 0.1; sb_y.value = v.y
-			sb_x.value_changed.connect(func(val: float):
-				var cur: Vector2 = p_node.get("value") if p_node.get("value") is Vector2 else Vector2.ZERO
-				p_node.set("value", Vector2(val, cur.y))
-			)
-			sb_y.value_changed.connect(func(val: float):
-				var cur: Vector2 = p_node.get("value") if p_node.get("value") is Vector2 else Vector2.ZERO
-				p_node.set("value", Vector2(cur.x, val))
-			)
-			row.add_child(lbl); row.add_child(sb_x); row.add_child(sb_y)
-			p_gn.add_child(row)
-
-		&"const_color":
-			var row := HBoxContainer.new()
-			var lbl := Label.new(); lbl.text = "Color:"
-			var cp := ColorPickerButton.new()
-			cp.color = p_node.get("value") if p_node.get("value") is Color else Color.WHITE
-			cp.custom_minimum_size = Vector2(40, 22)
-			cp.color_changed.connect(func(col: Color): p_node.set("value", col))
-			row.add_child(lbl); row.add_child(cp)
-			p_gn.add_child(row)
-
-		&"const_bool":
-			var row := HBoxContainer.new()
-			var cb := CheckBox.new()
-			cb.text = "Enabled"
-			cb.button_pressed = bool(p_node.get("value"))
-			cb.toggled.connect(func(val: bool): p_node.set("value", val))
-			row.add_child(cb)
-			p_gn.add_child(row)
-
-		&"const_curve":
-			var row := HBoxContainer.new()
-			var lbl := Label.new(); lbl.text = "Curve:"
-			var btn := Button.new()
-			btn.text = "Linear / Ease"
-			btn.pressed.connect(func():
-				var c: Curve = p_node.get("curve")
-				if c != null and c.point_count >= 2:
-					c.clear_points()
-					c.add_point(Vector2(0, 0))
-					c.add_point(Vector2(0.5, 0.2))
-					c.add_point(Vector2(1, 1))
-			)
-			row.add_child(lbl); row.add_child(btn)
-			p_gn.add_child(row)
-			
 		&"noise":
 			var f_row := HBoxContainer.new()
 			var f_lbl := Label.new(); f_lbl.text = "Freq:"
@@ -863,48 +910,6 @@ func _add_inline_node_controls(p_gn: GraphNode, p_index: int, p_node: Pasture3DG
 			)
 			f_row.add_child(f_lbl); f_row.add_child(f_sb)
 			p_gn.add_child(f_row)
-			
-			var a_row := HBoxContainer.new()
-			var a_lbl := Label.new(); a_lbl.text = "Amp:"
-			var a_sb := SpinBox.new(); a_sb.min_value = 0.0; a_sb.max_value = 1000.0; a_sb.step = 0.5
-			a_sb.value = float(p_node.get("amplitude"))
-			a_sb.value_changed.connect(func(val: float): p_node.set("amplitude", val))
-			
-			var seed_btn := Button.new()
-			seed_btn.text = "🎲"
-			seed_btn.tooltip_text = "Randomize noise seed"
-			seed_btn.pressed.connect(func():
-				var n: FastNoiseLite = p_node.get("noise")
-				if n != null: n.seed = randi() % 100000
-			)
-			a_row.add_child(a_lbl); a_row.add_child(a_sb); a_row.add_child(seed_btn)
-			p_gn.add_child(a_row)
-			
-		&"smooth":
-			var row := HBoxContainer.new()
-			var lbl := Label.new(); lbl.text = "Passes:"
-			var sb := SpinBox.new(); sb.min_value = 1; sb.max_value = 20; sb.step = 1
-			sb.value = int(p_node.get("passes"))
-			sb.value_changed.connect(func(val: float): p_node.set("passes", int(val)))
-			row.add_child(lbl); row.add_child(sb)
-			p_gn.add_child(row)
-			
-		&"terrace":
-			var b_row := HBoxContainer.new()
-			var b_lbl := Label.new(); b_lbl.text = "Step:"
-			var b_sb := SpinBox.new(); b_sb.min_value = 0.1; b_sb.max_value = 200.0; b_sb.step = 0.5
-			b_sb.value = float(p_node.get("band_height"))
-			b_sb.value_changed.connect(func(val: float): p_node.set("band_height", val))
-			b_row.add_child(b_lbl); b_row.add_child(b_sb)
-			p_gn.add_child(b_row)
-			
-			var h_row := HBoxContainer.new()
-			var h_lbl := Label.new(); h_lbl.text = "Hard:"
-			var h_sb := SpinBox.new(); h_sb.min_value = 0.0; h_sb.max_value = 1.0; h_sb.step = 0.05
-			h_sb.value = float(p_node.get("hardness"))
-			h_sb.value_changed.connect(func(val: float): p_node.set("hardness", val))
-			h_row.add_child(h_lbl); h_row.add_child(h_sb)
-			p_gn.add_child(h_row)
 
 		&"furrows":
 			var row := HBoxContainer.new()

@@ -36,17 +36,26 @@ func role() -> Role:
 
 
 func input_count() -> int:
-	return 0
+	return 1
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray()
+	return PackedStringArray(["amplitude"])
 
 
-func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([PortType.FLOAT])
+
+
+func input_unwired_default(_p_port: int) -> float:
+	return amplitude
+
+
+func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
 	if noise == null:
 		return 0.0
-	return amplitude * noise.get_noise_2d(p_wx, p_wz)
+	var amp: float = p_inputs[0] if (p_inputs.size() > 0 and not is_nan(p_inputs[0])) else amplitude
+	return amp * noise.get_noise_2d(p_wx, p_wz)
 
 
 func node_warnings() -> PackedStringArray:

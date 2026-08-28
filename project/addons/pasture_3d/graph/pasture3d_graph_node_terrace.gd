@@ -64,31 +64,42 @@ func role() -> Role:
 
 
 func input_count() -> int:
-	return 1
+	return 4
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field"])
+	return PackedStringArray(["in", "band_height", "hardness", "amount"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([PortType.HEIGHT, PortType.FLOAT, PortType.FLOAT, PortType.MASK])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		1: return band_height
+		2: return hardness
+		3: return amount
+		_: return 0.0
 
 
 func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
 	var x := p_inputs[0] if p_inputs.size() > 0 else 0.0
 	if is_nan(x):
 		return x
+	var bh_val: float = p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else band_height
+	var h_val: float = p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else hardness
+	var amt_val: float = p_inputs[3] if (p_inputs.size() > 3 and not is_nan(p_inputs[3])) else amount
+
 	var xj := x
 	if jitter > 0.0:
-		# Shift the banded height (not the output) so a bench boundary wavers across the ground.
 		xj += _jitter_field().get_noise_2d(p_wx, p_wz) * jitter
-	# Band in metres: floor to the bench, then reshape the fractional riser by the hardness exponent,
-	# exactly as Pasture3DReliefMaterial._band does on a [0,1] coordinate — here scaled to metric bands.
-	var bh := maxf(band_height, 0.001)
+	var bh := maxf(bh_val, 0.001)
 	var t := xj / bh
 	var q := floorf(t)
 	var f := t - q
-	var stepped := (q + pow(f, 1.0 + hardness * 15.0)) * bh
-	# Reunite with the un-jittered input: the jitter perturbs WHICH bench a cell falls to, but the bench
-	# value itself is the stepped height; cross-fade that against the true input by `amount`.
-	return lerpf(x, stepped, amount)
+	var stepped := (q + pow(f, 1.0 + clampf(h_val, 0.0, 1.0) * 15.0)) * bh
+	return lerpf(x, stepped, clampf(amt_val, 0.0, 1.0))
 
 
 func node_warnings() -> PackedStringArray:

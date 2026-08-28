@@ -74,16 +74,33 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 1
+	return 5
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["field"])
+	return PackedStringArray(["in", "in_min", "in_max", "out_min", "out_max"])
+
+
+func input_port_types() -> PackedInt32Array:
+	return PackedInt32Array([PortType.HEIGHT, PortType.FLOAT, PortType.FLOAT, PortType.FLOAT, PortType.FLOAT])
+
+
+func input_unwired_default(p_port: int) -> float:
+	match p_port:
+		1: return in_min
+		2: return in_max
+		3: return out_min
+		4: return out_max
+		_: return 0.0
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
 	var s: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 else Pasture3DGraphOps.zeros(p_gw * p_gh)
-	return Pasture3DUtil.remap_grid(s, in_min, in_max, out_min, out_max, clamp_output, soft_knee, invert)
+	var imin := p_inputs[1][0] if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array and p_inputs[1].size() > 0) else in_min
+	var imax := p_inputs[2][0] if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else in_max
+	var omin := p_inputs[3][0] if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else out_min
+	var omax := p_inputs[4][0] if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else out_max
+	return Pasture3DUtil.remap_grid(s, imin, imax, omin, omax, clamp_output, soft_knee, invert)
 
 
 func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> float:
@@ -91,8 +108,13 @@ func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> floa
 	if is_nan(x):
 		return NAN
 
-	var span := in_max - in_min
-	var t: float = (x - in_min) / span if absf(span) > 1e-9 else 0.0
+	var imin := p_inputs[1] if (p_inputs.size() > 1 and not is_nan(p_inputs[1])) else in_min
+	var imax := p_inputs[2] if (p_inputs.size() > 2 and not is_nan(p_inputs[2])) else in_max
+	var omin := p_inputs[3] if (p_inputs.size() > 3 and not is_nan(p_inputs[3])) else out_min
+	var omax := p_inputs[4] if (p_inputs.size() > 4 and not is_nan(p_inputs[4])) else out_max
+
+	var span := imax - imin
+	var t: float = (x - imin) / span if absf(span) > 1e-9 else 0.0
 
 	if invert:
 		t = 1.0 - t
@@ -103,7 +125,7 @@ func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> floa
 		else:
 			t = clampf(t, 0.0, 1.0)
 
-	return lerpf(out_min, out_max, t)
+	return lerpf(omin, omax, t)
 
 
 func node_warnings() -> PackedStringArray:
