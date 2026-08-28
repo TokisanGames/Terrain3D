@@ -63,33 +63,17 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	if is_zero_approx(amount):
 		return in_grid.duplicate()
 
-	if ClassDB.class_has_method("Pasture3DUtil", "depression_filling_grid"):
-		var res: PackedFloat32Array = Pasture3DUtil.depression_filling_grid(in_grid, p_gw, p_gh, p_rect,
-				epsilon_slope, fill_depth_limit, amount)
-		if res.size() == n:
-			return res
+	if not ClassDB.class_has_method("Pasture3DUtil", "depression_filling_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.depression_filling_grid is not bound. Rebuild GDExtension.")
+		return in_grid.duplicate()
 
-	return _eval_grid_gdscript(in_grid, p_gw, p_gh, p_rect)
+	var res: PackedFloat32Array = Pasture3DUtil.depression_filling_grid(in_grid, p_gw, p_gh, p_rect,
+			epsilon_slope, fill_depth_limit, amount)
+	if res.size() != n:
+		push_error("[Pasture3D] Depression filling native solve returned invalid grid size.")
+		return in_grid.duplicate()
 
-
-func _eval_grid_gdscript(in_grid: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> PackedFloat32Array:
-	var n := p_gw * p_gh
-	var dx := p_rect.size.x / maxf(float(p_gw - 1), 1.0) if (p_rect.size.x > 0.0 and p_gw > 1) else 2.0
-	var dz := p_rect.size.y / maxf(float(p_gh - 1), 1.0) if (p_rect.size.y > 0.0 and p_gh > 1) else 2.0
-
-	var filled := _priority_flood_fill(in_grid, p_gw, p_gh, dx, dz, epsilon_slope, fill_depth_limit)
-
-	if is_equal_approx(amount, 1.0):
-		return filled
-
-	var out := PackedFloat32Array()
-	out.resize(n)
-	for i in range(n):
-		if is_finite(in_grid[i]) and is_finite(filled[i]):
-			out[i] = lerpf(in_grid[i], filled[i], amount)
-		else:
-			out[i] = in_grid[i]
-	return out
+	return res
 
 
 func node_warnings() -> PackedStringArray:
@@ -97,130 +81,3 @@ func node_warnings() -> PackedStringArray:
 	if is_zero_approx(amount):
 		w.append("%s: Amount is 0, so it passes input through unchanged." % display_name())
 	return w
-
-
-# ---- Priority-Flood Algorithm Implementation --------------------------------------------------------
-
-static func _priority_flood_fill(p_h: PackedFloat32Array, p_gw: int, p_gh: int, p_dx: float, p_dz: float,
-		p_eps: float, p_depth_limit: float) -> PackedFloat32Array:
-	var n := p_gw * p_gh
-	var filled := PackedFloat32Array()
-	filled.resize(n)
-	filled.fill(INF)
-
-	var visited := PackedByteArray()
-	visited.resize(n)
-
-	# Min-Heap Priority Queue storing encoded: [elevation, index]
-	var heap := _MinHeap.new()
-
-	# Initialize grid boundaries as spillway seeds
-	for iz in range(p_gh):
-		for ix in range(p_gw):
-			var idx := iz * p_gw + ix
-			var is_edge := (ix == 0 or ix == p_gw - 1 or iz == 0 or iz == p_gh - 1)
-			var val := p_h[idx]
-
-			if not is_finite(val):
-				visited[idx] = 1
-				filled[idx] = NAN
-			elif is_edge:
-				visited[idx] = 1
-				filled[idx] = val
-				heap.push(val, idx)
-
-	var diag_d := sqrt(p_dx * p_dx + p_dz * p_dz)
-	var offsets: Array[Vector3] = [
-		Vector3(-1, 0, p_dx), Vector3(1, 0, p_dx),
-		Vector3(0, -1, p_dz), Vector3(0, 1, p_dz),
-		Vector3(-1, -1, diag_d), Vector3(1, -1, diag_d),
-		Vector3(-1, 1, diag_d), Vector3(1, 1, diag_d)
-	]
-
-	# Flood-fill from borders inward in order of ascending spillway elevation
-	while not heap.is_empty():
-		var top := heap.pop()
-		var spill_z: float = top[0]
-		var cur_idx: int = int(top[1])
-		var c_ix := cur_idx % p_gw
-		var c_iz := cur_idx / p_gw
-
-		for off in offsets:
-			var nx := c_ix + int(off.x)
-			var nz := c_iz + int(off.y)
-			if nx < 0 or nx >= p_gw or nz < 0 or nz >= p_gh:
-				continue
-
-			var n_idx := nz * p_gw + nx
-			if visited[n_idx] == 1:
-				continue
-
-			visited[n_idx] = 1
-			var raw_z := p_h[n_idx]
-
-			if not is_finite(raw_z):
-				filled[n_idx] = NAN
-				continue
-
-			var min_spill := spill_z + p_eps * off.z
-			var spill_elev := maxf(raw_z, min_spill)
-			heap.push(spill_elev, n_idx)
-
-			var filled_z := spill_elev
-			if p_depth_limit > 0.0 and (filled_z - raw_z) > p_depth_limit:
-				filled_z = raw_z + p_depth_limit
-
-			filled[n_idx] = filled_z
-
-	return filled
-
-
-# Min-Heap implementation for Priority-Flood
-class _MinHeap:
-	var _items: Array = []
-
-	func is_empty() -> bool:
-		return _items.is_empty()
-
-	func push(val: float, idx: int) -> void:
-		_items.append([val, idx])
-		_sift_up(_items.size() - 1)
-
-	func pop() -> Array:
-		if _items.is_empty():
-			return [INF, -1]
-		var top: Array = _items[0]
-		var last: Array = _items.pop_back()
-		if not _items.is_empty():
-			_items[0] = last
-			_sift_down(0)
-		return top
-
-	func _sift_up(i: int) -> void:
-		while i > 0:
-			var parent := (i - 1) / 2
-			if _items[i][0] < _items[parent][0]:
-				var tmp: Array = _items[i]
-				_items[i] = _items[parent]
-				_items[parent] = tmp
-				i = parent
-			else:
-				break
-
-	func _sift_down(i: int) -> void:
-		var size := _items.size()
-		while true:
-			var smallest := i
-			var left := 2 * i + 1
-			var right := 2 * i + 2
-			if left < size and _items[left][0] < _items[smallest][0]:
-				smallest = left
-			if right < size and _items[right][0] < _items[smallest][0]:
-				smallest = right
-			if smallest != i:
-				var tmp: Array = _items[i]
-				_items[i] = _items[smallest]
-				_items[smallest] = tmp
-				i = smallest
-			else:
-				break

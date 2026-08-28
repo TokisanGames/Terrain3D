@@ -147,105 +147,19 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> 
 # ---- Solver Logic ----------------------------------------------------------------------------------
 
 func _solve(p_h: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
-	if ClassDB.class_has_method("Pasture3DUtil", "stream_extraction_grid"):
-		var res: Dictionary = Pasture3DUtil.stream_extraction_grid(p_h, p_gw, p_gh, p_rect,
-				min_catchment_cells, carve_depth, channel_width, bank_falloff)
-		if bool(res.get("ok", false)):
-			_last_stream_points = res.get("stream_points", PackedVector3Array())
-			return [res["height"], res["channel_mask"], res["flow_rate"]]
-
-	return _solve_gdscript(p_h, p_gw, p_gh, p_rect)
-
-
-func _solve_gdscript(p_h: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
-	var out_h := p_h.duplicate()
-	var out_channel := PackedFloat32Array()
-	var out_flow := PackedFloat32Array()
-	out_channel.resize(n)
-	out_flow.resize(n)
+	if not ClassDB.class_has_method("Pasture3DUtil", "stream_extraction_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.stream_extraction_grid is not bound. Rebuild GDExtension.")
+		return [p_h.duplicate(), Pasture3DGraphOps.zeros(n), Pasture3DGraphOps.zeros(n)]
 
-	var dx := p_rect.size.x / maxf(float(p_gw - 1), 1.0) if (p_rect.size.x > 0.0 and p_gw > 1) else 2.0
-	var dz := p_rect.size.y / maxf(float(p_gh - 1), 1.0) if (p_rect.size.y > 0.0 and p_gh > 1) else 2.0
+	var res: Dictionary = Pasture3DUtil.stream_extraction_grid(p_h, p_gw, p_gh, p_rect,
+			min_catchment_cells, carve_depth, channel_width, bank_falloff)
+	if not bool(res.get("ok", false)):
+		push_error("[Pasture3D] Stream extraction native solve failed.")
+		return [p_h.duplicate(), Pasture3DGraphOps.zeros(n), Pasture3DGraphOps.zeros(n)]
 
-	# 1. Fill depressions so flow does not get stuck in sinks
-	var filled := Pasture3DGraphNodeDepressionFilling._priority_flood_fill(p_h, p_gw, p_gh, dx, dz, 0.0001, 0.0)
-
-	# 2. Sort cells descending by elevation for DAG accumulation
-	var order: Array[int] = []
-	order.resize(n)
-	for i in range(n):
-		order[i] = i
-	order.sort_custom(func(a: int, b: int) -> bool:
-		return filled[a] > filled[b]
-	)
-
-	# 3. D8 flow receiver map
-	var receiver := PackedInt32Array()
-	receiver.resize(n)
-	receiver.fill(-1)
-
-	var diag_d := sqrt(dx * dx + dz * dz)
-	var offsets: Array[Vector3] = [
-		Vector3(-1, 0, dx), Vector3(1, 0, dx),
-		Vector3(0, -1, dz), Vector3(0, 1, dz),
-		Vector3(-1, -1, diag_d), Vector3(1, -1, diag_d),
-		Vector3(-1, 1, diag_d), Vector3(1, 1, diag_d)
-	]
-
-	for iz in range(p_gh):
-		for ix in range(p_gw):
-			var idx := iz * p_gw + ix
-			var zh := filled[idx]
-			if not is_finite(zh):
-				continue
-
-			var max_slope := 0.0
-			var best_rec := -1
-			for off in offsets:
-				var nx := ix + int(off.x)
-				var nz := iz + int(off.y)
-				if nx < 0 or nx >= p_gw or nz < 0 or nz >= p_gh:
-					continue
-				var n_idx := nz * p_gw + nx
-				var n_zh := filled[n_idx]
-				if not is_finite(n_zh):
-					continue
-				var slope := (zh - n_zh) / off.z
-				if slope > max_slope:
-					max_slope = slope
-					best_rec = n_idx
-
-			receiver[idx] = best_rec
-
-	# 4. Downhill flow accumulation
-	var accum := PackedFloat32Array()
-	accum.resize(n)
-	accum.fill(1.0) # 1 cell unit runoff
-
-	var max_accum := 1.0
-	for idx in order:
-		var rec := receiver[idx]
-		if rec >= 0 and rec < n:
-			accum[rec] += accum[idx]
-			if accum[rec] > max_accum:
-				max_accum = accum[rec]
-
-	# 5. Carve channels along streams exceeding min_catchment_cells
-	for i in range(n):
-		var flow := accum[i]
-		out_flow[i] = clampf(flow / maxf(max_accum, 1.0), 0.0, 1.0)
-
-		if flow >= min_catchment_cells and is_finite(out_h[i]):
-			var intensity := clampf((flow - min_catchment_cells) / maxf(min_catchment_cells * 2.0, 1.0), 0.0, 1.0)
-			out_channel[i] = intensity
-			var carve := carve_depth * intensity
-			out_h[i] -= carve
-
-	# 6. Trace longest streamline for spawning
-	_trace_primary_streamline(accum, receiver, p_gw, p_gh, p_h, p_rect, dx, dz)
-
-	return [out_h, out_channel, out_flow]
+	_last_stream_points = res.get("stream_points", PackedVector3Array())
+	return [res["height"], res["channel_mask"], res["flow_rate"]]
 
 
 func _trace_primary_streamline(p_accum: PackedFloat32Array, p_rec: PackedInt32Array,

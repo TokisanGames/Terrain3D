@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://bench/GraphNativePipelineGate.gd" id="1_pipe_gate"]
+
+[node name="GraphNativePipelineGate" type="Node"]
+script = ExtResource("1_pipe_gate")

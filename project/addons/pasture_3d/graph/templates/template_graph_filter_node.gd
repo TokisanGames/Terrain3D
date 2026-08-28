@@ -45,20 +45,14 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -
 	var in_grid: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
 	var mask: PackedFloat32Array = (p_inputs[1] as PackedFloat32Array) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array) else Pasture3DGraphOps.filled(n, 1.0)
 
-	# Tier 2 GDExtension fast path
-	if ClassDB.class_has_method("Pasture3DUtil", "template_filter_grid"):
-		var res: PackedFloat32Array = Pasture3DUtil.template_filter_grid(in_grid, mask, p_gw, p_gh, intensity)
-		if res.size() == n:
-			return res
+	# Tier 2 GDExtension fast path (Fail-fast if not available)
+	if not ClassDB.class_has_method("Pasture3DUtil", "template_filter_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.template_filter_grid is not bound. Rebuild GDExtension.")
+		return in_grid.duplicate()
 
-	# Tier 1 Reference Oracle fallback
-	return _eval_grid_gdscript(in_grid, mask, p_gw, p_gh)
+	var res: PackedFloat32Array = Pasture3DUtil.template_filter_grid(in_grid, mask, p_gw, p_gh, intensity)
+	if res.size() != n:
+		push_error("[Pasture3D] Template filter native solve returned invalid grid size.")
+		return in_grid.duplicate()
 
-
-func _eval_grid_gdscript(in_grid: PackedFloat32Array, mask: PackedFloat32Array, p_gw: int, p_gh: int) -> PackedFloat32Array:
-	var n := p_gw * p_gh
-	var out := in_grid.duplicate()
-	for i in range(n):
-		if is_finite(in_grid[i]):
-			out[i] += intensity * clampf(mask[i], 0.0, 1.0)
-	return out
+	return res

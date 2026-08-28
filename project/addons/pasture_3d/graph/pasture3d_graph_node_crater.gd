@@ -74,23 +74,7 @@ func input_names() -> PackedStringArray:
 
 
 func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
-	var out := PackedFloat32Array()
-	out.resize(p_gw * p_gh)
-	# The frame's centre and half-extents. inv_ex/inv_ez turn a metre offset into normalised space, so a
-	# world position maps to nu,nv in [-1, 1] over the rect (±1 at the edge) — exactly the relief loop.
-	var cx := p_rect.position.x + p_rect.size.x * 0.5
-	var cz := p_rect.position.y + p_rect.size.y * 0.5
-	var inv_ex := 2.0 / maxf(p_rect.size.x, 1.0e-9)
-	var inv_ez := 2.0 / maxf(p_rect.size.y, 1.0e-9)
-	var params := _params()
-	for iz in range(p_gh):
-		var row := iz * p_gw
-		for ix in range(p_gw):
-			var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, p_gw, p_gh, p_rect)
-			var nu := (w.x - cx) * inv_ex
-			var nv := (w.y - cz) * inv_ez
-			out[row + ix] = Pasture3DReliefMaterial._crater(nu, nv, inv_ex, inv_ez, params, 0)
-	return out
+	return Pasture3DUtil.crater_grid(p_gw, p_gh, p_rect, amplitude, floor_depth, rim_height, rim_width, ejecta_falloff, floor_flatness, terrace_steps)
 
 
 func node_warnings() -> PackedStringArray:

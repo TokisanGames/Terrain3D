@@ -79,6 +79,10 @@ func input_names() -> PackedStringArray:
 	return PackedStringArray()
 
 
+func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	return Pasture3DUtil.dunes_grid(p_gw, p_gh, p_rect, amplitude, wavelength, direction_degrees, asymmetry, crest_sharpness, wander_amount, wander_size, seed)
+
+
 func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:
 	return Pasture3DReliefMaterial._dunes(p_wx, p_wz, _params(), 0, _wander_noise())
 

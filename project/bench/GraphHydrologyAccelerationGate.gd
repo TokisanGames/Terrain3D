@@ -46,7 +46,7 @@ func _test_a_depression_filling_parity() -> void:
 	var rect := Rect2(-50.0, -50.0, 100.0, 100.0)
 	var surf := _make_crater_surface(gw, gh)
 
-	var node := Pasture3DGraphNodeDepressionFilling.new()
+	var node := Pasture3DGraphNodeDevDepressionFilling.new()
 	node.epsilon_slope = 0.001
 	node.fill_depth_limit = 5.0
 	node.amount = 0.8
@@ -81,8 +81,8 @@ func _test_b_lake_flooding_parity() -> void:
 	var rect := Rect2(-50.0, -50.0, 100.0, 100.0)
 	var surf := _make_crater_surface(gw, gh)
 
-	var node := Pasture3DGraphNodeLakeFlooding.new()
-	node.flood_mode = Pasture3DGraphNodeLakeFlooding.FloodMode.SPILLWAY_BASIN
+	var node := Pasture3DGraphNodeDevLakeFlooding.new()
+	node.flood_mode = Pasture3DGraphNodeDevLakeFlooding.FloodMode.SPILLWAY_BASIN
 	node.flood_percent = 0.75
 	node.shoreline_width = 6.0
 
@@ -111,7 +111,7 @@ func _test_c_stream_extraction_parity() -> void:
 	var rect := Rect2(-50.0, -50.0, 100.0, 100.0)
 	var surf := _make_valley_surface(gw, gh)
 
-	var node := Pasture3DGraphNodeStreamExtraction.new()
+	var node := Pasture3DGraphNodeDevStreamExtraction.new()
 	node.min_catchment_cells = 16.0
 	node.carve_depth = 3.5
 	node.channel_width = 8.0
@@ -163,7 +163,7 @@ func _run_benchmarks() -> void:
 
 func _bench_df(dim: int, rect: Rect2, skip_slow_gd: bool = false) -> void:
 	var surf := _make_crater_surface(dim, dim)
-	var df_node := Pasture3DGraphNodeDepressionFilling.new()
+	var df_node := Pasture3DGraphNodeDevDepressionFilling.new()
 
 	var t0: int
 	var t_gd: float = 0.0
@@ -194,7 +194,7 @@ func _bench_df(dim: int, rect: Rect2, skip_slow_gd: bool = false) -> void:
 
 func _bench_lf(dim: int, rect: Rect2, skip_slow_gd: bool = false) -> void:
 	var surf := _make_crater_surface(dim, dim)
-	var lf_node := Pasture3DGraphNodeLakeFlooding.new()
+	var lf_node := Pasture3DGraphNodeDevLakeFlooding.new()
 
 	var t0: int
 	var t_gd: float = 0.0
@@ -225,7 +225,7 @@ func _bench_lf(dim: int, rect: Rect2, skip_slow_gd: bool = false) -> void:
 
 func _bench_se(dim: int, rect: Rect2, skip_slow_gd: bool = false) -> void:
 	var surf := _make_valley_surface(dim, dim)
-	var se_node := Pasture3DGraphNodeStreamExtraction.new()
+	var se_node := Pasture3DGraphNodeDevStreamExtraction.new()
 
 	var t0: int
 	var t_gd: float = 0.0

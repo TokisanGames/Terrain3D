@@ -119,13 +119,17 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	else:
 		in_grid = Pasture3DGraphOps.zeros(n)
 
-	if ClassDB.class_has_method("Pasture3DUtil", "warp_grid"):
-		var res: PackedFloat32Array = Pasture3DUtil.warp_grid(in_grid, p_gw, p_gh, p_rect, int(warp_type),
-				frequency, strength, octaves, amplitude, roughness, seed)
-		if res.size() == n:
-			return res
+	if not ClassDB.class_has_method("Pasture3DUtil", "warp_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.warp_grid is not bound. Rebuild GDExtension.")
+		return in_grid.duplicate()
 
-	return super.eval_grid(p_inputs, p_gw, p_gh, _p_mask, p_rect)
+	var res: PackedFloat32Array = Pasture3DUtil.warp_grid(in_grid, p_gw, p_gh, p_rect, int(warp_type),
+			frequency, strength, octaves, amplitude, roughness, seed)
+	if res.size() != n:
+		push_error("[Pasture3D] Warp native solve returned invalid grid size.")
+		return in_grid.duplicate()
+
+	return res
 
 
 func node_warnings() -> PackedStringArray:

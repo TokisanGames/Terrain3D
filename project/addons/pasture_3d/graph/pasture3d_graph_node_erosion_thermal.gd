@@ -165,90 +165,15 @@ func _surface_hash(p_surface: PackedFloat32Array, p_hardness: PackedFloat32Array
 
 
 func _solve(p_surface: PackedFloat32Array, p_hardness: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
-	if ClassDB.class_has_method("Pasture3DUtil", "erosion_thermal_solve_grid"):
-		var res: Dictionary = Pasture3DUtil.erosion_thermal_solve_grid(p_surface, p_hardness, p_gw, p_gh,
-				p_rect, talus_angle, iterations, settling_rate)
-		if bool(res.get("ok", false)):
-			return [res["height"], res["talus"]]
-
-	return _solve_gdscript(p_surface, p_hardness, p_gw, p_gh, p_rect)
-
-
-func _solve_gdscript(p_surface: PackedFloat32Array, p_hardness: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
-	var height := p_surface.duplicate()
-	var talus_accum := PackedFloat32Array(); talus_accum.resize(n); talus_accum.fill(0.0)
+	if not ClassDB.class_has_method("Pasture3DUtil", "erosion_thermal_solve_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.erosion_thermal_solve_grid is not bound. Rebuild GDExtension.")
+		return [p_surface.duplicate(), Pasture3DGraphOps.zeros(n)]
 
-	var dx: float = p_rect.size.x / float(maxi(p_gw, 1))
-	var dz: float = p_rect.size.y / float(maxi(p_gh, 1))
-	var diag_dist: float = sqrt(dx * dx + dz * dz)
+	var res: Dictionary = Pasture3DUtil.erosion_thermal_solve_grid(p_surface, p_hardness, p_gw, p_gh,
+			p_rect, talus_angle, iterations, settling_rate)
+	if not bool(res.get("ok", false)):
+		push_error("[Pasture3D] Thermal erosion native solve failed.")
+		return [p_surface.duplicate(), Pasture3DGraphOps.zeros(n)]
 
-	var tan_talus: float = tan(deg_to_rad(talus_angle))
-
-	var n_dx: Array[int] = [-1, 1, 0, 0, -1, 1, -1, 1]
-	var n_dz: Array[int] = [0, 0, -1, 1, -1, -1, 1, 1]
-	var n_dist: Array[float] = [dx, dx, dz, dz, diag_dist, diag_dist, diag_dist, diag_dist]
-
-	for _pass in range(iterations):
-		var next_height := height.duplicate()
-
-		for iz in range(p_gh):
-			var row := iz * p_gw
-			for ix in range(p_gw):
-				var i := row + ix
-				var h_c: float = height[i]
-				if not is_finite(h_c):
-					continue
-
-				var hard_c: float = clampf(p_hardness[i], 0.0, 1.0)
-				var eff_tan: float = tan_talus * (1.0 + hard_c * 0.75)
-
-				# Check all 8 downhill neighbors
-				var excess: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-				var total_excess: float = 0.0
-				var max_ex: float = 0.0
-
-				for k in range(8):
-					var nx: int = ix + n_dx[k]
-					var nz: int = iz + n_dz[k]
-					if nx >= 0 and nx < p_gw and nz >= 0 and nz < p_gh:
-						var ni: int = nz * p_gw + nx
-						var n_h: float = height[ni]
-						if is_finite(n_h):
-							var diff: float = h_c - n_h
-							var max_diff: float = n_dist[k] * eff_tan
-							if diff > max_diff:
-								var ex: float = diff - max_diff
-								excess[k] = ex
-								total_excess += ex
-								if ex > max_ex:
-									max_ex = ex
-
-				if total_excess > 0.0:
-					var slip_amt: float = clampf(max_ex * 0.5 * settling_rate, 0.0, total_excess * 0.5)
-
-					next_height[i] -= slip_amt
-					for k in range(8):
-						if excess[k] > 0.0:
-							var frac: float = excess[k] / total_excess
-							var moved: float = slip_amt * frac
-							var ni: int = (iz + n_dz[k]) * p_gw + (ix + n_dx[k])
-							next_height[ni] += moved
-							talus_accum[ni] += moved
-
-		height = next_height
-
-	# Normalize talus accumulation mask
-	var max_talus: float = 1e-6
-	for i in range(n):
-		if is_finite(height[i]):
-			max_talus = maxf(max_talus, talus_accum[i])
-
-	var norm_talus := PackedFloat32Array(); norm_talus.resize(n)
-	for i in range(n):
-		if is_finite(height[i]):
-			norm_talus[i] = clampf(talus_accum[i] / max_talus, 0.0, 1.0)
-		else:
-			norm_talus[i] = 0.0
-
-	return [height, norm_talus]
+	return [res["height"], res["talus"]]

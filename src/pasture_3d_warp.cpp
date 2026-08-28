@@ -2,6 +2,7 @@
 
 #include "pasture_3d_warp.h"
 #include "pasture_3d_graph_ops.h"
+#include "pasture_3d_thread_pool.h"
 
 #include <cmath>
 #include <limits>
@@ -50,36 +51,38 @@ PackedFloat32Array godot::warp_solve_grid(const PackedFloat32Array &p_surface, i
 
 	float *dst = result.ptrw();
 
-	for (int iz = 0; iz < p_gh; iz++) {
-		const int row = iz * p_gw;
-		for (int ix = 0; ix < p_gw; ix++) {
-			const int i = row + ix;
-			const float base_in = src ? src[i] : 0.0f;
-			if (std::isnan(base_in)) {
-				dst[i] = std::numeric_limits<float>::quiet_NaN();
-				continue;
+	Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+		for (int iz = z0; iz < z1; iz++) {
+			const int row = iz * p_gw;
+			for (int ix = 0; ix < p_gw; ix++) {
+				const int i = row + ix;
+				const float base_in = src ? src[i] : 0.0f;
+				if (std::isnan(base_in)) {
+					dst[i] = std::numeric_limits<float>::quiet_NaN();
+					continue;
+				}
+
+				double wx = 0.0;
+				double wz = 0.0;
+				graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
+
+				double dx = 0.0;
+				double dz = 0.0;
+				if (p_strength > 0.0) {
+					dx = (double)noise_x->get_noise_2d((real_t)wx, (real_t)wz) * p_strength;
+					dz = (double)noise_z->get_noise_2d((real_t)wx, (real_t)wz) * p_strength;
+				}
+
+				const double warped_x = wx + dx;
+				const double warped_z = wz + dz;
+
+				const double sample = (double)noise_out->get_noise_2d((real_t)warped_x, (real_t)warped_z);
+				const double generated_h = sample * p_amplitude;
+
+				dst[i] = (float)((double)base_in + generated_h);
 			}
-
-			double wx = 0.0;
-			double wz = 0.0;
-			graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
-
-			double dx = 0.0;
-			double dz = 0.0;
-			if (p_strength > 0.0) {
-				dx = (double)noise_x->get_noise_2d((real_t)wx, (real_t)wz) * p_strength;
-				dz = (double)noise_z->get_noise_2d((real_t)wx, (real_t)wz) * p_strength;
-			}
-
-			const double warped_x = wx + dx;
-			const double warped_z = wz + dz;
-
-			const double sample = (double)noise_out->get_noise_2d((real_t)warped_x, (real_t)warped_z);
-			const double generated_h = sample * p_amplitude;
-
-			dst[i] = (float)((double)base_in + generated_h);
 		}
-	}
+	});
 
 	return result;
 }

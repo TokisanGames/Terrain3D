@@ -80,6 +80,10 @@ func input_names() -> PackedStringArray:
 	return PackedStringArray()
 
 
+func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	return Pasture3DUtil.furrows_grid(p_gw, p_gh, p_rect, amplitude, spacing, direction_degrees, int(profile), wobble_amount, wobble_size, seed)
+
+
 func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:
 	# Delegate to the canonical corrugation math so a Furrows node never drifts from a relief Furrows op.
 	# params layout as Pasture3DReliefMaterial._furrows reads it: [amp, spacing, dir, profile, _, wobble].

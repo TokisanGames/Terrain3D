@@ -81,6 +81,11 @@ func input_names() -> PackedStringArray:
 	return PackedStringArray(["field"])
 
 
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -> PackedFloat32Array:
+	var s: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 else Pasture3DGraphOps.zeros(p_gw * p_gh)
+	return Pasture3DUtil.remap_grid(s, in_min, in_max, out_min, out_max, clamp_output, soft_knee, invert)
+
+
 func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> float:
 	var x := p_inputs[0] if p_inputs.size() > 0 else 0.0
 	if is_nan(x):

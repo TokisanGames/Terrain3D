@@ -180,6 +180,67 @@ public:
 			const Rect2 &p_rect, const int p_warp_type, const double p_frequency, const double p_strength,
 			const int p_octaves, const double p_amplitude, const double p_roughness, const int p_seed);
 
+	// Native Jordan derivative-feedback fBm noise generator.
+	static PackedFloat32Array noise_jordan_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_frequency, const int p_octaves,
+			const double p_gain, const double p_lacunarity, const double p_warp_strength,
+			const double p_damp_strength, const int p_seed);
+
+	// Native Swiss ridge noise generator.
+	static PackedFloat32Array noise_swiss_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_frequency, const int p_octaves,
+			const double p_gain, const double p_lacunarity, const double p_ridge_offset,
+			const double p_erosion_accent, const int p_seed);
+
+	// Native Geological Primitive generator (inselbergs, calderas, cuestas).
+	static PackedFloat32Array geological_primitive_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const int p_primitive_type, const int p_mapping, const double p_height, const double p_radius,
+			const double p_eccentricity, const double p_steepness, const double p_azimuth_degrees,
+			const Vector2 &p_center_offset);
+
+	// Native Furrows generator (parallel corrugations).
+	static PackedFloat32Array furrows_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_spacing, const double p_direction_deg,
+			const int p_profile, const double p_wobble_amount, const double p_wobble_size, const int p_seed);
+
+	// Native Dunes generator (asymmetrical dunes).
+	static PackedFloat32Array dunes_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_wavelength, const double p_direction_deg,
+			const double p_asymmetry, const double p_crest_sharpness, const double p_wander_amount,
+			const double p_wander_size, const int p_seed);
+
+	// Native Crater generator (impact craters).
+	static PackedFloat32Array crater_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_floor_depth, const double p_rim_height,
+			const double p_rim_width, const double p_ejecta_falloff, const double p_floor_flatness,
+			const int p_terrace_steps);
+
+	// Native Scree solver (talus shedding).
+	static Array scree_solve_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const double p_amplitude, const double p_grain_size,
+			const double p_downslope_streak, const double p_toe_deposition, const double p_min_slope_deg,
+			const double p_slope_falloff_deg, const int p_seed);
+
+	// Native Strata filter (geological rock layers).
+	static PackedFloat32Array strata_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const double p_band_height, const double p_hardness,
+			const double p_amount, const double p_dip, const double p_dip_direction_deg,
+			const double p_break_amount, const double p_break_size, const int p_seed);
+
+	// Native Curve transfer filter.
+	static PackedFloat32Array curve_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_lut,
+			const double p_in_min, const double p_in_max, const double p_out_min, const double p_out_max, const double p_amount);
+
+	// Native Remap filter.
+	static PackedFloat32Array remap_grid(const PackedFloat32Array &p_surface,
+			const double p_in_min, const double p_in_max, const double p_out_min, const double p_out_max,
+			const bool p_clamp_output, const double p_soft_knee, const bool p_invert);
+
+	// Native Mask generator (slope, altitude, curvature).
+	static PackedFloat32Array mask_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const int p_property, const double p_band_min, const double p_band_max,
+			const double p_falloff_lo, const double p_falloff_hi, const bool p_invert, const double p_strength);
+
 protected:
 	static void _bind_methods();
 };

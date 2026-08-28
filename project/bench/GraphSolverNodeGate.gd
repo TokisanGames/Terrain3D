@@ -312,7 +312,7 @@ func _f_masked_blend_refuses_native() -> void:
 	# Unmasked: all supported ops -> lowers (compile_graph_program handles Input/Output/Smooth).
 	var native_unmasked := g.native_supported()
 	var prog_unmasked: Dictionary = g.compile_graph_program()
-	# Now wire the mask port -> must refuse.
+	# Now wire the mask port -> lowers natively in Milestone 4 (in0, in1, in2).
 	g.connect_ports(ncm, 0, nbl, 2)
 	var native_masked := g.native_supported()
 	var prog_masked: Dictionary = g.compile_graph_program()
@@ -321,8 +321,19 @@ func _f_masked_blend_refuses_native() -> void:
 		native_unmasked, prog_unmasked.is_empty(), native_masked, prog_masked.is_empty()])
 	if not native_unmasked or prog_unmasked.is_empty():
 		_fail += 1; print("    !! unmasked blend graph failed to lower (control dead)")
-	if native_masked or not prog_masked.is_empty():
-		_fail += 1; print("    !! masked blend graph lowered to native despite the 3rd input")
+	if not native_masked or prog_masked.is_empty():
+		_fail += 1; print("    !! masked blend graph failed to lower with 3 inputs")
+
+	# Control: unlowered experimental dev op falls back to GDScript.
+	var dev_g := Pasture3DTerrainGraph.new()
+	var dev_op := Pasture3DGraphNodeDevErosion.new()
+	var d_in := dev_g.add_node(Pasture3DGraphNodeRegistry.create(&"input"), Vector2.ZERO)
+	var d_node := dev_g.add_node(dev_op, Vector2(200, 0))
+	var d_out := dev_g.add_node(Pasture3DGraphNodeRegistry.create(&"output"), Vector2(400, 0))
+	dev_g.connect_ports(d_in, 0, d_node, 0)
+	dev_g.connect_ports(d_node, 0, d_out, 0)
+	if dev_g.native_supported() or not dev_g.compile_graph_program().is_empty():
+		_fail += 1; print("    !! unlowered experimental dev node claimed native support")
 
 
 # ---- helpers ----------------------------------------------------------------------------------------

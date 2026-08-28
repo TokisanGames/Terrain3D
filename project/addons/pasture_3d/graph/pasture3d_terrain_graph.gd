@@ -72,6 +72,51 @@ signal structure_changed()
 		_bind_frames(frames, true)
 		structure_changed.emit()
 
+# ---- Cache Memory Management (Milestone 1) -----------------------------------------------------------
+## Maximum total memory in bytes allowed for per-node cached output grids (default 256 MB).
+@export var max_cache_bytes: int = 268435456
+
+var _global_access_tick: int = 0
+
+
+## Clears all cached output grid buffers across every node in the graph.
+func clear_cache() -> void:
+	for n in nodes:
+		if n != null:
+			n.clear_cache()
+
+
+## Total memory footprint in bytes across all node cached grid buffers in this graph.
+func get_total_cache_bytes() -> int:
+	var total := 0
+	for n in nodes:
+		if n != null:
+			total += n.get_cache_size_bytes()
+	return total
+
+
+## Evicts least-recently-accessed node caches until total memory footprint is <= max_cache_bytes.
+func _evict_cache_if_needed() -> void:
+	if max_cache_bytes <= 0:
+		return
+	if get_total_cache_bytes() <= max_cache_bytes:
+		return
+	
+	var cached_nodes: Array[Pasture3DGraphNode] = []
+	for n in nodes:
+		if n != null and not n.get_cached_grid().is_empty():
+			cached_nodes.append(n)
+			
+	cached_nodes.sort_custom(func(a: Pasture3DGraphNode, b: Pasture3DGraphNode) -> bool:
+		return a._last_access_tick < b._last_access_tick
+	)
+	
+	for n in cached_nodes:
+		n.clear_cache()
+		if get_total_cache_bytes() <= max_cache_bytes:
+			break
+
+
 
 # ---- Change forwarding -------------------------------------------------------------------------------
 #
@@ -470,12 +515,28 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 	var input_ports_of: Dictionary = plan["input_ports_of"]
 	var materialize: Dictionary = plan["materialize"]
 
-	var grids := {} # node index -> materialised grid (port 0; folded nodes are absent)
+	_global_access_tick += 1
+
+	var dx := p_rect.size.x / float(maxi(p_gw, 1))
+	var dz := p_rect.size.y / float(maxi(p_gh, 1))
+	var min_x := p_rect.position.x + 0.5 * dx
+	var min_z := p_rect.position.y + 0.5 * dz
+
+	var grids := {} # node index -> materialised grid (port 0)
 	var aux := {}   # node index -> { output_port >= 1 : grid } for multi-output solver channels
 	for ni in order:
-		if not materialize[ni]:
-			continue # folded — computed inline by _cell_value when a materialised consumer reads it
 		var node: Pasture3DGraphNode = nodes[ni]
+		var inputs_hash: int = _compute_node_inputs_hash(ni, p_gw, p_gh, p_rect, p_mask, p_input, inputs_of, input_ports_of)
+
+		# Cache hit check: if clean and matching size, serve cached grid in 0.0 ms
+		if not node.is_dirty(inputs_hash) and node.get_cached_grid().size() == n:
+			grids[ni] = node.get_cached_grid()
+			var c_aux := node.get_cached_aux()
+			if not c_aux.is_empty():
+				aux[ni] = c_aux
+			node._last_access_tick = _global_access_tick
+			continue
+
 		if node.muted:
 			var s0: int = inputs_of[ni][0] if not inputs_of[ni].is_empty() else -1
 			var sp0: int = input_ports_of[ni][0] if not input_ports_of[ni].is_empty() else 0
@@ -488,12 +549,25 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 				g.resize(n)
 				for iz in range(p_gh):
 					var row := iz * p_gw
+					var wz: float = min_z + float(iz) * dz
 					for ix in range(p_gw):
-						var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
-						g[row + ix] = _cell_input(s0, sp0, row + ix, w.x, w.y, grids, aux, inputs_of, input_ports_of)
+						var wx: float = min_x + float(ix) * dx
+						g[row + ix] = _cell_input(s0, sp0, row + ix, wx, wz, grids, aux, inputs_of, input_ports_of)
 				grids[ni] = g
 		elif node.op() == &"input":
 			grids[ni] = _surface_grid(p_input, n) # the surface handed in, or a flat 0 when none
+		elif node.op() == &"output":
+			var s0: int = inputs_of[ni][0] if not inputs_of[ni].is_empty() else -1
+			var sp0: int = input_ports_of[ni][0] if not input_ports_of[ni].is_empty() else 0
+			grids[ni] = _read_channel(s0, sp0, grids, aux, n).duplicate()
+		elif node.op() == &"noise_jordan":
+			grids[ni] = Pasture3DUtil.noise_jordan_grid(p_gw, p_gh, p_rect, node.amplitude, node.frequency, node.octaves, node.gain, node.lacunarity, node.warp_strength, node.damp_strength, node.seed)
+		elif node.op() == &"noise_swiss":
+			grids[ni] = Pasture3DUtil.noise_swiss_grid(p_gw, p_gh, p_rect, node.amplitude, node.frequency, node.octaves, node.gain, node.lacunarity, node.ridge_offset, node.erosion_accent, node.seed)
+		elif node.op() == &"furrows":
+			grids[ni] = Pasture3DUtil.furrows_grid(p_gw, p_gh, p_rect, node.amplitude, node.spacing, node.direction_degrees, int(node.profile), node.wobble_amount, node.wobble_size, node.seed)
+		elif node.op() == &"dunes":
+			grids[ni] = Pasture3DUtil.dunes_grid(p_gw, p_gh, p_rect, node.amplitude, node.wavelength, node.direction_degrees, node.asymmetry, node.crest_sharpness, node.wander_amount, node.wander_size, node.seed)
 		elif node.needs_grid():
 			var in_grids := _input_grids(ni, grids, aux, n)
 			if node.output_count() > 1:
@@ -508,13 +582,131 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 		else:
 			var g := PackedFloat32Array()
 			g.resize(n)
-			for iz in range(p_gh):
-				var row := iz * p_gw
-				for ix in range(p_gw):
-					var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
-					g[row + ix] = _cell_value(ni, row + ix, w.x, w.y, grids, aux, inputs_of, input_ports_of)
+			var in_grids := _input_grids(ni, grids, aux, n)
+			var in_count: int = in_grids.size()
+			var cell_in := PackedFloat32Array()
+			cell_in.resize(in_count)
+			if in_count == 1:
+				var in0: PackedFloat32Array = in_grids[0]
+				for iz in range(p_gh):
+					var row := iz * p_gw
+					var wz: float = min_z + float(iz) * dz
+					for ix in range(p_gw):
+						var idx := row + ix
+						var wx: float = min_x + float(ix) * dx
+						cell_in[0] = in0[idx]
+						g[idx] = node.eval_cell(wx, wz, cell_in)
+			elif in_count == 0:
+				for iz in range(p_gh):
+					var row := iz * p_gw
+					var wz: float = min_z + float(iz) * dz
+					for ix in range(p_gw):
+						var idx := row + ix
+						var wx: float = min_x + float(ix) * dx
+						g[idx] = node.eval_cell(wx, wz, cell_in)
+			else:
+				for iz in range(p_gh):
+					var row := iz * p_gw
+					var wz: float = min_z + float(iz) * dz
+					for ix in range(p_gw):
+						var idx := row + ix
+						var wx: float = min_x + float(ix) * dx
+						for p in range(in_count):
+							cell_in[p] = (in_grids[p] as PackedFloat32Array)[idx]
+						g[idx] = node.eval_cell(wx, wz, cell_in)
 			grids[ni] = g
+
+		node.store_cache(grids[ni], aux.get(ni, {}), inputs_hash, _global_access_tick)
+		_evict_cache_if_needed()
+
 	return grids[out]
+
+
+## Computes a signature hash representing node inputs, wiring, and spatial evaluation context.
+func _compute_node_inputs_hash(p_ni: int, p_gw: int, p_gh: int, p_rect: Rect2, p_mask, p_input, p_inputs_of: Dictionary, p_input_ports_of: Dictionary, p_materialize: Dictionary = {}) -> int:
+	var node: Pasture3DGraphNode = nodes[p_ni]
+	var sig: Array = [
+		p_gw,
+		p_gh,
+		p_rect.position.x,
+		p_rect.position.y,
+		p_rect.size.x,
+		p_rect.size.y,
+		node.muted,
+		node.op(),
+	]
+	if node.op() == &"input":
+		if p_input is PackedFloat32Array:
+			sig.append(p_input.size())
+			if not p_input.is_empty():
+				sig.append(p_input[0])
+				sig.append(p_input[p_input.size() - 1])
+		else:
+			sig.append(0)
+	if node.needs_grid() and p_mask != null:
+		if p_mask is PackedFloat32Array:
+			sig.append(p_mask.size())
+			if not p_mask.is_empty():
+				sig.append(p_mask[0])
+				sig.append(p_mask[p_mask.size() - 1])
+
+	var srcs: Array = p_inputs_of.get(p_ni, [])
+	var ports: Array = p_input_ports_of.get(p_ni, [])
+	for p in range(srcs.size()):
+		var s: int = srcs[p]
+		var sp: int = ports[p]
+		if s < 0 or s >= nodes.size() or nodes[s] == null:
+			sig.append(-1)
+			sig.append(node.input_unwired_default(p))
+		else:
+			_append_input_signature(s, sp, sig, p_inputs_of, p_input_ports_of, p_materialize)
+	return hash(sig)
+
+
+func _append_input_signature(p_s: int, p_sp: int, p_sig: Array, p_inputs_of: Dictionary, p_input_ports_of: Dictionary, p_materialize: Dictionary) -> void:
+	if p_s < 0 or p_s >= nodes.size() or nodes[p_s] == null:
+		p_sig.append(-1)
+		return
+	var src_node: Pasture3DGraphNode = nodes[p_s]
+	p_sig.append(p_s)
+	p_sig.append(p_sp)
+	p_sig.append(src_node.muted)
+	p_sig.append(src_node._dirty_revision)
+	if p_materialize.get(p_s, true):
+		p_sig.append(src_node._inputs_hash)
+	else:
+		# Folded upstream node: recurse into its inputs
+		var srcs: Array = p_inputs_of.get(p_s, [])
+		var ports: Array = p_input_ports_of.get(p_s, [])
+		for p in range(srcs.size()):
+			var sub_s: int = srcs[p]
+			var sub_sp: int = ports[p]
+			if sub_s < 0 or sub_s >= nodes.size() or nodes[sub_s] == null:
+				p_sig.append(-1)
+				p_sig.append(src_node.input_unwired_default(p))
+			else:
+				_append_input_signature(sub_s, sub_sp, p_sig, p_inputs_of, p_input_ports_of, p_materialize)
+
+
+func _cell_value_fast(p_ni: int, p_cell: int, p_wx: float, p_wz: float, p_grids: Dictionary, p_aux: Dictionary,
+		p_inputs_of: Dictionary, p_ports_of: Dictionary, p_cell_in: PackedFloat32Array) -> float:
+	if p_grids.has(p_ni):
+		return (p_grids[p_ni] as PackedFloat32Array)[p_cell]
+	var node: Pasture3DGraphNode = nodes[p_ni]
+	var srcs: Array = p_inputs_of[p_ni]
+	var ports: Array = p_ports_of[p_ni]
+	if node.muted:
+		if srcs.is_empty() or srcs[0] < 0:
+			return 0.0
+		return _cell_input(srcs[0], ports[0], p_cell, p_wx, p_wz, p_grids, p_aux, p_inputs_of, p_ports_of)
+	for k in range(srcs.size()):
+		if srcs[k] < 0:
+			p_cell_in[k] = node.input_unwired_default(k)
+		else:
+			p_cell_in[k] = _cell_input(srcs[k], ports[k], p_cell, p_wx, p_wz, p_grids, p_aux, p_inputs_of, p_ports_of)
+	return node.eval_cell(p_wx, p_wz, p_cell_in)
+
+
 
 
 ## The grid an Input node yields: a COPY of the surface handed to `evaluate`, or a flat 0 when none was
@@ -721,6 +913,12 @@ func compile_graph_program() -> Dictionary:
 	var order := _eval_order()
 	if order.is_empty():
 		return {}
+	for c in connections:
+		if c.size() >= 4 and int(c[1]) > 0:
+			var to_node := int(c[2])
+			var from_node := int(c[0])
+			if order.has(to_node) and order.has(from_node):
+				return {}
 	var slot_of := {}
 	for k in range(order.size()):
 		slot_of[order[k]] = k
@@ -730,63 +928,132 @@ func compile_graph_program() -> Dictionary:
 	var params_b := PackedFloat32Array()
 	var params_c := PackedFloat32Array()
 	var params_d := PackedFloat32Array()
+	var params_e := PackedFloat32Array()
+	var params_f := PackedFloat32Array()
+	var params_g := PackedFloat32Array()
+	var params_h := PackedFloat32Array()
+	var params_i := PackedFloat32Array()
+	var params_j := PackedFloat32Array()
+	var params_k := PackedFloat32Array()
+	var params_l := PackedFloat32Array()
 	var in0 := PackedInt32Array()
 	var in1 := PackedInt32Array()
+	var in2 := PackedInt32Array()
 	var noise_tab: Array = []
+	var luts_tab: Array = []
+
 	for ni in order:
 		var node: Pasture3DGraphNode = nodes[ni]
 		var srcs: Array = inputs_of[ni]
 		var s0: int = int(srcs[0]) if srcs.size() > 0 else -1
 		var s1: int = int(srcs[1]) if srcs.size() > 1 else -1
+		var s2: int = int(srcs[2]) if srcs.size() > 2 else -1
 		var op_id := 0
-		var param := 0.0
-		var pb := 0.0
-		var pc := 0.0
-		var pd := 0.0
+		var p0 := 0.0; var pb := 0.0; var pc := 0.0; var pd := 0.0; var pe := 0.0
+		var pf := 0.0; var pg := 0.0; var ph := 0.0; var pi := 0.0; var pj := 0.0
+		var pk := 0.0; var pl := 0.0
 		var nz = null
+		var lut = PackedFloat32Array()
+
+		var _f := func(p: StringName, def: float = 0.0) -> float:
+			var v = node.get(p)
+			return float(v) if v != null else def
+
+		var _i := func(p: StringName, def: int = 0) -> int:
+			var v = node.get(p)
+			return int(v) if v != null else def
+
 		match node.op():
 			&"input":
 				op_id = 10
+			&"output", &"reroute":
+				op_id = 12
 			&"noise":
-				op_id = 1; param = float(node.get("amplitude")); nz = node.get("noise")
+				op_id = 1; p0 = _f.call(&"amplitude", 1.0); nz = node.get("noise")
 			&"const":
-				op_id = 2; param = float(node.get("value"))
+				op_id = 2; p0 = _f.call(&"value", 0.0)
 			&"blend":
-				if srcs.size() > 2 and int(srcs[2]) >= 0:
-					return {} # a masked blend is 3-input; the native whole-graph evaluator reads only in0/in1
-				op_id = 3; param = float(int(node.get("mode")))
+				op_id = 3; p0 = float(_i.call(&"mode", 0))
 			&"terrace":
 				op_id = 4
-				param = float(node.get("band_height"))
-				pb = float(node.get("hardness"))
-				pc = float(node.get("amount"))
-				pd = float(node.get("jitter"))
+				p0 = _f.call(&"band_height", 8.0)
+				pb = _f.call(&"hardness", 0.8)
+				pc = _f.call(&"amount", 1.0)
+				pd = _f.call(&"jitter", 0.0)
 				if pd > 0.0 and node.has_method("_jitter_field"):
 					nz = node.call("_jitter_field")
 			&"smooth":
-				op_id = 11; param = float(int(node.get("passes")))
-			&"output":
-				op_id = 12
+				op_id = 11; p0 = float(_i.call(&"passes", 1))
+			&"noise_jordan":
+				op_id = 13; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"warp_strength", 0.35); pg = _f.call(&"damp_strength", 0.8); ph = float(_i.call(&"seed", 0))
+			&"noise_swiss":
+				op_id = 14; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"ridge_offset", 1.0); pg = _f.call(&"erosion_accent", 0.3); ph = float(_i.call(&"seed", 0))
+			&"geological_primitive":
+				op_id = 15; p0 = float(_i.call(&"primitive_type", 0)); pb = float(_i.call(&"mapping", 0)); pc = _f.call(&"height", 50.0); pd = _f.call(&"radius", 50.0); pe = _f.call(&"eccentricity", 0.0); pf = _f.call(&"steepness", 1.0); pg = _f.call(&"azimuth_degrees", 0.0); var off: Vector2 = node.get("center_offset") if node.get("center_offset") != null else Vector2.ZERO; pj = off.x; pk = off.y
+			&"furrows":
+				op_id = 16; p0 = _f.call(&"amplitude", 1.0); pb = _f.call(&"spacing", 15.0); pc = _f.call(&"direction_degrees", 0.0); pd = float(_i.call(&"profile", 1)); pe = _f.call(&"wobble_amount", 2.0); pf = _f.call(&"wobble_size", 70.0); pg = float(_i.call(&"seed", 0))
+			&"dunes":
+				op_id = 17; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"wavelength", 30.0); pc = _f.call(&"direction_degrees", 0.0); pd = _f.call(&"asymmetry", 0.4); pe = _f.call(&"crest_sharpness", 0.6); pf = _f.call(&"wander_amount", 2.0); pg = _f.call(&"wander_size", 60.0); ph = float(_i.call(&"seed", 0))
+			&"crater":
+				op_id = 18; p0 = _f.call(&"amplitude", 10.0); pb = _f.call(&"floor_depth", 14.0); pc = _f.call(&"rim_height", 4.0); pd = _f.call(&"rim_width", 0.25); pe = _f.call(&"ejecta_falloff", 2.5); pf = _f.call(&"floor_flatness", 0.4); pg = float(_i.call(&"terrace_steps", 0))
+			&"warp":
+				op_id = 19; p0 = float(_i.call(&"warp_type", 0)); pb = _f.call(&"frequency", 0.01); pc = _f.call(&"strength", 10.0); pd = float(_i.call(&"octaves", 3)); pe = _f.call(&"amplitude", 1.0); pf = _f.call(&"roughness", 0.5); pg = float(_i.call(&"seed", 0))
+			&"strata":
+				op_id = 20; p0 = _f.call(&"band_height", 8.0); pb = _f.call(&"hardness", 0.75); pc = _f.call(&"amount", 1.0); pd = _f.call(&"dip", 4.0); pe = _f.call(&"dip_direction_degrees", 45.0); pf = _f.call(&"break_amount", 3.0); pg = _f.call(&"break_size", 40.0); ph = float(_i.call(&"seed", 0))
+			&"curve":
+				op_id = 21; p0 = _f.call(&"input_min", 0.0); pb = _f.call(&"input_max", 100.0); pc = _f.call(&"output_min", 0.0); pd = _f.call(&"output_max", 100.0); pe = _f.call(&"amount", 1.0)
+				var c: Curve = node.get("curve")
+				if c != null:
+					lut.resize(256)
+					for li in range(256):
+						lut[li] = c.sample_baked(float(li) / 255.0)
+			&"remap":
+				op_id = 22; p0 = _f.call(&"in_min", 0.0); pb = _f.call(&"in_max", 100.0); pc = _f.call(&"out_min", 0.0); pd = _f.call(&"out_max", 100.0); pe = 1.0 if bool(node.get("clamp_output")) else 0.0; pf = _f.call(&"soft_knee", 0.0); pg = 1.0 if bool(node.get("invert")) else 0.0
+			&"mask":
+				op_id = 23; p0 = float(_i.call(&"property", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 90.0); pd = _f.call(&"falloff_lo", 0.0); pe = _f.call(&"falloff_hi", 0.0); pf = 1.0 if bool(node.get("invert")) else 0.0; pg = _f.call(&"strength", 1.0)
+			&"curvature":
+				op_id = 24; p0 = float(_i.call(&"mode", 0)); pb = float(_i.call(&"radius", 1)); pc = _f.call(&"contrast", 1.0)
+			&"talus_projection":
+				op_id = 25; p0 = _f.call(&"talus_angle_deg", 35.0); pb = float(_i.call(&"iterations", 16)); pc = _f.call(&"transfer_rate", 0.5); pd = _f.call(&"amount", 1.0)
+			&"spectral_equalizer":
+				op_id = 26; p0 = _f.call(&"macro_gain", 1.0); pb = _f.call(&"meso_gain", 1.0); pc = _f.call(&"micro_gain", 1.5); pd = float(_i.call(&"macro_passes", 16)); pe = float(_i.call(&"meso_passes", 4)); pf = _f.call(&"amount", 1.0)
+			&"depression_filling":
+				op_id = 27; p0 = _f.call(&"epsilon_slope", 0.0001); pb = _f.call(&"fill_depth_limit", 0.0); pc = _f.call(&"amount", 1.0)
+			&"lake_flooding":
+				op_id = 28; p0 = float(_i.call(&"flood_mode", 0)); pb = _f.call(&"water_elevation", 10.0); pc = _f.call(&"flood_percent", 1.0); pd = _f.call(&"shoreline_width", 4.0)
+			&"stream_extraction":
+				op_id = 29; p0 = _f.call(&"min_catchment_cells", 24.0); pb = _f.call(&"carve_depth", 3.0); pc = _f.call(&"channel_width", 8.0); pd = _f.call(&"bank_falloff", 4.0)
+			&"erosion_hydraulic":
+				op_id = 30; p0 = float(_i.call(&"iterations", 25)); pb = _f.call(&"rain_rate", 0.05); pc = _f.call(&"evaporation_rate", 0.02); pd = _f.call(&"sediment_capacity", 8.0); pe = _f.call(&"erosion_speed", 0.5); pf = _f.call(&"deposition_speed", 0.4); pg = _f.call(&"min_slope", 0.01)
+			&"erosion_thermal":
+				op_id = 31; p0 = _f.call(&"talus_angle", 30.0); pb = float(_i.call(&"iterations", 25)); pc = _f.call(&"settling_rate", 0.7)
+			&"scree":
+				op_id = 32; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"grain_size", 0.05); pc = _f.call(&"downslope_streak", 0.7); pd = _f.call(&"toe_deposition", 0.8); pe = _f.call(&"min_slope_degrees", 25.0); pf = _f.call(&"slope_falloff_degrees", 8.0); pg = float(_i.call(&"seed", 0))
+			&"erosion":
+				op_id = 33; p0 = float(_i.call(&"iterations", 30)); pb = _f.call(&"erosion_rate", 0.08); pc = _f.call(&"area_exponent", 0.45); pd = _f.call(&"hillslope_diffusion", 0.15); pe = _f.call(&"deposition", 0.0)
 			_:
 				return {} # an op the native evaluator does not implement
+
 		ops.append(op_id)
-		params.append(param)
-		params_b.append(pb)
-		params_c.append(pc)
-		params_d.append(pd)
+		params.append(p0); params_b.append(pb); params_c.append(pc); params_d.append(pd)
+		params_e.append(pe); params_f.append(pf); params_g.append(pg); params_h.append(ph)
+		params_i.append(pi); params_j.append(pj); params_k.append(pk); params_l.append(pl)
 		noise_tab.append(nz)
+		luts_tab.append(lut)
 		in0.append(int(slot_of[s0]) if s0 >= 0 else -1)
 		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
+		in2.append(int(slot_of[s2]) if s2 >= 0 else -1)
+
 	return {
 		"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
-		"in0": in0, "in1": in1,
-		"noise": noise_tab, "output": int(slot_of[out]),
+		"params_e": params_e, "params_f": params_f, "params_g": params_g, "params_h": params_h,
+		"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
+		"in0": in0, "in1": in1, "in2": in2,
+		"noise": noise_tab, "luts": luts_tab, "output": int(slot_of[out]),
 	}
 
 
-## True when every node feeding the output has an op the native whole-graph evaluator implements — i.e.
-## `compile_graph_program()` would return a program, so the host can run this graph natively instead of
-## forcing the GDScript rasteriser. Cheap structural check (no grids), for `_stack_forces_gdscript`.
+## True when every node feeding the output has an op the native whole-graph evaluator implements.
 func native_supported() -> bool:
 	var out := output_index()
 	if out < 0 or out >= nodes.size() or nodes[out] == null:
@@ -794,27 +1061,26 @@ func native_supported() -> bool:
 	var order := _eval_order()
 	if order.is_empty():
 		return false
-	const SUPPORTED := [&"input", &"noise", &"const", &"blend", &"smooth", &"terrace", &"output"]
+	const SUPPORTED := [
+		&"input", &"output", &"reroute", &"noise", &"const", &"blend", &"smooth", &"terrace",
+		&"noise_jordan", &"noise_swiss", &"geological_primitive", &"furrows", &"dunes",
+		&"crater", &"warp", &"strata", &"curve", &"remap", &"mask", &"curvature",
+		&"talus_projection", &"spectral_equalizer", &"depression_filling", &"lake_flooding",
+		&"stream_extraction", &"erosion_hydraulic", &"erosion_thermal", &"scree", &"erosion"
+	]
 	for ni in order:
 		if nodes[ni] == null or nodes[ni].muted or not SUPPORTED.has(nodes[ni].op()):
 			return false
-	# A Blend whose MASK port (2) is wired is a 3-input op the native evaluator reads as a plain 2-input
-	# blend, so it must stay on the GDScript path where the mask is applied.
-	if _has_masked_blend(order):
-		return false
+	# If any wire in the active DAG feeds from a secondary port (port >= 1, e.g. a solver mask),
+	# stay on the multi-channel GDScript evaluator so the secondary channel is correctly read.
+	for c in connections:
+		if c.size() >= 4 and int(c[1]) > 0:
+			var to_node := int(c[2])
+			var from_node := int(c[0])
+			if order.has(to_node) and order.has(from_node):
+				return false
 	return true
 
-
-## True when a Blend node in `p_order` has its mask input (port 2) wired — the case the native lowering
-## cannot represent. Scans connections rather than the fold plan so it is cheap enough for native_supported.
-func _has_masked_blend(p_order: Array) -> bool:
-	for c in connections:
-		if c.size() >= 4 and int(c[3]) == 2:
-			var to := int(c[2])
-			if to >= 0 and to < nodes.size() and nodes[to] != null \
-					and nodes[to].op() == &"blend" and p_order.has(to):
-				return true
-	return false
 
 
 ## The pre-fold reference: materialise EVERY node's grid (increment 1's evaluator). Kept as the oracle the
@@ -837,6 +1103,14 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input 
 		var in_grids := _input_grids(ni, grids, aux, n)
 		if node.muted:
 			grids[ni] = (in_grids[0] as PackedFloat32Array) if not in_grids.is_empty() else Pasture3DGraphOps.zeros(n)
+		elif node.op() == &"noise_jordan":
+			grids[ni] = Pasture3DUtil.noise_jordan_grid(p_gw, p_gh, p_rect, node.amplitude, node.frequency, node.octaves, node.gain, node.lacunarity, node.warp_strength, node.damp_strength, node.seed)
+		elif node.op() == &"noise_swiss":
+			grids[ni] = Pasture3DUtil.noise_swiss_grid(p_gw, p_gh, p_rect, node.amplitude, node.frequency, node.octaves, node.gain, node.lacunarity, node.ridge_offset, node.erosion_accent, node.seed)
+		elif node.op() == &"furrows":
+			grids[ni] = Pasture3DUtil.furrows_grid(p_gw, p_gh, p_rect, node.amplitude, node.spacing, node.direction_degrees, int(node.profile), node.wobble_amount, node.wobble_size, node.seed)
+		elif node.op() == &"dunes":
+			grids[ni] = Pasture3DUtil.dunes_grid(p_gw, p_gh, p_rect, node.amplitude, node.wavelength, node.direction_degrees, node.asymmetry, node.crest_sharpness, node.wander_amount, node.wander_size, node.seed)
 		elif node.needs_grid() and node.output_count() > 1:
 			var chans: Array = node.eval_grid_channels(in_grids, p_gw, p_gh, p_mask, p_rect)
 			grids[ni] = chans[0]

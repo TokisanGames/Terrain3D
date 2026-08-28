@@ -11,14 +11,24 @@
 #include "logger.h"
 #include "pasture_3d_curvature.h"
 #include "pasture_3d_depression_filling.h"
+#include "pasture_3d_crater.h"
+#include "pasture_3d_dunes.h"
 #include "pasture_3d_erosion.h"
 #include "pasture_3d_erosion_hydraulic.h"
 #include "pasture_3d_erosion_thermal.h"
+#include "pasture_3d_furrows.h"
+#include "pasture_3d_geological_primitive.h"
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_lake_flooding.h"
+#include "pasture_3d_math_ops.h"
+#include "pasture_3d_noise_jordan.h"
+#include "pasture_3d_noise_swiss.h"
+#include "pasture_3d_scree.h"
 #include "pasture_3d_spectral_equalizer.h"
+#include "pasture_3d_strata.h"
 #include "pasture_3d_stream_extraction.h"
+#include "pasture_3d_thread_pool.h"
 #include "pasture_3d_util.h"
 #include "pasture_3d_warp.h"
 
@@ -1131,15 +1141,17 @@ PackedFloat32Array Pasture3DUtil::graph_cell_eval_grid(const Dictionary &p_progr
 	if (n == 0 || !graph_cell_build(p_program, prog)) {
 		return out;
 	}
-	std::vector<double> scratch(prog.count);
-	for (int iz = 0; iz < p_gh; iz++) {
-		const int row = iz * p_gw;
-		for (int ix = 0; ix < p_gw; ix++) {
-			double wx, wz;
-			graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
-			w[row + ix] = (float)graph_cell_eval(prog, wx, wz, scratch);
+	Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+		std::vector<double> scratch(prog.count);
+		for (int iz = z0; iz < z1; iz++) {
+			const int row = iz * p_gw;
+			for (int ix = 0; ix < p_gw; ix++) {
+				double wx, wz;
+				graph_cell_to_world(ix, iz, p_gw, p_gh, p_rect, wx, wz);
+				w[row + ix] = (float)graph_cell_eval(prog, wx, wz, scratch);
+			}
 		}
-	}
+	});
 	return out;
 }
 
@@ -1324,6 +1336,87 @@ PackedFloat32Array Pasture3DUtil::warp_grid(const PackedFloat32Array &p_surface,
 			p_frequency, p_strength, p_octaves, p_amplitude, p_roughness, p_seed);
 }
 
+PackedFloat32Array Pasture3DUtil::noise_jordan_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_amplitude, const double p_frequency, const int p_octaves,
+		const double p_gain, const double p_lacunarity, const double p_warp_strength,
+		const double p_damp_strength, const int p_seed) {
+	return godot::noise_jordan_grid(p_gw, p_gh, p_rect, p_amplitude, p_frequency, p_octaves,
+			p_gain, p_lacunarity, p_warp_strength, p_damp_strength, p_seed);
+}
+
+PackedFloat32Array Pasture3DUtil::noise_swiss_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_amplitude, const double p_frequency, const int p_octaves,
+		const double p_gain, const double p_lacunarity, const double p_ridge_offset,
+		const double p_erosion_accent, const int p_seed) {
+	return godot::noise_swiss_grid(p_gw, p_gh, p_rect, p_amplitude, p_frequency, p_octaves,
+			p_gain, p_lacunarity, p_ridge_offset, p_erosion_accent, p_seed);
+}
+
+PackedFloat32Array Pasture3DUtil::geological_primitive_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const int p_primitive_type, const int p_mapping, const double p_height, const double p_radius,
+		const double p_eccentricity, const double p_steepness, const double p_azimuth_degrees,
+		const Vector2 &p_center_offset) {
+	return godot::geological_primitive_grid(p_gw, p_gh, p_rect, p_primitive_type, p_mapping,
+			p_height, p_radius, p_eccentricity, p_steepness, p_azimuth_degrees, p_center_offset);
+}
+
+PackedFloat32Array Pasture3DUtil::furrows_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_amplitude, const double p_spacing, const double p_direction_deg,
+		const int p_profile, const double p_wobble_amount, const double p_wobble_size, const int p_seed) {
+	return godot::furrows_grid(p_gw, p_gh, p_rect, p_amplitude, p_spacing, p_direction_deg,
+			p_profile, p_wobble_amount, p_wobble_size, p_seed);
+}
+
+PackedFloat32Array Pasture3DUtil::dunes_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_amplitude, const double p_wavelength, const double p_direction_deg,
+		const double p_asymmetry, const double p_crest_sharpness, const double p_wander_amount,
+		const double p_wander_size, const int p_seed) {
+	return godot::dunes_grid(p_gw, p_gh, p_rect, p_amplitude, p_wavelength, p_direction_deg,
+			p_asymmetry, p_crest_sharpness, p_wander_amount, p_wander_size, p_seed);
+}
+
+PackedFloat32Array Pasture3DUtil::crater_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_amplitude, const double p_floor_depth, const double p_rim_height,
+		const double p_rim_width, const double p_ejecta_falloff, const double p_floor_flatness,
+		const int p_terrace_steps) {
+	return godot::crater_grid(p_gw, p_gh, p_rect, p_amplitude, p_floor_depth, p_rim_height,
+			p_rim_width, p_ejecta_falloff, p_floor_flatness, p_terrace_steps);
+}
+
+Array Pasture3DUtil::scree_solve_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const double p_amplitude, const double p_grain_size,
+		const double p_downslope_streak, const double p_toe_deposition, const double p_min_slope_deg,
+		const double p_slope_falloff_deg, const int p_seed) {
+	return godot::scree_solve_grid(p_surface, p_gw, p_gh, p_rect, p_amplitude, p_grain_size,
+			p_downslope_streak, p_toe_deposition, p_min_slope_deg, p_slope_falloff_deg, p_seed);
+}
+
+PackedFloat32Array Pasture3DUtil::strata_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const double p_band_height, const double p_hardness,
+		const double p_amount, const double p_dip, const double p_dip_direction_deg,
+		const double p_break_amount, const double p_break_size, const int p_seed) {
+	return godot::strata_grid(p_surface, p_gw, p_gh, p_rect, p_band_height, p_hardness,
+			p_amount, p_dip, p_dip_direction_deg, p_break_amount, p_break_size, p_seed);
+}
+
+PackedFloat32Array Pasture3DUtil::curve_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_lut,
+		const double p_in_min, const double p_in_max, const double p_out_min, const double p_out_max, const double p_amount) {
+	return godot::curve_grid(p_surface, p_lut, p_in_min, p_in_max, p_out_min, p_out_max, p_amount);
+}
+
+PackedFloat32Array Pasture3DUtil::remap_grid(const PackedFloat32Array &p_surface,
+		const double p_in_min, const double p_in_max, const double p_out_min, const double p_out_max,
+		const bool p_clamp_output, const double p_soft_knee, const bool p_invert) {
+	return godot::remap_grid(p_surface, p_in_min, p_in_max, p_out_min, p_out_max, p_clamp_output, p_soft_knee, p_invert);
+}
+
+PackedFloat32Array Pasture3DUtil::mask_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const int p_property, const double p_band_min, const double p_band_max,
+		const double p_falloff_lo, const double p_falloff_hi, const bool p_invert, const double p_strength) {
+	return godot::mask_grid(p_surface, p_gw, p_gh, p_rect, p_property, p_band_min, p_band_max,
+			p_falloff_lo, p_falloff_hi, p_invert, p_strength);
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1429,4 +1522,39 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("warp_grid", "surface", "gw", "gh", "rect", "warp_type", "frequency", "strength", "octaves", "amplitude", "roughness", "seed"),
 			&Pasture3DUtil::warp_grid);
+	// Terrain graph — Procedural Generators & Solvers.
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("noise_jordan_grid", "gw", "gh", "rect", "amplitude", "frequency", "octaves", "gain", "lacunarity", "warp_strength", "damp_strength", "seed"),
+			&Pasture3DUtil::noise_jordan_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("noise_swiss_grid", "gw", "gh", "rect", "amplitude", "frequency", "octaves", "gain", "lacunarity", "ridge_offset", "erosion_accent", "seed"),
+			&Pasture3DUtil::noise_swiss_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("geological_primitive_grid", "gw", "gh", "rect", "primitive_type", "mapping", "height", "radius", "eccentricity", "steepness", "azimuth_degrees", "center_offset"),
+			&Pasture3DUtil::geological_primitive_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("furrows_grid", "gw", "gh", "rect", "amplitude", "spacing", "direction_deg", "profile", "wobble_amount", "wobble_size", "seed"),
+			&Pasture3DUtil::furrows_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("dunes_grid", "gw", "gh", "rect", "amplitude", "wavelength", "direction_deg", "asymmetry", "crest_sharpness", "wander_amount", "wander_size", "seed"),
+			&Pasture3DUtil::dunes_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("crater_grid", "gw", "gh", "rect", "amplitude", "floor_depth", "rim_height", "rim_width", "ejecta_falloff", "floor_flatness", "terrace_steps"),
+			&Pasture3DUtil::crater_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("scree_solve_grid", "surface", "gw", "gh", "rect", "amplitude", "grain_size", "downslope_streak", "toe_deposition", "min_slope_deg", "slope_falloff_deg", "seed"),
+			&Pasture3DUtil::scree_solve_grid);
+	// Terrain graph — Modifiers & Math Operations.
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("strata_grid", "surface", "gw", "gh", "rect", "band_height", "hardness", "amount", "dip", "dip_direction_deg", "break_amount", "break_size", "seed"),
+			&Pasture3DUtil::strata_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("curve_grid", "surface", "lut", "in_min", "in_max", "out_min", "out_max", "amount"),
+			&Pasture3DUtil::curve_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("remap_grid", "surface", "in_min", "in_max", "out_min", "out_max", "clamp_output", "soft_knee", "invert"),
+			&Pasture3DUtil::remap_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mask_grid", "surface", "gw", "gh", "rect", "property", "band_min", "band_max", "falloff_lo", "falloff_hi", "invert", "strength"),
+			&Pasture3DUtil::mask_grid);
 }

@@ -98,42 +98,17 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -
 	else:
 		mask = Pasture3DGraphOps.filled(n, 1.0)
 
-	if ClassDB.class_has_method("Pasture3DUtil", "spectral_equalizer_grid"):
-		var res: PackedFloat32Array = Pasture3DUtil.spectral_equalizer_grid(in_grid, mask, p_gw, p_gh,
-				macro_gain, meso_gain, micro_gain, macro_passes, meso_passes, amount)
-		if res.size() == n:
-			return res
+	if not ClassDB.class_has_method("Pasture3DUtil", "spectral_equalizer_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.spectral_equalizer_grid is not bound. Rebuild GDExtension.")
+		return in_grid.duplicate()
 
-	return _eval_grid_gdscript(in_grid, mask, p_gw, p_gh)
+	var res: PackedFloat32Array = Pasture3DUtil.spectral_equalizer_grid(in_grid, mask, p_gw, p_gh,
+			macro_gain, meso_gain, micro_gain, macro_passes, meso_passes, amount)
+	if res.size() != n:
+		push_error("[Pasture3D] Spectral equalizer native solve returned invalid grid size.")
+		return in_grid.duplicate()
 
-
-func _eval_grid_gdscript(in_grid: PackedFloat32Array, mask: PackedFloat32Array, p_gw: int, p_gh: int) -> PackedFloat32Array:
-	var n := p_gw * p_gh
-	var p_meso := mini(meso_passes, macro_passes)
-	var p_macro := maxi(macro_passes, meso_passes)
-
-	# Multi-scale decomposition
-	var l_meso := Pasture3DGraphOps.blur_nan(in_grid.duplicate(), p_gw, p_gh, p_meso)
-	var l_macro := Pasture3DGraphOps.blur_nan(l_meso.duplicate(), p_gw, p_gh, p_macro - p_meso)
-
-	var out_grid := PackedFloat32Array()
-	out_grid.resize(n)
-
-	for i in range(n):
-		var h_orig := in_grid[i]
-		if not is_finite(h_orig):
-			out_grid[i] = NAN
-			continue
-
-		var macro_val := l_macro[i]
-		var meso_band := l_meso[i] - macro_val
-		var micro_band := h_orig - l_meso[i]
-
-		var h_eq := macro_gain * macro_val + meso_gain * meso_band + micro_gain * micro_band
-		var m := clampf(mask[i], 0.0, 1.0)
-		out_grid[i] = lerpf(h_orig, h_eq, amount * m)
-
-	return out_grid
+	return res
 
 
 func node_warnings() -> PackedStringArray:

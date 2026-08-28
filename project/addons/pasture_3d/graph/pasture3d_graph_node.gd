@@ -60,6 +60,71 @@ enum Role { GENERATOR, FILTER, COMBINER, SOLVER }
 ## When collapsed, the editor hides internal inline controls, displaying a compact header with port slots.
 @export var collapsed: bool = false
 
+# ---- Per-Node Output Buffer Caching (Milestone 1) ----------------------------------------------------
+var _cached_grid: PackedFloat32Array = PackedFloat32Array()
+var _cached_aux: Dictionary = {}
+var _dirty_revision: int = 1
+var _last_baked_revision: int = -1
+var _inputs_hash: int = 0
+var _last_access_tick: int = 0
+
+
+func _init() -> void:
+	changed.connect(_on_node_changed_bump_revision)
+
+
+func _on_node_changed_bump_revision() -> void:
+	_dirty_revision += 1
+
+
+## Returns true if the node needs re-evaluation (its properties changed, inputs signature changed, or cache empty).
+func is_dirty(p_inputs_hash: int) -> bool:
+	if _cached_grid.is_empty():
+		return true
+	if _dirty_revision != _last_baked_revision:
+		return true
+	if _inputs_hash != p_inputs_hash:
+		return true
+	return false
+
+
+## Stores primary output grid and auxiliary channel grids in the node's local cache.
+func store_cache(p_grid: PackedFloat32Array, p_aux: Dictionary, p_inputs_hash: int, p_access_tick: int = 0) -> void:
+	_cached_grid = p_grid
+	_cached_aux = p_aux
+	_last_baked_revision = _dirty_revision
+	_inputs_hash = p_inputs_hash
+	_last_access_tick = p_access_tick
+
+
+## Clears this node's cached buffers and resets cache revisions.
+func clear_cache() -> void:
+	_cached_grid = PackedFloat32Array()
+	_cached_aux = {}
+	_last_baked_revision = -1
+	_inputs_hash = 0
+
+
+## Returns the primary cached output grid (port 0).
+func get_cached_grid() -> PackedFloat32Array:
+	return _cached_grid
+
+
+## Returns the dictionary of cached auxiliary channel grids (ports >= 1).
+func get_cached_aux() -> Dictionary:
+	return _cached_aux
+
+
+## Approximate memory footprint in bytes consumed by this node's cached grids.
+func get_cache_size_bytes() -> int:
+	var total := _cached_grid.size() * 4
+	for k in _cached_aux:
+		var arr = _cached_aux[k]
+		if arr is PackedFloat32Array:
+			total += (arr as PackedFloat32Array).size() * 4
+	return total
+
+
 
 ## The dispatch tag. MUST match the string any equivalent stack op / native backend tests.
 func op() -> StringName:

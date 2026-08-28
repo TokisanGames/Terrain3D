@@ -7,6 +7,7 @@
 class_name Pasture3DGraphNodeRegistry
 extends RefCounted
 
+# --- Production Node Scripts ---
 const InputScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_input.gd")
 const NoiseScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_noise.gd")
 const NoiseJordanScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_noise_jordan.gd")
@@ -38,11 +39,32 @@ const DLAScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dl
 const RerouteScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_reroute.gd")
 const OutputScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_output.gd")
 
+# --- Developer / Reference [Dev/GD] Node Scripts ---
+const DevErosionHydraulicScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_erosion_hydraulic.gd")
+const DevErosionThermalScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_erosion_thermal.gd")
+const DevDepressionFillingScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_depression_filling.gd")
+const DevLakeFloodingScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_lake_flooding.gd")
+const DevStreamExtractionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_stream_extraction.gd")
+const DevSpectralEqualizerScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_spectral_equalizer.gd")
+const DevTalusProjectionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_talus_projection.gd")
+const DevCurvatureScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_curvature.gd")
+const DevWarpScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_warp.gd")
+const DevErosionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_erosion.gd")
+const DevDLAScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_dla.gd")
 
-## Palette entries, in menu order. `title` is the menu/label text; `role` groups them (the same three
-## Pasture3DGraphNode.Role names); `script` is the GDScript class to instance; `tags` supports fuzzy search.
-static func entries() -> Array[Dictionary]:
-	return [
+
+## Checks if the developer flag for exposing [Dev/GD] reference nodes is enabled.
+static func is_dev_nodes_enabled() -> bool:
+	if Engine.is_editor_hint():
+		if ProjectSettings.has_setting("pasture_3d/developer/enable_gdscript_reference_nodes"):
+			return bool(ProjectSettings.get_setting("pasture_3d/developer/enable_gdscript_reference_nodes"))
+	return false
+
+
+## Palette entries, in menu order. `title` is the menu/label text; `role` groups them;
+## `script` is the GDScript class to instance; `tags` supports fuzzy search.
+static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
+	var list: Array[Dictionary] = [
 		{"op": &"input", "title": "Input", "role": "Source", "script": InputScript, "tags": ["surface", "incoming", "host", "read"], "description": "Reads the incoming terrain surface handed to the graph."},
 		{"op": &"noise", "title": "Noise", "role": "Generator", "script": NoiseScript, "tags": ["perlin", "simplex", "fractal", "fbm", "height"], "description": "Coherent multi-octave FastNoiseLite terrain generator."},
 		{"op": &"noise_jordan", "title": "Jordan Noise", "role": "Generator", "script": NoiseJordanScript, "tags": ["jordan", "derivative", "gradient", "fbm", "fluting", "warp", "ridges", "mountain"], "description": "Derivative-feedback fractal noise with slope-attenuated octave warping for natural mountain fluting."},
@@ -75,26 +97,50 @@ static func entries() -> Array[Dictionary]:
 		{"op": &"output", "title": "Output", "role": "Sink", "script": OutputScript, "tags": ["sink", "result", "final", "surface"], "description": "The destination sink representing the graph's output surface."},
 	]
 
+	if p_include_dev or is_dev_nodes_enabled():
+		list.append_array(_dev_entries())
+
+	return list
+
+
+## Dedicated developer / reference oracle entries.
+static func _dev_entries() -> Array[Dictionary]:
+	return [
+		{"op": &"dev_erosion_hydraulic", "title": "[Dev/GD] Hydraulic Erosion", "role": "Dev / Reference", "script": DevErosionHydraulicScript, "tags": ["dev", "gdscript", "oracle", "hydraulic", "erosion"], "description": "Pure GDScript reference oracle for hydraulic erosion simulation."},
+		{"op": &"dev_erosion_thermal", "title": "[Dev/GD] Thermal Erosion", "role": "Dev / Reference", "script": DevErosionThermalScript, "tags": ["dev", "gdscript", "oracle", "thermal", "erosion", "talus"], "description": "Pure GDScript reference oracle for thermal weathering & talus scree erosion."},
+		{"op": &"dev_depression_filling", "title": "[Dev/GD] Depression Filling", "role": "Dev / Reference", "script": DevDepressionFillingScript, "tags": ["dev", "gdscript", "oracle", "depression", "sink", "priority", "flood"], "description": "Pure GDScript reference oracle for Priority-Flood depression filling."},
+		{"op": &"dev_lake_flooding", "title": "[Dev/GD] Lake Flooding", "role": "Dev / Reference", "script": DevLakeFloodingScript, "tags": ["dev", "gdscript", "oracle", "lake", "pond", "water", "flood"], "description": "Pure GDScript reference oracle for lake flooding and shoreline extraction."},
+		{"op": &"dev_stream_extraction", "title": "[Dev/GD] Stream Extraction", "role": "Dev / Reference", "script": DevStreamExtractionScript, "tags": ["dev", "gdscript", "oracle", "stream", "river", "thalweg", "flow"], "description": "Pure GDScript reference oracle for stream extraction and thalweg routing."},
+		{"op": &"dev_spectral_equalizer", "title": "[Dev/GD] Spectral Equalizer", "role": "Dev / Reference", "script": DevSpectralEqualizerScript, "tags": ["dev", "gdscript", "oracle", "spectral", "equalizer", "frequency", "blur"], "description": "Pure GDScript reference oracle for 3-band spatial spectral equalizer."},
+		{"op": &"dev_talus_projection", "title": "[Dev/GD] Talus Projection", "role": "Dev / Reference", "script": DevTalusProjectionScript, "tags": ["dev", "gdscript", "oracle", "talus", "scree", "repose"], "description": "Pure GDScript reference oracle for talus projection slope relaxation."},
+		{"op": &"dev_curvature", "title": "[Dev/GD] Curvature Mask", "role": "Dev / Reference", "script": DevCurvatureScript, "tags": ["dev", "gdscript", "oracle", "curvature", "convexity", "concavity", "ridge"], "description": "Pure GDScript reference oracle for discrete Laplacian curvature."},
+		{"op": &"dev_warp", "title": "[Dev/GD] Domain Warp", "role": "Dev / Reference", "script": DevWarpScript, "tags": ["dev", "gdscript", "oracle", "warp", "distortion", "noise"], "description": "Pure GDScript reference oracle for domain warp coordinate distortion."},
+		{"op": &"dev_erosion", "title": "[Dev/GD] Erosion", "role": "Dev / Reference", "script": DevErosionScript, "tags": ["dev", "gdscript", "oracle", "erosion", "river", "fluvial"], "description": "Reference dev erosion node."},
+		{"op": &"dev_dla", "title": "[Dev/GD] DLA", "role": "Dev / Reference", "script": DevDLAScript, "tags": ["dev", "gdscript", "oracle", "dla", "mountain", "massif"], "description": "Pure GDScript reference oracle for DLA massif generation."},
+	]
+
 
 ## A fresh node for `p_op`, or null if the op is unknown.
+## Searches both standard and dev entries so saved graphs or test harnesses can instantiate by op.
 static func create(p_op: StringName) -> Pasture3DGraphNode:
-	for e in entries():
+	for e in entries(true):
 		if e["op"] == p_op:
 			return (e["script"] as GDScript).new()
 	return null
 
 
 ## Searches palette entries matching `p_query` by title, op, role, or tags.
-static func search(p_query: String) -> Array[Dictionary]:
+static func search(p_query: String, p_include_dev: bool = false) -> Array[Dictionary]:
 	var q := p_query.strip_edges().to_lower()
+	var all_entries := entries(p_include_dev)
 	if q.is_empty():
-		return entries()
+		return all_entries
 
 	var exact_matches: Array[Dictionary] = []
 	var partial_matches: Array[Dictionary] = []
 	var tag_matches: Array[Dictionary] = []
 
-	for e in entries():
+	for e in all_entries:
 		var title: String = String(e.get("title", "")).to_lower()
 		var op_str: String = String(e.get("op", "")).to_lower()
 		var role_str: String = String(e.get("role", "")).to_lower()

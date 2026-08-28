@@ -73,7 +73,7 @@ func _test_a_erosion_thermal_parity() -> void:
 		hardness[i] = 0.25 if (i % 3 == 0) else 0.0
 
 	var rect := Rect2(-100, -100, 200, 200)
-	var node := Pasture3DGraphNodeErosionThermal.new()
+	var node := Pasture3DGraphNodeDevErosionThermal.new()
 	node.talus_angle = 32.0
 	node.iterations = 10
 	node.settling_rate = 0.65
@@ -97,7 +97,7 @@ func _test_b_talus_projection_parity() -> void:
 		mask[i] = 1.0 if (i % gw < gw / 2) else 0.5
 
 	var rect := Rect2(-100, -100, 200, 200)
-	var node := Pasture3DGraphNodeTalusProjection.new()
+	var node := Pasture3DGraphNodeDevTalusProjection.new()
 	node.talus_angle_deg = 35.0
 	node.iterations = 12
 	node.transfer_rate = 0.5
@@ -119,7 +119,7 @@ func _test_c_spectral_equalizer_parity() -> void:
 	mask.resize(n)
 	mask.fill(1.0)
 
-	var node := Pasture3DGraphNodeSpectralEqualizer.new()
+	var node := Pasture3DGraphNodeDevSpectralEqualizer.new()
 	node.macro_gain = 1.5
 	node.meso_gain = 0.8
 	node.micro_gain = 2.0
@@ -138,12 +138,12 @@ func _test_d_curvature_parity() -> void:
 	var gw := 64
 	var gh := 64
 	var surf := _generate_cliff_grid(gw, gh)
-	var node := Pasture3DGraphNodeCurvature.new()
+	var node := Pasture3DGraphNodeDevCurvature.new()
 	node.radius = 2
 	node.contrast = 1.5
 
 	for mode_idx in [0, 1, 2]:
-		node.mode = mode_idx as Pasture3DGraphNodeCurvature.Mode
+		node.mode = mode_idx as Pasture3DGraphNodeDevCurvature.Mode
 		var mode_name := "RIDGE" if mode_idx == 0 else ("VALLEY" if mode_idx == 1 else "TOTAL")
 		var gd_res: PackedFloat32Array = node._eval_grid_gdscript(surf, gw, gh)
 		var cpp_res: PackedFloat32Array = Pasture3DUtil.curvature_grid(surf, gw, gh, mode_idx, 2, 1.5)
@@ -191,7 +191,7 @@ func _run_benchmarks() -> void:
 		var n: int = sz * sz
 		var surf := _generate_cliff_grid(sz, sz)
 		var hardness := PackedFloat32Array(); hardness.resize(n); hardness.fill(0.0)
-		var node := Pasture3DGraphNodeErosionThermal.new()
+		var node := Pasture3DGraphNodeDevErosionThermal.new()
 		node.talus_angle = 32.0; node.iterations = 10; node.settling_rate = 0.65
 
 		var t0 := Time.get_ticks_usec()
@@ -212,7 +212,7 @@ func _run_benchmarks() -> void:
 		var n: int = sz * sz
 		var surf := _generate_cliff_grid(sz, sz)
 		var mask := PackedFloat32Array(); mask.resize(n); mask.fill(1.0)
-		var node := Pasture3DGraphNodeSpectralEqualizer.new()
+		var node := Pasture3DGraphNodeDevSpectralEqualizer.new()
 		node.macro_gain = 1.5; node.meso_gain = 0.8; node.micro_gain = 2.0
 		node.macro_passes = 12; node.meso_passes = 3; node.amount = 0.9
 
@@ -232,7 +232,7 @@ func _run_benchmarks() -> void:
 	print("-------------------------------------------------------")
 	for sz in scales:
 		var surf := _generate_cliff_grid(sz, sz)
-		var node := Pasture3DGraphNodeCurvature.new()
+		var node := Pasture3DGraphNodeDevCurvature.new()
 		node.radius = 2; node.contrast = 1.5
 
 		var t0 := Time.get_ticks_usec()

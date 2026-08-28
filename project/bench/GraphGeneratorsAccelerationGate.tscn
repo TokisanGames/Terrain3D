@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://bench/GraphGeneratorsAccelerationGate.gd" id="1_gen_gate"]
+
+[node name="GraphGeneratorsAccelerationGate" type="Node"]
+script = ExtResource("1_gen_gate")
