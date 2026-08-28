@@ -15,9 +15,7 @@
 [ext_resource type="Script" uid="uid://dsg073dgc4m11" path="res://addons/pasture_3d/graph/pasture3d_graph_node_erosion_thermal.gd" id="10_wv1iv"]
 [ext_resource type="Script" uid="uid://b4reut2qigpsv" path="res://addons/pasture_3d/connectors/pasture3d_relief_fractal.gd" id="11_4khcl"]
 [ext_resource type="Script" uid="uid://dkwo3nwbq1d7n" path="res://addons/pasture_3d/graph/pasture3d_graph_node_erosion_hydraulic.gd" id="12_4khcl"]
-[ext_resource type="Script" uid="uid://c0eewl4gmy813" path="res://addons/pasture_3d/graph/pasture3d_graph_frame_data.gd" id="16_r5vgm"]
-[ext_resource type="Script" uid="uid://d2cw8j1wtpqsw" path="res://addons/pasture_3d/graph/pasture3d_graph_node_noise.gd" id="17_5q6a7"]
-[ext_resource type="Script" uid="uid://becbt7y4p6twa" path="res://addons/pasture_3d/graph/pasture3d_graph_node_curvature.gd" id="18_ft08i"]
+[ext_resource type="Script" uid="uid://dbvt4w4rnlb6k" path="res://addons/pasture_3d/graph/pasture3d_graph_node_noise_swiss.gd" id="16_6pcwc"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_g143p"]
 _shader_parameters = {
@@ -202,62 +200,29 @@ _data = {
 point_count = 4
 
 [sub_resource type="Resource" id="Resource_jc6ve"]
-script = ExtResource("16_r5vgm")
-title = "Eroded Alpine Massif"
-position_offset = Vector2(-520, 199)
-size = Vector2(1907, 283)
-attached_node_indices = PackedInt32Array(2, 3, 4, 5)
+script = ExtResource("4_v7ey8")
+graph_position = Vector2(-380, 120)
 
 [sub_resource type="Resource" id="Resource_xq5ji"]
-script = ExtResource("4_v7ey8")
-graph_position = Vector2(-480, 60)
+script = ExtResource("5_4khcl")
+graph_position = Vector2(800, 120)
 
 [sub_resource type="Resource" id="Resource_x65ay"]
-script = ExtResource("5_4khcl")
-graph_position = Vector2(1440, 60)
+script = ExtResource("16_6pcwc")
+graph_position = Vector2(-380, 280)
 
-[sub_resource type="FastNoiseLite" id="FastNoiseLite_mayxm"]
-frequency = 0.006
+[sub_resource type="Resource" id="Resource_mayxm"]
+script = ExtResource("7_ii4qc")
+graph_position = Vector2(120, 120)
 
 [sub_resource type="Resource" id="Resource_h4fvm"]
-script = ExtResource("17_5q6a7")
-noise = SubResource("FastNoiseLite_mayxm")
-amplitude = 45.0
-graph_position = Vector2(-480, 240)
-
-[sub_resource type="Resource" id="Resource_nync1"]
-script = ExtResource("12_4khcl")
-iterations = 15
-rain_rate = 0.02
-erosion_speed = 0.35
-deposition_speed = 0.25
-graph_position = Vector2(200, 60)
-
-[sub_resource type="Resource" id="Resource_qe7gh"]
-script = ExtResource("10_wv1iv")
-iterations = 12
-settling_rate = 0.45
-graph_position = Vector2(620, 60)
-
-[sub_resource type="Resource" id="Resource_rup21"]
-script = ExtResource("18_ft08i")
-radius = 2
-contrast = 1.5
-graph_position = Vector2(1180, 240)
-
-[sub_resource type="Resource" id="Resource_eudfm"]
-script = ExtResource("7_ii4qc")
-graph_position = Vector2(-140, 60)
-
-[sub_resource type="Resource" id="Resource_lbwnp"]
 script = ExtResource("8_wv1iv")
-nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_xq5ji"), SubResource("Resource_x65ay"), SubResource("Resource_h4fvm"), SubResource("Resource_nync1"), SubResource("Resource_qe7gh"), SubResource("Resource_rup21"), SubResource("Resource_eudfm")])
-connections = [PackedInt32Array(3, 0, 4, 0), PackedInt32Array(4, 0, 5, 0), PackedInt32Array(0, 0, 6, 0), PackedInt32Array(2, 0, 6, 1), PackedInt32Array(6, 0, 3, 0), PackedInt32Array(4, 0, 1, 0)]
-frames = [SubResource("Resource_jc6ve")]
+nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_jc6ve"), SubResource("Resource_xq5ji"), SubResource("Resource_x65ay"), SubResource("Resource_mayxm")])
+connections = [PackedInt32Array(0, 0, 3, 0), PackedInt32Array(2, 0, 3, 1), PackedInt32Array(3, 0, 1, 0)]
 
 [sub_resource type="Resource" id="Resource_6f76f"]
 script = ExtResource("9_6pcwc")
-graph = SubResource("Resource_lbwnp")
+graph = SubResource("Resource_h4fvm")
 evaluation = 1
 metadata/_custom_type_script = "uid://717mgmmlrimi"
 
@@ -332,7 +297,7 @@ modifiers = Array[ExtResource("2_n4cpt")]([])
 curve = SubResource("Curve3D_vfv27")
 
 [node name="Mound2" type="Node3D" parent="Pasture3D" unique_id=2054269365 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(0.43154347, 0, 0.90209216, 0, 1, 0, -0.90209216, 0, 0.43154347, 113.821335, 0.16537915, -67.96441)
+transform = Transform3D(0.43154347, 0, 0.90209216, 0, 1, 0, -0.90209216, 0, 0.43154347, 132.34299, 0.16537915, -67.96441)
 script = ExtResource("1_xkygt")
 flank_mode = 1
 slope_angle = 45.0

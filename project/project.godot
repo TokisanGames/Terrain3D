@@ -44,6 +44,10 @@ import/blender/enabled=false
 3d_physics/layer_1="Environment"
 3d_physics/layer_2="Player"
 
+[pasture_3d]
+
+developer/enable_gdscript_reference_nodes=false
+
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true

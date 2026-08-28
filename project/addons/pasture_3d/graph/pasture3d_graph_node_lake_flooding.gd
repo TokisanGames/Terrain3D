@@ -151,94 +151,24 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> 
 # ---- Solver Logic ----------------------------------------------------------------------------------
 
 func _solve(p_h: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
-	_last_water_level = water_elevation if flood_mode == FloodMode.GLOBAL_ELEVATION else 0.0
-	if ClassDB.class_has_method("Pasture3DUtil", "lake_flooding_grid"):
-		var res: Dictionary = Pasture3DUtil.lake_flooding_grid(p_h, p_gw, p_gh, p_rect, int(flood_mode),
-				water_elevation, flood_percent, shoreline_width)
-		if bool(res.get("ok", false)):
-			_last_lake_polys.clear()
-			var polys: Array = res.get("contours", [])
-			for poly in polys:
-				if poly is PackedVector2Array:
-					_last_lake_polys.append(poly)
-			return [res["height"], res["water_depth"], res["shoreline"]]
-
-	return _solve_gdscript(p_h, p_gw, p_gh, p_rect)
-
-
-func _solve_gdscript(p_h: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
-	var out_h := PackedFloat32Array()
-	var out_depth := PackedFloat32Array()
-	var out_shore := PackedFloat32Array()
-	out_h.resize(n)
-	out_depth.resize(n)
-	out_shore.resize(n)
+	_last_water_level = water_elevation if flood_mode == FloodMode.GLOBAL_ELEVATION else 0.0
+	if not ClassDB.class_has_method("Pasture3DUtil", "lake_flooding_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.lake_flooding_grid is not bound. Rebuild GDExtension.")
+		return [p_h.duplicate(), Pasture3DGraphOps.zeros(n), Pasture3DGraphOps.zeros(n)]
 
-	var dx := p_rect.size.x / maxf(float(p_gw - 1), 1.0) if (p_rect.size.x > 0.0 and p_gw > 1) else 2.0
-	var dz := p_rect.size.y / maxf(float(p_gh - 1), 1.0) if (p_rect.size.y > 0.0 and p_gh > 1) else 2.0
+	var res: Dictionary = Pasture3DUtil.lake_flooding_grid(p_h, p_gw, p_gh, p_rect, int(flood_mode),
+			water_elevation, flood_percent, shoreline_width)
+	if not bool(res.get("ok", false)):
+		push_error("[Pasture3D] Lake flooding native solve failed.")
+		return [p_h.duplicate(), Pasture3DGraphOps.zeros(n), Pasture3DGraphOps.zeros(n)]
 
-	var water_grid := PackedFloat32Array()
-	water_grid.resize(n)
-
-	if flood_mode == FloodMode.GLOBAL_ELEVATION:
-		_last_water_level = water_elevation
-		for i in range(n):
-			var zh := p_h[i]
-			water_grid[i] = maxf(zh, water_elevation) if is_finite(zh) else NAN
-	else:
-		# SPILLWAY_BASIN mode
-		var filled := Pasture3DGraphNodeDepressionFilling._priority_flood_fill(p_h, p_gw, p_gh, dx, dz, 0.0, 0.0)
-		for i in range(n):
-			var raw_z := p_h[i]
-			var spill_z := filled[i]
-			if is_finite(raw_z) and is_finite(spill_z):
-				var max_depth := maxf(spill_z - raw_z, 0.0)
-				water_grid[i] = raw_z + max_depth * flood_percent
-			else:
-				water_grid[i] = raw_z
-
-	# Compute 3 output channels
-	for i in range(n):
-		var raw_z := p_h[i]
-		var wz := water_grid[i]
-		if not is_finite(raw_z) or not is_finite(wz):
-			out_h[i] = NAN
-			out_depth[i] = 0.0
-			out_shore[i] = 0.0
-			continue
-
-		var depth := maxf(wz - raw_z, 0.0)
-		out_h[i] = wz
-		out_depth[i] = depth
-		out_shore[i] = clampf(depth / maxf(shoreline_width, 0.1), 0.0, 1.0)
-
-	# Extract lake contour polygons for spawning
-	_extract_lake_contours(out_depth, p_gw, p_gh, p_rect)
-
-	return [out_h, out_depth, out_shore]
-
-
-func _extract_lake_contours(p_depth: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2) -> void:
 	_last_lake_polys.clear()
-	var dx := p_rect.size.x / maxf(float(p_gw - 1), 1.0)
-	var dz := p_rect.size.y / maxf(float(p_gh - 1), 1.0)
-
-	# Find lake boundary cells
-	var boundary_pts := PackedVector2Array()
-	for iz in range(1, p_gh - 1):
-		for ix in range(1, p_gw - 1):
-			var idx := iz * p_gw + ix
-			if p_depth[idx] > 0.05:
-				var is_edge := (p_depth[idx - 1] <= 0.05 or p_depth[idx + 1] <= 0.05 or
-						p_depth[idx - p_gw] <= 0.05 or p_depth[idx + p_gw] <= 0.05)
-				if is_edge:
-					var wx := p_rect.position.x + ix * dx
-					var wz := p_rect.position.y + iz * dz
-					boundary_pts.append(Vector2(wx, wz))
-
-	if boundary_pts.size() >= 3:
-		_last_lake_polys.append(boundary_pts)
+	var polys: Array = res.get("contours", [])
+	for poly in polys:
+		if poly is PackedVector2Array:
+			_last_lake_polys.append(poly)
+	return [res["height"], res["water_depth"], res["shoreline"]]
 
 
 ## Spawns a Pasture3DPond in the active edited scene from the detected lake basin.

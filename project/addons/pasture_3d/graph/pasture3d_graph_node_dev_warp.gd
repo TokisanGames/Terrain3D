@@ -1,49 +1,41 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DGraphNodeWarp — a domain-warp coordinate distortion CELL node.
-# Warps 2D world-sampling coordinates (wx, wz) through procedural vector noise fields to create
-# swirling rock striations, folded strata, glacial shears, and organic meandering landscapes.
+# Pasture3DGraphNodeDevWarp — pure GDScript reference oracle for domain warp coordinate distortion.
+# Used for algorithm prototyping, A/B testing, and automated headless CI parity verification.
 @tool
-class_name Pasture3DGraphNodeWarp
+class_name Pasture3DGraphNodeDevWarp
 extends Pasture3DGraphNode
 
-enum WarpType { SIMPLEX = 0, FRACTAL = 1 }
+enum WarpType { SIMPLE, FRACTAL }
 
-@export_group("Warp Noise")
-## Warp algorithm type: Simplex noise vector offset or multi-octave Fractal domain warp.
-@export var warp_type: WarpType = WarpType.SIMPLEX:
+@export var warp_type: WarpType = WarpType.FRACTAL:
 	set(v):
 		warp_type = v
 		_dirty = true
 		emit_changed()
 
-## Frequency of the coordinate distortion noise field.
-@export_range(0.0001, 0.5, 0.0005, "or_greater") var frequency: float = 0.01:
+@export_range(0.0001, 0.1, 0.0005, "exp") var frequency: float = 0.005:
 	set(v):
 		frequency = maxf(v, 0.00001)
 		_dirty = true
 		emit_changed()
 
-## Displacement amplitude (strength) in world meters. How far coordinates are pushed.
-@export_range(0.0, 200.0, 0.5, "or_greater") var strength: float = 20.0:
+@export_range(0.0, 200.0, 0.5) var strength: float = 25.0:
 	set(v):
 		strength = maxf(v, 0.0)
 		emit_changed()
 
-## Number of fractal octaves in the vector distortion field.
 @export_range(1, 8, 1) var octaves: int = 3:
 	set(v):
 		octaves = clampi(v, 1, 8)
 		_dirty = true
 		emit_changed()
 
-## Height output amplitude in meters when generating elevation.
-@export_range(0.0, 500.0, 0.5, "or_greater") var amplitude: float = 15.0:
+@export_range(0.0, 500.0, 1.0) var amplitude: float = 50.0:
 	set(v):
 		amplitude = maxf(v, 0.0)
 		emit_changed()
 
-## Roughness / lacunarity gain between octaves [0.0..1.0].
 @export_range(0.0, 1.0, 0.05) var roughness: float = 0.5:
 	set(v):
 		roughness = clampf(v, 0.0, 1.0)
@@ -63,11 +55,15 @@ var _dirty := true
 
 
 func op() -> StringName:
-	return &"warp"
+	return &"dev_warp"
 
 
 func role() -> Role:
 	return Role.FILTER
+
+
+func display_name() -> String:
+	return "[Dev/GD] Domain Warp"
 
 
 func needs_grid() -> bool:
@@ -93,7 +89,6 @@ func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
 
 	_ensure_noise()
 
-	# Compute 2D coordinate displacement vector
 	var dx: float = 0.0
 	var dz: float = 0.0
 
@@ -104,39 +99,10 @@ func eval_cell(p_wx: float, p_wz: float, p_inputs: PackedFloat32Array) -> float:
 	var warped_x := p_wx + dx
 	var warped_z := p_wz + dz
 
-	# Sample distorted noise field at warped coordinates
 	var sample := _noise_out.get_noise_2d(warped_x, warped_z)
 	var generated_h := sample * amplitude
 
 	return base_in + generated_h
-
-
-func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
-	var n := p_gw * p_gh
-	var in_grid: PackedFloat32Array
-	if p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array and (p_inputs[0] as PackedFloat32Array).size() == n:
-		in_grid = p_inputs[0]
-	else:
-		in_grid = Pasture3DGraphOps.zeros(n)
-
-	if not ClassDB.class_has_method("Pasture3DUtil", "warp_grid"):
-		push_error("[Pasture3D] Pasture3DUtil.warp_grid is not bound. Rebuild GDExtension.")
-		return in_grid.duplicate()
-
-	var res: PackedFloat32Array = Pasture3DUtil.warp_grid(in_grid, p_gw, p_gh, p_rect, int(warp_type),
-			frequency, strength, octaves, amplitude, roughness, seed)
-	if res.size() != n:
-		push_error("[Pasture3D] Warp native solve returned invalid grid size.")
-		return in_grid.duplicate()
-
-	return res
-
-
-func node_warnings() -> PackedStringArray:
-	var w := PackedStringArray()
-	if is_zero_approx(strength) and is_zero_approx(amplitude):
-		w.append("%s: Strength and Amplitude are 0, so no warped relief is generated." % display_name())
-	return w
 
 
 func _ensure_noise() -> void:
@@ -164,10 +130,10 @@ func _ensure_noise() -> void:
 
 	_noise_out = FastNoiseLite.new()
 	_noise_out.noise_type = ftype
-	_noise_out.fractal_type = FastNoiseLite.FRACTAL_FBM
+	_noise_out.fractal_type = fract
 	_noise_out.fractal_octaves = octaves
 	_noise_out.fractal_gain = roughness
 	_noise_out.frequency = frequency
-	_noise_out.seed = seed + 2147483647
+	_noise_out.seed = seed + 2038074743
 
 	_dirty = false

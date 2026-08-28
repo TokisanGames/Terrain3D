@@ -94,8 +94,12 @@ func _refresh_tree(p_query: String) -> void:
 				item.set_custom_color(1, Color(1.0, 0.75, 0.4))
 			"combiner":
 				item.set_custom_color(1, Color(0.8, 0.5, 1.0))
+			"solver":
+				item.set_custom_color(1, Color(0.4, 1.0, 0.8))
 			"source", "sink":
 				item.set_custom_color(1, Color(0.5, 1.0, 0.6))
+			"dev / reference":
+				item.set_custom_color(1, Color(1.0, 0.4, 0.4))
 				
 		if first_item == null:
 			first_item = item

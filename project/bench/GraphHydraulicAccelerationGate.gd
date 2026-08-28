@@ -54,7 +54,7 @@ func _test_a_native_parity() -> void:
 		"min_slope": 0.01,
 	}
 
-	var gd_res1: Array = Pasture3DGraphNodeErosionHydraulic.solve_oracle(surf, gw, gh, rect, p1)
+	var gd_res1: Array = Pasture3DGraphNodeDevErosionHydraulic.solve_oracle(surf, gw, gh, rect, p1)
 	var cpp_res1: Dictionary = Pasture3DUtil.erosion_hydraulic_solve_grid(surf, gw, gh, rect, p1)
 
 	var diff_h1 := _max_abs_diff(gd_res1[0], cpp_res1["height"])
@@ -80,7 +80,7 @@ func _test_a_native_parity() -> void:
 		"min_slope": 0.01,
 	}
 
-	var gd_res15: Array = Pasture3DGraphNodeErosionHydraulic.solve_oracle(surf, gw, gh, rect, p15)
+	var gd_res15: Array = Pasture3DGraphNodeDevErosionHydraulic.solve_oracle(surf, gw, gh, rect, p15)
 	var cpp_res15: Dictionary = Pasture3DUtil.erosion_hydraulic_solve_grid(surf, gw, gh, rect, p15)
 
 	var diff_h15 := _max_abs_diff(gd_res15[0], cpp_res15["height"])
@@ -200,7 +200,7 @@ func _run_benchmarks() -> void:
 		var gd_ms := 0.0
 		if size <= 512:
 			var t0 := Time.get_ticks_usec()
-			Pasture3DGraphNodeErosionHydraulic.solve_oracle(surf, gw, gh, rect, params)
+			Pasture3DGraphNodeDevErosionHydraulic.solve_oracle(surf, gw, gh, rect, params)
 			gd_ms = (Time.get_ticks_usec() - t0) / 1000.0
 		else:
 			# Extrapolated estimate based on O(N) scaling

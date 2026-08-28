@@ -72,6 +72,51 @@ signal structure_changed()
 		_bind_frames(frames, true)
 		structure_changed.emit()
 
+# ---- Cache Memory Management (Milestone 1) -----------------------------------------------------------
+## Maximum total memory in bytes allowed for per-node cached output grids (default 256 MB).
+@export var max_cache_bytes: int = 268435456
+
+var _global_access_tick: int = 0
+
+
+## Clears all cached output grid buffers across every node in the graph.
+func clear_cache() -> void:
+	for n in nodes:
+		if n != null:
+			n.clear_cache()
+
+
+## Total memory footprint in bytes across all node cached grid buffers in this graph.
+func get_total_cache_bytes() -> int:
+	var total := 0
+	for n in nodes:
+		if n != null:
+			total += n.get_cache_size_bytes()
+	return total
+
+
+## Evicts least-recently-accessed node caches until total memory footprint is <= max_cache_bytes.
+func _evict_cache_if_needed() -> void:
+	if max_cache_bytes <= 0:
+		return
+	if get_total_cache_bytes() <= max_cache_bytes:
+		return
+	
+	var cached_nodes: Array[Pasture3DGraphNode] = []
+	for n in nodes:
+		if n != null and not n.get_cached_grid().is_empty():
+			cached_nodes.append(n)
+			
+	cached_nodes.sort_custom(func(a: Pasture3DGraphNode, b: Pasture3DGraphNode) -> bool:
+		return a._last_access_tick < b._last_access_tick
+	)
+	
+	for n in cached_nodes:
+		n.clear_cache()
+		if get_total_cache_bytes() <= max_cache_bytes:
+			break
+
+
 
 # ---- Change forwarding -------------------------------------------------------------------------------
 #
@@ -470,12 +515,28 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 	var input_ports_of: Dictionary = plan["input_ports_of"]
 	var materialize: Dictionary = plan["materialize"]
 
-	var grids := {} # node index -> materialised grid (port 0; folded nodes are absent)
+	_global_access_tick += 1
+
+	var dx := p_rect.size.x / float(maxi(p_gw, 1))
+	var dz := p_rect.size.y / float(maxi(p_gh, 1))
+	var min_x := p_rect.position.x + 0.5 * dx
+	var min_z := p_rect.position.y + 0.5 * dz
+
+	var grids := {} # node index -> materialised grid (port 0)
 	var aux := {}   # node index -> { output_port >= 1 : grid } for multi-output solver channels
 	for ni in order:
-		if not materialize[ni]:
-			continue # folded — computed inline by _cell_value when a materialised consumer reads it
 		var node: Pasture3DGraphNode = nodes[ni]
+		var inputs_hash: int = _compute_node_inputs_hash(ni, p_gw, p_gh, p_rect, p_mask, p_input, inputs_of, input_ports_of)
+
+		# Cache hit check: if clean and matching size, serve cached grid in 0.0 ms
+		if not node.is_dirty(inputs_hash) and node.get_cached_grid().size() == n:
+			grids[ni] = node.get_cached_grid()
+			var c_aux := node.get_cached_aux()
+			if not c_aux.is_empty():
+				aux[ni] = c_aux
+			node._last_access_tick = _global_access_tick
+			continue
+
 		if node.muted:
 			var s0: int = inputs_of[ni][0] if not inputs_of[ni].is_empty() else -1
 			var sp0: int = input_ports_of[ni][0] if not input_ports_of[ni].is_empty() else 0
@@ -488,12 +549,17 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 				g.resize(n)
 				for iz in range(p_gh):
 					var row := iz * p_gw
+					var wz: float = min_z + float(iz) * dz
 					for ix in range(p_gw):
-						var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
-						g[row + ix] = _cell_input(s0, sp0, row + ix, w.x, w.y, grids, aux, inputs_of, input_ports_of)
+						var wx: float = min_x + float(ix) * dx
+						g[row + ix] = _cell_input(s0, sp0, row + ix, wx, wz, grids, aux, inputs_of, input_ports_of)
 				grids[ni] = g
 		elif node.op() == &"input":
 			grids[ni] = _surface_grid(p_input, n) # the surface handed in, or a flat 0 when none
+		elif node.op() == &"output":
+			var s0: int = inputs_of[ni][0] if not inputs_of[ni].is_empty() else -1
+			var sp0: int = input_ports_of[ni][0] if not input_ports_of[ni].is_empty() else 0
+			grids[ni] = _read_channel(s0, sp0, grids, aux, n).duplicate()
 		elif node.needs_grid():
 			var in_grids := _input_grids(ni, grids, aux, n)
 			if node.output_count() > 1:
@@ -508,13 +574,131 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 		else:
 			var g := PackedFloat32Array()
 			g.resize(n)
-			for iz in range(p_gh):
-				var row := iz * p_gw
-				for ix in range(p_gw):
-					var w := cell_to_world(ix, iz, p_gw, p_gh, p_rect)
-					g[row + ix] = _cell_value(ni, row + ix, w.x, w.y, grids, aux, inputs_of, input_ports_of)
+			var in_grids := _input_grids(ni, grids, aux, n)
+			var in_count: int = in_grids.size()
+			var cell_in := PackedFloat32Array()
+			cell_in.resize(in_count)
+			if in_count == 1:
+				var in0: PackedFloat32Array = in_grids[0]
+				for iz in range(p_gh):
+					var row := iz * p_gw
+					var wz: float = min_z + float(iz) * dz
+					for ix in range(p_gw):
+						var idx := row + ix
+						var wx: float = min_x + float(ix) * dx
+						cell_in[0] = in0[idx]
+						g[idx] = node.eval_cell(wx, wz, cell_in)
+			elif in_count == 0:
+				for iz in range(p_gh):
+					var row := iz * p_gw
+					var wz: float = min_z + float(iz) * dz
+					for ix in range(p_gw):
+						var idx := row + ix
+						var wx: float = min_x + float(ix) * dx
+						g[idx] = node.eval_cell(wx, wz, cell_in)
+			else:
+				for iz in range(p_gh):
+					var row := iz * p_gw
+					var wz: float = min_z + float(iz) * dz
+					for ix in range(p_gw):
+						var idx := row + ix
+						var wx: float = min_x + float(ix) * dx
+						for p in range(in_count):
+							cell_in[p] = (in_grids[p] as PackedFloat32Array)[idx]
+						g[idx] = node.eval_cell(wx, wz, cell_in)
 			grids[ni] = g
+
+		node.store_cache(grids[ni], aux.get(ni, {}), inputs_hash, _global_access_tick)
+		_evict_cache_if_needed()
+
 	return grids[out]
+
+
+## Computes a signature hash representing node inputs, wiring, and spatial evaluation context.
+func _compute_node_inputs_hash(p_ni: int, p_gw: int, p_gh: int, p_rect: Rect2, p_mask, p_input, p_inputs_of: Dictionary, p_input_ports_of: Dictionary, p_materialize: Dictionary = {}) -> int:
+	var node: Pasture3DGraphNode = nodes[p_ni]
+	var sig: Array = [
+		p_gw,
+		p_gh,
+		p_rect.position.x,
+		p_rect.position.y,
+		p_rect.size.x,
+		p_rect.size.y,
+		node.muted,
+		node.op(),
+	]
+	if node.op() == &"input":
+		if p_input is PackedFloat32Array:
+			sig.append(p_input.size())
+			if not p_input.is_empty():
+				sig.append(p_input[0])
+				sig.append(p_input[p_input.size() - 1])
+		else:
+			sig.append(0)
+	if node.needs_grid() and p_mask != null:
+		if p_mask is PackedFloat32Array:
+			sig.append(p_mask.size())
+			if not p_mask.is_empty():
+				sig.append(p_mask[0])
+				sig.append(p_mask[p_mask.size() - 1])
+
+	var srcs: Array = p_inputs_of.get(p_ni, [])
+	var ports: Array = p_input_ports_of.get(p_ni, [])
+	for p in range(srcs.size()):
+		var s: int = srcs[p]
+		var sp: int = ports[p]
+		if s < 0 or s >= nodes.size() or nodes[s] == null:
+			sig.append(-1)
+			sig.append(node.input_unwired_default(p))
+		else:
+			_append_input_signature(s, sp, sig, p_inputs_of, p_input_ports_of, p_materialize)
+	return hash(sig)
+
+
+func _append_input_signature(p_s: int, p_sp: int, p_sig: Array, p_inputs_of: Dictionary, p_input_ports_of: Dictionary, p_materialize: Dictionary) -> void:
+	if p_s < 0 or p_s >= nodes.size() or nodes[p_s] == null:
+		p_sig.append(-1)
+		return
+	var src_node: Pasture3DGraphNode = nodes[p_s]
+	p_sig.append(p_s)
+	p_sig.append(p_sp)
+	p_sig.append(src_node.muted)
+	p_sig.append(src_node._dirty_revision)
+	if p_materialize.get(p_s, true):
+		p_sig.append(src_node._inputs_hash)
+	else:
+		# Folded upstream node: recurse into its inputs
+		var srcs: Array = p_inputs_of.get(p_s, [])
+		var ports: Array = p_input_ports_of.get(p_s, [])
+		for p in range(srcs.size()):
+			var sub_s: int = srcs[p]
+			var sub_sp: int = ports[p]
+			if sub_s < 0 or sub_s >= nodes.size() or nodes[sub_s] == null:
+				p_sig.append(-1)
+				p_sig.append(src_node.input_unwired_default(p))
+			else:
+				_append_input_signature(sub_s, sub_sp, p_sig, p_inputs_of, p_input_ports_of, p_materialize)
+
+
+func _cell_value_fast(p_ni: int, p_cell: int, p_wx: float, p_wz: float, p_grids: Dictionary, p_aux: Dictionary,
+		p_inputs_of: Dictionary, p_ports_of: Dictionary, p_cell_in: PackedFloat32Array) -> float:
+	if p_grids.has(p_ni):
+		return (p_grids[p_ni] as PackedFloat32Array)[p_cell]
+	var node: Pasture3DGraphNode = nodes[p_ni]
+	var srcs: Array = p_inputs_of[p_ni]
+	var ports: Array = p_ports_of[p_ni]
+	if node.muted:
+		if srcs.is_empty() or srcs[0] < 0:
+			return 0.0
+		return _cell_input(srcs[0], ports[0], p_cell, p_wx, p_wz, p_grids, p_aux, p_inputs_of, p_ports_of)
+	for k in range(srcs.size()):
+		if srcs[k] < 0:
+			p_cell_in[k] = node.input_unwired_default(k)
+		else:
+			p_cell_in[k] = _cell_input(srcs[k], ports[k], p_cell, p_wx, p_wz, p_grids, p_aux, p_inputs_of, p_ports_of)
+	return node.eval_cell(p_wx, p_wz, p_cell_in)
+
+
 
 
 ## The grid an Input node yields: a COPY of the surface handed to `evaluate`, or a flat 0 when none was

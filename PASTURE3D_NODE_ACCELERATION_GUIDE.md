@@ -82,23 +82,21 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	var in_grid: PackedFloat32Array = p_inputs[0] if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
 	var mask: PackedFloat32Array = p_inputs[1] if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array) else Pasture3DGraphOps.filled(n, 1.0)
 
-	# Tier 2 GDExtension Dispatch Fast Path
-	if ClassDB.class_has_method("Pasture3DUtil", "example_filter_grid"):
-		var res: PackedFloat32Array = Pasture3DUtil.example_filter_grid(in_grid, mask, p_gw, p_gh, intensity)
-		if res.size() == n:
-			return res
+	# Tier 2 GDExtension Dispatch (Fail-fast if missing or failed)
+	if not ClassDB.class_has_method("Pasture3DUtil", "example_filter_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.example_filter_grid is not bound. Rebuild GDExtension.")
+		return in_grid.duplicate()
 
-	# Tier 1 Reference Oracle Fallback
-	return _eval_grid_gdscript(in_grid, mask, p_gw, p_gh, intensity)
+	var res: PackedFloat32Array = Pasture3DUtil.example_filter_grid(in_grid, mask, p_gw, p_gh, intensity)
+	if res.size() != n:
+		push_error("[Pasture3D] Example filter native solve returned invalid grid size.")
+		return in_grid.duplicate()
 
-func _eval_grid_gdscript(in_grid: PackedFloat32Array, mask: PackedFloat32Array, p_gw: int, p_gh: int, p_intensity: float) -> PackedFloat32Array:
-	var n := p_gw * p_gh
-	var out := in_grid.duplicate()
-	for i in range(n):
-		if is_finite(in_grid[i]):
-			out[i] += p_intensity * mask[i]
-	return out
+	return res
 ```
+
+For algorithm prototyping, A/B testing, and CI parity benchmarks, create a corresponding `[Dev/GD]` reference node under `project/addons/pasture_3d/graph/pasture3d_graph_node_dev_<name>.gd` (`Pasture3DGraphNodeDev<Name>` with op `&"dev_<name>"`), and register it in `Pasture3DGraphNodeRegistry._dev_entries()`. (See [PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md](file:///g:/LaughingRooster/GodotExtensions/Pasture3D/PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md)).
+
 
 ---
 
