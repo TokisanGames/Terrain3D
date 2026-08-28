@@ -19,6 +19,7 @@ func _ready() -> void:
 	_b_complex_multibranch_dag()
 	_c_scratch_arena_buffer_reuse()
 	_d_end_to_end_throughput_scaling()
+	_e_hydraulic_erosion_pipeline()
 	
 	if _fail == 0:
 		print("\n=== GRAPH NATIVE PIPELINE PASS (0 failures) ===\n")
@@ -165,3 +166,45 @@ func _d_end_to_end_throughput_scaling() -> void:
 		print("    resolution %-9s: time = %6.2f ms (cells = %7d)" % ["%dx%d" % [size, size], ms, res.size()])
 		if res.size() != size * size:
 			_fail += 1; print("    !! size mismatch in pipeline benchmark")
+
+
+# --- E. Hydraulic erosion in whole-graph pipeline ----------------------------------------------------
+func _e_hydraulic_erosion_pipeline() -> void:
+	print("\n[E] Hydraulic erosion in whole-graph pipeline (Noise + Blend -> ErosionHydraulic -> Output)")
+	var g := Pasture3DTerrainGraph.new()
+	var jn := Pasture3DGraphNodeNoiseJordan.new(); jn.amplitude = 120.0; jn.frequency = 0.005
+	var bl := Pasture3DGraphNodeBlend.new(); bl.mode = Pasture3DGraphNodeBlend.Mode.ADD
+	var cn := Pasture3DGraphNodeConst.new(); cn.value = 10.0
+	var eh := Pasture3DGraphNodeErosionHydraulic.new()
+	eh.iterations = 25
+	eh.rain_rate = 0.051
+	eh.evaporation_rate = 0.02
+	eh.sediment_capacity = 8.1
+	eh.erosion_speed = 0.5
+	eh.deposition_speed = 0.4
+	eh.min_slope = 0.01
+	var out := Pasture3DGraphNodeOutput.new()
+
+	g.nodes = [jn, cn, bl, eh, out]
+	g.connections = [
+		PackedInt32Array([0, 0, 2, 0]), # Jordan -> Blend.a
+		PackedInt32Array([1, 0, 2, 1]), # Const -> Blend.b
+		PackedInt32Array([2, 0, 3, 0]), # Blend -> ErosionHydraulic.in
+		PackedInt32Array([3, 0, 4, 0]), # ErosionHydraulic -> Output.in
+	]
+
+	print("    native_supported = %s (want true)" % g.native_supported())
+	if not g.native_supported():
+		_fail += 1; print("    !! graph with ErosionHydraulic wrongly reported native_supported = false")
+
+	var prog := g.compile_graph_program()
+	if prog.is_empty():
+		_fail += 1; print("    !! compile_graph_program failed for ErosionHydraulic")
+
+	var native_res := Pasture3DUtil.graph_eval_grid(prog, GW, GH, RECT, PackedFloat32Array())
+	var eval_res := g.evaluate(GW, GH, RECT, null, PackedFloat32Array())
+	var d := _max_abs_diff(native_res, eval_res)
+	print("    max |native_pipeline - graph.evaluate| = %.7f (want < 0.05)" % d)
+	if d > 0.05:
+		_fail += 1; print("    !! hydraulic erosion pipeline output diverged from graph.evaluate")
+

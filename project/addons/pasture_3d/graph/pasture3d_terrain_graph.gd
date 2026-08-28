@@ -949,74 +949,82 @@ func compile_graph_program() -> Dictionary:
 		var nz = null
 		var lut = PackedFloat32Array()
 
+		var _f := func(p: StringName, def: float = 0.0) -> float:
+			var v = node.get(p)
+			return float(v) if v != null else def
+
+		var _i := func(p: StringName, def: int = 0) -> int:
+			var v = node.get(p)
+			return int(v) if v != null else def
+
 		match node.op():
 			&"input":
 				op_id = 10
 			&"output":
 				op_id = 12
 			&"noise":
-				op_id = 1; p0 = float(node.get("amplitude")); nz = node.get("noise")
+				op_id = 1; p0 = _f.call(&"amplitude", 1.0); nz = node.get("noise")
 			&"const":
-				op_id = 2; p0 = float(node.get("value"))
+				op_id = 2; p0 = _f.call(&"value", 0.0)
 			&"blend":
-				op_id = 3; p0 = float(int(node.get("mode")))
+				op_id = 3; p0 = float(_i.call(&"mode", 0))
 			&"terrace":
 				op_id = 4
-				p0 = float(node.get("band_height"))
-				pb = float(node.get("hardness"))
-				pc = float(node.get("amount"))
-				pd = float(node.get("jitter"))
+				p0 = _f.call(&"band_height", 8.0)
+				pb = _f.call(&"hardness", 0.8)
+				pc = _f.call(&"amount", 1.0)
+				pd = _f.call(&"jitter", 0.0)
 				if pd > 0.0 and node.has_method("_jitter_field"):
 					nz = node.call("_jitter_field")
 			&"smooth":
-				op_id = 11; p0 = float(int(node.get("passes")))
+				op_id = 11; p0 = float(_i.call(&"passes", 1))
 			&"noise_jordan":
-				op_id = 13; p0 = float(node.get("amplitude")); pb = float(node.get("frequency")); pc = float(node.get("octaves")); pd = float(node.get("gain")); pe = float(node.get("lacunarity")); pf = float(node.get("warp_strength")); pg = float(node.get("damp_strength")); ph = float(node.get("seed"))
+				op_id = 13; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"warp_strength", 0.35); pg = _f.call(&"damp_strength", 0.8); ph = float(_i.call(&"seed", 0))
 			&"noise_swiss":
-				op_id = 14; p0 = float(node.get("amplitude")); pb = float(node.get("frequency")); pc = float(node.get("octaves")); pd = float(node.get("gain")); pe = float(node.get("lacunarity")); pf = float(node.get("ridge_offset")); pg = float(node.get("erosion_accent")); ph = float(node.get("seed"))
+				op_id = 14; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"ridge_offset", 1.0); pg = _f.call(&"erosion_accent", 0.3); ph = float(_i.call(&"seed", 0))
 			&"geological_primitive":
-				op_id = 15; p0 = float(int(node.get("primitive_type"))); pb = float(int(node.get("mapping"))); pc = float(node.get("height")); pd = float(node.get("radius")); pe = float(node.get("eccentricity")); pf = float(node.get("steepness")); pg = float(node.get("azimuth_degrees")); var off: Vector2 = node.get("center_offset") if node.get("center_offset") != null else Vector2.ZERO; pj = off.x; pk = off.y
+				op_id = 15; p0 = float(_i.call(&"primitive_type", 0)); pb = float(_i.call(&"mapping", 0)); pc = _f.call(&"height", 50.0); pd = _f.call(&"radius", 50.0); pe = _f.call(&"eccentricity", 0.0); pf = _f.call(&"steepness", 1.0); pg = _f.call(&"azimuth_degrees", 0.0); var off: Vector2 = node.get("center_offset") if node.get("center_offset") != null else Vector2.ZERO; pj = off.x; pk = off.y
 			&"furrows":
-				op_id = 16; p0 = float(node.get("amplitude")); pb = float(node.get("spacing")); pc = float(node.get("direction_degrees")); pd = float(int(node.get("profile"))); pe = float(node.get("wobble_amount")); pf = float(node.get("wobble_size")); pg = float(node.get("seed"))
+				op_id = 16; p0 = _f.call(&"amplitude", 1.0); pb = _f.call(&"spacing", 15.0); pc = _f.call(&"direction_degrees", 0.0); pd = float(_i.call(&"profile", 1)); pe = _f.call(&"wobble_amount", 2.0); pf = _f.call(&"wobble_size", 70.0); pg = float(_i.call(&"seed", 0))
 			&"dunes":
-				op_id = 17; p0 = float(node.get("amplitude")); pb = float(node.get("wavelength")); pc = float(node.get("direction_degrees")); pd = float(node.get("asymmetry")); pe = float(node.get("crest_sharpness")); pf = float(node.get("wander_amount")); pg = float(node.get("wander_size")); ph = float(node.get("seed"))
+				op_id = 17; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"wavelength", 30.0); pc = _f.call(&"direction_degrees", 0.0); pd = _f.call(&"asymmetry", 0.4); pe = _f.call(&"crest_sharpness", 0.6); pf = _f.call(&"wander_amount", 2.0); pg = _f.call(&"wander_size", 60.0); ph = float(_i.call(&"seed", 0))
 			&"crater":
-				op_id = 18; p0 = float(node.get("amplitude")); pb = float(node.get("floor_depth")); pc = float(node.get("rim_height")); pd = float(node.get("rim_width")); pe = float(node.get("ejecta_falloff")); pf = float(node.get("floor_flatness")); pg = float(int(node.get("terrace_steps")))
+				op_id = 18; p0 = _f.call(&"amplitude", 10.0); pb = _f.call(&"floor_depth", 14.0); pc = _f.call(&"rim_height", 4.0); pd = _f.call(&"rim_width", 0.25); pe = _f.call(&"ejecta_falloff", 2.5); pf = _f.call(&"floor_flatness", 0.4); pg = float(_i.call(&"terrace_steps", 0))
 			&"warp":
-				op_id = 19; p0 = float(int(node.get("warp_type"))); pb = float(node.get("frequency")); pc = float(node.get("strength")); pd = float(int(node.get("octaves"))); pe = float(node.get("amplitude")); pf = float(node.get("roughness")); pg = float(node.get("seed"))
+				op_id = 19; p0 = float(_i.call(&"warp_type", 0)); pb = _f.call(&"frequency", 0.01); pc = _f.call(&"strength", 10.0); pd = float(_i.call(&"octaves", 3)); pe = _f.call(&"amplitude", 1.0); pf = _f.call(&"roughness", 0.5); pg = float(_i.call(&"seed", 0))
 			&"strata":
-				op_id = 20; p0 = float(node.get("band_height")); pb = float(node.get("hardness")); pc = float(node.get("amount")); pd = float(node.get("dip")); pe = float(node.get("dip_direction_degrees")); pf = float(node.get("break_amount")); pg = float(node.get("break_size")); ph = float(node.get("seed"))
+				op_id = 20; p0 = _f.call(&"band_height", 8.0); pb = _f.call(&"hardness", 0.75); pc = _f.call(&"amount", 1.0); pd = _f.call(&"dip", 4.0); pe = _f.call(&"dip_direction_degrees", 45.0); pf = _f.call(&"break_amount", 3.0); pg = _f.call(&"break_size", 40.0); ph = float(_i.call(&"seed", 0))
 			&"curve":
-				op_id = 21; p0 = float(node.get("input_min")); pb = float(node.get("input_max")); pc = float(node.get("output_min")); pd = float(node.get("output_max")); pe = float(node.get("amount"))
+				op_id = 21; p0 = _f.call(&"input_min", 0.0); pb = _f.call(&"input_max", 100.0); pc = _f.call(&"output_min", 0.0); pd = _f.call(&"output_max", 100.0); pe = _f.call(&"amount", 1.0)
 				var c: Curve = node.get("curve")
 				if c != null:
 					lut.resize(256)
 					for li in range(256):
 						lut[li] = c.sample_baked(float(li) / 255.0)
 			&"remap":
-				op_id = 22; p0 = float(node.get("in_min")); pb = float(node.get("in_max")); pc = float(node.get("out_min")); pd = float(node.get("out_max")); pe = 1.0 if bool(node.get("clamp_output")) else 0.0; pf = float(node.get("soft_knee")); pg = 1.0 if bool(node.get("invert")) else 0.0
+				op_id = 22; p0 = _f.call(&"in_min", 0.0); pb = _f.call(&"in_max", 100.0); pc = _f.call(&"out_min", 0.0); pd = _f.call(&"out_max", 100.0); pe = 1.0 if bool(node.get("clamp_output")) else 0.0; pf = _f.call(&"soft_knee", 0.0); pg = 1.0 if bool(node.get("invert")) else 0.0
 			&"mask":
-				op_id = 23; p0 = float(int(node.get("property"))); pb = float(node.get("band_min")); pc = float(node.get("band_max")); pd = float(node.get("falloff_lo")); pe = float(node.get("falloff_hi")); pf = 1.0 if bool(node.get("invert")) else 0.0; pg = float(node.get("strength"))
+				op_id = 23; p0 = float(_i.call(&"property", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 90.0); pd = _f.call(&"falloff_lo", 0.0); pe = _f.call(&"falloff_hi", 0.0); pf = 1.0 if bool(node.get("invert")) else 0.0; pg = _f.call(&"strength", 1.0)
 			&"curvature":
-				op_id = 24; p0 = float(int(node.get("mode"))); pb = float(int(node.get("radius"))); pc = float(node.get("contrast"))
+				op_id = 24; p0 = float(_i.call(&"mode", 0)); pb = float(_i.call(&"radius", 1)); pc = _f.call(&"contrast", 1.0)
 			&"talus_projection":
-				op_id = 25; p0 = float(node.get("talus_angle_degrees")); pb = float(int(node.get("iterations"))); pc = float(node.get("transfer_rate")); pd = float(node.get("amount"))
+				op_id = 25; p0 = _f.call(&"talus_angle_deg", 35.0); pb = float(_i.call(&"iterations", 16)); pc = _f.call(&"transfer_rate", 0.5); pd = _f.call(&"amount", 1.0)
 			&"spectral_equalizer":
-				op_id = 26; p0 = float(node.get("macro_gain")); pb = float(node.get("meso_gain")); pc = float(node.get("micro_gain")); pd = float(int(node.get("macro_passes"))); pe = float(int(node.get("meso_passes"))); pf = float(node.get("amount"))
+				op_id = 26; p0 = _f.call(&"macro_gain", 1.0); pb = _f.call(&"meso_gain", 1.0); pc = _f.call(&"micro_gain", 1.5); pd = float(_i.call(&"macro_passes", 16)); pe = float(_i.call(&"meso_passes", 4)); pf = _f.call(&"amount", 1.0)
 			&"depression_filling":
-				op_id = 27; p0 = float(node.get("epsilon_slope")); pb = float(node.get("fill_depth_limit")); pc = float(node.get("amount"))
+				op_id = 27; p0 = _f.call(&"epsilon_slope", 0.0001); pb = _f.call(&"fill_depth_limit", 0.0); pc = _f.call(&"amount", 1.0)
 			&"lake_flooding":
-				op_id = 28; p0 = float(int(node.get("flood_mode"))); pb = float(node.get("water_elevation")); pc = float(node.get("flood_percent")); pd = float(node.get("shoreline_width"))
+				op_id = 28; p0 = float(_i.call(&"flood_mode", 0)); pb = _f.call(&"water_elevation", 10.0); pc = _f.call(&"flood_percent", 1.0); pd = _f.call(&"shoreline_width", 4.0)
 			&"stream_extraction":
-				op_id = 29; p0 = float(int(node.get("min_catchment_cells"))); pb = float(node.get("carve_depth")); pc = float(node.get("channel_width")); pd = float(node.get("bank_falloff"))
+				op_id = 29; p0 = _f.call(&"min_catchment_cells", 24.0); pb = _f.call(&"carve_depth", 3.0); pc = _f.call(&"channel_width", 8.0); pd = _f.call(&"bank_falloff", 4.0)
 			&"erosion_hydraulic":
-				op_id = 30; p0 = float(int(node.get("iterations"))); pb = float(node.get("rain_rate")); pc = float(node.get("evaporation_rate")); pd = float(node.get("sediment_capacity")); pe = float(node.get("deposition_rate")); pf = float(node.get("dissolution_rate"))
+				op_id = 30; p0 = float(_i.call(&"iterations", 25)); pb = _f.call(&"rain_rate", 0.05); pc = _f.call(&"evaporation_rate", 0.02); pd = _f.call(&"sediment_capacity", 8.0); pe = _f.call(&"erosion_speed", 0.5); pf = _f.call(&"deposition_speed", 0.4); pg = _f.call(&"min_slope", 0.01)
 			&"erosion_thermal":
-				op_id = 31; p0 = float(node.get("talus_angle_degrees")); pb = float(int(node.get("iterations"))); pc = float(node.get("settling_rate"))
+				op_id = 31; p0 = _f.call(&"talus_angle", 30.0); pb = float(_i.call(&"iterations", 25)); pc = _f.call(&"settling_rate", 0.7)
 			&"scree":
-				op_id = 32; p0 = float(node.get("amplitude")); pb = float(node.get("grain_size")); pc = float(node.get("downslope_streak")); pd = float(node.get("toe_deposition")); pe = float(node.get("min_slope_degrees")); pf = float(node.get("slope_falloff_degrees")); pg = float(node.get("seed"))
+				op_id = 32; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"grain_size", 0.05); pc = _f.call(&"downslope_streak", 0.7); pd = _f.call(&"toe_deposition", 0.8); pe = _f.call(&"min_slope_degrees", 25.0); pf = _f.call(&"slope_falloff_degrees", 8.0); pg = float(_i.call(&"seed", 0))
 			&"erosion":
-				op_id = 33; p0 = float(node.get("dt")); pb = float(node.get("K")); pc = float(node.get("m")); pd = float(node.get("n")); pe = float(node.get("threshold")); pf = float(node.get("deposition_rate"))
+				op_id = 33; p0 = float(_i.call(&"iterations", 30)); pb = _f.call(&"erosion_rate", 0.08); pc = _f.call(&"area_exponent", 0.45); pd = _f.call(&"hillslope_diffusion", 0.15); pe = _f.call(&"deposition", 0.0)
 			_:
 				return {} # an op the native evaluator does not implement
 

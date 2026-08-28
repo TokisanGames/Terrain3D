@@ -9,6 +9,7 @@
 #include "pasture_3d_erosion_thermal.h"
 #include "pasture_3d_furrows.h"
 #include "pasture_3d_geological_primitive.h"
+#include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_lake_flooding.h"
 #include "pasture_3d_math_ops.h"
 #include "pasture_3d_noise_jordan.h"
@@ -547,9 +548,10 @@ PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_g
 				p.rain_rate = params_b[s];
 				p.evaporation_rate = params_c[s];
 				p.sediment_capacity = params_d[s];
-				p.deposition_speed = params_e[s];
-				p.erosion_speed = params_f[s];
-				ErosionHydraulicResult res = erosion_hydraulic_solve(in_arr, p_gw, p_gh, p_rect, p);
+				p.erosion_speed = params_e[s];
+				p.deposition_speed = params_f[s];
+				p.min_slope = params_g ? params_g[s] : 0.01f;
+				ErosionHydraulicResult res = erosion_hydraulic_solve_best(in_arr, p_gw, p_gh, p_rect, p);
 				if (res.ok && res.height.size() == n) {
 					std::copy_n(res.height.ptr(), n, g_ptr);
 				}
@@ -580,11 +582,11 @@ PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_g
 				p.gw = p_gw;
 				p.gh = p_gh;
 				p.cell_size = (double)p_rect.size.x / (double)std::max(p_gw, 1);
-				p.time_step = params[s];
+				p.iterations = (int)params[s];
 				p.erosion_rate = params_b[s];
 				p.area_exponent = params_c[s];
 				p.diffusion = params_d[s];
-				p.deposition = params_f[s];
+				p.deposition = params_e[s];
 				std::vector<float> z_in(in_arr.ptr(), in_arr.ptr() + n);
 				ErosionResult res = erosion_solve(z_in, p, in_erod);
 				if (res.ok && (int)res.z.size() == n) {
