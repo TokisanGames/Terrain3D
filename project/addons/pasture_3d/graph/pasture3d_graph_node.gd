@@ -60,6 +60,10 @@ enum Role { GENERATOR, FILTER, COMBINER, SOLVER }
 ## When collapsed, the editor hides internal inline controls, displaying a compact header with port slots.
 @export var collapsed: bool = false
 
+## When true, the graph editor shows this node's inline 2D thumbnail. Pure toggle state — the editor owns
+## all preview rendering; the node stores nothing about the preview beyond this flag.
+@export var preview_on: bool = false
+
 # ---- Per-Node Output Buffer Caching (Milestone 1) ----------------------------------------------------
 var _cached_grid: PackedFloat32Array = PackedFloat32Array()
 var _cached_aux: Dictionary = {}

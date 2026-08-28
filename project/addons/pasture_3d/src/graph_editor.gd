@@ -11,7 +11,6 @@ class_name Pasture3DGraphEditor
 extends VBoxContainer
 
 const SearchDialogScript = preload("res://addons/pasture_3d/src/graph_search_dialog.gd")
-const ThumbnailGenScript = preload("res://addons/pasture_3d/src/graph_thumbnail_generator.gd")
 
 const PORT_COLORS: Array[Color] = [
 	Color(0.36, 0.68, 0.89), # 0: HEIGHT (#5dade2) - Sky Blue
@@ -34,18 +33,12 @@ var _search_dialog: PopupPanel
 var _add_button: Button
 var _presets_button: MenuButton
 var _frame_button: Button
-var _preview_button: Button
 var _minimap_button: Button
 var _arrange_button: Button
 var _bake_brush_button: Button
 var _title: Label
 var _hint: Label
 
-var _show_previews: bool = false
-var _preview_textures: Dictionary = {}
-var _preview_rects: Dictionary = {}
-var _preview_queue: Array[int] = []
-var _preview_timer: Timer = null
 var _last_structure_hash: int = 0
 
 ## Standalone fallback when running without EditorPlugin (e.g. tests)
@@ -66,14 +59,6 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	_build_ui()
 	if plugin:
 		plugin.add_control_to_bottom_panel(self, "Terrain Graph")
-		var sel := EditorInterface.get_selection()
-		if sel != null and not sel.selection_changed.is_connected(_on_editor_selection_changed):
-			sel.selection_changed.connect(_on_editor_selection_changed)
-
-
-func _on_editor_selection_changed() -> void:
-	if _show_previews and graph != null:
-		_queue_all_previews()
 
 
 func remove_dock() -> void:
@@ -86,9 +71,9 @@ func remove_dock() -> void:
 func edit_graph(p_graph: Pasture3DTerrainGraph, p_mod: Pasture3DNodeGraph = null) -> void:
 	if p_mod != null:
 		host_modifier = p_mod
-	elif host_modifier != null and host_modifier.graph != p_graph:
+	elif host_modifier != null and (p_graph == null or host_modifier.graph != p_graph):
 		host_modifier = null
-		
+
 	if graph == p_graph:
 		_on_graph_changed()
 		return
@@ -96,16 +81,12 @@ func edit_graph(p_graph: Pasture3DTerrainGraph, p_mod: Pasture3DNodeGraph = null
 		graph.changed.disconnect(_on_graph_changed)
 	if graph != null and graph.has_signal(&"structure_changed") and graph.structure_changed.is_connected(_on_graph_changed):
 		graph.structure_changed.disconnect(_on_graph_changed)
-	if graph != null and graph.has_signal(&"node_updated") and graph.node_updated.is_connected(_on_node_updated):
-		graph.node_updated.disconnect(_on_node_updated)
 	graph = p_graph
 	if graph != null:
 		if not graph.changed.is_connected(_on_graph_changed):
 			graph.changed.connect(_on_graph_changed)
 		if graph.has_signal(&"structure_changed") and not graph.structure_changed.is_connected(_on_graph_changed):
 			graph.structure_changed.connect(_on_graph_changed)
-		if graph.has_signal(&"node_updated") and not graph.node_updated.is_connected(_on_node_updated):
-			graph.node_updated.connect(_on_node_updated)
 	_last_structure_hash = _structure_hash()
 	_rebuild()
 
@@ -117,7 +98,7 @@ func _structure_hash() -> int:
 	for i in range(graph.nodes.size()):
 		var nd: Pasture3DGraphNode = graph.nodes[i]
 		if nd != null:
-			h = h ^ (nd.op().hash() << (i % 16))
+			h = h ^ (nd.op().hash() << (i % 16)) ^ (int(nd.collapsed) << ((i + 1) % 16)) ^ (int(nd.preview_on) << ((i + 2) % 16))
 	for c in graph.connections:
 		if c.size() >= 4:
 			var conn_hash := int(c[0]) | (int(c[1]) << 8) | (int(c[2]) << 16) | (int(c[3]) << 24)
@@ -133,17 +114,8 @@ func _on_graph_changed() -> void:
 	if sh != _last_structure_hash:
 		_last_structure_hash = sh
 		_rebuild()
-		if _show_previews:
-			_queue_all_previews()
 	else:
 		_refresh_nodes_state()
-
-
-func _on_node_updated(_p_node_idx: int, p_downstream: Array[int]) -> void:
-	if not _show_previews or graph == null:
-		return
-	for idx in p_downstream:
-		_queue_preview_update(idx)
 
 
 func _refresh_nodes_state() -> void:
@@ -170,59 +142,6 @@ func _refresh_nodes_state() -> void:
 					gn.modulate = Color.WHITE
 
 
-func _queue_preview_update(p_index: int) -> void:
-	if not _show_previews or graph == null:
-		return
-	if not _preview_queue.has(p_index):
-		_preview_queue.append(p_index)
-	_start_preview_processing()
-
-
-func _queue_all_previews() -> void:
-	if not _show_previews or graph == null:
-		return
-	for i in range(graph.nodes.size()):
-		if not _preview_queue.has(i):
-			_preview_queue.append(i)
-	_start_preview_processing()
-
-
-func _start_preview_processing() -> void:
-	if _preview_timer == null:
-		_preview_timer = Timer.new()
-		_preview_timer.one_shot = true
-		_preview_timer.wait_time = 0.05
-		_preview_timer.timeout.connect(_process_preview_queue)
-		add_child(_preview_timer)
-	if _preview_timer.is_stopped():
-		_preview_timer.start()
-
-
-func _process_preview_queue() -> void:
-	if graph == null or not _show_previews:
-		_preview_queue.clear()
-		return
-	var input_data := _get_preview_input_data()
-	var in_grid: PackedFloat32Array = input_data.get("grid", PackedFloat32Array())
-	var in_gw: int = input_data.get("gw", 0)
-	var in_gh: int = input_data.get("gh", 0)
-	var in_rect: Rect2 = input_data.get("rect", Rect2(-50.0, -50.0, 100.0, 100.0))
-
-	var processed := 0
-	while not _preview_queue.is_empty() and processed < 2:
-		var idx: int = _preview_queue.pop_front()
-		if idx >= 0 and idx < graph.nodes.size():
-			var tex: ImageTexture = ThumbnailGenScript.generate_thumbnail(graph, idx, 128, in_grid, in_gw, in_gh, in_rect)
-			if tex != null:
-				_preview_textures[idx] = tex
-				if _preview_rects.has(idx) and is_instance_valid(_preview_rects[idx]):
-					(_preview_rects[idx] as TextureRect).texture = tex
-		processed += 1
-
-	if not _preview_queue.is_empty() and _preview_timer != null:
-		_preview_timer.start(0.02)
-
-
 func _auto_fit_node_range(p_index: int) -> void:
 	if graph == null or p_index < 0 or p_index >= graph.nodes.size():
 		return
@@ -246,9 +165,9 @@ func _auto_fit_node_range(p_index: int) -> void:
 	if in_grid.size() == 128 * 128 and in_gw == 128 and in_gh == 128:
 		sample_input = in_grid
 	elif not in_grid.is_empty() and in_gw > 0 and in_gh > 0:
-		sample_input = ThumbnailGenScript.resample_grid(in_grid, in_gw, in_gh, 128, 128)
+		sample_input = Pasture3DUtil.resample_grid(in_grid, in_gw, in_gh, 128, 128)
 	else:
-		sample_input = ThumbnailGenScript.generate_sample_brush_input(128, 128, in_rect)
+		sample_input = Pasture3DUtil.sample_brush_input(128, 128, in_rect)
 		
 	var field: PackedFloat32Array
 	if src_node >= 0:
@@ -315,9 +234,6 @@ func _find_host_brush() -> Pasture3DTerrainBrush:
 				for m in b.modifiers:
 					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
 						return b
-		for nd in sel:
-			if nd is Pasture3DTerrainBrush:
-				return nd as Pasture3DTerrainBrush
 	return null
 
 
@@ -340,14 +256,6 @@ func _on_bake_brush_pressed() -> void:
 
 
 func _get_preview_input_data() -> Dictionary:
-	var mod := _find_host_modifier()
-	if mod != null and not mod.last_input_surface.is_empty():
-		return {
-			"grid": mod.last_input_surface,
-			"gw": mod.last_gw,
-			"gh": mod.last_gh,
-			"rect": mod.last_rect,
-		}
 	var brush := _find_host_brush()
 	if brush != null and brush.has_method("generate_preview_surface"):
 		var ps: Array = brush.generate_preview_surface(128, 128)
@@ -358,7 +266,20 @@ func _get_preview_input_data() -> Dictionary:
 				"gh": ps[2],
 				"rect": ps[3],
 			}
-	return {}
+	var mod := _find_host_modifier()
+	if mod != null and not mod.last_input_surface.is_empty():
+		return {
+			"grid": mod.last_input_surface,
+			"gw": mod.last_gw,
+			"gh": mod.last_gh,
+			"rect": mod.last_rect,
+		}
+	return {
+		"grid": Pasture3DUtil.sample_brush_input(128, 128, Rect2(-50.0, -50.0, 100.0, 100.0)),
+		"gw": 128,
+		"gh": 128,
+		"rect": Rect2(-50.0, -50.0, 100.0, 100.0),
+	}
 
 
 func _build_ui() -> void:
@@ -394,17 +315,6 @@ func _build_ui() -> void:
 	_frame_button.tooltip_text = "Group selected nodes into a visual GraphFrame (Ctrl+J or C)"
 	_frame_button.pressed.connect(group_selected_in_frame)
 	bar.add_child(_frame_button)
-	
-	_preview_button = Button.new()
-	_preview_button.text = "2D Previews"
-	_preview_button.toggle_mode = true
-	_preview_button.button_pressed = false
-	_preview_button.tooltip_text = "Toggle inline 2D heightmap thumbnail previews"
-	_preview_button.toggled.connect(func(enabled: bool):
-		_show_previews = enabled
-		_rebuild()
-	)
-	bar.add_child(_preview_button)
 
 	_minimap_button = Button.new()
 	_minimap_button.text = "Minimap"
@@ -560,7 +470,6 @@ func _rebuild() -> void:
 	if _add_button != null: _add_button.disabled = not has
 	if _presets_button != null: _presets_button.disabled = not has
 	if _frame_button != null: _frame_button.disabled = not has
-	if _preview_button != null: _preview_button.disabled = not has
 	if _minimap_button != null: _minimap_button.disabled = not has
 	if _arrange_button != null: _arrange_button.disabled = not has
 	var mod := _find_host_modifier()
@@ -606,8 +515,6 @@ func _rebuild() -> void:
 
 
 func _clear() -> void:
-	_preview_rects.clear()
-	_preview_queue.clear()
 	_graphedit.clear_connections()
 	for c in _graphedit.get_children():
 		if c is GraphElement:
@@ -641,6 +548,8 @@ func _make_graphnode(p_index: int, p_node: Pasture3DGraphNode) -> GraphNode:
 		gn.modulate = Color(0.8, 1.0, 0.85)
 	elif p_node.muted:
 		gn.modulate = Color(0.65, 0.65, 0.7, 0.6)
+	else:
+		gn.modulate = Color.WHITE
 
 	var thbox: HBoxContainer = gn.get_titlebar_hbox()
 
@@ -746,22 +655,6 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 
 		p_gn.add_child(row_box)
 		p_gn.set_slot(r, r < n_in, in_type, in_color, r < n_out, row_out_type, row_out_color)
-
-	# 2D Heightmap Preview Thumbnail (if enabled and not collapsed)
-	if _show_previews and not p_node.collapsed:
-		var center_box := CenterContainer.new()
-		var trect := TextureRect.new()
-		_preview_rects[p_index] = trect
-		var tex: ImageTexture = _preview_textures.get(p_index, null)
-		if tex != null:
-			trect.texture = tex
-		else:
-			_queue_preview_update(p_index)
-		trect.custom_minimum_size = Vector2(128, 128)
-		trect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		trect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		center_box.add_child(trect)
-		p_gn.add_child(center_box)
 
 	# Additional node-level inline parameter controls (if node is not collapsed)
 	if not p_node.collapsed:

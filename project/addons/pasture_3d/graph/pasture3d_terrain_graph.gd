@@ -22,9 +22,6 @@ extends Resource
 
 const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_frame_data.gd")
 
-## Emitted when a specific node's parameters change, carrying that node's index and all its downstream dependents.
-signal node_updated(node_idx: int, downstream_indices: Array[int])
-
 ## Emitted when graph topology (nodes added/removed, frames, positions) changes for UI canvas synchronization.
 signal structure_changed()
 
@@ -78,6 +75,21 @@ signal structure_changed()
 
 var _global_access_tick: int = 0
 
+# ---- Topology memoization ----------------------------------------------------------------------------
+# `_eval_order` and `_fold_plan` depend ONLY on graph topology (nodes, connections, and which node is the
+# output) — never on parameter values or mute state — so their results are safe to cache until the topology
+# changes. A single bake chains native_supported -> compile_graph_program -> _fold_plan, each recomputing
+# the same O(V*E) order/fold from scratch; the editor's async pipeline recompiles a program per expanded
+# preview. Caching keyed on the resolved root, cleared on `structure_changed`, removes that redundant walk.
+# The cached objects are shared and MUST be treated as read-only by callers.
+var _order_cache: Dictionary = {}   # root:int -> Array (topological order)
+var _fold_cache: Dictionary = {}    # root:int -> Dictionary (fold plan)
+
+
+func _invalidate_topology_cache() -> void:
+	_order_cache.clear()
+	_fold_cache.clear()
+
 
 ## Clears all cached output grid buffers across every node in the graph.
 func clear_cache() -> void:
@@ -121,8 +133,8 @@ func _evict_cache_if_needed() -> void:
 # ---- Change forwarding -------------------------------------------------------------------------------
 #
 # A node's own property setters emit `changed` on the node; the graph checks if that node feeds the active
-# output. If connected, the graph re-emits `changed` so the host brush re-bakes. If disconnected, only
-# `node_updated` is fired to update local canvas previews without triggering unnecessary terrain bakes.
+# output. If it does, the graph re-emits `changed` so the host brush re-bakes. A node disconnected from the
+# output changes nothing the bake would see, so no re-bake is triggered.
 
 func _bind_nodes(p_list: Array, p_connect: bool) -> void:
 	for n in p_list:
@@ -142,12 +154,10 @@ func _on_node_changed(p_node: Pasture3DGraphNode = null) -> void:
 	
 	var affects_output := true
 	if n_idx >= 0:
-		var downstream := get_downstream_nodes(n_idx)
 		var out_idx := output_index()
 		if out_idx >= 0:
-			affects_output = downstream.has(out_idx)
-		node_updated.emit(n_idx, downstream)
-	
+			affects_output = get_downstream_nodes(n_idx).has(out_idx)
+
 	if affects_output:
 		emit_changed()
 
@@ -193,6 +203,7 @@ var _revision: int = 0
 
 func _init() -> void:
 	changed.connect(func(): _revision += 1)
+	structure_changed.connect(_invalidate_topology_cache)
 
 
 ## The current content revision — a host reads this as the staleness key for a frozen bake.
@@ -507,6 +518,21 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 	var out := p_root_node if (p_root_node >= 0 and p_root_node < nodes.size()) else output_index()
 	if out < 0 or out >= nodes.size() or nodes[out] == null:
 		return Pasture3DGraphOps.zeros(n)
+
+	# 1. Native C++ Whole-Graph Acceleration Path
+	if native_supported(out) and ClassDB.class_has_method("Pasture3DUtil", "graph_eval_grid"):
+		var prog: Dictionary = compile_graph_program(out)
+		if not prog.is_empty():
+			var in_surf := _surface_grid(p_input, n)
+			var field: PackedFloat32Array = Pasture3DUtil.graph_eval_grid(prog, p_gw, p_gh, p_rect, in_surf)
+			if not field.is_empty() and field.size() == n:
+				# The bake does not touch 2D node previews. The graph editor owns previews end to end,
+				# rendering them off the main thread from its own single low-res tap pass (see graph_editor.gd).
+				if p_root_node < 0 or p_root_node == output_index():
+					nodes[out].store_cache(field, {}, _compute_node_inputs_hash(out, p_gw, p_gh, p_rect, p_mask, p_input, {}, {}), _global_access_tick)
+				return field
+
+	# 2. GDScript Folded / Multi-Channel Evaluation Reference Path
 	var plan := _fold_plan(out)
 	var order: Array = plan["order"]
 	if order.is_empty(): # unreachable output or a cycle
@@ -613,8 +639,10 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 						g[idx] = node.eval_cell(wx, wz, cell_in)
 			grids[ni] = g
 
-		node.store_cache(grids[ni], aux.get(ni, {}), inputs_hash, _global_access_tick)
-		_evict_cache_if_needed()
+		# The bake does not touch 2D node previews — the graph editor owns them (see the note above).
+		if p_root_node < 0 or p_root_node == output_index():
+			node.store_cache(grids[ni], aux.get(ni, {}), inputs_hash, _global_access_tick)
+			_evict_cache_if_needed()
 
 	return grids[out]
 
@@ -759,6 +787,9 @@ func _cell_input(p_src: int, p_port: int, p_cell: int, p_wx: float, p_wz: float,
 ## folds. Exposed for GraphFoldGate.
 func _fold_plan(p_root: int = -1) -> Dictionary:
 	var out := p_root if (p_root >= 0 and p_root < nodes.size()) else output_index()
+	# Topology-only result — served from cache until `structure_changed` clears it. Read-only for callers.
+	if _fold_cache.has(out):
+		return _fold_cache[out]
 	var order := _eval_order(out)
 	var needed := {}
 	for ni in order:
@@ -798,8 +829,10 @@ func _fold_plan(p_root: int = -1) -> Dictionary:
 	for ni in order:
 		materialize[ni] = nodes[ni].needs_grid() or ni == out \
 				or fanout[ni] > 1 or grid_consumer[ni]
-	return {"order": order, "inputs_of": inputs_of, "input_ports_of": input_ports_of,
+	var plan := {"order": order, "inputs_of": inputs_of, "input_ports_of": input_ports_of,
 			"materialize": materialize}
+	_fold_cache[out] = plan
+	return plan
 
 
 ## Lower a CELL-ONLY graph into the flat SSA program the native evaluator reads
@@ -918,11 +951,11 @@ func compile_cell_program() -> Dictionary:
 ##   in1      [int]     second input's source slot (blend only), or -1
 ##   noise    [Variant] the slot's FastNoiseLite (noise/jitter ops) or null — passed as-is, never rebuilt
 ##   output   int       the slot whose grid is the graph output
-func compile_graph_program() -> Dictionary:
-	var out := output_index()
+func compile_graph_program(p_root_node: int = -1) -> Dictionary:
+	var out := p_root_node if (p_root_node >= 0 and p_root_node < nodes.size()) else output_index()
 	if out < 0 or out >= nodes.size() or nodes[out] == null:
 		return {}
-	var order := _eval_order()
+	var order := _eval_order(out)
 	if order.is_empty():
 		return {}
 	for c in connections:
@@ -934,7 +967,7 @@ func compile_graph_program() -> Dictionary:
 	var slot_of := {}
 	for k in range(order.size()):
 		slot_of[order[k]] = k
-	var inputs_of: Dictionary = _fold_plan()["inputs_of"] # node -> [source node per port, -1 unwired]
+	var inputs_of: Dictionary = _fold_plan(out)["inputs_of"] # node -> [source node per port, -1 unwired]
 	var ops := PackedInt32Array()
 	var params := PackedFloat32Array()
 	var params_b := PackedFloat32Array()
@@ -1086,15 +1119,17 @@ func compile_graph_program() -> Dictionary:
 
 
 ## True when every node feeding the output has an op the native whole-graph evaluator implements.
-func native_supported() -> bool:
-	var out := output_index()
+func native_supported(p_root_node: int = -1) -> bool:
+	var out := p_root_node if (p_root_node >= 0 and p_root_node < nodes.size()) else output_index()
 	if out < 0 or out >= nodes.size() or nodes[out] == null:
 		return false
-	var order := _eval_order()
+	var order := _eval_order(out)
 	if order.is_empty():
 		return false
 	const SUPPORTED := [
-		&"input", &"output", &"reroute", &"noise", &"const", &"blend", &"smooth", &"terrace",
+		&"input", &"output", &"reroute", &"terrain_bus_merge", &"terrain_bus_split",
+		&"noise", &"const", &"const_int", &"const_vector", &"const_color", &"const_bool", &"const_curve",
+		&"blend", &"smooth", &"terrace",
 		&"noise_jordan", &"noise_swiss", &"geological_primitive", &"furrows", &"dunes",
 		&"crater", &"warp", &"strata", &"curve", &"remap", &"mask", &"curvature",
 		&"talus_projection", &"spectral_equalizer", &"depression_filling", &"lake_flooding",
@@ -1208,6 +1243,9 @@ func _eval_order(p_root: int = -1) -> Array:
 	var root := p_root if (p_root >= 0 and p_root < nodes.size()) else output_index()
 	if root < 0 or root >= nodes.size() or nodes[root] == null:
 		return []
+	# Topology-only result — served from cache until `structure_changed` clears it. Read-only for callers.
+	if _order_cache.has(root):
+		return _order_cache[root]
 	var needed := {root: true}
 	var frontier: Array = [root]
 	while not frontier.is_empty():
@@ -1243,7 +1281,8 @@ func _eval_order(p_root: int = -1) -> Array:
 				if indeg[to] == 0:
 					ready.push_back(to)
 	if order.size() != needed.size():
-		return [] # a cycle in the output's ancestry
+		order = [] # a cycle in the output's ancestry
+	_order_cache[root] = order
 	return order
 
 

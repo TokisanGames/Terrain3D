@@ -14,7 +14,6 @@ extends Node
 
 const FrameDataScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_frame_data.gd")
 const RerouteNodeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_reroute.gd")
-const ThumbnailGenScript = preload("res://addons/pasture_3d/src/graph_thumbnail_generator.gd")
 
 var _fail := 0
 
@@ -33,7 +32,6 @@ func _ready() -> void:
 	_j_solo_output_override()
 	_k_port_type_system_and_colors()
 	_l_drag_to_create_wiring()
-	_m_thumbnail_generation()
 	_n_preset_template_networks()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH USABILITY PASS" if _fail == 0 else "GRAPH USABILITY FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
@@ -579,34 +577,6 @@ func _l_drag_to_create_wiring() -> void:
 		
 	remove_child(editor)
 	editor.free()
-
-
-func _m_thumbnail_generation() -> void:
-	print("[M] 2D heightmap & mask thumbnail generation")
-	var g = Pasture3DTerrainGraph.new()
-	var nz = Pasture3DGraphNodeRegistry.create(&"noise")
-	nz.set("amplitude", 20.0)
-	var fnz = FastNoiseLite.new()
-	fnz.frequency = 0.02
-	nz.set("noise", fnz)
-	var n0 = g.add_node(nz, Vector2(100, 100))
-	
-	var mask = Pasture3DGraphNodeRegistry.create(&"mask")
-	var n1 = g.add_node(mask, Vector2(300, 100))
-	var inp = Pasture3DGraphNodeRegistry.create(&"input")
-	var n2 = g.add_node(inp, Vector2(500, 100))
-	
-	var tex_nz = ThumbnailGenScript.generate_thumbnail(g, n0, 128)
-	var tex_mask = ThumbnailGenScript.generate_thumbnail(g, n1, 128)
-	var tex_inp = ThumbnailGenScript.generate_thumbnail(g, n2, 128)
-	
-	var nz_ok: bool = tex_nz != null and tex_nz.get_width() == 128 and tex_nz.get_height() == 128
-	var mask_ok: bool = tex_mask != null and tex_mask.get_width() == 128 and tex_mask.get_height() == 128
-	var inp_ok: bool = tex_inp != null and tex_inp.get_width() == 128 and tex_inp.get_height() == 128
-	
-	print("    noise thumbnail ok=%s, mask thumbnail ok=%s, input brush thumbnail ok=%s" % [nz_ok, mask_ok, inp_ok])
-	if not nz_ok or not mask_ok or not inp_ok:
-		_fail += 1; print("    !! thumbnail generation failed")
 
 
 func _n_preset_template_networks() -> void:
