@@ -286,21 +286,79 @@ func _test_parity() -> void:
 
 ## 3. Core Architectural Rules & Best Practices
 
-1. **Safe Parameter Extraction**:
-   - In `compile_graph_program()`, **never** call `float(node.get("prop"))` directly. If a property name is mismatched or dynamic, `float(null)` will throw a runtime constructor exception.
-   - Always use the helper closures `_f.call(&"prop_name", default_val)` and `_i.call(&"prop_name", default_val)`.
+### 3.1 Critical Lessons: The Hydraulic Solver Bug & Lowering Pitfalls
 
-2. **NaN & Hole Preservation**:
+During Milestone 4 whole-graph integration, a critical bug occurred with `ErosionHydraulic` where graphs compiling with Hydraulic Erosion broke and brush strokes produced zero terrain change:
+
+```
+ERROR: res://addons/pasture_3d/graph/pasture3d_terrain_graph.gd:1013 - Invalid call. Nonexistent 'float' constructor.
+```
+
+#### Why It Happened:
+1. **The `float(null)` Runtime Constructor Trap**: In GDScript, calling `float(node.get("mismatched_name"))` when a property does not exist returns `null`. Unlike loose dynamic languages that convert `null` to `0.0`, GDScript 4 throws a hard runtime error: `Nonexistent 'float' constructor`.
+2. **Silent Failure & Empty Brush Returns**: The exception halted `compile_graph_program()`, causing it to catch the error or abort and return `{}`. As a result, brushes received an empty program, evaluating to flat zeros.
+3. **Property Name Drift Across Layers**: The GDScript node declared `@export var erosion_speed` and `deposition_speed`, but the whole-graph lowering loop queried `dissolution_rate` and `deposition_rate` (inherited from a different simulator API).
+4. **Dispatcher Inconsistency**: The standalone solver called `Pasture3DUtil.erosion_hydraulic_solve_grid_best`, whereas `pasture_3d_graph_ops.cpp` initially called `erosion_hydraulic_solve` (CPU-only), causing numerical divergence between standalone and pipeline runs.
+
+---
+
+### 3.2 Lowering Safety Rules & Prevention Checklist
+
+To prevent this issue on all future nodes and solvers, adhere to these mandatory design rules:
+
+#### 1. Always Use Defensive Property Accessors
+In [`pasture3d_terrain_graph.gd`](file:///g:/LaughingRooster/GodotExtensions/Pasture3D/project/addons/pasture_3d/graph/pasture3d_terrain_graph.gd) `compile_graph_program()`, **NEVER** write `float(node.get("prop"))` or `int(node.get("prop"))`. Always use the safe lambda accessors with explicit fallback defaults:
+
+```gdscript
+var _f := func(p: StringName, def: float = 0.0) -> float:
+	var v = node.get(p)
+	return float(v) if v != null else def
+
+var _i := func(p: StringName, def: int = 0) -> int:
+	var v = node.get(p)
+	return int(v) if v != null else def
+```
+
+#### 2. Cross-Layer Naming Verification Checklist
+Whenever adding or modifying a node, cross-verify that the exact property identifier is identical across all four files:
+- [ ] **GDScript Node Class** (`pasture3d_graph_node_<name>.gd`): `@export var my_parameter: float`
+- [ ] **Lowering Compiler** (`pasture3d_terrain_graph.gd`): `pb = _f.call(&"my_parameter", default_val)`
+- [ ] **Native Opcode Case** (`src/pasture_3d_graph_ops.cpp`): `p.my_parameter = params_b[s]`
+- [ ] **C++ Parameter Struct** (`src/pasture_3d_<name>.h`): `double my_parameter;`
+
+#### 3. Parameter Slot Assignment Table
+Lowered parameters map to specific parallel arrays in SSA flat bytecode. Maintain slot consistency:
+
+| Lowering Slot in GDScript | Native C++ Array in `graph_ops.cpp` | Recommended Usage |
+| :--- | :--- | :--- |
+| `p0` | `params[s]` | Primary scalar / Mode / Iterations |
+| `pb` | `params_b[s]` | Secondary scalar / Rate / Frequency |
+| `pc` | `params_c[s]` | Tertiary scalar / Gain / Exponent |
+| `pd` | `params_d[s]` | Quaternary scalar / Octaves / Diffusion |
+| `pe` | `params_e[s]` | Speed / Blend amount / Threshold |
+| `pf` | `params_f[s]` | Speed / Angle / Falloff |
+| `pg` | `params_g[s]` | Seed / Min Slope / Contrast |
+| `ph` | `params_h[s]` | Auxiliary seed / Step count |
+| `pj`, `pk` | `params_j[s]`, `params_k[s]` | 2D Vector offsets (`center_offset.x`, `.y`) |
+
+#### 4. Unified Dispatcher Routing
+If a solver supports GPU compute acceleration or multi-tier routing (e.g. `erosion_hydraulic_solve_best`), ensure `src/pasture_3d_graph_ops.cpp` calls the **same router function** (`_best`) as `Pasture3DUtil::<solver>_grid_best`.
+
+---
+
+### 3.3 General Runtime Guarantees
+
+1. **NaN & Hole Preservation**:
    - Terrain grids can contain `NAN` representing uninitialized or cut-out brush regions.
-   - Nodes **must not** propagate NaN poisoning to neighbors. Always check `std::isfinite(val)` / `is_finite(val)`.
+   - Nodes **must not** propagate NaN poisoning to neighbors. Always check `std::isfinite(val)` / `is_finite(val)`. In spatial blur/Laplacian filters, normalize only across finite neighbor samples.
 
-3. **Zero-Allocation Arena Reuse**:
+2. **Zero-Allocation Arena Reuse**:
    - The whole-graph evaluator uses a recycled `std::vector<float>` pool.
    - In `src/pasture_3d_graph_ops.cpp`, intermediate node outputs write directly to `g_ptr` acquired from `arena_acquire(n)`, and input buffers automatically recycle via reference counting when consumers finish.
 
-4. **Secondary Multi-Output Channel Routing**:
+3. **Secondary Multi-Output Channel Routing**:
    - Solvers that generate auxiliary mask channels (e.g. `sediment`, `flow`, `talus`, `shoreline`, `water_depth`) output them on port $\ge 1$.
-   - The native whole-graph DAG pipeline evaluates primary height buffers (port 0). If a graph wires secondary output ports into downstream nodes, `compile_graph_program()` automatically defers execution to the channel-aware GDScript evaluator.
+   - The native whole-graph DAG pipeline evaluates primary height buffers (port 0). If a graph wires secondary output ports into downstream nodes, `compile_graph_program()` and `native_supported()` automatically detect `from_port > 0` and defer execution to the channel-aware GDScript evaluator.
 
 ---
 
