@@ -84,6 +84,10 @@ func input_names() -> PackedStringArray:
 	return PackedStringArray()
 
 
+func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	return Pasture3DUtil.noise_jordan_grid(p_gw, p_gh, p_rect, amplitude, frequency, octaves, gain, lacunarity, warp_strength, damp_strength, seed)
+
+
 func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:
 	if is_zero_approx(amplitude) or octaves <= 0:
 		return 0.0

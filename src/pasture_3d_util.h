@@ -180,6 +180,24 @@ public:
 			const Rect2 &p_rect, const int p_warp_type, const double p_frequency, const double p_strength,
 			const int p_octaves, const double p_amplitude, const double p_roughness, const int p_seed);
 
+	// Native Jordan derivative-feedback fBm noise generator.
+	static PackedFloat32Array noise_jordan_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_frequency, const int p_octaves,
+			const double p_gain, const double p_lacunarity, const double p_warp_strength,
+			const double p_damp_strength, const int p_seed);
+
+	// Native Swiss ridge noise generator.
+	static PackedFloat32Array noise_swiss_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_frequency, const int p_octaves,
+			const double p_gain, const double p_lacunarity, const double p_ridge_offset,
+			const double p_erosion_accent, const int p_seed);
+
+	// Native Geological Primitive generator (inselbergs, calderas, cuestas).
+	static PackedFloat32Array geological_primitive_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const int p_primitive_type, const int p_mapping, const double p_height, const double p_radius,
+			const double p_eccentricity, const double p_steepness, const double p_azimuth_degrees,
+			const Vector2 &p_center_offset);
+
 protected:
 	static void _bind_methods();
 };

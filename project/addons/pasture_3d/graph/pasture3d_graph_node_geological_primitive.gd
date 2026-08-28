@@ -93,45 +93,7 @@ func input_count() -> int:
 
 
 func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
-	var n := p_gw * p_gh
-	var out := PackedFloat32Array()
-	out.resize(n)
-
-	if mapping == Mapping.METRIC_WORLD:
-		for iz in range(p_gh):
-			var row := iz * p_gw
-			for ix in range(p_gw):
-				var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, p_gw, p_gh, p_rect)
-				out[row + ix] = eval_cell(w.x, w.y, PackedFloat32Array())
-		return out
-
-	# FIT_FRAME mapping: center is frame center + normalized offset
-	var cx := p_rect.position.x + p_rect.size.x * 0.5 + center_offset.x * (p_rect.size.x * 0.5)
-	var cz := p_rect.position.y + p_rect.size.y * 0.5 + center_offset.y * (p_rect.size.y * 0.5)
-	var half_ex := maxf(p_rect.size.x * 0.5 * radius, 0.001)
-	var half_ez := maxf(p_rect.size.y * 0.5 * radius * eccentricity, 0.001)
-
-	var rad := deg_to_rad(azimuth_degrees)
-	var cos_a := cos(rad)
-	var sin_a := sin(rad)
-
-	for iz in range(p_gh):
-		var row := iz * p_gw
-		for ix in range(p_gw):
-			var w := Pasture3DTerrainGraph.cell_to_world(ix, iz, p_gw, p_gh, p_rect)
-			var rx := w.x - cx
-			var rz := w.y - cz
-
-			var lx := rx * cos_a + rz * sin_a
-			var lz := -rx * sin_a + rz * cos_a
-
-			var norm_x := lx / half_ex
-			var norm_z := lz / half_ez
-			var d := sqrt(norm_x * norm_x + norm_z * norm_z)
-
-			out[row + ix] = _profile_at(d, norm_x)
-
-	return out
+	return Pasture3DUtil.geological_primitive_grid(p_gw, p_gh, p_rect, int(primitive_type), int(mapping), height, radius, eccentricity, steepness, azimuth_degrees, center_offset)
 
 
 func eval_cell(p_wx: float, p_wz: float, _p_inputs: PackedFloat32Array) -> float:

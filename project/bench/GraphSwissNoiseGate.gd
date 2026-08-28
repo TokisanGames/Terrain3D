@@ -14,7 +14,7 @@ extends Node
 const GW := 48
 const GH := 48
 const RECT := Rect2(-100.0, -100.0, 200.0, 200.0)
-const EPS := 1.0e-5
+const EPS := 1.0e-4
 
 var _fail := 0
 

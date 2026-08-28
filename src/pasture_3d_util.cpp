@@ -14,9 +14,12 @@
 #include "pasture_3d_erosion.h"
 #include "pasture_3d_erosion_hydraulic.h"
 #include "pasture_3d_erosion_thermal.h"
+#include "pasture_3d_geological_primitive.h"
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_lake_flooding.h"
+#include "pasture_3d_noise_jordan.h"
+#include "pasture_3d_noise_swiss.h"
 #include "pasture_3d_spectral_equalizer.h"
 #include "pasture_3d_stream_extraction.h"
 #include "pasture_3d_thread_pool.h"
@@ -1327,6 +1330,30 @@ PackedFloat32Array Pasture3DUtil::warp_grid(const PackedFloat32Array &p_surface,
 			p_frequency, p_strength, p_octaves, p_amplitude, p_roughness, p_seed);
 }
 
+PackedFloat32Array Pasture3DUtil::noise_jordan_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_amplitude, const double p_frequency, const int p_octaves,
+		const double p_gain, const double p_lacunarity, const double p_warp_strength,
+		const double p_damp_strength, const int p_seed) {
+	return godot::noise_jordan_grid(p_gw, p_gh, p_rect, p_amplitude, p_frequency, p_octaves,
+			p_gain, p_lacunarity, p_warp_strength, p_damp_strength, p_seed);
+}
+
+PackedFloat32Array Pasture3DUtil::noise_swiss_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_amplitude, const double p_frequency, const int p_octaves,
+		const double p_gain, const double p_lacunarity, const double p_ridge_offset,
+		const double p_erosion_accent, const int p_seed) {
+	return godot::noise_swiss_grid(p_gw, p_gh, p_rect, p_amplitude, p_frequency, p_octaves,
+			p_gain, p_lacunarity, p_ridge_offset, p_erosion_accent, p_seed);
+}
+
+PackedFloat32Array Pasture3DUtil::geological_primitive_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const int p_primitive_type, const int p_mapping, const double p_height, const double p_radius,
+		const double p_eccentricity, const double p_steepness, const double p_azimuth_degrees,
+		const Vector2 &p_center_offset) {
+	return godot::geological_primitive_grid(p_gw, p_gh, p_rect, p_primitive_type, p_mapping,
+			p_height, p_radius, p_eccentricity, p_steepness, p_azimuth_degrees, p_center_offset);
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1432,4 +1459,14 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("warp_grid", "surface", "gw", "gh", "rect", "warp_type", "frequency", "strength", "octaves", "amplitude", "roughness", "seed"),
 			&Pasture3DUtil::warp_grid);
+	// Terrain graph — Procedural Generators (Jordan Noise, Swiss Noise, Geological Primitive).
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("noise_jordan_grid", "gw", "gh", "rect", "amplitude", "frequency", "octaves", "gain", "lacunarity", "warp_strength", "damp_strength", "seed"),
+			&Pasture3DUtil::noise_jordan_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("noise_swiss_grid", "gw", "gh", "rect", "amplitude", "frequency", "octaves", "gain", "lacunarity", "ridge_offset", "erosion_accent", "seed"),
+			&Pasture3DUtil::noise_swiss_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("geological_primitive_grid", "gw", "gh", "rect", "primitive_type", "mapping", "height", "radius", "eccentricity", "steepness", "azimuth_degrees", "center_offset"),
+			&Pasture3DUtil::geological_primitive_grid);
 }
