@@ -1,6 +1,6 @@
-# Pasture3D Node Acceleration & Native Solver Guide
+# Pasture3D Node Development & Native Acceleration Guide
 
-This document is the official architectural manual and expansion playbook for developing, porting, and accelerating nodes in the **Pasture3D Procedural Terrain Graph System**.
+This document is the official architectural manual and step-by-step expansion playbook for developing, porting, and accelerating nodes in the **Pasture3D Procedural Terrain Graph System**.
 
 ---
 
@@ -20,37 +20,41 @@ graph TD
         C2["Multi-Threaded / SIMD / Cache-Friendly<br/>30x–150x Speedup"]
     end
 
-    subgraph "Tier 3: GPU Compute Shader"
-        S1["src/shaders/*.glsl"]
-        S2["RenderingDevice SSBO Buffers<br/>Real-Time VRAM Execution"]
+    subgraph "Tier 3: Whole-Graph C++ DAG Pipeline"
+        W1["src/pasture_3d_graph_ops.cpp<br/>graph_eval_grid()"]
+        W2["Zero-Heap Arena Memory Pool<br/>Whole-Graph Lowering"]
     end
 
     G1 -->|Automatic Dispatch| C1
-    C1 -->|High-Throughput Dispatch| S1
+    C1 -->|Whole-Graph Lowering| W1
 ```
 
-### The Three Execution Tiers
+### The Execution Tiers
 1. **Tier 1 — GDScript Reference Oracle**:
-   - Every node starts with a pure GDScript implementation (`_solve_gdscript` or `_eval_grid_gdscript`).
+   - Every node has a pure GDScript implementation (`_solve_gdscript` or `eval_cell` / `eval_grid`).
    - Serves as the ground truth oracle for automated headless parity gates.
 2. **Tier 2 — C++ Native GDExtension Kernel**:
    - Implemented in `src/pasture_3d_<node_name>.h/.cpp`.
-   - Optimized for cache locality, contiguous memory strides (`std::vector<float>` / `PackedFloat32Array`), zero heap allocations in inner loops, and deterministic arithmetic.
-3. **Tier 3 — GPU Compute Shader**:
-   - Written in GLSL Compute (`#[compute] #version 450`) under `src/shaders/`.
-   - Driven by Godot's `RenderingDevice` with SSBO ping-pong buffers for real-time terrain evaluation.
+   - Optimized for cache locality, contiguous memory strides (`PackedFloat32Array` / `std::vector<float>`), multi-threading via `Pasture3DThreadPool`, and deterministic arithmetic.
+3. **Tier 3 — Whole-Graph Native Lowering & Scratch Memory Arena**:
+   - Flat SSA bytecode evaluation in `src/pasture_3d_graph_ops.cpp` (`Pasture3DUtil.graph_eval_grid`).
+   - Evaluates entire multi-branch DAGs in C++ without returning to GDScript between nodes.
+   - Reference-counted scratch memory pool dynamically reuses intermediate buffers with **0 heap allocations during live brush painting**.
 
 ---
 
-## 2. Step-by-Step Node Acceleration Playbook
+## 2. Step-by-Step Node Implementation Playbook
 
-When introducing a new procedural generator, filter, or iterative simulation solver, follow these 6 steps:
+When introducing a new procedural generator, filter, modifier, or iterative simulation solver, follow these 7 steps:
 
-### Step 1: Write the GDScript Node & Reference Oracle
+---
+
+### Step 1: Create the GDScript Node Class
 Create `project/addons/pasture_3d/graph/pasture3d_graph_node_<name>.gd`:
 - Inherit from `Pasture3DGraphNode`.
-- Declare inputs, outputs, ports, and default parameters.
-- Implement `_eval_grid_gdscript(...)` or `_solve_gdscript(...)`.
+- Declare `@export` parameters with range limits and setter notifications (`emit_changed()` or `_param_changed()`).
+- Declare `op() -> StringName`, `role() -> Role`, `needs_grid() -> bool`, and port configurations (`input_count()`, `input_names()`, `output_count()`, `output_names()`).
+- Implement `eval_cell()` (for point operators) or `eval_grid()` / `eval_grid_channels()` (for spatial filters and solvers).
 
 ```gdscript
 @tool
@@ -95,12 +99,22 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	return res
 ```
 
-For algorithm prototyping, A/B testing, and CI parity benchmarks, create a corresponding `[Dev/GD]` reference node under `project/addons/pasture_3d/graph/pasture3d_graph_node_dev_<name>.gd` (`Pasture3DGraphNodeDev<Name>` with op `&"dev_<name>"`), and register it in `Pasture3DGraphNodeRegistry._dev_entries()`. (See [PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md](file:///g:/LaughingRooster/GodotExtensions/Pasture3D/PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md)).
+---
 
+### Step 2: Register in Node Palette
+In [`project/addons/pasture_3d/graph/pasture3d_graph_node_registry.gd`](file:///g:/LaughingRooster/GodotExtensions/Pasture3D/project/addons/pasture_3d/graph/pasture3d_graph_node_registry.gd):
+1. Preload the script:
+   ```gdscript
+   const ExampleFilterScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_example_filter.gd")
+   ```
+2. Add an entry to `entries()`:
+   ```gdscript
+   {"op": &"example_filter", "title": "Example Filter", "role": "Filter", "script": ExampleFilterScript, "tags": ["example", "filter", "detail"], "description": "Applies custom filtering to terrain elevation."}
+   ```
 
 ---
 
-### Step 2: Implement the C++ Native Kernel
+### Step 3: Implement the C++ Native Kernel
 Create `src/pasture_3d_<name>.h` and `src/pasture_3d_<name>.cpp`:
 
 ```cpp
@@ -123,6 +137,7 @@ PackedFloat32Array example_filter_solve(const PackedFloat32Array &p_surface,
 ```cpp
 // src/pasture_3d_example_filter.cpp
 #include "pasture_3d_example_filter.h"
+#include "pasture_3d_thread_pool.h"
 #include <algorithm>
 #include <cmath>
 
@@ -139,68 +154,38 @@ PackedFloat32Array godot::example_filter_solve(const PackedFloat32Array &p_surfa
 	const float *msk = (p_mask.size() == n) ? p_mask.ptr() : nullptr;
 	float *dst = out.ptrw();
 
-	for (int i = 0; i < n; i++) {
-		const float val = src[i];
-		if (std::isfinite(val)) {
-			const double m = msk ? std::clamp((double)msk[i], 0.0, 1.0) : 1.0;
-			dst[i] = (float)((double)val + p_intensity * m);
-		} else {
-			dst[i] = val;
+	Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+		for (int iz = z0; iz < z1; iz++) {
+			const int row = iz * p_gw;
+			for (int ix = 0; ix < p_gw; ix++) {
+				const int i = row + ix;
+				const float val = src[i];
+				if (std::isfinite(val)) {
+					const double m = msk ? std::clamp((double)msk[i], 0.0, 1.0) : 1.0;
+					dst[i] = (float)((double)val + p_intensity * m);
+				} else {
+					dst[i] = val;
+				}
+			}
 		}
-	}
+	});
+
 	return out;
 }
 ```
 
 ---
 
-### Step 3: Implement the GLSL Compute Shader
-Create `src/shaders/graph_<name>.glsl`:
+### Step 4: Expose Static Binding in `Pasture3DUtil`
+In `src/pasture_3d_util.h` and `src/pasture_3d_util.cpp`:
 
-```glsl
-#[compute]
-#version 450
-
-layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
-
-layout(set = 0, binding = 0, std430) readonly buffer InHeight { float in_height[]; };
-layout(set = 0, binding = 1, std430) readonly buffer InMask   { float in_mask[]; };
-layout(set = 0, binding = 2, std430) buffer       OutHeight  { float out_height[]; };
-
-layout(push_constant) uniform PushConstants {
-    int grid_w;
-    int grid_h;
-    float intensity;
-} pc;
-
-void main() {
-    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-    if (coord.x >= pc.grid_w || coord.y >= pc.grid_h) return;
-
-    int idx = coord.y * pc.grid_w + coord.x;
-    float val = in_height[idx];
-    if (isnan(val) || isinf(val)) {
-        out_height[idx] = val;
-        return;
-    }
-
-    float m = clamp(in_mask[idx], 0.0, 1.0);
-    out_height[idx] = val + pc.intensity * m;
-}
-```
-
----
-
-### Step 4: Register GDExtension Bindings in `Pasture3DUtil`
-Update `src/pasture_3d_util.h` and `src/pasture_3d_util.cpp`:
-
-1. **Declare static wrapper in `pasture_3d_util.h`**:
+1. **Header declaration** (`src/pasture_3d_util.h`):
    ```cpp
    static PackedFloat32Array example_filter_grid(const PackedFloat32Array &p_surface,
    		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const double p_intensity);
    ```
 
-2. **Implement and bind in `pasture_3d_util.cpp`**:
+2. **Binding registration** (`src/pasture_3d_util.cpp`):
    ```cpp
    PackedFloat32Array Pasture3DUtil::example_filter_grid(const PackedFloat32Array &p_surface,
    		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const double p_intensity) {
@@ -217,86 +202,138 @@ Update `src/pasture_3d_util.h` and `src/pasture_3d_util.cpp`:
 
 ---
 
-### Step 5: Write the Automated Parity & Benchmark Gate
-Create `project/bench/Graph<Name>AccelerationGate.gd` and `.tscn`:
+### Step 5: Hook into Whole-Graph C++ Lowering & Memory Pool
+
+To enable the node to run at zero-heap-allocation native speed inside whole DAGs:
+
+1. **Add Opcode in `src/pasture_3d_graph_ops.h`**:
+   ```cpp
+   enum GraphCellOpType {
+       ...
+       GRAPH_OP_EXAMPLE_FILTER = 34,
+   };
+   ```
+
+2. **Handle Opcode in `src/pasture_3d_graph_ops.cpp`**:
+   ```cpp
+   case GRAPH_OP_EXAMPLE_FILTER: {
+       PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+       PackedFloat32Array in_mask = get_grid_packed(in1[s]);
+       PackedFloat32Array res = example_filter_solve(in_arr, in_mask, p_gw, p_gh, params[s]);
+       if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+   } break;
+   ```
+
+3. **Register in `compile_graph_program()` & `native_supported()`** ([`pasture3d_terrain_graph.gd`](file:///g:/LaughingRooster/GodotExtensions/Pasture3D/project/addons/pasture_3d/graph/pasture3d_terrain_graph.gd)):
+   - In `compile_graph_program()`, extract parameters using safe closures `_f` (float) and `_i` (int):
+     ```gdscript
+     &"example_filter":
+         op_id = 34
+         p0 = _f.call(&"intensity", 0.5)
+     ```
+   - In `native_supported()`, append `&"example_filter"` to the `SUPPORTED` array.
+
+---
+
+### Step 6: Create Headless Parity Gate & Scaling Benchmark
+Create `project/bench/GraphExampleFilterGate.gd` and `project/bench/GraphExampleFilterGate.tscn`:
 
 ```gdscript
 extends Node
 
-const TOLERANCE: float = 0.0001
-var _failures: int = 0
+const EPS := 0.0001
+var _fail: int = 0
 
 func _ready() -> void:
-	print("\n=== GraphExampleAccelerationGate ===\n")
+	print("=== GraphExampleFilterGate ===")
 	_test_parity()
-	_run_benchmarks()
-	if _failures == 0:
+	if _fail == 0:
 		print("=== PASS (0 failures) ===")
 		get_tree().quit(0)
 	else:
-		printerr("=== FAIL (%d failures) ===" % _failures)
+		printerr("=== FAIL (%d failures) ===" % _fail)
 		get_tree().quit(1)
 
 func _test_parity() -> void:
 	var gw := 128
 	var gh := 128
-	var n := gw * gh
-	var surf := Pasture3DGraphOps.filled(n, 10.0)
-	var mask := Pasture3DGraphOps.filled(n, 1.0)
-	var node := Pasture3DGraphNodeExampleFilter.new()
+	var rect := Rect2(-100.0, -100.0, 200.0, 200.0)
+	var g := Pasture3DTerrainGraph.new()
+	var inp := Pasture3DGraphNodeNoise.new()
+	var flt := Pasture3DGraphNodeExampleFilter.new(); flt.intensity = 0.75
+	var out := Pasture3DGraphNodeOutput.new()
 
-	var gd_res: PackedFloat32Array = node._eval_grid_gdscript(surf, mask, gw, gh, 0.5)
-	var cpp_res: PackedFloat32Array = Pasture3DUtil.example_filter_grid(surf, mask, gw, gh, 0.5)
+	g.nodes = [inp, flt, out]
+	g.connections = [
+		PackedInt32Array([0, 0, 1, 0]),
+		PackedInt32Array([1, 0, 2, 0]),
+	]
 
-	var max_diff := 0.0
-	for i in range(n):
-		max_diff = maxf(max_diff, absf(cpp_res[i] - gd_res[i]))
+	var prog := g.compile_graph_program()
+	var native_res := Pasture3DUtil.graph_eval_grid(prog, gw, gh, rect, PackedFloat32Array())
+	var eval_res := g.evaluate(gw, gh, rect, null, PackedFloat32Array())
 
-	print("Max difference |cpp - gdscript| = %.9f" % max_diff)
-	if max_diff > TOLERANCE:
-		printerr("FAIL: Parity violation!")
-		_failures += 1
+	var diff := 0.0
+	for i in range(gw * gh):
+		diff = maxf(diff, absf(native_res[i] - eval_res[i]))
+
+	print("    max |native - evaluate| = %.7f (want < %.7f)" % [diff, EPS])
+	if diff > EPS:
+		_fail += 1
 ```
 
 ---
 
 ## 3. Core Architectural Rules & Best Practices
 
-### 1. Floating-Point Precision & Bit-Level Parity
-- **Consistent Precision**: Perform cellular simulation math in standard double-precision `double` accumulators during iterations, casting to `float` when storing to `PackedFloat32Array`.
-- **Coordinate Conversion**: Always use `Pasture3DTerrainGraph.cell_to_world(ix, iz, gw, gh, rect)` / `graph_cell_to_world(...)` to guarantee that all procedural samplers use identical cell-center alignment.
+1. **Safe Parameter Extraction**:
+   - In `compile_graph_program()`, **never** call `float(node.get("prop"))` directly. If a property name is mismatched or dynamic, `float(null)` will throw a runtime constructor exception.
+   - Always use the helper closures `_f.call(&"prop_name", default_val)` and `_i.call(&"prop_name", default_val)`.
 
-### 2. NaN Boundary & Hole Preservation
-- If a terrain grid contains holes or uninitialized cells (`NAN` or `INF`), nodes **must not** propagate NaN poisoning to valid neighbor cells.
-- Always check `std::isfinite(val)` / `is_finite(val)`. In spatial blur/Laplacian filters, normalize only across finite neighbor samples.
+2. **NaN & Hole Preservation**:
+   - Terrain grids can contain `NAN` representing uninitialized or cut-out brush regions.
+   - Nodes **must not** propagate NaN poisoning to neighbors. Always check `std::isfinite(val)` / `is_finite(val)`.
 
-### 3. Hydrological Monotonicity in Priority Queues
-- When implementing Priority-Flood or wavefront drainage propagation, push the **monotonic spillway elevation** (`spill_elev >= spill_z`) into the min-heap.
-- Apply depth limits or fill caps **after** popping to prevent downward wave inversion across flat topography.
+3. **Zero-Allocation Arena Reuse**:
+   - The whole-graph evaluator uses a recycled `std::vector<float>` pool.
+   - In `src/pasture_3d_graph_ops.cpp`, intermediate node outputs write directly to `g_ptr` acquired from `arena_acquire(n)`, and input buffers automatically recycle via reference counting when consumers finish.
 
----
-
-## 4. Performance Standards & Benchmarks
-
-| Node Category | Target Speedup (C++ vs GDScript) | Target Throughput ($512 \times 512$) |
-| :--- | :--- | :--- |
-| **Generators / Cell Math** | **$30\times - 60\times$** | $< 10\text{ ms}$ |
-| **Spatial / Frequency Filters** | **$40\times - 80\times$** | $< 30\text{ ms}$ |
-| **Hydrology / Priority-Flood** | **$70\times - 120\times$** | $< 40\text{ ms}$ |
-| **Iterative Weathering Solvers** | **$100\times - 150\times$** | $< 50\text{ ms}$ |
+4. **Secondary Multi-Output Channel Routing**:
+   - Solvers that generate auxiliary mask channels (e.g. `sediment`, `flow`, `talus`, `shoreline`, `water_depth`) output them on port $\ge 1$.
+   - The native whole-graph DAG pipeline evaluates primary height buffers (port 0). If a graph wires secondary output ports into downstream nodes, `compile_graph_program()` automatically defers execution to the channel-aware GDScript evaluator.
 
 ---
 
-## 5. Summary of Native Accelerators in Pasture3D
+## 4. Current Registry of Native Nodes (All 29 Production Nodes)
 
-| Node | C++ Native Kernel | Compute Shader | Bindings in `Pasture3DUtil` |
-| :--- | :--- | :--- | :--- |
-| `ErosionHydraulic` | `src/pasture_3d_erosion_hydraulic.*` | `src/shaders/graph_solver_hydraulic.glsl` | `erosion_hydraulic_solve_grid` |
-| `DepressionFilling` | `src/pasture_3d_depression_filling.*` | — | `depression_filling_grid` |
-| `LakeFlooding` | `src/pasture_3d_lake_flooding.*` | — | `lake_flooding_grid` |
-| `StreamExtraction`| `src/pasture_3d_stream_extraction.*` | — | `stream_extraction_grid` |
-| `ErosionThermal` | `src/pasture_3d_erosion_thermal.*` | `src/shaders/graph_filter_talus.glsl` | `erosion_thermal_solve_grid` |
-| `TalusProjection` | `src/pasture_3d_erosion_thermal.*` | `src/shaders/graph_filter_talus.glsl` | `talus_projection_grid` |
-| `SpectralEqualizer`| `src/pasture_3d_spectral_equalizer.*`| `src/shaders/graph_filter_spectral.glsl` | `spectral_equalizer_grid` |
-| `Curvature` | `src/pasture_3d_curvature.*` | — | `curvature_grid` |
-| `Warp` | `src/pasture_3d_warp.*` | — | `warp_grid` |
+| Category | Node Name | Op Tag | C++ Native Implementation | Whole-Graph Opcode |
+| :--- | :--- | :--- | :--- | :--- |
+| **Sources / Sinks** | Input | `input` | Passthrough host surface | `GRAPH_OP_INPUT` (10) |
+| | Output | `output` | Pipeline terminal sink | `GRAPH_OP_OUTPUT` (12) |
+| | Reroute | `reroute` | Zero-copy wire dot | `GRAPH_OP_OUTPUT` (12) |
+| **Generators** | Noise (FastNoiseLite) | `noise` | `FastNoiseLite` multi-threaded sampling | `GRAPH_OP_NOISE` (1) |
+| | Const | `const` | Uniform scalar field fill | `GRAPH_OP_CONST` (2) |
+| | Jordan Noise | `noise_jordan` | `pasture_3d_noise_jordan.*` | `GRAPH_OP_NOISE_JORDAN` (13) |
+| | Swiss Noise | `noise_swiss` | `pasture_3d_noise_swiss.*` | `GRAPH_OP_NOISE_SWISS` (14) |
+| | Geological Primitive | `geological_primitive`| `pasture_3d_geological_primitive.*` | `GRAPH_OP_GEOLOGICAL_PRIMITIVE` (15) |
+| | Furrows | `furrows` | `pasture_3d_furrows.*` | `GRAPH_OP_FURROWS` (16) |
+| | Dunes | `dunes` | `pasture_3d_dunes.*` | `GRAPH_OP_DUNES` (17) |
+| | Crater | `crater` | `pasture_3d_crater.*` | `GRAPH_OP_CRATER` (18) |
+| | Domain Warp | `warp` | `pasture_3d_warp.*` | `GRAPH_OP_WARP` (19) |
+| **Combiners** | Blend | `blend` | ADD, SUB, MUL, MAX, MIN math modes | `GRAPH_OP_BLEND` (3) |
+| **Filters** | Terrace | `terrace` | Power-law / custom profile steps | `GRAPH_OP_TERRACE` (4) |
+| | Smooth | `smooth` | Multi-pass separable Gaussian blur | `GRAPH_OP_SMOOTH` (11) |
+| | Strata | `strata` | `pasture_3d_strata.*` (Tilted bedding) | `GRAPH_OP_STRATA` (20) |
+| | Curve | `curve` | 256-sample baked LUT spline remap | `GRAPH_OP_CURVE` (21) |
+| | Remap | `remap` | Linear soft-knee range transfer | `GRAPH_OP_REMAP` (22) |
+| | Mask | `mask` | Elevation / Slope gating | `GRAPH_OP_MASK` (23) |
+| | Curvature | `curvature` | `pasture_3d_curvature.*` (Hessian/Laplacian) | `GRAPH_OP_CURVATURE` (24) |
+| | Talus Projection | `talus_projection` | `pasture_3d_erosion_thermal.*` | `GRAPH_OP_TALUS_PROJECTION` (25) |
+| | Spectral Equalizer| `spectral_equalizer`| `pasture_3d_spectral_equalizer.*` | `GRAPH_OP_SPECTRAL_EQUALIZER` (26) |
+| | Depression Filling| `depression_filling`| `pasture_3d_depression_filling.*` (Priority-Flood) | `GRAPH_OP_DEPRESSION_FILLING` (27) |
+| **Solvers** | Lake Flooding | `lake_flooding` | `pasture_3d_lake_flooding.*` | `GRAPH_OP_LAKE_FLOODING` (28) |
+| | Stream Extraction | `stream_extraction`| `pasture_3d_stream_extraction.*` | `GRAPH_OP_STREAM_EXTRACTION` (29) |
+| | Hydraulic Erosion | `erosion_hydraulic`| `pasture_3d_erosion_hydraulic.*` | `GRAPH_OP_EROSION_HYDRAULIC` (30) |
+| | Thermal Erosion | `erosion_thermal` | `pasture_3d_erosion_thermal.*` | `GRAPH_OP_EROSION_THERMAL` (31) |
+| | Scree | `scree` | `pasture_3d_scree.*` | `GRAPH_OP_SCREE` (32) |
+| | Fluvial Erosion | `erosion` | `pasture_3d_erosion.*` (Stream-power) | `GRAPH_OP_EROSION` (33) |
