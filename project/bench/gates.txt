@@ -197,5 +197,9 @@ bench/GraphPaletteAndConstantsGate.tscn
 bench/GraphHybridSocketsGate.tscn
 # --- Terrain graph, multi-channel terrain bus (merge & split) ---
 bench/GraphTerrainBusGate.tscn
+# --- Terrain graph, Hesiod Phase 1 solvers: Particle Hydraulic & Logarithmic Stream Erosion ---
+bench/GraphHydraulicParticleGate.tscn
+bench/GraphHydraulicStreamLogGate.tscn
+bench/GraphPhase1BrushTest.tscn
 # --- Terrain graph, universal node parameter sockets & inline controls ---
 bench/GraphAllNodeSocketsGate.tscn

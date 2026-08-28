@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c1o3ofyt4qjnk"]
+
+[ext_resource type="Script" path="res://bench/GraphPhase1BrushTest.gd" id="1_brush"]
+
+[node name="GraphPhase1BrushTest" type="Node"]
+script = ExtResource("1_brush")

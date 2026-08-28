@@ -10,6 +10,8 @@
 #include "pasture_3d_furrows.h"
 #include "pasture_3d_geological_primitive.h"
 #include "pasture_3d_graph_gpu.h"
+#include "pasture_3d_hydraulic_particle.h"
+#include "pasture_3d_hydraulic_stream_log.h"
 #include "pasture_3d_lake_flooding.h"
 #include "pasture_3d_math_ops.h"
 #include "pasture_3d_noise_jordan.h"
@@ -598,6 +600,46 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				ErosionResult res = erosion_solve(z_in, p, in_erod);
 				if (res.ok && (int)res.z.size() == n) {
 					std::copy(res.z.begin(), res.z.end(), g_ptr);
+				}
+			} break;
+
+			case GRAPH_OP_HYDRAULIC_PARTICLE: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				HydraulicParticleParams p;
+				p.droplet_count = (int)params[s];
+				p.max_lifetime = (int)params_b[s];
+				p.inertia = params_c[s];
+				p.sediment_capacity = params_d[s];
+				p.erosion_speed = params_e[s];
+				p.deposition_speed = params_f[s];
+				p.evaporation_rate = params_g ? params_g[s] : 0.01f;
+				p.min_slope = params_h ? params_h[s] : 0.01f;
+				p.gravity = params_i ? params_i[s] : 4.0f;
+				p.seed = params_j ? (int64_t)params_j[s] : 1337;
+				if (in1 && in1[s] >= 0) {
+					p.mask = get_grid_packed(in1[s]);
+				}
+				HydraulicParticleResult res = hydraulic_particle_solve(in_arr, p_gw, p_gh, p_rect, p);
+				if (res.ok && res.height.size() == n) {
+					std::copy_n(res.height.ptr(), n, g_ptr);
+				}
+			} break;
+
+			case GRAPH_OP_HYDRAULIC_STREAM_LOG: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				HydraulicStreamLogParams p;
+				p.iterations = (int)params[s];
+				p.incision_rate = params_b[s];
+				p.area_exponent = params_c[s];
+				p.slope_exponent = params_d[s];
+				p.min_catchment = params_e[s];
+				p.bank_smoothing = params_f[s];
+				if (in1 && in1[s] >= 0) {
+					p.mask = get_grid_packed(in1[s]);
+				}
+				HydraulicStreamLogResult res = hydraulic_stream_log_solve(in_arr, p_gw, p_gh, p_rect, p);
+				if (res.ok && res.height.size() == n) {
+					std::copy_n(res.height.ptr(), n, g_ptr);
 				}
 			} break;
 

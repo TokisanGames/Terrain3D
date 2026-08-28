@@ -139,6 +139,14 @@ public:
 	static Dictionary erosion_hydraulic_solve_grid(const PackedFloat32Array &p_surface, const int p_gw,
 			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
 
+	// Native Particle Hydraulic Erosion solver (Lagrangian droplet model). Returns { ok:bool, height, sediment, flow, water_depth }.
+	static Dictionary hydraulic_particle_solve_grid(const PackedFloat32Array &p_surface, const int p_gw,
+			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+
+	// Native Logarithmic Stream Power Erosion solver. Returns { ok:bool, height, channel_mask, flow_accumulation }.
+	static Dictionary hydraulic_stream_log_solve_grid(const PackedFloat32Array &p_surface, const int p_gw,
+			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+
 	// GPU-accelerated Hydraulic Erosion solver (RenderingDevice compute shader). Returns { ok:bool, height, sediment, flow } or { ok:false }.
 	static Dictionary erosion_hydraulic_solve_grid_gpu(const PackedFloat32Array &p_surface, const int p_gw,
 			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);

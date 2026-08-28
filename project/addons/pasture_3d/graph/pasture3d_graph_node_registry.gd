@@ -37,6 +37,8 @@ const CurvatureScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_n
 const LakeFloodingScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_lake_flooding.gd")
 const StreamExtractionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_stream_extraction.gd")
 const ErosionHydraulicScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_erosion_hydraulic.gd")
+const HydraulicParticleScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_hydraulic_particle.gd")
+const HydraulicStreamLogScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_hydraulic_stream_log.gd")
 const ErosionThermalScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_erosion_thermal.gd")
 const ScreeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_scree.gd")
 const ErosionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_erosion.gd")
@@ -48,6 +50,8 @@ const TerrainBusSplitScript = preload("res://addons/pasture_3d/graph/pasture3d_g
 
 # --- Developer / Reference [Dev/GD] Node Scripts ---
 const DevErosionHydraulicScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_erosion_hydraulic.gd")
+const DevHydraulicParticleScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_hydraulic_particle.gd")
+const DevHydraulicStreamLogScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_hydraulic_stream_log.gd")
 const DevErosionThermalScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_erosion_thermal.gd")
 const DevDepressionFillingScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_depression_filling.gd")
 const DevLakeFloodingScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_lake_flooding.gd")
@@ -122,6 +126,8 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 		{"op": &"lake_flooding", "title": "Lake Flooding", "category": "Solvers & Realism", "role": "Solver", "script": LakeFloodingScript, "tags": ["lake", "pond", "water", "basin", "flood", "spillway", "depth", "shoreline", "pool", "hydrology"], "description": "Floods closed basins or fills water levels; outputs lake surface + water depth + shoreline masks and spawns Pasture3DPond bodies."},
 		{"op": &"stream_extraction", "title": "Stream Extraction", "category": "Solvers & Realism", "role": "Solver", "script": StreamExtractionScript, "tags": ["stream", "river", "thalweg", "drainage", "catchment", "flow", "runoff", "channel", "carve", "hydrology"], "description": "Calculates surface runoff drainage accumulation, carves riverbeds, and spawns Pasture3DStream splines."},
 		{"op": &"erosion_hydraulic", "title": "Hydraulic Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionHydraulicScript, "tags": ["hydraulic", "erosion", "rain", "fluvial", "water", "flow", "sediment", "deposition", "channel", "meander"], "description": "Simulates continuous rainfall, water routing, sediment pickup, transport, and deposition."},
+		{"op": &"hydraulic_particle", "title": "Particle Hydraulic Erosion", "category": "Solvers & Realism", "role": "Solver", "script": HydraulicParticleScript, "tags": ["particle", "droplet", "lagrangian", "hydraulic", "erosion", "rain", "sediment", "deposition", "hesiod"], "description": "Eulerian-Lagrangian particle droplet simulation with momentum, velocity, capacity, and sediment transport."},
+		{"op": &"hydraulic_stream_log", "title": "Logarithmic Stream Erosion", "category": "Solvers & Realism", "role": "Solver", "script": HydraulicStreamLogScript, "tags": ["stream", "logarithmic", "power", "incision", "river", "channel", "catchment", "fluvial", "hesiod"], "description": "Logarithmic stream-power riverbed incision: E = K * log(1 + A^m * S^n), preventing runaway gorge blowouts."},
 		{"op": &"erosion_thermal", "title": "Thermal Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionThermalScript, "tags": ["thermal", "erosion", "talus", "scree", "weathering", "cliff", "repose", "slippage", "rock"], "description": "Simulates rock weathering and gravitational talus scree accumulation along steep slopes."},
 		{"op": &"scree", "title": "Scree", "category": "Solvers & Realism", "role": "Solver", "script": ScreeScript, "tags": ["talus", "rubble", "rock", "slope", "erosion", "deposition"], "description": "Sheds loose rock off steep ground; outputs height + a shed mask."},
 		{"op": &"erosion", "title": "Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionScript, "tags": ["river", "fluvial", "stream", "hydraulic", "water", "valley", "channel", "sediment"], "description": "Stream-power fluvial erosion; outputs eroded height + flow / erosion / deposition / wetness channels."},
@@ -138,6 +144,8 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 static func _dev_entries() -> Array[Dictionary]:
 	return [
 		{"op": &"dev_erosion_hydraulic", "title": "[Dev/GD] Hydraulic Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevErosionHydraulicScript, "tags": ["dev", "gdscript", "oracle", "hydraulic", "erosion"], "description": "Pure GDScript reference oracle for hydraulic erosion simulation."},
+		{"op": &"dev_hydraulic_particle", "title": "[Dev/GD] Particle Hydraulic Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevHydraulicParticleScript, "tags": ["dev", "gdscript", "oracle", "particle", "droplet", "hydraulic", "erosion"], "description": "Pure GDScript reference oracle for particle hydraulic droplet erosion."},
+		{"op": &"dev_hydraulic_stream_log", "title": "[Dev/GD] Logarithmic Stream Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevHydraulicStreamLogScript, "tags": ["dev", "gdscript", "oracle", "stream", "logarithmic", "power", "incision"], "description": "Pure GDScript reference oracle for logarithmic stream-power erosion."},
 		{"op": &"dev_erosion_thermal", "title": "[Dev/GD] Thermal Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevErosionThermalScript, "tags": ["dev", "gdscript", "oracle", "thermal", "erosion", "talus"], "description": "Pure GDScript reference oracle for thermal weathering & talus scree erosion."},
 		{"op": &"dev_depression_filling", "title": "[Dev/GD] Depression Filling", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevDepressionFillingScript, "tags": ["dev", "gdscript", "oracle", "depression", "sink", "priority", "flood"], "description": "Pure GDScript reference oracle for Priority-Flood depression filling."},
 		{"op": &"dev_lake_flooding", "title": "[Dev/GD] Lake Flooding", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevLakeFloodingScript, "tags": ["dev", "gdscript", "oracle", "lake", "pond", "water", "flood"], "description": "Pure GDScript reference oracle for lake flooding and shoreline extraction."},
