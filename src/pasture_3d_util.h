@@ -147,6 +147,10 @@ public:
 	static Dictionary hydraulic_stream_log_solve_grid(const PackedFloat32Array &p_surface, const int p_gw,
 			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
 
+	// Native Salève Structural Hydraulic Erosion solver. Returns { ok:bool, height, eroded_rock, sediment }.
+	static Dictionary hydraulic_saleve_solve_grid(const PackedFloat32Array &p_surface, const int p_gw,
+			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+
 	// GPU-accelerated Hydraulic Erosion solver (RenderingDevice compute shader). Returns { ok:bool, height, sediment, flow } or { ok:false }.
 	static Dictionary erosion_hydraulic_solve_grid_gpu(const PackedFloat32Array &p_surface, const int p_gw,
 			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);

@@ -61,6 +61,7 @@ enum GraphCellOpType {
 	GRAPH_OP_EROSION = 33, // SOLVER grid: stream power erosion
 	GRAPH_OP_HYDRAULIC_PARTICLE = 34, // SOLVER grid: particle droplet hydraulic erosion
 	GRAPH_OP_HYDRAULIC_STREAM_LOG = 35, // SOLVER grid: logarithmic stream-power erosion
+	GRAPH_OP_HYDRAULIC_SALEVE = 36, // SOLVER grid: Salève structural hydraulic erosion
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed

@@ -11,6 +11,7 @@
 #include "pasture_3d_geological_primitive.h"
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_hydraulic_particle.h"
+#include "pasture_3d_hydraulic_saleve.h"
 #include "pasture_3d_hydraulic_stream_log.h"
 #include "pasture_3d_lake_flooding.h"
 #include "pasture_3d_math_ops.h"
@@ -638,6 +639,25 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 					p.mask = get_grid_packed(in1[s]);
 				}
 				HydraulicStreamLogResult res = hydraulic_stream_log_solve(in_arr, p_gw, p_gh, p_rect, p);
+				if (res.ok && res.height.size() == n) {
+					std::copy_n(res.height.ptr(), n, g_ptr);
+				}
+			} break;
+
+			case GRAPH_OP_HYDRAULIC_SALEVE: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				HydraulicSaleveParams p;
+				p.iterations = (int)params[s];
+				p.incision_rate = params_b[s];
+				p.joint_azimuth = params_c[s];
+				p.joint_strength = params_d[s];
+				p.ridge_preservation = params_e[s];
+				p.deposition_rate = params_f[s];
+				p.bank_smoothing = params_g ? params_g[s] : 0.1f;
+				if (in1 && in1[s] >= 0) {
+					p.mask = get_grid_packed(in1[s]);
+				}
+				HydraulicSaleveResult res = hydraulic_saleve_solve(in_arr, p_gw, p_gh, p_rect, p);
 				if (res.ok && res.height.size() == n) {
 					std::copy_n(res.height.ptr(), n, g_ptr);
 				}

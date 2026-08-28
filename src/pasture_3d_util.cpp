@@ -21,6 +21,7 @@
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_hydraulic_particle.h"
+#include "pasture_3d_hydraulic_saleve.h"
 #include "pasture_3d_hydraulic_stream_log.h"
 #include "pasture_3d_lake_flooding.h"
 #include "pasture_3d_math_ops.h"
@@ -1289,6 +1290,13 @@ Dictionary Pasture3DUtil::hydraulic_stream_log_solve_grid(const PackedFloat32Arr
 	return res.to_dict();
 }
 
+Dictionary Pasture3DUtil::hydraulic_saleve_solve_grid(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::HydraulicSaleveParams params = godot::HydraulicSaleveParams::from_dict(p_params);
+	godot::HydraulicSaleveResult res = godot::hydraulic_saleve_solve(p_surface, p_gw, p_gh, p_rect, params);
+	return res.to_dict();
+}
+
 Dictionary Pasture3DUtil::erosion_hydraulic_solve_grid_gpu(const PackedFloat32Array &p_surface, const int p_gw,
 		const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
 	static Pasture3DGraphGPU s_gpu;
@@ -1681,6 +1689,9 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("hydraulic_stream_log_solve_grid", "surface", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::hydraulic_stream_log_solve_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("hydraulic_saleve_solve_grid", "surface", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::hydraulic_saleve_solve_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("erosion_hydraulic_solve_grid_gpu", "surface", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::erosion_hydraulic_solve_grid_gpu);

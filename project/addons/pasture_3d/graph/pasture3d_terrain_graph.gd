@@ -1138,6 +1138,8 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				op_id = 34; p0 = float(_i.call(&"droplet_count", 25000)); pb = float(_i.call(&"max_lifetime", 30)); pc = _f.call(&"inertia", 0.05); pd = _f.call(&"sediment_capacity", 4.0); pe = _f.call(&"erosion_speed", 0.3); pf = _f.call(&"deposition_speed", 0.3); pg = _f.call(&"evaporation_rate", 0.01); ph = _f.call(&"min_slope", 0.01); pi = _f.call(&"gravity", 4.0); pj = float(_i.call(&"seed", 1337))
 			&"hydraulic_stream_log":
 				op_id = 35; p0 = float(_i.call(&"iterations", 15)); pb = _f.call(&"incision_rate", 0.15); pc = _f.call(&"area_exponent", 0.5); pd = _f.call(&"slope_exponent", 1.0); pe = _f.call(&"min_catchment", 1.0); pf = _f.call(&"bank_smoothing", 0.1)
+			&"hydraulic_saleve":
+				op_id = 36; p0 = float(_i.call(&"iterations", 20)); pb = _f.call(&"incision_rate", 0.2); pc = _f.call(&"joint_azimuth", 45.0); pd = _f.call(&"joint_strength", 0.4); pe = _f.call(&"ridge_preservation", 0.8); pf = _f.call(&"deposition_rate", 0.3); pg = _f.call(&"bank_smoothing", 0.1)
 			_:
 				return {} # an op the native evaluator does not implement
 
@@ -1310,7 +1312,7 @@ func native_supported(p_root_node: int = -1) -> bool:
 		&"crater", &"warp", &"strata", &"curve", &"remap", &"mask", &"curvature",
 		&"talus_projection", &"spectral_equalizer", &"depression_filling", &"lake_flooding",
 		&"stream_extraction", &"erosion_hydraulic", &"erosion_thermal", &"scree", &"erosion",
-		&"hydraulic_particle", &"hydraulic_stream_log"
+		&"hydraulic_particle", &"hydraulic_stream_log", &"hydraulic_saleve"
 	]
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):

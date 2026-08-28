@@ -54,6 +54,20 @@ func _test_native_supported() -> void:
 		_fail += 1
 		print("    !! HydraulicStreamLog not marked as native_supported")
 
+	var g3 := Pasture3DTerrainGraph.new()
+	var in3: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"input")
+	var hsv: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"hydraulic_saleve")
+	var out3: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"output")
+	g3.nodes = [in3, hsv, out3]
+	g3.connections = [PackedInt32Array([0, 0, 1, 0]), PackedInt32Array([1, 0, 2, 0])]
+	g3.output_node = 2
+
+	var supp3: bool = g3.native_supported()
+	print("    Graph with HydraulicSaleve native_supported = %s (want true)" % str(supp3))
+	if not supp3:
+		_fail += 1
+		print("    !! HydraulicSaleve not marked as native_supported")
+
 
 func _test_brush_mound_preservation() -> void:
 	print("\n[B] Testing Brush Mound Elevation Preservation during Logarithmic Stream Erosion")

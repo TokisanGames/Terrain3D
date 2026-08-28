@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://d3hysalevegate001"]
+
+[ext_resource type="Script" path="res://bench/GraphHydraulicSaleveGate.gd" id="1_saleve"]
+
+[node name="GraphHydraulicSaleveGate" type="Node"]
+script = ExtResource("1_saleve")
