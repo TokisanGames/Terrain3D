@@ -111,6 +111,12 @@ public:
 	static PackedFloat32Array graph_eval_grid(const Dictionary &p_program, const int p_gw, const int p_gh,
 			const Rect2 &p_rect, const PackedFloat32Array &p_input);
 
+	// Single-pass multi-tap graph evaluator: evaluate one program ONCE and return several nodes' buffers at
+	// once, keyed by SSA slot ({int -> PackedFloat32Array}). Backs the graph editor's inline node previews —
+	// N open previews cost one evaluation, not N. Empty Dictionary when the program cannot be built.
+	static Dictionary graph_eval_grid_taps(const Dictionary &p_program, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const PackedFloat32Array &p_input, const PackedInt32Array &p_tap_slots);
+
 	// GPU whole-graph evaluator (RenderingDevice). Same program/inputs as graph_eval_grid, run on a local
 	// RD. Returns an EMPTY array when the GPU path is unavailable (headless/no driver) or fails, so a caller
 	// falls back to the CPU. Bound for GraphGpuParityGate (run NON-headless). See pasture_3d_graph_gpu.
@@ -240,6 +246,17 @@ public:
 	static PackedFloat32Array mask_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 			const Rect2 &p_rect, const int p_property, const double p_band_min, const double p_band_max,
 			const double p_falloff_lo, const double p_falloff_hi, const bool p_invert, const double p_strength);
+
+	// Native 2D hillshade relief image generator for graph node preview thumbnails.
+	static PackedByteArray hillshade_image_grid(const PackedFloat32Array &p_surface, const int p_gw,
+			const int p_gh, const bool p_is_mask);
+
+	// Native bilinear grid resampling for thumbnail previews.
+	static PackedFloat32Array resample_grid(const PackedFloat32Array &p_src, const int p_src_w,
+			const int p_src_h, const int p_dst_w, const int p_dst_h);
+
+	// Native sample dome brush generator for thumbnail previews.
+	static PackedFloat32Array sample_brush_input(const int p_w, const int p_h, const Rect2 &p_rect);
 
 protected:
 	static void _bind_methods();

@@ -1169,6 +1169,19 @@ PackedFloat32Array Pasture3DUtil::graph_eval_grid(const Dictionary &p_program, c
 	return godot::graph_eval_grid(prog, p_gw, p_gh, p_rect, p_input);
 }
 
+// Native single-pass multi-tap — one graph evaluation that yields several nodes' intermediate buffers at
+// once, keyed by SSA slot. The editor's inline node previews compile every preview-on node into one program
+// and read them all from a single call, so opening more previews never adds evaluation passes. Returns an
+// empty Dictionary when the program cannot be built (the caller treats that as "no previews this tick").
+Dictionary Pasture3DUtil::graph_eval_grid_taps(const Dictionary &p_program, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const PackedFloat32Array &p_input, const PackedInt32Array &p_tap_slots) {
+	godot::GraphProgram prog;
+	if (!godot::graph_build(p_program, prog)) {
+		return Dictionary();
+	}
+	return godot::graph_eval_grid_taps(prog, p_gw, p_gh, p_rect, p_input, p_tap_slots);
+}
+
 // GPU whole-graph evaluator binding. A persistent instance so the local RD + shader compile ONCE across
 // calls. Returns empty on unavailable/failure — the gate (and any caller) reads that as "use the CPU path".
 PackedFloat32Array Pasture3DUtil::graph_eval_grid_gpu(const Dictionary &p_program, const int p_gw,
@@ -1417,6 +1430,158 @@ PackedFloat32Array Pasture3DUtil::mask_grid(const PackedFloat32Array &p_surface,
 			p_falloff_lo, p_falloff_hi, p_invert, p_strength);
 }
 
+PackedByteArray Pasture3DUtil::hillshade_image_grid(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const bool p_is_mask) {
+	int n = p_gw * p_gh;
+	PackedByteArray out;
+	out.resize(n * 4);
+	if (p_surface.size() < n || p_gw <= 0 || p_gh <= 0) {
+		return out;
+	}
+
+	const float *src = p_surface.ptr();
+	uint8_t *dst = out.ptrw();
+
+	float min_h = 1e30f;
+	float max_h = -1e30f;
+	for (int i = 0; i < n; i++) {
+		float v = src[i];
+		if (!std::isnan(v)) {
+			if (v < min_h) min_h = v;
+			if (v > max_h) max_h = v;
+		}
+	}
+	float h_range = std::max(max_h - min_h, 0.001f);
+
+	const float lx = -0.57735f;
+	const float lz = -0.57735f;
+	const float ly = 0.57735f;
+
+	for (int iz = 0; iz < p_gh; iz++) {
+		int zm = std::max(iz - 1, 0) * p_gw;
+		int zp = std::min(iz + 1, p_gh - 1) * p_gw;
+		int row = iz * p_gw;
+		for (int ix = 0; ix < p_gw; ix++) {
+			int xm = std::max(ix - 1, 0);
+			int xp = std::min(ix + 1, p_gw - 1);
+			int i = row + ix;
+			int ptr = i * 4;
+
+			float val = src[i];
+			if (std::isnan(val)) {
+				dst[ptr] = 20;
+				dst[ptr + 1] = 20;
+				dst[ptr + 2] = 26;
+				dst[ptr + 3] = 128;
+				continue;
+			}
+
+			float norm_h = std::clamp((val - min_h) / h_range, 0.0f, 1.0f);
+
+			float vx_p = src[row + xp];
+			float vx_m = src[row + xm];
+			float vz_p = src[zp + ix];
+			float vz_m = src[zm + ix];
+			if (std::isnan(vx_p)) vx_p = val;
+			if (std::isnan(vx_m)) vx_m = val;
+			if (std::isnan(vz_p)) vz_p = val;
+			if (std::isnan(vz_m)) vz_m = val;
+
+			float dx = (vx_p - vx_m) * 0.5f;
+			float dz = (vz_p - vz_m) * 0.5f;
+			float shade = std::clamp(0.5f + 0.5f * (-dx * lx - dz * lz + ly), 0.1f, 1.0f);
+
+			if (p_is_mask) {
+				dst[ptr] = (uint8_t)std::clamp(0.95f * shade * norm_h * 255.0f, 0.0f, 255.0f);
+				dst[ptr + 1] = (uint8_t)std::clamp(0.60f * shade * norm_h * 255.0f, 0.0f, 255.0f);
+				dst[ptr + 2] = (uint8_t)std::clamp(0.10f * shade * norm_h * 255.0f, 0.0f, 255.0f);
+				dst[ptr + 3] = 255;
+			} else {
+				float lum = norm_h * shade;
+				dst[ptr] = (uint8_t)std::clamp((lum * 0.85f + 0.10f) * 255.0f, 0.0f, 255.0f);
+				dst[ptr + 1] = (uint8_t)std::clamp((lum * 0.90f + 0.08f) * 255.0f, 0.0f, 255.0f);
+				dst[ptr + 2] = (uint8_t)std::clamp((lum * 0.80f + 0.05f) * 255.0f, 0.0f, 255.0f);
+				dst[ptr + 3] = 255;
+			}
+		}
+	}
+
+	return out;
+}
+
+PackedFloat32Array Pasture3DUtil::resample_grid(const PackedFloat32Array &p_src, const int p_src_w,
+		const int p_src_h, const int p_dst_w, const int p_dst_h) {
+	int n_dst = p_dst_w * p_dst_h;
+	PackedFloat32Array out;
+	out.resize(n_dst);
+	if (p_src.is_empty() || p_src_w <= 0 || p_src_h <= 0 || p_dst_w <= 0 || p_dst_h <= 0) {
+		return out;
+	}
+
+	const float *src = p_src.ptr();
+	float *dst = out.ptrw();
+
+	for (int iz = 0; iz < p_dst_h; iz++) {
+		float src_z = (float(iz) / float(std::max(p_dst_h - 1, 1))) * float(p_src_h - 1);
+		int z0 = (int)std::floor(src_z);
+		int z1 = std::min(z0 + 1, p_src_h - 1);
+		float tz = src_z - float(z0);
+		int row = iz * p_dst_w;
+
+		for (int ix = 0; ix < p_dst_w; ix++) {
+			float src_x = (float(ix) / float(std::max(p_dst_w - 1, 1))) * float(p_src_w - 1);
+			int x0 = (int)std::floor(src_x);
+			int x1 = std::min(x0 + 1, p_src_w - 1);
+			float tx = src_x - float(x0);
+
+			float v00 = src[z0 * p_src_w + x0];
+			float v10 = src[z0 * p_src_w + x1];
+			float v01 = src[z1 * p_src_w + x0];
+			float v11 = src[z1 * p_src_w + x1];
+
+			if (std::isnan(v00)) v00 = 0.0f;
+			if (std::isnan(v10)) v10 = 0.0f;
+			if (std::isnan(v01)) v01 = 0.0f;
+			if (std::isnan(v11)) v11 = 0.0f;
+
+			float v0 = v00 + (v10 - v00) * tx;
+			float v1 = v01 + (v11 - v01) * tx;
+			dst[row + ix] = v0 + (v1 - v0) * tz;
+		}
+	}
+	return out;
+}
+
+PackedFloat32Array Pasture3DUtil::sample_brush_input(const int p_w, const int p_h, const Rect2 &p_rect) {
+	int n = p_w * p_h;
+	PackedFloat32Array out;
+	out.resize(n);
+	if (p_w <= 0 || p_h <= 0) {
+		return out;
+	}
+
+	float *dst = out.ptrw();
+	float radius = std::min(p_rect.size.x, p_rect.size.y) * 0.40f;
+	float cx = p_rect.position.x + p_rect.size.x * 0.5f;
+	float cz = p_rect.position.y + p_rect.size.y * 0.5f;
+	const float pi = 3.14159265358979323846f;
+
+	for (int iz = 0; iz < p_h; iz++) {
+		int row = iz * p_w;
+		float wz = p_rect.position.y + (float(iz) + 0.5f) / float(p_h) * p_rect.size.y;
+		for (int ix = 0; ix < p_w; ix++) {
+			float wx = p_rect.position.x + (float(ix) + 0.5f) / float(p_w) * p_rect.size.x;
+			float dx = wx - cx;
+			float dz = wz - cz;
+			float dist = std::sqrt(dx * dx + dz * dz);
+			float t = std::clamp(dist / radius, 0.0f, 1.0f);
+			float h = (t < 1.0f) ? (0.5f * (1.0f + std::cos(t * pi)) * 25.0f) : 0.0f;
+			dst[row + ix] = h;
+		}
+	}
+	return out;
+}
+
 ///////////////////////////
 // Protected Functions
 ///////////////////////////
@@ -1477,6 +1642,10 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("graph_eval_grid", "program", "gw", "gh", "rect", "input"),
 			&Pasture3DUtil::graph_eval_grid);
+	// Terrain graph — single-pass multi-tap; one eval, several node buffers keyed by slot (inline previews).
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("graph_eval_grid_taps", "program", "gw", "gh", "rect", "input", "tap_slots"),
+			&Pasture3DUtil::graph_eval_grid_taps);
 	// Terrain graph — the GPU whole-graph evaluator (RenderingDevice); empty return => unavailable/failed.
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("graph_eval_grid_gpu", "program", "gw", "gh", "rect", "input"),
@@ -1557,4 +1726,13 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("mask_grid", "surface", "gw", "gh", "rect", "property", "band_min", "band_max", "falloff_lo", "falloff_hi", "invert", "strength"),
 			&Pasture3DUtil::mask_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("hillshade_image_grid", "surface", "gw", "gh", "is_mask"),
+			&Pasture3DUtil::hillshade_image_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("resample_grid", "src", "src_w", "src_h", "dst_w", "dst_h"),
+			&Pasture3DUtil::resample_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("sample_brush_input", "w", "h", "rect"),
+			&Pasture3DUtil::sample_brush_input);
 }

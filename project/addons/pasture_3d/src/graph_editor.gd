@@ -53,6 +53,20 @@ var _drag_start_positions: Dictionary = {}
 ## Track pending drag-to-create connection
 var _pending_drag_connection: Dictionary = {}
 
+# ---- Inline node previews (single-pass multi-tap) ----------------------------------------------------
+# One low-resolution graph evaluation taps EVERY preview-on node's buffer at once
+# (Pasture3DUtil.graph_eval_grid_taps), over a fixed canonical domain that never depends on the brush. So a
+# refresh costs a single eval regardless of how many previews are open, it runs off the main thread, and
+# toggling a preview is a pure show/hide of an already-built TextureRect that never triggers evaluation.
+const PREVIEW_SIZE: int = 96
+const PREVIEW_RECT := Rect2(-50.0, -50.0, 100.0, 100.0)
+const PREVIEW_DEBOUNCE_SEC: float = 0.12
+
+var _preview_rects: Dictionary = {}   # node index -> TextureRect, one per previewable (has_output) node
+var _preview_buttons: Dictionary = {} # node index -> the 👁 toggle Button, so undo/redo can resync it
+var _preview_timer: Timer = null      # debounces refreshes; one-shot, restarted on each graph change
+var _preview_token: int = 0           # bumped per dispatch so a stale async result is dropped on apply
+
 
 func initialize(p_plugin: EditorPlugin) -> void:
 	plugin = p_plugin
@@ -98,7 +112,9 @@ func _structure_hash() -> int:
 	for i in range(graph.nodes.size()):
 		var nd: Pasture3DGraphNode = graph.nodes[i]
 		if nd != null:
-			h = h ^ (nd.op().hash() << (i % 16)) ^ (int(nd.collapsed) << ((i + 1) % 16)) ^ (int(nd.preview_on) << ((i + 2) % 16))
+			# preview_on is deliberately NOT hashed: toggling a preview must never rebuild the canvas — it is
+			# a pure show/hide handled by _on_preview_toggled, so it stays out of the structure signature.
+			h = h ^ (nd.op().hash() << (i % 16)) ^ (int(nd.collapsed) << ((i + 1) % 16))
 	for c in graph.connections:
 		if c.size() >= 4:
 			var conn_hash := int(c[0]) | (int(c[1]) << 8) | (int(c[2]) << 16) | (int(c[3]) << 24)
@@ -116,6 +132,9 @@ func _on_graph_changed() -> void:
 		_rebuild()
 	else:
 		_refresh_nodes_state()
+	# A parameter or wiring change moves the previewed output; re-tap after the debounce. (_rebuild also
+	# schedules, so the structure-changed branch above is covered too.)
+	_schedule_preview_refresh()
 
 
 func _refresh_nodes_state() -> void:
@@ -381,6 +400,12 @@ func _build_ui() -> void:
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_graphedit.add_child(_hint)
 
+	# Debounce timer for inline preview refreshes: coalesces a burst of edits into one tap pass.
+	_preview_timer = Timer.new()
+	_preview_timer.one_shot = true
+	_preview_timer.timeout.connect(_refresh_previews)
+	add_child(_preview_timer)
+
 
 # ---- Undo / Redo Helper -----------------------------------------------------------------------------
 
@@ -513,8 +538,16 @@ func _rebuild() -> void:
 		if c.size() >= 4:
 			_graphedit.connect_node("n%d" % int(c[0]), int(c[1]), "n%d" % int(c[2]), int(c[3]))
 
+	# Fill any preview-on nodes rebuilt just now (their TextureRects start empty).
+	_schedule_preview_refresh()
+
 
 func _clear() -> void:
+	# The TextureRects belong to the GraphNodes about to be freed; drop the map and invalidate any in-flight
+	# async tap result so it cannot apply to a stale rect.
+	_preview_rects.clear()
+	_preview_buttons.clear()
+	_preview_token += 1
 	_graphedit.clear_connections()
 	for c in _graphedit.get_children():
 		if c is GraphElement:
@@ -583,6 +616,17 @@ func _make_graphnode(p_index: int, p_node: Pasture3DGraphNode) -> GraphNode:
 		out_btn.tooltip_text = "Toggle Solo Output preview for this node (S)"
 		out_btn.pressed.connect(func(): _action_set_output(p_index))
 		thbox.add_child(out_btn)
+
+		# Inline 2D preview toggle [👁]. A pure show/hide of this node's thumbnail — never evaluates the
+		# graph. Turning it on schedules the shared low-res tap pass that fills every open preview at once.
+		var prev_btn := Button.new()
+		prev_btn.text = "👁"
+		prev_btn.toggle_mode = true
+		prev_btn.button_pressed = p_node.preview_on
+		prev_btn.tooltip_text = "Show this node's 2D preview thumbnail"
+		prev_btn.toggled.connect(func(pressed: bool): _action_set_node_preview(p_index, pressed))
+		thbox.add_child(prev_btn)
+		_preview_buttons[p_index] = prev_btn
 
 	# Bake button — a SOLVER carries its own frozen cache, so it can be re-solved from the canvas without
 	# opening the Inspector. Runs the same clear_cache() the "Bake" inspector button does. Highlighted amber
@@ -659,6 +703,21 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 	# Additional node-level inline parameter controls (if node is not collapsed)
 	if not p_node.collapsed:
 		_add_inline_node_controls(p_gn, p_index, p_node)
+
+	# Inline 2D preview thumbnail. Built for every previewable (has_output) node but shown only when the
+	# node's preview_on flag is set, so toggling is an instant show/hide with no rebuild and no evaluation.
+	# The texture itself is filled asynchronously by the shared tap pass (_refresh_previews).
+	if has_right:
+		var box := CenterContainer.new()
+		box.custom_minimum_size = Vector2(PREVIEW_SIZE, PREVIEW_SIZE)
+		var tex_rect := TextureRect.new()
+		tex_rect.custom_minimum_size = Vector2(PREVIEW_SIZE, PREVIEW_SIZE)
+		tex_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tex_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(tex_rect)
+		box.visible = p_node.preview_on
+		p_gn.add_child(box)
+		_preview_rects[p_index] = tex_rect
 
 
 func _append_slot_inline_widget(p_row: HBoxContainer, p_node: Pasture3DGraphNode, p_index: int, p_port: int, p_port_name: String) -> void:
@@ -1644,6 +1703,139 @@ func _action_set_node_collapsed(p_index: int, p_collapsed: bool) -> void:
 	_ur_add_do_property(node, &"collapsed", p_collapsed)
 	_ur_add_undo_property(node, &"collapsed", not p_collapsed)
 	_ur_commit()
+
+
+## Toggle a node's inline 2D preview. Routed through undo/redo so the flag persists and the scene is marked
+## dirty, but the whole do/undo is ONE method (`_apply_preview_flag`) with an explicit target value, so it is
+## independent of operation ordering within the action and never depends on preview_on's read-back. It never
+## emits the node's `changed`, so it never re-bakes the terrain; turning a preview on evaluates nothing here
+## and just schedules the shared low-res tap pass to fill the newly shown thumbnail.
+func _action_set_node_preview(p_index: int, p_on: bool) -> void:
+	if graph == null or p_index < 0 or p_index >= graph.nodes.size():
+		return
+	var node: Pasture3DGraphNode = graph.nodes[p_index]
+	if node == null or node.preview_on == p_on:
+		return
+	_ur_create_action("Toggle Node Preview")
+	_ur_add_do_method(self, &"_apply_preview_flag", [p_index, p_on])
+	_ur_add_undo_method(self, &"_apply_preview_flag", [p_index, not p_on])
+	_ur_commit()
+
+
+## Set a node's preview_on and sync its UI in one step (the toggle action's do/undo body). Sets the flag
+## directly — preview_on has no emitting setter, so this does NOT re-bake — then shows/hides the thumbnail
+## box, matches the 👁 button, and schedules a refresh so a newly shown thumbnail fills in. Pure view work.
+func _apply_preview_flag(p_index: int, p_on: bool) -> void:
+	if graph == null or p_index < 0 or p_index >= graph.nodes.size():
+		return
+	var node: Pasture3DGraphNode = graph.nodes[p_index]
+	if node == null:
+		return
+	node.preview_on = p_on
+	if _preview_rects.has(p_index):
+		var tr: TextureRect = _preview_rects[p_index]
+		if is_instance_valid(tr) and tr.get_parent() != null:
+			tr.get_parent().visible = p_on
+	if _preview_buttons.has(p_index):
+		var btn: Button = _preview_buttons[p_index]
+		if is_instance_valid(btn) and btn.button_pressed != p_on:
+			btn.set_pressed_no_signal(p_on)
+	_schedule_preview_refresh()
+
+
+## (Re)start the debounce timer when at least one node wants a preview. Cheap and idempotent — the real work
+## happens once on timeout. When nothing is preview-on, invalidates any in-flight result and stays idle.
+func _schedule_preview_refresh() -> void:
+	if graph == null or _preview_timer == null:
+		return
+	var any_on := false
+	for n in graph.nodes:
+		if n != null and n.preview_on:
+			any_on = true
+			break
+	if not any_on:
+		_preview_token += 1 # drop anything in flight; nothing to show
+		return
+	_preview_timer.start(PREVIEW_DEBOUNCE_SEC)
+
+
+## Debounce timeout: compile ONE native program covering every preview-on node, sample the canonical input,
+## and hand the heavy evaluation + hillshade to a worker thread. All graph reads (compile, output types)
+## happen here on the main thread; only pure C++ calls over plain arrays run off-thread.
+func _refresh_previews() -> void:
+	if graph == null or _preview_rects.is_empty():
+		return
+	if not ClassDB.class_has_method("Pasture3DUtil", "graph_eval_grid_taps"):
+		return # extension without the multi-tap primitive; skip previews rather than fall back to a re-eval
+	var roots: Array = []
+	for i in range(graph.nodes.size()):
+		var n: Pasture3DGraphNode = graph.nodes[i]
+		if n != null and n.preview_on and _preview_rects.has(i):
+			roots.append(i)
+	if roots.is_empty():
+		return
+	var compiled: Dictionary = graph.compile_graph_program_multi(roots)
+	if compiled.is_empty():
+		return # non-native graph (e.g. a solver mask wire); leave the last thumbnails in place this tick
+	var program: Dictionary = compiled["program"]
+	var slot_of: Dictionary = compiled["slot_of"]
+	var tap_slots := PackedInt32Array()
+	var slot_to_node: Dictionary = {}
+	var slot_is_mask: Dictionary = {}
+	for i in roots:
+		if slot_of.has(i):
+			var slot: int = int(slot_of[i])
+			tap_slots.append(slot)
+			slot_to_node[slot] = i
+			slot_is_mask[slot] = graph.nodes[i].output_port_type() == Pasture3DGraphNode.PortType.MASK
+	if tap_slots.is_empty():
+		return
+	var input: PackedFloat32Array = Pasture3DUtil.sample_brush_input(PREVIEW_SIZE, PREVIEW_SIZE, PREVIEW_RECT)
+	_preview_token += 1
+	var token := _preview_token
+	WorkerThreadPool.add_task(func():
+		_preview_worker(token, program, input, tap_slots, slot_to_node, slot_is_mask))
+
+
+## Worker-thread body: one native tap pass, then a hillshade per tapped buffer. Touches only stateless C++
+## statics over the plain data captured on the main thread, so it is safe off-thread; results are marshalled
+## back with call_deferred, guarded by the dispatch token.
+func _preview_worker(p_token: int, p_program: Dictionary, p_input: PackedFloat32Array,
+		p_tap_slots: PackedInt32Array, p_slot_to_node: Dictionary, p_slot_is_mask: Dictionary) -> void:
+	var taps: Dictionary = Pasture3DUtil.graph_eval_grid_taps(
+			p_program, PREVIEW_SIZE, PREVIEW_SIZE, PREVIEW_RECT, p_input, p_tap_slots)
+	var results: Dictionary = {}
+	for slot in taps:
+		var field: PackedFloat32Array = taps[slot]
+		if field.size() != PREVIEW_SIZE * PREVIEW_SIZE:
+			continue
+		var is_mask: bool = bool(p_slot_is_mask.get(slot, false))
+		var bytes: PackedByteArray = Pasture3DUtil.hillshade_image_grid(field, PREVIEW_SIZE, PREVIEW_SIZE, is_mask)
+		results[int(p_slot_to_node[slot])] = bytes
+	call_deferred(&"_apply_preview_textures", p_token, results)
+
+
+## Main-thread apply of a completed tap pass. Drops the result if a newer dispatch (or a rebuild/clear) has
+## bumped the token, or if a target rect no longer exists. Reuses each TextureRect's ImageTexture in place
+## when the size matches so a refresh does not churn GPU textures.
+func _apply_preview_textures(p_token: int, p_results: Dictionary) -> void:
+	if p_token != _preview_token:
+		return # a newer refresh superseded this one, or the canvas was rebuilt
+	for idx in p_results:
+		if not _preview_rects.has(idx):
+			continue
+		var tr: TextureRect = _preview_rects[idx]
+		if not is_instance_valid(tr):
+			continue
+		var bytes: PackedByteArray = p_results[idx]
+		if bytes.size() != PREVIEW_SIZE * PREVIEW_SIZE * 4:
+			continue
+		var img := Image.create_from_data(PREVIEW_SIZE, PREVIEW_SIZE, false, Image.FORMAT_RGBA8, bytes)
+		var tex := tr.texture as ImageTexture
+		if tex != null and tex.get_width() == PREVIEW_SIZE and tex.get_height() == PREVIEW_SIZE:
+			tex.update(img)
+		else:
+			tr.texture = ImageTexture.create_from_image(img)
 
 
 # ---- GraphEdit Callbacks ----------------------------------------------------------------------------

@@ -231,19 +231,19 @@ bool graph_build(const Dictionary &p_prog, GraphProgram &r_out) {
 	return true;
 }
 
-PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
-		const PackedFloat32Array &p_input) {
+// Core whole-graph evaluation: runs the SSA program into a scratch-buffer arena and leaves the live
+// buffers in r_pool / r_slot_buffer so the caller can copy out any protected slot. Slots in
+// p_extra_protect get the same recycle-protection the output slot gets (an extra ref count that never
+// reaches zero), so a multi-tap caller can read several intermediate buffers from one pass. File-local;
+// the public graph_eval_grid / graph_eval_grid_taps wrappers own the copy-out.
+static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
+		const PackedFloat32Array &p_input, const std::vector<int> &p_extra_protect,
+		std::vector<std::vector<float>> &r_pool, std::vector<int> &r_slot_buffer) {
 	const int n = (p_gw > 0 ? p_gw : 0) * (p_gh > 0 ? p_gh : 0);
-	PackedFloat32Array out;
-	out.resize(n);
-	{
-		float *w = out.ptrw();
-		for (int i = 0; i < n; i++) {
-			w[i] = 0.f;
-		}
-	}
+	r_pool.clear();
+	r_slot_buffer.clear();
 	if (n == 0 || p_prog.is_empty()) {
-		return out;
+		return;
 	}
 	const bool have_input = p_input.size() == n;
 	const int32_t *ops = p_prog.ops.ptr();
@@ -273,11 +273,18 @@ PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_g
 	if (p_prog.output >= 0 && p_prog.output < p_prog.count) {
 		ref_counts[p_prog.output]++; // protect final output buffer
 	}
+	for (size_t pi = 0; pi < p_extra_protect.size(); pi++) {
+		const int slot = p_extra_protect[pi];
+		if (slot >= 0 && slot < p_prog.count) {
+			ref_counts[slot]++; // protect a tapped preview buffer from recycling
+		}
+	}
 
-	// 2. Scratch Buffer Pool
-	std::vector<std::vector<float>> pool;
+	// 2. Scratch Buffer Pool (owned by the caller so tapped buffers survive the return)
+	std::vector<std::vector<float>> &pool = r_pool;
 	std::vector<int> free_buffers;
-	std::vector<int> slot_buffer(p_prog.count, -1);
+	r_slot_buffer.assign(p_prog.count, -1);
+	std::vector<int> &slot_buffer = r_slot_buffer;
 
 	auto acquire_buffer = [&]() -> int {
 		if (!free_buffers.empty()) {
@@ -605,14 +612,76 @@ PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_g
 		if (in2) release_consumer(in2[s]);
 	}
 
-	if (p_prog.output >= 0 && p_prog.output < p_prog.count && slot_buffer[p_prog.output] >= 0) {
-		const float *res = pool[slot_buffer[p_prog.output]].data();
+}
+
+PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
+		const PackedFloat32Array &p_input) {
+	const int n = (p_gw > 0 ? p_gw : 0) * (p_gh > 0 ? p_gh : 0);
+	PackedFloat32Array out;
+	out.resize(n);
+	{
+		float *w = out.ptrw();
+		for (int i = 0; i < n; i++) {
+			w[i] = 0.f;
+		}
+	}
+	if (n == 0 || p_prog.is_empty()) {
+		return out;
+	}
+	std::vector<std::vector<float>> pool;
+	std::vector<int> slot_buffer;
+	graph_eval_grid_core(p_prog, p_gw, p_gh, p_rect, p_input, std::vector<int>(), pool, slot_buffer);
+	const int out_slot = p_prog.output;
+	if (out_slot >= 0 && out_slot < (int)slot_buffer.size() && slot_buffer[out_slot] >= 0) {
+		const float *res = pool[slot_buffer[out_slot]].data();
 		float *w = out.ptrw();
 		for (int i = 0; i < n; i++) {
 			w[i] = res[i];
 		}
 	}
 	return out;
+}
+
+// Multi-tap: evaluate once and copy out every slot in p_tap_slots. Returns a Dictionary {slot(int) ->
+// PackedFloat32Array}; a slot out of range or with no live buffer yields a zero field of size gw*gh so
+// the caller always gets one field per requested tap. Empty when the program is empty or no taps given.
+Dictionary graph_eval_grid_taps(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
+		const PackedFloat32Array &p_input, const PackedInt32Array &p_tap_slots) {
+	Dictionary result;
+	const int n = (p_gw > 0 ? p_gw : 0) * (p_gh > 0 ? p_gh : 0);
+	const int tap_n = p_tap_slots.size();
+	if (n == 0 || p_prog.is_empty() || tap_n == 0) {
+		return result;
+	}
+	std::vector<int> protect;
+	protect.reserve(tap_n);
+	for (int i = 0; i < tap_n; i++) {
+		const int slot = p_tap_slots[i];
+		if (slot >= 0 && slot < p_prog.count) {
+			protect.push_back(slot);
+		}
+	}
+	std::vector<std::vector<float>> pool;
+	std::vector<int> slot_buffer;
+	graph_eval_grid_core(p_prog, p_gw, p_gh, p_rect, p_input, protect, pool, slot_buffer);
+	for (int i = 0; i < tap_n; i++) {
+		const int slot = p_tap_slots[i];
+		PackedFloat32Array field;
+		field.resize(n);
+		float *w = field.ptrw();
+		if (slot >= 0 && slot < (int)slot_buffer.size() && slot_buffer[slot] >= 0) {
+			const float *src = pool[slot_buffer[slot]].data();
+			for (int j = 0; j < n; j++) {
+				w[j] = src[j];
+			}
+		} else {
+			for (int j = 0; j < n; j++) {
+				w[j] = 0.f;
+			}
+		}
+		result[slot] = field;
+	}
+	return result;
 }
 
 } // namespace godot

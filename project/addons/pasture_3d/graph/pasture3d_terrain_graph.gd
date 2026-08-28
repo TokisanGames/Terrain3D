@@ -993,111 +993,16 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		var s0: int = int(srcs[0]) if srcs.size() > 0 else -1
 		var s1: int = int(srcs[1]) if srcs.size() > 1 else -1
 		var s2: int = int(srcs[2]) if srcs.size() > 2 else -1
-		var op_id := 0
-		var p0 := 0.0; var pb := 0.0; var pc := 0.0; var pd := 0.0; var pe := 0.0
-		var pf := 0.0; var pg := 0.0; var ph := 0.0; var pi := 0.0; var pj := 0.0
-		var pk := 0.0; var pl := 0.0
-		var nz = null
-		var lut = PackedFloat32Array()
-
-		var _f := func(p: StringName, def: float = 0.0) -> float:
-			var v = node.get(p)
-			return float(v) if v != null else def
-
-		var _i := func(p: StringName, def: int = 0) -> int:
-			var v = node.get(p)
-			return int(v) if v != null else def
-
-		if node.muted:
-			op_id = 12 # GRAPH_OP_OUTPUT / GRAPH_OP_REROUTE (passthrough of in0)
-		else:
-			match node.op():
-				&"input":
-					op_id = 10
-				&"output", &"reroute", &"terrain_bus_merge", &"terrain_bus_split":
-					op_id = 12
-				&"noise":
-					op_id = 1; p0 = _f.call(&"amplitude", 1.0); nz = node.get("noise")
-				&"const":
-					op_id = 2; p0 = _f.call(&"value", 0.0)
-				&"const_int":
-					op_id = 2; p0 = float(_i.call(&"value", 0))
-				&"const_vector":
-					var cv: Vector2 = node.get("value") if node.get("value") is Vector2 else Vector2.ZERO
-					op_id = 2; p0 = cv.length()
-				&"const_color":
-					var cc: Color = node.get("value") if node.get("value") is Color else Color.WHITE
-					op_id = 2; p0 = cc.get_luminance()
-				&"const_bool":
-					op_id = 2; p0 = 1.0 if bool(node.get("value")) else 0.0
-				&"const_curve":
-					op_id = 21; p0 = 0.0; pb = 1.0; pc = 0.0; pd = 1.0; pe = 1.0
-					var c: Curve = node.get("curve")
-					if c != null:
-						lut.resize(256)
-						for li in range(256):
-							lut[li] = c.sample_baked(float(li) / 255.0)
-				&"blend":
-					op_id = 3; p0 = float(_i.call(&"mode", 0))
-				&"terrace":
-					op_id = 4
-					p0 = _f.call(&"band_height", 8.0)
-					pb = _f.call(&"hardness", 0.8)
-					pc = _f.call(&"amount", 1.0)
-					pd = _f.call(&"jitter", 0.0)
-					if pd > 0.0 and node.has_method("_jitter_field"):
-						nz = node.call("_jitter_field")
-				&"smooth":
-					op_id = 11; p0 = float(_i.call(&"passes", 1))
-				&"noise_jordan":
-					op_id = 13; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"warp_strength", 0.35); pg = _f.call(&"damp_strength", 0.8); ph = float(_i.call(&"seed", 0))
-				&"noise_swiss":
-					op_id = 14; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"ridge_offset", 1.0); pg = _f.call(&"erosion_accent", 0.3); ph = float(_i.call(&"seed", 0))
-				&"geological_primitive":
-					op_id = 15; p0 = float(_i.call(&"primitive_type", 0)); pb = float(_i.call(&"mapping", 0)); pc = _f.call(&"height", 50.0); pd = _f.call(&"radius", 50.0); pe = _f.call(&"eccentricity", 0.0); pf = _f.call(&"steepness", 1.0); pg = _f.call(&"azimuth_degrees", 0.0); var off: Vector2 = node.get("center_offset") if node.get("center_offset") != null else Vector2.ZERO; pj = off.x; pk = off.y
-				&"furrows":
-					op_id = 16; p0 = _f.call(&"amplitude", 1.0); pb = _f.call(&"spacing", 15.0); pc = _f.call(&"direction_degrees", 0.0); pd = float(_i.call(&"profile", 1)); pe = _f.call(&"wobble_amount", 2.0); pf = _f.call(&"wobble_size", 70.0); pg = float(_i.call(&"seed", 0))
-				&"dunes":
-					op_id = 17; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"wavelength", 30.0); pc = _f.call(&"direction_degrees", 0.0); pd = _f.call(&"asymmetry", 0.4); pe = _f.call(&"crest_sharpness", 0.6); pf = _f.call(&"wander_amount", 2.0); pg = _f.call(&"wander_size", 60.0); ph = float(_i.call(&"seed", 0))
-				&"crater":
-					op_id = 18; p0 = _f.call(&"amplitude", 10.0); pb = _f.call(&"floor_depth", 14.0); pc = _f.call(&"rim_height", 4.0); pd = _f.call(&"rim_width", 0.25); pe = _f.call(&"ejecta_falloff", 2.5); pf = _f.call(&"floor_flatness", 0.4); pg = float(_i.call(&"terrace_steps", 0))
-				&"warp":
-					op_id = 19; p0 = float(_i.call(&"warp_type", 0)); pb = _f.call(&"frequency", 0.01); pc = _f.call(&"strength", 10.0); pd = float(_i.call(&"octaves", 3)); pe = _f.call(&"amplitude", 1.0); pf = _f.call(&"roughness", 0.5); pg = float(_i.call(&"seed", 0))
-				&"strata":
-					op_id = 20; p0 = _f.call(&"band_height", 8.0); pb = _f.call(&"hardness", 0.75); pc = _f.call(&"amount", 1.0); pd = _f.call(&"dip", 4.0); pe = _f.call(&"dip_direction_degrees", 45.0); pf = _f.call(&"break_amount", 3.0); pg = _f.call(&"break_size", 40.0); ph = float(_i.call(&"seed", 0))
-				&"curve":
-					op_id = 21; p0 = _f.call(&"input_min", 0.0); pb = _f.call(&"input_max", 100.0); pc = _f.call(&"output_min", 0.0); pd = _f.call(&"output_max", 100.0); pe = _f.call(&"amount", 1.0)
-					var c: Curve = node.get("curve")
-					if c != null:
-						lut.resize(256)
-						for li in range(256):
-							lut[li] = c.sample_baked(float(li) / 255.0)
-				&"remap":
-					op_id = 22; p0 = _f.call(&"in_min", 0.0); pb = _f.call(&"in_max", 100.0); pc = _f.call(&"out_min", 0.0); pd = _f.call(&"out_max", 100.0); pe = 1.0 if bool(node.get("clamp_output")) else 0.0; pf = _f.call(&"soft_knee", 0.0); pg = 1.0 if bool(node.get("invert")) else 0.0
-				&"mask":
-					op_id = 23; p0 = float(_i.call(&"property", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 90.0); pd = _f.call(&"falloff_lo", 0.0); pe = _f.call(&"falloff_hi", 0.0); pf = 1.0 if bool(node.get("invert")) else 0.0; pg = _f.call(&"strength", 1.0)
-				&"curvature":
-					op_id = 24; p0 = float(_i.call(&"mode", 0)); pb = float(_i.call(&"radius", 1)); pc = _f.call(&"contrast", 1.0)
-				&"talus_projection":
-					op_id = 25; p0 = _f.call(&"talus_angle_deg", 35.0); pb = float(_i.call(&"iterations", 16)); pc = _f.call(&"transfer_rate", 0.5); pd = _f.call(&"amount", 1.0)
-				&"spectral_equalizer":
-					op_id = 26; p0 = _f.call(&"macro_gain", 1.0); pb = _f.call(&"meso_gain", 1.0); pc = _f.call(&"micro_gain", 1.5); pd = float(_i.call(&"macro_passes", 16)); pe = float(_i.call(&"meso_passes", 4)); pf = _f.call(&"amount", 1.0)
-				&"depression_filling":
-					op_id = 27; p0 = _f.call(&"epsilon_slope", 0.0001); pb = _f.call(&"fill_depth_limit", 0.0); pc = _f.call(&"amount", 1.0)
-				&"lake_flooding":
-					op_id = 28; p0 = float(_i.call(&"flood_mode", 0)); pb = _f.call(&"water_elevation", 10.0); pc = _f.call(&"flood_percent", 1.0); pd = _f.call(&"shoreline_width", 4.0)
-				&"stream_extraction":
-					op_id = 29; p0 = _f.call(&"min_catchment_cells", 24.0); pb = _f.call(&"carve_depth", 3.0); pc = _f.call(&"channel_width", 8.0); pd = _f.call(&"bank_falloff", 4.0)
-				&"erosion_hydraulic":
-					op_id = 30; p0 = float(_i.call(&"iterations", 25)); pb = _f.call(&"rain_rate", 0.05); pc = _f.call(&"evaporation_rate", 0.02); pd = _f.call(&"sediment_capacity", 8.0); pe = _f.call(&"erosion_speed", 0.5); pf = _f.call(&"deposition_speed", 0.4); pg = _f.call(&"min_slope", 0.01)
-				&"erosion_thermal":
-					op_id = 31; p0 = _f.call(&"talus_angle", 30.0); pb = float(_i.call(&"iterations", 25)); pc = _f.call(&"settling_rate", 0.7)
-				&"scree":
-					op_id = 32; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"grain_size", 0.05); pc = _f.call(&"downslope_streak", 0.7); pd = _f.call(&"toe_deposition", 0.8); pe = _f.call(&"min_slope_degrees", 25.0); pf = _f.call(&"slope_falloff_degrees", 8.0); pg = float(_i.call(&"seed", 0))
-				&"erosion":
-					op_id = 33; p0 = float(_i.call(&"iterations", 30)); pb = _f.call(&"erosion_rate", 0.08); pc = _f.call(&"area_exponent", 0.45); pd = _f.call(&"hillslope_diffusion", 0.15); pe = _f.call(&"deposition", 0.0)
-				_:
-					return {} # an op the native evaluator does not implement
+		var lowered := _lower_node_op(node)
+		if lowered.is_empty():
+			return {} # an op the native evaluator does not implement
+		var op_id: int = int(lowered["op"])
+		var _pr: PackedFloat32Array = lowered["params"]
+		var p0: float = _pr[0]; var pb: float = _pr[1]; var pc: float = _pr[2]; var pd: float = _pr[3]
+		var pe: float = _pr[4]; var pf: float = _pr[5]; var pg: float = _pr[6]; var ph: float = _pr[7]
+		var pi: float = _pr[8]; var pj: float = _pr[9]; var pk: float = _pr[10]; var pl: float = _pr[11]
+		var nz = lowered["noise"]
+		var lut = lowered["lut"]
 
 		ops.append(op_id)
 		params.append(p0); params_b.append(pb); params_c.append(pc); params_d.append(pd)
@@ -1115,6 +1020,273 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
 		"in0": in0, "in1": in1, "in2": in2,
 		"noise": noise_tab, "luts": luts_tab, "output": int(slot_of[out]),
+	}
+
+
+## Lower ONE node into the native op table: its GraphCellOpType id, the 12 parallel scalar params
+## (p0..pl, index-aligned with compile_graph_program's params/params_b/.../params_l), its FastNoiseLite (or
+## null), and its CURVE LUT (or an empty array). The single source of truth for the op vocabulary, shared by
+## the single-root bake compile (`compile_graph_program`) and the multi-root preview compile
+## (`compile_graph_program_multi`) so a new node's lowering is written once. Returns {} for an op the native
+## evaluator does not implement — the caller then abandons the native path. A muted node lowers to op 12
+## (passthrough of its first input), matching the folded evaluator's mute semantics.
+func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
+	var op_id := 0
+	var p0 := 0.0; var pb := 0.0; var pc := 0.0; var pd := 0.0; var pe := 0.0
+	var pf := 0.0; var pg := 0.0; var ph := 0.0; var pi := 0.0; var pj := 0.0
+	var pk := 0.0; var pl := 0.0
+	var nz = null
+	var lut = PackedFloat32Array()
+
+	var _f := func(p: StringName, def: float = 0.0) -> float:
+		var v = node.get(p)
+		return float(v) if v != null else def
+
+	var _i := func(p: StringName, def: int = 0) -> int:
+		var v = node.get(p)
+		return int(v) if v != null else def
+
+	if node.muted:
+		op_id = 12 # GRAPH_OP_OUTPUT / GRAPH_OP_REROUTE (passthrough of in0)
+	else:
+		match node.op():
+			&"input":
+				op_id = 10
+			&"output", &"reroute", &"terrain_bus_merge", &"terrain_bus_split":
+				op_id = 12
+			&"noise":
+				op_id = 1; p0 = _f.call(&"amplitude", 1.0); nz = node.get("noise")
+			&"const":
+				op_id = 2; p0 = _f.call(&"value", 0.0)
+			&"const_int":
+				op_id = 2; p0 = float(_i.call(&"value", 0))
+			&"const_vector":
+				var cv: Vector2 = node.get("value") if node.get("value") is Vector2 else Vector2.ZERO
+				op_id = 2; p0 = cv.length()
+			&"const_color":
+				var cc: Color = node.get("value") if node.get("value") is Color else Color.WHITE
+				op_id = 2; p0 = cc.get_luminance()
+			&"const_bool":
+				op_id = 2; p0 = 1.0 if bool(node.get("value")) else 0.0
+			&"const_curve":
+				op_id = 21; p0 = 0.0; pb = 1.0; pc = 0.0; pd = 1.0; pe = 1.0
+				var c: Curve = node.get("curve")
+				if c != null:
+					lut.resize(256)
+					for li in range(256):
+						lut[li] = c.sample_baked(float(li) / 255.0)
+			&"blend":
+				op_id = 3; p0 = float(_i.call(&"mode", 0))
+			&"terrace":
+				op_id = 4
+				p0 = _f.call(&"band_height", 8.0)
+				pb = _f.call(&"hardness", 0.8)
+				pc = _f.call(&"amount", 1.0)
+				pd = _f.call(&"jitter", 0.0)
+				if pd > 0.0 and node.has_method("_jitter_field"):
+					nz = node.call("_jitter_field")
+			&"smooth":
+				op_id = 11; p0 = float(_i.call(&"passes", 1))
+			&"noise_jordan":
+				op_id = 13; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"warp_strength", 0.35); pg = _f.call(&"damp_strength", 0.8); ph = float(_i.call(&"seed", 0))
+			&"noise_swiss":
+				op_id = 14; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"ridge_offset", 1.0); pg = _f.call(&"erosion_accent", 0.3); ph = float(_i.call(&"seed", 0))
+			&"geological_primitive":
+				op_id = 15; p0 = float(_i.call(&"primitive_type", 0)); pb = float(_i.call(&"mapping", 0)); pc = _f.call(&"height", 50.0); pd = _f.call(&"radius", 50.0); pe = _f.call(&"eccentricity", 0.0); pf = _f.call(&"steepness", 1.0); pg = _f.call(&"azimuth_degrees", 0.0); var off: Vector2 = node.get("center_offset") if node.get("center_offset") != null else Vector2.ZERO; pj = off.x; pk = off.y
+			&"furrows":
+				op_id = 16; p0 = _f.call(&"amplitude", 1.0); pb = _f.call(&"spacing", 15.0); pc = _f.call(&"direction_degrees", 0.0); pd = float(_i.call(&"profile", 1)); pe = _f.call(&"wobble_amount", 2.0); pf = _f.call(&"wobble_size", 70.0); pg = float(_i.call(&"seed", 0))
+			&"dunes":
+				op_id = 17; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"wavelength", 30.0); pc = _f.call(&"direction_degrees", 0.0); pd = _f.call(&"asymmetry", 0.4); pe = _f.call(&"crest_sharpness", 0.6); pf = _f.call(&"wander_amount", 2.0); pg = _f.call(&"wander_size", 60.0); ph = float(_i.call(&"seed", 0))
+			&"crater":
+				op_id = 18; p0 = _f.call(&"amplitude", 10.0); pb = _f.call(&"floor_depth", 14.0); pc = _f.call(&"rim_height", 4.0); pd = _f.call(&"rim_width", 0.25); pe = _f.call(&"ejecta_falloff", 2.5); pf = _f.call(&"floor_flatness", 0.4); pg = float(_i.call(&"terrace_steps", 0))
+			&"warp":
+				op_id = 19; p0 = float(_i.call(&"warp_type", 0)); pb = _f.call(&"frequency", 0.01); pc = _f.call(&"strength", 10.0); pd = float(_i.call(&"octaves", 3)); pe = _f.call(&"amplitude", 1.0); pf = _f.call(&"roughness", 0.5); pg = float(_i.call(&"seed", 0))
+			&"strata":
+				op_id = 20; p0 = _f.call(&"band_height", 8.0); pb = _f.call(&"hardness", 0.75); pc = _f.call(&"amount", 1.0); pd = _f.call(&"dip", 4.0); pe = _f.call(&"dip_direction_degrees", 45.0); pf = _f.call(&"break_amount", 3.0); pg = _f.call(&"break_size", 40.0); ph = float(_i.call(&"seed", 0))
+			&"curve":
+				op_id = 21; p0 = _f.call(&"input_min", 0.0); pb = _f.call(&"input_max", 100.0); pc = _f.call(&"output_min", 0.0); pd = _f.call(&"output_max", 100.0); pe = _f.call(&"amount", 1.0)
+				var c: Curve = node.get("curve")
+				if c != null:
+					lut.resize(256)
+					for li in range(256):
+						lut[li] = c.sample_baked(float(li) / 255.0)
+			&"remap":
+				op_id = 22; p0 = _f.call(&"in_min", 0.0); pb = _f.call(&"in_max", 100.0); pc = _f.call(&"out_min", 0.0); pd = _f.call(&"out_max", 100.0); pe = 1.0 if bool(node.get("clamp_output")) else 0.0; pf = _f.call(&"soft_knee", 0.0); pg = 1.0 if bool(node.get("invert")) else 0.0
+			&"mask":
+				op_id = 23; p0 = float(_i.call(&"property", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 90.0); pd = _f.call(&"falloff_lo", 0.0); pe = _f.call(&"falloff_hi", 0.0); pf = 1.0 if bool(node.get("invert")) else 0.0; pg = _f.call(&"strength", 1.0)
+			&"curvature":
+				op_id = 24; p0 = float(_i.call(&"mode", 0)); pb = float(_i.call(&"radius", 1)); pc = _f.call(&"contrast", 1.0)
+			&"talus_projection":
+				op_id = 25; p0 = _f.call(&"talus_angle_deg", 35.0); pb = float(_i.call(&"iterations", 16)); pc = _f.call(&"transfer_rate", 0.5); pd = _f.call(&"amount", 1.0)
+			&"spectral_equalizer":
+				op_id = 26; p0 = _f.call(&"macro_gain", 1.0); pb = _f.call(&"meso_gain", 1.0); pc = _f.call(&"micro_gain", 1.5); pd = float(_i.call(&"macro_passes", 16)); pe = float(_i.call(&"meso_passes", 4)); pf = _f.call(&"amount", 1.0)
+			&"depression_filling":
+				op_id = 27; p0 = _f.call(&"epsilon_slope", 0.0001); pb = _f.call(&"fill_depth_limit", 0.0); pc = _f.call(&"amount", 1.0)
+			&"lake_flooding":
+				op_id = 28; p0 = float(_i.call(&"flood_mode", 0)); pb = _f.call(&"water_elevation", 10.0); pc = _f.call(&"flood_percent", 1.0); pd = _f.call(&"shoreline_width", 4.0)
+			&"stream_extraction":
+				op_id = 29; p0 = _f.call(&"min_catchment_cells", 24.0); pb = _f.call(&"carve_depth", 3.0); pc = _f.call(&"channel_width", 8.0); pd = _f.call(&"bank_falloff", 4.0)
+			&"erosion_hydraulic":
+				op_id = 30; p0 = float(_i.call(&"iterations", 25)); pb = _f.call(&"rain_rate", 0.05); pc = _f.call(&"evaporation_rate", 0.02); pd = _f.call(&"sediment_capacity", 8.0); pe = _f.call(&"erosion_speed", 0.5); pf = _f.call(&"deposition_speed", 0.4); pg = _f.call(&"min_slope", 0.01)
+			&"erosion_thermal":
+				op_id = 31; p0 = _f.call(&"talus_angle", 30.0); pb = float(_i.call(&"iterations", 25)); pc = _f.call(&"settling_rate", 0.7)
+			&"scree":
+				op_id = 32; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"grain_size", 0.05); pc = _f.call(&"downslope_streak", 0.7); pd = _f.call(&"toe_deposition", 0.8); pe = _f.call(&"min_slope_degrees", 25.0); pf = _f.call(&"slope_falloff_degrees", 8.0); pg = float(_i.call(&"seed", 0))
+			&"erosion":
+				op_id = 33; p0 = float(_i.call(&"iterations", 30)); pb = _f.call(&"erosion_rate", 0.08); pc = _f.call(&"area_exponent", 0.45); pd = _f.call(&"hillslope_diffusion", 0.15); pe = _f.call(&"deposition", 0.0)
+			_:
+				return {} # an op the native evaluator does not implement
+
+	return {
+		"op": op_id,
+		"params": PackedFloat32Array([p0, pb, pc, pd, pe, pf, pg, ph, pi, pj, pk, pl]),
+		"noise": nz,
+		"lut": lut,
+	}
+
+
+## Topological order of the UNION of every root's ancestry — one program that can cover several preview
+## roots at once. Same ancestor walk + Kahn sort as `_eval_order`, over the combined `needed` set; empty on a
+## cycle. NOT memoized: the root SET varies with which previews are toggled on, so caching it would thrash;
+## the single-root `_eval_order` stays the cached hot path the bake rides.
+func _eval_order_multi(p_roots: Array) -> Array:
+	var needed := {}
+	var frontier: Array = []
+	for r in p_roots:
+		var ri := int(r)
+		if ri >= 0 and ri < nodes.size() and nodes[ri] != null and not needed.has(ri):
+			needed[ri] = true
+			frontier.push_back(ri)
+	if needed.is_empty():
+		return []
+	while not frontier.is_empty():
+		var cur: int = frontier.pop_back()
+		for c in connections:
+			if c.size() >= 4 and int(c[2]) == cur:
+				var from := int(c[0])
+				if from >= 0 and from < nodes.size() and not needed.has(from):
+					needed[from] = true
+					frontier.push_back(from)
+	var indeg := {}
+	for ni in needed:
+		indeg[ni] = 0
+	for c in connections:
+		if c.size() >= 4:
+			var from := int(c[0])
+			var to := int(c[2])
+			if needed.has(from) and needed.has(to):
+				indeg[to] += 1
+	var ready: Array = []
+	for ni in indeg:
+		if indeg[ni] == 0:
+			ready.push_back(ni)
+	var order: Array = []
+	while not ready.is_empty():
+		var ni: int = ready.pop_back()
+		order.push_back(ni)
+		for c in connections:
+			if c.size() >= 4 and int(c[0]) == ni and needed.has(int(c[2])):
+				var to := int(c[2])
+				indeg[to] -= 1
+				if indeg[to] == 0:
+					ready.push_back(to)
+	if order.size() != needed.size():
+		return [] # a cycle in the combined ancestry
+	return order
+
+
+## Compile ONE native program covering every root in `p_roots` and their ancestors, plus a `slot_of` map
+## (node index -> SSA slot) so the caller can find each preview node's tap slot. Backs the editor's inline
+## previews: one program feeds one `Pasture3DUtil.graph_eval_grid_taps` pass, so N open previews cost a
+## single evaluation. Returns {} — "no native preview this tick" — when the root set is empty, its combined
+## ancestry has a cycle or a secondary-port (port >= 1) wire, or any node's op is not native. The program's
+## `output` is set to one root's slot purely to satisfy graph_build's range check; the caller reads the
+## tapped buffers, never the output.
+func compile_graph_program_multi(p_roots: Array) -> Dictionary:
+	var order := _eval_order_multi(p_roots)
+	if order.is_empty():
+		return {}
+	var needed := {}
+	for ni in order:
+		needed[ni] = true
+	# A secondary-port wire needs the multi-channel GDScript path; the taps program has no aux channels, so
+	# bail exactly as native_supported / compile_graph_program do.
+	for c in connections:
+		if c.size() >= 4 and int(c[1]) > 0:
+			var to_node := int(c[2])
+			var from_node := int(c[0])
+			if needed.has(to_node) and needed.has(from_node):
+				return {}
+	var slot_of := {}
+	for k in range(order.size()):
+		slot_of[order[k]] = k
+	# inputs_of over the union ancestor set — same construction as _fold_plan, restricted to `needed`.
+	var inputs_of := {}
+	for ni in order:
+		var arr: Array = []
+		arr.resize(nodes[ni].input_count())
+		arr.fill(-1)
+		inputs_of[ni] = arr
+	for c in connections:
+		if c.size() >= 4:
+			var to := int(c[2])
+			var from := int(c[0])
+			if needed.has(to) and needed.has(from):
+				var tp := int(c[3])
+				if tp >= 0 and tp < (inputs_of[to] as Array).size():
+					inputs_of[to][tp] = from
+	var ops := PackedInt32Array()
+	var params := PackedFloat32Array()
+	var params_b := PackedFloat32Array()
+	var params_c := PackedFloat32Array()
+	var params_d := PackedFloat32Array()
+	var params_e := PackedFloat32Array()
+	var params_f := PackedFloat32Array()
+	var params_g := PackedFloat32Array()
+	var params_h := PackedFloat32Array()
+	var params_i := PackedFloat32Array()
+	var params_j := PackedFloat32Array()
+	var params_k := PackedFloat32Array()
+	var params_l := PackedFloat32Array()
+	var in0 := PackedInt32Array()
+	var in1 := PackedInt32Array()
+	var in2 := PackedInt32Array()
+	var noise_tab: Array = []
+	var luts_tab: Array = []
+	for ni in order:
+		var node: Pasture3DGraphNode = nodes[ni]
+		var srcs: Array = inputs_of[ni]
+		var s0: int = int(srcs[0]) if srcs.size() > 0 else -1
+		var s1: int = int(srcs[1]) if srcs.size() > 1 else -1
+		var s2: int = int(srcs[2]) if srcs.size() > 2 else -1
+		var lowered := _lower_node_op(node)
+		if lowered.is_empty():
+			return {} # an op the native evaluator does not implement
+		var _pr: PackedFloat32Array = lowered["params"]
+		ops.append(int(lowered["op"]))
+		params.append(_pr[0]); params_b.append(_pr[1]); params_c.append(_pr[2]); params_d.append(_pr[3])
+		params_e.append(_pr[4]); params_f.append(_pr[5]); params_g.append(_pr[6]); params_h.append(_pr[7])
+		params_i.append(_pr[8]); params_j.append(_pr[9]); params_k.append(_pr[10]); params_l.append(_pr[11])
+		noise_tab.append(lowered["noise"])
+		luts_tab.append(lowered["lut"])
+		in0.append(int(slot_of[s0]) if s0 >= 0 else -1)
+		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
+		in2.append(int(slot_of[s2]) if s2 >= 0 else -1)
+	var out_slot := 0
+	for r in p_roots:
+		var ri := int(r)
+		if slot_of.has(ri):
+			out_slot = int(slot_of[ri])
+			break
+	return {
+		"program": {
+			"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
+			"params_e": params_e, "params_f": params_f, "params_g": params_g, "params_h": params_h,
+			"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
+			"in0": in0, "in1": in1, "in2": in2,
+			"noise": noise_tab, "luts": luts_tab, "output": out_slot,
+		},
+		"slot_of": slot_of,
 	}
 
 

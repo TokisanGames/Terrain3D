@@ -14,7 +14,7 @@ public:
 	template <typename F>
 	static inline void parallel_for_rows(int p_gh, int p_min_rows_per_chunk, F &&p_func) {
 		const unsigned int num_threads = std::max(1u, std::thread::hardware_concurrency());
-		if (num_threads <= 1 || p_gh < p_min_rows_per_chunk * 2) {
+		if (p_gh < 128 || num_threads <= 1 || p_gh < p_min_rows_per_chunk * 2) {
 			p_func(0, p_gh);
 			return;
 		}
@@ -54,7 +54,7 @@ public:
 	template <typename F>
 	static inline void parallel_for_elements(int p_total_count, int p_min_elements_per_chunk, F &&p_func) {
 		const unsigned int num_threads = std::max(1u, std::thread::hardware_concurrency());
-		if (num_threads <= 1 || p_total_count < p_min_elements_per_chunk * 2) {
+		if (p_total_count < 16384 || num_threads <= 1 || p_total_count < p_min_elements_per_chunk * 2) {
 			p_func(0, p_total_count);
 			return;
 		}

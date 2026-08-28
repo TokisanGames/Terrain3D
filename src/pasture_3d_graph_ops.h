@@ -148,4 +148,11 @@ bool graph_build(const Dictionary &p_prog, GraphProgram &r_out);
 PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
 		const PackedFloat32Array &p_input);
 
+// Evaluate the whole graph ONCE and tap several intermediate node buffers from the single pass. Each slot
+// in p_tap_slots is protected from the scratch-arena recycle (the same +1 ref count the output gets), so
+// the cost is one evaluation regardless of how many taps are requested — the enabling primitive for the
+// editor's inline node previews. Returns {slot(int) -> PackedFloat32Array of size p_gw*p_gh}.
+Dictionary graph_eval_grid_taps(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
+		const PackedFloat32Array &p_input, const PackedInt32Array &p_tap_slots);
+
 } // namespace godot
