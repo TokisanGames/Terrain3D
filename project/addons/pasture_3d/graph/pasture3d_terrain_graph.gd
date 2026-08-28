@@ -922,63 +922,124 @@ func compile_graph_program() -> Dictionary:
 	var params_b := PackedFloat32Array()
 	var params_c := PackedFloat32Array()
 	var params_d := PackedFloat32Array()
+	var params_e := PackedFloat32Array()
+	var params_f := PackedFloat32Array()
+	var params_g := PackedFloat32Array()
+	var params_h := PackedFloat32Array()
+	var params_i := PackedFloat32Array()
+	var params_j := PackedFloat32Array()
+	var params_k := PackedFloat32Array()
+	var params_l := PackedFloat32Array()
 	var in0 := PackedInt32Array()
 	var in1 := PackedInt32Array()
+	var in2 := PackedInt32Array()
 	var noise_tab: Array = []
+	var luts_tab: Array = []
+
 	for ni in order:
 		var node: Pasture3DGraphNode = nodes[ni]
 		var srcs: Array = inputs_of[ni]
 		var s0: int = int(srcs[0]) if srcs.size() > 0 else -1
 		var s1: int = int(srcs[1]) if srcs.size() > 1 else -1
+		var s2: int = int(srcs[2]) if srcs.size() > 2 else -1
 		var op_id := 0
-		var param := 0.0
-		var pb := 0.0
-		var pc := 0.0
-		var pd := 0.0
+		var p0 := 0.0; var pb := 0.0; var pc := 0.0; var pd := 0.0; var pe := 0.0
+		var pf := 0.0; var pg := 0.0; var ph := 0.0; var pi := 0.0; var pj := 0.0
+		var pk := 0.0; var pl := 0.0
 		var nz = null
+		var lut = PackedFloat32Array()
+
 		match node.op():
 			&"input":
 				op_id = 10
+			&"output":
+				op_id = 12
 			&"noise":
-				op_id = 1; param = float(node.get("amplitude")); nz = node.get("noise")
+				op_id = 1; p0 = float(node.get("amplitude")); nz = node.get("noise")
 			&"const":
-				op_id = 2; param = float(node.get("value"))
+				op_id = 2; p0 = float(node.get("value"))
 			&"blend":
-				if srcs.size() > 2 and int(srcs[2]) >= 0:
-					return {} # a masked blend is 3-input; the native whole-graph evaluator reads only in0/in1
-				op_id = 3; param = float(int(node.get("mode")))
+				op_id = 3; p0 = float(int(node.get("mode")))
 			&"terrace":
 				op_id = 4
-				param = float(node.get("band_height"))
+				p0 = float(node.get("band_height"))
 				pb = float(node.get("hardness"))
 				pc = float(node.get("amount"))
 				pd = float(node.get("jitter"))
 				if pd > 0.0 and node.has_method("_jitter_field"):
 					nz = node.call("_jitter_field")
 			&"smooth":
-				op_id = 11; param = float(int(node.get("passes")))
-			&"output":
-				op_id = 12
+				op_id = 11; p0 = float(int(node.get("passes")))
+			&"noise_jordan":
+				op_id = 13; p0 = float(node.get("amplitude")); pb = float(node.get("frequency")); pc = float(node.get("octaves")); pd = float(node.get("gain")); pe = float(node.get("lacunarity")); pf = float(node.get("warp_strength")); pg = float(node.get("damp_strength")); ph = float(node.get("seed"))
+			&"noise_swiss":
+				op_id = 14; p0 = float(node.get("amplitude")); pb = float(node.get("frequency")); pc = float(node.get("octaves")); pd = float(node.get("gain")); pe = float(node.get("lacunarity")); pf = float(node.get("ridge_offset")); pg = float(node.get("erosion_accent")); ph = float(node.get("seed"))
+			&"geological_primitive":
+				op_id = 15; p0 = float(int(node.get("primitive_type"))); pb = float(int(node.get("mapping"))); pc = float(node.get("height")); pd = float(node.get("radius")); pe = float(node.get("eccentricity")); pf = float(node.get("steepness")); pg = float(node.get("azimuth_degrees")); var off: Vector2 = node.get("center_offset") if node.get("center_offset") != null else Vector2.ZERO; pj = off.x; pk = off.y
+			&"furrows":
+				op_id = 16; p0 = float(node.get("amplitude")); pb = float(node.get("spacing")); pc = float(node.get("direction_degrees")); pd = float(int(node.get("profile"))); pe = float(node.get("wobble_amount")); pf = float(node.get("wobble_size")); pg = float(node.get("seed"))
+			&"dunes":
+				op_id = 17; p0 = float(node.get("amplitude")); pb = float(node.get("wavelength")); pc = float(node.get("direction_degrees")); pd = float(node.get("asymmetry")); pe = float(node.get("crest_sharpness")); pf = float(node.get("wander_amount")); pg = float(node.get("wander_size")); ph = float(node.get("seed"))
+			&"crater":
+				op_id = 18; p0 = float(node.get("amplitude")); pb = float(node.get("floor_depth")); pc = float(node.get("rim_height")); pd = float(node.get("rim_width")); pe = float(node.get("ejecta_falloff")); pf = float(node.get("floor_flatness")); pg = float(int(node.get("terrace_steps")))
+			&"warp":
+				op_id = 19; p0 = float(int(node.get("warp_type"))); pb = float(node.get("frequency")); pc = float(node.get("strength")); pd = float(int(node.get("octaves"))); pe = float(node.get("amplitude")); pf = float(node.get("roughness")); pg = float(node.get("seed"))
+			&"strata":
+				op_id = 20; p0 = float(node.get("band_height")); pb = float(node.get("hardness")); pc = float(node.get("amount")); pd = float(node.get("dip")); pe = float(node.get("dip_direction_degrees")); pf = float(node.get("break_amount")); pg = float(node.get("break_size")); ph = float(node.get("seed"))
+			&"curve":
+				op_id = 21; p0 = float(node.get("input_min")); pb = float(node.get("input_max")); pc = float(node.get("output_min")); pd = float(node.get("output_max")); pe = float(node.get("amount"))
+				var c: Curve = node.get("curve")
+				if c != null:
+					lut.resize(256)
+					for li in range(256):
+						lut[li] = c.sample_baked(float(li) / 255.0)
+			&"remap":
+				op_id = 22; p0 = float(node.get("in_min")); pb = float(node.get("in_max")); pc = float(node.get("out_min")); pd = float(node.get("out_max")); pe = 1.0 if bool(node.get("clamp_output")) else 0.0; pf = float(node.get("soft_knee")); pg = 1.0 if bool(node.get("invert")) else 0.0
+			&"mask":
+				op_id = 23; p0 = float(int(node.get("property"))); pb = float(node.get("band_min")); pc = float(node.get("band_max")); pd = float(node.get("falloff_lo")); pe = float(node.get("falloff_hi")); pf = 1.0 if bool(node.get("invert")) else 0.0; pg = float(node.get("strength"))
+			&"curvature":
+				op_id = 24; p0 = float(int(node.get("mode"))); pb = float(int(node.get("radius"))); pc = float(node.get("contrast"))
+			&"talus_projection":
+				op_id = 25; p0 = float(node.get("talus_angle_degrees")); pb = float(int(node.get("iterations"))); pc = float(node.get("transfer_rate")); pd = float(node.get("amount"))
+			&"spectral_equalizer":
+				op_id = 26; p0 = float(node.get("macro_gain")); pb = float(node.get("meso_gain")); pc = float(node.get("micro_gain")); pd = float(int(node.get("macro_passes"))); pe = float(int(node.get("meso_passes"))); pf = float(node.get("amount"))
+			&"depression_filling":
+				op_id = 27; p0 = float(node.get("epsilon_slope")); pb = float(node.get("fill_depth_limit")); pc = float(node.get("amount"))
+			&"lake_flooding":
+				op_id = 28; p0 = float(int(node.get("flood_mode"))); pb = float(node.get("water_elevation")); pc = float(node.get("flood_percent")); pd = float(node.get("shoreline_width"))
+			&"stream_extraction":
+				op_id = 29; p0 = float(int(node.get("min_catchment_cells"))); pb = float(node.get("carve_depth")); pc = float(node.get("channel_width")); pd = float(node.get("bank_falloff"))
+			&"erosion_hydraulic":
+				op_id = 30; p0 = float(int(node.get("iterations"))); pb = float(node.get("rain_rate")); pc = float(node.get("evaporation_rate")); pd = float(node.get("sediment_capacity")); pe = float(node.get("deposition_rate")); pf = float(node.get("dissolution_rate"))
+			&"erosion_thermal":
+				op_id = 31; p0 = float(node.get("talus_angle_degrees")); pb = float(int(node.get("iterations"))); pc = float(node.get("settling_rate"))
+			&"scree":
+				op_id = 32; p0 = float(node.get("amplitude")); pb = float(node.get("grain_size")); pc = float(node.get("downslope_streak")); pd = float(node.get("toe_deposition")); pe = float(node.get("min_slope_degrees")); pf = float(node.get("slope_falloff_degrees")); pg = float(node.get("seed"))
+			&"erosion":
+				op_id = 33; p0 = float(node.get("dt")); pb = float(node.get("K")); pc = float(node.get("m")); pd = float(node.get("n")); pe = float(node.get("threshold")); pf = float(node.get("deposition_rate"))
 			_:
 				return {} # an op the native evaluator does not implement
+
 		ops.append(op_id)
-		params.append(param)
-		params_b.append(pb)
-		params_c.append(pc)
-		params_d.append(pd)
+		params.append(p0); params_b.append(pb); params_c.append(pc); params_d.append(pd)
+		params_e.append(pe); params_f.append(pf); params_g.append(pg); params_h.append(ph)
+		params_i.append(pi); params_j.append(pj); params_k.append(pk); params_l.append(pl)
 		noise_tab.append(nz)
+		luts_tab.append(lut)
 		in0.append(int(slot_of[s0]) if s0 >= 0 else -1)
 		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
+		in2.append(int(slot_of[s2]) if s2 >= 0 else -1)
+
 	return {
 		"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
-		"in0": in0, "in1": in1,
-		"noise": noise_tab, "output": int(slot_of[out]),
+		"params_e": params_e, "params_f": params_f, "params_g": params_g, "params_h": params_h,
+		"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
+		"in0": in0, "in1": in1, "in2": in2,
+		"noise": noise_tab, "luts": luts_tab, "output": int(slot_of[out]),
 	}
 
 
-## True when every node feeding the output has an op the native whole-graph evaluator implements — i.e.
-## `compile_graph_program()` would return a program, so the host can run this graph natively instead of
-## forcing the GDScript rasteriser. Cheap structural check (no grids), for `_stack_forces_gdscript`.
+## True when every node feeding the output has an op the native whole-graph evaluator implements.
 func native_supported() -> bool:
 	var out := output_index()
 	if out < 0 or out >= nodes.size() or nodes[out] == null:
@@ -986,27 +1047,18 @@ func native_supported() -> bool:
 	var order := _eval_order()
 	if order.is_empty():
 		return false
-	const SUPPORTED := [&"input", &"noise", &"const", &"blend", &"smooth", &"terrace", &"output"]
+	const SUPPORTED := [
+		&"input", &"output", &"noise", &"const", &"blend", &"smooth", &"terrace",
+		&"noise_jordan", &"noise_swiss", &"geological_primitive", &"furrows", &"dunes",
+		&"crater", &"warp", &"strata", &"curve", &"remap", &"mask", &"curvature",
+		&"talus_projection", &"spectral_equalizer", &"depression_filling", &"lake_flooding",
+		&"stream_extraction", &"erosion_hydraulic", &"erosion_thermal", &"scree", &"erosion"
+	]
 	for ni in order:
 		if nodes[ni] == null or nodes[ni].muted or not SUPPORTED.has(nodes[ni].op()):
 			return false
-	# A Blend whose MASK port (2) is wired is a 3-input op the native evaluator reads as a plain 2-input
-	# blend, so it must stay on the GDScript path where the mask is applied.
-	if _has_masked_blend(order):
-		return false
 	return true
 
-
-## True when a Blend node in `p_order` has its mask input (port 2) wired — the case the native lowering
-## cannot represent. Scans connections rather than the fold plan so it is cheap enough for native_supported.
-func _has_masked_blend(p_order: Array) -> bool:
-	for c in connections:
-		if c.size() >= 4 and int(c[3]) == 2:
-			var to := int(c[2])
-			if to >= 0 and to < nodes.size() and nodes[to] != null \
-					and nodes[to].op() == &"blend" and p_order.has(to):
-				return true
-	return false
 
 
 ## The pre-fold reference: materialise EVERY node's grid (increment 1's evaluator). Kept as the oracle the

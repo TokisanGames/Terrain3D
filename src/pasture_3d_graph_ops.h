@@ -33,11 +33,32 @@ namespace godot {
 enum GraphCellOpType {
 	GRAPH_OP_NOISE = 1, // GENERATOR cell: params[slot] * noise[slot].get_noise_2d(wx, wz)
 	GRAPH_OP_CONST = 2, // GENERATOR cell: params[slot]
-	GRAPH_OP_BLEND = 3, // COMBINER cell: in_a (o) in_b, o = params[slot] cast to GraphBlendMode
+	GRAPH_OP_BLEND = 3, // COMBINER cell: in_a (o) in_b (masked by in_c)
 	GRAPH_OP_TERRACE = 4, // FILTER cell: terrace in_a, band_height=params, hardness=params_b, amount=params_c, jitter=params_d
 	GRAPH_OP_INPUT = 10, // SOURCE grid: the surface handed to the graph (or a flat 0)
 	GRAPH_OP_SMOOTH = 11, // FILTER grid: NaN-aware blur of in0, params[slot] passes
 	GRAPH_OP_OUTPUT = 12, // SINK: passes in0 through (the graph's result)
+	GRAPH_OP_NOISE_JORDAN = 13, // GENERATOR grid: Jordan fBm derivative noise
+	GRAPH_OP_NOISE_SWISS = 14, // GENERATOR grid: Swiss ridge noise
+	GRAPH_OP_GEOLOGICAL_PRIMITIVE = 15, // GENERATOR grid: inselberg, caldera, cuesta
+	GRAPH_OP_FURROWS = 16, // GENERATOR grid: corrugated furrows
+	GRAPH_OP_DUNES = 17, // GENERATOR grid: asymmetric dunes
+	GRAPH_OP_CRATER = 18, // GENERATOR grid: impact crater
+	GRAPH_OP_WARP = 19, // GENERATOR grid: domain warp
+	GRAPH_OP_STRATA = 20, // FILTER grid: tilted rock strata
+	GRAPH_OP_CURVE = 21, // FILTER grid: LUT transfer curve
+	GRAPH_OP_REMAP = 22, // FILTER grid: soft-knee range remap
+	GRAPH_OP_MASK = 23, // FILTER grid: slope/altitude/curvature band gate
+	GRAPH_OP_CURVATURE = 24, // FILTER grid: discrete curvature mask
+	GRAPH_OP_TALUS_PROJECTION = 25, // FILTER grid: angle of repose talus relaxation
+	GRAPH_OP_SPECTRAL_EQUALIZER = 26, // FILTER grid: Laplacian pyramid equalizer
+	GRAPH_OP_DEPRESSION_FILLING = 27, // FILTER grid: sink filler
+	GRAPH_OP_LAKE_FLOODING = 28, // SOLVER grid: lake flooding
+	GRAPH_OP_STREAM_EXTRACTION = 29, // SOLVER grid: river channel carving
+	GRAPH_OP_EROSION_HYDRAULIC = 30, // SOLVER grid: hydraulic erosion
+	GRAPH_OP_EROSION_THERMAL = 31, // SOLVER grid: thermal weathering erosion
+	GRAPH_OP_SCREE = 32, // SOLVER grid: scree talus solver
+	GRAPH_OP_EROSION = 33, // SOLVER grid: stream power erosion
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed
@@ -95,34 +116,35 @@ void graph_cell_to_world(int p_ix, int p_iz, int p_gw, int p_gh, const Rect2 &p_
 // on every path. In place; p_passes <= 0 is the identity and allocates nothing.
 void graph_nan_blur(std::vector<float> &r_vals, int p_gw, int p_gh, int p_passes);
 
-// ---- Whole-graph evaluator (the native grid-pass interleave) ----------------------------------------
-//
-// The materialise-every-node analogue of Pasture3DTerrainGraph._eval_unfolded: one grid per node in
-// topological order, each read from its input slots. Handles GRID nodes (Input / Smooth / Output) that the
-// cell-run evaluator cannot, so a graph carrying one runs end-to-end in C++. The GDScript `_eval_unfolded`
-// is the A/B oracle (which `evaluate` — the folded path — matches to float32 rounding, GraphFoldGate); the
-// fold is a GDScript-only optimisation, so this materialises every node rather than reproducing it.
+// ---- Whole-graph evaluator (the native grid-pass interleave & scratch buffer arena) -----------------
 struct GraphProgram {
 	PackedInt32Array ops; // one GraphCellOpType per slot, topological order
-	PackedFloat32Array params; // amplitude | value | blend-mode | smooth-passes | band_height
-	PackedFloat32Array params_b; // hardness
-	PackedFloat32Array params_c; // amount
-	PackedFloat32Array params_d; // jitter
+	PackedFloat32Array params; // primary scalar: amplitude | value | blend-mode | smooth-passes | band_height
+	PackedFloat32Array params_b; // hardness | frequency | floor_depth | in_max | band_max
+	PackedFloat32Array params_c; // amount | octaves | rim_height | out_min | falloff_lo
+	PackedFloat32Array params_d; // jitter | gain | rim_width | out_max | falloff_hi
+	PackedFloat32Array params_e; // lacunarity | ejecta_falloff | clamp_output | invert
+	PackedFloat32Array params_f; // warp_strength | floor_flatness | soft_knee | strength
+	PackedFloat32Array params_g; // damp_strength | terrace_steps
+	PackedFloat32Array params_h; // dip | wavelength | spacing
+	PackedFloat32Array params_i; // dip_direction_deg | asymmetry | direction_deg
+	PackedFloat32Array params_j; // break_amount | crest_sharpness | profile
+	PackedFloat32Array params_k; // break_size | wander_amount
+	PackedFloat32Array params_l; // seed | wander_size
 	PackedInt32Array in0; // first input's source slot, or -1 unwired
-	PackedInt32Array in1; // second input's source slot (BLEND), or -1
+	PackedInt32Array in1; // second input's source slot, or -1
+	PackedInt32Array in2; // third input's source slot (e.g. blend mask), or -1
 	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless NOISE or JITTER
+	std::vector<PackedFloat32Array> luts; // parallel to slots; for CURVE
 	int output = -1; // the slot whose grid is the graph output
 	int count = 0;
 	bool is_empty() const { return count == 0 || output < 0 || output >= count; }
 };
 
-// Read a program dictionary (keys "ops"/"params"/"in0"/"in1"/"noise"/"output") from
-// Pasture3DTerrainGraph.compile_graph_program. False — r_out left empty — on a missing key, a length
-// mismatch, or an out-of-range output; the caller then treats the graph as a flat 0.
+// Read a program dictionary from Pasture3DTerrainGraph.compile_graph_program.
 bool graph_build(const Dictionary &p_prog, GraphProgram &r_out);
 
-// Evaluate the whole graph to a p_gw*p_gh row-major field over p_rect. `p_input` feeds Input nodes — a
-// COPY of it (or a flat 0 when it is empty / the wrong size). An empty/malformed program yields a flat 0.
+// Evaluate the whole graph to a p_gw*p_gh row-major field over p_rect using scratch arena memory reuse.
 PackedFloat32Array graph_eval_grid(const GraphProgram &p_prog, int p_gw, int p_gh, const Rect2 &p_rect,
 		const PackedFloat32Array &p_input);
 
