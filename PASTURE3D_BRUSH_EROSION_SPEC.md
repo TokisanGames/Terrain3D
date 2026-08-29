@@ -580,6 +580,73 @@ that can be wrong and **gate CD measures it**, with a control designed to break 
 > a gate that could not tell the difference: it is sensitive by a factor of thirty, and §6.8's reasoning
 > is right about the shape it describes and wrong about the shape it says it does not cover.
 
+#### 6.8.1 The opt-in `modifier_margin`
+
+The no-margin default above is exactly right for a self-draining dome and wrong for the thing a user most
+often wants next: a **skirt**. With NaN as the outlet at the loop edge, the sediment the flanks shed drains
+off that edge and vanishes, so the brush ends in a hard cut against the surrounding terrain (the circular
+cliff on an eroded Mound). `Pasture3DTerrainBrush.modifier_margin` (metres, in the Modifiers group on the
+hosts that run the stack — Mound and Plow) reintroduces a margin **by choice**.
+
+**It is applied ONCE, at the stack boundary, and no modifier is aware of it.** That placement is the whole
+design and it is not an implementation detail: teaching each modifier about margins would mean teaching
+every modifier added later, and getting a different answer from each. Three parts:
+
+1. **The working grid widens** by the margin on every side. `_total_padding()` = `_padding()` + the margin,
+   and every footprint / span / grid-extent path already routes through it.
+2. **The margin band is materialised as ordinary ground** on the way IN to the stack. Every cell in the
+   widened band is one the brush contributes nothing to (`amp` = NaN) but which has real ground beneath
+   (`basey` finite); those become `amp = 0` — *"the brush adds nothing here, but this cell is in play"*. The
+   stack therefore receives a working surface that simply extends past the loop onto real terrain, and
+   every modifier gets the margin for free: an Erosion step reads an absolute surface with ground off the
+   loop, so its sediment lands instead of draining out of §6.8's outlet. `erosion_solve` keeps every
+   grid-EDGE cell an outlet, so drainage moves to the widened border — precisely the "real surface
+   everywhere" configuration the control above measured as stable.
+   **The `profile` mask is extended with it, and has to be.** `profile` is the 0..1 field every modifier
+   scales its output by and it is 0 off the loop, so materialising the ground alone would hand a Graph
+   modifier a wider surface and then multiply its answer by zero out there. The band ramps **1 at the loop
+   edge down to 0 at the outer margin edge** (smoothstep), so a skirt fades out instead of ending on a
+   second hard rim.
+3. **On the way OUT, an unworked margin cell reverts to a no-write.** A margin cell the stack moved by more
+   than `MODIFIER_MARGIN_EPS` (1 mm) keeps its value and composites through the brush's own blend — under
+   the default MAX that means deposition raises the skirt and cuts are ignored. One it did not move goes
+   back to NaN, so the widened footprint is never flooded with base terrain.
+
+`modifier_margin == 0` skips both conversions entirely and is byte-identical to the no-margin path, so
+everything measured above still describes the default. The two rasterisers are kept in lockstep: the
+entry/exit blocks of `Pasture3DTerrainBrush._run_modifier_stack` and the matching blocks around the step
+loop in `stamp_mound_loop` (`pasture_3d_brush_raster.cpp`) are the same conversion, cell for cell.
+
+**What each modifier does with the margin follows from what it already does**, which is the point of
+putting the margin upstream — but it is worth being explicit:
+
+- **`Pasture3DNodeErosion`** writes back wherever the working grid is finite, which now includes the
+  margin, and does not consult `profile` at all. It deposits a skirt at full strength. This is the case the
+  feature was built for.
+- **`Pasture3DNodeGraph`** splits on `reads_input()`. A **filter** graph (one that reads the surface — any
+  graph with an Erosion, Smooth or similar node on the input) is a transformation of ground that already
+  exists, so it composites at **full strength across the whole brush** and tapers only through the margin
+  band; the mask it gets is 1 inside the loop and the margin feather outside it. A **generator** graph
+  (authors displacement from nothing) keeps the interior `profile` feather, which is what a generator wants
+  — it is the falloff that makes its shape meet the terrain. Either way its *internal* nodes see the wider
+  surface, so an Erosion node inside a graph routes to the widened border rather than cutting at the loop
+  edge, which changes the shape **inside** the loop as well.
+- **Point modifiers (`Noise`, `Relief`)** are scaled by the same `profile`, so they now fade outward
+  through the margin rather than stopping dead at the loop. This is a deliberate consequence of extending
+  the mask: it is what stops the skirt ending on a second hard rim, and it means setting a margin changes
+  how a noisy brush meets the ground, not only how an eroded one does.
+
+**Why the filter/generator split exists.** `profile` reaches 0 at the loop edge from the *inside* and the
+margin feather starts at 1 just *outside* it, so a modifier scaled by the raw `profile` sees a step at the
+boundary — and, worse, sees its output scaled to exactly zero at the rim, which silently cancelled the very
+skirt the margin was widening the grid to produce. The `profile` multiply on the Graph mount is Relief-era
+convention (`_composite_graph` inherited it from the authored-displacement system that preceded the graph),
+and `Pasture3DNodeErosion` — the system's other filter — never consulted `profile` at all. Gating the
+multiply on `reads_input()` makes the two filters agree and removes the step: a filter's mask is 1 inside
+and 1 at the start of the band, decaying only outward. `graph_reads_input` on `BrushModStep` carries the
+same bit into the native path, so `brush_mod_graph` itself stays untouched — the distinction is made where
+`gprofile` is built.
+
 ### 6.9 Editing, and what a frozen modifier does about it
 
 The Sim node already has this machinery: `_baked_hash` records the footprint at bake time and the node

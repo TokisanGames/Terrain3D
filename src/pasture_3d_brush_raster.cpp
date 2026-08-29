@@ -467,6 +467,10 @@ struct BrushModStep {
 	Dictionary out;
 };
 
+// Below this movement (metres) a Modifier Margin cell counts as untouched by the stack and goes back to
+// being a no-write. Kept in step with the GDScript oracle's MODIFIER_MARGIN_EPS.
+constexpr double BRUSH_MODIFIER_MARGIN_EPS = 0.001;
+
 constexpr uint64_t BRUSH_FNV_OFFSET = 1469598103934665603ULL;
 constexpr uint64_t BRUSH_FNV_PRIME = 1099511628211ULL;
 
@@ -1171,6 +1175,11 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	const double slope_safety = MAX((double)p_params.get("slope_safety", 1000.0), 0.001);
 	const bool relative = p_params.get("relative_to_terrain", true);
 	const double plane_y = p_params.get("plane_y", 0.0);
+	// Modifier Margin (metres). > 0 materialises the off-loop band as real ground BEFORE the modifier stack
+	// runs, so every modifier works past the loop without knowing the margin exists; the grid was already
+	// widened to match on the GDScript side. See PASTURE3D_BRUSH_EROSION_SPEC.md §6.8.1.
+	const double modifier_margin = p_params.get("modifier_margin", 0.0);
+	const bool margin_active = modifier_margin > 0.0;
 	const int blend = (int)p_params.get("blend", 0);
 	const bool composite = p_params.get("composite", true);
 	// The MODIFIER STACK (PASTURE3D_BRUSH_EROSION_SPEC.md §6), which is the whole of what this brush
@@ -1319,6 +1328,28 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	// gate BW its "bitwise" claim.
 	std::vector<double> amp((size_t)gw * gh, NAN);
 	std::vector<float> basey((size_t)gw * gh, 0.f);
+	// The Modifier Margin band: cells the brush contributes nothing to but which carry real ground, so the
+	// stack can work on them. Filled in the pre-pass below and converted back after the stack (§6.8.1).
+	std::vector<uint8_t> margin_mask;
+	if (margin_active) {
+		margin_mask.assign((size_t)gw * gh, 0);
+	}
+	// The margin band's share of the 0..1 profile mask every modifier scales its output by (§6.8.1). Ramps
+	// 1 at the loop edge down to 0 at the outer margin edge, so a skirt fades out instead of ending on a
+	// second hard rim. 0 for any cell that is not a margin cell. The twin of the feather in
+	// Pasture3DTerrainBrush._run_modifier_stack; kept as a lambda rather than a stored grid for the reason
+	// in the note above `amp` — a float profile grid would round every product it appears in.
+	const auto margin_profile_at = [&](const int p_i) -> double {
+		if (!margin_active || !margin_mask[(size_t)p_i]) {
+			return 0.0;
+		}
+		const double d_out = -((double)field[p_i] + edge_offset); // metres outside the loop boundary
+		if (d_out < 0.0) {
+			return 0.0;
+		}
+		const double t = 1.0 - CLAMP(d_out / modifier_margin, 0.0, 1.0);
+		return t * t * (3.0 - 2.0 * t); // smoothstep, matching the GDScript oracle
+	};
 	for (int iz = 0; iz < gh; iz++) {
 		const double z = min_z + iz * vs;
 		if (has_clip && (z < cz0 || z >= cz1)) {
@@ -1327,16 +1358,35 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 		const int row = iz * gw;
 		for (int ix = 0; ix < gw; ix++) {
 			const double signed_d = (double)field[row + ix] + edge_offset;
+			const double x = min_x + ix * vs;
+			if (has_clip && (x < cx0 || x >= cx1)) {
+				continue;
+			}
 			if (signed_d <= 0.0) {
+				// Off the loop. With a Modifier Margin this is a MARGIN cell: record the real ground and
+				// materialise `amp` as 0 — "the brush adds nothing here, but this cell is in play" — so the
+				// stack below sees a working surface that extends past the loop onto real terrain and every
+				// modifier gets the margin without knowing it exists. Converted back after the stack. With
+				// no margin the cell stays NaN, §6.8's drainage outlet, exactly as before.
+				if (margin_active) {
+					float bb;
+					if (relative) {
+						const float b0 = has_below ? base_below[row + ix] : (float)NAN;
+						bb = std::isnan(b0) ? (float)get_height(Vector3(x, 0.0, z)) : b0;
+					} else {
+						bb = (float)plane_y;
+					}
+					if (std::isfinite(bb)) {
+						basey[row + ix] = bb;
+						amp[row + ix] = 0.0;
+						margin_mask[(size_t)(row + ix)] = 1;
+					}
+				}
 				continue;
 			}
 			double a = 0.0;
 			double pr = 0.0;
 			if (!host_profile_at(signed_d, a, pr)) {
-				continue;
-			}
-			const double x = min_x + ix * vs;
-			if (has_clip && (x < cx0 || x >= cx1)) {
 				continue;
 			}
 			if (relative) {
@@ -1408,7 +1458,12 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 					const double x = min_x + ix * vs;
 					double pr = 0.0;
 					double unused = 0.0;
-					host_profile_at((double)field[i] + edge_offset, unused, pr);
+					if (!host_profile_at((double)field[i] + edge_offset, unused, pr)) {
+						pr = 0.0; // host_profile_at leaves `pr` untouched when it declines the cell
+					}
+					if (margin_active && margin_mask[(size_t)i]) {
+						pr = margin_profile_at(i); // §6.8.1: the band's own feather
+					}
 					double a = amp[i];
 					for (size_t k = si; k < sj; k++) {
 						const BrushModStep &st = steps[k];
@@ -1448,9 +1503,17 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 		} else if (steps[si].kind == BrushModStep::EROSION) {
 			brush_mod_erode(steps[si], vals, basey, add, gw, gh, vs, fields);
 		} else if (steps[si].kind == BrushModStep::GRAPH) {
-			// The graph composites its output feathered by the interior profile. That 0..1 mask is not
-			// stored (see the note above `amp`), so materialise it once here from the same host_profile_at
-			// the point run uses — only for a graph step, which is already an O(cells) evaluation.
+			// The 0..1 mask the graph composites through. Not stored (see the note above `amp`), so
+			// materialise it once here — only for a graph step, which is already an O(cells) evaluation.
+			//
+			// A FILTER (an Input node feeds the output) is NOT feathered by the interior profile. Scaling
+			// an added displacement by the shape is right for Noise / Relief, but a filter TRANSFORMS
+			// ground that is already there — feathering it eroded a mound's middle fully and its flanks
+			// barely, hitting zero at the rim. `brush_mod_erode`, the other filter, has never consulted
+			// the profile; this makes the two agree. A filter applies fully across the brush and tapers
+			// only through the MARGIN band. A GENERATOR keeps the feather: it invents terrain, so it must
+			// still fade at the rim. The GDScript twin is the `mask` block in _apply_graph_step.
+			const bool graph_filter = steps[si].graph_reads_input;
 			std::vector<float> gprofile((size_t)gw * gh, 0.f);
 			for (int iz = 0; iz < gh; iz++) {
 				const int row = iz * gw;
@@ -1459,7 +1522,9 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 					double a = 0.0;
 					double pr = 0.0;
 					if (host_profile_at((double)field[i] + edge_offset, a, pr)) {
-						gprofile[i] = (float)pr;
+						gprofile[i] = graph_filter ? 1.f : (float)pr;
+					} else if (margin_active && margin_mask[(size_t)i]) {
+						gprofile[i] = (float)margin_profile_at(i); // §6.8.1: the band's own feather
 					}
 				}
 			}
@@ -1470,6 +1535,22 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	if (!in_vals) {
 		for (size_t k = 0; k < n; k++) {
 			vals[k] = std::isnan(amp[k]) ? (float)NAN : (float)(add ? amp[k] : (double)basey[k] + amp[k]);
+		}
+	}
+
+	// The other half of the Modifier Margin (§6.8.1), the twin of the block at the end of
+	// Pasture3DTerrainBrush._run_modifier_stack. A margin cell the stack MOVED keeps its value and
+	// composites through the brush's own blend; one it did not move goes back to being a no-write, so an
+	// untouched skirt zone leaves the surrounding terrain exactly as it was.
+	if (margin_active) {
+		for (size_t k = 0; k < n; k++) {
+			if (!margin_mask[k] || std::isnan(vals[k])) {
+				continue;
+			}
+			const double moved = add ? (double)vals[k] : (double)vals[k] - (double)basey[k];
+			if (std::fabs(moved) <= BRUSH_MODIFIER_MARGIN_EPS) {
+				vals[k] = (float)NAN;
+			}
 		}
 	}
 	nan_blur(vals, gw, gh, (int)p_params.get("smooth_passes", 0));
