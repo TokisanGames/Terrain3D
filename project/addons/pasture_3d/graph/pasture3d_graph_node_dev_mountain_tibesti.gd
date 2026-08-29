@@ -1,12 +1,8 @@
-# Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
-#
-# Pasture3DGraphNodeDevMountainInselberg — Pure GDScript reference oracle for MountainInselberg primitive.
-# Ported from Hesiod / HighMap (mountain_inselberg.cpp). Generates isolated inselberg domes
-# with Gaussian pulse envelope, F2 - F1 fractured bedrock ridges, and bulk amplitude.
-
 @tool
-class_name Pasture3DGraphNodeDevMountainInselberg
+class_name Pasture3DGraphNodeDevMountainTibesti
 extends Pasture3DGraphNode
+
+## Development reference oracle for MountainTibesti.
 
 @export var seed: int = 0:
 	set(v):
@@ -28,7 +24,12 @@ extends Pasture3DGraphNode
 		octaves = clampi(v, 1, 16)
 		_param_changed()
 
-@export_range(0.0, 1.0, 0.01) var rugosity: float = 0.0:
+@export_range(0.1, 16.0, 0.1) var peak_kw: float = 4.0:
+	set(v):
+		peak_kw = maxf(v, 0.1)
+		_param_changed()
+
+@export_range(0.0, 1.0, 0.05) var rugosity: float = 0.0:
 	set(v):
 		rugosity = clampf(v, 0.0, 1.0)
 		_param_changed()
@@ -38,19 +39,24 @@ extends Pasture3DGraphNode
 		angle = v
 		_param_changed()
 
+@export_range(0.0, 1.0, 0.01) var angle_spread_ratio: float = 0.5:
+	set(v):
+		angle_spread_ratio = clampf(v, 0.0, 1.0)
+		_param_changed()
+
 @export_range(0.01, 4.0, 0.05) var gamma: float = 0.5:
 	set(v):
 		gamma = maxf(v, 0.01)
 		_param_changed()
 
-@export_range(0.0, 4.0, 0.05) var bulk_amp: float = 0.5:
+@export_range(0.0, 2.0, 0.05) var bulk_amp: float = 0.5:
 	set(v):
 		bulk_amp = maxf(v, 0.0)
 		_param_changed()
 
-@export_range(0.0, 1.0, 0.01) var base_noise_amp: float = 0.05:
+@export_range(0.0, 0.5, 0.01) var base_noise_amp: float = 0.05:
 	set(v):
-		base_noise_amp = maxf(v, 0.0)
+		base_noise_amp = v
 		_param_changed()
 
 @export var center: Vector2 = Vector2(0.5, 0.5):
@@ -60,11 +66,15 @@ extends Pasture3DGraphNode
 
 
 func op() -> StringName:
-	return &"dev_mountain_inselberg"
+	return &"dev_mountain_tibesti"
 
 
 func display_name() -> String:
-	return "[Dev/GD] Mountain Inselberg"
+	return "[Dev/GD] Mountain Tibesti"
+
+
+func category() -> StringName:
+	return &"Dev / Reference"
 
 
 func input_count() -> int:
@@ -79,6 +89,10 @@ func input_port_types() -> PackedInt32Array:
 	return PackedInt32Array([PortType.HEIGHT, PortType.HEIGHT])
 
 
+func output_count() -> int:
+	return 1
+
+
 func output_names() -> PackedStringArray:
 	return PackedStringArray(["out"])
 
@@ -91,28 +105,52 @@ func _param_changed() -> void:
 	emit_changed()
 
 
-static func _wang_hash(s: int) -> int:
-	var seed_u: int = (s ^ 61) ^ ((s >> 16) & 0xFFFF)
-	seed_u = (seed_u * 9) & 0xFFFFFFFF
-	seed_u = seed_u ^ (seed_u >> 4)
-	seed_u = (seed_u * 0x27d4eb2d) & 0xFFFFFFFF
-	seed_u = seed_u ^ (seed_u >> 15)
-	return seed_u & 0xFFFFFFFF
+func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
+	var dx_in: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else PackedFloat32Array()
+	var dy_in: PackedFloat32Array = (p_inputs[1] as PackedFloat32Array) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array) else PackedFloat32Array()
+
+	var params := {
+		"seed": seed,
+		"elevation": elevation,
+		"scale": scale,
+		"octaves": octaves,
+		"peak_kw": peak_kw,
+		"rugosity": rugosity,
+		"angle": angle,
+		"angle_spread_ratio": angle_spread_ratio,
+		"gamma": gamma,
+		"bulk_amp": bulk_amp,
+		"base_noise_amp": base_noise_amp,
+		"center": center,
+		"dx": dx_in,
+		"dy": dy_in,
+	}
+
+	return [solve_oracle(p_gw, p_gh, p_rect, params)]
+
+
+static func _wang_hash(seed_u: int) -> int:
+	var s: int = (seed_u ^ 61) ^ (seed_u >> 16)
+	s = (s * 9) & 0xFFFFFFFF
+	s = s ^ (s >> 4)
+	s = (s * 0x27d4eb2d) & 0xFFFFFFFF
+	s = s ^ (s >> 15)
+	return s & 0xFFFFFFFF
 
 
 static func _hash22(ix: int, iy: int, seed_u: int) -> Vector2:
 	var ux: int = (ix * 0x8da6b343) & 0xFFFFFFFF
 	var uy: int = (iy * 0xd8163841) & 0xFFFFFFFF
 	var h1: int = (ux ^ uy ^ seed_u) & 0xFFFFFFFF
-	h1 = (h1 ^ (h1 >> 13)) & 0xFFFFFFFF
+	h1 ^= (h1 >> 13)
 	h1 = (h1 * 0x85ebca6b) & 0xFFFFFFFF
-	h1 = (h1 ^ (h1 >> 16)) & 0xFFFFFFFF
+	h1 ^= (h1 >> 16)
 	var ox: float = float(h1 & 0xFFFFFF) / 16777216.0
 
 	var h2: int = ((ux ^ 0x5bd1e995) ^ uy ^ (seed_u + 1013904223)) & 0xFFFFFFFF
-	h2 = (h2 ^ (h2 >> 13)) & 0xFFFFFFFF
+	h2 ^= (h2 >> 13)
 	h2 = (h2 * 0x85ebca6b) & 0xFFFFFFFF
-	h2 = (h2 ^ (h2 >> 16)) & 0xFFFFFFFF
+	h2 ^= (h2 >> 16)
 	var oy: float = float(h2 & 0xFFFFFF) / 16777216.0
 
 	return Vector2(ox, oy)
@@ -121,7 +159,6 @@ static func _hash22(ix: int, iy: int, seed_u: int) -> Vector2:
 static func _simplex2_raw(xin: float, yin: float, seed_u: int) -> float:
 	var F2: float = 0.5 * (sqrt(3.0) - 1.0)
 	var G2: float = (3.0 - sqrt(3.0)) / 6.0
-
 	var s: float = (xin + yin) * F2
 	var i: int = int(floor(xin + s))
 	var j: int = int(floor(yin + s))
@@ -180,46 +217,54 @@ static func _simplex2_fbm(x: float, y: float, octaves: int, persistence: float, 
 	return (total / max_amp) if max_amp > 0.0 else 0.0
 
 
-static func _voronoi_f2mf1_raw(x: float, y: float, seed_u: int) -> float:
-	var px: float = floor(x)
-	var py: float = floor(y)
-	var fx: float = x - px
-	var fy: float = y - py
+static func _gabor_wave_scalar(x: float, y: float, dir_x: float, dir_y: float, angle_spread_ratio: float, seed_u: int) -> float:
+	var ip_x: float = floor(x)
+	var ip_y: float = floor(y)
+	var fp_x: float = x - ip_x
+	var fp_y: float = y - ip_y
+	var i_ipx: int = int(ip_x)
+	var i_ipy: int = int(ip_y)
 
-	var ipx: int = int(px)
-	var ipy: int = int(py)
+	var av: float = 0.0
+	var at: float = 0.0
 
-	var d1: float = 8.0
-	var d2: float = 8.0
+	for j in range(-2, 3):
+		for i in range(-2, 3):
+			var h: Vector2 = _hash22(i_ipx + i, i_ipy + j, seed_u)
+			var rx: float = fp_x - (float(i) + h.x)
+			var ry: float = fp_y - (float(j) + h.y)
 
-	for j in range(-1, 2):
-		for i in range(-1, 2):
-			var bx: float = float(i)
-			var by: float = float(j)
-			var h_vec: Vector2 = _hash22(ipx + i, ipy + j, seed_u)
-			var rx: float = bx - fx + h_vec.x
-			var ry: float = by - fy + h_vec.y
-			var d: float = sqrt(rx * rx + ry * ry)
-			if d < d1:
-				d2 = d1
-				d1 = d
-			elif d < d2:
-				d2 = d
+			var k_rand: Vector2 = _hash22(i_ipx + i + 11, i_ipy + j + 31, seed_u)
+			var kx: float = dir_x + angle_spread_ratio * (2.0 * k_rand.x - 1.0)
+			var ky: float = dir_y + angle_spread_ratio * (2.0 * k_rand.y - 1.0)
+			var kn: float = sqrt(kx * kx + ky * ky)
+			if kn > 1e-6:
+				kx /= kn
+				ky /= kn
 
-	return maxf(0.0, d2 - d1)
+			var d: float = rx * rx + ry * ry
+			var l: float = rx * kx + ry * ky
+			var w: float = exp(-4.0 * d)
+			var cs: float = cos(6.2831853 * l)
+
+			av += w * cs
+			at += w
+
+	return (av / at) if (at > 1e-6) else 0.0
 
 
-static func _voronoi_f2mf1_fbm(x: float, y: float, octaves: int, persistence: float, lacunarity: float, seed_u: int) -> float:
-	var total: float = 0.0
-	var amp: float = 1.0
-	var freq: float = 1.0
-	var max_amp: float = 0.0
+static func _gabor_wave_scalar_fbm(x: float, y: float, dir_x: float, dir_y: float, angle_spread_ratio: float,
+		octaves: int, weight: float, persistence: float, lacunarity: float, seed_u: int) -> float:
+	var n: float = 0.0
+	var nf: float = 1.0
+	var na: float = 0.6
 	for o in range(octaves):
-		total += amp * _voronoi_f2mf1_raw(x * freq, y * freq, seed_u + o * 6271)
-		max_amp += amp
-		amp *= persistence
-		freq *= lacunarity
-	return (total / max_amp) if max_amp > 0.0 else 0.0
+		var v: float = _gabor_wave_scalar(x * nf, y * nf, dir_x, dir_y, angle_spread_ratio, seed_u + o * 5437)
+		n += v * na
+		na *= (1.0 - weight) + weight * minf(v + 1.0, 2.0) * 0.5
+		na *= persistence
+		nf *= lacunarity
+	return n
 
 
 static func solve_oracle(p_gw: int, p_gh: int, _p_rect: Rect2, p_params: Dictionary) -> PackedFloat32Array:
@@ -231,7 +276,9 @@ static func solve_oracle(p_gw: int, p_gh: int, _p_rect: Rect2, p_params: Diction
 	var elevation_val: float = float(p_params.get("elevation", 25.0))
 	var scale_val: float = maxf(0.01, float(p_params.get("scale", 1.0)))
 	var octaves_val: int = clampi(int(p_params.get("octaves", 8)), 1, 16)
+	var peak_kw_val: float = maxf(0.1, float(p_params.get("peak_kw", 4.0)))
 	var angle_val: float = float(p_params.get("angle", 45.0))
+	var angle_spread_ratio_val: float = clampf(float(p_params.get("angle_spread_ratio", 0.5)), 0.0, 1.0)
 	var gamma_val: float = maxf(0.01, float(p_params.get("gamma", 0.5)))
 	var bulk_amp_val: float = maxf(0.0, float(p_params.get("bulk_amp", 0.5)))
 	var base_noise_amp_val: float = float(p_params.get("base_noise_amp", 0.05))
@@ -242,63 +289,44 @@ static func solve_oracle(p_gw: int, p_gh: int, _p_rect: Rect2, p_params: Diction
 	var has_dx: bool = (dx.size() == n)
 	var has_dy: bool = (dy.size() == n)
 
-	var half_width: float = 0.2 * scale_val
-	var kw: float = 2.6 / scale_val
 	var persistence: float = 0.5
 	var lacunarity: float = 2.0
 	var alpha: float = angle_val * 0.0174532925
+	var half_width: float = 0.3 * scale_val
+	var kw_base: float = peak_kw_val / scale_val
+	var kw_noise4: float = 4.0 / scale_val
+	var kw_noise2: float = 2.0 / scale_val
 	var seed_u: int = _wang_hash(s_val)
 
+	var dir_x: float = cos(alpha)
+	var dir_y: float = sin(alpha)
+
 	for iz in range(p_gh):
-		var ny: float = float(iz) / float(p_gh - 1)
+		var ny: float = float(iz) / float(p_gh - 1) if p_gh > 1 else 0.5
 		for ix in range(p_gw):
-			var nx: float = float(ix) / float(p_gw - 1)
+			var nx: float = float(ix) / float(p_gw - 1) if p_gw > 1 else 0.5
 			var idx: int = iz * p_gw + ix
 
-			var base_n: float = scale_val * base_noise_amp_val * _simplex2_fbm(nx * kw, ny * kw, octaves_val, persistence, lacunarity, seed_u)
-			var disp_x: float = base_n * cos(alpha) + (dx[idx] if has_dx else 0.0)
-			var disp_y: float = base_n * sin(alpha) + (dy[idx] if has_dy else 0.0)
-
-			# Gaussian pulse envelope
-			var cx: float = nx + disp_x * 0.15 - center_val.x
-			var cy: float = ny + disp_y * 0.15 - center_val.y
-			var dist_sq: float = (cx * cx + cy * cy) / maxf(1.0e-5, half_width * half_width)
-			var pulse: float = exp(-dist_sq)
-
-			var vx: float = (nx + disp_x) * kw
-			var vy: float = (ny + disp_y) * kw
-			var vor: float = 0.72 + _voronoi_f2mf1_fbm(vx, vy, octaves_val, persistence, lacunarity, seed_u)
-			vor = maxf(0.0, vor) * pulse
-
-			if bulk_amp_val > 0.0:
-				vor = (vor + bulk_amp_val * pulse) / (1.0 + bulk_amp_val)
-
+			var n4: float = _simplex2_fbm(nx * kw_noise4, ny * kw_noise4, octaves_val, persistence, lacunarity, seed_u + 101)
+			n4 = 0.5 * n4 + 0.5
+			n4 = maxf(0.0, n4)
 			if gamma_val > 0.0:
-				vor = pow(vor, gamma_val)
+				n4 = pow(n4, gamma_val)
 
-			out[idx] = vor * elevation_val
+			var n2: float = scale_val * base_noise_amp_val * _simplex2_fbm(nx * kw_noise2, ny * kw_noise2, octaves_val, persistence, lacunarity, seed_u + 203)
+			var disp_x: float = n2 * dir_x + (dx[idx] if has_dx else 0.0)
+			var disp_y: float = n2 * dir_y + (dy[idx] if has_dy else 0.0)
+
+			var gabor: float = _gabor_wave_scalar_fbm((nx + disp_x) * kw_base, (ny + disp_y) * kw_base, dir_x, dir_y,
+					angle_spread_ratio_val, octaves_val, 0.7, persistence, lacunarity, seed_u + 307)
+			gabor = (0.5 * gabor + 0.5) * n4
+			gabor = n4 * (bulk_amp_val + gabor) / (bulk_amp_val + 1.0)
+
+			var cx: float = nx - center_val.x
+			var cy: float = ny - center_val.y
+			var r2: float = (cx * cx + cy * cy) / maxf(1e-5, half_width * half_width)
+			var pulse: float = exp(-0.5 * r2)
+
+			out[idx] = gabor * pulse * elevation_val
 
 	return out
-
-
-func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
-	var dx_in: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else PackedFloat32Array()
-	var dy_in: PackedFloat32Array = (p_inputs[1] as PackedFloat32Array) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array) else PackedFloat32Array()
-
-	var params := {
-		"seed": seed,
-		"elevation": elevation,
-		"scale": scale,
-		"octaves": octaves,
-		"rugosity": rugosity,
-		"angle": angle,
-		"gamma": gamma,
-		"bulk_amp": bulk_amp,
-		"base_noise_amp": base_noise_amp,
-		"center": center,
-		"dx": dx_in,
-		"dy": dy_in,
-	}
-
-	var res := solve_oracle(p_gw, p_gh, p_rect, params)
-	return [res]

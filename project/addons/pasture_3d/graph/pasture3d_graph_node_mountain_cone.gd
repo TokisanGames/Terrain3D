@@ -80,22 +80,6 @@ extends Pasture3DGraphNode
 		center = v
 		_param_changed()
 
-enum Evaluation { LIVE, FROZEN }
-
-@export_group("Evaluation")
-## LIVE evaluates dynamically; FROZEN caches the result until Bake is pressed.
-@export var evaluation: Evaluation = Evaluation.LIVE:
-	set(v):
-		evaluation = v
-		emit_changed()
-
-@export_tool_button("Bake Mountain Cone") var _bake_btn = clear_cache
-
-var _cache: Dictionary = {}
-var _cache_key: int = 0
-var _dirty_since_bake: bool = false
-var _stale: bool = false
-
 
 func op() -> StringName:
 	return &"mountain_cone"
@@ -103,6 +87,10 @@ func op() -> StringName:
 
 func display_name() -> String:
 	return "Mountain Cone"
+
+
+func input_count() -> int:
+	return 3
 
 
 func input_names() -> PackedStringArray:
@@ -121,18 +109,7 @@ func output_port_types() -> PackedInt32Array:
 	return PackedInt32Array([PortType.HEIGHT])
 
 
-func clear_cache() -> void:
-	if _cache.is_empty() and not _stale and not _dirty_since_bake:
-		return
-	_cache.clear()
-	_dirty_since_bake = false
-	_stale = false
-	emit_changed()
-
-
 func _param_changed() -> void:
-	if not _cache.is_empty():
-		_dirty_since_bake = true
 	emit_changed()
 
 

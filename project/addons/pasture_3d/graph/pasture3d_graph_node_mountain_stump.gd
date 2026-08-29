@@ -1,68 +1,65 @@
-# Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
-#
-# Pasture3DGraphNodeMountainInselberg — Production UI Node for MountainInselberg geological primitive.
-# Ported from Hesiod / HighMap (mountain_inselberg.cpp). Generates isolated inselberg domes
-# with Gaussian pulse envelope, F2 - F1 fractured bedrock ridges, and bulk amplitude.
-
 @tool
-class_name Pasture3DGraphNodeMountainInselberg
+class_name Pasture3DGraphNodeMountainStump
 extends Pasture3DGraphNode
 
-## Deterministic random seed for procedural features.
+## Ancient eroded residual mountain stump / monadnock with smooth minimum blend, ported from Hesiod/HighMap.
+
 @export var seed: int = 0:
 	set(v):
 		seed = v
 		_param_changed()
 
-## Apex peak vertical elevation / amplitude in metres.
+## Elevation / vertical amplitude in metres.
 @export_range(0.0, 100.0, 0.1, "or_greater") var elevation: float = 25.0:
 	set(v):
 		elevation = maxf(v, 0.0)
 		_param_changed()
 
-## Overall spatial footprint scale of the mountain.
 @export_range(0.01, 10.0, 0.05) var scale: float = 1.0:
 	set(v):
 		scale = maxf(v, 0.01)
 		_param_changed()
 
-## Number of fractal octaves for ridge refinement.
 @export_range(1, 16, 1) var octaves: int = 8:
 	set(v):
 		octaves = clampi(v, 1, 16)
 		_param_changed()
 
-## Surface rugosity / micro-roughness.
-@export_range(0.0, 1.0, 0.01) var rugosity: float = 0.0:
+@export_range(0.1, 16.0, 0.1) var peak_kw: float = 4.0:
+	set(v):
+		peak_kw = maxf(v, 0.1)
+		_param_changed()
+
+@export_range(0.0, 1.0, 0.05) var rugosity: float = 0.0:
 	set(v):
 		rugosity = clampf(v, 0.0, 1.0)
 		_param_changed()
 
-## Strike angle (degrees) for geological tectonic deformation.
 @export_range(-180.0, 180.0, 1.0) var angle: float = 45.0:
 	set(v):
 		angle = v
 		_param_changed()
 
-## Gamma exponent profile sharpening for knife-edge ridge crests.
+@export_range(0.001, 0.5, 0.005) var k_smoothing: float = 0.05:
+	set(v):
+		k_smoothing = maxf(v, 0.001)
+		_param_changed()
+
 @export_range(0.01, 4.0, 0.05) var gamma: float = 0.5:
 	set(v):
 		gamma = maxf(v, 0.01)
 		_param_changed()
 
-## Bulk envelope prominence relative to fractured surface details.
-@export_range(0.0, 4.0, 0.05) var bulk_amp: float = 0.5:
+@export_range(0.0, 2.0, 0.05) var ridge_amp: float = 0.4:
 	set(v):
-		bulk_amp = maxf(v, 0.0)
+		ridge_amp = maxf(v, 0.0)
 		_param_changed()
 
-## Base Simplex noise displacement amplitude for domain warping.
-@export_range(0.0, 1.0, 0.01) var base_noise_amp: float = 0.05:
+@export_range(0.0, 0.5, 0.01) var base_noise_amp: float = 0.05:
 	set(v):
-		base_noise_amp = maxf(v, 0.0)
+		base_noise_amp = v
 		_param_changed()
 
-## Normalized center coordinates [0..1] of the mountain apex.
 @export var center: Vector2 = Vector2(0.5, 0.5):
 	set(v):
 		center = v
@@ -70,11 +67,15 @@ extends Pasture3DGraphNode
 
 
 func op() -> StringName:
-	return &"mountain_inselberg"
+	return &"mountain_stump"
 
 
 func display_name() -> String:
-	return "Mountain Inselberg"
+	return "Mountain Stump"
+
+
+func category() -> StringName:
+	return &"Generators"
 
 
 func input_count() -> int:
@@ -87,6 +88,10 @@ func input_names() -> PackedStringArray:
 
 func input_port_types() -> PackedInt32Array:
 	return PackedInt32Array([PortType.HEIGHT, PortType.HEIGHT])
+
+
+func output_count() -> int:
+	return 1
 
 
 func output_names() -> PackedStringArray:
@@ -111,19 +116,21 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 		"elevation": elevation,
 		"scale": scale,
 		"octaves": octaves,
+		"peak_kw": peak_kw,
 		"rugosity": rugosity,
 		"angle": angle,
+		"k_smoothing": k_smoothing,
 		"gamma": gamma,
-		"bulk_amp": bulk_amp,
+		"ridge_amp": ridge_amp,
 		"base_noise_amp": base_noise_amp,
 		"center": center,
 		"dx": dx_in,
 		"dy": dy_in,
 	}
 
-	if not ClassDB.class_has_method("Pasture3DUtil", "mountain_inselberg_generate_grid"):
-		push_error("[Pasture3D] Pasture3DUtil.mountain_inselberg_generate_grid is not bound. Rebuild GDExtension.")
+	if not ClassDB.class_has_method("Pasture3DUtil", "mountain_stump_generate_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.mountain_stump_generate_grid is not bound. Rebuild GDExtension.")
 		return [Pasture3DGraphOps.zeros(n)]
 
-	var res: PackedFloat32Array = Pasture3DUtil.mountain_inselberg_generate_grid(p_gw, p_gh, p_rect, params)
+	var res: PackedFloat32Array = Pasture3DUtil.mountain_stump_generate_grid(p_gw, p_gh, p_rect, params)
 	return [res]
