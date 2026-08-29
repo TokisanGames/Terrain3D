@@ -5,6 +5,8 @@
 [ext_resource type="Script" uid="uid://3s1gobo5lmt7" path="res://addons/pasture_3d/graph/pasture3d_graph_node.gd" id="3_ugt7v"]
 [ext_resource type="Script" uid="uid://dduqg8qestuvt" path="res://addons/pasture_3d/graph/pasture3d_graph_node_input.gd" id="4_4khcl"]
 [ext_resource type="Script" uid="uid://dvx0o4df24s75" path="res://addons/pasture_3d/graph/pasture3d_graph_node_output.gd" id="5_wej47"]
+[ext_resource type="Script" uid="uid://bindlf2awqi6e" path="res://addons/pasture_3d/graph/pasture3d_graph_node_blend.gd" id="7_67nn0"]
+[ext_resource type="Script" uid="uid://dbvt4w4rnlb6k" path="res://addons/pasture_3d/graph/pasture3d_graph_node_noise_swiss.gd" id="8_ddf1r"]
 [ext_resource type="Script" uid="uid://dr7vsokvx1xjs" path="res://addons/pasture_3d/graph/pasture3d_terrain_graph.gd" id="8_wv1iv"]
 [ext_resource type="Script" uid="uid://717mgmmlrimi" path="res://addons/pasture_3d/connectors/pasture3d_mod_graph.gd" id="9_6pcwc"]
 [ext_resource type="Script" uid="uid://ybwedanry756" path="res://addons/pasture_3d/graph/pasture3d_graph_node_hydraulic_saleve.gd" id="10_6pcwc"]
@@ -56,30 +58,57 @@ mesh_list = Array[Pasture3DMeshAsset]([SubResource("Pasture3DMeshAsset_qlie2")])
 
 [sub_resource type="Resource" id="Resource_4khcl"]
 script = ExtResource("4_4khcl")
-graph_position = Vector2(300, 160)
+graph_position = Vector2(-260, 140)
 preview_on = true
 
 [sub_resource type="Resource" id="Resource_wej47"]
 script = ExtResource("5_wej47")
-graph_position = Vector2(1120, 140)
+graph_position = Vector2(1180, 160)
 preview_on = true
 
 [sub_resource type="Resource" id="Resource_cad7k"]
 script = ExtResource("10_6pcwc")
-erosion_strength = 0.6
+erosion_strength = 0.86
 drainage_exponent = 0.15000000000000002
-graph_position = Vector2(620, 160)
+shape_preservation = 0.3
+graph_position = Vector2(620, 120)
+preview_on = true
+
+[sub_resource type="Resource" id="Resource_eudfm"]
+script = ExtResource("7_67nn0")
+graph_position = Vector2(180, 240)
+
+[sub_resource type="Resource" id="Resource_lbwnp"]
+script = ExtResource("8_ddf1r")
+amplitude = 20.0
+graph_position = Vector2(-460, 420)
+
+[sub_resource type="Resource" id="Resource_vugto"]
+script = ExtResource("7_67nn0")
+graph_position = Vector2(182, 508)
+
+[sub_resource type="Resource" id="Resource_ba6c1"]
+script = ExtResource("15_6pcwc")
+elevation = 22.5
+kw_x = 10.11
+kw_y = 12.31
+half_width = 0.17
+angle_spread_ratio = 0.62
+core_size_ratio = 0.95
+weight = 0.93
+persistence = 0.76
+graph_position = Vector2(-480, 660)
 preview_on = true
 
 [sub_resource type="Resource" id="Resource_6pcwc"]
 script = ExtResource("8_wv1iv")
-nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_4khcl"), SubResource("Resource_wej47"), SubResource("Resource_cad7k")])
-connections = [PackedInt32Array(0, 0, 2, 0), PackedInt32Array(2, 0, 1, 0)]
+nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_4khcl"), SubResource("Resource_wej47"), SubResource("Resource_cad7k"), SubResource("Resource_eudfm"), SubResource("Resource_lbwnp"), SubResource("Resource_vugto"), SubResource("Resource_ba6c1")])
+connections = [PackedInt32Array(2, 0, 1, 0), PackedInt32Array(0, 0, 3, 0), PackedInt32Array(3, 0, 2, 0), PackedInt32Array(4, 0, 5, 0), PackedInt32Array(6, 0, 5, 1), PackedInt32Array(5, 0, 3, 1)]
+output_node = 3
 
 [sub_resource type="Resource" id="Resource_pnkh5"]
 script = ExtResource("9_6pcwc")
 graph = SubResource("Resource_6pcwc")
-evaluation = 1
 metadata/_custom_type_script = "uid://717mgmmlrimi"
 
 [sub_resource type="Curve3D" id="Curve3D_xkygt"]
@@ -265,6 +294,7 @@ output_node = 1
 resource_name = "Terrain Graph"
 script = ExtResource("9_6pcwc")
 graph = SubResource("Resource_umoq4")
+evaluation = 1
 
 [sub_resource type="Curve3D" id="Curve3D_fdeh7"]
 closed = true
@@ -289,7 +319,7 @@ metadata/_edit_lock_ = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -128.73723, -7.5795124e-06, -165.85733)
 script = ExtResource("1_xkygt")
 flank_mode = 1
-slope_angle = 25.0
+slope_angle = 35.0
 terrain = NodePath("..")
 snap_to_surface = false
 _layer_owner = "pasture3d_brush:Mounds"

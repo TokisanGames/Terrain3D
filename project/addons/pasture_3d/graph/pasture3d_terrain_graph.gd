@@ -981,9 +981,14 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 	var params_j := PackedFloat32Array()
 	var params_k := PackedFloat32Array()
 	var params_l := PackedFloat32Array()
+	var params_m := PackedFloat32Array()
+	var params_n := PackedFloat32Array()
+	var params_o := PackedFloat32Array()
+	var params_p := PackedFloat32Array()
 	var in0 := PackedInt32Array()
 	var in1 := PackedInt32Array()
 	var in2 := PackedInt32Array()
+	var in3 := PackedInt32Array()
 	var noise_tab: Array = []
 	var luts_tab: Array = []
 
@@ -993,6 +998,7 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		var s0: int = int(srcs[0]) if srcs.size() > 0 else -1
 		var s1: int = int(srcs[1]) if srcs.size() > 1 else -1
 		var s2: int = int(srcs[2]) if srcs.size() > 2 else -1
+		var s3: int = int(srcs[3]) if srcs.size() > 3 else -1
 		var lowered := _lower_node_op(node)
 		if lowered.is_empty():
 			return {} # an op the native evaluator does not implement
@@ -1001,6 +1007,10 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		var p0: float = _pr[0]; var pb: float = _pr[1]; var pc: float = _pr[2]; var pd: float = _pr[3]
 		var pe: float = _pr[4]; var pf: float = _pr[5]; var pg: float = _pr[6]; var ph: float = _pr[7]
 		var pi: float = _pr[8]; var pj: float = _pr[9]; var pk: float = _pr[10]; var pl: float = _pr[11]
+		var pm: float = _pr[12] if _pr.size() > 12 else 0.0
+		var pn: float = _pr[13] if _pr.size() > 13 else 0.0
+		var po: float = _pr[14] if _pr.size() > 14 else 0.0
+		var pp: float = _pr[15] if _pr.size() > 15 else 0.0
 		var nz = lowered["noise"]
 		var lut = lowered["lut"]
 
@@ -1008,23 +1018,26 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		params.append(p0); params_b.append(pb); params_c.append(pc); params_d.append(pd)
 		params_e.append(pe); params_f.append(pf); params_g.append(pg); params_h.append(ph)
 		params_i.append(pi); params_j.append(pj); params_k.append(pk); params_l.append(pl)
+		params_m.append(pm); params_n.append(pn); params_o.append(po); params_p.append(pp)
 		noise_tab.append(nz)
 		luts_tab.append(lut)
 		in0.append(int(slot_of[s0]) if s0 >= 0 else -1)
 		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
 		in2.append(int(slot_of[s2]) if s2 >= 0 else -1)
+		in3.append(int(slot_of[s3]) if s3 >= 0 else -1)
 
 	return {
 		"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
 		"params_e": params_e, "params_f": params_f, "params_g": params_g, "params_h": params_h,
 		"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
-		"in0": in0, "in1": in1, "in2": in2,
+		"params_m": params_m, "params_n": params_n, "params_o": params_o, "params_p": params_p,
+		"in0": in0, "in1": in1, "in2": in2, "in3": in3,
 		"noise": noise_tab, "luts": luts_tab, "output": int(slot_of[out]),
 	}
 
 
-## Lower ONE node into the native op table: its GraphCellOpType id, the 12 parallel scalar params
-## (p0..pl, index-aligned with compile_graph_program's params/params_b/.../params_l), its FastNoiseLite (or
+## Lower ONE node into the native op table: its GraphCellOpType id, the 16 parallel scalar params
+## (p0..pp, index-aligned with compile_graph_program's params/params_b/.../params_p), its FastNoiseLite (or
 ## null), and its CURVE LUT (or an empty array). The single source of truth for the op vocabulary, shared by
 ## the single-root bake compile (`compile_graph_program`) and the multi-root preview compile
 ## (`compile_graph_program_multi`) so a new node's lowering is written once. Returns {} for an op the native
@@ -1034,7 +1047,8 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 	var op_id := 0
 	var p0 := 0.0; var pb := 0.0; var pc := 0.0; var pd := 0.0; var pe := 0.0
 	var pf := 0.0; var pg := 0.0; var ph := 0.0; var pi := 0.0; var pj := 0.0
-	var pk := 0.0; var pl := 0.0
+	var pk := 0.0; var pl := 0.0; var pm := 0.0; var pn := 0.0; var po := 0.0
+	var pp := 0.0
 	var nz = null
 	var lut = PackedFloat32Array()
 
@@ -1098,24 +1112,24 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 			&"dunes":
 				op_id = 17; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"wavelength", 30.0); pc = _f.call(&"direction_degrees", 0.0); pd = _f.call(&"asymmetry", 0.4); pe = _f.call(&"crest_sharpness", 0.6); pf = _f.call(&"wander_amount", 2.0); pg = _f.call(&"wander_size", 60.0); ph = float(_i.call(&"seed", 0))
 			&"crater":
-				op_id = 18; p0 = _f.call(&"amplitude", 10.0); pb = _f.call(&"floor_depth", 14.0); pc = _f.call(&"rim_height", 4.0); pd = _f.call(&"rim_width", 0.25); pe = _f.call(&"ejecta_falloff", 2.5); pf = _f.call(&"floor_flatness", 0.4); pg = float(_i.call(&"terrace_steps", 0))
+				op_id = 18; p0 = _f.call(&"radius", 25.0); pb = _f.call(&"floor_depth", 10.0); pc = _f.call(&"rim_height", 4.0); pd = _f.call(&"rim_width", 8.0); pe = _f.call(&"ejecta_falloff", 40.0); pf = _f.call(&"floor_flatness", 0.5); var off2: Vector2 = node.get("center_offset") if node.get("center_offset") != null else Vector2.ZERO; pg = off2.x; ph = off2.y
 			&"warp":
-				op_id = 19; p0 = float(_i.call(&"warp_type", 0)); pb = _f.call(&"frequency", 0.01); pc = _f.call(&"strength", 10.0); pd = float(_i.call(&"octaves", 3)); pe = _f.call(&"amplitude", 1.0); pf = _f.call(&"roughness", 0.5); pg = float(_i.call(&"seed", 0))
+				op_id = 19; p0 = _f.call(&"strength", 20.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 3)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = float(_i.call(&"seed", 0))
 			&"strata":
-				op_id = 20; p0 = _f.call(&"band_height", 8.0); pb = _f.call(&"hardness", 0.75); pc = _f.call(&"amount", 1.0); pd = _f.call(&"dip", 4.0); pe = _f.call(&"dip_direction_degrees", 45.0); pf = _f.call(&"break_amount", 3.0); pg = _f.call(&"break_size", 40.0); ph = float(_i.call(&"seed", 0))
+				op_id = 20; p0 = _f.call(&"wavelength", 10.0); pb = _f.call(&"dip", 15.0); pc = _f.call(&"dip_direction_deg", 0.0); pd = _f.call(&"hardness", 0.5); pe = _f.call(&"break_amount", 0.2); pf = _f.call(&"break_size", 50.0); pg = float(_i.call(&"seed", 0))
 			&"curve":
-				op_id = 21; p0 = _f.call(&"input_min", 0.0); pb = _f.call(&"input_max", 100.0); pc = _f.call(&"output_min", 0.0); pd = _f.call(&"output_max", 100.0); pe = _f.call(&"amount", 1.0)
+				op_id = 21; p0 = _f.call(&"in_min", 0.0); pb = _f.call(&"in_max", 100.0); pc = _f.call(&"out_min", 0.0); pd = _f.call(&"out_max", 100.0); pe = 1.0 if bool(node.get("clamp_output")) else 0.0
 				var c: Curve = node.get("curve")
 				if c != null:
 					lut.resize(256)
 					for li in range(256):
 						lut[li] = c.sample_baked(float(li) / 255.0)
 			&"remap":
-				op_id = 22; p0 = _f.call(&"in_min", 0.0); pb = _f.call(&"in_max", 100.0); pc = _f.call(&"out_min", 0.0); pd = _f.call(&"out_max", 100.0); pe = 1.0 if bool(node.get("clamp_output")) else 0.0; pf = _f.call(&"soft_knee", 0.0); pg = 1.0 if bool(node.get("invert")) else 0.0
+				op_id = 22; p0 = _f.call(&"in_min", 0.0); pb = _f.call(&"in_max", 100.0); pc = _f.call(&"out_min", 0.0); pd = _f.call(&"out_max", 100.0); pe = 1.0 if bool(node.get("clamp_output")) else 0.0; pf = _f.call(&"soft_knee", 0.0)
 			&"mask":
-				op_id = 23; p0 = float(_i.call(&"property", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 90.0); pd = _f.call(&"falloff_lo", 0.0); pe = _f.call(&"falloff_hi", 0.0); pf = 1.0 if bool(node.get("invert")) else 0.0; pg = _f.call(&"strength", 1.0)
+				op_id = 23; p0 = float(_i.call(&"mode", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 100.0); pd = _f.call(&"falloff_lo", 10.0); pe = _f.call(&"falloff_hi", 10.0); pf = 1.0 if bool(node.get("invert")) else 0.0
 			&"curvature":
-				op_id = 24; p0 = float(_i.call(&"mode", 0)); pb = float(_i.call(&"radius", 1)); pc = _f.call(&"contrast", 1.0)
+				op_id = 24; p0 = float(_i.call(&"feature", 0)); pb = _f.call(&"strength", 1.0); pc = _f.call(&"contrast", 1.0)
 			&"talus_projection":
 				op_id = 25; p0 = _f.call(&"talus_angle_deg", 35.0); pb = float(_i.call(&"iterations", 16)); pc = _f.call(&"transfer_rate", 0.5); pd = _f.call(&"amount", 1.0)
 			&"spectral_equalizer":
@@ -1139,7 +1153,7 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 			&"hydraulic_stream_log":
 				op_id = 35; p0 = float(_i.call(&"iterations", 15)); pb = _f.call(&"incision_rate", 0.15); pc = _f.call(&"area_exponent", 0.5); pd = _f.call(&"slope_exponent", 1.0); pe = _f.call(&"min_catchment", 1.0); pf = _f.call(&"bank_smoothing", 0.1); pg = _f.call(&"peak_preservation", 0.5); ph = _f.call(&"gradient_power", 0.8)
 			&"hydraulic_saleve":
-				op_id = 36; p0 = float(_i.call(&"iterations", 25)); pb = _f.call(&"erosion_strength", 0.5); pc = _f.call(&"drainage_exponent", 0.15); pd = _f.call(&"drainage_noise", 0.15); pe = _f.call(&"fine_erosion_strength", 0.05); pf = _f.call(&"shape_preservation", 0.2); pg = _f.call(&"bank_smoothing", 0.1); ph = _f.call(&"sediment_strength", 0.3); pi = float(_i.call(&"seed", 0))
+				op_id = 36; p0 = float(_i.call(&"iterations", 25)); pb = _f.call(&"erosion_strength", 0.5); pc = _f.call(&"drainage_exponent", 0.15); pd = _f.call(&"drainage_noise", 0.15); pe = _f.call(&"shape_preservation", 2.0); pf = _f.call(&"bank_smoothing", 0.1); pg = _f.call(&"deposition_radius", 0.1); ph = _f.call(&"deposition_strength", 0.5); pi = _f.call(&"stream_strength", 0.02); pj = _f.call(&"stream_exp", 0.8); pk = _f.call(&"gain", 1.0); pl = _f.call(&"gamma", 1.0); pm = _f.call(&"mix_factor", 1.0); pn = float(_i.call(&"seed", 0)); po = 1.0 if bool(node.get("enable_post_smoothing")) else 0.0
 			&"mountain_cone":
 				op_id = 37; p0 = float(_i.call(&"seed", 0)); pb = _f.call(&"elevation", 25.0); pc = _f.call(&"scale", 1.0); pd = float(_i.call(&"octaves", 8)); pe = _f.call(&"peak_kw", 4.0); pf = _f.call(&"rugosity", 0.0); pg = _f.call(&"angle", 45.0); ph = _f.call(&"gamma", 0.5); pi = _f.call(&"cone_alpha", 1.2); pj = _f.call(&"ridge_amp", 0.4); pk = _f.call(&"base_noise_amp", 0.05)
 			&"mountain_inselberg":
@@ -1159,7 +1173,7 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 
 	return {
 		"op": op_id,
-		"params": PackedFloat32Array([p0, pb, pc, pd, pe, pf, pg, ph, pi, pj, pk, pl]),
+		"params": PackedFloat32Array([p0, pb, pc, pd, pe, pf, pg, ph, pi, pj, pk, pl, pm, pn, po, pp]),
 		"noise": nz,
 		"lut": lut,
 	}
@@ -1268,9 +1282,14 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 	var params_j := PackedFloat32Array()
 	var params_k := PackedFloat32Array()
 	var params_l := PackedFloat32Array()
+	var params_m := PackedFloat32Array()
+	var params_n := PackedFloat32Array()
+	var params_o := PackedFloat32Array()
+	var params_p := PackedFloat32Array()
 	var in0 := PackedInt32Array()
 	var in1 := PackedInt32Array()
 	var in2 := PackedInt32Array()
+	var in3 := PackedInt32Array()
 	var noise_tab: Array = []
 	var luts_tab: Array = []
 	for ni in order:
@@ -1279,6 +1298,7 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 		var s0: int = int(srcs[0]) if srcs.size() > 0 else -1
 		var s1: int = int(srcs[1]) if srcs.size() > 1 else -1
 		var s2: int = int(srcs[2]) if srcs.size() > 2 else -1
+		var s3: int = int(srcs[3]) if srcs.size() > 3 else -1
 		var lowered := _lower_node_op(node)
 		if lowered.is_empty():
 			return {} # an op the native evaluator does not implement
@@ -1287,11 +1307,16 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 		params.append(_pr[0]); params_b.append(_pr[1]); params_c.append(_pr[2]); params_d.append(_pr[3])
 		params_e.append(_pr[4]); params_f.append(_pr[5]); params_g.append(_pr[6]); params_h.append(_pr[7])
 		params_i.append(_pr[8]); params_j.append(_pr[9]); params_k.append(_pr[10]); params_l.append(_pr[11])
+		params_m.append(_pr[12] if _pr.size() > 12 else 0.0)
+		params_n.append(_pr[13] if _pr.size() > 13 else 0.0)
+		params_o.append(_pr[14] if _pr.size() > 14 else 0.0)
+		params_p.append(_pr[15] if _pr.size() > 15 else 0.0)
 		noise_tab.append(lowered["noise"])
 		luts_tab.append(lowered["lut"])
 		in0.append(int(slot_of[s0]) if s0 >= 0 else -1)
 		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
 		in2.append(int(slot_of[s2]) if s2 >= 0 else -1)
+		in3.append(int(slot_of[s3]) if s3 >= 0 else -1)
 	var out_slot := 0
 	for r in p_roots:
 		var ri := int(r)
@@ -1303,7 +1328,8 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 			"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
 			"params_e": params_e, "params_f": params_f, "params_g": params_g, "params_h": params_h,
 			"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
-			"in0": in0, "in1": in1, "in2": in2,
+			"params_m": params_m, "params_n": params_n, "params_o": params_o, "params_p": params_p,
+			"in0": in0, "in1": in1, "in2": in2, "in3": in3,
 			"noise": noise_tab, "luts": luts_tab, "output": out_slot,
 		},
 		"slot_of": slot_of,

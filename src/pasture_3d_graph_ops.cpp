@@ -205,10 +205,15 @@ bool graph_build(const Dictionary &p_prog, GraphProgram &r_out) {
 	if (p_prog.has("params_i")) r_out.params_i = p_prog["params_i"];
 	if (p_prog.has("params_j")) r_out.params_j = p_prog["params_j"];
 	if (p_prog.has("params_k")) r_out.params_k = p_prog["params_k"];
+	if (p_prog.has("params_m")) r_out.params_m = p_prog["params_m"];
+	if (p_prog.has("params_n")) r_out.params_n = p_prog["params_n"];
+	if (p_prog.has("params_o")) r_out.params_o = p_prog["params_o"];
+	if (p_prog.has("params_p")) r_out.params_p = p_prog["params_p"];
 	if (p_prog.has("params_l")) r_out.params_l = p_prog["params_l"];
 	r_out.in0 = p_prog["in0"];
 	r_out.in1 = p_prog["in1"];
 	if (p_prog.has("in2")) r_out.in2 = p_prog["in2"];
+	if (p_prog.has("in3")) r_out.in3 = p_prog["in3"];
 	r_out.output = (int)p_prog["output"];
 	const int n = r_out.ops.size();
 	const Array noise_in = p_prog["noise"];
@@ -263,9 +268,14 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 	const float *params_j = p_prog.params_j.ptr();
 	const float *params_k = p_prog.params_k.ptr();
 	const float *params_l = p_prog.params_l.ptr();
+	const float *params_m = p_prog.params_m.size() == p_prog.count ? p_prog.params_m.ptr() : nullptr;
+	const float *params_n = p_prog.params_n.size() == p_prog.count ? p_prog.params_n.ptr() : nullptr;
+	const float *params_o = p_prog.params_o.size() == p_prog.count ? p_prog.params_o.ptr() : nullptr;
+	const float *params_p = p_prog.params_p.size() == p_prog.count ? p_prog.params_p.ptr() : nullptr;
 	const int32_t *in0 = p_prog.in0.ptr();
 	const int32_t *in1 = p_prog.in1.ptr();
 	const int32_t *in2 = p_prog.in2.size() == p_prog.count ? p_prog.in2.ptr() : nullptr;
+	const int32_t *in3 = p_prog.in3.size() == p_prog.count ? p_prog.in3.ptr() : nullptr;
 
 	// 1. Reference count consumers for each slot (Scratch Arena Liveness analysis)
 	std::vector<int> ref_counts(p_prog.count, 0);
@@ -273,6 +283,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 		if (in0[s] >= 0 && in0[s] < p_prog.count) ref_counts[in0[s]]++;
 		if (in1[s] >= 0 && in1[s] < p_prog.count) ref_counts[in1[s]]++;
 		if (in2 && in2[s] >= 0 && in2[s] < p_prog.count) ref_counts[in2[s]]++;
+		if (in3 && in3[s] >= 0 && in3[s] < p_prog.count) ref_counts[in3[s]]++;
 	}
 	if (p_prog.output >= 0 && p_prog.output < p_prog.count) {
 		ref_counts[p_prog.output]++; // protect final output buffer
@@ -656,13 +667,25 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.erosion_strength = params_b[s];
 				p.drainage_exponent = params_c[s];
 				p.drainage_noise = params_d[s];
-				p.fine_erosion_strength = params_e[s];
-				p.shape_preservation = params_f[s];
-				p.bank_smoothing = params_g ? params_g[s] : 0.1f;
-				p.sediment_strength = params_h ? params_h[s] : 0.3f;
-				p.seed = params_i ? (int)params_i[s] : 0;
+				p.shape_preservation = params_e[s];
+				p.bank_smoothing = params_f[s];
+				p.deposition_radius = params_g ? params_g[s] : 0.1f;
+				p.deposition_strength = params_h ? params_h[s] : 0.5f;
+				p.stream_strength = params_i ? params_i[s] : 0.02f;
+				p.stream_exp = params_j ? params_j[s] : 0.8f;
+				p.gain = params_k ? params_k[s] : 1.0f;
+				p.gamma = params_l ? params_l[s] : 1.0f;
+				p.mix_factor = params_m ? params_m[s] : 1.0f;
+				p.seed = params_n ? (int)params_n[s] : 0;
+				p.enable_post_smoothing = params_o ? (params_o[s] > 0.5f) : false;
 				if (in1 && in1[s] >= 0) {
-					p.mask = get_grid_packed(in1[s]);
+					p.dx = get_grid_packed(in1[s]);
+				}
+				if (in2 && in2[s] >= 0) {
+					p.dy = get_grid_packed(in2[s]);
+				}
+				if (in3 && in3[s] >= 0) {
+					p.mask = get_grid_packed(in3[s]);
 				}
 				HydraulicSaleveResult res = hydraulic_saleve_solve(in_arr, p_gw, p_gh, p_rect, p);
 				if (res.ok && res.height.size() == n) {

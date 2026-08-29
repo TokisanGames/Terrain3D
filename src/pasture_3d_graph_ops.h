@@ -141,9 +141,14 @@ struct GraphProgram {
 	PackedFloat32Array params_j; // break_amount | crest_sharpness | profile
 	PackedFloat32Array params_k; // break_size | wander_amount
 	PackedFloat32Array params_l; // seed | wander_size
+	PackedFloat32Array params_m;
+	PackedFloat32Array params_n;
+	PackedFloat32Array params_o;
+	PackedFloat32Array params_p;
 	PackedInt32Array in0; // first input's source slot, or -1 unwired
 	PackedInt32Array in1; // second input's source slot, or -1
 	PackedInt32Array in2; // third input's source slot (e.g. blend mask), or -1
+	PackedInt32Array in3; // fourth input's source slot (e.g. solver mask), or -1
 	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless NOISE or JITTER
 	std::vector<PackedFloat32Array> luts; // parallel to slots; for CURVE
 	int output = -1; // the slot whose grid is the graph output
