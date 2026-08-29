@@ -89,6 +89,11 @@ func input_port_types() -> PackedInt32Array:
 	return PackedInt32Array([PortType.HEIGHT, PortType.HEIGHT, PortType.HEIGHT, PortType.MASK])
 
 
+func input_unwired_default(p_port: int) -> float:
+	# An unwired MASK (envelope) reads 1.0 — a missing gate is fully open, matching the native path.
+	return 1.0 if input_port_types()[p_port] == PortType.MASK else 0.0
+
+
 func output_count() -> int:
 	return 2
 
@@ -103,6 +108,18 @@ func output_port_types() -> PackedInt32Array:
 
 func _param_changed() -> void:
 	emit_changed()
+
+
+func needs_grid() -> bool:
+	return true
+
+
+func role() -> Role:
+	return Role.GENERATOR
+
+
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	return eval_grid_channels(p_inputs, p_gw, p_gh, p_mask, p_rect)[0]
 
 
 func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:

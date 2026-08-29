@@ -85,6 +85,18 @@ func _param_changed() -> void:
 	emit_changed()
 
 
+func needs_grid() -> bool:
+	return true
+
+
+func role() -> Role:
+	return Role.GENERATOR
+
+
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	return eval_grid_channels(p_inputs, p_gw, p_gh, p_mask, p_rect)[0]
+
+
 func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
 	var noise_in: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else PackedFloat32Array()
 

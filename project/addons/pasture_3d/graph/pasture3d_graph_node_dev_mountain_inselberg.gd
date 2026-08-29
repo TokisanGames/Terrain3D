@@ -281,6 +281,18 @@ static func solve_oracle(p_gw: int, p_gh: int, _p_rect: Rect2, p_params: Diction
 	return out
 
 
+func needs_grid() -> bool:
+	return true
+
+
+func role() -> Role:
+	return Role.GENERATOR
+
+
+func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:
+	return eval_grid_channels(p_inputs, p_gw, p_gh, p_mask, p_rect)[0]
+
+
 func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
 	var dx_in: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else PackedFloat32Array()
 	var dy_in: PackedFloat32Array = (p_inputs[1] as PackedFloat32Array) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array) else PackedFloat32Array()
