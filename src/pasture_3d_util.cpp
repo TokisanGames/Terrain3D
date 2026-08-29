@@ -1303,9 +1303,53 @@ PackedFloat32Array Pasture3DUtil::mountain_cone_generate_grid(const int p_gw, co
 	return godot::mountain_cone_solve(p_gw, p_gh, p_rect, params);
 }
 
+// GPU-accelerated production route (>= graph_gpu_threshold cells with a local RenderingDevice, else the CPU
+// solver). Always returns a field. Used by the graph node / whole-graph core for the live bake.
+PackedFloat32Array Pasture3DUtil::mountain_cone_generate_grid_best(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainConeParams params = godot::MountainConeParams::from_dict(p_params);
+	return godot::mountain_cone_solve_best(p_gw, p_gh, p_rect, params);
+}
+
+// Direct GPU route, bypassing the cell-count threshold; empty return => no local RenderingDevice / GPU
+// failure. GeoGpuParityGate uses this (vs mountain_cone_generate_grid on the CPU) to verify GPU/CPU parity
+// at any grid size, and to SKIP when headless.
+PackedFloat32Array Pasture3DUtil::mountain_cone_generate_grid_gpu(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainConeParams params = godot::MountainConeParams::from_dict(p_params);
+	PackedFloat32Array out;
+	if (!godot::mountain_cone_eval_gpu(p_gw, p_gh, p_rect, params, out)) {
+		return PackedFloat32Array(); // empty signals unavailable/failed
+	}
+	return out;
+}
+
 PackedFloat32Array Pasture3DUtil::mountain_inselberg_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
 	godot::MountainInselbergParams params = godot::MountainInselbergParams::from_dict(p_params);
 	return godot::mountain_inselberg_solve(p_gw, p_gh, p_rect, params);
+}
+
+Array Pasture3DUtil::mountain_range_radial_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainRangeRadialParams params = godot::MountainRangeRadialParams::from_dict(p_params);
+	return godot::mountain_range_radial_solve(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::mountain_tibesti_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainTibestiParams params = godot::MountainTibestiParams::from_dict(p_params);
+	return godot::mountain_tibesti_solve(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::mountain_stump_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainStumpParams params = godot::MountainStumpParams::from_dict(p_params);
+	return godot::mountain_stump_solve(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::shattered_peak_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::ShatteredPeakParams params = godot::ShatteredPeakParams::from_dict(p_params);
+	return godot::shattered_peak_solve(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::caldera_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::CalderaParams params = godot::CalderaParams::from_dict(p_params);
+	return godot::caldera_solve(p_gw, p_gh, p_rect, params);
 }
 
 Dictionary Pasture3DUtil::erosion_hydraulic_solve_grid_gpu(const PackedFloat32Array &p_surface, const int p_gw,
@@ -1707,8 +1751,29 @@ void Pasture3DUtil::_bind_methods() {
 			D_METHOD("mountain_cone_generate_grid", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::mountain_cone_generate_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_cone_generate_grid_best", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_cone_generate_grid_best);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_cone_generate_grid_gpu", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_cone_generate_grid_gpu);
+	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("mountain_inselberg_generate_grid", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::mountain_inselberg_generate_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_range_radial_generate_grid", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_range_radial_generate_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_tibesti_generate_grid", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_tibesti_generate_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_stump_generate_grid", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_stump_generate_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("shattered_peak_generate_grid", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::shattered_peak_generate_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("caldera_generate_grid", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::caldera_generate_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("erosion_hydraulic_solve_grid_gpu", "surface", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::erosion_hydraulic_solve_grid_gpu);

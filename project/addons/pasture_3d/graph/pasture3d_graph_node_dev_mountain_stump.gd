@@ -300,6 +300,21 @@ static func _minimum_smooth(a: float, b: float, k: float) -> float:
 	return lerp(b, a, h) - k * h * (1.0 - h)
 
 
+# Nyquist octave cap — MUST stay bit-identical to nyquist_octave_cap in pasture_3d_geo_primitives.cpp so
+# the native-vs-oracle parity gate holds. Keeps octave o while kw * lacunarity^o <= shape/2 (wavelength
+# >= 2 px); a small relative slack on the boundary absorbs the C++ float / GDScript double difference.
+static func _nyquist_octave_cap(p_octaves: int, p_kw: float, p_lacunarity: float, p_shape_px: int) -> int:
+	if p_octaves <= 1 or p_kw <= 0.0 or p_shape_px <= 0 or p_lacunarity <= 1.0:
+		return p_octaves
+	var cap: int = 1
+	var f: float = p_kw * p_lacunarity
+	var nyq: float = 0.5 * float(p_shape_px) * 1.0001
+	while cap < p_octaves and f <= nyq:
+		cap += 1
+		f *= p_lacunarity
+	return cap
+
+
 static func solve_oracle(p_gw: int, p_gh: int, _p_rect: Rect2, p_params: Dictionary) -> PackedFloat32Array:
 	var n: int = p_gw * p_gh
 	var out := PackedFloat32Array()
@@ -328,6 +343,7 @@ static func solve_oracle(p_gw: int, p_gh: int, _p_rect: Rect2, p_params: Diction
 	var lacunarity: float = 2.0
 	var alpha: float = angle_val * 0.0174532925
 	var seed_u: int = _wang_hash(s_val)
+	octaves_val = _nyquist_octave_cap(octaves_val, kw, lacunarity, mini(p_gw, p_gh))
 
 	for iz in range(p_gh):
 		var ny: float = float(iz) / float(p_gh - 1) if p_gh > 1 else 0.5

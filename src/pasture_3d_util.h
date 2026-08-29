@@ -151,9 +151,16 @@ public:
 	static Dictionary hydraulic_saleve_solve_grid(const PackedFloat32Array &p_surface, const int p_gw,
 			const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
 
-	// Native Geological Primitives generators (MountainCone & MountainInselberg).
+	// Native Geological Primitives generators.
 	static PackedFloat32Array mountain_cone_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+	static PackedFloat32Array mountain_cone_generate_grid_best(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+	static PackedFloat32Array mountain_cone_generate_grid_gpu(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
 	static PackedFloat32Array mountain_inselberg_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+	static Array mountain_range_radial_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+	static PackedFloat32Array mountain_tibesti_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+	static PackedFloat32Array mountain_stump_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+	static PackedFloat32Array shattered_peak_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
+	static PackedFloat32Array caldera_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params);
 
 	// GPU-accelerated Hydraulic Erosion solver (RenderingDevice compute shader). Returns { ok:bool, height, sediment, flow } or { ok:false }.
 	static Dictionary erosion_hydraulic_solve_grid_gpu(const PackedFloat32Array &p_surface, const int p_gw,
