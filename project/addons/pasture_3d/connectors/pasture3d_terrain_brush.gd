@@ -3854,12 +3854,23 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 	# draining out of §6.8's NaN outlet at the loop edge. That is the skirt. A modifier added later inherits
 	# the same behaviour without being taught anything.
 	#
-	# THE PROFILE IS EXTENDED TOO, and it has to be: `profile` is the 0..1 mask every modifier scales its
-	# output by, and it is 0 off the loop — so materialising the ground alone would hand a Graph modifier a
-	# wider surface and then multiply its answer by zero out there. The band ramps 1 at the loop edge down
-	# to 0 at the outer margin edge (smoothstep), so a skirt fades out instead of ending on a second hard
-	# rim. Point modifiers (Noise / Relief) are scaled by the same mask, so they fade outward through the
-	# margin as well rather than stopping dead at the loop.
+	# THE BAND GETS ITS OWN MASK, and — this is the correction that removed a visible seam — it is NOT
+	# written into `profile`.
+	#
+	# `profile` is the brush's 0..1 interior mask: 1 at the loop centre, falling to 0 AT THE RIM. The band's
+	# feather runs the other way, 1 at the rim falling to 0 at the outer edge, because a filter applies
+	# fully across the brush and has nothing but the band to taper through. Storing the second into the
+	# first made every GENERATOR read a mask that fell to 0 at the rim and then jumped straight back to 1 one
+	# cell outside it — a step of the modifier's full amplitude, ringing the loop. That is the seam.
+	#
+	# So they are kept apart, and each consumer takes the one that is continuous for it:
+	#
+	#   GENERATOR (Noise, Relief, a graph with no Input node) — `profile`, which is 0 through the band.
+	#       It invents terrain, so it must fade at the rim and must not invent any past it. This is also
+	#       exactly what it does with no margin at all, which is the behaviour a margin should not change.
+	#   FILTER (Erosion, a graph that reads its input) — 1 across the loop, then `margin_feather` through
+	#       the band. Continuous at the rim, and the taper is what stops a skirt ending on a second hard
+	#       edge. The margin exists for these: it is the erosion skirt.
 	#
 	# The reverse conversion is at the other end of this function, and is the reason materialising is safe:
 	# a margin cell the stack did not actually move goes back to NaN, so the widened footprint is never
@@ -3867,8 +3878,10 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 	var margin_m := _effective_modifier_margin()
 	var margin: bool = margin_m > 0.0
 	var margin_mask := PackedByteArray()
+	var margin_feather := PackedFloat64Array()
 	if margin:
 		margin_mask.resize(n)
+		margin_feather.resize(n)
 		var sdf: PackedFloat32Array = p_ctx.get("sdf", PackedFloat32Array())
 		var edge_off: float = p_ctx.get("edge_offset", 0.0)
 		var have_sdf := sdf.size() == n
@@ -3884,9 +3897,10 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 			var d_out: float = -(sdf[k] + edge_off)
 			if d_out < 0.0:
 				continue
-			p_profile[k] = smoothstep(0.0, 1.0, 1.0 - clampf(d_out / margin_m, 0.0, 1.0))
-	p_ctx["profile"] = p_profile # a graph node feathers its whole-grid output by the interior profile
+			margin_feather[k] = smoothstep(0.0, 1.0, 1.0 - clampf(d_out / margin_m, 0.0, 1.0))
+	p_ctx["profile"] = p_profile # a generator feathers its whole-grid output by the interior profile
 	p_ctx["margin_mask"] = margin_mask # which cells are the band (a FILTER graph masks differently there)
+	p_ctx["margin_feather"] = margin_feather # and the taper it uses there
 
 	var vals := PackedFloat32Array()
 	vals.resize(n)
@@ -4116,17 +4130,19 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	# This makes the two agree: a filter applies at full `amount` across the brush, and tapers only through
 	# the MARGIN band, where the taper is what keeps a graph that also generates from ending on a hard
 	# outer edge. Continuous at the loop rim (1 inside, 1 at the start of the band), unlike the profile it
-	# replaces. A pure GENERATOR keeps the feather — it invents terrain, so it must still fade at the rim.
+	# replaces. A pure GENERATOR keeps the feather — it invents terrain, so it must still fade at the rim,
+	# and `profile` is 0 through the band for it, so it invents none past the loop either.
 	var mask: PackedFloat64Array = profile
 	if reads:
 		var mm: PackedByteArray = p_ctx.get("margin_mask", PackedByteArray())
-		var have_mm := mm.size() == n
+		var mf: PackedFloat64Array = p_ctx.get("margin_feather", PackedFloat64Array())
+		var have_mm := mm.size() == n and mf.size() == n
 		mask = PackedFloat64Array()
 		mask.resize(n)
 		for k in range(n):
-			# In the band, `profile` already holds the margin feather (1 at the loop edge → 0 at the outer
-			# edge); everywhere the brush itself covers, a filter applies fully.
-			mask[k] = profile[k] if (have_mm and mm[k] == 1) else 1.0
+			# Everywhere the brush itself covers, a filter applies fully; in the band it takes the margin
+			# feather, which is 1 where the band meets the rim — so the two halves meet without a step.
+			mask[k] = mf[k] if (have_mm and mm[k] == 1) else 1.0
 
 	# ---- FROZEN cache (mirrors _apply_erosion_step §6.3) ----
 	#

@@ -602,11 +602,22 @@ every modifier added later, and getting a different answer from each. Three part
    loop, so its sediment lands instead of draining out of §6.8's outlet. `erosion_solve` keeps every
    grid-EDGE cell an outlet, so drainage moves to the widened border — precisely the "real surface
    everywhere" configuration the control above measured as stable.
-   **The `profile` mask is extended with it, and has to be.** `profile` is the 0..1 field every modifier
-   scales its output by and it is 0 off the loop, so materialising the ground alone would hand a Graph
-   modifier a wider surface and then multiply its answer by zero out there. The band ramps **1 at the loop
-   edge down to 0 at the outer margin edge** (smoothstep), so a skirt fades out instead of ending on a
-   second hard rim.
+   **The band gets its OWN mask — `margin_feather` — and it is NOT folded into `profile`.** The band's
+   taper ramps **1 at the loop edge down to 0 at the outer margin edge** (smoothstep), so a skirt fades out
+   instead of ending on a second hard rim. `profile` runs the other way: 1 at the loop centre, 0 **at the
+   rim**. They are two masks with opposite boundary values over the same grid, and the first implementation
+   stored the taper into `profile`, which put a step of the modifier's **full amplitude** one cell outside
+   every loop — a visible seam ringing the brush (measured at 0.97 of full amplitude; `bench/MarginSeamGate`
+   keeps the old fold as its control). Each consumer takes the mask that is continuous for it:
+
+   | | mask inside the loop | mask in the band | at the rim |
+   |---|---|---|---|
+   | **Generator** — Noise, Relief, a graph with no Input node | `profile` (feathers to 0 at the rim) | **0** | continuous |
+   | **Filter** — Erosion, a graph that reads its input | **1**, at full `amount` | `margin_feather` | continuous |
+
+   A generator getting 0 through the band is not a limitation: inventing terrain past the loop is what a
+   margin must not do, and it is exactly what a generator does with no margin at all. The margin exists for
+   filters — it *is* the erosion skirt.
 3. **On the way OUT, an unworked margin cell reverts to a no-write.** A margin cell the stack moved by more
    than `MODIFIER_MARGIN_EPS` (1 mm) keeps its value and composites through the brush's own blend — under
    the default MAX that means deposition raises the skirt and cuts are ignored. One it did not move goes
