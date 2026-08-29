@@ -1,7 +1,7 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
 # Pasture3DGraphNodeDevHydraulicSaleve — Pure GDScript Reference Oracle for Salève Hydraulic Erosion.
-# Features Braun-Willett / FastScape control-point graph flow routing with continuous 360° dendritic branching.
+# Features Braun-Willett / FastScape control-point graph flow routing with scale-invariant implicit stream power incision.
 
 @tool
 class_name Pasture3DGraphNodeDevHydraulicSaleve
@@ -289,7 +289,7 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 							var pnoise: float = _hash2d(nx, nz, p_seed + pass_idx * 31 + k * 7)
 							slope *= maxf(0.05, 1.0 + drainage_noise * pnoise)
 
-						var w_drop: float = pow(slope, 1.4)
+						var w_drop: float = pow(slope, 1.3)
 						drops[k] = w_drop
 						sum_drop += w_drop
 
@@ -315,6 +315,7 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 				if m_val <= 0.001:
 					continue
 
+				var min_downhill: float = h_c
 				var max_s: float = 0.0
 				for k in range(8):
 					var nx: int = ix + n_dx[k]
@@ -322,28 +323,26 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 					if nx >= 0 and nx < p_gw and nz >= 0 and nz < p_gh:
 						var n_idx: int = nz * p_gw + nx
 						var h_n: float = h_arr[n_idx]
-						if is_finite(h_n) and h_n < h_c:
+						if is_finite(h_n) and h_n < min_downhill:
+							min_downhill = h_n
 							var d: float = maxf(sqrt(pow(px_arr[n_idx] - px_arr[idx], 2.0) + pow(pz_arr[n_idx] - pz_arr[idx], 2.0)), 1.0e-4)
 							var s: float = (h_c - h_n) / d
 							if s > max_s: max_s = s
 
-				var a_accum: float = log(1.0 + maxf(0.0, flow[idx] - 1.0))
-				var inc: float = 0.0
+				var drop: float = h_c - min_downhill
+				if drop > 1.0e-5:
+					var a_accum: float = log(1.0 + maxf(0.0, flow[idx] - 1.0))
+					var kp: float = erosion_strength * 0.15 * pow(maxf(a_accum, 0.1), drainage_exponent) * m_val
+					if fine_erosion_strength > 0.0:
+						kp += fine_erosion_strength * 0.1 * pow(maxf(max_s, 0.01), 0.8) * m_val
 
-				if a_accum > 0.01 and max_s > 1.0e-4:
-					var power: float = pow(a_accum, drainage_exponent) * max_s
-					inc += erosion_strength * 0.35 * log(1.0 + power) * m_val
+					var inc: float = (kp / (1.0 + kp)) * drop
 
-				if fine_erosion_strength > 0.0 and max_s > 0.02:
-					inc += fine_erosion_strength * 0.15 * pow(max_s, 0.8) * m_val
+					if shape_preservation > 0.0:
+						var max_allowed_cut: float = 0.5 * orig_h[idx] / shape_preservation
+						inc = minf(inc, maxf(0.0, max_allowed_cut))
 
-				if inc > 0.0:
-					var max_depth: float = (0.6 * orig_h[idx] / shape_preservation) if shape_preservation > 0.0 else 1000.0
-					var current_depth: float = orig_h[idx] - h_c
-					if current_depth > max_depth:
-						inc *= maxf(0.0, 1.0 - (current_depth - max_depth) / (max_depth * 0.5 + 1.0e-3))
-
-					next_h[idx] = maxf(0.0, h_c - inc)
+					next_h[idx] = h_c - inc
 					eroded_rock[idx] += inc
 					sediment_accum[idx] += inc
 
@@ -356,7 +355,7 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 			for iz in range(1, p_gh - 1):
 				for ix in range(1, p_gw - 1):
 					var idx: int = iz * p_gw + ix
-					if eroded_rock[idx] > 0.01 and is_finite(next_h[idx]):
+					if eroded_rock[idx] > 0.001 and is_finite(next_h[idx]):
 						var avg: float = 0.25 * (next_h[iz * p_gw + ix - 1] + next_h[iz * p_gw + ix + 1] + next_h[(iz - 1) * p_gw + ix] + next_h[(iz + 1) * p_gw + ix])
 						next_h[idx] = lerpf(next_h[idx], avg, bank_smoothing * 0.3)
 

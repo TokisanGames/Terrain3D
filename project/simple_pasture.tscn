@@ -51,27 +51,28 @@ mesh_list = Array[Pasture3DMeshAsset]([SubResource("Pasture3DMeshAsset_qlie2")])
 
 [sub_resource type="Resource" id="Resource_4khcl"]
 script = ExtResource("4_4khcl")
-graph_position = Vector2(120, 180)
+graph_position = Vector2(300, 160)
 preview_on = true
 
 [sub_resource type="Resource" id="Resource_wej47"]
 script = ExtResource("5_wej47")
-graph_position = Vector2(1360, 180)
+graph_position = Vector2(1080, 160)
 preview_on = true
 
 [sub_resource type="Resource" id="Resource_cad7k"]
 script = ExtResource("10_6pcwc")
-graph_position = Vector2(600, 300)
+graph_position = Vector2(600, 160)
 preview_on = true
 
 [sub_resource type="Resource" id="Resource_6pcwc"]
 script = ExtResource("8_wv1iv")
 nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_4khcl"), SubResource("Resource_wej47"), SubResource("Resource_cad7k")])
-connections = [PackedInt32Array(0, 0, 2, 0), PackedInt32Array(0, 0, 1, 0)]
+connections = [PackedInt32Array(0, 0, 2, 0), PackedInt32Array(2, 0, 1, 0)]
 
 [sub_resource type="Resource" id="Resource_pnkh5"]
 script = ExtResource("9_6pcwc")
 graph = SubResource("Resource_6pcwc")
+evaluation = 1
 metadata/_custom_type_script = "uid://717mgmmlrimi"
 
 [sub_resource type="Curve3D" id="Curve3D_xkygt"]
@@ -193,6 +194,7 @@ output_node = 1
 [sub_resource type="Resource" id="Resource_bj2fk"]
 script = ExtResource("9_6pcwc")
 graph = SubResource("Resource_201xj")
+evaluation = 1
 metadata/_custom_type_script = "uid://717mgmmlrimi"
 
 [sub_resource type="Curve3D" id="Curve3D_ba6c1"]

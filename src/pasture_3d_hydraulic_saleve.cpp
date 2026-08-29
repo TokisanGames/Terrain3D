@@ -94,10 +94,9 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 
 	const double cell_dx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
 	const double cell_dz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+	const double mean_cell_size = 0.5 * (cell_dx + cell_dz);
 
-	// 1. Construct Jittered Control-Point Graph (Braun-Willett / FastScape Voronoi model)
-	// Points are randomly jittered within each cell to break square grid axes and create
-	// continuous 360° fractal branching river networks.
+	// 1. Construct Jittered Control-Point Graph
 	struct ControlPoint {
 		double x, z;
 		float h;
@@ -146,7 +145,7 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 			return ha > hb;
 		});
 
-		// 3. Flow Routing on the Jittered Graph
+		// 3. Multi-direction Flow Routing on Jittered Graph
 		std::fill(flow.begin(), flow.end(), 1.0);
 		std::fill(sediment_accum.begin(), sediment_accum.end(), 0.0);
 
@@ -160,8 +159,6 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 			double px = points[idx].x;
 			double pz = points[idx].z;
 
-			double best_slope = 0.0;
-			int best_receiver = -1;
 			double sum_drop = 0.0;
 			double drops[8] = { 0.0 };
 			int n_indices[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
@@ -183,19 +180,13 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 							slope *= std::max(0.05, 1.0 + drainage_noise * (double)pnoise);
 						}
 
-						double w_drop = std::pow(slope, 1.4);
+						double w_drop = std::pow(slope, 1.3);
 						drops[k] = w_drop;
 						sum_drop += w_drop;
-
-						if (slope > best_slope) {
-							best_slope = slope;
-							best_receiver = n_idx;
-						}
 					}
 				}
 			}
 
-			// Distribute flow and sediment to downhill receiver network
 			if (sum_drop > 1.0e-6) {
 				double my_flow = flow[idx];
 				double my_sed = sediment_accum[idx];
@@ -210,7 +201,7 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 			}
 		}
 
-		// 4. Stream Power Bedrock Incision along the Dendritic Graph
+		// 4. Scale-Invariant Implicit Stream Power Incision (Braun & Willett Formulation)
 		std::vector<float> next_h(n);
 		for (int i = 0; i < n; i++) {
 			next_h[i] = points[i].h;
@@ -228,7 +219,8 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 					continue;
 				}
 
-				// Local graph slope
+				// Find lowest downhill receiver
+				float min_downhill = h_c;
 				double max_s = 0.0;
 				for (int k = 0; k < 8; k++) {
 					int nx = ix + n_dx[k];
@@ -236,7 +228,8 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 					if (nx >= 0 && nx < p_gw && nz >= 0 && nz < p_gh) {
 						int n_idx = nz * p_gw + nx;
 						float h_n = points[n_idx].h;
-						if (std::isfinite(h_n) && h_n < h_c) {
+						if (std::isfinite(h_n) && h_n < min_downhill) {
+							min_downhill = h_n;
 							double d = std::sqrt(std::pow(points[n_idx].x - points[idx].x, 2.0) + std::pow(points[n_idx].z - points[idx].z, 2.0));
 							double s = (double)(h_c - h_n) / std::max(d, 1.0e-4);
 							if (s > max_s) max_s = s;
@@ -244,29 +237,26 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 					}
 				}
 
-				double a_accum = std::log(1.0 + std::max(0.0, flow[idx] - 1.0));
-				double inc = 0.0;
-
-				// Large-scale stream power incision: E = K * A^m * S^n
-				if (a_accum > 0.01 && max_s > 1.0e-4) {
-					double power = std::pow(a_accum, drainage_exponent) * max_s;
-					inc += erosion_strength * 0.35 * std::log(1.0 + power) * (double)m_val;
-				}
-
-				// Secondary micro-rill fine flow erosion on steep flanks
-				if (fine_erosion_strength > 0.0 && max_s > 0.02) {
-					inc += fine_erosion_strength * 0.15 * std::pow(max_s, 0.8) * (double)m_val;
-				}
-
-				if (inc > 0.0) {
-					// Shape preservation envelope: maintains peak height while carving gorges
-					double max_depth = (shape_preservation > 0.0) ? (0.6 * (double)points[idx].orig_h / shape_preservation) : 1000.0;
-					double current_depth = (double)(points[idx].orig_h - h_c);
-					if (current_depth > max_depth) {
-						inc *= std::max(0.0, 1.0 - (current_depth - max_depth) / (max_depth * 0.5 + 1.0e-3));
+				double drop = (double)(h_c - min_downhill);
+				if (drop > 1.0e-5) {
+					double a_accum = std::log(1.0 + std::max(0.0, flow[idx] - 1.0));
+					
+					// Dimensionless incision scaling factor Kp
+					double kp = erosion_strength * 0.15 * std::pow(std::max(a_accum, 0.1), drainage_exponent) * (double)m_val;
+					if (fine_erosion_strength > 0.0) {
+						kp += fine_erosion_strength * 0.1 * std::pow(std::max(max_s, 0.01), 0.8) * (double)m_val;
 					}
 
-					next_h[idx] = (float)std::max(0.0, (double)h_c - inc);
+					// Implicit stable update: z_next = (h_c + kp * min_downhill) / (1 + kp)
+					double inc = (kp / (1.0 + kp)) * drop;
+
+					// Shape preservation envelope: limits maximum depth to prevent whole-cone collapse
+					if (shape_preservation > 0.0) {
+						double max_allowed_cut = 0.5 * (double)points[idx].orig_h / shape_preservation;
+						inc = std::min(inc, std::max(0.0, max_allowed_cut));
+					}
+
+					next_h[idx] = (float)((double)h_c - inc);
 					eroded_rock[idx] += (float)inc;
 					sediment_accum[idx] += inc;
 				}
@@ -279,12 +269,12 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 			}
 		}
 
-		// 5. Transverse Hillslope Diffusion along Riverbanks
+		// 5. Transverse Hillslope Diffusion along Riverbeds
 		if (bank_smoothing > 0.0) {
 			for (int iz = 1; iz < p_gh - 1; iz++) {
 				for (int ix = 1; ix < p_gw - 1; ix++) {
 					int idx = iz * p_gw + ix;
-					if (eroded_rock[idx] > 0.01f && std::isfinite(next_h[idx])) {
+					if (eroded_rock[idx] > 0.001f && std::isfinite(next_h[idx])) {
 						double avg = 0.25 * ((double)next_h[iz * p_gw + ix - 1] + (double)next_h[iz * p_gw + ix + 1] +
 								(double)next_h[(iz - 1) * p_gw + ix] + (double)next_h[(iz + 1) * p_gw + ix]);
 						double blend = bank_smoothing * 0.3;
@@ -299,7 +289,6 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 		}
 	}
 
-	// 6. Resample Jittered Control-Point Graph back to Grid
 	std::vector<float> final_height(n);
 	for (int i = 0; i < n; i++) {
 		final_height[i] = points[i].h;
