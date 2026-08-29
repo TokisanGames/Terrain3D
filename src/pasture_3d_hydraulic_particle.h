@@ -25,6 +25,8 @@ struct HydraulicParticleParams {
 	float evaporation_rate = 0.01f;
 	float min_slope = 0.01f;
 	float gravity = 4.0f;
+	float bedrock_gap = 2.0f;
+	float ridge_forcing = 0.0f;
 	int64_t seed = 1337;
 	PackedFloat32Array mask;
 

@@ -617,6 +617,8 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.min_slope = params_h ? params_h[s] : 0.01f;
 				p.gravity = params_i ? params_i[s] : 4.0f;
 				p.seed = params_j ? (int64_t)params_j[s] : 1337;
+				p.bedrock_gap = params_k ? params_k[s] : 2.0f;
+				p.ridge_forcing = params_l ? params_l[s] : 0.0f;
 				if (in1 && in1[s] >= 0) {
 					p.mask = get_grid_packed(in1[s]);
 				}

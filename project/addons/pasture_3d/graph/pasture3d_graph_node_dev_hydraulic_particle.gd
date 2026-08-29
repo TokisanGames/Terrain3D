@@ -64,6 +64,18 @@ enum Evaluation { LIVE, FROZEN }
 		gravity = maxf(v, 0.1)
 		_param_changed()
 
+## Bedrock elevation resistance gap (metres) preventing runaway hole gouging into flat terrain.
+@export_range(0.1, 50.0, 0.5) var bedrock_gap: float = 2.0:
+	set(v):
+		bedrock_gap = maxf(v, 0.0)
+		_param_changed()
+
+## Ridge forcing cross-gradient strength to organize droplets into dendritic tributary trees.
+@export_range(0.0, 2.0, 0.05) var ridge_forcing: float = 0.0:
+	set(v):
+		ridge_forcing = maxf(v, 0.0)
+		_param_changed()
+
 ## Deterministic random seed for particle distribution.
 @export var seed: int = 1337:
 	set(v):
@@ -171,6 +183,8 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 	var evaporation_rate: float = clampf(float(p_params.get("evaporation_rate", 0.01)), 0.0, 1.0)
 	var min_slope: float = maxf(0.0001, float(p_params.get("min_slope", 0.01)))
 	var gravity: float = maxf(0.1, float(p_params.get("gravity", 4.0)))
+	var bedrock_gap: float = maxf(0.0, float(p_params.get("bedrock_gap", 2.0)))
+	var ridge_forcing: float = maxf(0.0, float(p_params.get("ridge_forcing", 0.0)))
 	var rng_seed: int = int(p_params.get("seed", 1337))
 
 	var mask: PackedFloat32Array = p_params.get("mask", PackedFloat32Array())
@@ -230,6 +244,13 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 			# Surface gradient
 			var gx: float = (1.0 - v) * (h10 - h00) + v * (h11 - h01)
 			var gz: float = (1.0 - u) * (h01 - h00) + u * (h11 - h10)
+
+			# Hesiod Ridge Forcing perturbation: adds cross-gradient force
+			if ridge_forcing > 0.0:
+				var perp_x: float = -gz * ridge_forcing * 0.5
+				var perp_z: float = gx * ridge_forcing * 0.5
+				gx += perp_x
+				gz += perp_z
 
 			# Flow direction with inertia
 			dir_x = dir_x * inertia - gx * (1.0 - inertia)
@@ -313,7 +334,17 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 					sediment[i01] += dep * w01
 					sediment[i11] += dep * w11
 				else:
+					# Erode bedrock with Hesiod Bedrock Floor protection
 					var ero: float = minf((cap - sed) * erosion_speed, -delta_h) * mask_val
+
+					if bedrock_gap > 0.0:
+						var max_cut00: float = maxf(0.0, height[i00] - (p_surface[i00] - bedrock_gap))
+						var max_cut10: float = maxf(0.0, height[i10] - (p_surface[i10] - bedrock_gap))
+						var max_cut01: float = maxf(0.0, height[i01] - (p_surface[i01] - bedrock_gap))
+						var max_cut11: float = maxf(0.0, height[i11] - (p_surface[i11] - bedrock_gap))
+						var max_allowed: float = w00 * max_cut00 + w10 * max_cut10 + w01 * max_cut01 + w11 * max_cut11
+						ero = minf(ero, max_allowed)
+
 					sed += ero
 					height[i00] -= ero * w00
 					height[i10] -= ero * w10

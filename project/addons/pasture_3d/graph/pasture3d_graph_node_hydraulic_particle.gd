@@ -70,6 +70,18 @@ enum Evaluation { LIVE, FROZEN }
 		gravity = maxf(v, 0.1)
 		_param_changed()
 
+## Bedrock elevation resistance gap (metres) preventing runaway hole gouging into flat terrain.
+@export_range(0.1, 50.0, 0.5) var bedrock_gap: float = 2.0:
+	set(v):
+		bedrock_gap = maxf(v, 0.0)
+		_param_changed()
+
+## Ridge forcing cross-gradient strength to organize droplets into dendritic tributary trees.
+@export_range(0.0, 2.0, 0.05) var ridge_forcing: float = 0.0:
+	set(v):
+		ridge_forcing = maxf(v, 0.0)
+		_param_changed()
+
 ## Deterministic random seed for particle distribution.
 @export var seed: int = 1337:
 	set(v):
@@ -235,6 +247,8 @@ func _solve_dynamic(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect:
 		"evaporation_rate": evaporation_rate,
 		"min_slope": min_slope,
 		"gravity": gravity,
+		"bedrock_gap": bedrock_gap,
+		"ridge_forcing": ridge_forcing,
 		"seed": seed,
 		"mask": p_mask,
 	}

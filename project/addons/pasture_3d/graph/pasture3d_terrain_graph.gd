@@ -1135,7 +1135,7 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 			&"erosion":
 				op_id = 33; p0 = float(_i.call(&"iterations", 30)); pb = _f.call(&"erosion_rate", 0.08); pc = _f.call(&"area_exponent", 0.45); pd = _f.call(&"hillslope_diffusion", 0.15); pe = _f.call(&"deposition", 0.0)
 			&"hydraulic_particle":
-				op_id = 34; p0 = float(_i.call(&"droplet_count", 25000)); pb = float(_i.call(&"max_lifetime", 30)); pc = _f.call(&"inertia", 0.05); pd = _f.call(&"sediment_capacity", 4.0); pe = _f.call(&"erosion_speed", 0.3); pf = _f.call(&"deposition_speed", 0.3); pg = _f.call(&"evaporation_rate", 0.01); ph = _f.call(&"min_slope", 0.01); pi = _f.call(&"gravity", 4.0); pj = float(_i.call(&"seed", 1337))
+				op_id = 34; p0 = float(_i.call(&"droplet_count", 25000)); pb = float(_i.call(&"max_lifetime", 30)); pc = _f.call(&"inertia", 0.05); pd = _f.call(&"sediment_capacity", 4.0); pe = _f.call(&"erosion_speed", 0.3); pf = _f.call(&"deposition_speed", 0.3); pg = _f.call(&"evaporation_rate", 0.01); ph = _f.call(&"min_slope", 0.01); pi = _f.call(&"gravity", 4.0); pj = float(_i.call(&"seed", 1337)); pk = _f.call(&"bedrock_gap", 2.0); pl = _f.call(&"ridge_forcing", 0.0)
 			&"hydraulic_stream_log":
 				op_id = 35; p0 = float(_i.call(&"iterations", 15)); pb = _f.call(&"incision_rate", 0.15); pc = _f.call(&"area_exponent", 0.5); pd = _f.call(&"slope_exponent", 1.0); pe = _f.call(&"min_catchment", 1.0); pf = _f.call(&"bank_smoothing", 0.1); pg = _f.call(&"peak_preservation", 0.5); ph = _f.call(&"gradient_power", 0.8)
 			&"hydraulic_saleve":

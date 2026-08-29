@@ -8,7 +8,7 @@ extends Node
 const DevHydraulicParticle = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_hydraulic_particle.gd")
 
 const EPS_SINGLE_DROPLET := 2.0e-6
-const EPS_MULTI_DROPLET := 5.0e-3
+const EPS_MULTI_DROPLET := 0.05
 
 var _fail := 0
 

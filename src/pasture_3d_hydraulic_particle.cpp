@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <vector>
 
 using namespace godot;
 
@@ -37,6 +38,12 @@ HydraulicParticleParams HydraulicParticleParams::from_dict(const Dictionary &p_d
 	}
 	if (p_dict.has("gravity")) {
 		p.gravity = std::max(0.1f, (float)p_dict["gravity"]);
+	}
+	if (p_dict.has("bedrock_gap")) {
+		p.bedrock_gap = std::max(0.0f, (float)p_dict["bedrock_gap"]);
+	}
+	if (p_dict.has("ridge_forcing")) {
+		p.ridge_forcing = std::max(0.0f, (float)p_dict["ridge_forcing"]);
 	}
 	if (p_dict.has("seed")) {
 		p.seed = (int64_t)p_dict["seed"];
@@ -75,6 +82,7 @@ HydraulicParticleResult godot::hydraulic_particle_solve(const PackedFloat32Array
 
 	const float *src_height = p_surface.ptr();
 	std::vector<float> height(src_height, src_height + n);
+	std::vector<float> original_height(src_height, src_height + n);
 	std::vector<float> sediment(n, 0.0f);
 	std::vector<float> flow(n, 0.0f);
 	std::vector<float> water_depth(n, 0.0f);
@@ -82,8 +90,10 @@ HydraulicParticleResult godot::hydraulic_particle_solve(const PackedFloat32Array
 	const bool has_mask = (p_params.mask.size() == n);
 	const float *mask_ptr = has_mask ? p_params.mask.ptr() : nullptr;
 
-	const int droplet_count = std::max(1, p_params.droplet_count);
-	const int max_lifetime = std::max(1, p_params.max_lifetime);
+	uint32_t rng_state = (uint32_t)(p_params.seed != 0 ? p_params.seed : 1337);
+
+	const int droplet_count = p_params.droplet_count;
+	const int max_lifetime = p_params.max_lifetime;
 	const double inertia = (double)p_params.inertia;
 	const double sediment_capacity = (double)p_params.sediment_capacity;
 	const double erosion_speed = (double)p_params.erosion_speed;
@@ -91,31 +101,21 @@ HydraulicParticleResult godot::hydraulic_particle_solve(const PackedFloat32Array
 	const double evaporation_rate = (double)p_params.evaporation_rate;
 	const double min_slope = (double)p_params.min_slope;
 	const double gravity = (double)p_params.gravity;
-	uint32_t rng_state = (uint32_t)p_params.seed;
+	const double bedrock_gap = (double)p_params.bedrock_gap;
+	const double ridge_forcing = (double)p_params.ridge_forcing;
 
-	const double tau = 6.28318530717958647692;
+	const double tau = 6.283185307179586;
 
 	for (int d = 0; d < droplet_count; d++) {
-		double rx = next_rand(rng_state) * (double)(p_gw - 1);
-		double rz = next_rand(rng_state) * (double)(p_gh - 1);
+		// Spawn droplet randomly on domain
+		double px = next_rand(rng_state) * (double)(p_gw - 1);
+		double pz = next_rand(rng_state) * (double)(p_gh - 1);
 
-		double px = rx;
-		double pz = rz;
 		double dir_x = 0.0;
 		double dir_z = 0.0;
 		double speed = 1.0;
 		double water = 1.0;
 		double sed = 0.0;
-
-		int init_ix = std::clamp((int)px, 0, p_gw - 1);
-		int init_iz = std::clamp((int)pz, 0, p_gh - 1);
-		int init_idx = init_iz * p_gw + init_ix;
-		if (!std::isfinite(height[init_idx])) {
-			continue;
-		}
-		if (has_mask && mask_ptr[init_idx] <= 0.001f) {
-			continue;
-		}
 
 		for (int step = 0; step < max_lifetime; step++) {
 			int ix = (int)std::floor(px);
@@ -141,12 +141,20 @@ HydraulicParticleResult godot::hydraulic_particle_solve(const PackedFloat32Array
 				break;
 			}
 
+			// Bilinear interpolation of current elevation and gradient
 			double h_curr = (1.0 - u) * (1.0 - v) * (double)h00 + u * (1.0 - v) * (double)h10 +
 					(1.0 - u) * v * (double)h01 + u * v * (double)h11;
 
-			// Surface gradient
 			double gx = (1.0 - v) * (double)(h10 - h00) + v * (double)(h11 - h01);
 			double gz = (1.0 - u) * (double)(h01 - h00) + u * (double)(h11 - h10);
+
+			// Hesiod Ridge Forcing perturbation: adds cross-gradient force
+			if (ridge_forcing > 0.0) {
+				double perp_x = -gz * ridge_forcing * 0.5;
+				double perp_z = gx * ridge_forcing * 0.5;
+				gx += perp_x;
+				gz += perp_z;
+			}
 
 			// Direction with momentum
 			dir_x = dir_x * inertia - gx * (1.0 - inertia);
@@ -217,34 +225,44 @@ HydraulicParticleResult godot::hydraulic_particle_solve(const PackedFloat32Array
 				sediment[i11] += (float)(deposit_amt * w11);
 				break;
 			} else {
-				// Moving downhill
-				double slope = std::max(-delta_h, min_slope);
-				double cap = slope * speed * water * sediment_capacity;
+				// Moving downhill: compute sediment transport capacity
+				double c = std::max(-delta_h, min_slope) * speed * water * sediment_capacity;
 
-				if (sed > cap) {
-					double dep = (sed - cap) * deposition_speed * mask_val;
-					sed -= dep;
-					height[i00] += (float)(dep * w00);
-					height[i10] += (float)(dep * w10);
-					height[i01] += (float)(dep * w01);
-					height[i11] += (float)(dep * w11);
-					sediment[i00] += (float)(dep * w00);
-					sediment[i10] += (float)(dep * w10);
-					sediment[i01] += (float)(dep * w01);
-					sediment[i11] += (float)(dep * w11);
+				if (sed > c) {
+					// Drop excess sediment
+					double drop = (sed - c) * deposition_speed * mask_val;
+					sed -= drop;
+					height[i00] += (float)(drop * w00);
+					height[i10] += (float)(drop * w10);
+					height[i01] += (float)(drop * w01);
+					height[i11] += (float)(drop * w11);
+					sediment[i00] += (float)(drop * w00);
+					sediment[i10] += (float)(drop * w10);
+					sediment[i01] += (float)(drop * w01);
+					sediment[i11] += (float)(drop * w11);
 				} else {
-					double ero = std::min((cap - sed) * erosion_speed, -delta_h) * mask_val;
-					sed += ero;
-					height[i00] -= (float)(ero * w00);
-					height[i10] -= (float)(ero * w10);
-					height[i01] -= (float)(ero * w01);
-					height[i11] -= (float)(ero * w11);
+					// Erode bedrock with Hesiod Bedrock Floor protection
+					double erode_amt = std::min((c - sed) * erosion_speed, -delta_h) * mask_val;
+
+					if (bedrock_gap > 0.0) {
+						double max_cut00 = std::max(0.0, (double)(height[i00] - (original_height[i00] - (float)bedrock_gap)));
+						double max_cut10 = std::max(0.0, (double)(height[i10] - (original_height[i10] - (float)bedrock_gap)));
+						double max_cut01 = std::max(0.0, (double)(height[i01] - (original_height[i01] - (float)bedrock_gap)));
+						double max_cut11 = std::max(0.0, (double)(height[i11] - (original_height[i11] - (float)bedrock_gap)));
+						double max_allowed = w00 * max_cut00 + w10 * max_cut10 + w01 * max_cut01 + w11 * max_cut11;
+						erode_amt = std::min(erode_amt, max_allowed);
+					}
+
+					sed += erode_amt;
+					height[i00] -= (float)(erode_amt * w00);
+					height[i10] -= (float)(erode_amt * w10);
+					height[i01] -= (float)(erode_amt * w01);
+					height[i11] -= (float)(erode_amt * w11);
 				}
 
-				speed = std::sqrt(std::max(0.0, speed * speed - delta_h * gravity));
+				speed = std::sqrt(std::max(0.0, speed * speed + delta_h * -gravity));
 				water *= (1.0 - evaporation_rate);
 
-				// Flow accumulation
 				flow[i00] += (float)(water * w00);
 				flow[i10] += (float)(water * w10);
 				flow[i01] += (float)(water * w01);
