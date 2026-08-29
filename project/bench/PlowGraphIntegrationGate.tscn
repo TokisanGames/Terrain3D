@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cplowgraph99281"]
+
+[ext_resource type="Script" path="res://bench/PlowGraphIntegrationGate.gd" id="1_plow"]
+
+[node name="PlowGraphIntegrationGate" type="Node"]
+script = ExtResource("1_plow")

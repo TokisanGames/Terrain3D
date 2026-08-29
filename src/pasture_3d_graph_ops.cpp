@@ -8,6 +8,7 @@
 #include "pasture_3d_erosion_hydraulic.h"
 #include "pasture_3d_erosion_thermal.h"
 #include "pasture_3d_furrows.h"
+#include "pasture_3d_geo_primitives.h"
 #include "pasture_3d_geological_primitive.h"
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_hydraulic_particle.h"
@@ -666,6 +667,47 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				HydraulicSaleveResult res = hydraulic_saleve_solve(in_arr, p_gw, p_gh, p_rect, p);
 				if (res.ok && res.height.size() == n) {
 					std::copy_n(res.height.ptr(), n, g_ptr);
+				}
+			} break;
+
+			case GRAPH_OP_MOUNTAIN_CONE: {
+				MountainConeParams p;
+				p.seed = (int)params[s];
+				p.elevation = params_b[s];
+				p.scale = params_c[s];
+				p.octaves = (int)params_d[s];
+				p.peak_kw = params_e[s];
+				p.rugosity = params_f[s];
+				p.angle = params_g ? params_g[s] : 45.0f;
+				p.gamma = params_h ? params_h[s] : 0.5f;
+				p.cone_alpha = params_i ? params_i[s] : 1.2f;
+				p.ridge_amp = params_j ? params_j[s] : 0.4f;
+				p.base_noise_amp = params_k ? params_k[s] : 0.05f;
+				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
+				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
+				if (in2 && in2[s] >= 0) p.envelope = get_grid_packed(in2[s]);
+				PackedFloat32Array res = mountain_cone_solve(p_gw, p_gh, p_rect, p);
+				if (res.size() == n) {
+					std::copy_n(res.ptr(), n, g_ptr);
+				}
+			} break;
+
+			case GRAPH_OP_MOUNTAIN_INSELBERG: {
+				MountainInselbergParams p;
+				p.seed = (int)params[s];
+				p.elevation = params_b[s];
+				p.scale = params_c[s];
+				p.octaves = (int)params_d[s];
+				p.rugosity = params_e[s];
+				p.angle = params_f[s];
+				p.gamma = params_g ? params_g[s] : 0.5f;
+				p.bulk_amp = params_h ? params_h[s] : 0.5f;
+				p.base_noise_amp = params_i ? params_i[s] : 0.05f;
+				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
+				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
+				PackedFloat32Array res = mountain_inselberg_solve(p_gw, p_gh, p_rect, p);
+				if (res.size() == n) {
+					std::copy_n(res.ptr(), n, g_ptr);
 				}
 			} break;
 

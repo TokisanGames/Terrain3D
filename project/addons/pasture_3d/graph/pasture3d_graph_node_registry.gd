@@ -23,6 +23,8 @@ const FurrowsScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_nod
 const DunesScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dunes.gd")
 const CraterScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_crater.gd")
 const GeologicalPrimitiveScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_geological_primitive.gd")
+const MountainConeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_mountain_cone.gd")
+const MountainInselbergScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_mountain_inselberg.gd")
 const BlendScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_blend.gd")
 const SmoothScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_smooth.gd")
 const TalusProjectionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_talus_projection.gd")
@@ -64,6 +66,8 @@ const DevCurvatureScript = preload("res://addons/pasture_3d/graph/pasture3d_grap
 const DevWarpScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_warp.gd")
 const DevErosionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_erosion.gd")
 const DevDLAScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_dla.gd")
+const DevMountainConeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_mountain_cone.gd")
+const DevMountainInselbergScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_mountain_inselberg.gd")
 
 
 ## Checks if the developer flag for exposing [Dev/GD] reference nodes is enabled.
@@ -111,6 +115,8 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 		{"op": &"dunes", "title": "Dunes", "category": "Generators", "role": "Generator", "script": DunesScript, "tags": ["sand", "wind", "waves", "desert"], "description": "Asymmetric sand dune wave patterns."},
 		{"op": &"crater", "title": "Crater", "category": "Generators", "role": "Generator", "script": CraterScript, "tags": ["meteor", "hole", "impact", "ring", "caldera"], "description": "Impact crater with raised rim and central cavity."},
 		{"op": &"geological_primitive", "title": "Geological Primitive", "category": "Generators", "role": "Generator", "script": GeologicalPrimitiveScript, "tags": ["inselberg", "monadnock", "bornhardt", "caldera", "volcano", "dome", "cuesta", "badlands", "primitive", "landform", "macro"], "description": "Parametric macro geological landforms: solitary inselberg domes, volcanic calderas, and cuesta badland ridges."},
+		{"op": &"mountain_cone", "title": "Mountain Cone", "category": "Generators", "role": "Generator", "script": MountainConeScript, "tags": ["mountain", "cone", "peak", "ridges", "alpine", "voronoi", "hesiod", "primitive"], "description": "Conical alpine mountain peak with multi-octave cellular Voronoi knife-edge ridges, strike-angle domain warping, and sigmoid envelope."},
+		{"op": &"mountain_inselberg", "title": "Mountain Inselberg", "category": "Generators", "role": "Generator", "script": MountainInselbergScript, "tags": ["mountain", "inselberg", "dome", "fracture", "bedrock", "gaussian", "hesiod", "primitive"], "description": "Isolated inselberg mountain dome with Gaussian pulse envelope, fractured bedrock ridges, and bulk envelope prominence."},
 		
 		{"op": &"smooth", "title": "Smooth", "category": "Filters & Modifiers", "role": "Filter", "script": SmoothScript, "tags": ["blur", "gaussian", "average", "filter", "soften"], "description": "Smooths / blurs terrain height variations."},
 		{"op": &"talus_projection", "title": "Talus Projection", "category": "Filters & Modifiers", "role": "Filter", "script": TalusProjectionScript, "tags": ["talus", "scree", "repose", "cliff", "relaxation", "slope", "angle", "apron", "rubble"], "description": "Relaxes slopes exceeding a critical angle of repose to deposit natural scree aprons."},
@@ -160,6 +166,8 @@ static func _dev_entries() -> Array[Dictionary]:
 		{"op": &"dev_warp", "title": "[Dev/GD] Domain Warp", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevWarpScript, "tags": ["dev", "gdscript", "oracle", "warp", "distortion", "noise"], "description": "Pure GDScript reference oracle for domain warp coordinate distortion."},
 		{"op": &"dev_erosion", "title": "[Dev/GD] Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevErosionScript, "tags": ["dev", "gdscript", "oracle", "erosion", "river", "fluvial"], "description": "Reference dev erosion node."},
 		{"op": &"dev_dla", "title": "[Dev/GD] DLA", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevDLAScript, "tags": ["dev", "gdscript", "oracle", "dla", "mountain", "massif"], "description": "Pure GDScript reference oracle for DLA massif generation."},
+		{"op": &"dev_mountain_cone", "title": "[Dev/GD] Mountain Cone", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevMountainConeScript, "tags": ["dev", "gdscript", "oracle", "mountain", "cone", "alpine", "ridges"], "description": "Pure GDScript reference oracle for MountainCone primitive."},
+		{"op": &"dev_mountain_inselberg", "title": "[Dev/GD] Mountain Inselberg", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevMountainInselbergScript, "tags": ["dev", "gdscript", "oracle", "mountain", "inselberg", "dome"], "description": "Pure GDScript reference oracle for MountainInselberg primitive."},
 	]
 
 

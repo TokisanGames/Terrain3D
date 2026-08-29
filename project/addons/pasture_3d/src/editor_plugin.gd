@@ -86,12 +86,12 @@ func _enter_tree() -> void:
 		asset_dock = load(ASSET_DOCK_45).instantiate()
 	asset_dock.initialize(self)
 
-	# Non-destructive height-map layers panel (PASTURE3D_LAYERS_GUIDE.md §6)
+	add_to_group("pasture3d_editor_plugin")
 	layers_dock = Pasture3DLayersDock.new()
 	layers_dock.initialize(self)
 
 	# Visual node-graph editor (PASTURE3D_TERRAIN_GRAPH_SPEC.md) — a bottom panel, opened from the
-	# "Edit in Graph Editor" button the inspector plugin adds to a graph / graph modifier.
+	# "Edit in Graph Editor" button the inspector plugin adds to a graph / graph modifier / plow brush.
 	graph_editor = Pasture3DGraphEditor.new()
 	graph_editor.initialize(self)
 	graph_inspector = Pasture3DGraphInspectorPlugin.new()
@@ -164,6 +164,10 @@ func _exit_tree() -> void:
 
 	scene_changed.disconnect(_on_scene_changed)
 	godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
+
+
+func get_graph_editor() -> Pasture3DGraphEditor:
+	return graph_editor
 
 
 func _on_godot_focus_entered() -> void:
@@ -536,9 +540,22 @@ func _instantiate_placement_brush() -> Node3D:
 func _apply_placement_defaults(node: Node3D) -> void:
 	if node is Pasture3DPlow:
 		var plow := node as Pasture3DPlow
-		plow.source = Pasture3DPlow.Source.RELIEF
-		if plow.relief == null:
-			plow.relief = Pasture3DReliefFractal.new()
+		if plow.modifiers.is_empty():
+			var mg := Pasture3DNodeGraph.new()
+			mg.resource_name = "Terrain Graph"
+			mg.graph = Pasture3DTerrainGraph.new()
+			var cone = Pasture3DGraphNodeRegistry.create(&"mountain_cone")
+			if cone != null:
+				cone.set("elevation", 35.0)
+			var out_n = Pasture3DGraphNodeRegistry.create(&"output")
+			if cone != null and out_n != null:
+				mg.graph.add_node(cone)
+				mg.graph.add_node(out_n)
+				mg.graph.connect_ports(0, 0, 1, 0)
+				mg.graph.output_node = 1
+			else:
+				mg.graph = Pasture3DTerrainGraph.create_default()
+			plow.modifiers.append(mg)
 
 
 ## Place a new landscape brush at `world_pos`, as ONE undoable action: do = add the node under the

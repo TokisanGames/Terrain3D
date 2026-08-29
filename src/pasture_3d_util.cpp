@@ -17,6 +17,7 @@
 #include "pasture_3d_erosion_hydraulic.h"
 #include "pasture_3d_erosion_thermal.h"
 #include "pasture_3d_furrows.h"
+#include "pasture_3d_geo_primitives.h"
 #include "pasture_3d_geological_primitive.h"
 #include "pasture_3d_graph_gpu.h"
 #include "pasture_3d_graph_ops.h"
@@ -1297,6 +1298,16 @@ Dictionary Pasture3DUtil::hydraulic_saleve_solve_grid(const PackedFloat32Array &
 	return res.to_dict();
 }
 
+PackedFloat32Array Pasture3DUtil::mountain_cone_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainConeParams params = godot::MountainConeParams::from_dict(p_params);
+	return godot::mountain_cone_solve(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::mountain_inselberg_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainInselbergParams params = godot::MountainInselbergParams::from_dict(p_params);
+	return godot::mountain_inselberg_solve(p_gw, p_gh, p_rect, params);
+}
+
 Dictionary Pasture3DUtil::erosion_hydraulic_solve_grid_gpu(const PackedFloat32Array &p_surface, const int p_gw,
 		const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
 	static Pasture3DGraphGPU s_gpu;
@@ -1692,6 +1703,12 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("hydraulic_saleve_solve_grid", "surface", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::hydraulic_saleve_solve_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_cone_generate_grid", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_cone_generate_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_inselberg_generate_grid", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_inselberg_generate_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("erosion_hydraulic_solve_grid_gpu", "surface", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::erosion_hydraulic_solve_grid_gpu);

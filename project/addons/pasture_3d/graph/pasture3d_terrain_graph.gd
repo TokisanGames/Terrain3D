@@ -1140,6 +1140,10 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				op_id = 35; p0 = float(_i.call(&"iterations", 15)); pb = _f.call(&"incision_rate", 0.15); pc = _f.call(&"area_exponent", 0.5); pd = _f.call(&"slope_exponent", 1.0); pe = _f.call(&"min_catchment", 1.0); pf = _f.call(&"bank_smoothing", 0.1); pg = _f.call(&"peak_preservation", 0.5); ph = _f.call(&"gradient_power", 0.8)
 			&"hydraulic_saleve":
 				op_id = 36; p0 = float(_i.call(&"iterations", 25)); pb = _f.call(&"erosion_strength", 0.5); pc = _f.call(&"drainage_exponent", 0.15); pd = _f.call(&"drainage_noise", 0.15); pe = _f.call(&"fine_erosion_strength", 0.05); pf = _f.call(&"shape_preservation", 0.2); pg = _f.call(&"bank_smoothing", 0.1); ph = _f.call(&"sediment_strength", 0.3); pi = float(_i.call(&"seed", 0))
+			&"mountain_cone":
+				op_id = 37; p0 = float(_i.call(&"seed", 0)); pb = _f.call(&"elevation", 25.0); pc = _f.call(&"scale", 1.0); pd = float(_i.call(&"octaves", 8)); pe = _f.call(&"peak_kw", 4.0); pf = _f.call(&"rugosity", 0.0); pg = _f.call(&"angle", 45.0); ph = _f.call(&"gamma", 0.5); pi = _f.call(&"cone_alpha", 1.2); pj = _f.call(&"ridge_amp", 0.4); pk = _f.call(&"base_noise_amp", 0.05)
+			&"mountain_inselberg":
+				op_id = 38; p0 = float(_i.call(&"seed", 0)); pb = _f.call(&"elevation", 25.0); pc = _f.call(&"scale", 1.0); pd = float(_i.call(&"octaves", 8)); pe = _f.call(&"rugosity", 0.0); pf = _f.call(&"angle", 45.0); pg = _f.call(&"gamma", 0.5); ph = _f.call(&"bulk_amp", 0.5); pi = _f.call(&"base_noise_amp", 0.05)
 			_:
 				return {} # an op the native evaluator does not implement
 
@@ -1312,7 +1316,8 @@ func native_supported(p_root_node: int = -1) -> bool:
 		&"crater", &"warp", &"strata", &"curve", &"remap", &"mask", &"curvature",
 		&"talus_projection", &"spectral_equalizer", &"depression_filling", &"lake_flooding",
 		&"stream_extraction", &"erosion_hydraulic", &"erosion_thermal", &"scree", &"erosion",
-		&"hydraulic_particle", &"hydraulic_stream_log", &"hydraulic_saleve"
+		&"hydraulic_particle", &"hydraulic_stream_log", &"hydraulic_saleve",
+		&"mountain_cone", &"mountain_inselberg"
 	]
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):
