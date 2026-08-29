@@ -16,6 +16,12 @@ struct HydraulicSaleveParams {
 	float drainage_noise = 0.15f;
 	float fine_erosion_strength = 0.05f;
 	float shape_preservation = 2.0f;
+	// The vertical scale (metres) every length in the solver is measured against, so the drainage network
+	// is a property of the TERRAIN and not of the grid it happens to be solved on. 0 = take it from the
+	// input's own relief (zmax - zmin), which is convenient but moves whenever the solved extent changes
+	// — most visibly under a brush's Modifier Margin, where the band brings surrounding ground into range.
+	// Pin it to hold a shape steady across margins, resizes and re-bakes.
+	float reference_relief = 0.0f;
 	float bank_smoothing = 0.1f;
 	float sediment_strength = 0.3f;
 	int seed = 0;
@@ -24,7 +30,8 @@ struct HydraulicSaleveParams {
 	PackedFloat32Array dy;
 
 	// Stage 2: Sediment Deposition (Deposition / Alluvial flats)
-	float deposition_radius = 0.1f;
+	// Radius in METRES (it was a fraction of the smaller grid dimension, which grew with the footprint).
+	float deposition_radius = 25.0f;
 	float deposition_strength = 0.5f;
 
 	// Stage 3: Fine River Channel Incision (HydraulicStreamLog secondary pass)

@@ -647,6 +647,53 @@ and 1 at the start of the band, decaying only outward. `graph_reads_input` on `B
 same bit into the native path, so `brush_mod_graph` itself stays untouched — the distinction is made where
 `gprofile` is built.
 
+#### 6.8.2 What a margin does to a sim inside the loop
+
+A margin widens the solved grid without moving one vertex of the shape, so the erosion INSIDE the loop
+should not care. It cared enormously, and the cause was a units bug in one node.
+
+`HydraulicSaleve` is a *shape* solver: it normalises elevation to [0..1] and remaps back to metres at the
+end. Its horizontal scale therefore has to be expressed in the same unit as its vertical one. It took
+`dx = 1 / gw` instead — "one cell is one grid fraction" — which makes every slope, drainage distance and
+chi integral a function of how many cells the caller happened to ask for. Two further quantities had the
+same defect: drainage area accumulated in cell COUNTS, and `deposition_radius` was a fraction of the
+smaller grid dimension, so alluvial flats physically grew with the footprint. Put a 60 m margin on a 128 m
+mound at 2 m cells and `gw` goes 64 → 124: every slope doubles. Nothing about the landform changed.
+
+It is now metric. `dx`/`dz` come from the world rect and are divided by a **vertical reference**, so slopes
+are true dimensionless gradients (`max_slope` 4.0 == 76°), area accumulates in ground units, and the
+deposition radius is metres. `gw` and `gh` enter no length anywhere. The reference is the new
+`reference_relief` parameter (metres): 0 takes it from the input's own relief, which is convenient but
+still moves with the solved extent; pinning it to roughly the relief being eroded removes that last scale
+coupling. `HydraulicSaleve` was the only solver in the codebase with this defect — the GPU graph path
+(`pasture_3d_graph_gpu.cpp`) already derived its cell size from `p_rect`, and erosion, thermal and DLA
+never used a normalised one. The native solver and the GDScript oracle
+(`pasture3d_graph_node_dev_hydraulic_saleve.gd`) were changed together and `GraphHydraulicSaleveGate` still
+holds them to 4e-6.
+
+**What is left, measured.** `bench/SaleveMarginInvarianceProbe.tscn` solves the same 90 m dome twice at the
+same cell size — tight, then on a grid widened by a band of surrounding ground — and compares the
+overlapping core. Its margin-0 row is the null control and reads exactly 0.000, so the harness can tell
+"measured nothing" from "measured well".
+
+| margin | reference | max drift | RMS | of which offset | reshaping (max / RMS) |
+|-------:|-----------|----------:|----:|----------------:|----------------------:|
+| 0 m | either | 0.000 | 0.000 | 0.000 | 0.000 / 0.000 |
+| 4 m | auto | 3.673 | 0.689 | 0.422 | 3.251 / 0.544 |
+| 4 m | pinned 90 | 3.301 | 0.650 | 0.356 | 3.388 / 0.544 |
+| 60 m | auto | 5.333 | 1.717 | 1.553 | 4.554 / 0.734 |
+| 60 m | pinned 90 | 4.093 | 1.272 | 1.090 | 3.134 / 0.656 |
+
+Read the last column, not the first. **A 4 m margin reshapes almost exactly as much as a 60 m one** — 0.544
+vs 0.656 RMS across a fifteen-fold increase. That is the signature of something that is no longer a scale
+bug: the residual does not grow with the margin, so it is not the margin being mis-measured. It is the
+boundary condition. Every grid-edge cell is an outlet, so adding *any* ring of cells moves the outlet ring,
+a few cells on the drainage divide choose a different steepest-descent receiver, and the dendritic network
+re-routes downstream of them. A steepest-descent solver is chaotic at its divides by construction; ~0.6% of
+relief in RMS is the price of asking it a slightly different question, not a defect to chase. The bulk
+vertical `offset` is separate and benign — the output is anchored at the grid's `zmin`, which the band
+lowers, and a brush composites through its own blend anyway.
+
 ### 6.9 Editing, and what a frozen modifier does about it
 
 The Sim node already has this machinery: `_baked_hash` records the footprint at bake time and the node
