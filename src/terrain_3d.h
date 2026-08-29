@@ -192,6 +192,9 @@ public:
 	Node3D *get_light_target() const { return _light_target.ptr(); }
 	void snap();
 
+	// World Origin
+	void rebase(const Vector3 &p_delta);
+
 	// Collision Aliases
 	void set_collision_mode(const CollisionMode p_mode) { _collision ? _collision->set_mode(p_mode) : void(); }
 	CollisionMode get_collision_mode() const { return _collision ? _collision->get_mode() : CollisionMode::DYNAMIC_GAME; }
