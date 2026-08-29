@@ -1,7 +1,8 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
 # Pasture3DGraphNodeDevHydraulicSaleve — Pure GDScript Reference Oracle for Salève Hydraulic Erosion.
-# Features Braun-Willett / FastScape control-point graph flow routing with scale-invariant implicit stream power incision.
+# Features stable raster multi-flow routing with dendritic noise perturbation, secondary micro-rills,
+# and lateral riverbed bank diffusion.
 
 @tool
 class_name Pasture3DGraphNodeDevHydraulicSaleve
@@ -185,11 +186,39 @@ static func _hash2d(x: int, y: int, p_seed: int) -> float:
 	return float(n & 0x00ffffff) / 8388608.0 - 1.0
 
 
+static func _smooth_noise2d(x: float, z: float, p_seed: int) -> float:
+	var ix: int = int(floorf(x))
+	var iz: int = int(floorf(z))
+	var fx: float = x - float(ix)
+	var fz: float = z - float(iz)
+
+	var wx: float = fx * fx * fx * (fx * (fx * 6.0 - 15.0) + 10.0)
+	var wz: float = fz * fz * fz * (fz * (fz * 6.0 - 15.0) + 10.0)
+
+	var v00: float = _hash2d(ix, iz, p_seed)
+	var v10: float = _hash2d(ix + 1, iz, p_seed)
+	var v01: float = _hash2d(ix, iz + 1, p_seed)
+	var v11: float = _hash2d(ix + 1, iz + 1, p_seed)
+
+	var nx0: float = lerpf(v00, v10, wx)
+	var nx1: float = lerpf(v01, v11, wx)
+	return lerpf(nx0, nx1, wz)
+
+
 ## Pure GDScript reference solver implementation
 static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_params: Dictionary) -> Array:
 	var n: int = p_gw * p_gh
 	if p_gw < 2 or p_gh < 2 or p_surface.size() != n:
 		return [p_surface.duplicate(), PackedFloat32Array(), PackedFloat32Array()]
+
+	var height := p_surface.duplicate()
+	var eroded_rock := PackedFloat32Array()
+	eroded_rock.resize(n)
+	eroded_rock.fill(0.0)
+
+	var sediment := PackedFloat32Array()
+	sediment.resize(n)
+	sediment.fill(0.0)
 
 	var mask: PackedFloat32Array = p_params.get("mask", PackedFloat32Array())
 	var has_mask: bool = (mask.size() == n)
@@ -204,161 +233,168 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 	var sediment_strength: float = clampf(float(p_params.get("sediment_strength", 0.3)), 0.0, 1.0)
 	var p_seed: int = int(p_params.get("seed", 0))
 
-	var cell_dx: float = p_rect.size.x / float(maxi(p_gw, 1))
-	var cell_dz: float = p_rect.size.y / float(maxi(p_gh, 1))
-
-	var px_arr := PackedFloat32Array()
-	px_arr.resize(n)
-	var pz_arr := PackedFloat32Array()
-	pz_arr.resize(n)
-	var h_arr := PackedFloat32Array()
-	h_arr.resize(n)
-	var orig_h := PackedFloat32Array()
-	orig_h.resize(n)
-
-	for iz in range(p_gh):
-		for ix in range(p_gw):
-			var idx: int = iz * p_gw + ix
-			var jx: float = _hash2d(ix, iz, p_seed) * 0.38
-			var jz: float = _hash2d(ix, iz, p_seed + 1013) * 0.38
-			px_arr[idx] = (float(ix) + 0.5 + jx) * cell_dx
-			pz_arr[idx] = (float(iz) + 0.5 + jz) * cell_dz
-			h_arr[idx] = p_surface[idx]
-			orig_h[idx] = p_surface[idx]
+	var dx: float = p_rect.size.x / float(maxi(p_gw, 1))
+	var dz: float = p_rect.size.y / float(maxi(p_gh, 1))
+	var diag_dist: float = sqrt(dx * dx + dz * dz)
 
 	var n_dx: Array[int] = [-1, 1, 0, 0, -1, 1, -1, 1]
 	var n_dz: Array[int] = [0, 0, -1, 1, -1, -1, 1, 1]
-
-	var eroded_rock := PackedFloat32Array()
-	eroded_rock.resize(n)
-	eroded_rock.fill(0.0)
-
-	var sediment_out := PackedFloat32Array()
-	sediment_out.resize(n)
-	sediment_out.fill(0.0)
-
-	var flow := PackedFloat32Array()
-	flow.resize(n)
-
-	var sediment_accum := PackedFloat32Array()
-	sediment_accum.resize(n)
-
-	var order: Array[int] = []
-	order.resize(n)
+	var n_dist: Array[float] = [dx, dx, dz, dz, diag_dist, diag_dist, diag_dist, diag_dist]
 
 	for pass_idx in range(iterations):
+		# 1. Sort indices descending by elevation
+		var order: Array[int] = []
+		order.resize(n)
 		for i in range(n):
 			order[i] = i
 
 		order.sort_custom(func(a: int, b: int) -> bool:
-			var ha: float = h_arr[a]
-			var hb: float = h_arr[b]
+			var ha: float = height[a]
+			var hb: float = height[b]
 			if not is_finite(ha): return false
 			if not is_finite(hb): return true
 			return ha > hb
 		)
 
-		flow.fill(1.0)
-		sediment_accum.fill(0.0)
+		# 2. Accumulate drainage flow with noise perturbation
+		var current_flow := PackedFloat32Array()
+		current_flow.resize(n)
+		current_flow.fill(1.0)
+
+		var current_sediment := PackedFloat32Array()
+		current_sediment.resize(n)
+		current_sediment.fill(0.0)
 
 		for idx in order:
-			var h_c: float = h_arr[idx]
+			var h_c: float = height[idx]
 			if not is_finite(h_c):
 				continue
-			var ix: int = idx % p_gw
-			var iz: int = idx / p_gw
-			var px: float = px_arr[idx]
-			var pz: float = pz_arr[idx]
+			var cx: int = idx % p_gw
+			var cz: int = idx / p_gw
 
 			var sum_drop: float = 0.0
 			var drops: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-			var n_indices: Array[int] = [-1, -1, -1, -1, -1, -1, -1, -1]
 
 			for k in range(8):
-				var nx: int = ix + n_dx[k]
-				var nz: int = iz + n_dz[k]
+				var nx: int = cx + n_dx[k]
+				var nz: int = cz + n_dz[k]
 				if nx >= 0 and nx < p_gw and nz >= 0 and nz < p_gh:
 					var n_idx: int = nz * p_gw + nx
-					n_indices[k] = n_idx
-					var h_n: float = h_arr[n_idx]
+					var h_n: float = height[n_idx]
 					if is_finite(h_n) and h_n < h_c:
-						var dist: float = maxf(sqrt(pow(px_arr[n_idx] - px, 2.0) + pow(pz_arr[n_idx] - pz, 2.0)), 1.0e-4)
-						var slope: float = (h_c - h_n) / dist
+						var drop: float = (h_c - h_n) / n_dist[k]
 
 						if drainage_noise > 0.0:
-							var pnoise: float = _hash2d(nx, nz, p_seed + pass_idx * 31 + k * 7)
-							slope *= maxf(0.05, 1.0 + drainage_noise * pnoise)
+							var nval: float = _smooth_noise2d(float(nx) * 0.25, float(nz) * 0.25, p_seed + pass_idx * 17 + k * 3)
+							drop *= maxf(0.05, 1.0 + drainage_noise * nval)
 
-						var w_drop: float = pow(slope, 1.3)
-						drops[k] = w_drop
-						sum_drop += w_drop
+						var weighted_drop: float = pow(drop, 1.3)
+						drops[k] = weighted_drop
+						sum_drop += weighted_drop
 
 			if sum_drop > 1.0e-6:
-				var my_flow: float = flow[idx]
-				var my_sed: float = sediment_accum[idx]
+				var my_flow: float = current_flow[idx]
+				var my_sed: float = current_sediment[idx]
 				for k in range(8):
-					if drops[k] > 0.0 and n_indices[k] >= 0:
-						var n_idx: int = n_indices[k]
+					if drops[k] > 0.0:
+						var nx: int = cx + n_dx[k]
+						var nz: int = cz + n_dz[k]
+						var n_idx: int = nz * p_gw + nx
 						var frac: float = drops[k] / sum_drop
-						flow[n_idx] += my_flow * frac
-						sediment_accum[n_idx] += my_sed * frac
+						current_flow[n_idx] += my_flow * frac
+						current_sediment[n_idx] += my_sed * frac
 
-		var next_h := h_arr.duplicate()
+		# 3. Compute Salève Incision
+		var incision_map := PackedFloat32Array()
+		incision_map.resize(n)
+		incision_map.fill(0.0)
+
+		var dep_map := PackedFloat32Array()
+		dep_map.resize(n)
+		dep_map.fill(0.0)
 
 		for iz in range(p_gh):
+			var row: int = iz * p_gw
 			for ix in range(p_gw):
-				var idx: int = iz * p_gw + ix
-				var h_c: float = h_arr[idx]
+				var idx: int = row + ix
+				var h_c: float = height[idx]
 				if not is_finite(h_c):
 					continue
+
 				var m_val: float = mask[idx] if has_mask else 1.0
 				if m_val <= 0.001:
 					continue
 
-				var min_downhill: float = h_c
-				var max_s: float = 0.0
-				for k in range(8):
-					var nx: int = ix + n_dx[k]
-					var nz: int = iz + n_dz[k]
-					if nx >= 0 and nx < p_gw and nz >= 0 and nz < p_gh:
-						var n_idx: int = nz * p_gw + nx
-						var h_n: float = h_arr[n_idx]
-						if is_finite(h_n) and h_n < min_downhill:
-							min_downhill = h_n
-							var d: float = maxf(sqrt(pow(px_arr[n_idx] - px_arr[idx], 2.0) + pow(pz_arr[n_idx] - pz_arr[idx], 2.0)), 1.0e-4)
-							var s: float = (h_c - h_n) / d
-							if s > max_s: max_s = s
+				var h_l: float = height[row + ix - 1] if ix > 0 and is_finite(height[row + ix - 1]) else h_c
+				var h_r: float = height[row + ix + 1] if ix < p_gw - 1 and is_finite(height[row + ix + 1]) else h_c
+				var h_u: float = height[(iz - 1) * p_gw + ix] if iz > 0 and is_finite(height[(iz - 1) * p_gw + ix]) else h_c
+				var h_d: float = height[(iz + 1) * p_gw + ix] if iz < p_gh - 1 and is_finite(height[(iz + 1) * p_gw + ix]) else h_c
 
-				var drop: float = h_c - min_downhill
-				if drop > 1.0e-5:
-					var a_accum: float = log(1.0 + maxf(0.0, flow[idx] - 1.0))
-					var kp: float = erosion_strength * 0.15 * pow(maxf(a_accum, 0.1), drainage_exponent) * m_val
-					if fine_erosion_strength > 0.0:
-						kp += fine_erosion_strength * 0.1 * pow(maxf(max_s, 0.01), 0.8) * m_val
+				var gx: float = (h_r - h_l) / (2.0 * dx)
+				var gz: float = (h_d - h_u) / (2.0 * dz)
+				var slope: float = sqrt(gx * gx + gz * gz)
 
-					var inc: float = (kp / (1.0 + kp)) * drop
+				var diff: float = current_flow[idx] - 1.0
+				var a_accum: float = diff if (diff > 15.0) else (log(1.0 + exp(diff)) if diff > -15.0 else 0.0)
 
-					if shape_preservation > 0.0:
-						var max_allowed_cut: float = 0.5 * orig_h[idx] / shape_preservation
-						inc = minf(inc, maxf(0.0, max_allowed_cut))
+				var inc_primary: float = 0.0
+				if a_accum > 0.01 and slope > 1.0e-5:
+					var power: float = pow(a_accum, drainage_exponent) * slope
+					inc_primary = erosion_strength * 0.25 * log(1.0 + power) * m_val
 
-					next_h[idx] = h_c - inc
-					eroded_rock[idx] += inc
-					sediment_accum[idx] += inc
+				var inc_fine: float = 0.0
+				if fine_erosion_strength > 0.0 and slope > 0.02:
+					inc_fine = fine_erosion_strength * 0.1 * pow(slope, 0.8) * m_val
 
-				if max_s < 0.15 and sediment_accum[idx] > 0.0:
-					var dep: float = sediment_strength * sediment_accum[idx] * (1.0 - max_s / 0.15) * m_val
-					sediment_out[idx] += dep
-					sediment_accum[idx] = maxf(0.0, sediment_accum[idx] - dep)
+				var total_incision: float = inc_primary + inc_fine
 
-		if bank_smoothing > 0.0:
-			for iz in range(1, p_gh - 1):
-				for ix in range(1, p_gw - 1):
-					var idx: int = iz * p_gw + ix
-					if eroded_rock[idx] > 0.001 and is_finite(next_h[idx]):
-						var avg: float = 0.25 * (next_h[iz * p_gw + ix - 1] + next_h[iz * p_gw + ix + 1] + next_h[(iz - 1) * p_gw + ix] + next_h[(iz + 1) * p_gw + ix])
-						next_h[idx] = lerpf(next_h[idx], avg, bank_smoothing * 0.3)
+				if total_incision > 0.0:
+					var center_weight: float = 1.0 - bank_smoothing * 0.6
+					var neighbor_weight: float = (bank_smoothing * 0.6) * 0.25
 
-		h_arr = next_h
+					incision_map[idx] += total_incision * center_weight
+					if ix > 0: incision_map[row + ix - 1] += total_incision * neighbor_weight
+					if ix < p_gw - 1: incision_map[row + ix + 1] += total_incision * neighbor_weight
+					if iz > 0: incision_map[(iz - 1) * p_gw + ix] += total_incision * neighbor_weight
+					if iz < p_gh - 1: incision_map[(iz + 1) * p_gw + ix] += total_incision * neighbor_weight
 
-	return [h_arr, eroded_rock, sediment_out]
+					current_sediment[idx] += total_incision
+
+				if slope < 0.15 and current_sediment[idx] > 0.0:
+					var dep: float = sediment_strength * current_sediment[idx] * (1.0 - slope / 0.15) * m_val
+					dep_map[idx] += dep
+					current_sediment[idx] = maxf(0.0, current_sediment[idx] - dep)
+
+		# 4. Apply incision with base-level descent clamping
+		var next_height := height.duplicate()
+		for iz in range(p_gh):
+			var row: int = iz * p_gw
+			for ix in range(p_gw):
+				var idx: int = row + ix
+				var h_c: float = height[idx]
+				if not is_finite(h_c):
+					continue
+
+				var cut: float = incision_map[idx]
+				if cut > 0.0:
+					var cx: int = ix
+					var cz: int = iz
+					var min_downhill: float = h_c
+					for k in range(8):
+						var nx: int = cx + n_dx[k]
+						var nz: int = cz + n_dz[k]
+						if nx >= 0 and nx < p_gw and nz >= 0 and nz < p_gh:
+							var h_n: float = height[nz * p_gw + nx]
+							if is_finite(h_n) and h_n < min_downhill:
+								min_downhill = h_n
+
+					var max_cut: float = maxf(0.0, (h_c - min_downhill) + 0.15 * cut)
+					cut = minf(cut, max_cut)
+					next_height[idx] = h_c - cut
+					eroded_rock[idx] += cut
+
+				sediment[idx] += dep_map[idx]
+
+		height = next_height
+
+	return [height, eroded_rock, sediment]

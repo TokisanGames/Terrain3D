@@ -13,12 +13,30 @@ using namespace godot;
 
 namespace {
 
-// Fast deterministic 2D float hash in [-1.0 .. 1.0]
 inline float hash2d(int x, int y, int seed) {
 	uint32_t n = (uint32_t)(x * 73856093 ^ y * 19349663 ^ seed * 83492791);
 	n = (n ^ (n >> 13)) * 0x5bd1e995;
 	n ^= n >> 15;
-	return ((float)(n & 0x00ffffff) / 8388608.0f) - 1.0f;
+	return ((float)(n & 0x00ffffff) / 8388608.0f) - 1.0f; // [-1.0 .. 1.0]
+}
+
+inline float smooth_noise2d(float x, float z, int seed) {
+	int ix = (int)std::floor(x);
+	int iz = (int)std::floor(z);
+	float fx = x - (float)ix;
+	float fz = z - (float)iz;
+
+	float wx = fx * fx * fx * (fx * (fx * 6.0f - 15.0f) + 10.0f);
+	float wz = fz * fz * fz * (fz * (fz * 6.0f - 15.0f) + 10.0f);
+
+	float v00 = hash2d(ix, iz, seed);
+	float v10 = hash2d(ix + 1, iz, seed);
+	float v01 = hash2d(ix, iz + 1, seed);
+	float v11 = hash2d(ix + 1, iz + 1, seed);
+
+	float nx0 = v00 * (1.0f - wx) + v10 * wx;
+	float nx1 = v01 * (1.0f - wx) + v11 * wx;
+	return nx0 * (1.0f - wz) + nx1 * wz;
 }
 
 } // namespace
@@ -30,6 +48,8 @@ HydraulicSaleveParams HydraulicSaleveParams::from_dict(const Dictionary &p_dict)
 	}
 	if (p_dict.has("erosion_strength")) {
 		p.erosion_strength = std::max(0.0f, (float)p_dict["erosion_strength"]);
+	} else if (p_dict.has("incision_rate")) {
+		p.erosion_strength = std::max(0.0f, (float)p_dict["incision_rate"]);
 	}
 	if (p_dict.has("drainage_exponent")) {
 		p.drainage_exponent = std::clamp((float)p_dict["drainage_exponent"], 0.01f, 1.0f);
@@ -79,6 +99,10 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 	}
 
 	const float *src_height = p_surface.ptr();
+	std::vector<float> height(src_height, src_height + n);
+	std::vector<float> eroded_rock(n, 0.0f);
+	std::vector<float> sediment(n, 0.0f);
+
 	const bool has_mask = (p_params.mask.size() == n);
 	const float *mask_ptr = has_mask ? p_params.mask.ptr() : nullptr;
 
@@ -92,217 +116,195 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 	const double sediment_strength = (double)p_params.sediment_strength;
 	const int seed = p_params.seed;
 
-	const double cell_dx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
-	const double cell_dz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
-	const double mean_cell_size = 0.5 * (cell_dx + cell_dz);
-
-	// 1. Construct Jittered Control-Point Graph
-	struct ControlPoint {
-		double x, z;
-		float h;
-		float orig_h;
-		float mask;
-	};
-
-	std::vector<ControlPoint> points(n);
-	for (int iz = 0; iz < p_gh; iz++) {
-		for (int ix = 0; ix < p_gw; ix++) {
-			int idx = iz * p_gw + ix;
-			float jx = hash2d(ix, iz, seed) * 0.38f;
-			float jz = hash2d(ix, iz, seed + 1013) * 0.38f;
-
-			double px = ((double)ix + 0.5 + (double)jx) * cell_dx;
-			double pz = ((double)iz + 0.5 + (double)jz) * cell_dz;
-
-			points[idx].x = px;
-			points[idx].z = pz;
-			points[idx].h = src_height[idx];
-			points[idx].orig_h = src_height[idx];
-			points[idx].mask = has_mask ? mask_ptr[idx] : 1.0f;
-		}
-	}
+	const double dx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
+	const double dz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+	const double diag_dist = std::sqrt(dx * dx + dz * dz);
 
 	const int n_dx[8] = { -1, 1, 0, 0, -1, 1, -1, 1 };
 	const int n_dz[8] = { 0, 0, -1, 1, -1, -1, 1, 1 };
+	const double n_dist[8] = { dx, dx, dz, dz, diag_dist, diag_dist, diag_dist, diag_dist };
 
 	std::vector<int> order(n);
-	std::vector<double> flow(n, 1.0);
-	std::vector<double> sediment_accum(n, 0.0);
-	std::vector<float> eroded_rock(n, 0.0f);
-	std::vector<float> sediment_out(n, 0.0f);
 
-	for (int pass = 0; pass < iterations; pass++) {
-		// 2. Sort control points descending by elevation
+	for (int pass_idx = 0; pass_idx < iterations; pass_idx++) {
+		// 1. Sort indices descending by elevation
 		for (int i = 0; i < n; i++) {
 			order[i] = i;
 		}
 
-		std::sort(order.begin(), order.end(), [&points](int a, int b) {
-			float ha = points[a].h;
-			float hb = points[b].h;
+		std::sort(order.begin(), order.end(), [&height](int a, int b) {
+			float ha = height[a];
+			float hb = height[b];
 			if (!std::isfinite(ha)) return false;
 			if (!std::isfinite(hb)) return true;
 			return ha > hb;
 		});
 
-		// 3. Multi-direction Flow Routing on Jittered Graph
-		std::fill(flow.begin(), flow.end(), 1.0);
-		std::fill(sediment_accum.begin(), sediment_accum.end(), 0.0);
+		// 2. Accumulate drainage flow with dendritic noise perturbation
+		std::vector<float> current_flow(n, 1.0f);
+		std::vector<float> current_sediment(n, 0.0f);
 
 		for (int idx : order) {
-			float h_c = points[idx].h;
+			float h_c = height[idx];
 			if (!std::isfinite(h_c)) {
 				continue;
 			}
-			int ix = idx % p_gw;
-			int iz = idx / p_gw;
-			double px = points[idx].x;
-			double pz = points[idx].z;
+			int cx = idx % p_gw;
+			int cz = idx / p_gw;
 
 			double sum_drop = 0.0;
-			double drops[8] = { 0.0 };
-			int n_indices[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
+			double drops[8] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
 			for (int k = 0; k < 8; k++) {
-				int nx = ix + n_dx[k];
-				int nz = iz + n_dz[k];
+				int nx = cx + n_dx[k];
+				int nz = cz + n_dz[k];
 				if (nx >= 0 && nx < p_gw && nz >= 0 && nz < p_gh) {
 					int n_idx = nz * p_gw + nx;
-					n_indices[k] = n_idx;
-					float h_n = points[n_idx].h;
+					float h_n = height[n_idx];
 					if (std::isfinite(h_n) && h_n < h_c) {
-						double dist = std::sqrt(std::pow(points[n_idx].x - px, 2.0) + std::pow(points[n_idx].z - pz, 2.0));
-						dist = std::max(dist, 1.0e-4);
-						double slope = (double)(h_c - h_n) / dist;
+						double drop = (double)(h_c - h_n) / n_dist[k];
 
 						if (drainage_noise > 0.0) {
-							float pnoise = hash2d(nx, nz, seed + pass * 31 + k * 7);
-							slope *= std::max(0.05, 1.0 + drainage_noise * (double)pnoise);
+							float nval = smooth_noise2d((float)nx * 0.25f, (float)nz * 0.25f, seed + pass_idx * 17 + k * 3);
+							drop *= std::max(0.05, 1.0 + drainage_noise * (double)nval);
 						}
 
-						double w_drop = std::pow(slope, 1.3);
-						drops[k] = w_drop;
-						sum_drop += w_drop;
+						double weighted_drop = std::pow(drop, 1.3);
+						drops[k] = weighted_drop;
+						sum_drop += weighted_drop;
 					}
 				}
 			}
 
 			if (sum_drop > 1.0e-6) {
-				double my_flow = flow[idx];
-				double my_sed = sediment_accum[idx];
+				double my_flow = (double)current_flow[idx];
+				double my_sed = (double)current_sediment[idx];
 				for (int k = 0; k < 8; k++) {
-					if (drops[k] > 0.0 && n_indices[k] >= 0) {
-						int n_idx = n_indices[k];
+					if (drops[k] > 0.0) {
+						int nx = cx + n_dx[k];
+						int nz = cz + n_dz[k];
+						int n_idx = nz * p_gw + nx;
 						double frac = drops[k] / sum_drop;
-						flow[n_idx] += my_flow * frac;
-						sediment_accum[n_idx] += my_sed * frac;
+						current_flow[n_idx] = (float)((double)current_flow[n_idx] + my_flow * frac);
+						current_sediment[n_idx] = (float)((double)current_sediment[n_idx] + my_sed * frac);
 					}
 				}
 			}
 		}
 
-		// 4. Scale-Invariant Implicit Stream Power Incision (Braun & Willett Formulation)
-		std::vector<float> next_h(n);
-		for (int i = 0; i < n; i++) {
-			next_h[i] = points[i].h;
-		}
+		// 3. Compute Salève Incision with Lateral Bank Spreading
+		std::vector<double> incision_map(n, 0.0);
+		std::vector<double> dep_map(n, 0.0);
 
 		for (int iz = 0; iz < p_gh; iz++) {
+			int row = iz * p_gw;
 			for (int ix = 0; ix < p_gw; ix++) {
-				int idx = iz * p_gw + ix;
-				float h_c = points[idx].h;
+				int idx = row + ix;
+				float h_c = height[idx];
 				if (!std::isfinite(h_c)) {
 					continue;
 				}
-				float m_val = points[idx].mask;
-				if (m_val <= 0.001f) {
+
+				double m_val = has_mask ? (double)mask_ptr[idx] : 1.0;
+				if (m_val <= 0.001) {
 					continue;
 				}
 
-				// Find lowest downhill receiver
-				float min_downhill = h_c;
-				double max_s = 0.0;
-				for (int k = 0; k < 8; k++) {
-					int nx = ix + n_dx[k];
-					int nz = iz + n_dz[k];
-					if (nx >= 0 && nx < p_gw && nz >= 0 && nz < p_gh) {
-						int n_idx = nz * p_gw + nx;
-						float h_n = points[n_idx].h;
-						if (std::isfinite(h_n) && h_n < min_downhill) {
-							min_downhill = h_n;
-							double d = std::sqrt(std::pow(points[n_idx].x - points[idx].x, 2.0) + std::pow(points[n_idx].z - points[idx].z, 2.0));
-							double s = (double)(h_c - h_n) / std::max(d, 1.0e-4);
-							if (s > max_s) max_s = s;
+				float h_l = (ix > 0 && std::isfinite(height[row + ix - 1])) ? height[row + ix - 1] : h_c;
+				float h_r = (ix < p_gw - 1 && std::isfinite(height[row + ix + 1])) ? height[row + ix + 1] : h_c;
+				float h_u = (iz > 0 && std::isfinite(height[(iz - 1) * p_gw + ix])) ? height[(iz - 1) * p_gw + ix] : h_c;
+				float h_d = (iz < p_gh - 1 && std::isfinite(height[(iz + 1) * p_gw + ix])) ? height[(iz + 1) * p_gw + ix] : h_c;
+
+				double gx = (double)(h_r - h_l) / (2.0 * dx);
+				double gz = (double)(h_d - h_u) / (2.0 * dz);
+				double slope = std::sqrt(gx * gx + gz * gz);
+
+				double diff = (double)current_flow[idx] - 1.0;
+				double a_accum = (diff > 15.0) ? diff : ((diff > -15.0) ? std::log(1.0 + std::exp(diff)) : 0.0);
+
+				double inc_primary = 0.0;
+				if (a_accum > 0.01 && slope > 1.0e-5) {
+					double power = std::pow(a_accum, drainage_exponent) * slope;
+					inc_primary = erosion_strength * 0.25 * std::log(1.0 + power) * m_val;
+				}
+
+				double inc_fine = 0.0;
+				if (fine_erosion_strength > 0.0 && slope > 0.02) {
+					inc_fine = fine_erosion_strength * 0.1 * std::pow(slope, 0.8) * m_val;
+				}
+
+				double total_incision = inc_primary + inc_fine;
+
+				if (total_incision > 0.0) {
+					double center_weight = 1.0 - bank_smoothing * 0.6;
+					double neighbor_weight = (bank_smoothing * 0.6) * 0.25;
+
+					incision_map[idx] += total_incision * center_weight;
+					if (ix > 0) incision_map[row + ix - 1] += total_incision * neighbor_weight;
+					if (ix < p_gw - 1) incision_map[row + ix + 1] += total_incision * neighbor_weight;
+					if (iz > 0) incision_map[(iz - 1) * p_gw + ix] += total_incision * neighbor_weight;
+					if (iz < p_gh - 1) incision_map[(iz + 1) * p_gw + ix] += total_incision * neighbor_weight;
+
+					current_sediment[idx] = (float)((double)current_sediment[idx] + total_incision);
+				}
+
+				if (slope < 0.15 && current_sediment[idx] > 0.0f) {
+					double dep = sediment_strength * (double)current_sediment[idx] * (1.0 - slope / 0.15) * m_val;
+					dep_map[idx] += dep;
+					current_sediment[idx] = (float)std::max(0.0, (double)current_sediment[idx] - dep);
+				}
+			}
+		}
+
+		// 4. Apply incision with base-level descent clamping
+		std::vector<float> next_height = height;
+		for (int iz = 0; iz < p_gh; iz++) {
+			int row = iz * p_gw;
+			for (int ix = 0; ix < p_gw; ix++) {
+				int idx = row + ix;
+				float h_c = height[idx];
+				if (!std::isfinite(h_c)) {
+					continue;
+				}
+
+				double cut = incision_map[idx];
+				if (cut > 0.0) {
+					int cx = ix;
+					int cz = iz;
+					float min_downhill = h_c;
+					for (int k = 0; k < 8; k++) {
+						int nx = cx + n_dx[k];
+						int nz = cz + n_dz[k];
+						if (nx >= 0 && nx < p_gw && nz >= 0 && nz < p_gh) {
+							float h_n = height[nz * p_gw + nx];
+							if (std::isfinite(h_n) && h_n < min_downhill) {
+								min_downhill = h_n;
+							}
 						}
 					}
+
+					double max_cut = std::max(0.0, (double)(h_c - min_downhill) + 0.15 * cut);
+					cut = std::min(cut, max_cut);
+					next_height[idx] = (float)((double)h_c - cut);
+					eroded_rock[idx] = (float)((double)eroded_rock[idx] + cut);
 				}
 
-				double drop = (double)(h_c - min_downhill);
-				if (drop > 1.0e-5) {
-					double a_accum = std::log(1.0 + std::max(0.0, flow[idx] - 1.0));
-					
-					// Dimensionless incision scaling factor Kp
-					double kp = erosion_strength * 0.15 * std::pow(std::max(a_accum, 0.1), drainage_exponent) * (double)m_val;
-					if (fine_erosion_strength > 0.0) {
-						kp += fine_erosion_strength * 0.1 * std::pow(std::max(max_s, 0.01), 0.8) * (double)m_val;
-					}
-
-					// Implicit stable update: z_next = (h_c + kp * min_downhill) / (1 + kp)
-					double inc = (kp / (1.0 + kp)) * drop;
-
-					// Shape preservation envelope: limits maximum depth to prevent whole-cone collapse
-					if (shape_preservation > 0.0) {
-						double max_allowed_cut = 0.5 * (double)points[idx].orig_h / shape_preservation;
-						inc = std::min(inc, std::max(0.0, max_allowed_cut));
-					}
-
-					next_h[idx] = (float)((double)h_c - inc);
-					eroded_rock[idx] += (float)inc;
-					sediment_accum[idx] += inc;
-				}
-
-				if (max_s < 0.15 && sediment_accum[idx] > 0.0) {
-					double dep = sediment_strength * sediment_accum[idx] * (1.0 - max_s / 0.15) * (double)m_val;
-					sediment_out[idx] += (float)dep;
-					sediment_accum[idx] = std::max(0.0, sediment_accum[idx] - dep);
-				}
+				sediment[idx] = (float)((double)sediment[idx] + dep_map[idx]);
 			}
 		}
 
-		// 5. Transverse Hillslope Diffusion along Riverbeds
-		if (bank_smoothing > 0.0) {
-			for (int iz = 1; iz < p_gh - 1; iz++) {
-				for (int ix = 1; ix < p_gw - 1; ix++) {
-					int idx = iz * p_gw + ix;
-					if (eroded_rock[idx] > 0.001f && std::isfinite(next_h[idx])) {
-						double avg = 0.25 * ((double)next_h[iz * p_gw + ix - 1] + (double)next_h[iz * p_gw + ix + 1] +
-								(double)next_h[(iz - 1) * p_gw + ix] + (double)next_h[(iz + 1) * p_gw + ix]);
-						double blend = bank_smoothing * 0.3;
-						next_h[idx] = (float)((1.0 - blend) * (double)next_h[idx] + blend * avg);
-					}
-				}
-			}
-		}
-
-		for (int i = 0; i < n; i++) {
-			points[i].h = next_h[i];
-		}
-	}
-
-	std::vector<float> final_height(n);
-	for (int i = 0; i < n; i++) {
-		final_height[i] = points[i].h;
+		height = next_height;
 	}
 
 	res.ok = true;
 	res.height.resize(n);
-	std::memcpy(res.height.ptrw(), final_height.data(), n * sizeof(float));
+	std::memcpy(res.height.ptrw(), height.data(), n * sizeof(float));
 
 	res.eroded_rock.resize(n);
 	std::memcpy(res.eroded_rock.ptrw(), eroded_rock.data(), n * sizeof(float));
 
 	res.sediment.resize(n);
-	std::memcpy(res.sediment.ptrw(), sediment_out.data(), n * sizeof(float));
+	std::memcpy(res.sediment.ptrw(), sediment.data(), n * sizeof(float));
 
 	return res;
 }
