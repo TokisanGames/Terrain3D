@@ -84,14 +84,16 @@
 			<return type="Color" />
 			<param index="0" name="global_position" type="Vector3" />
 			<description>
-				Returns the associated pixel on the color map at the requested position.
+				Returns the associated pixel on the active color map at the requested position.
 				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
+				See [method Terrain3DRegion.get_active_color_map].
 			</description>
 		</method>
 		<method name="get_color_maps_rid" qualifiers="const">
 			<return type="RID" />
 			<description>
-				Returns the resource ID of the generated height map Texture Array sent to the shader. You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See [url=https://terrain3d.readthedocs.io/en/stable/docs/tips.html#using-the-generated-height-map-in-other-shaders]Tips[/url] for an example.
+				Returns the resource ID of the generated color map Texture Array sent to the shader. Uses the active color map. See [method Terrain3DRegion.get_active_color_map].
+				You can use this RID with the RenderingServer to set it as a shader parameter for a sampler2DArray uniform in your own shader. See [url=https://terrain3d.readthedocs.io/en/stable/docs/tips.html#using-the-generated-height-map-in-other-shaders]Tips[/url] for an example.
 			</description>
 		</method>
 		<method name="get_control" qualifiers="const">
@@ -226,6 +228,8 @@
 			<description>
 				Returns the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates.
 				Returns [code skip-lint]Color(NAN, NAN, NAN, NAN)[/code] if the position is outside of defined regions.
+				Uses [method Terrain3DRegion.get_active_color_map] for the color map.
+				Note: If using [member Terrain3D.color_compress_mode], Godot Image.set_pixel() and get_pixel() do not work at runtime on compressed images and will print errors.
 			</description>
 		</method>
 		<method name="get_region" qualifiers="const">
@@ -441,12 +445,14 @@
 		<method name="save_region">
 			<return type="void" />
 			<param index="0" name="region_location" type="Vector2i" />
-			<param index="1" name="directory" type="String" />
+			<param index="1" name="directory" type="String" default="&quot;&quot;" />
 			<param index="2" name="save_16_bit" type="bool" default="false" />
+			<param index="3" name="color_compress_mode" type="int" enum="CompressMode" default="5" />
 			<description>
 				Saves the specified active region to the directory. See [method Terrain3DRegion.save].
 				- region_location - the region to save.
 				- 16_bit - converts the edited 32-bit heightmap to 16-bit. This is a lossy operation.
+				- color_compression_mode - compresses the color map with the selected mode.
 			</description>
 		</method>
 		<method name="set_color">
@@ -551,6 +557,7 @@
 			<description>
 				Sets the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use [method Terrain3DRegion.get_map], then edit the images directly.
 				After setting pixels you need to call [method update_maps]. You may also need to regenerate collision if you don't have dynamic collision enabled.
+				Note: If using [member Terrain3D.color_compress_mode], Godot Image.set_pixel() and get_pixel() do not work at runtime on compressed images and will print errors.
 			</description>
 		</method>
 		<method name="set_region_deleted">

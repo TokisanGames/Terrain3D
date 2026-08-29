@@ -27,31 +27,33 @@ Properties
 .. table::
    :widths: auto
 
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``Image``      | :ref:`color_map<class_Terrain3DRegion_property_color_map>`           |                   |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``Image``      | :ref:`control_map<class_Terrain3DRegion_property_control_map>`       |                   |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``bool``       | :ref:`deleted<class_Terrain3DRegion_property_deleted>`               |                   |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``bool``       | :ref:`edited<class_Terrain3DRegion_property_edited>`                 |                   |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``Image``      | :ref:`height_map<class_Terrain3DRegion_property_height_map>`         |                   |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``Vector2``    | :ref:`height_range<class_Terrain3DRegion_property_height_range>`     | ``Vector2(0, 0)`` |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``Dictionary`` | :ref:`instances<class_Terrain3DRegion_property_instances>`           | ``{}``            |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``Vector2i``   | :ref:`location<class_Terrain3DRegion_property_location>`             |                   |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``bool``       | :ref:`modified<class_Terrain3DRegion_property_modified>`             |                   |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``int``        | :ref:`region_size<class_Terrain3DRegion_property_region_size>`       | ``0``             |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``float``      | :ref:`version<class_Terrain3DRegion_property_version>`               | ``0.8``           |
-   +----------------+----------------------------------------------------------------------+-------------------+
-   | ``float``      | :ref:`vertex_spacing<class_Terrain3DRegion_property_vertex_spacing>` | ``1.0``           |
-   +----------------+----------------------------------------------------------------------+-------------------+
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``Image``      | :ref:`color_map<class_Terrain3DRegion_property_color_map>`                       |                   |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``Image``      | :ref:`compressed_color_map<class_Terrain3DRegion_property_compressed_color_map>` |                   |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``Image``      | :ref:`control_map<class_Terrain3DRegion_property_control_map>`                   |                   |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``bool``       | :ref:`deleted<class_Terrain3DRegion_property_deleted>`                           |                   |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``bool``       | :ref:`edited<class_Terrain3DRegion_property_edited>`                             |                   |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``Image``      | :ref:`height_map<class_Terrain3DRegion_property_height_map>`                     |                   |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``Vector2``    | :ref:`height_range<class_Terrain3DRegion_property_height_range>`                 | ``Vector2(0, 0)`` |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``Dictionary`` | :ref:`instances<class_Terrain3DRegion_property_instances>`                       | ``{}``            |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``Vector2i``   | :ref:`location<class_Terrain3DRegion_property_location>`                         |                   |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``bool``       | :ref:`modified<class_Terrain3DRegion_property_modified>`                         |                   |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``int``        | :ref:`region_size<class_Terrain3DRegion_property_region_size>`                   | ``0``             |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``float``      | :ref:`version<class_Terrain3DRegion_property_version>`                           | ``0.8``           |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
+   | ``float``      | :ref:`vertex_spacing<class_Terrain3DRegion_property_vertex_spacing>`             | ``1.0``           |
+   +----------------+----------------------------------------------------------------------------------+-------------------+
 
 .. rst-class:: classref-reftable-group
 
@@ -66,9 +68,17 @@ Methods
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`clear<class_Terrain3DRegion_method_clear>`\ (\ )                                                                                                 |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`clear_color_map<class_Terrain3DRegion_method_clear_color_map>`\ (\ )                                                                             |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`clear_compressed_color_map<class_Terrain3DRegion_method_clear_compressed_color_map>`\ (\ )                                                       |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | |void|                                        | :ref:`compress_color_map<class_Terrain3DRegion_method_compress_color_map>`\ (\ mode\: CompressMode\ )                                                  |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`dump<class_Terrain3DRegion_method_dump>`\ (\ verbose\: ``bool`` = false\ ) |const|                                                               |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Terrain3DRegion<class_Terrain3DRegion>` | :ref:`duplicate<class_Terrain3DRegion_method_duplicate>`\ (\ deep\: ``bool`` = false\ )                                                                |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``Image``                                     | :ref:`get_active_color_map<class_Terrain3DRegion_method_get_active_color_map>`\ (\ ) |const|                                                           |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Dictionary``                                | :ref:`get_data<class_Terrain3DRegion_method_get_data>`\ (\ ) |const|                                                                                   |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -76,11 +86,13 @@ Methods
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | :ref:`Array<class_Array>`\[``Image``\]        | :ref:`get_maps<class_Terrain3DRegion_method_get_maps>`\ (\ ) |const|                                                                                   |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``bool``                                      | :ref:`is_color_compressed<class_Terrain3DRegion_method_is_color_compressed>`\ (\ ) |const|                                                             |
+   +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | ``Image``                                     | :ref:`sanitize_map<class_Terrain3DRegion_method_sanitize_map>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`, map\: ``Image``\ ) |const| |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`sanitize_maps<class_Terrain3DRegion_method_sanitize_maps>`\ (\ )                                                                                 |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
-   | Error                                         | :ref:`save<class_Terrain3DRegion_method_save>`\ (\ path\: ``String`` = "", save_16_bit\: ``bool`` = false\ )                                           |
+   | Error                                         | :ref:`save<class_Terrain3DRegion_method_save>`\ (\ path\: ``String`` = "", save_16_bit\: ``bool`` = false, color_compress_mode\: CompressMode = 5\ )   |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                        | :ref:`set_data<class_Terrain3DRegion_method_set_data>`\ (\ data\: ``Dictionary``\ )                                                                    |
    +-----------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -132,7 +144,7 @@ Control map - defines where textures and holes are placed.
 
 :ref:`MapType<enum_Terrain3DRegion_MapType>` **TYPE_COLOR** = ``2``
 
-Color map - paints color on the terrain
+Color map - paints color and wetness on the terrain.
 
 .. _class_Terrain3DRegion_constant_TYPE_MAX:
 
@@ -162,13 +174,40 @@ Property Descriptions
 - |void| **set_color_map**\ (\ value\: ``Image``\ )
 - ``Image`` **get_color_map**\ (\ )
 
-This map is used to paint color that blends in to the terrain textures.
+This is the map that is used for wetness and to paint color that blends in to the terrain textures.
+
+\ ``get_color_map()`` returns the uncompressed map, only.
+
+In game, this will be cleared if :ref:`compressed_color_map<class_Terrain3DRegion_property_compressed_color_map>` is set.
 
 Image format: FORMAT_RGBA8, 32-bits per pixel as four 8-bit components.
 
 \ **RGB** is used for color, which is multiplied by albedo in the shader. Multiply is a blend mode that only darkens.
 
 \ **A** is used for a roughness modifier. A value of 0.5 means no change to the existing texture roughness. Higher than this value increases roughness, lower decreases it.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_property_compressed_color_map:
+
+.. rst-class:: classref-property
+
+``Image`` **compressed_color_map** :ref:`🔗<class_Terrain3DRegion_property_compressed_color_map>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_compressed_color_map**\ (\ value\: ``Image``\ )
+- ``Image`` **get_compressed_color_map**\ (\ )
+
+**Experimental:** This function is experimental.
+
+This is the compressed version of the :ref:`color_map<class_Terrain3DRegion_property_color_map>`.
+
+In editor, it will be cleared and will be regenerated upon save if the region is modified or :ref:`Terrain3D.color_compress_mode<class_Terrain3D_property_color_compress_mode>` is set differently than what is stored on disk.
+
+In game, this map is preferred by functions over over the uncompressed map. The compressed color map cannot be modified, so if you want to edit it at runtime, disable color compression.
 
 .. rst-class:: classref-item-separator
 
@@ -364,7 +403,7 @@ The current region size for this region, calculated from the dimensions of the f
 - |void| **set_version**\ (\ value\: ``float``\ )
 - ``float`` **get_version**\ (\ )
 
-The data file version. This is independent of the Terrain3D version, though they often align.
+The data format version. This is independent of the Terrain3D version, though they often align.
 
 .. rst-class:: classref-item-separator
 
@@ -416,6 +455,44 @@ Unreferences the maps and resets all member variables to default values.
 
 ----
 
+.. _class_Terrain3DRegion_method_clear_color_map:
+
+.. rst-class:: classref-method
+
+|void| **clear_color_map**\ (\ ) :ref:`🔗<class_Terrain3DRegion_method_clear_color_map>`
+
+Clears the uncompressed color map. Does not mark the region modified.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_clear_compressed_color_map:
+
+.. rst-class:: classref-method
+
+|void| **clear_compressed_color_map**\ (\ ) :ref:`🔗<class_Terrain3DRegion_method_clear_compressed_color_map>`
+
+Clears the compressed color map. Does not mark the region modified.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_compress_color_map:
+
+.. rst-class:: classref-method
+
+|void| **compress_color_map**\ (\ mode\: CompressMode\ ) :ref:`🔗<class_Terrain3DRegion_method_compress_color_map>`
+
+**Experimental:** This function is experimental.
+
+Compresses the color map with the specified compression mode. Only compresses in editor.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DRegion_method_dump:
 
 .. rst-class:: classref-method
@@ -442,6 +519,18 @@ Returns a duplicate copy of this node, with references to the same image maps an
 
 ----
 
+.. _class_Terrain3DRegion_method_get_active_color_map:
+
+.. rst-class:: classref-method
+
+``Image`` **get_active_color_map**\ (\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_active_color_map>`
+
+Returns the compressed color map if valid, otherwise returns the uncompressed map.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DRegion_method_get_data:
 
 .. rst-class:: classref-method
@@ -460,7 +549,7 @@ Returns all data in this region in a dictionary.
 
 ``Image`` **get_map**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_map>`
 
-Returns the specified image map.
+Returns the specified image map. Returns the compressed color map if requested and valid.
 
 .. rst-class:: classref-item-separator
 
@@ -472,7 +561,19 @@ Returns the specified image map.
 
 :ref:`Array<class_Array>`\[``Image``\] **get_maps**\ (\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_get_maps>`
 
-Returns an Array\ ``Image`` with height, control, and color maps.
+Returns an Array\ ``Image`` with height, control, and color maps. Returns the compressed color map if valid.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DRegion_method_is_color_compressed:
+
+.. rst-class:: classref-method
+
+``bool`` **is_color_compressed**\ (\ ) |const| :ref:`🔗<class_Terrain3DRegion_method_is_color_compressed>`
+
+Returns true if the compressed color map is valid.
 
 .. rst-class:: classref-item-separator
 
@@ -498,6 +599,8 @@ Validates and adjusts the map size and format if possible, or creates a usable b
 
 Sanitizes all map types. See :ref:`sanitize_map()<class_Terrain3DRegion_method_sanitize_map>`.
 
+- free_uncompressed_color_maps - if true, the uncompressed color map will be freed instead of sanitized.
+
 .. rst-class:: classref-item-separator
 
 ----
@@ -506,13 +609,15 @@ Sanitizes all map types. See :ref:`sanitize_map()<class_Terrain3DRegion_method_s
 
 .. rst-class:: classref-method
 
-Error **save**\ (\ path\: ``String`` = "", save_16_bit\: ``bool`` = false\ ) :ref:`🔗<class_Terrain3DRegion_method_save>`
+Error **save**\ (\ path\: ``String`` = "", save_16_bit\: ``bool`` = false, color_compress_mode\: CompressMode = 5\ ) :ref:`🔗<class_Terrain3DRegion_method_save>`
 
 Saves this region to the current file name.
 
 - path - specifies a directory and file name to use from now on.
 
-- 16-bit - save this region with 16-bit height map instead of 32-bit. This process is lossy. Does not change the bit depth in memory.
+- 16-bit - saves this region with 16-bit height map instead of 32-bit. This process is lossy. Does not change the bit depth in memory.
+
+- color_compress_mode - compresses the color map on save. Only works in the editor.
 
 .. rst-class:: classref-item-separator
 

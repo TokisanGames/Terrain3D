@@ -130,16 +130,20 @@ void Terrain3D::__physics_process(const double p_delta) {
 		if (light) {
 			Color color = light->get_color() * light->get_param(DirectionalLight3D::PARAM_ENERGY);
 			Vector3 direction = light->get_global_basis().get_column(2);
-			if (_material.is_valid()) {
-				_material->set_shader_param("_light_color", color);
-				_material->set_shader_param("_light_direction", direction);
-			}
-			if (_ocean_material.is_valid()) {
-				ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
-				if (ocean_shader_mat) {
-					ocean_shader_mat->set_shader_parameter("_light_color", color);
-					ocean_shader_mat->set_shader_parameter("_light_direction", direction);
+			if (!direction.is_equal_approx(_last_light_direction) || !color.is_equal_approx(_last_light_color)) {
+				if (_material.is_valid()) {
+					_material->set_shader_param("_light_color", color);
+					_material->set_shader_param("_light_direction", direction);
 				}
+				if (_ocean_material.is_valid()) {
+					ShaderMaterial *ocean_shader_mat = Object::cast_to<ShaderMaterial>(_ocean_material.ptr());
+					if (ocean_shader_mat) {
+						ocean_shader_mat->set_shader_parameter("_light_color", color);
+						ocean_shader_mat->set_shader_parameter("_light_direction", direction);
+					}
+				}
+				_last_light_color = color;
+				_last_light_direction = direction;
 			}
 		}
 	}
@@ -609,6 +613,15 @@ void Terrain3D::set_save_16_bit(const bool p_enabled) {
 	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
 	for (Ref<Terrain3DRegion> region : regions) {
 		region->set_modified(true);
+	}
+}
+
+void Terrain3D::set_color_compress_mode(const CompressMode p_color_compress_mode) {
+	SET_IF_DIFF(_color_compress_mode, CLAMP(p_color_compress_mode, COMPRESS_S3TC, COMPRESS_NONE));
+	LOG(INFO, "Setting compression mode for color maps: ", _color_compress_mode);
+	TypedArray<Terrain3DRegion> regions = _data->get_regions_active();
+	for (Ref<Terrain3DRegion> region : regions) {
+		region->check_compressed_color_map(_color_compress_mode);
 	}
 }
 
@@ -1361,6 +1374,13 @@ void Terrain3D::_bind_methods() {
 	BIND_ENUM_CONSTANT(SIZE_1024);
 	BIND_ENUM_CONSTANT(SIZE_2048);
 
+	BIND_ENUM_CONSTANT(COMPRESS_NONE);
+	BIND_ENUM_CONSTANT(COMPRESS_S3TC);
+	BIND_ENUM_CONSTANT(COMPRESS_BPTC);
+	BIND_ENUM_CONSTANT(COMPRESS_ETC);
+	BIND_ENUM_CONSTANT(COMPRESS_ETC2);
+	BIND_ENUM_CONSTANT(COMPRESS_ASTC);
+
 	ClassDB::bind_method(D_METHOD("get_version"), &Terrain3D::get_version);
 	ClassDB::bind_method(D_METHOD("set_debug_level", "level"), &Terrain3D::set_debug_level);
 	ClassDB::bind_method(D_METHOD("get_debug_level"), &Terrain3D::get_debug_level);
@@ -1385,6 +1405,8 @@ void Terrain3D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_region_size"), &Terrain3D::get_region_size);
 	ClassDB::bind_method(D_METHOD("set_save_16_bit", "enabled"), &Terrain3D::set_save_16_bit);
 	ClassDB::bind_method(D_METHOD("get_save_16_bit"), &Terrain3D::get_save_16_bit);
+	ClassDB::bind_method(D_METHOD("set_color_compress_mode", "compress_mode"), &Terrain3D::set_color_compress_mode);
+	ClassDB::bind_method(D_METHOD("get_color_compress_mode"), &Terrain3D::get_color_compress_mode);
 	ClassDB::bind_method(D_METHOD("set_label_distance", "distance"), &Terrain3D::set_label_distance);
 	ClassDB::bind_method(D_METHOD("get_label_distance"), &Terrain3D::get_label_distance);
 	ClassDB::bind_method(D_METHOD("set_label_size", "size"), &Terrain3D::set_label_size);
@@ -1550,10 +1572,14 @@ void Terrain3D::_bind_methods() {
 
 	ADD_GROUP("Regions", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "region_size", PROPERTY_HINT_ENUM, "64:64,128:128,256:256,512:512,1024:1024,2048:2048", PROPERTY_USAGE_EDITOR), "change_region_size", "get_region_size");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");
 	ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "label_distance", PROPERTY_HINT_RANGE, "0.0,10000.0,0.5,or_greater"), "set_label_distance", "get_label_distance");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "label_size", PROPERTY_HINT_RANGE, "24,128,1"), "set_label_size", "get_label_size");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "show_grid"), "set_show_region_grid", "get_show_region_grid");
+	ADD_SUBGROUP("Advanced", "");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "save_16_bit"), "set_save_16_bit", "get_save_16_bit");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "color_compress_mode", PROPERTY_HINT_ENUM,
+						 "None:5,S3TC (Desktop):0,BPTC (Desktop HQ):3,ETC (Mobile LQ):1,ETC2 (Mobile):2,ASTC (Mobile):4"),
+			"set_color_compress_mode", "get_color_compress_mode");
 
 	ADD_GROUP("Collision", "");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mode", PROPERTY_HINT_ENUM, "Disabled,Dynamic / Game,Dynamic / Editor,Full / Game,Full / Editor"), "set_collision_mode", "get_collision_mode");

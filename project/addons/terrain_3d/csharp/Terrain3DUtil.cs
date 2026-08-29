@@ -151,6 +151,10 @@ public partial class Terrain3DUtil : GodotObject
 		/// </summary>
 		public new static readonly StringName LocationToFilename = "location_to_filename";
 		/// <summary>
+		/// Cached name for the 'get_compress_mode' member.
+		/// </summary>
+		public new static readonly StringName GetCompressMode = "get_compress_mode";
+		/// <summary>
 		/// Cached name for the 'black_to_alpha' member.
 		/// </summary>
 		public new static readonly StringName BlackToAlpha = "black_to_alpha";
@@ -239,6 +243,9 @@ public partial class Terrain3DUtil : GodotObject
 
 	public new static string LocationToFilename(Vector2I regionLocation) => 
 		ClassDB.ClassCallStatic(NativeName, GDExtensionMethodName.LocationToFilename, [regionLocation]).As<string>();
+
+	public new static long/* "Empty Enum Constant String" */ GetCompressMode(Image.Format imageFormat) => 
+		ClassDB.ClassCallStatic(NativeName, GDExtensionMethodName.GetCompressMode, [Variant.From(imageFormat)]).As<long/* "Empty Enum Constant String" */>();
 
 	public new static Image BlackToAlpha(Image image) => 
 		ClassDB.ClassCallStatic(NativeName, GDExtensionMethodName.BlackToAlpha, [image]).As<Image>();

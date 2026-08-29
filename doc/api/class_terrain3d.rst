@@ -56,6 +56,8 @@ Properties
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``Node3D``                                                  | :ref:`collision_target<class_Terrain3D_property_collision_target>`                             |                 |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
+   | :ref:`CompressMode<enum_Terrain3D_CompressMode>`            | :ref:`color_compress_mode<class_Terrain3D_property_color_compress_mode>`                       | ``5``           |
+   +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``float``                                                   | :ref:`cull_margin<class_Terrain3D_property_cull_margin>`                                       | ``0.0``         |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | :ref:`Terrain3DData<class_Terrain3DData>`                   | :ref:`data<class_Terrain3D_property_data>`                                                     |                 |
@@ -343,6 +345,74 @@ The region size is 1024 x 1024 meters, vertices, and pixels on Image maps.
 
 The region size is 2048 x 2048 meters, vertices, and pixels on Image maps.
 
+.. rst-class:: classref-item-separator
+
+----
+
+.. _enum_Terrain3D_CompressMode:
+
+.. rst-class:: classref-enumeration
+
+enum **CompressMode**: :ref:`🔗<enum_Terrain3D_CompressMode>`
+
+.. _class_Terrain3D_constant_COMPRESS_NONE:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`CompressMode<enum_Terrain3D_CompressMode>` **COMPRESS_NONE** = ``5``
+
+Corresponds to Godot's ``Image.CompressMode.COMPRESS_MAX``
+
+.. _class_Terrain3D_constant_COMPRESS_S3TC:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`CompressMode<enum_Terrain3D_CompressMode>` **COMPRESS_S3TC** = ``0``
+
+An older desktop compression algorithm. Aka BC3/DXT5 or DXT1 (no alpha).
+
+Corresponds to Godot's ``Image.CompressMode.COMPRESS_MAX``
+
+.. _class_Terrain3D_constant_COMPRESS_BPTC:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`CompressMode<enum_Terrain3D_CompressMode>` **COMPRESS_BPTC** = ``3``
+
+A high quality desktop compression algorithm. Aka BC6. 
+
+Corresponds to Godot's ``Image.CompressMode.COMPRESS_BPTC``
+
+.. _class_Terrain3D_constant_COMPRESS_ETC:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`CompressMode<enum_Terrain3D_CompressMode>` **COMPRESS_ETC** = ``1``
+
+An older mobile compression algorithm.
+
+Corresponds to Godot's ``Image.CompressMode.COMPRESS_ETC``
+
+.. _class_Terrain3D_constant_COMPRESS_ETC2:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`CompressMode<enum_Terrain3D_CompressMode>` **COMPRESS_ETC2** = ``2``
+
+A modern mobile compression algorithm.
+
+Corresponds to Godot's ``Image.CompressMode.COMPRESS_ETC2``
+
+.. _class_Terrain3D_constant_COMPRESS_ASTC:
+
+.. rst-class:: classref-enumeration-constant
+
+:ref:`CompressMode<enum_Terrain3D_CompressMode>` **COMPRESS_ASTC** = ``4``
+
+The latest high quality mobile compression algorithm.
+
+Corresponds to Godot's ``Image.CompressMode.COMPRESS_ASTC``.
+
 .. rst-class:: classref-section-separator
 
 ----
@@ -587,6 +657,31 @@ Alias for :ref:`Terrain3DCollision.shape_size<class_Terrain3DCollision_property_
 - ``Node3D`` **get_collision_target**\ (\ )
 
 In dynamic mode, the terrain collision will center itself at the position of this node. If null, it will fall back to the :ref:`clipmap_target<class_Terrain3D_property_clipmap_target>` position and failing that will use the camera position. The camera is always used in the editor. See :ref:`set_camera()<class_Terrain3D_method_set_camera>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3D_property_color_compress_mode:
+
+.. rst-class:: classref-property
+
+:ref:`CompressMode<enum_Terrain3D_CompressMode>` **color_compress_mode** = ``5`` :ref:`🔗<class_Terrain3D_property_color_compress_mode>`
+
+.. rst-class:: classref-property-setget
+
+- |void| **set_color_compress_mode**\ (\ value\: :ref:`CompressMode<enum_Terrain3D_CompressMode>`\ )
+- :ref:`CompressMode<enum_Terrain3D_CompressMode>` **get_color_compress_mode**\ (\ )
+
+**Experimental:** This feature is experimental.
+
+The selected :ref:`CompressMode<enum_Terrain3D_CompressMode>` will be used to compress the color maps upon save, for use at runtime. Changing this will mark all of your regions as modified.
+
+In the editor, the compressed map is freed from memory and the uncompressed is used for editing.
+
+Upon saving, the color map is compressed and stored in the region file.
+
+At runtime, the uncompressed color map will be freed and the compressed color map is used. Note that compressed color maps cannot be edited. So if you wish to edit color or wetness at runtime, you must disable this feature.
 
 .. rst-class:: classref-item-separator
 

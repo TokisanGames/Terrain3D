@@ -60,6 +60,13 @@ public partial class Terrain3DMeshAsset : Resource
 	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DMeshAsset" type.</returns>
 	public new static Terrain3DMeshAsset Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
+	/// <summary>
+	/// Loads the resource at the specified path, then attaches the corresponding wrapper script instance.
+	/// </summary>
+	/// <param name="path">The resource path to load.</param>
+	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DMeshAsset" type.</returns>
+	public new static Terrain3DMeshAsset Load(string path) => Bind(ResourceLoader.Load(path));
+
 	public enum GenType
 	{
 		None = 0,

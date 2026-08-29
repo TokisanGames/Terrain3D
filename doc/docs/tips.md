@@ -28,7 +28,7 @@ This list are for items that don't already have dedicated pages in the documenta
 
 ## Regions
 
-Outside of regions, there is no collision. Raycasts won't hit anything. Querying terrain heights or other data will result in NANs or INF. Look through the API for specific return values. See [Collision] for more.
+Outside of regions, there is no collision. Raycasts won't hit anything. Querying terrain heights or other data will result in NANs or INF. Look through the API for specific return values. See [Collision](collision.md) for more.
 
 You can determine if a given location is within a region by using `Terrain3DData.has_regionp(global_position)`. It will return -1 if the XZ location is not within a region. Y is ignored.
 
@@ -46,20 +46,6 @@ You can then adjust the vertical position of the sphere so it is half embedded i
 To use it:
 * Create a new node of type Terrain3DObjects
 * Add your MeshInstance3D objects as children of this node
-
-
-## Performance
-* The Terrain3DMaterial shader has some advanced features that look nice but consume some performance. You can get better performance by disabling them:
-    * Set `WorldBackground` to `Flat` or `None`
-	* Disable `Auto Shader`
-	* Disable `Dual Scaling`
-* `WorldBackground` as `Noise` exposes additional shader settings, such as octaves and LOD. You can adjust these settings for performance. However this world generating noise is expensive. Consider not using it at all in a commercial game, and instead obscure your background with meshes, or use an HDR skybox with mountains built in.
-* Reduce the size of the mesh and levels of detail by reducing `Terrain Mesh/Size` or `Terrain Mesh/Lods` in the `Terrain3D` node.
-* Reduce `Terrain Mesh/Tessellation Level` or set to 0 (default) to completely disable texture displacement.
-* Increase `Terrain Mesh/Vertex Spacing`, which increases the lateral scale and gives you a more low-poly terrain. Preferrably do this before you sculpt, but if done after, you can export the heightmap and manipulate it in Photoshop to rescale it.
-* Don't use `Renderer/Cull Margin`. It should only be needed if using the noise background. Otherwise the AABB should be correctly calculated via editing, so there is no need to expand the cull margin. Keeping it enabled can cost more processing time.
-* Experiment with `Renderer/free_editor_textures`, which is enabled by default. It saves VRAM by removing the initial textures used to generate the texture arrays.
-* For cases where performance is paramount, an example `lightweight` shader is provided in `extras/shaders`. This shader is designed to do the minimum possible amount of texture lookups, while still providing basic texturing, including height blending. Normals are also fully calculated in `vertex()`. This shader removes advanced features like projection, detiling, and paintable rotation and scale for significant performance gains on low-end hardware, mobile, and VR applications. Or you can use the `minimum` shader and craft your own texturing and coloring without any extra features.
 
 
 ## Shaders

@@ -60,6 +60,13 @@ public partial class Terrain3DRegion : Resource
 	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DRegion" type.</returns>
 	public new static Terrain3DRegion Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
+	/// <summary>
+	/// Loads the resource at the specified path, then attaches the corresponding wrapper script instance.
+	/// </summary>
+	/// <param name="path">The resource path to load.</param>
+	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DRegion" type.</returns>
+	public new static Terrain3DRegion Load(string path) => Bind(ResourceLoader.Load(path));
+
 	public enum MapType
 	{
 		Height = 0,
@@ -102,6 +109,10 @@ public partial class Terrain3DRegion : Resource
 		/// Cached name for the 'color_map' member.
 		/// </summary>
 		public new static readonly StringName ColorMap = "color_map";
+		/// <summary>
+		/// Cached name for the 'compressed_color_map' member.
+		/// </summary>
+		public new static readonly StringName CompressedColorMap = "compressed_color_map";
 		/// <summary>
 		/// Cached name for the 'instances' member.
 		/// </summary>
@@ -166,6 +177,12 @@ public partial class Terrain3DRegion : Resource
 		set => Set(GDExtensionPropertyName.ColorMap, value);
 	}
 
+	public new Image CompressedColorMap
+	{
+		get => Get(GDExtensionPropertyName.CompressedColorMap).As<Image>();
+		set => Set(GDExtensionPropertyName.CompressedColorMap, value);
+	}
+
 	public new Godot.Collections.Dictionary Instances
 	{
 		get => Get(GDExtensionPropertyName.Instances).As<Godot.Collections.Dictionary>();
@@ -218,6 +235,26 @@ public partial class Terrain3DRegion : Resource
 		/// Cached name for the 'get_maps' member.
 		/// </summary>
 		public new static readonly StringName GetMaps = "get_maps";
+		/// <summary>
+		/// Cached name for the 'clear_color_map' member.
+		/// </summary>
+		public new static readonly StringName ClearColorMap = "clear_color_map";
+		/// <summary>
+		/// Cached name for the 'clear_compressed_color_map' member.
+		/// </summary>
+		public new static readonly StringName ClearCompressedColorMap = "clear_compressed_color_map";
+		/// <summary>
+		/// Cached name for the 'get_active_color_map' member.
+		/// </summary>
+		public new static readonly StringName GetActiveColorMap = "get_active_color_map";
+		/// <summary>
+		/// Cached name for the 'is_color_compressed' member.
+		/// </summary>
+		public new static readonly StringName IsColorCompressed = "is_color_compressed";
+		/// <summary>
+		/// Cached name for the 'compress_color_map' member.
+		/// </summary>
+		public new static readonly StringName CompressColorMap = "compress_color_map";
 		/// <summary>
 		/// Cached name for the 'sanitize_maps' member.
 		/// </summary>
@@ -279,6 +316,21 @@ public partial class Terrain3DRegion : Resource
 	public new Godot.Collections.Array GetMaps() => 
 		Call(GDExtensionMethodName.GetMaps, []).As<Godot.Collections.Array>();
 
+	public new void ClearColorMap() => 
+		Call(GDExtensionMethodName.ClearColorMap, []);
+
+	public new void ClearCompressedColorMap() => 
+		Call(GDExtensionMethodName.ClearCompressedColorMap, []);
+
+	public new Image GetActiveColorMap() => 
+		Call(GDExtensionMethodName.GetActiveColorMap, []).As<Image>();
+
+	public new bool IsColorCompressed() => 
+		Call(GDExtensionMethodName.IsColorCompressed, []).As<bool>();
+
+	public new void CompressColorMap(long/* "Empty Enum Constant String" */ mode) => 
+		Call(GDExtensionMethodName.CompressColorMap, [mode]);
+
 	public new void SanitizeMaps() => 
 		Call(GDExtensionMethodName.SanitizeMaps, []);
 
@@ -297,8 +349,8 @@ public partial class Terrain3DRegion : Resource
 	public new void CalcHeightRange() => 
 		Call(GDExtensionMethodName.CalcHeightRange, []);
 
-	public new Error Save(string path = "", bool save16Bit = false) => 
-		Call(GDExtensionMethodName.Save, [path, save16Bit]).As<Error>();
+	public new Error Save(string path = "", bool save16Bit = false, long/* "Empty Enum Constant String" */ colorCompressMode = 5) => 
+		Call(GDExtensionMethodName.Save, [path, save16Bit, colorCompressMode]).As<Error>();
 
 	public new void SetData(Godot.Collections.Dictionary data) => 
 		Call(GDExtensionMethodName.SetData, [data]);

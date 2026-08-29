@@ -3,6 +3,7 @@
 #ifndef TERRAIN3D_REGION_CLASS_H
 #define TERRAIN3D_REGION_CLASS_H
 
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image.hpp>
 
 #include "constants.h"
@@ -20,18 +21,18 @@ public: // Constants
 		TYPE_MAX,
 	};
 
-	static inline const Image::Format FORMAT[] = {
-		Image::FORMAT_RF, // TYPE_HEIGHT
-		Image::FORMAT_RF, // TYPE_CONTROL
-		Image::FORMAT_RGBA8, // TYPE_COLOR
-		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
-	};
-
 	static inline const char *TYPESTR[] = {
 		"TYPE_HEIGHT",
 		"TYPE_CONTROL",
 		"TYPE_COLOR",
 		"TYPE_MAX",
+	};
+
+	static inline const Image::Format FORMAT[] = {
+		Image::FORMAT_RF, // TYPE_HEIGHT
+		Image::FORMAT_RF, // TYPE_CONTROL
+		Image::FORMAT_RGBA8, // TYPE_COLOR
+		Image::Format(TYPE_MAX), // Proper size of array instead of FORMAT_MAX
 	};
 
 	static inline const Color COLOR[] = {
@@ -43,13 +44,15 @@ public: // Constants
 
 private:
 	// Saved data
-	real_t _version = 0.8f; // Set to first version to ensure we always upgrades this
+	real_t _version = 0.8f; // Set to first version. See Terrain3DData::CURRENT_DATA_VERSION
 	int _region_size = 0;
 	Vector2 _height_range = V2_ZERO;
 	// Maps
 	Ref<Image> _height_map;
 	Ref<Image> _control_map;
 	Ref<Image> _color_map;
+	Ref<Image> _compressed_color_map;
+
 	// Instancer
 	Dictionary _instances; // Meshes{int} -> Cells{v2i} -> [ Transform3D, Color, Modified ]
 	real_t _vertex_spacing = 1.f; // Spacing that instancer transforms are currently scaled by.
@@ -59,6 +62,7 @@ private:
 	bool _edited = false; // Marked for undo/redo storage
 	bool _modified = false; // Marked for saving
 	Vector2i _location = V2I_MAX;
+	CompressMode _last_color_compression = COMPRESS_NONE;
 
 public:
 	Terrain3DRegion() {}
@@ -82,6 +86,14 @@ public:
 	Ref<Image> get_control_map() const { return _control_map; }
 	void set_color_map(const Ref<Image> &p_map);
 	Ref<Image> get_color_map() const { return _color_map; }
+	void clear_color_map();
+	void set_compressed_color_map(const Ref<Image> &p_map);
+	Ref<Image> get_compressed_color_map() const { return _compressed_color_map; }
+	void clear_compressed_color_map();
+	Ref<Image> get_active_color_map() const;
+	bool is_color_compressed() const { return _compressed_color_map.is_valid(); }
+	void compress_color_map(const CompressMode p_compress_mode);
+	void check_compressed_color_map(const CompressMode p_compress_mode);
 	void sanitize_maps();
 	Ref<Image> sanitize_map(const MapType p_map_type, const Ref<Image> &p_map) const;
 	bool validate_map_size(const Ref<Image> &p_map) const;
@@ -109,7 +121,7 @@ public:
 	Vector2i get_location() const { return _location; }
 
 	// File I/O
-	Error save(const String &p_path = "", const bool p_16_bit = false);
+	Error save(const String &p_path = "", const bool p_16_bit = false, const CompressMode p_color_compress_mode = COMPRESS_NONE);
 
 	// Utility
 	void set_data(const Dictionary &p_data);
@@ -152,6 +164,13 @@ inline void Terrain3DRegion::update_heights(const Vector2 &p_low_high) {
 		_height_range.y = p_low_high.y;
 		_modified = true;
 	}
+}
+
+inline Ref<Image> Terrain3DRegion::get_active_color_map() const {
+	if (!IS_EDITOR && _compressed_color_map.is_valid()) {
+		return _compressed_color_map;
+	}
+	return _color_map;
 }
 
 #endif // TERRAIN3D_REGION_CLASS_H

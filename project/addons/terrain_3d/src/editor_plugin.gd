@@ -6,6 +6,7 @@ extends EditorPlugin
 
 # Includes
 const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
+const ExportPlugin: Script = preload("res://addons/terrain_3d/src/export_plugin.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
 const ASSET_DOCK_45: String = "res://addons/terrain_3d/src/asset_dock_45.tscn"
 
@@ -20,6 +21,7 @@ var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
 var viewport: SubViewport # Viewport the mouse was last in
 var mouse_in_main: bool = false # Helper to track when mouse is in the editor vp
+var export_plugin: EditorExportPlugin = ExportPlugin.new()
 
 # Terrain
 var terrain: Terrain3D
@@ -65,6 +67,8 @@ func _enter_tree() -> void:
 	else:
 		asset_dock = load(ASSET_DOCK_45).instantiate()
 	asset_dock.initialize(self)
+	export_plugin.plugin = self
+	add_export_plugin(export_plugin)
 
 
 func _exit_tree() -> void:
@@ -77,6 +81,7 @@ func _exit_tree() -> void:
 
 	scene_changed.disconnect(_on_scene_changed)
 	godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
+	remove_export_plugin(export_plugin)
 
 
 func _on_godot_focus_entered() -> void:

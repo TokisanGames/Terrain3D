@@ -644,8 +644,8 @@ public partial class Terrain3DData : GodotObject
 	public new void SaveDirectory(string directory) => 
 		Call(GDExtensionMethodName.SaveDirectory, [directory]);
 
-	public new void SaveRegion(Vector2I regionLocation, string directory, bool save16Bit = false) => 
-		Call(GDExtensionMethodName.SaveRegion, [regionLocation, directory, save16Bit]);
+	public new void SaveRegion(Vector2I regionLocation, string directory = "", bool save16Bit = false, long/* "Empty Enum Constant String" */ colorCompressMode = 5) => 
+		Call(GDExtensionMethodName.SaveRegion, [regionLocation, directory, save16Bit, colorCompressMode]);
 
 	public new void LoadDirectory(string directory) => 
 		Call(GDExtensionMethodName.LoadDirectory, [directory]);

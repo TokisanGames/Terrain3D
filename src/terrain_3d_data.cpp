@@ -36,7 +36,7 @@ void Terrain3DData::_copy_paste_dfr(const Terrain3DRegion *p_src_region, const R
 	TypedArray<Image> dst_maps = p_dst_region->get_maps();
 	for (int i = 0; i < dst_maps.size(); i++) {
 		Image *img = cast_to<Image>(dst_maps[i]);
-		if (img) {
+		if (img && cast_to<Image>(src_maps[i])) {
 			img->blit_rect(src_maps[i], p_src_rect, p_dst_rect.position);
 		}
 	}
@@ -273,6 +273,7 @@ Ref<Terrain3DRegion> Terrain3DData::add_region_blank(const Vector2i &p_region_lo
  *	p_update - rebuild the maps if true. Set to false if bulk adding many regions.
  */
 Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool p_update) {
+	IS_INIT_MESG("Data not initialized", FAILED);
 	if (p_region.is_null()) {
 		LOG(ERROR, "Provided region is null. Returning");
 		return FAILED;
@@ -287,6 +288,14 @@ Error Terrain3DData::add_region(const Ref<Terrain3DRegion> &p_region, const bool
 		return FAILED;
 	}
 	p_region->sanitize_maps();
+	// Free uncompressed color map in game if compressed map valid
+	if (!IS_EDITOR && _terrain->get_color_compress_mode() != COMPRESS_NONE && p_region->is_color_compressed()) {
+		p_region->clear_color_map();
+	} else {
+		// Free compressed color map in editor and verify current compression mode against loaded compression
+		p_region->clear_compressed_color_map();
+		p_region->check_compressed_color_map(_terrain->get_color_compress_mode());
+	}
 	p_region->set_deleted(false);
 	if (!_region_locations.has(region_loc)) {
 		_region_locations.push_back(region_loc);
@@ -343,7 +352,7 @@ void Terrain3DData::save_directory(const String &p_dir) {
 	LOG(INFO, "Saving data files to ", p_dir);
 	Array locations = _regions.keys();
 	for (const Vector2i &region_loc : locations) {
-		save_region(region_loc, p_dir, _terrain->get_save_16_bit());
+		save_region(region_loc, p_dir, _terrain->get_save_16_bit(), _terrain->get_color_compress_mode());
 	}
 	if (IS_EDITOR && !EditorInterface::get_singleton()->get_resource_filesystem()->is_scanning()) {
 		EditorInterface::get_singleton()->get_resource_filesystem()->scan();
@@ -351,7 +360,7 @@ void Terrain3DData::save_directory(const String &p_dir) {
 }
 
 // You may need to do a file system scan to update FileSystem panel
-void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit) {
+void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit, const CompressMode p_color_compress_mode) {
 	Ref<Terrain3DRegion> region = get_region(p_region_loc);
 	if (region.is_null()) {
 		LOG(ERROR, "No region found at: ", p_region_loc);
@@ -380,7 +389,7 @@ void Terrain3DData::save_region(const Vector2i &p_region_loc, const String &p_di
 		LOG(INFO, "File ", path, " deleted");
 		return;
 	}
-	Error err = region->save(path, p_16_bit);
+	Error err = region->save(path, p_16_bit, p_color_compress_mode);
 	if (!(err == OK || err == ERR_SKIP)) {
 		LOG(ERROR, "Could not save file: ", path, ", error: ", UtilityFunctions::error_string(err), " (", err, ")");
 	}
@@ -408,7 +417,7 @@ void Terrain3DData::load_directory(const String &p_dir) {
 			LOG(ERROR, "Cannot get region location from file name: ", fname);
 			continue;
 		}
-		Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
+		Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_REPLACE);
 		if (region.is_null()) {
 			LOG(ERROR, "Cannot load region at ", path);
 			continue;
@@ -428,6 +437,30 @@ void Terrain3DData::load_directory(const String &p_dir) {
 		region->set_version(CURRENT_DATA_VERSION); // Sends upgrade warning if old version
 		add_region(region, false);
 	}
+
+	LOG(INFO, "Verifying region color maps:");
+	for (const Vector2i &region_loc : _region_locations) {
+		const Terrain3DRegion *region = get_region_ptr(region_loc);
+		if (region) {
+			Vector2i region_loc = region->get_location();
+			Ref<Image> map = region->get_color_map();
+			if (map.is_valid()) {
+				LOG(INFO, "Region ", region_loc, " color map size: ",
+						map->get_size(), " format: ", map->get_format());
+			} else {
+				LOG(INFO, "Region ", region_loc, " colormap: null");
+			}
+
+			map = region->get_compressed_color_map();
+			if (map.is_valid()) {
+				LOG(INFO, "Region ", region_loc, " compressed color map size: ",
+						map->get_size(), " format: ", map->get_format());
+			} else {
+				LOG(INFO, "Region ", region_loc, " compressed colormap: null");
+			}
+		}
+	}
+
 	update_maps(TYPE_MAX, true, false);
 }
 
@@ -439,7 +472,7 @@ void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_di
 		LOG(ERROR, "File ", path, " doesn't exist");
 		return;
 	}
-	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_IGNORE);
+	Ref<Terrain3DRegion> region = ResourceLoader::get_singleton()->load(path, "Terrain3DRegion", ResourceLoader::CACHE_MODE_REPLACE);
 	if (region.is_null()) {
 		LOG(ERROR, "Cannot load region at ", path);
 		return;
@@ -562,7 +595,7 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		emit_signal("height_maps_changed");
 	}
 
-	// Rebulid control maps if dirty
+	// Rebuild control maps if dirty
 	if (_generated_control_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating control texture array from regions");
 		_control_maps.clear();
@@ -578,14 +611,14 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 		emit_signal("control_maps_changed");
 	}
 
-	// Rebulid color maps if dirty
+	// Rebuild color maps if dirty
 	if (_generated_color_maps.is_dirty()) {
 		LOG(EXTREME, "Regenerating color texture array from regions");
 		_color_maps.clear();
 		for (const Vector2i &region_loc : _region_locations) {
 			const Terrain3DRegion *region = get_region_ptr(region_loc);
 			if (region) {
-				_color_maps.push_back(region->get_color_map());
+				_color_maps.push_back(region->get_active_color_map());
 			}
 		}
 		_generated_color_maps.create(_color_maps);
@@ -613,14 +646,14 @@ void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regio
 						emit_signal("control_maps_changed");
 						break;
 					case TYPE_COLOR:
-						_generated_color_maps.update(region->get_color_map(), region_id);
+						_generated_color_maps.update(region->get_active_color_map(), region_id);
 						LOG(DEBUG, "Emitting color_maps_changed");
 						emit_signal("color_maps_changed");
 						break;
 					default:
 						_generated_height_maps.update(region->get_height_map(), region_id);
 						_generated_control_maps.update(region->get_control_map(), region_id);
-						_generated_color_maps.update(region->get_color_map(), region_id);
+						_generated_color_maps.update(region->get_active_color_map(), region_id);
 						LOG(DEBUG, "Emitting height_maps_changed");
 						emit_signal("height_maps_changed");
 						LOG(DEBUG, "Emitting control_maps_changed");
@@ -1391,7 +1424,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_region", "region", "update"), &Terrain3DData::remove_region, DEFVAL(true));
 
 	ClassDB::bind_method(D_METHOD("save_directory", "directory"), &Terrain3DData::save_directory);
-	ClassDB::bind_method(D_METHOD("save_region", "region_location", "directory", "save_16_bit"), &Terrain3DData::save_region, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("save_region", "region_location", "directory", "save_16_bit", "color_compress_mode"), &Terrain3DData::save_region, DEFVAL(""), DEFVAL(false), DEFVAL(COMPRESS_NONE));
 	ClassDB::bind_method(D_METHOD("load_directory", "directory"), &Terrain3DData::load_directory);
 	ClassDB::bind_method(D_METHOD("load_region", "region_location", "directory", "update"), &Terrain3DData::load_region, DEFVAL(true));
 
