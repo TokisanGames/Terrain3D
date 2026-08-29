@@ -39,16 +39,28 @@ enum Evaluation { LIVE, FROZEN }
 		slope_exponent = maxf(v, 0.0)
 		_param_changed()
 
-## Minimum upstream catchment accumulation required before channel carving begins.
-@export_range(0.1, 50.0, 0.5) var min_catchment: float = 1.0:
+## Minimum catchment area threshold (cells) before stream incision activates.
+@export_range(0.0, 50.0, 0.5) var min_catchment: float = 1.0:
 	set(v):
 		min_catchment = maxf(v, 0.0)
 		_param_changed()
 
-## Transverse channel diffusion / smoothing rate to avoid single-pixel crevasse artifacts.
+## Transverse river channel bank smoothing rate [0.0..0.5].
 @export_range(0.0, 0.5, 0.01) var bank_smoothing: float = 0.1:
 	set(v):
 		bank_smoothing = clampf(v, 0.0, 0.5)
+		_param_changed()
+
+## Relative elevation peak preservation factor [0.0..1.0] (Hesiod peak protection).
+@export_range(0.0, 1.0, 0.05) var peak_preservation: float = 0.5:
+	set(v):
+		peak_preservation = clampf(v, 0.0, 1.0)
+		_param_changed()
+
+## Slope gradient shaping power exponent [0.1..2.0].
+@export_range(0.1, 2.0, 0.05) var gradient_power: float = 0.8:
+	set(v):
+		gradient_power = clampf(v, 0.1, 2.0)
 		_param_changed()
 
 @export_group("Evaluation")
@@ -204,6 +216,8 @@ func _solve_dynamic(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect:
 		"slope_exponent": slope_exponent,
 		"min_catchment": min_catchment,
 		"bank_smoothing": bank_smoothing,
+		"peak_preservation": peak_preservation,
+		"gradient_power": gradient_power,
 		"mask": p_mask,
 	}
 

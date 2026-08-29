@@ -7,6 +7,7 @@
 #include <cstring>
 #include <limits>
 #include <numeric>
+#include <vector>
 
 using namespace godot;
 
@@ -19,16 +20,22 @@ HydraulicStreamLogParams HydraulicStreamLogParams::from_dict(const Dictionary &p
 		p.incision_rate = std::max(0.0f, (float)p_dict["incision_rate"]);
 	}
 	if (p_dict.has("area_exponent")) {
-		p.area_exponent = std::max(0.0f, (float)p_dict["area_exponent"]);
+		p.area_exponent = std::clamp((float)p_dict["area_exponent"], 0.01f, 2.0f);
 	}
 	if (p_dict.has("slope_exponent")) {
-		p.slope_exponent = std::max(0.0f, (float)p_dict["slope_exponent"]);
+		p.slope_exponent = std::clamp((float)p_dict["slope_exponent"], 0.01f, 2.0f);
 	}
 	if (p_dict.has("min_catchment")) {
 		p.min_catchment = std::max(0.0f, (float)p_dict["min_catchment"]);
 	}
 	if (p_dict.has("bank_smoothing")) {
 		p.bank_smoothing = std::clamp((float)p_dict["bank_smoothing"], 0.0f, 0.5f);
+	}
+	if (p_dict.has("peak_preservation")) {
+		p.peak_preservation = std::clamp((float)p_dict["peak_preservation"], 0.0f, 1.0f);
+	}
+	if (p_dict.has("gradient_power")) {
+		p.gradient_power = std::clamp((float)p_dict["gradient_power"], 0.1f, 2.0f);
 	}
 	if (p_dict.has("mask")) {
 		p.mask = p_dict["mask"];
@@ -70,18 +77,20 @@ HydraulicStreamLogResult godot::hydraulic_stream_log_solve(const PackedFloat32Ar
 	const double slope_exponent = (double)p_params.slope_exponent;
 	const double min_catchment = (double)p_params.min_catchment;
 	const double bank_smoothing = (double)p_params.bank_smoothing;
+	const double peak_preservation = (double)p_params.peak_preservation;
+	const double gradient_power = (double)p_params.gradient_power;
 
 	const double dx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
 	const double dz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+	const double diag_dist = std::sqrt(dx * dx + dz * dz);
 
 	const int n_dx[8] = { -1, 1, 0, 0, -1, 1, -1, 1 };
 	const int n_dz[8] = { 0, 0, -1, 1, -1, -1, 1, 1 };
-	const double diag_dist = std::sqrt(dx * dx + dz * dz);
 	const double n_dist[8] = { dx, dx, dz, dz, diag_dist, diag_dist, diag_dist, diag_dist };
 
 	std::vector<int> order(n);
 
-	for (int pass_idx = 0; pass_idx < iterations; pass_idx++) {
+	for (int pass = 0; pass < iterations; pass++) {
 		// 1. Sort indices descending by elevation
 		for (int i = 0; i < n; i++) {
 			order[i] = i;
@@ -90,17 +99,13 @@ HydraulicStreamLogResult godot::hydraulic_stream_log_solve(const PackedFloat32Ar
 		std::sort(order.begin(), order.end(), [&height](int a, int b) {
 			float ha = height[a];
 			float hb = height[b];
-			if (!std::isfinite(ha)) {
-				return false;
-			}
-			if (!std::isfinite(hb)) {
-				return true;
-			}
+			if (!std::isfinite(ha)) return false;
+			if (!std::isfinite(hb)) return true;
 			return ha > hb;
 		});
 
 		// 2. Accumulate drainage flow using MD8 multi-direction routing
-		std::vector<float> current_flow(n, 1.0f); // Base precipitation 1.0 per cell
+		std::vector<float> current_flow(n, 1.0f);
 
 		for (int idx : order) {
 			float h_c = height[idx];
@@ -121,7 +126,6 @@ HydraulicStreamLogResult godot::hydraulic_stream_log_solve(const PackedFloat32Ar
 					float h_n = height[n_idx];
 					if (std::isfinite(h_n) && h_n < h_c) {
 						double drop = (double)(h_c - h_n) / n_dist[k];
-						// Use power weighting for natural valley convergence
 						double weighted_drop = std::pow(drop, 1.3);
 						drops[k] = weighted_drop;
 						sum_drop += weighted_drop;
@@ -143,7 +147,7 @@ HydraulicStreamLogResult godot::hydraulic_stream_log_solve(const PackedFloat32Ar
 			}
 		}
 
-		// 3. Compute Logarithmic Stream-Power Incision with lateral bank spreading
+		// 3. Compute Logarithmic Stream-Power Incision with lateral bank spreading & Hesiod peak preservation
 		std::vector<double> incision_map(n, 0.0);
 
 		for (int iz = 0; iz < p_gh; iz++) {
@@ -169,15 +173,40 @@ HydraulicStreamLogResult godot::hydraulic_stream_log_solve(const PackedFloat32Ar
 				double gz = (double)(h_d - h_u) / (2.0 * dz);
 				double slope = std::sqrt(gx * gx + gz * gz);
 
+				// Hesiod gradient power shaping
+				double shaped_slope = (gradient_power != 1.0) ? std::pow(slope, gradient_power) : slope;
+
+				// Hesiod relative elevation peak preservation kernel (radius 2)
+				double peak_weight = 1.0;
+				if (peak_preservation > 0.0) {
+					float min_local = h_c;
+					float max_local = h_c;
+					for (int rz = std::max(0, iz - 2); rz <= std::min(p_gh - 1, iz + 2); rz++) {
+						for (int rx = std::max(0, ix - 2); rx <= std::min(p_gw - 1, ix + 2); rx++) {
+							float val = height[rz * p_gw + rx];
+							if (std::isfinite(val)) {
+								if (val < min_local) min_local = val;
+								if (val > max_local) max_local = val;
+							}
+						}
+					}
+					double range = (double)(max_local - min_local);
+					if (range > 1.0e-4) {
+						double re = ((double)h_c - (double)min_local) / range;
+						double s_re = re * re * (3.0 - 2.0 * re); // smoothstep3
+						peak_weight = (1.0 - peak_preservation) + peak_preservation * (1.0 - s_re);
+					}
+				}
+
 				// Smooth softplus transition for catchment activation
 				double diff = (double)current_flow[idx] - min_catchment;
 				double a_accum = (diff > 15.0) ? diff : ((diff > -15.0) ? std::log(1.0 + std::exp(diff)) : 0.0);
 
 				if (a_accum > 0.01 && slope > 1.0e-5) {
-					double power = std::pow(a_accum, area_exponent) * std::pow(slope, slope_exponent);
-					double incision = incision_rate * std::log(1.0 + power) * m_val;
+					double power = std::pow(a_accum, area_exponent) * std::pow(shaped_slope, slope_exponent);
+					double incision = incision_rate * std::log(1.0 + power) * peak_weight * m_val;
 
-					// Lateral bank spreading to create smooth V/U shaped channels instead of 1-pixel knife cuts
+					// Lateral bank spreading to create smooth V/U shaped channels
 					double center_weight = 1.0 - bank_smoothing * 0.6;
 					double neighbor_weight = (bank_smoothing * 0.6) * 0.25;
 
@@ -219,10 +248,11 @@ HydraulicStreamLogResult godot::hydraulic_stream_log_solve(const PackedFloat32Ar
 						}
 					}
 
-					double max_cut = std::max(0.0, (double)(h_c - min_downhill) + 0.05 * (double)cut);
+					double max_cut = std::max(0.0, (double)(h_c - min_downhill) + 0.05 * cut);
 					cut = std::min(cut, max_cut);
 					next_height[idx] = (float)((double)h_c - cut);
-					channel_mask[idx] = std::max(channel_mask[idx], (float)std::clamp(cut / (incision_rate * 2.0 + 1.0e-5), 0.0, 1.0));
+					float normalized_cut = std::clamp((float)(cut / (incision_rate * 2.0 + 1.0e-5)), 0.0f, 1.0f);
+					channel_mask[idx] = std::max(channel_mask[idx], normalized_cut);
 				}
 			}
 		}

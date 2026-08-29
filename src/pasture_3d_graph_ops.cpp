@@ -635,6 +635,8 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.slope_exponent = params_d[s];
 				p.min_catchment = params_e[s];
 				p.bank_smoothing = params_f[s];
+				p.peak_preservation = params_g ? params_g[s] : 0.5f;
+				p.gradient_power = params_h ? params_h[s] : 0.8f;
 				if (in1 && in1[s] >= 0) {
 					p.mask = get_grid_packed(in1[s]);
 				}

@@ -79,7 +79,7 @@ metadata/_custom_type_script = "uid://717mgmmlrimi"
 [sub_resource type="Curve3D" id="Curve3D_xkygt"]
 closed = true
 _data = {
-"points": PackedVector3Array(0.23248295, 4.2292267e-08, -40.874542, -0.23248295, -4.2292267e-08, 40.874542, 66.624985, 1.0000007, 37.18402, 41.55284, -7.700628e-07, -1.1404858, -41.55284, 7.700628e-07, 1.1404858, -0.4976349, 1.0000027, 102.57144, -0.23027362, -1.5010535e-08, 29.610891, 0.23027362, 1.5010535e-08, -29.610891, -62.831345, 1.0000051, 37.090363, -37.096256, 2.7716845e-07, 0.18416797, 37.096256, -2.7716845e-07, -0.18416797, 0.8129654, 1.000003, -26.044464),
+"points": PackedVector3Array(0.23248295, 4.2292267e-08, -22.814741, -0.23248295, -4.2292267e-08, 22.814741, 66.624985, 1.0000007, 37.18402, 41.55284, -7.700628e-07, -1.1404858, -41.55284, 7.700628e-07, 1.1404858, -0.4976349, 1.0000027, 102.57144, -0.23027362, -1.5010535e-08, 29.610891, 0.23027362, 1.5010535e-08, -29.610891, -62.831345, 1.0000051, 37.090363, -37.096256, 2.7716845e-07, 0.18416797, 37.096256, -2.7716845e-07, -0.18416797, 0.8129654, 1.000003, -26.044464),
 "tilts": PackedFloat32Array(0, 0, 0, 0)
 }
 point_count = 4
@@ -143,6 +143,7 @@ connections = [PackedInt32Array(0, 0, 2, 0), PackedInt32Array(2, 0, 1, 0)]
 [sub_resource type="Resource" id="Resource_e1ndd"]
 script = ExtResource("9_6pcwc")
 graph = SubResource("Resource_201xj")
+evaluation = 1
 metadata/_custom_type_script = "uid://717mgmmlrimi"
 
 [sub_resource type="Curve3D" id="Curve3D_vugto"]
@@ -229,7 +230,7 @@ metadata/_edit_lock_ = true
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -128.73723, -7.5795124e-06, -165.85733)
 script = ExtResource("1_xkygt")
 flank_mode = 1
-slope_angle = 40.0
+slope_angle = 25.0
 terrain = NodePath("..")
 snap_to_surface = false
 _layer_owner = "pasture3d_brush:Mounds"

@@ -46,6 +46,18 @@ enum Evaluation { LIVE, FROZEN }
 		bank_smoothing = clampf(v, 0.0, 0.5)
 		_param_changed()
 
+## Relative elevation peak preservation factor [0.0..1.0] (Hesiod peak protection).
+@export_range(0.0, 1.0, 0.05) var peak_preservation: float = 0.5:
+	set(v):
+		peak_preservation = clampf(v, 0.0, 1.0)
+		_param_changed()
+
+## Slope gradient shaping power exponent [0.1..2.0].
+@export_range(0.1, 2.0, 0.05) var gradient_power: float = 0.8:
+	set(v):
+		gradient_power = clampf(v, 0.1, 2.0)
+		_param_changed()
+
 @export_group("Evaluation")
 @export var evaluation: Evaluation = Evaluation.LIVE:
 	set(v):
@@ -134,13 +146,14 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 	var slope_exponent: float = maxf(0.0, float(p_params.get("slope_exponent", 1.0)))
 	var min_catchment: float = maxf(0.0, float(p_params.get("min_catchment", 1.0)))
 	var bank_smoothing: float = clampf(float(p_params.get("bank_smoothing", 0.1)), 0.0, 0.5)
+	var peak_preservation: float = clampf(float(p_params.get("peak_preservation", 0.5)), 0.0, 1.0)
+	var gradient_power: float = clampf(float(p_params.get("gradient_power", 0.8)), 0.1, 2.0)
 
 	var mask: PackedFloat32Array = p_params.get("mask", PackedFloat32Array())
 	var has_mask: bool = (mask.size() == n)
 
 	var dx: float = p_rect.size.x / float(maxi(p_gw, 1))
 	var dz: float = p_rect.size.y / float(maxi(p_gh, 1))
-	var cell_size: float = sqrt(maxf(dx * dz, 1.0e-6))
 
 	var n_dx: Array[int] = [-1, 1, 0, 0, -1, 1, -1, 1]
 	var n_dz: Array[int] = [0, 0, -1, 1, -1, -1, 1, 1]
@@ -163,10 +176,10 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 			return ha > hb
 		)
 
-		# 2. Accumulate drainage flow
+		# 2. Accumulate drainage flow using MD8 multi-direction routing
 		var current_flow := PackedFloat32Array()
 		current_flow.resize(n)
-		current_flow.fill(1.0) # Base precipitation 1.0 per cell
+		current_flow.fill(1.0)
 
 		for idx in order:
 			var h_c: float = height[idx]
@@ -175,8 +188,6 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 			var cx: int = idx % p_gw
 			var cz: int = idx / p_gw
 
-			# Find downhill steepest descent neighbors
-			var max_drop: float = 0.0
 			var sum_drop: float = 0.0
 			var drops: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
@@ -202,7 +213,7 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 						var frac: float = drops[k] / sum_drop
 						current_flow[n_idx] += my_flow * frac
 
-		# 3. Compute Logarithmic Stream-Power Incision with lateral bank spreading
+		# 3. Compute Logarithmic Stream-Power Incision with lateral bank spreading & Hesiod peak preservation
 		var incision_map := PackedFloat32Array()
 		incision_map.resize(n)
 		incision_map.fill(0.0)
@@ -229,12 +240,30 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 				var gz: float = (h_d - h_u) / (2.0 * dz)
 				var slope: float = sqrt(gx * gx + gz * gz)
 
+				var shaped_slope: float = pow(slope, gradient_power) if (gradient_power != 1.0) else slope
+
+				var peak_weight: float = 1.0
+				if peak_preservation > 0.0:
+					var min_local: float = h_c
+					var max_local: float = h_c
+					for rz in range(maxi(0, iz - 2), mini(p_gh - 1, iz + 2) + 1):
+						for rx in range(maxi(0, ix - 2), mini(p_gw - 1, ix + 2) + 1):
+							var val: float = height[rz * p_gw + rx]
+							if is_finite(val):
+								if val < min_local: min_local = val
+								if val > max_local: max_local = val
+					var range_val: float = max_local - min_local
+					if range_val > 1.0e-4:
+						var re: float = (h_c - min_local) / range_val
+						var s_re: float = re * re * (3.0 - 2.0 * re)
+						peak_weight = (1.0 - peak_preservation) + peak_preservation * (1.0 - s_re)
+
 				var diff: float = current_flow[idx] - min_catchment
 				var a_accum: float = diff if (diff > 15.0) else (log(1.0 + exp(diff)) if diff > -15.0 else 0.0)
 
 				if a_accum > 0.01 and slope > 1.0e-5:
-					var power: float = pow(a_accum, area_exponent) * pow(slope, slope_exponent)
-					var incision: float = incision_rate * log(1.0 + power) * m_val
+					var power: float = pow(a_accum, area_exponent) * pow(shaped_slope, slope_exponent)
+					var incision: float = incision_rate * log(1.0 + power) * peak_weight * m_val
 
 					var center_weight: float = 1.0 - bank_smoothing * 0.6
 					var neighbor_weight: float = (bank_smoothing * 0.6) * 0.25

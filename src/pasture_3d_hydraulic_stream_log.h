@@ -23,6 +23,8 @@ struct HydraulicStreamLogParams {
 	float slope_exponent = 1.0f;
 	float min_catchment = 1.0f;
 	float bank_smoothing = 0.1f;
+	float peak_preservation = 0.5f;
+	float gradient_power = 0.8f;
 	PackedFloat32Array mask;
 
 	static HydraulicStreamLogParams from_dict(const Dictionary &p_dict);
