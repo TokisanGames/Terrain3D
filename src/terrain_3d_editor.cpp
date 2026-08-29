@@ -298,6 +298,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						}
 						break;
 					}
+					case ERODE: {
+						destf = _erode(brush_global_position, srcf, brush_alpha * strength);
+						break;
+					}
 					default:
 						break;
 				}
@@ -822,6 +826,39 @@ Color Terrain3DEditor::_average(const Vector3 &p_global_position, const Color &p
 			.linear_to_srgb();
 }
 
+// Morphological (min-filter) erosion, adapted from Zylann's HTerrain
+// erode.gdshader (github.com/Zylann/godot_heightmap_plugin,
+// tools/brush/shaders/erode.gdshader) -- for every point within a small
+// circular neighborhood, take the minimum height plus a distance-based
+// penalty that's 0 inside the radius and grows outside it (so the square
+// sample loop below reads like a soft circular kernel, without a hard
+// per-sample cutoff), then blend toward that eroded height by p_weight.
+// This is a simple, cheap, CPU-friendly technique, not a physically-based
+// hydraulic/thermal simulation -- full procedural erosion generation
+// (issue #101) is explicitly gated on GPU compute infrastructure landing
+// first (issue #174, still open). Matches the maintainer's own scoping of
+// this feature on issue #102: "Just an erosion brush is fine."
+real_t Terrain3DEditor::_erode(const Vector3 &p_global_position, const real_t p_base, const real_t p_weight) const {
+	IS_DATA_INIT(NAN);
+	Terrain3DData *data = _terrain->get_data();
+	real_t vertex_spacing = _terrain->get_vertex_spacing();
+	const int radius = 3;
+	real_t eroded_height = p_base;
+	for (int y = -radius; y <= radius; y++) {
+		for (int x = -radius; x <= radius; x++) {
+			Vector3 sample_pos = p_global_position + Vector3(real_t(x) * vertex_spacing, 0.f, real_t(y) * vertex_spacing);
+			real_t neighbor_height = data->get_height(sample_pos);
+			if (std::isnan(neighbor_height)) {
+				continue;
+			}
+			real_t dist = Vector2(real_t(x), real_t(y)).length();
+			real_t falloff = MAX(dist - real_t(radius), 0.f);
+			eroded_height = MIN(eroded_height, neighbor_height + falloff);
+		}
+	}
+	return Math::lerp(p_base, eroded_height, CLAMP(p_weight, 0.f, 1.f));
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -1005,6 +1042,7 @@ void Terrain3DEditor::_bind_methods() {
 	BIND_ENUM_CONSTANT(REPLACE);
 	BIND_ENUM_CONSTANT(AVERAGE);
 	BIND_ENUM_CONSTANT(GRADIENT);
+	BIND_ENUM_CONSTANT(ERODE);
 	BIND_ENUM_CONSTANT(OP_MAX);
 
 	BIND_ENUM_CONSTANT(SCULPT);
