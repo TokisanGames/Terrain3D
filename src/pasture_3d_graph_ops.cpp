@@ -686,7 +686,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
 				if (in2 && in2[s] >= 0) p.envelope = get_grid_packed(in2[s]);
-				PackedFloat32Array res = mountain_cone_solve(p_gw, p_gh, p_rect, p);
+				PackedFloat32Array res = mountain_cone_solve_best(p_gw, p_gh, p_rect, p);
 				if (res.size() == n) {
 					std::copy_n(res.ptr(), n, g_ptr);
 				}
@@ -706,6 +706,110 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
 				PackedFloat32Array res = mountain_inselberg_solve(p_gw, p_gh, p_rect, p);
+				if (res.size() == n) {
+					std::copy_n(res.ptr(), n, g_ptr);
+				}
+			} break;
+
+			case GRAPH_OP_MOUNTAIN_RANGE_RADIAL: {
+				MountainRangeRadialParams p;
+				p.seed = (int)params[s];
+				p.elevation = params_b[s];
+				p.kw_x = params_c[s];
+				p.kw_y = params_d[s];
+				p.half_width = params_e[s];
+				p.angle_spread_ratio = params_f[s];
+				p.core_size_ratio = params_g ? params_g[s] : 0.2f;
+				p.octaves = params_h ? (int)params_h[s] : 8;
+				p.weight = params_i ? params_i[s] : 0.7f;
+				p.persistence = params_j ? params_j[s] : 0.5f;
+				p.lacunarity = params_k ? params_k[s] : 2.0f;
+				if (in0[s] >= 0) p.ctrl_param = get_grid_packed(in0[s]);
+				if (in1 && in1[s] >= 0) p.dx = get_grid_packed(in1[s]);
+				if (in2 && in2[s] >= 0) p.dy = get_grid_packed(in2[s]);
+				Array res = mountain_range_radial_solve(p_gw, p_gh, p_rect, p);
+				if (res.size() > 0) {
+					PackedFloat32Array h = res[0];
+					if (h.size() == n) {
+						std::copy_n(h.ptr(), n, g_ptr);
+					}
+				}
+			} break;
+
+			case GRAPH_OP_MOUNTAIN_TIBESTI: {
+				MountainTibestiParams p;
+				p.seed = (int)params[s];
+				p.elevation = params_b[s];
+				p.scale = params_c[s];
+				p.octaves = (int)params_d[s];
+				p.peak_kw = params_e[s];
+				p.rugosity = params_f[s];
+				p.angle = params_g ? params_g[s] : 45.0f;
+				p.angle_spread_ratio = params_h ? params_h[s] : 0.5f;
+				p.gamma = params_i ? params_i[s] : 0.5f;
+				p.bulk_amp = params_j ? params_j[s] : 0.5f;
+				p.base_noise_amp = params_k ? params_k[s] : 0.05f;
+				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
+				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
+				PackedFloat32Array res = mountain_tibesti_solve(p_gw, p_gh, p_rect, p);
+				if (res.size() == n) {
+					std::copy_n(res.ptr(), n, g_ptr);
+				}
+			} break;
+
+			case GRAPH_OP_MOUNTAIN_STUMP: {
+				MountainStumpParams p;
+				p.seed = (int)params[s];
+				p.elevation = params_b[s];
+				p.scale = params_c[s];
+				p.octaves = (int)params_d[s];
+				p.peak_kw = params_e[s];
+				p.rugosity = params_f[s];
+				p.angle = params_g ? params_g[s] : 45.0f;
+				p.k_smoothing = params_h ? params_h[s] : 0.05f;
+				p.gamma = params_i ? params_i[s] : 0.5f;
+				p.ridge_amp = params_j ? params_j[s] : 0.4f;
+				p.base_noise_amp = params_k ? params_k[s] : 0.05f;
+				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
+				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
+				PackedFloat32Array res = mountain_stump_solve(p_gw, p_gh, p_rect, p);
+				if (res.size() == n) {
+					std::copy_n(res.ptr(), n, g_ptr);
+				}
+			} break;
+
+			case GRAPH_OP_SHATTERED_PEAK: {
+				ShatteredPeakParams p;
+				p.seed = (int)params[s];
+				p.elevation = params_b[s];
+				p.scale = params_c[s];
+				p.octaves = (int)params_d[s];
+				p.peak_kw = params_e[s];
+				p.rugosity = params_f[s];
+				p.angle = params_g ? params_g[s] : 45.0f;
+				p.gamma = params_h ? params_h[s] : 0.5f;
+				p.bulk_amp = params_i ? params_i[s] : 0.5f;
+				p.base_noise_amp = params_j ? params_j[s] : 0.05f;
+				p.k_smoothing = params_k ? params_k[s] : 0.05f;
+				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
+				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
+				PackedFloat32Array res = shattered_peak_solve(p_gw, p_gh, p_rect, p);
+				if (res.size() == n) {
+					std::copy_n(res.ptr(), n, g_ptr);
+				}
+			} break;
+
+			case GRAPH_OP_CALDERA: {
+				CalderaParams p;
+				p.elevation = params[s];
+				p.radius = params_b[s];
+				p.sigma_inner = params_c[s];
+				p.sigma_outer = params_d[s];
+				p.z_bottom = params_e[s];
+				p.noise_r_amp = params_f[s];
+				p.noise_z_ratio = params_g ? params_g[s] : 0.05f;
+				if (in0[s] >= 0) p.noise = get_grid_packed(in0[s]);
+				PackedFloat32Array res = caldera_solve(p_gw, p_gh, p_rect, p);
 				if (res.size() == n) {
 					std::copy_n(res.ptr(), n, g_ptr);
 				}

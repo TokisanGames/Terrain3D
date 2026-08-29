@@ -11,6 +11,7 @@
 #include <godot_cpp/variant/typed_array.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <vector>
@@ -84,6 +85,10 @@ static const char *GRAPH_HYDRAULIC_GLSL =
 #include "shaders/graph_solver_hydraulic.glsl"
 ;
 
+static const char *GRAPH_GEO_GLSL =
+#include "shaders/graph_geo_primitives.glsl"
+;
+
 Pasture3DGraphGPU::~Pasture3DGraphGPU() {
 	if (_rd) {
 		if (_pipeline.is_valid()) {
@@ -97,6 +102,12 @@ Pasture3DGraphGPU::~Pasture3DGraphGPU() {
 		}
 		if (_shader_hydraulic.is_valid()) {
 			_rd->free_rid(_shader_hydraulic);
+		}
+		if (_pipeline_geo.is_valid()) {
+			_rd->free_rid(_pipeline_geo);
+		}
+		if (_shader_geo.is_valid()) {
+			_rd->free_rid(_shader_geo);
 		}
 		memdelete(_rd);
 		_rd = nullptr;
@@ -182,6 +193,41 @@ bool Pasture3DGraphGPU::_ensure_init_hydraulic() {
 	if (!_pipeline_hydraulic.is_valid()) {
 		_rd->free_rid(_shader_hydraulic);
 		_init_hydraulic_failed = true;
+		return false;
+	}
+	return true;
+}
+
+bool Pasture3DGraphGPU::_ensure_init_geo() {
+	if (_rd && _pipeline_geo.is_valid()) {
+		return true;
+	}
+	if (_init_geo_failed) {
+		return false;
+	}
+	if (!_ensure_init()) {
+		_init_geo_failed = true;
+		return false;
+	}
+
+	Ref<RDShaderSource> src;
+	src.instantiate();
+	src->set_stage_source(RenderingDevice::SHADER_STAGE_COMPUTE, String(GRAPH_GEO_GLSL));
+	Ref<RDShaderSPIRV> spirv = _rd->shader_compile_spirv_from_source(src);
+	if (spirv.is_null() || !spirv->get_stage_compile_error(RenderingDevice::SHADER_STAGE_COMPUTE).is_empty()) {
+		UtilityFunctions::push_warning("Graph GPU: geo-primitives compute shader compile failed; falling back to the CPU solver.");
+		_init_geo_failed = true;
+		return false;
+	}
+	_shader_geo = _rd->shader_create_from_spirv(spirv);
+	if (!_shader_geo.is_valid()) {
+		_init_geo_failed = true;
+		return false;
+	}
+	_pipeline_geo = _rd->compute_pipeline_create(_shader_geo);
+	if (!_pipeline_geo.is_valid()) {
+		_rd->free_rid(_shader_geo);
+		_init_geo_failed = true;
 		return false;
 	}
 	return true;
@@ -577,6 +623,119 @@ bool Pasture3DGraphGPU::eval_hydraulic(const PackedFloat32Array &p_surface, int 
 	return true;
 }
 
+bool Pasture3DGraphGPU::eval_geo(const GeoGpuParams &p_gp, int p_gw, int p_gh,
+		const PackedFloat32Array &p_in_a, const PackedFloat32Array &p_in_b, const PackedFloat32Array &p_in_c,
+		PackedFloat32Array &r_out, PackedFloat32Array &r_out2) {
+	if (!_ensure_init_geo()) {
+		return false;
+	}
+	if (p_gw < 1 || p_gh < 1) {
+		return false;
+	}
+	const int n = p_gw * p_gh;
+	const int bytes = n * (int)sizeof(float);
+
+	std::vector<RID> to_free;
+	auto free_bufs = [&]() {
+		for (RID rid : to_free) {
+			if (rid.is_valid()) {
+				_rd->free_rid(rid);
+			}
+		}
+	};
+	auto fail = [&]() -> bool {
+		free_bufs();
+		return false;
+	};
+	auto empty_buf = [&]() -> RID {
+		PackedByteArray pb;
+		pb.resize(bytes);
+		RID b = _rd->storage_buffer_create(bytes, pb);
+		if (b.is_valid()) {
+			to_free.push_back(b);
+		}
+		return b;
+	};
+	// A wired input feeds its own buffer; an unwired one still needs SOME buffer bound (the shader gates the
+	// read on p.flags), so it gets a zero buffer. The router sets p_gp.flags to match which are wired.
+	auto input_buf = [&](const PackedFloat32Array &p_in) -> RID {
+		PackedByteArray pb;
+		pb.resize(bytes);
+		if (p_in.size() == n) {
+			std::memcpy(pb.ptrw(), p_in.ptr(), bytes);
+		}
+		RID b = _rd->storage_buffer_create(bytes, pb);
+		if (b.is_valid()) {
+			to_free.push_back(b);
+		}
+		return b;
+	};
+
+	const RID out_buf = empty_buf();
+	const RID out2_buf = empty_buf();
+	const RID a_buf = input_buf(p_in_a);
+	const RID b_buf = input_buf(p_in_b);
+	const RID c_buf = input_buf(p_in_c);
+	if (!out_buf.is_valid() || !out2_buf.is_valid() || !a_buf.is_valid() || !b_buf.is_valid() || !c_buf.is_valid()) {
+		return fail();
+	}
+
+	// Param SSBO: memcpy the host mirror 1:1 (std430, all 4-byte scalars). op/gw/gh are authoritative here.
+	GeoGpuParams gp = p_gp;
+	gp.gw = p_gw;
+	gp.gh = p_gh;
+	PackedByteArray pb_params;
+	pb_params.resize((int)sizeof(GeoGpuParams));
+	std::memcpy(pb_params.ptrw(), &gp, sizeof(GeoGpuParams));
+	const RID param_buf = _rd->storage_buffer_create((int)sizeof(GeoGpuParams), pb_params);
+	if (!param_buf.is_valid()) {
+		return fail();
+	}
+	to_free.push_back(param_buf);
+
+	TypedArray<RDUniform> uniforms;
+	const RID bufs[6] = { out_buf, out2_buf, a_buf, b_buf, c_buf, param_buf };
+	for (int i = 0; i < 6; i++) {
+		Ref<RDUniform> u;
+		u.instantiate();
+		u->set_uniform_type(RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER);
+		u->set_binding(i);
+		u->add_id(bufs[i]);
+		uniforms.push_back(u);
+	}
+	const RID uniform_set = _rd->uniform_set_create(uniforms, _shader_geo, 0);
+	if (!uniform_set.is_valid()) {
+		return fail();
+	}
+
+	const int gx = (p_gw + 7) / 8;
+	const int gy = (p_gh + 7) / 8;
+
+	int64_t cl = _rd->compute_list_begin();
+	_rd->compute_list_bind_compute_pipeline(cl, _pipeline_geo);
+	_rd->compute_list_bind_uniform_set(cl, uniform_set, 0);
+	_rd->compute_list_dispatch(cl, gx, gy, 1);
+	_rd->compute_list_end();
+	_rd->submit();
+	_rd->sync();
+
+	PackedByteArray out_bytes = _rd->buffer_get_data(out_buf);
+	PackedByteArray out2_bytes = _rd->buffer_get_data(out2_buf);
+
+	_rd->free_rid(uniform_set);
+	free_bufs();
+
+	if (out_bytes.size() != bytes || out2_bytes.size() != bytes) {
+		return false;
+	}
+
+	r_out.resize(n);
+	r_out2.resize(n);
+	std::memcpy(r_out.ptrw(), out_bytes.ptr(), bytes);
+	std::memcpy(r_out2.ptrw(), out2_bytes.ptr(), bytes);
+	return true;
+}
+
 namespace godot {
 
 int graph_gpu_threshold() {
@@ -612,6 +771,58 @@ ErosionHydraulicResult erosion_hydraulic_solve_best(const PackedFloat32Array &p_
 		}
 	}
 	return erosion_hydraulic_solve(p_surface, p_gw, p_gh, p_rect, p_params);
+}
+
+bool mountain_cone_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainConeParams &p_params,
+		PackedFloat32Array &r_out) {
+	if (p_gw < 1 || p_gh < 1) {
+		return false;
+	}
+	static Pasture3DGraphGPU s_gpu; // persistent: the local RD + shader compile once across calls
+
+	// Fill the GPU param block exactly as mountain_cone_solve derives its host-side constants, so the two
+	// paths agree to GPU-float tolerance. octaves is Nyquist-capped identically (shared header helper).
+	const float scale = p_params.scale;
+	const float kw = p_params.peak_kw / scale;
+	const float lacunarity = 2.0f;
+	const float alpha = p_params.angle * 0.0174532925f;
+	const int n = p_gw * p_gh;
+
+	GeoGpuParams gp;
+	gp.op = 0; // MountainCone
+	gp.octaves = nyquist_octave_cap(p_params.octaves, kw, lacunarity, std::min(p_gw, p_gh));
+	gp.seed_u = wang_hash((uint32_t)p_params.seed);
+	gp.flags = (p_params.dx.size() == n ? 1 : 0) |
+			(p_params.dy.size() == n ? 2 : 0) |
+			(p_params.envelope.size() == n ? 4 : 0);
+	gp.elevation = p_params.elevation;
+	gp.scale = scale;
+	gp.kw = kw;
+	gp.cos_alpha = std::cos(alpha);
+	gp.sin_alpha = std::sin(alpha);
+	gp.gamma = p_params.gamma;
+	gp.persistence = 0.5f;
+	gp.lacunarity = lacunarity;
+	gp.base_noise_amp = p_params.base_noise_amp;
+	gp.cone_alpha = p_params.cone_alpha;
+	gp.ridge_amp = p_params.ridge_amp;
+	gp.center_x = p_params.center.x;
+	gp.center_y = p_params.center.y;
+
+	PackedFloat32Array out2;
+	return s_gpu.eval_geo(gp, p_gw, p_gh, p_params.dx, p_params.dy, p_params.envelope, r_out, out2);
+}
+
+PackedFloat32Array mountain_cone_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const MountainConeParams &p_params) {
+	const int threshold = graph_gpu_threshold();
+	if (threshold > 0 && (int64_t)p_gw * p_gh >= (int64_t)threshold) {
+		PackedFloat32Array out;
+		if (mountain_cone_eval_gpu(p_gw, p_gh, p_rect, p_params, out)) {
+			return out;
+		}
+	}
+	return mountain_cone_solve(p_gw, p_gh, p_rect, p_params);
 }
 
 } // namespace godot

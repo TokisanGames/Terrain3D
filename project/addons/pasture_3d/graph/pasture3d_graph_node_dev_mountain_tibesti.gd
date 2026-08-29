@@ -279,6 +279,21 @@ static func _gabor_wave_scalar_fbm(x: float, y: float, dir_x: float, dir_y: floa
 	return n
 
 
+# Nyquist octave cap — MUST stay bit-identical to nyquist_octave_cap in pasture_3d_geo_primitives.cpp so
+# the native-vs-oracle parity gate holds. Keeps octave o while kw * lacunarity^o <= shape/2 (wavelength
+# >= 2 px); a small relative slack on the boundary absorbs the C++ float / GDScript double difference.
+static func _nyquist_octave_cap(p_octaves: int, p_kw: float, p_lacunarity: float, p_shape_px: int) -> int:
+	if p_octaves <= 1 or p_kw <= 0.0 or p_shape_px <= 0 or p_lacunarity <= 1.0:
+		return p_octaves
+	var cap: int = 1
+	var f: float = p_kw * p_lacunarity
+	var nyq: float = 0.5 * float(p_shape_px) * 1.0001
+	while cap < p_octaves and f <= nyq:
+		cap += 1
+		f *= p_lacunarity
+	return cap
+
+
 static func solve_oracle(p_gw: int, p_gh: int, _p_rect: Rect2, p_params: Dictionary) -> PackedFloat32Array:
 	var n: int = p_gw * p_gh
 	var out := PackedFloat32Array()
@@ -313,24 +328,29 @@ static func solve_oracle(p_gw: int, p_gh: int, _p_rect: Rect2, p_params: Diction
 	var dir_x: float = cos(alpha)
 	var dir_y: float = sin(alpha)
 
+	var shape_min: int = mini(p_gw, p_gh)
+	var oct_base_val: int = _nyquist_octave_cap(octaves_val, kw_base, lacunarity, shape_min)
+	var oct4_val: int = _nyquist_octave_cap(octaves_val, kw_noise4, lacunarity, shape_min)
+	var oct2_val: int = _nyquist_octave_cap(octaves_val, kw_noise2, lacunarity, shape_min)
+
 	for iz in range(p_gh):
 		var ny: float = float(iz) / float(p_gh - 1) if p_gh > 1 else 0.5
 		for ix in range(p_gw):
 			var nx: float = float(ix) / float(p_gw - 1) if p_gw > 1 else 0.5
 			var idx: int = iz * p_gw + ix
 
-			var n4: float = _simplex2_fbm(nx * kw_noise4, ny * kw_noise4, octaves_val, persistence, lacunarity, seed_u + 101)
+			var n4: float = _simplex2_fbm(nx * kw_noise4, ny * kw_noise4, oct4_val, persistence, lacunarity, seed_u + 101)
 			n4 = 0.5 * n4 + 0.5
 			n4 = maxf(0.0, n4)
 			if gamma_val > 0.0:
 				n4 = pow(n4, gamma_val)
 
-			var n2: float = scale_val * base_noise_amp_val * _simplex2_fbm(nx * kw_noise2, ny * kw_noise2, octaves_val, persistence, lacunarity, seed_u + 203)
+			var n2: float = scale_val * base_noise_amp_val * _simplex2_fbm(nx * kw_noise2, ny * kw_noise2, oct2_val, persistence, lacunarity, seed_u + 203)
 			var disp_x: float = n2 * dir_x + (dx[idx] if has_dx else 0.0)
 			var disp_y: float = n2 * dir_y + (dy[idx] if has_dy else 0.0)
 
 			var gabor: float = _gabor_wave_scalar_fbm((nx + disp_x) * kw_base, (ny + disp_y) * kw_base, dir_x, dir_y,
-					angle_spread_ratio_val, octaves_val, 0.7, persistence, lacunarity, seed_u + 307)
+					angle_spread_ratio_val, oct_base_val, 0.7, persistence, lacunarity, seed_u + 307)
 			gabor = (0.5 * gabor + 0.5) * n4
 			gabor = n4 * (bulk_amp_val + gabor) / (bulk_amp_val + 1.0)
 

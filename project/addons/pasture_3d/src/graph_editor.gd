@@ -91,7 +91,7 @@ func edit_graph(p_graph: Pasture3DTerrainGraph, p_mod: Pasture3DNodeGraph = null
 
 	if p_brush != null:
 		host_brush = p_brush
-	elif host_brush != null and (p_graph == null or (host_brush is Pasture3DPlow and (host_brush as Pasture3DPlow).graph != p_graph)):
+	elif host_brush != null and p_graph == null:
 		host_brush = null
 
 	if graph == p_graph:
@@ -252,15 +252,11 @@ func _find_host_brush() -> Pasture3DTerrainBrush:
 	if plugin != null and graph != null and is_inside_tree():
 		var sel := EditorInterface.get_selection().get_selected_nodes()
 		for nd in sel:
-			if nd is Pasture3DPlow and (nd as Pasture3DPlow).graph == graph:
-				return nd as Pasture3DTerrainBrush
 			if nd is Pasture3DTerrainBrush:
 				for m in (nd as Pasture3DTerrainBrush).modifiers:
 					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
 						return nd as Pasture3DTerrainBrush
 		for b in get_tree().get_nodes_in_group("pasture3d_brushes"):
-			if b is Pasture3DPlow and (b as Pasture3DPlow).graph == graph:
-				return b
 			if b is Pasture3DTerrainBrush:
 				for m in b.modifiers:
 					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
@@ -348,6 +344,8 @@ func _build_ui() -> void:
 	popup.add_item("Sedimentary Canyon (Strata + Curvature + Curve Remap)", 6)
 	popup.add_item("Glacial Valley (Domain Warp + Furrows + Hydraulic Erosion)", 7)
 	popup.add_item("Alpine Mountain Cone (MountainCone + HydraulicSaleve)", 8)
+	popup.add_item("Radial Alpine Range (MountainRangeRadial + HydraulicSaleve + Talus)", 9)
+	popup.add_item("Volcanic Caldera & Shield (Caldera + MountainTibesti + Thermal)", 10)
 	popup.id_pressed.connect(_on_preset_selected)
 	bar.add_child(_presets_button)
 	
@@ -690,7 +688,7 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 		var row_box := HBoxContainer.new()
 		row_box.custom_minimum_size = Vector2(0, 24)
 
-		var in_name: String = names[r] if r < n_in else ""
+		var in_name: String = names[r] if r < names.size() else ""
 		if not in_name.is_empty():
 			var lbl := Label.new()
 			lbl.text = in_name
@@ -1543,6 +1541,47 @@ func _insert_preset(p_id: int, p_pos: Vector2) -> void:
 			_ur_add_do_method(graph, &"add_node", [saleve, p_pos + Vector2(240, 0)])
 			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
 			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1], "Alpine Mountain Cone"])
+
+		9: # Radial Alpine Range (MountainRangeRadial + HydraulicSaleve + Talus)
+			var range_rad = Pasture3DGraphNodeRegistry.create(&"mountain_range_radial")
+			range_rad.set("elevation", 35.0)
+			range_rad.set("half_width", 0.25)
+			range_rad.set("angle_spread_ratio", 0.4)
+
+			var saleve = Pasture3DGraphNodeRegistry.create(&"hydraulic_saleve")
+			saleve.set("iterations", 20)
+			saleve.set("erosion_strength", 0.4)
+
+			var talus = Pasture3DGraphNodeRegistry.create(&"talus_projection")
+			talus.set("talus_angle_deg", 38.0)
+			talus.set("iterations", 10)
+
+			_ur_add_do_method(graph, &"add_node", [range_rad, p_pos])
+			_ur_add_do_method(graph, &"add_node", [saleve, p_pos + Vector2(240, 0)])
+			_ur_add_do_method(graph, &"add_node", [talus, p_pos + Vector2(480, 0)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2], "Radial Alpine Range"])
+
+		10: # Volcanic Caldera & Shield (Caldera + MountainTibesti + Thermal)
+			var cald = Pasture3DGraphNodeRegistry.create(&"caldera")
+			cald.set("elevation", 30.0)
+			cald.set("radius", 0.22)
+			cald.set("z_bottom", 0.25)
+
+			var tibesti = Pasture3DGraphNodeRegistry.create(&"mountain_tibesti")
+			tibesti.set("elevation", 20.0)
+			tibesti.set("scale", 0.8)
+
+			var blend = Pasture3DGraphNodeRegistry.create(&"blend")
+			blend.set("mode", 0) # ADD
+
+			_ur_add_do_method(graph, &"add_node", [cald, p_pos])
+			_ur_add_do_method(graph, &"add_node", [tibesti, p_pos + Vector2(0, 180)])
+			_ur_add_do_method(graph, &"add_node", [blend, p_pos + Vector2(240, 90)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 1])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2], "Volcanic Caldera & Shield"])
 
 	_ur_add_undo_property(graph, &"nodes", old_nodes)
 	_ur_add_undo_property(graph, &"connections", old_conns)

@@ -1144,6 +1144,16 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				op_id = 37; p0 = float(_i.call(&"seed", 0)); pb = _f.call(&"elevation", 25.0); pc = _f.call(&"scale", 1.0); pd = float(_i.call(&"octaves", 8)); pe = _f.call(&"peak_kw", 4.0); pf = _f.call(&"rugosity", 0.0); pg = _f.call(&"angle", 45.0); ph = _f.call(&"gamma", 0.5); pi = _f.call(&"cone_alpha", 1.2); pj = _f.call(&"ridge_amp", 0.4); pk = _f.call(&"base_noise_amp", 0.05)
 			&"mountain_inselberg":
 				op_id = 38; p0 = float(_i.call(&"seed", 0)); pb = _f.call(&"elevation", 25.0); pc = _f.call(&"scale", 1.0); pd = float(_i.call(&"octaves", 8)); pe = _f.call(&"rugosity", 0.0); pf = _f.call(&"angle", 45.0); pg = _f.call(&"gamma", 0.5); ph = _f.call(&"bulk_amp", 0.5); pi = _f.call(&"base_noise_amp", 0.05)
+			&"mountain_range_radial":
+				op_id = 39; p0 = float(_i.call(&"seed", 0)); pb = _f.call(&"elevation", 25.0); pc = _f.call(&"kw_x", 4.0); pd = _f.call(&"kw_y", 4.0); pe = _f.call(&"half_width", 0.2); pf = _f.call(&"angle_spread_ratio", 0.5); pg = _f.call(&"core_size_ratio", 0.2); ph = float(_i.call(&"octaves", 8)); pi = _f.call(&"weight", 0.7); pj = _f.call(&"persistence", 0.5); pk = _f.call(&"lacunarity", 2.0)
+			&"mountain_tibesti":
+				op_id = 40; p0 = float(_i.call(&"seed", 0)); pb = _f.call(&"elevation", 25.0); pc = _f.call(&"scale", 1.0); pd = float(_i.call(&"octaves", 8)); pe = _f.call(&"peak_kw", 4.0); pf = _f.call(&"rugosity", 0.0); pg = _f.call(&"angle", 45.0); ph = _f.call(&"angle_spread_ratio", 0.5); pi = _f.call(&"gamma", 0.5); pj = _f.call(&"bulk_amp", 0.5); pk = _f.call(&"base_noise_amp", 0.05)
+			&"mountain_stump":
+				op_id = 41; p0 = float(_i.call(&"seed", 0)); pb = _f.call(&"elevation", 25.0); pc = _f.call(&"scale", 1.0); pd = float(_i.call(&"octaves", 8)); pe = _f.call(&"peak_kw", 4.0); pf = _f.call(&"rugosity", 0.0); pg = _f.call(&"angle", 45.0); ph = _f.call(&"k_smoothing", 0.05); pi = _f.call(&"gamma", 0.5); pj = _f.call(&"ridge_amp", 0.4); pk = _f.call(&"base_noise_amp", 0.05)
+			&"shattered_peak":
+				op_id = 42; p0 = float(_i.call(&"seed", 0)); pb = _f.call(&"elevation", 25.0); pc = _f.call(&"scale", 1.0); pd = float(_i.call(&"octaves", 8)); pe = _f.call(&"peak_kw", 4.0); pf = _f.call(&"rugosity", 0.0); pg = _f.call(&"angle", 45.0); ph = _f.call(&"gamma", 0.5); pi = _f.call(&"bulk_amp", 0.5); pj = _f.call(&"base_noise_amp", 0.05); pk = _f.call(&"k_smoothing", 0.05)
+			&"caldera":
+				op_id = 43; p0 = _f.call(&"elevation", 25.0); pb = _f.call(&"radius", 0.2); pc = _f.call(&"sigma_inner", 0.05); pd = _f.call(&"sigma_outer", 0.15); pe = _f.call(&"z_bottom", 0.2); pf = _f.call(&"noise_r_amp", 0.02); pg = _f.call(&"noise_z_ratio", 0.05)
 			_:
 				return {} # an op the native evaluator does not implement
 
@@ -1317,7 +1327,9 @@ func native_supported(p_root_node: int = -1) -> bool:
 		&"talus_projection", &"spectral_equalizer", &"depression_filling", &"lake_flooding",
 		&"stream_extraction", &"erosion_hydraulic", &"erosion_thermal", &"scree", &"erosion",
 		&"hydraulic_particle", &"hydraulic_stream_log", &"hydraulic_saleve",
-		&"mountain_cone", &"mountain_inselberg"
+		&"mountain_cone", &"mountain_inselberg",
+		&"mountain_range_radial", &"mountain_tibesti", &"mountain_stump",
+		&"shattered_peak", &"caldera"
 	]
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):

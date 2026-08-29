@@ -64,6 +64,11 @@ enum GraphCellOpType {
 	GRAPH_OP_HYDRAULIC_SALEVE = 36, // SOLVER grid: Salève structural hydraulic erosion
 	GRAPH_OP_MOUNTAIN_CONE = 37, // PRIMITIVE grid: conical mountain peak with cellular Voronoi ridges
 	GRAPH_OP_MOUNTAIN_INSELBERG = 38, // PRIMITIVE grid: isolated inselberg dome with fractured bedrock ridges
+	GRAPH_OP_MOUNTAIN_RANGE_RADIAL = 39, // PRIMITIVE grid: radial branching alpine mountain range
+	GRAPH_OP_MOUNTAIN_TIBESTI = 40, // PRIMITIVE grid: massive volcanic alpine massif with Gabor ridges
+	GRAPH_OP_MOUNTAIN_STUMP = 41, // PRIMITIVE grid: eroded residual ancient mountain stump
+	GRAPH_OP_SHATTERED_PEAK = 42, // PRIMITIVE grid: fractured alpine peak with Voronoi fissures
+	GRAPH_OP_CALDERA = 43, // PRIMITIVE grid: volcanic collapse caldera with inner drop and outer flanks
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed
