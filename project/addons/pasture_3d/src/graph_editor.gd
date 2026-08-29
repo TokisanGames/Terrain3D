@@ -232,11 +232,13 @@ func _auto_fit_node_range(p_index: int) -> void:
 func _find_brush_for_modifier(p_mod: Pasture3DNodeGraph) -> Pasture3DTerrainBrush:
 	if p_mod == null or not is_inside_tree():
 		return null
-	var sel := EditorInterface.get_selection().get_selected_nodes()
-	for nd in sel:
-		if nd is Pasture3DTerrainBrush and (nd as Pasture3DTerrainBrush).modifiers.has(p_mod):
-			return nd as Pasture3DTerrainBrush
-	for b in get_tree().get_nodes_in_group("pasture3d_brushes"):
+	# The selection is the fast path and only exists in the editor; `EditorInterface` is not there in a
+	# headless run, so reading it unguarded takes the whole lookup down before the group scan is reached.
+	if Engine.is_editor_hint():
+		for nd in EditorInterface.get_selection().get_selected_nodes():
+			if nd is Pasture3DTerrainBrush and (nd as Pasture3DTerrainBrush).modifiers.has(p_mod):
+				return nd as Pasture3DTerrainBrush
+	for b in get_tree().get_nodes_in_group(Pasture3DTerrainBrush.BRUSH_GROUP):
 		if b is Pasture3DTerrainBrush and b.modifiers.has(p_mod):
 			return b
 	return null
@@ -249,14 +251,16 @@ func _find_host_brush() -> Pasture3DTerrainBrush:
 		var b := _find_brush_for_modifier(host_modifier)
 		if b != null:
 			return b
-	if plugin != null and graph != null and is_inside_tree():
-		var sel := EditorInterface.get_selection().get_selected_nodes()
-		for nd in sel:
-			if nd is Pasture3DTerrainBrush:
-				for m in (nd as Pasture3DTerrainBrush).modifiers:
-					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
-						return nd as Pasture3DTerrainBrush
-		for b in get_tree().get_nodes_in_group("pasture3d_brushes"):
+	# `plugin` used to gate this block and is not read anywhere inside it — so a panel that had a graph and
+	# a tree but no plugin reference (a test, or an early call) skipped a search that would have succeeded.
+	if graph != null and is_inside_tree():
+		if Engine.is_editor_hint():
+			for nd in EditorInterface.get_selection().get_selected_nodes():
+				if nd is Pasture3DTerrainBrush:
+					for m in (nd as Pasture3DTerrainBrush).modifiers:
+						if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
+							return nd as Pasture3DTerrainBrush
+		for b in get_tree().get_nodes_in_group(Pasture3DTerrainBrush.BRUSH_GROUP):
 			if b is Pasture3DTerrainBrush:
 				for m in b.modifiers:
 					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
