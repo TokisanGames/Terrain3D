@@ -13,30 +13,11 @@ using namespace godot;
 
 namespace {
 
-inline float hash2d(int x, int y, int seed) {
-	uint32_t n = (uint32_t)(x * 73856093 ^ y * 19349663 ^ seed * 83492791);
+inline float fast_hash_to_unit(uint32_t seed, uint32_t key) {
+	uint32_t n = seed ^ (key * 0x5bd1e995);
 	n = (n ^ (n >> 13)) * 0x5bd1e995;
 	n ^= n >> 15;
 	return ((float)(n & 0x00ffffff) / 8388608.0f) - 1.0f; // [-1.0 .. 1.0]
-}
-
-inline float smooth_noise2d(float x, float z, int seed) {
-	int ix = (int)std::floor(x);
-	int iz = (int)std::floor(z);
-	float fx = x - (float)ix;
-	float fz = z - (float)iz;
-
-	float wx = fx * fx * fx * (fx * (fx * 6.0f - 15.0f) + 10.0f);
-	float wz = fz * fz * fz * (fz * (fz * 6.0f - 15.0f) + 10.0f);
-
-	float v00 = hash2d(ix, iz, seed);
-	float v10 = hash2d(ix + 1, iz, seed);
-	float v01 = hash2d(ix, iz + 1, seed);
-	float v11 = hash2d(ix + 1, iz + 1, seed);
-
-	float nx0 = v00 * (1.0f - wx) + v10 * wx;
-	float nx1 = v01 * (1.0f - wx) + v11 * wx;
-	return nx0 * (1.0f - wz) + nx1 * wz;
 }
 
 } // namespace
@@ -47,12 +28,12 @@ HydraulicSaleveParams HydraulicSaleveParams::from_dict(const Dictionary &p_dict)
 		p.iterations = std::max(1, (int)p_dict["iterations"]);
 	}
 	if (p_dict.has("erosion_strength")) {
-		p.erosion_strength = std::max(0.0f, (float)p_dict["erosion_strength"]);
+		p.erosion_strength = std::clamp((float)p_dict["erosion_strength"], 0.0f, 1.0f);
 	} else if (p_dict.has("incision_rate")) {
-		p.erosion_strength = std::max(0.0f, (float)p_dict["incision_rate"]);
+		p.erosion_strength = std::clamp((float)p_dict["incision_rate"], 0.0f, 1.0f);
 	}
 	if (p_dict.has("drainage_exponent")) {
-		p.drainage_exponent = std::clamp((float)p_dict["drainage_exponent"], 0.01f, 1.0f);
+		p.drainage_exponent = std::clamp((float)p_dict["drainage_exponent"], 0.01f, 0.8f);
 	}
 	if (p_dict.has("drainage_noise")) {
 		p.drainage_noise = std::max(0.0f, (float)p_dict["drainage_noise"]);
@@ -61,7 +42,7 @@ HydraulicSaleveParams HydraulicSaleveParams::from_dict(const Dictionary &p_dict)
 		p.fine_erosion_strength = std::max(0.0f, (float)p_dict["fine_erosion_strength"]);
 	}
 	if (p_dict.has("shape_preservation")) {
-		p.shape_preservation = std::clamp((float)p_dict["shape_preservation"], 0.0f, 2.0f);
+		p.shape_preservation = std::clamp((float)p_dict["shape_preservation"], 0.1f, 4.0f);
 	}
 	if (p_dict.has("bank_smoothing")) {
 		p.bank_smoothing = std::clamp((float)p_dict["bank_smoothing"], 0.0f, 0.5f);
@@ -99,206 +80,233 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 	}
 
 	const float *src_height = p_surface.ptr();
-	std::vector<float> height(src_height, src_height + n);
-	std::vector<float> eroded_rock(n, 0.0f);
-	std::vector<float> sediment(n, 0.0f);
-
 	const bool has_mask = (p_params.mask.size() == n);
 	const float *mask_ptr = has_mask ? p_params.mask.ptr() : nullptr;
 
-	const int iterations = std::max(1, p_params.iterations);
-	const double erosion_strength = (double)p_params.erosion_strength;
-	const double drainage_exponent = (double)p_params.drainage_exponent;
-	const double drainage_noise = (double)p_params.drainage_noise;
-	const double fine_erosion_strength = (double)p_params.fine_erosion_strength;
-	const double shape_preservation = (double)p_params.shape_preservation;
-	const double bank_smoothing = (double)p_params.bank_smoothing;
-	const double sediment_strength = (double)p_params.sediment_strength;
-	const int seed = p_params.seed;
+	float zmin = std::numeric_limits<float>::max();
+	float zmax = -std::numeric_limits<float>::max();
+	for (int i = 0; i < n; i++) {
+		float h = src_height[i];
+		if (std::isfinite(h)) {
+			if (h < zmin) zmin = h;
+			if (h > zmax) zmax = h;
+		}
+	}
 
-	const double dx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
-	const double dz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+	if (zmax - zmin < 1.0e-5f) {
+		res.ok = true;
+		res.height = p_surface.duplicate();
+		res.eroded_rock.resize(n);
+		res.eroded_rock.fill(0.0f);
+		res.sediment.resize(n);
+		res.sediment.fill(0.0f);
+		return res;
+	}
+
+	const float zptp = zmax - zmin;
+
+	// Normalized unit elevation [0..1]
+	std::vector<float> z(n);
+	std::vector<float> erodibility(n, 1.0f);
+	std::vector<bool> is_outlet(n, false);
+
+	for (int iz = 0; iz < p_gh; iz++) {
+		for (int ix = 0; ix < p_gw; ix++) {
+			int idx = iz * p_gw + ix;
+			float h = src_height[idx];
+			if (!std::isfinite(h)) {
+				z[idx] = 0.0f;
+				is_outlet[idx] = true;
+				continue;
+			}
+			float zn = (h - zmin) / zptp;
+			z[idx] = zn;
+
+			// Hesiod Shape Preservation: erodibility = (1.0 - z_norm)^shape_exp
+			erodibility[idx] = std::pow(std::clamp(1.0f - zn, 0.01f, 1.0f), p_params.shape_preservation);
+
+			// Border cells are default outlets
+			if (ix == 0 || ix == p_gw - 1 || iz == 0 || iz == p_gh - 1) {
+				is_outlet[idx] = true;
+			}
+		}
+	}
+
+	const int iterations = std::max(1, p_params.iterations);
+	const float m_exp = p_params.drainage_exponent;
+	const float noise_strength = p_params.drainage_noise;
+	const float uplift_rate = 1.0f;
+	const float max_slope = 4.0f;
+	const uint32_t seed = (uint32_t)p_params.seed;
+
+	const double dx = 1.0 / (double)std::max(p_gw, 1);
+	const double dz = 1.0 / (double)std::max(p_gh, 1);
 	const double diag_dist = std::sqrt(dx * dx + dz * dz);
 
 	const int n_dx[8] = { -1, 1, 0, 0, -1, 1, -1, 1 };
 	const int n_dz[8] = { 0, 0, -1, 1, -1, -1, 1, 1 };
 	const double n_dist[8] = { dx, dx, dz, dz, diag_dist, diag_dist, diag_dist, diag_dist };
 
+	std::vector<int> receivers(n);
+	std::vector<float> area_acc(n, 0.0f);
+	std::vector<float> response_times(n, 0.0f);
 	std::vector<int> order(n);
 
-	for (int pass_idx = 0; pass_idx < iterations; pass_idx++) {
-		// 1. Sort indices descending by elevation
-		for (int i = 0; i < n; i++) {
-			order[i] = i;
-		}
-
-		std::sort(order.begin(), order.end(), [&height](int a, int b) {
-			float ha = height[a];
-			float hb = height[b];
-			if (!std::isfinite(ha)) return false;
-			if (!std::isfinite(hb)) return true;
-			return ha > hb;
-		});
-
-		// 2. Accumulate drainage flow with dendritic noise perturbation
-		std::vector<float> current_flow(n, 1.0f);
-		std::vector<float> current_sediment(n, 0.0f);
-
-		for (int idx : order) {
-			float h_c = height[idx];
-			if (!std::isfinite(h_c)) {
-				continue;
-			}
-			int cx = idx % p_gw;
-			int cz = idx / p_gw;
-
-			double sum_drop = 0.0;
-			double drops[8] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-
-			for (int k = 0; k < 8; k++) {
-				int nx = cx + n_dx[k];
-				int nz = cz + n_dz[k];
-				if (nx >= 0 && nx < p_gw && nz >= 0 && nz < p_gh) {
-					int n_idx = nz * p_gw + nx;
-					float h_n = height[n_idx];
-					if (std::isfinite(h_n) && h_n < h_c) {
-						double drop = (double)(h_c - h_n) / n_dist[k];
-
-						if (drainage_noise > 0.0) {
-							float nval = smooth_noise2d((float)nx * 0.25f, (float)nz * 0.25f, seed + pass_idx * 17 + k * 3);
-							drop *= std::max(0.05, 1.0 + drainage_noise * (double)nval);
-						}
-
-						double weighted_drop = std::pow(drop, 1.3);
-						drops[k] = weighted_drop;
-						sum_drop += weighted_drop;
-					}
+	for (int iter = 0; iter < iterations; iter++) {
+		// 1. Compute steepest descent receivers with noise perturbation
+		for (int iz = 0; iz < p_gh; iz++) {
+			for (int ix = 0; ix < p_gw; ix++) {
+				int idx = iz * p_gw + ix;
+				if (is_outlet[idx]) {
+					receivers[idx] = idx;
+					continue;
 				}
-			}
 
-			if (sum_drop > 1.0e-6) {
-				double my_flow = (double)current_flow[idx];
-				double my_sed = (double)current_sediment[idx];
+				float z_c = z[idx];
+				float best_score = -1.0e9f;
+				int best_k = idx;
+
 				for (int k = 0; k < 8; k++) {
-					if (drops[k] > 0.0) {
-						int nx = cx + n_dx[k];
-						int nz = cz + n_dz[k];
+					int nx = ix + n_dx[k];
+					int nz = iz + n_dz[k];
+					if (nx >= 0 && nx < p_gw && nz >= 0 && nz < p_gh) {
 						int n_idx = nz * p_gw + nx;
-						double frac = drops[k] / sum_drop;
-						current_flow[n_idx] = (float)((double)current_flow[n_idx] + my_flow * frac);
-						current_sediment[n_idx] = (float)((double)current_sediment[n_idx] + my_sed * frac);
-					}
-				}
-			}
-		}
-
-		// 3. Compute Salève Incision with Lateral Bank Spreading
-		std::vector<double> incision_map(n, 0.0);
-		std::vector<double> dep_map(n, 0.0);
-
-		for (int iz = 0; iz < p_gh; iz++) {
-			int row = iz * p_gw;
-			for (int ix = 0; ix < p_gw; ix++) {
-				int idx = row + ix;
-				float h_c = height[idx];
-				if (!std::isfinite(h_c)) {
-					continue;
-				}
-
-				double m_val = has_mask ? (double)mask_ptr[idx] : 1.0;
-				if (m_val <= 0.001) {
-					continue;
-				}
-
-				float h_l = (ix > 0 && std::isfinite(height[row + ix - 1])) ? height[row + ix - 1] : h_c;
-				float h_r = (ix < p_gw - 1 && std::isfinite(height[row + ix + 1])) ? height[row + ix + 1] : h_c;
-				float h_u = (iz > 0 && std::isfinite(height[(iz - 1) * p_gw + ix])) ? height[(iz - 1) * p_gw + ix] : h_c;
-				float h_d = (iz < p_gh - 1 && std::isfinite(height[(iz + 1) * p_gw + ix])) ? height[(iz + 1) * p_gw + ix] : h_c;
-
-				double gx = (double)(h_r - h_l) / (2.0 * dx);
-				double gz = (double)(h_d - h_u) / (2.0 * dz);
-				double slope = std::sqrt(gx * gx + gz * gz);
-
-				double diff = (double)current_flow[idx] - 1.0;
-				double a_accum = (diff > 15.0) ? diff : ((diff > -15.0) ? std::log(1.0 + std::exp(diff)) : 0.0);
-
-				double inc_primary = 0.0;
-				if (a_accum > 0.01 && slope > 1.0e-5) {
-					double power = std::pow(a_accum, drainage_exponent) * slope;
-					inc_primary = erosion_strength * 0.25 * std::log(1.0 + power) * m_val;
-				}
-
-				double inc_fine = 0.0;
-				if (fine_erosion_strength > 0.0 && slope > 0.02) {
-					inc_fine = fine_erosion_strength * 0.1 * std::pow(slope, 0.8) * m_val;
-				}
-
-				double total_incision = inc_primary + inc_fine;
-
-				if (total_incision > 0.0) {
-					double center_weight = 1.0 - bank_smoothing * 0.6;
-					double neighbor_weight = (bank_smoothing * 0.6) * 0.25;
-
-					incision_map[idx] += total_incision * center_weight;
-					if (ix > 0) incision_map[row + ix - 1] += total_incision * neighbor_weight;
-					if (ix < p_gw - 1) incision_map[row + ix + 1] += total_incision * neighbor_weight;
-					if (iz > 0) incision_map[(iz - 1) * p_gw + ix] += total_incision * neighbor_weight;
-					if (iz < p_gh - 1) incision_map[(iz + 1) * p_gw + ix] += total_incision * neighbor_weight;
-
-					current_sediment[idx] = (float)((double)current_sediment[idx] + total_incision);
-				}
-
-				if (slope < 0.15 && current_sediment[idx] > 0.0f) {
-					double dep = sediment_strength * (double)current_sediment[idx] * (1.0 - slope / 0.15) * m_val;
-					dep_map[idx] += dep;
-					current_sediment[idx] = (float)std::max(0.0, (double)current_sediment[idx] - dep);
-				}
-			}
-		}
-
-		// 4. Apply incision with base-level descent clamping
-		std::vector<float> next_height = height;
-		for (int iz = 0; iz < p_gh; iz++) {
-			int row = iz * p_gw;
-			for (int ix = 0; ix < p_gw; ix++) {
-				int idx = row + ix;
-				float h_c = height[idx];
-				if (!std::isfinite(h_c)) {
-					continue;
-				}
-
-				double cut = incision_map[idx];
-				if (cut > 0.0) {
-					int cx = ix;
-					int cz = iz;
-					float min_downhill = h_c;
-					for (int k = 0; k < 8; k++) {
-						int nx = cx + n_dx[k];
-						int nz = cz + n_dz[k];
-						if (nx >= 0 && nx < p_gw && nz >= 0 && nz < p_gh) {
-							float h_n = height[nz * p_gw + nx];
-							if (std::isfinite(h_n) && h_n < min_downhill) {
-								min_downhill = h_n;
+						float dz_val = z_c - z[n_idx];
+						if (dz_val > 0.0f) {
+							float slope = dz_val / (float)n_dist[k];
+							float noise = fast_hash_to_unit(seed + (uint32_t)iter * 17, (uint32_t)(idx ^ (n_idx << 16)));
+							float score = slope * (1.0f + noise_strength * noise);
+							if (score > best_score) {
+								best_score = score;
+								best_k = n_idx;
 							}
 						}
 					}
-
-					double max_cut = std::max(0.0, (double)(h_c - min_downhill) + 0.15 * cut);
-					cut = std::min(cut, max_cut);
-					next_height[idx] = (float)((double)h_c - cut);
-					eroded_rock[idx] = (float)((double)eroded_rock[idx] + cut);
 				}
-
-				sediment[idx] = (float)((double)sediment[idx] + dep_map[idx]);
+				receivers[idx] = best_k;
 			}
 		}
 
-		height = next_height;
+		// 2. Topological order from highest to lowest elevation
+		for (int i = 0; i < n; i++) {
+			order[i] = i;
+		}
+		std::sort(order.begin(), order.end(), [&z](int a, int b) {
+			return z[a] > z[b];
+		});
+
+		// 3. Accumulate drainage area (upstream -> downstream)
+		std::fill(area_acc.begin(), area_acc.end(), 1.0f);
+		for (int idx : order) {
+			int r = receivers[idx];
+			if (r != idx) {
+				area_acc[r] += area_acc[idx];
+			}
+		}
+
+		// 4. Compute Response Times (chi-transform integral from outlets upstream)
+		std::fill(response_times.begin(), response_times.end(), 0.0f);
+		for (int i = n - 1; i >= 0; i--) {
+			int idx = order[i];
+			int r = receivers[idx];
+			if (r != idx) {
+				int ix = idx % p_gw;
+				int iz = idx / p_gw;
+				int rx = r % p_gw;
+				int rz = r / p_gw;
+				float d = (float)std::sqrt(std::pow((ix - rx) * dx, 2.0) + std::pow((iz - rz) * dz, 2.0));
+				d = std::max(d, 1.0e-5f);
+
+				float celerity = erodibility[idx] * std::pow(std::max(area_acc[idx], 1.0f), m_exp);
+				response_times[idx] = response_times[r] + (d / std::max(celerity, 1.0e-4f));
+			} else {
+				response_times[idx] = 0.0f;
+			}
+		}
+
+		// 5. Update Elevations (Hesiod Perron-Royden steady-state solver)
+		float diff = 0.0f;
+		for (int i = n - 1; i >= 0; i--) {
+			int idx = order[i];
+			int r = receivers[idx];
+			if (r == idx) {
+				continue;
+			}
+
+			float new_z = z[r] + uplift_rate * (response_times[idx] - response_times[r]) * 0.05f;
+
+			// Slope limiter
+			int ix = idx % p_gw;
+			int iz = idx / p_gw;
+			int rx = r % p_gw;
+			int rz = r / p_gw;
+			float d = (float)std::sqrt(std::pow((ix - rx) * dx, 2.0) + std::pow((iz - rz) * dz, 2.0));
+			float slope = (new_z - z[r]) / std::max(d, 1.0e-5f);
+			if (slope > max_slope) {
+				new_z = z[r] + max_slope * d;
+			}
+
+			diff += std::abs(new_z - z[idx]);
+			z[idx] = new_z;
+		}
+
+		if (diff / (float)n < 1.0e-4f) {
+			break;
+		}
+	}
+
+	// 6. Remap back to [0..1] range
+	float ze_min = std::numeric_limits<float>::max();
+	float ze_max = -std::numeric_limits<float>::max();
+	for (int i = 0; i < n; i++) {
+		if (z[i] < ze_min) ze_min = z[i];
+		if (z[i] > ze_max) ze_max = z[i];
+	}
+	float ze_span = std::max(ze_max - ze_min, 1.0e-5f);
+	for (int i = 0; i < n; i++) {
+		z[i] = (z[i] - ze_min) / ze_span;
+	}
+
+	// 7. Post-smoothing / Transverse Diffusion
+	if (p_params.bank_smoothing > 0.0f) {
+		std::vector<float> smoothed = z;
+		float blend = p_params.bank_smoothing * 0.4f;
+		for (int iz = 1; iz < p_gh - 1; iz++) {
+			for (int ix = 1; ix < p_gw - 1; ix++) {
+				int idx = iz * p_gw + ix;
+				float avg = 0.25f * (z[iz * p_gw + ix - 1] + z[iz * p_gw + ix + 1] +
+						z[(iz - 1) * p_gw + ix] + z[(iz + 1) * p_gw + ix]);
+				smoothed[idx] = (1.0f - blend) * z[idx] + blend * avg;
+			}
+		}
+		z = smoothed;
+	}
+
+	// 8. Blend with original heightfield in real world metres
+	std::vector<float> final_height(n);
+	std::vector<float> eroded_rock(n);
+	std::vector<float> sediment(n, 0.0f);
+
+	for (int i = 0; i < n; i++) {
+		float orig_h = src_height[i];
+		if (!std::isfinite(orig_h)) {
+			final_height[i] = orig_h;
+			eroded_rock[i] = 0.0f;
+			continue;
+		}
+
+		float eroded_h = zmin + z[i] * zptp;
+		float m_val = has_mask ? mask_ptr[i] : 1.0f;
+		float strength = p_params.erosion_strength * m_val;
+
+		float res_h = (1.0f - strength) * orig_h + strength * eroded_h;
+		final_height[i] = res_h;
+		eroded_rock[i] = std::max(0.0f, orig_h - res_h);
 	}
 
 	res.ok = true;
 	res.height.resize(n);
-	std::memcpy(res.height.ptrw(), height.data(), n * sizeof(float));
+	std::memcpy(res.height.ptrw(), final_height.data(), n * sizeof(float));
 
 	res.eroded_rock.resize(n);
 	std::memcpy(res.eroded_rock.ptrw(), eroded_rock.data(), n * sizeof(float));

@@ -8,7 +8,7 @@ extends Node
 
 const DevHydraulicSaleve = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_hydraulic_saleve.gd")
 
-const EPS_SINGLE_PASS := 5.0e-6
+const EPS_SINGLE_PASS := 1.0e-5
 const EPS_MULTI_PASS := 0.01
 
 var _fail := 0

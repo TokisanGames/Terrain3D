@@ -3,6 +3,8 @@ project/addons/pasture_3d/bin/
 project/addons/explore-editor-theme/
 # Third-party addon installed locally, not vendored into this repo (RoadPastureConnector dependency)
 project/addons/road-generator/
+# Hesiod source, kept locally as a reference only — not part of this repo
+/Hesiod-main/
 project/_dev/
 project/_export/
 project/_tests/
