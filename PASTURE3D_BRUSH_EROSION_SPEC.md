@@ -602,22 +602,34 @@ every modifier added later, and getting a different answer from each. Three part
    loop, so its sediment lands instead of draining out of §6.8's outlet. `erosion_solve` keeps every
    grid-EDGE cell an outlet, so drainage moves to the widened border — precisely the "real surface
    everywhere" configuration the control above measured as stable.
-   **The band gets its OWN mask — `margin_feather` — and it is NOT folded into `profile`.** The band's
-   taper ramps **1 at the loop edge down to 0 at the outer margin edge** (smoothstep), so a skirt fades out
-   instead of ending on a second hard rim. `profile` runs the other way: 1 at the loop centre, 0 **at the
-   rim**. They are two masks with opposite boundary values over the same grid, and the first implementation
-   stored the taper into `profile`, which put a step of the modifier's **full amplitude** one cell outside
-   every loop — a visible seam ringing the brush (measured at 0.97 of full amplitude; `bench/MarginSeamGate`
-   keeps the old fold as its control). Each consumer takes the mask that is continuous for it:
+   **The mask a modifier scales by, and the two rules that were wrong.** `profile` is the brush's 0..1
+   ramp: 1 at the loop centre, 0 **at the rim**. The band's own taper runs the other way — 1 at the rim,
+   0 at the band's outer edge. Two masks with opposite boundary values over one grid, and reconciling them
+   badly fails in one of two opposite directions, both of which were shipped and measured:
+
+   - **Fold the band's taper into `profile`.** Reaches into the band, but puts a step of the modifier's
+     **full amplitude** one cell outside every loop — a seam ringing the brush (0.97 of full amplitude on a
+     30 m falloff).
+   - **Zero the band.** No step, but it **crops** the brush to its own footprint, which is the whole feature
+     defeated: the stack no longer reaches past the loop.
+
+   The rule is neither. A generator takes **the host's own ramp translated outward by the margin** —
+   `profile_ext`, the identical curve evaluated at `signed_d + margin`. One curve, moved: monotone from the
+   band's outer edge all the way in, continuous by construction, 0 exactly at the outer edge, already at
+   full strength by the rim once the margin exceeds the falloff, and equal to `profile` when the margin is
+   0 — so it moves smoothly as the margin is dragged rather than snapping as it leaves 0. Only the host
+   knows its falloff curve, so each host builds this grid in its own rasterising loop and passes it in;
+   `_run_modifier_stack` never invents a ramp.
 
    | | mask inside the loop | mask in the band | at the rim |
    |---|---|---|---|
-   | **Generator** — Noise, Relief, a graph with no Input node | `profile` (feathers to 0 at the rim) | **0** | continuous |
+   | **Generator** — Noise, Relief, a graph with no Input node | `profile_ext` | `profile_ext` | continuous, monotone |
    | **Filter** — Erosion, a graph that reads its input | **1**, at full `amount` | `margin_feather` | continuous |
 
-   A generator getting 0 through the band is not a limitation: inventing terrain past the loop is what a
-   margin must not do, and it is exactly what a generator does with no margin at all. The margin exists for
-   filters — it *is* the erosion skirt.
+   A filter stays separate because it *transforms* ground that is already there rather than inventing it, so
+   it applies fully across the brush and has only the band to taper through. `bench/MarginSeamGate` keeps
+   **both** rejected rules as controls, and asserts reach and continuity separately — a gate measuring only
+   the step is passed by cropping, and one measuring only reach is passed by the seam.
 3. **On the way OUT, an unworked margin cell reverts to a no-write.** A margin cell the stack moved by more
    than `MODIFIER_MARGIN_EPS` (1 mm) keeps its value and composites through the brush's own blend — under
    the default MAX that means deposition raises the skirt and cuts are ignored. One it did not move goes

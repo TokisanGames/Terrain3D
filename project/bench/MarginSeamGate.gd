@@ -8,15 +8,18 @@
 # relief, or a graph with no Input node — read a mask that fell to 0 at the rim and jumped straight back to
 # ~1 one cell outside it, so it wrote a ring of its full amplitude around every loop.
 #
-# The fix keeps them apart. `profile` stays the generator's mask and is 0 through the band; `margin_feather`
-# is the filter's, and a filter is 1 across the loop, so IT meets the band without a step. This gate pins
-# both, and measures the step across the rim in each mask, because "0 in the band" and "no seam" are not the
-# same claim and only the second is what the user sees.
+# TWO RULES WERE TRIED AND BOTH WERE WRONG, in opposite directions, and [C] keeps both as controls:
 #
-# THE CONTROL IS THE OLD BEHAVIOUR, recomputed here from the same inputs: [C] asserts that folding the
-# feather into the profile — exactly what the code used to do — produces a step of nearly the modifier's
-# full amplitude. Without that row, a gate reporting "generator step = 0.000" cannot distinguish a fixed
-# seam from a fixture whose band is empty and which therefore measures nothing.
+#   fold the band's taper into the interior ramp — reaches into the band, but steps at the rim (the seam),
+#   zero the band                                — no step, but CROPS the brush to its own footprint,
+#                                                  which is the entire feature defeated.
+#
+# The shipped rule is neither: a generator takes the host's own ramp TRANSLATED OUTWARD by the margin. One
+# curve, moved — so it is monotone from the band's outer edge all the way in, continuous by construction,
+# and reaches. A filter is separate and unchanged: 1 across the loop, then `margin_feather` through the band.
+#
+# A gate that only measured the step could be passed by cropping, and one that only measured reach could be
+# passed by the seam. Both are asserted, and [C] shows each rejected rule failing the half it fails.
 
 extends Node
 
@@ -41,6 +44,14 @@ func _ready() -> void:
 	print("\n=== %s (%d failures) ===\n" % [
 		"MARGIN SEAM PASS" if _fail == 0 else "MARGIN SEAM FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
+
+
+func _count_band(p_mask: PackedByteArray) -> int:
+	var c := 0
+	for k in range(N):
+		if p_mask[k] == 1:
+			c += 1
+	return c
 
 
 func _check(p_label: String, p_ok: bool, p_detail: String = "") -> void:
@@ -84,8 +95,16 @@ func _run() -> Dictionary:
 			amp[i] = NAN # off the loop — the band is exactly these cells
 			profile[i] = 0.0
 
+	# The host's own ramp, translated outward by the margin — what Mound and Plow each build from their own
+	# falloff curve. Same expression as `profile` above with `MARGIN` added to the distance.
+	var profile_ext := PackedFloat64Array()
+	profile_ext.resize(N)
+	for i in range(N):
+		profile_ext[i] = clampf((sdf[i] + MARGIN) / FALLOFF, 0.0, 1.0)
+
 	var ctx := {
 		"gw": N, "gh": 1, "add": false, "sdf": sdf, "edge_offset": 0.0,
+		"profile_ext": profile_ext,
 		"vertex_spacing": CELL, "min_x": 0.0, "min_z": 0.0,
 	}
 	mound._run_modifier_stack([], amp, profile, basey, ctx)
@@ -116,31 +135,61 @@ func _test_masks() -> void:
 	_check("and falls to 0 at the band's outer edge", feather[0] < 0.05, "%.4f" % feather[0])
 	print("")
 
-	print("[B] A GENERATOR's mask (`profile`) is 0 through the band")
-	var worst := 0.0
+	print("[B] A GENERATOR REACHES into the band, and does it without a step")
+	# Two failures are possible here and they are opposites, so both get a row. Zeroing the band removes the
+	# seam by cropping the brush to its own footprint, which is the feature defeated; carrying the band's
+	# own taper reaches but steps. Only the translated ramp does both.
+	_check("the mask at the rim is at full-ish strength, not ~0",
+			profile[_rim_in] > 0.3, "%.4f — the ramp now starts %.1f m further out" % [profile[_rim_in], MARGIN])
+	var reach := 0
 	for k in range(N):
-		if mask[k] == 1:
-			worst = maxf(worst, absf(profile[k]))
-	_check("no band cell carries any interior profile", worst == 0.0, "worst %.6f" % worst)
+		if mask[k] == 1 and profile[k] > 0.01:
+			reach += 1
+	_check("control: band cells carry a NON-ZERO mask — the brush is not cropped", reach > 0,
+			"%d of %d band cells reach" % [reach, _count_band(mask)])
+	_check("and it still falls to 0 at the band's outer edge", profile[0] < 0.01, "%.4f" % profile[0])
+
 	# The seam as the user sees it: the jump in the mask across the rim, in units of the modifier's
-	# amplitude. The interior side is ~0 there because the profile feathers to 0 at the rim.
+	# amplitude.
 	var gen_step: float = absf(profile[_rim_out] - profile[_rim_in])
-	_check("so the generator's mask is continuous across the rim", gen_step < 0.05,
+	_check("the generator's mask is continuous across the rim", gen_step < 0.05,
 			"step %.4f" % gen_step)
+	# Monotone through the band and into the loop — one ramp, not two meeting.
+	var mono := true
+	for k in range(1, _rim_in + 1):
+		if profile[k] < profile[k - 1] - 1e-9:
+			mono = false
+	_check("and monotone from the band's outer edge to the rim — one ramp, not two", mono)
 	print("")
 
-	print("[C] Control: the old fold, recomputed from the same inputs")
-	# What the code used to do — write the feather into `profile` — reconstructed cell for cell. If this
-	# does NOT show a large step, the fixture has no band at the rim and [B] proved nothing.
-	var old := profile.duplicate()
+	print("[C] Control: both rejected rules, recomputed from the same inputs")
+	# The un-shifted interior ramp is what `profile` would be with no margin: 0 at the rim, rising inward.
+	var plain := PackedFloat64Array()
+	plain.resize(N)
+	for k in range(N):
+		plain[k] = clampf(ctx["sdf"][k] / FALLOFF, 0.0, 1.0) if ctx["sdf"][k] > 0.0 else 0.0
+
+	# Rejected rule 1 — fold the band's taper into the interior ramp. Reaches, but steps at the rim.
+	var folded := plain.duplicate()
 	for k in range(N):
 		if mask[k] == 1:
-			old[k] = feather[k]
-	var old_step: float = absf(old[_rim_out] - old[_rim_in])
-	_check("folding the feather into the profile DOES step at the rim", old_step > 0.9,
-			"step %.4f — this is the seam" % old_step)
-	_check("and the fix is strictly better", gen_step < old_step,
-			"%.4f vs %.4f" % [gen_step, old_step])
+			folded[k] = feather[k]
+	var fold_step: float = absf(folded[_rim_out] - folded[_rim_in])
+	_check("folding the band's taper in DOES step at the rim", fold_step > 0.9,
+			"step %.4f — this was the seam" % fold_step)
+
+	# Rejected rule 2 — zero the band. Continuous, but crops the brush to its own footprint.
+	var zeroed := plain.duplicate()
+	var zero_reach := 0
+	for k in range(N):
+		if mask[k] == 1 and zeroed[k] > 0.01:
+			zero_reach += 1
+	_check("zeroing the band DOES crop — nothing reaches past the loop", zero_reach == 0,
+			"%d band cells reach — this was the cropping" % zero_reach)
+
+	_check("the shipped rule beats both: no step AND it reaches",
+			gen_step < fold_step and reach > zero_reach,
+			"step %.4f vs %.4f, reach %d vs %d" % [gen_step, fold_step, reach, zero_reach])
 	print("")
 
 	print("[D] A FILTER's mask is 1 across the loop, then the feather")

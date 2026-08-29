@@ -352,6 +352,14 @@ func _paint_spline(path: Path3D) -> void:
 	var basey := PackedFloat32Array()
 	basey.resize(gw * gh)
 	var base_below := _base_below_grid(min_x, min_z, vs, gw, gh) if (relative_to_terrain or use_fields) else PackedFloat32Array()
+	# The Modifier Margin's mask: THIS SAME RAMP, translated outward by the margin, so a modifier reaches
+	# into the band and fades at the band's outer edge rather than at the loop rim. Only the host knows the
+	# curve, which is why it is built here and not in `_run_modifier_stack`. Empty at margin 0 — the stack
+	# then uses `profile` unchanged, which is byte-for-byte the historical path.
+	var margin_m := _effective_modifier_margin()
+	var profile_ext := PackedFloat64Array()
+	if margin_m > 0.0:
+		profile_ext.resize(gw * gh)
 
 	for iz in range(gh):
 		var z := min_z + iz * vs
@@ -362,6 +370,9 @@ func _paint_spline(path: Path3D) -> void:
 			var hp: Array = host_profile_at.call(sd)
 			amp[row + ix] = NAN if hp.is_empty() or hp[1] <= 0.0 else hp[0]
 			profile[row + ix] = 0.0 if hp.is_empty() else hp[1]
+			if margin_m > 0.0:
+				var hpe: Array = host_profile_at.call(sd + margin_m)
+				profile_ext[row + ix] = 0.0 if hpe.is_empty() else hpe[1]
 			if relative_to_terrain:
 				var bb: float = base_below[row + ix] if not base_below.is_empty() else NAN
 				basey[row + ix] = bb if is_finite(bb) else _base_height_below(pos)
@@ -375,7 +386,7 @@ func _paint_spline(path: Path3D) -> void:
 		"host_fields": host_fields, "host_measured": host_measured, "host_div": host_div,
 		"extent": extent,
 		# The signed distance (positive inside the loop) the Modifier Margin feathers its band against.
-		"sdf": field, "edge_offset": edge_offset,
+		"sdf": field, "edge_offset": edge_offset, "profile_ext": profile_ext,
 	})
 	_commit_modifier_caches(stack, extent,
 			[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])

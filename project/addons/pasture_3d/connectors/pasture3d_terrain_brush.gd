@@ -3854,23 +3854,28 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 	# draining out of §6.8's NaN outlet at the loop edge. That is the skirt. A modifier added later inherits
 	# the same behaviour without being taught anything.
 	#
-	# THE BAND GETS ITS OWN MASK, and — this is the correction that removed a visible seam — it is NOT
-	# written into `profile`.
+	# THE MARGIN MOVES THE BRUSH'S RAMP OUTWARD — it does not add a second one.
 	#
-	# `profile` is the brush's 0..1 interior mask: 1 at the loop centre, falling to 0 AT THE RIM. The band's
-	# feather runs the other way, 1 at the rim falling to 0 at the outer edge, because a filter applies
-	# fully across the brush and has nothing but the band to taper through. Storing the second into the
-	# first made every GENERATOR read a mask that fell to 0 at the rim and then jumped straight back to 1 one
-	# cell outside it — a step of the modifier's full amplitude, ringing the loop. That is the seam.
+	# `profile` is the brush's 0..1 mask: 1 at the loop centre, falling to 0 AT THE RIM. The band's own
+	# taper runs the other way, 1 at the rim falling to 0 at the band's outer edge. They are two masks with
+	# opposite boundary values over one grid, and two wrong ways to reconcile them have now been measured:
 	#
-	# So they are kept apart, and each consumer takes the one that is continuous for it:
+	#   Storing the band's taper INTO `profile` put a step of the modifier's full amplitude one cell outside
+	#   every loop — a seam ringing the brush (0.97 of full amplitude on a 30 m falloff).
+	#   Zeroing the band instead removed the seam and CROPPED the brush to its own footprint, which defeats
+	#   the margin: the whole point is that the stack reaches past the loop.
 	#
-	#   GENERATOR (Noise, Relief, a graph with no Input node) — `profile`, which is 0 through the band.
-	#       It invents terrain, so it must fade at the rim and must not invent any past it. This is also
-	#       exactly what it does with no margin at all, which is the behaviour a margin should not change.
+	# What the margin actually means is that the ramp starts further out. So `profile_ext` is the host's own
+	# ramp evaluated at `signed_d + margin` — the identical curve, translated. It is 0 exactly at the band's
+	# outer edge, rises through the band, and is already at full strength by the rim when the margin exceeds
+	# the falloff. Monotone, continuous everywhere, equal to `profile` when the margin is 0, and it moves
+	# smoothly as the margin is dragged rather than snapping when it leaves 0.
+	#
+	#   GENERATOR (Noise, Relief, a graph with no Input node) — `profile_ext`. It reaches into the band and
+	#       fades at the band's outer edge instead of at the rim, which is the footprint expansion asked for.
 	#   FILTER (Erosion, a graph that reads its input) — 1 across the loop, then `margin_feather` through
-	#       the band. Continuous at the rim, and the taper is what stops a skirt ending on a second hard
-	#       edge. The margin exists for these: it is the erosion skirt.
+	#       the band. A filter transforms ground that is already there, so it applies fully over the brush
+	#       and has only the band to taper through. The margin exists for these: it is the erosion skirt.
 	#
 	# The reverse conversion is at the other end of this function, and is the reason materialising is safe:
 	# a margin cell the stack did not actually move goes back to NaN, so the widened footprint is never
@@ -3885,6 +3890,13 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 		var sdf: PackedFloat32Array = p_ctx.get("sdf", PackedFloat32Array())
 		var edge_off: float = p_ctx.get("edge_offset", 0.0)
 		var have_sdf := sdf.size() == n
+		# The host evaluates its OWN ramp at `signed_d + margin` — only it knows the curve — and hands the
+		# grid over. Absent (a host that runs the stack without a ramp) falls back to the un-shifted mask,
+		# which crops rather than reaching: correct, just not the point of the feature.
+		var ext: PackedFloat64Array = p_ctx.get("profile_ext", PackedFloat64Array())
+		if ext.size() == n:
+			for k in range(n):
+				p_profile[k] = ext[k]
 		for k in range(n):
 			if is_finite(p_amp[k]) or not is_finite(p_basey[k]):
 				continue
