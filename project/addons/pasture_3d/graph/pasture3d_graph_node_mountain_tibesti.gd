@@ -144,5 +144,9 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 		push_error("[Pasture3D] Pasture3DUtil.mountain_tibesti_generate_grid is not bound. Rebuild GDExtension.")
 		return [Pasture3DGraphOps.zeros(n)]
 
-	var res: PackedFloat32Array = Pasture3DUtil.mountain_tibesti_generate_grid(p_gw, p_gh, p_rect, params)
+	var res: PackedFloat32Array
+	if ClassDB.class_has_method("Pasture3DUtil", "mountain_tibesti_generate_grid_best"):
+		res = Pasture3DUtil.mountain_tibesti_generate_grid_best(p_gw, p_gh, p_rect, params)
+	else:
+		res = Pasture3DUtil.mountain_tibesti_generate_grid(p_gw, p_gh, p_rect, params)
 	return [res]

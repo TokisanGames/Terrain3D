@@ -1170,7 +1170,7 @@ PackedFloat32Array Pasture3DUtil::graph_eval_grid(const Dictionary &p_program, c
 		out.fill(0.f);
 		return out;
 	}
-	return godot::graph_eval_grid(prog, p_gw, p_gh, p_rect, p_input);
+	return godot::graph_eval_grid_best(prog, p_gw, p_gh, p_rect, p_input);
 }
 
 // Native single-pass multi-tap — one graph evaluation that yields several nodes' intermediate buffers at
@@ -1327,9 +1327,37 @@ PackedFloat32Array Pasture3DUtil::mountain_inselberg_generate_grid(const int p_g
 	return godot::mountain_inselberg_solve(p_gw, p_gh, p_rect, params);
 }
 
+PackedFloat32Array Pasture3DUtil::mountain_inselberg_generate_grid_best(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainInselbergParams params = godot::MountainInselbergParams::from_dict(p_params);
+	return godot::mountain_inselberg_solve_best(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::mountain_inselberg_generate_grid_gpu(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainInselbergParams params = godot::MountainInselbergParams::from_dict(p_params);
+	PackedFloat32Array out;
+	if (!godot::mountain_inselberg_eval_gpu(p_gw, p_gh, p_rect, params, out)) {
+		return PackedFloat32Array();
+	}
+	return out;
+}
+
 Array Pasture3DUtil::mountain_range_radial_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
 	godot::MountainRangeRadialParams params = godot::MountainRangeRadialParams::from_dict(p_params);
 	return godot::mountain_range_radial_solve(p_gw, p_gh, p_rect, params);
+}
+
+Array Pasture3DUtil::mountain_range_radial_generate_grid_best(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainRangeRadialParams params = godot::MountainRangeRadialParams::from_dict(p_params);
+	return godot::mountain_range_radial_solve_best(p_gw, p_gh, p_rect, params);
+}
+
+Array Pasture3DUtil::mountain_range_radial_generate_grid_gpu(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainRangeRadialParams params = godot::MountainRangeRadialParams::from_dict(p_params);
+	Array out;
+	if (!godot::mountain_range_radial_eval_gpu(p_gw, p_gh, p_rect, params, out)) {
+		return Array();
+	}
+	return out;
 }
 
 PackedFloat32Array Pasture3DUtil::mountain_tibesti_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
@@ -1337,9 +1365,37 @@ PackedFloat32Array Pasture3DUtil::mountain_tibesti_generate_grid(const int p_gw,
 	return godot::mountain_tibesti_solve(p_gw, p_gh, p_rect, params);
 }
 
+PackedFloat32Array Pasture3DUtil::mountain_tibesti_generate_grid_best(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainTibestiParams params = godot::MountainTibestiParams::from_dict(p_params);
+	return godot::mountain_tibesti_solve_best(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::mountain_tibesti_generate_grid_gpu(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainTibestiParams params = godot::MountainTibestiParams::from_dict(p_params);
+	PackedFloat32Array out;
+	if (!godot::mountain_tibesti_eval_gpu(p_gw, p_gh, p_rect, params, out)) {
+		return PackedFloat32Array();
+	}
+	return out;
+}
+
 PackedFloat32Array Pasture3DUtil::mountain_stump_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
 	godot::MountainStumpParams params = godot::MountainStumpParams::from_dict(p_params);
 	return godot::mountain_stump_solve(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::mountain_stump_generate_grid_best(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainStumpParams params = godot::MountainStumpParams::from_dict(p_params);
+	return godot::mountain_stump_solve_best(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::mountain_stump_generate_grid_gpu(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::MountainStumpParams params = godot::MountainStumpParams::from_dict(p_params);
+	PackedFloat32Array out;
+	if (!godot::mountain_stump_eval_gpu(p_gw, p_gh, p_rect, params, out)) {
+		return PackedFloat32Array();
+	}
+	return out;
 }
 
 PackedFloat32Array Pasture3DUtil::shattered_peak_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
@@ -1347,9 +1403,37 @@ PackedFloat32Array Pasture3DUtil::shattered_peak_generate_grid(const int p_gw, c
 	return godot::shattered_peak_solve(p_gw, p_gh, p_rect, params);
 }
 
+PackedFloat32Array Pasture3DUtil::shattered_peak_generate_grid_best(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::ShatteredPeakParams params = godot::ShatteredPeakParams::from_dict(p_params);
+	return godot::shattered_peak_solve_best(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::shattered_peak_generate_grid_gpu(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::ShatteredPeakParams params = godot::ShatteredPeakParams::from_dict(p_params);
+	PackedFloat32Array out;
+	if (!godot::shattered_peak_eval_gpu(p_gw, p_gh, p_rect, params, out)) {
+		return PackedFloat32Array();
+	}
+	return out;
+}
+
 PackedFloat32Array Pasture3DUtil::caldera_generate_grid(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
 	godot::CalderaParams params = godot::CalderaParams::from_dict(p_params);
 	return godot::caldera_solve(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::caldera_generate_grid_best(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::CalderaParams params = godot::CalderaParams::from_dict(p_params);
+	return godot::caldera_solve_best(p_gw, p_gh, p_rect, params);
+}
+
+PackedFloat32Array Pasture3DUtil::caldera_generate_grid_gpu(const int p_gw, const int p_gh, const Rect2 &p_rect, const Dictionary &p_params) {
+	godot::CalderaParams params = godot::CalderaParams::from_dict(p_params);
+	PackedFloat32Array out;
+	if (!godot::caldera_eval_gpu(p_gw, p_gh, p_rect, params, out)) {
+		return PackedFloat32Array();
+	}
+	return out;
 }
 
 Dictionary Pasture3DUtil::erosion_hydraulic_solve_grid_gpu(const PackedFloat32Array &p_surface, const int p_gw,
@@ -1756,24 +1840,66 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("mountain_cone_generate_grid_gpu", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::mountain_cone_generate_grid_gpu);
+
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("mountain_inselberg_generate_grid", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::mountain_inselberg_generate_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_inselberg_generate_grid_best", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_inselberg_generate_grid_best);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_inselberg_generate_grid_gpu", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_inselberg_generate_grid_gpu);
+
+	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("mountain_range_radial_generate_grid", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::mountain_range_radial_generate_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_range_radial_generate_grid_best", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_range_radial_generate_grid_best);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_range_radial_generate_grid_gpu", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_range_radial_generate_grid_gpu);
+
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("mountain_tibesti_generate_grid", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::mountain_tibesti_generate_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_tibesti_generate_grid_best", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_tibesti_generate_grid_best);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_tibesti_generate_grid_gpu", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_tibesti_generate_grid_gpu);
+
+	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("mountain_stump_generate_grid", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::mountain_stump_generate_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_stump_generate_grid_best", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_stump_generate_grid_best);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mountain_stump_generate_grid_gpu", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::mountain_stump_generate_grid_gpu);
+
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("shattered_peak_generate_grid", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::shattered_peak_generate_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("shattered_peak_generate_grid_best", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::shattered_peak_generate_grid_best);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("shattered_peak_generate_grid_gpu", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::shattered_peak_generate_grid_gpu);
+
+	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("caldera_generate_grid", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::caldera_generate_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("caldera_generate_grid_best", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::caldera_generate_grid_best);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("caldera_generate_grid_gpu", "gw", "gh", "rect", "params"),
+			&Pasture3DUtil::caldera_generate_grid_gpu);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("erosion_hydraulic_solve_grid_gpu", "surface", "gw", "gh", "rect", "params"),
 			&Pasture3DUtil::erosion_hydraulic_solve_grid_gpu);

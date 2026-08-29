@@ -242,7 +242,6 @@ graph_position = Vector2(-200, 680)
 script = ExtResource("17_5q6a7")
 angle = 17.0
 graph_position = Vector2(-260, 260)
-preview_on = true
 
 [sub_resource type="Resource" id="Resource_h4fvm"]
 script = ExtResource("18_ft08i")
@@ -252,10 +251,14 @@ graph_position = Vector2(-760, 840)
 script = ExtResource("19_67nn0")
 graph_position = Vector2(-240, 980)
 
+[sub_resource type="Resource" id="Resource_rup21"]
+script = ExtResource("16_cad7k")
+graph_position = Vector2(120, 240)
+preview_on = true
+
 [sub_resource type="Resource" id="Resource_umoq4"]
 script = ExtResource("8_wv1iv")
-nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_5q6a7"), SubResource("Resource_vfv27"), SubResource("Resource_r5vgm"), SubResource("Resource_qe7gh"), SubResource("Resource_cyndd"), SubResource("Resource_fdeh7"), SubResource("Resource_h4fvm"), SubResource("Resource_nync1")])
-connections = [PackedInt32Array(5, 0, 0, 0)]
+nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_5q6a7"), SubResource("Resource_vfv27"), SubResource("Resource_r5vgm"), SubResource("Resource_qe7gh"), SubResource("Resource_cyndd"), SubResource("Resource_fdeh7"), SubResource("Resource_h4fvm"), SubResource("Resource_nync1"), SubResource("Resource_rup21")])
 output_node = 1
 
 [sub_resource type="Resource" id="Resource_2wp0u"]
@@ -365,7 +368,7 @@ modifiers = Array[ExtResource("2_n4cpt")]([SubResource("Resource_xq5ji")])
 curve = SubResource("Curve3D_cad7k")
 
 [node name="Plow1" type="Node3D" parent="Pasture3D" unique_id=1173359375 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 383.48718, 0, -130.77731)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 370.01996, 0, -123.03845)
 script = ExtResource("10_v7ey8")
 terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"

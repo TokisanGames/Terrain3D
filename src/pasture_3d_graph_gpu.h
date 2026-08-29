@@ -127,16 +127,40 @@ PackedFloat32Array graph_eval_grid_best(const GraphProgram &p_prog, int p_gw, in
 ErosionHydraulicResult erosion_hydraulic_solve_best(const PackedFloat32Array &p_surface,
 		int p_gw, int p_gh, const Rect2 &p_rect, const ErosionHydraulicParams &p_params);
 
-// Production MountainCone solver: GPU accelerated when available and >= threshold, else native C++
-// (mountain_cone_solve). Same result contract; used by the whole-graph core and the graph node. The strict
-// CPU-vs-oracle parity gate keeps calling mountain_cone_solve directly, so it stays on the CPU path.
+// Production Geological Primitive solvers: GPU accelerated when available and >= threshold, else native C++.
 PackedFloat32Array mountain_cone_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
 		const MountainConeParams &p_params);
-
-// Direct GPU MountainCone evaluation, bypassing the cell-count threshold. Fills r_out and returns true on
-// success; returns false (r_out untouched) when no local RenderingDevice / any GPU failure. Used by
-// mountain_cone_solve_best above the threshold, and by GeoGpuParityGate to force the GPU path at any size.
 bool mountain_cone_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainConeParams &p_params,
+		PackedFloat32Array &r_out);
+
+PackedFloat32Array mountain_inselberg_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const MountainInselbergParams &p_params);
+bool mountain_inselberg_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainInselbergParams &p_params,
+		PackedFloat32Array &r_out);
+
+Array mountain_range_radial_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const MountainRangeRadialParams &p_params);
+bool mountain_range_radial_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainRangeRadialParams &p_params,
+		Array &r_out);
+
+PackedFloat32Array mountain_tibesti_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const MountainTibestiParams &p_params);
+bool mountain_tibesti_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainTibestiParams &p_params,
+		PackedFloat32Array &r_out);
+
+PackedFloat32Array mountain_stump_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const MountainStumpParams &p_params);
+bool mountain_stump_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainStumpParams &p_params,
+		PackedFloat32Array &r_out);
+
+PackedFloat32Array shattered_peak_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const ShatteredPeakParams &p_params);
+bool shattered_peak_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const ShatteredPeakParams &p_params,
+		PackedFloat32Array &r_out);
+
+PackedFloat32Array caldera_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const CalderaParams &p_params);
+bool caldera_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const CalderaParams &p_params,
 		PackedFloat32Array &r_out);
 
 } // namespace godot

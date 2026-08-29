@@ -19,6 +19,7 @@ func _ready() -> void:
 	_test_b_plow_graph_editor_binding_and_bake()
 	_test_c_plow_mountain_cone_eval()
 	_test_d_legacy_migration()
+	_test_e_disconnected_graph_performance()
 
 	_finish()
 
@@ -147,5 +148,32 @@ func _test_d_legacy_migration() -> void:
 		if mg.graph != g:
 			_fail += 1
 			print("    !! Migrated modifier graph mismatch")
+
+	plow.free()
+
+
+func _test_e_disconnected_graph_performance() -> void:
+	print("\n[E] Disconnected / Empty Graph Move & Bake Performance")
+	var plow := Pasture3DPlow.new()
+	var mg := Pasture3DNodeGraph.new()
+	mg.resource_name = "Terrain Graph"
+	var graph := Pasture3DTerrainGraph.new()
+	var cone = Pasture3DGraphNodeRegistry.create(&"mountain_cone")
+	var out_n = Pasture3DGraphNodeRegistry.create(&"output")
+	graph.add_node(cone)
+	graph.add_node(out_n)
+	# Disconnected from output: output_node is -1 (no connections)
+	graph.output_node = -1
+	mg.graph = graph
+	plow.modifiers.append(mg)
+
+	var t0 := Time.get_ticks_usec()
+	var res: PackedFloat32Array = graph.evaluate(128, 128, Rect2(-50.0, -50.0, 100.0, 100.0))
+	var dt_us := Time.get_ticks_usec() - t0
+
+	print("    Disconnected graph 128x128 eval time = %.2f ms (want < 50 ms)" % (dt_us / 1000.0))
+	if dt_us > 50000:
+		_fail += 1
+		print("    !! Disconnected graph eval took too long")
 
 	plow.free()

@@ -705,7 +705,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.base_noise_amp = params_i ? params_i[s] : 0.05f;
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
-				PackedFloat32Array res = mountain_inselberg_solve(p_gw, p_gh, p_rect, p);
+				PackedFloat32Array res = mountain_inselberg_solve_best(p_gw, p_gh, p_rect, p);
 				if (res.size() == n) {
 					std::copy_n(res.ptr(), n, g_ptr);
 				}
@@ -727,7 +727,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				if (in0[s] >= 0) p.ctrl_param = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dx = get_grid_packed(in1[s]);
 				if (in2 && in2[s] >= 0) p.dy = get_grid_packed(in2[s]);
-				Array res = mountain_range_radial_solve(p_gw, p_gh, p_rect, p);
+				Array res = mountain_range_radial_solve_best(p_gw, p_gh, p_rect, p);
 				if (res.size() > 0) {
 					PackedFloat32Array h = res[0];
 					if (h.size() == n) {
@@ -751,7 +751,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.base_noise_amp = params_k ? params_k[s] : 0.05f;
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
-				PackedFloat32Array res = mountain_tibesti_solve(p_gw, p_gh, p_rect, p);
+				PackedFloat32Array res = mountain_tibesti_solve_best(p_gw, p_gh, p_rect, p);
 				if (res.size() == n) {
 					std::copy_n(res.ptr(), n, g_ptr);
 				}
@@ -772,7 +772,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.base_noise_amp = params_k ? params_k[s] : 0.05f;
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
-				PackedFloat32Array res = mountain_stump_solve(p_gw, p_gh, p_rect, p);
+				PackedFloat32Array res = mountain_stump_solve_best(p_gw, p_gh, p_rect, p);
 				if (res.size() == n) {
 					std::copy_n(res.ptr(), n, g_ptr);
 				}
@@ -793,7 +793,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.k_smoothing = params_k ? params_k[s] : 0.05f;
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
-				PackedFloat32Array res = shattered_peak_solve(p_gw, p_gh, p_rect, p);
+				PackedFloat32Array res = shattered_peak_solve_best(p_gw, p_gh, p_rect, p);
 				if (res.size() == n) {
 					std::copy_n(res.ptr(), n, g_ptr);
 				}
@@ -809,7 +809,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.noise_r_amp = params_f[s];
 				p.noise_z_ratio = params_g ? params_g[s] : 0.05f;
 				if (in0[s] >= 0) p.noise = get_grid_packed(in0[s]);
-				PackedFloat32Array res = caldera_solve(p_gw, p_gh, p_rect, p);
+				PackedFloat32Array res = caldera_solve_best(p_gw, p_gh, p_rect, p);
 				if (res.size() == n) {
 					std::copy_n(res.ptr(), n, g_ptr);
 				}

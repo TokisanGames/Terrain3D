@@ -153,5 +153,9 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 		push_error("[Pasture3D] Pasture3DUtil.mountain_range_radial_generate_grid is not bound. Rebuild GDExtension.")
 		return [Pasture3DGraphOps.zeros(n), Pasture3DGraphOps.zeros(n)]
 
-	var res: Array = Pasture3DUtil.mountain_range_radial_generate_grid(p_gw, p_gh, p_rect, params)
+	var res: Array
+	if ClassDB.class_has_method("Pasture3DUtil", "mountain_range_radial_generate_grid_best"):
+		res = Pasture3DUtil.mountain_range_radial_generate_grid_best(p_gw, p_gh, p_rect, params)
+	else:
+		res = Pasture3DUtil.mountain_range_radial_generate_grid(p_gw, p_gh, p_rect, params)
 	return res

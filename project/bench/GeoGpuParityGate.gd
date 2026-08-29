@@ -43,6 +43,12 @@ func _ready() -> void:
 	_b_seed_variation()
 	_c_wired_envelope()
 	_d_wired_displacement()
+	_e_mountain_inselberg()
+	_f_mountain_range_radial()
+	_g_mountain_tibesti()
+	_h_mountain_stump()
+	_i_shattered_peak()
+	_j_caldera()
 	_finish(_fail)
 
 
@@ -107,6 +113,156 @@ func _d_wired_displacement() -> void:
 	print("    control: displacement moved the GPU field by %.3f (want > 0.05)" % warped)
 	if warped <= 0.05:
 		_fail += 1; print("    !! displacement inputs A/B were ignored on the GPU")
+
+
+# --- E. MountainInselberg: GPU == CPU ---------------------------------------------------------------
+func _e_mountain_inselberg() -> void:
+	print("[E] MountainInselberg: GPU == CPU")
+	var p := {
+		"seed": 13,
+		"elevation": 25.0,
+		"scale": 1.0,
+		"octaves": 8,
+		"rugosity": 0.0,
+		"angle": 45.0,
+		"gamma": 0.5,
+		"bulk_amp": 0.5,
+		"base_noise_amp": 0.05,
+		"center": Vector2(0.5, 0.5),
+	}
+	var gpu := Pasture3DUtil.mountain_inselberg_generate_grid_gpu(GW, GH, RECT, p)
+	var cpu := Pasture3DUtil.mountain_inselberg_generate_grid(GW, GH, RECT, p)
+	_check(gpu, cpu, "inselberg")
+	var span := _maxv(gpu) - _minv(gpu)
+	print("    control: GPU field span = %.3f m (want > 1.0)" % span)
+	if span <= 1.0:
+		_fail += 1; print("    !! field is flat — nothing was measured")
+
+
+# --- F. MountainRangeRadial: GPU == CPU -------------------------------------------------------------
+func _f_mountain_range_radial() -> void:
+	print("[F] MountainRangeRadial: GPU == CPU")
+	var p := {
+		"seed": 27,
+		"elevation": 25.0,
+		"kw_x": 4.0,
+		"kw_y": 4.0,
+		"half_width": 0.2,
+		"angle_spread_ratio": 0.5,
+		"core_size_ratio": 0.2,
+		"center": Vector2(0.5, 0.5),
+		"octaves": 8,
+		"weight": 0.7,
+		"persistence": 0.5,
+		"lacunarity": 2.0,
+	}
+	var gpu_arr := Pasture3DUtil.mountain_range_radial_generate_grid_gpu(GW, GH, RECT, p)
+	var cpu_arr := Pasture3DUtil.mountain_range_radial_generate_grid(GW, GH, RECT, p)
+	if gpu_arr.size() >= 2 and cpu_arr.size() >= 2:
+		_check(gpu_arr[0], cpu_arr[0], "range_radial_h")
+		_check(gpu_arr[1], cpu_arr[1], "range_radial_a")
+	else:
+		_fail += 1; print("    !! GPU range radial return array malformed")
+
+
+# --- G. MountainTibesti: GPU == CPU -----------------------------------------------------------------
+func _g_mountain_tibesti() -> void:
+	print("[G] MountainTibesti: GPU == CPU")
+	var p := {
+		"seed": 42,
+		"elevation": 25.0,
+		"scale": 1.0,
+		"octaves": 8,
+		"peak_kw": 4.0,
+		"rugosity": 0.0,
+		"angle": 45.0,
+		"angle_spread_ratio": 0.5,
+		"gamma": 0.5,
+		"bulk_amp": 0.5,
+		"base_noise_amp": 0.05,
+		"center": Vector2(0.5, 0.5),
+	}
+	var gpu := Pasture3DUtil.mountain_tibesti_generate_grid_gpu(GW, GH, RECT, p)
+	var cpu := Pasture3DUtil.mountain_tibesti_generate_grid(GW, GH, RECT, p)
+	_check(gpu, cpu, "tibesti")
+	var span := _maxv(gpu) - _minv(gpu)
+	print("    control: GPU field span = %.3f m (want > 1.0)" % span)
+	if span <= 1.0:
+		_fail += 1; print("    !! field is flat — nothing was measured")
+
+
+# --- H. MountainStump: GPU == CPU -------------------------------------------------------------------
+func _h_mountain_stump() -> void:
+	print("[H] MountainStump: GPU == CPU")
+	var p := {
+		"seed": 55,
+		"elevation": 25.0,
+		"scale": 1.0,
+		"octaves": 8,
+		"peak_kw": 4.0,
+		"rugosity": 0.0,
+		"angle": 45.0,
+		"k_smoothing": 0.05,
+		"gamma": 0.5,
+		"ridge_amp": 0.4,
+		"base_noise_amp": 0.05,
+		"center": Vector2(0.5, 0.5),
+	}
+	var gpu := Pasture3DUtil.mountain_stump_generate_grid_gpu(GW, GH, RECT, p)
+	var cpu := Pasture3DUtil.mountain_stump_generate_grid(GW, GH, RECT, p)
+	_check(gpu, cpu, "stump")
+	var span := _maxv(gpu) - _minv(gpu)
+	print("    control: GPU field span = %.3f m (want > 1.0)" % span)
+	if span <= 1.0:
+		_fail += 1; print("    !! field is flat — nothing was measured")
+
+
+# --- I. ShatteredPeak: GPU == CPU -------------------------------------------------------------------
+func _i_shattered_peak() -> void:
+	print("[I] ShatteredPeak: GPU == CPU")
+	var p := {
+		"seed": 77,
+		"elevation": 25.0,
+		"scale": 1.0,
+		"octaves": 8,
+		"peak_kw": 4.0,
+		"rugosity": 0.0,
+		"angle": 45.0,
+		"gamma": 0.5,
+		"bulk_amp": 0.5,
+		"base_noise_amp": 0.05,
+		"k_smoothing": 0.05,
+		"center": Vector2(0.5, 0.5),
+	}
+	var gpu := Pasture3DUtil.shattered_peak_generate_grid_gpu(GW, GH, RECT, p)
+	var cpu := Pasture3DUtil.shattered_peak_generate_grid(GW, GH, RECT, p)
+	_check(gpu, cpu, "shattered_peak")
+	var span := _maxv(gpu) - _minv(gpu)
+	print("    control: GPU field span = %.3f m (want > 1.0)" % span)
+	if span <= 1.0:
+		_fail += 1; print("    !! field is flat — nothing was measured")
+
+
+# --- J. Caldera: GPU == CPU -------------------------------------------------------------------------
+func _j_caldera() -> void:
+	print("[J] Caldera: GPU == CPU")
+	var p := {
+		"elevation": 25.0,
+		"radius": 0.2,
+		"sigma_inner": 0.05,
+		"sigma_outer": 0.15,
+		"z_bottom": 0.2,
+		"noise_r_amp": 0.02,
+		"noise_z_ratio": 0.05,
+		"center": Vector2(0.5, 0.5),
+	}
+	var gpu := Pasture3DUtil.caldera_generate_grid_gpu(GW, GH, RECT, p)
+	var cpu := Pasture3DUtil.caldera_generate_grid(GW, GH, RECT, p)
+	_check(gpu, cpu, "caldera")
+	var span := _maxv(gpu) - _minv(gpu)
+	print("    control: GPU field span = %.3f m (want > 1.0)" % span)
+	if span <= 1.0:
+		_fail += 1; print("    !! field is flat — nothing was measured")
 
 
 # ---- helpers ----------------------------------------------------------------------------------------

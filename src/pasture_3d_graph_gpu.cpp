@@ -825,4 +825,280 @@ PackedFloat32Array mountain_cone_solve_best(int p_gw, int p_gh, const Rect2 &p_r
 	return mountain_cone_solve(p_gw, p_gh, p_rect, p_params);
 }
 
+bool mountain_inselberg_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainInselbergParams &p_params,
+		PackedFloat32Array &r_out) {
+	if (p_gw < 1 || p_gh < 1) return false;
+	static Pasture3DGraphGPU s_gpu;
+
+	const float scale = p_params.scale;
+	const float kw = 2.6f / scale;
+	const float lacunarity = 2.0f;
+	const float alpha = p_params.angle * 0.0174532925f;
+	const int n = p_gw * p_gh;
+
+	GeoGpuParams gp;
+	gp.op = 1; // MountainInselberg
+	gp.octaves = nyquist_octave_cap(p_params.octaves, kw, lacunarity, std::min(p_gw, p_gh));
+	gp.seed_u = wang_hash((uint32_t)p_params.seed);
+	gp.flags = (p_params.dx.size() == n ? 1 : 0) |
+			(p_params.dy.size() == n ? 2 : 0);
+	gp.elevation = p_params.elevation;
+	gp.scale = scale;
+	gp.kw = kw;
+	gp.cos_alpha = std::cos(alpha);
+	gp.sin_alpha = std::sin(alpha);
+	gp.gamma = p_params.gamma;
+	gp.persistence = 0.5f;
+	gp.lacunarity = lacunarity;
+	gp.base_noise_amp = p_params.base_noise_amp;
+	gp.bulk_amp = p_params.bulk_amp;
+	gp.center_x = p_params.center.x;
+	gp.center_y = p_params.center.y;
+
+	PackedFloat32Array out2;
+	return s_gpu.eval_geo(gp, p_gw, p_gh, p_params.dx, p_params.dy, PackedFloat32Array(), r_out, out2);
+}
+
+PackedFloat32Array mountain_inselberg_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const MountainInselbergParams &p_params) {
+	const int threshold = graph_gpu_threshold();
+	if (threshold > 0 && (int64_t)p_gw * p_gh >= (int64_t)threshold) {
+		PackedFloat32Array out;
+		if (mountain_inselberg_eval_gpu(p_gw, p_gh, p_rect, p_params, out)) {
+			return out;
+		}
+	}
+	return mountain_inselberg_solve(p_gw, p_gh, p_rect, p_params);
+}
+
+bool mountain_range_radial_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainRangeRadialParams &p_params,
+		Array &r_out) {
+	if (p_gw < 1 || p_gh < 1) return false;
+	static Pasture3DGraphGPU s_gpu;
+
+	const float lacunarity = p_params.lacunarity;
+	const int n = p_gw * p_gh;
+
+	GeoGpuParams gp;
+	gp.op = 2; // MountainRangeRadial
+	gp.octaves = nyquist_octave_cap(p_params.octaves, std::max(p_params.kw_x, p_params.kw_y), lacunarity, std::min(p_gw, p_gh));
+	gp.seed_u = wang_hash((uint32_t)p_params.seed);
+	gp.flags = (p_params.ctrl_param.size() == n ? 1 : 0) |
+			(p_params.dx.size() == n ? 2 : 0) |
+			(p_params.dy.size() == n ? 4 : 0);
+	gp.elevation = p_params.elevation;
+	gp.kw = p_params.kw_x;
+	gp.kw2 = p_params.kw_y;
+	gp.half_width = p_params.half_width;
+	gp.angle_spread_ratio = p_params.angle_spread_ratio;
+	gp.core_size_ratio = p_params.core_size_ratio;
+	gp.weight = p_params.weight;
+	gp.persistence = p_params.persistence;
+	gp.lacunarity = lacunarity;
+	gp.center_x = p_params.center.x;
+	gp.center_y = p_params.center.y;
+
+	PackedFloat32Array h_out, a_out;
+	if (s_gpu.eval_geo(gp, p_gw, p_gh, p_params.ctrl_param, p_params.dx, p_params.dy, h_out, a_out)) {
+		r_out.clear();
+		r_out.append(h_out);
+		r_out.append(a_out);
+		return true;
+	}
+	return false;
+}
+
+Array mountain_range_radial_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const MountainRangeRadialParams &p_params) {
+	const int threshold = graph_gpu_threshold();
+	if (threshold > 0 && (int64_t)p_gw * p_gh >= (int64_t)threshold) {
+		Array out;
+		if (mountain_range_radial_eval_gpu(p_gw, p_gh, p_rect, p_params, out)) {
+			return out;
+		}
+	}
+	return mountain_range_radial_solve(p_gw, p_gh, p_rect, p_params);
+}
+
+bool mountain_tibesti_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainTibestiParams &p_params,
+		PackedFloat32Array &r_out) {
+	if (p_gw < 1 || p_gh < 1) return false;
+	static Pasture3DGraphGPU s_gpu;
+
+	const float scale = p_params.scale;
+	const float kw_base = p_params.peak_kw / scale;
+	const float kw_noise4 = 4.0f / scale;
+	const float kw_noise2 = 2.0f / scale;
+	const float lacunarity = 2.0f;
+	const float alpha = p_params.angle * 0.0174532925f;
+	const int n = p_gw * p_gh;
+	const int shape_min = std::min(p_gw, p_gh);
+
+	GeoGpuParams gp;
+	gp.op = 3; // MountainTibesti
+	gp.octaves = nyquist_octave_cap(p_params.octaves, kw_base, lacunarity, shape_min);
+	gp.octaves2 = nyquist_octave_cap(p_params.octaves, kw_noise4, lacunarity, shape_min);
+	gp.octaves3 = nyquist_octave_cap(p_params.octaves, kw_noise2, lacunarity, shape_min);
+	gp.seed_u = wang_hash((uint32_t)p_params.seed);
+	gp.flags = (p_params.dx.size() == n ? 1 : 0) |
+			(p_params.dy.size() == n ? 2 : 0);
+	gp.elevation = p_params.elevation;
+	gp.scale = scale;
+	gp.kw = kw_base;
+	gp.cos_alpha = std::cos(alpha);
+	gp.sin_alpha = std::sin(alpha);
+	gp.angle_spread_ratio = p_params.angle_spread_ratio;
+	gp.gamma = p_params.gamma;
+	gp.persistence = 0.5f;
+	gp.lacunarity = lacunarity;
+	gp.base_noise_amp = p_params.base_noise_amp;
+	gp.bulk_amp = p_params.bulk_amp;
+	gp.center_x = p_params.center.x;
+	gp.center_y = p_params.center.y;
+
+	PackedFloat32Array out2;
+	return s_gpu.eval_geo(gp, p_gw, p_gh, p_params.dx, p_params.dy, PackedFloat32Array(), r_out, out2);
+}
+
+PackedFloat32Array mountain_tibesti_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const MountainTibestiParams &p_params) {
+	const int threshold = graph_gpu_threshold();
+	if (threshold > 0 && (int64_t)p_gw * p_gh >= (int64_t)threshold) {
+		PackedFloat32Array out;
+		if (mountain_tibesti_eval_gpu(p_gw, p_gh, p_rect, p_params, out)) {
+			return out;
+		}
+	}
+	return mountain_tibesti_solve(p_gw, p_gh, p_rect, p_params);
+}
+
+bool mountain_stump_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const MountainStumpParams &p_params,
+		PackedFloat32Array &r_out) {
+	if (p_gw < 1 || p_gh < 1) return false;
+	static Pasture3DGraphGPU s_gpu;
+
+	const float scale = p_params.scale;
+	const float kw = p_params.peak_kw / scale;
+	const float lacunarity = 2.0f;
+	const float alpha = p_params.angle * 0.0174532925f;
+	const int n = p_gw * p_gh;
+
+	GeoGpuParams gp;
+	gp.op = 4; // MountainStump
+	gp.octaves = nyquist_octave_cap(p_params.octaves, kw, lacunarity, std::min(p_gw, p_gh));
+	gp.seed_u = wang_hash((uint32_t)p_params.seed);
+	gp.flags = (p_params.dx.size() == n ? 1 : 0) |
+			(p_params.dy.size() == n ? 2 : 0);
+	gp.elevation = p_params.elevation;
+	gp.scale = scale;
+	gp.kw = kw;
+	gp.cos_alpha = std::cos(alpha);
+	gp.sin_alpha = std::sin(alpha);
+	gp.gamma = p_params.gamma;
+	gp.persistence = 0.5f;
+	gp.lacunarity = lacunarity;
+	gp.base_noise_amp = p_params.base_noise_amp;
+	gp.ridge_amp = p_params.ridge_amp;
+	gp.k_smoothing = p_params.k_smoothing;
+	gp.center_x = p_params.center.x;
+	gp.center_y = p_params.center.y;
+
+	PackedFloat32Array out2;
+	return s_gpu.eval_geo(gp, p_gw, p_gh, p_params.dx, p_params.dy, PackedFloat32Array(), r_out, out2);
+}
+
+PackedFloat32Array mountain_stump_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const MountainStumpParams &p_params) {
+	const int threshold = graph_gpu_threshold();
+	if (threshold > 0 && (int64_t)p_gw * p_gh >= (int64_t)threshold) {
+		PackedFloat32Array out;
+		if (mountain_stump_eval_gpu(p_gw, p_gh, p_rect, p_params, out)) {
+			return out;
+		}
+	}
+	return mountain_stump_solve(p_gw, p_gh, p_rect, p_params);
+}
+
+bool shattered_peak_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const ShatteredPeakParams &p_params,
+		PackedFloat32Array &r_out) {
+	if (p_gw < 1 || p_gh < 1) return false;
+	static Pasture3DGraphGPU s_gpu;
+
+	const float scale = p_params.scale;
+	const float kw = p_params.peak_kw / scale;
+	const float lacunarity = 2.0f;
+	const float alpha = p_params.angle * 0.0174532925f;
+	const int n = p_gw * p_gh;
+
+	GeoGpuParams gp;
+	gp.op = 5; // ShatteredPeak
+	gp.octaves = nyquist_octave_cap(p_params.octaves, kw, lacunarity, std::min(p_gw, p_gh));
+	gp.seed_u = wang_hash((uint32_t)p_params.seed);
+	gp.flags = (p_params.dx.size() == n ? 1 : 0) |
+			(p_params.dy.size() == n ? 2 : 0);
+	gp.elevation = p_params.elevation;
+	gp.scale = scale;
+	gp.kw = kw;
+	gp.cos_alpha = std::cos(alpha);
+	gp.sin_alpha = std::sin(alpha);
+	gp.gamma = p_params.gamma;
+	gp.persistence = 0.5f;
+	gp.lacunarity = lacunarity;
+	gp.base_noise_amp = p_params.base_noise_amp;
+	gp.bulk_amp = p_params.bulk_amp;
+	gp.center_x = p_params.center.x;
+	gp.center_y = p_params.center.y;
+
+	PackedFloat32Array out2;
+	return s_gpu.eval_geo(gp, p_gw, p_gh, p_params.dx, p_params.dy, PackedFloat32Array(), r_out, out2);
+}
+
+PackedFloat32Array shattered_peak_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const ShatteredPeakParams &p_params) {
+	const int threshold = graph_gpu_threshold();
+	if (threshold > 0 && (int64_t)p_gw * p_gh >= (int64_t)threshold) {
+		PackedFloat32Array out;
+		if (shattered_peak_eval_gpu(p_gw, p_gh, p_rect, p_params, out)) {
+			return out;
+		}
+	}
+	return shattered_peak_solve(p_gw, p_gh, p_rect, p_params);
+}
+
+bool caldera_eval_gpu(int p_gw, int p_gh, const Rect2 &p_rect, const CalderaParams &p_params,
+		PackedFloat32Array &r_out) {
+	if (p_gw < 1 || p_gh < 1) return false;
+	static Pasture3DGraphGPU s_gpu;
+
+	const int n = p_gw * p_gh;
+
+	GeoGpuParams gp;
+	gp.op = 6; // Caldera
+	gp.flags = (p_params.noise.size() == n ? 1 : 0);
+	gp.elevation = p_params.elevation;
+	gp.radius = p_params.radius;
+	gp.sigma_inner = p_params.sigma_inner;
+	gp.sigma_outer = p_params.sigma_outer;
+	gp.z_bottom = p_params.z_bottom;
+	gp.noise_r_amp = p_params.noise_r_amp;
+	gp.noise_z_ratio = p_params.noise_z_ratio;
+	gp.center_x = p_params.center.x;
+	gp.center_y = p_params.center.y;
+
+	PackedFloat32Array out2;
+	return s_gpu.eval_geo(gp, p_gw, p_gh, p_params.noise, PackedFloat32Array(), PackedFloat32Array(), r_out, out2);
+}
+
+PackedFloat32Array caldera_solve_best(int p_gw, int p_gh, const Rect2 &p_rect,
+		const CalderaParams &p_params) {
+	const int threshold = graph_gpu_threshold();
+	if (threshold > 0 && (int64_t)p_gw * p_gh >= (int64_t)threshold) {
+		PackedFloat32Array out;
+		if (caldera_eval_gpu(p_gw, p_gh, p_rect, p_params, out)) {
+			return out;
+		}
+	}
+	return caldera_solve(p_gw, p_gh, p_rect, p_params);
+}
+
 } // namespace godot

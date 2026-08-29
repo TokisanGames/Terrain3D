@@ -226,8 +226,35 @@ func _paint_spline(path: Path3D) -> void:
 	var measured: Array = _measured_fields(fields[0], fields[2], op_selectors, vs, gw, gh,
 			Pasture3DTerrainMask.FieldSource.BELOW_LAYER) if use_fields else []
 	var sim_fields: Array = []
+	var sim_dict := {}
 	if sim_res != null and sim_res.is_valid():
 		sim_fields = _sim_fields(sim_res, min_x, min_z, vs, gw, gh)
+		sim_dict = _sim_result_dict(sim_res)
+
+	# Native rasteriser: same SDF + per-cell modifier math in C++ (~15-40x faster than GDScript loop
+	# on large edits).
+	if _native_raster("stamp_mound_loop"):
+		var params := {
+			"min_x": min_x, "min_z": min_z, "vs": vs, "gw": gw, "gh": gh,
+			"height": 0.0, "capped": true, "invert": false,
+			"falloff_width": falloff_width, "edge_offset": edge_offset,
+			"flank_mode": 0, "slope_tan": 1.0,
+			"slope_safety": 1000.0,
+			"relative_to_terrain": relative_to_terrain, "plane_y": global_position.y,
+			"blend": _blend, "composite": not _defer_composite,
+			"smooth_passes": smooth_passes,
+			"modifiers": stack["list"], "op_selectors": op_selectors,
+			"fit_cx": fcx, "fit_cz": fcz, "fit_cos": fcos, "fit_sin": fsin,
+			"fit_ex": frame[4], "fit_ez": frame[5],
+			"need_fields": use_fields, "sim_result": sim_dict,
+			"need_host_fields": false,
+		}
+		if relative_to_terrain or use_fields:
+			params["base_below"] = _base_below_grid(min_x, min_z, vs, gw, gh)
+		terrain.data.stamp_mound_loop(_layer_id, poly, _clip_aabb, params, _ramp_lut(falloff_curve))
+		_commit_modifier_caches(stack, extent,
+				[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
+		return
 
 	var sdf := _signed_distance_field(poly, min_x, min_z, vs, gw, gh)
 	var field: PackedFloat32Array = sdf[0]
@@ -284,18 +311,21 @@ func _paint_spline(path: Path3D) -> void:
 	vals = _blur_grid(vals, gw, gh, smooth_passes)
 	_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, vals, _spline_footprint_aabb(path))
 
-	for iz in range(gh):
-		var z := min_z + iz * vs
-		var row := iz * gw
-		for ix in range(gw):
-			var wv := vals[row + ix]
-			if not is_finite(wv):
-				continue
-			var pos := Vector3(min_x + ix * vs, 0.0, z)
-			if add:
-				_paint_height(pos, 0.0, wv)
-			else:
-				_paint_height(pos, wv, 0.0)
+	if _layer_id >= 0 and terrain.data.has_method("apply_sim_block"):
+		terrain.data.apply_sim_block(_layer_id, min_x, min_z, vs, gw, gh, vals, _blend)
+	else:
+		for iz in range(gh):
+			var z := min_z + iz * vs
+			var row := iz * gw
+			for ix in range(gw):
+				var wv := vals[row + ix]
+				if not is_finite(wv):
+					continue
+				var pos := Vector3(min_x + ix * vs, 0.0, z)
+				if add:
+					_paint_height(pos, 0.0, wv)
+				else:
+					_paint_height(pos, wv, 0.0)
 
 
 func _brush_param_signature() -> Array:

@@ -228,6 +228,118 @@ float voronoi_edge_fbm(float x, float y, int octaves, float persistence, float l
 	return max_amp > 0.0 ? (total / max_amp) : 0.0;
 }
 
+float voronoi_f2mf1_raw(float x, float y, uint seed) {
+	float px = floor(x);
+	float py = floor(y);
+	float fx = x - px;
+	float fy = y - py;
+
+	int ipx = int(px);
+	int ipy = int(py);
+
+	float d1 = 8.0;
+	float d2 = 8.0;
+
+	for (int j = -1; j <= 1; ++j) {
+		for (int i = -1; i <= 1; ++i) {
+			float bx = float(i);
+			float by = float(j);
+			float hx, hy;
+			hash22(ipx + i, ipy + j, seed, hx, hy);
+			float rx = bx - fx + hx;
+			float ry = by - fy + hy;
+			float d = sqrt(rx * rx + ry * ry);
+			if (d < d1) {
+				d2 = d1;
+				d1 = d;
+			} else if (d < d2) {
+				d2 = d;
+			}
+		}
+	}
+
+	return max(0.0, d2 - d1);
+}
+
+float voronoi_f2mf1_fbm(float x, float y, int octaves, float persistence, float lacunarity, uint seed) {
+	float total = 0.0;
+	float amp = 1.0;
+	float freq = 1.0;
+	float max_amp = 0.0;
+	for (int o = 0; o < octaves; ++o) {
+		total += amp * voronoi_f2mf1_raw(x * freq, y * freq, seed + uint(o) * 6271u);
+		max_amp += amp;
+		amp *= persistence;
+		freq *= lacunarity;
+	}
+	return max_amp > 0.0 ? (total / max_amp) : 0.0;
+}
+
+float gabor_wave_scalar(float x, float y, float dir_x, float dir_y, float angle_spread_ratio, uint seed) {
+	float ip_x = floor(x);
+	float ip_y = floor(y);
+	float fp_x = x - ip_x;
+	float fp_y = y - ip_y;
+
+	int i_ipx = int(ip_x);
+	int i_ipy = int(ip_y);
+
+	const float fr = 6.2831853;
+	const float fa = 4.0;
+
+	float av = 0.0;
+	float at = 0.0;
+
+	for (int j = -2; j <= 2; ++j) {
+		for (int i = -2; i <= 2; ++i) {
+			float hx, hy;
+			hash22(i_ipx + i, i_ipy + j, seed, hx, hy);
+			float rx = fp_x - (float(i) + hx);
+			float ry = fp_y - (float(j) + hy);
+
+			float kx_r, ky_r;
+			hash22(i_ipx + i + 11, i_ipy + j + 31, seed, kx_r, ky_r);
+			float kx = dir_x + angle_spread_ratio * (2.0 * kx_r - 1.0);
+			float ky = dir_y + angle_spread_ratio * (2.0 * ky_r - 1.0);
+			float kn = sqrt(kx * kx + ky * ky);
+			if (kn > 1e-6) {
+				kx /= kn;
+				ky /= kn;
+			}
+
+			float d = rx * rx + ry * ry;
+			float l = rx * kx + ry * ky;
+			float w = exp(-fa * d);
+			float cs = cos(fr * l);
+
+			av += w * cs;
+			at += w;
+		}
+	}
+
+	return at > 1e-6 ? (av / at) : 0.0;
+}
+
+float gabor_wave_scalar_fbm(float x, float y, float dir_x, float dir_y, float angle_spread_ratio,
+		int octaves, float weight, float persistence, float lacunarity, uint seed) {
+	float n = 0.0;
+	float nf = 1.0;
+	float na = 0.6;
+	for (int o = 0; o < octaves; ++o) {
+		float v = gabor_wave_scalar(x * nf, y * nf, dir_x, dir_y, angle_spread_ratio, seed + uint(o) * 5437u);
+		n += v * na;
+		na *= (1.0 - weight) + weight * min(v + 1.0, 2.0) * 0.5;
+		na *= persistence;
+		nf *= lacunarity;
+	}
+	return n;
+}
+
+float minimum_smooth(float a, float b, float k) {
+	float h = clamp(0.5 + 0.5 * (b - a) / max(1e-5, k), 0.0, 1.0);
+	return mix(b, a, h) - k * h * (1.0 - h);
+}
+
 // ---- Primitive assemblies ---------------------------------------------------------------------------
 
 void main() {
@@ -279,6 +391,200 @@ void main() {
 
 		float val = cone * (p.ridge_amp * vor + 1.0) / (p.ridge_amp + 1.0);
 		o_out[idx] = val * p.elevation;
+		o_out2[idx] = 0.0;
+		return;
+	}
+
+	if (p.op == 1) { // MountainInselberg
+		float half_width = 0.2 * p.scale;
+		float kw = 2.6 / p.scale;
+		float persistence = 0.5;
+		float lacunarity = 2.0;
+
+		float base_n = p.scale * p.base_noise_amp * simplex2_fbm(nx * kw, ny * kw, p.octaves, persistence, lacunarity, p.seed_u);
+		float disp_x = base_n * p.cos_alpha + (has_a ? in_a[idx] : 0.0);
+		float disp_y = base_n * p.sin_alpha + (has_b ? in_b[idx] : 0.0);
+
+		float cx = nx + disp_x * 0.15 - p.center_x;
+		float cy = ny + disp_y * 0.15 - p.center_y;
+		float dist_sq = (cx * cx + cy * cy) / max(1.0e-5, half_width * half_width);
+		float pulse = exp(-dist_sq);
+
+		float vx = (nx + disp_x) * kw;
+		float vy = (ny + disp_y) * kw;
+		float vor = 0.72 + voronoi_f2mf1_fbm(vx, vy, p.octaves, persistence, lacunarity, p.seed_u);
+		vor = max(0.0, vor) * pulse;
+
+		if (p.bulk_amp > 0.0) {
+			vor = (vor + p.bulk_amp * pulse) / (1.0 + p.bulk_amp);
+		}
+
+		if (p.gamma > 0.0) {
+			vor = pow(vor, p.gamma);
+		}
+
+		o_out[idx] = vor * p.elevation;
+		o_out2[idx] = 0.0;
+		return;
+	}
+
+	if (p.op == 2) { // MountainRangeRadial
+		float ct = has_a ? in_a[idx] : 1.0;
+		float dx = has_b ? in_b[idx] : 0.0;
+		float dy = has_c ? in_c[idx] : 0.0;
+
+		float px = (nx + dx) * p.kw;
+		float py = (ny + dy) * p.kw2;
+
+		float cx = nx - p.center_x;
+		float cy = ny - p.center_y;
+		float r2 = cx * cx + cy * cy;
+		float hw2 = max(1e-5, p.half_width * p.half_width);
+		float amp = exp(-0.5 * r2 / hw2);
+
+		float theta = atan(cy, cx) + 1.5707963268;
+		float dir_x = cos(theta);
+		float dir_y = sin(theta);
+
+		ct *= amp;
+		float eff_weight = (1.0 - ct) + ct * p.weight;
+		float noise = gabor_wave_scalar_fbm(px, py, dir_x, dir_y, p.angle_spread_ratio,
+				p.octaves, eff_weight, p.persistence, p.lacunarity, p.seed_u);
+
+		float r2_max = p.core_size_ratio / max(0.01, max(p.kw, p.kw2));
+		float t = min(1.0, r2 / max(1e-5, r2_max));
+		t = sqrt(t) * (1.0 - exp(-500.0 * t));
+		t = clamp(t, 0.0, 1.0);
+		t = t * t * (3.0 - 2.0 * t);
+
+		o_out[idx] = amp * mix(1.0, 0.5 * noise + 0.5, t) * p.elevation;
+		o_out2[idx] = theta;
+		return;
+	}
+
+	if (p.op == 3) { // MountainTibesti
+		float persistence = 0.5;
+		float lacunarity = 2.0;
+		float half_width = 0.3 * p.scale;
+		float kw_base = p.kw;
+		float kw_noise4 = 4.0 / p.scale;
+		float kw_noise2 = 2.0 / p.scale;
+
+		float dir_x = p.cos_alpha;
+		float dir_y = p.sin_alpha;
+
+		float n4 = simplex2_fbm(nx * kw_noise4, ny * kw_noise4, p.octaves2, persistence, lacunarity, p.seed_u + 101u);
+		n4 = 0.5 * n4 + 0.5;
+		n4 = max(0.0, n4);
+		if (p.gamma > 0.0) {
+			n4 = pow(n4, p.gamma);
+		}
+
+		float n2 = p.scale * p.base_noise_amp * simplex2_fbm(nx * kw_noise2, ny * kw_noise2, p.octaves3, persistence, lacunarity, p.seed_u + 203u);
+		float disp_x = n2 * dir_x + (has_a ? in_a[idx] : 0.0);
+		float disp_y = n2 * dir_y + (has_b ? in_b[idx] : 0.0);
+
+		float gabor = gabor_wave_scalar_fbm((nx + disp_x) * kw_base, (ny + disp_y) * kw_base, dir_x, dir_y,
+				p.angle_spread_ratio, p.octaves, 0.7, persistence, lacunarity, p.seed_u + 307u);
+		gabor = (0.5 * gabor + 0.5) * n4;
+		gabor = n4 * (p.bulk_amp + gabor) / (p.bulk_amp + 1.0);
+
+		float cx = nx - p.center_x;
+		float cy = ny - p.center_y;
+		float r2 = (cx * cx + cy * cy) / max(1e-5, half_width * half_width);
+		float pulse = exp(-0.5 * r2);
+
+		o_out[idx] = gabor * pulse * p.elevation;
+		o_out2[idx] = 0.0;
+		return;
+	}
+
+	if (p.op == 4) { // MountainStump
+		float half_width = 0.1 * p.scale;
+		float kw = p.kw;
+		float persistence = 0.5;
+		float lacunarity = 2.0;
+
+		float n_disp = p.scale * p.base_noise_amp * simplex2_fbm(nx * kw, ny * kw, p.octaves, persistence, lacunarity, p.seed_u);
+		float disp_x = n_disp * p.cos_alpha + (has_a ? in_a[idx] : 0.0);
+		float disp_y = n_disp * p.sin_alpha + (has_b ? in_b[idx] : 0.0);
+
+		float cx = nx + disp_x * 0.1 - p.center_x;
+		float cy = ny + disp_y * 0.1 - p.center_y;
+		float r2 = (cx * cx + cy * cy) / max(1e-5, half_width * half_width);
+		float pulse = min(1.0, 2.0 * exp(-0.5 * r2));
+
+		float stump_n = 0.25 * simplex2_fbm((nx + disp_x) * kw, (ny + disp_y) * kw, p.octaves, persistence, lacunarity, p.seed_u + 71u) + 0.75;
+		float stump = minimum_smooth(stump_n, pulse, p.k_smoothing);
+
+		float vx = (nx + disp_x) * kw;
+		float vy = (ny + disp_y) * kw;
+		float vor = 2.0 * voronoi_edge_fbm(vx, vy, p.octaves, persistence, lacunarity, p.seed_u + 149u);
+		vor = min(1.0, vor) * pulse;
+
+		float val = stump + p.ridge_amp * vor;
+		if (p.gamma > 0.0) {
+			val = pow(max(0.0, val), p.gamma);
+		}
+
+		o_out[idx] = val * p.elevation;
+		o_out2[idx] = 0.0;
+		return;
+	}
+
+	if (p.op == 5) { // ShatteredPeak
+		float half_width = 0.2 * p.scale;
+		float kw = p.kw;
+		float persistence = 0.5;
+		float lacunarity = 2.0;
+
+		float base_n = p.scale * p.base_noise_amp * simplex2_fbm(nx * kw, ny * kw, p.octaves, persistence, lacunarity, p.seed_u);
+		float disp_x = base_n * p.cos_alpha + (has_a ? in_a[idx] : 0.0);
+		float disp_y = base_n * p.sin_alpha + (has_b ? in_b[idx] : 0.0);
+
+		float cx = nx + disp_x * 0.1 - p.center_x;
+		float cy = ny + disp_y * 0.1 - p.center_y;
+		float r2 = (cx * cx + cy * cy) / max(1e-5, half_width * half_width);
+		float pulse = exp(-0.5 * r2);
+
+		float vx = (nx + disp_x) * kw;
+		float vy = (ny + disp_y) * kw;
+		float vor = voronoi_edge_fbm(vx, vy, p.octaves, persistence, lacunarity, p.seed_u + 89u);
+		vor = (vor * pulse + p.bulk_amp * pulse) / (0.5 + p.bulk_amp);
+
+		if (p.gamma > 0.0) {
+			vor = pow(max(0.0, vor), p.gamma);
+		}
+
+		o_out[idx] = vor * p.elevation;
+		o_out2[idx] = 0.0;
+		return;
+	}
+
+	if (p.op == 6) { // Caldera
+		float si2 = p.sigma_inner * p.sigma_inner;
+		float so2 = p.sigma_outer * p.sigma_outer;
+
+		float cx = nx - p.center_x;
+		float cy = ny - p.center_y;
+		float r = sqrt(cx * cx + cy * cy) - p.radius;
+
+		if (has_a) {
+			r += p.noise_r_amp * (2.0 * in_a[idx] - 1.0);
+		}
+
+		float z = 0.0;
+		if (r < 0.0) {
+			z = p.z_bottom + exp(-0.5 * r * r / max(1e-6, si2)) * (1.0 - p.z_bottom);
+		} else {
+			z = 1.0 / (1.0 + r * r / max(1e-6, so2));
+		}
+
+		if (has_a) {
+			z *= 1.0 + p.noise_z_ratio * (2.0 * in_a[idx] - 1.0);
+		}
+
+		o_out[idx] = z * p.elevation;
 		o_out2[idx] = 0.0;
 		return;
 	}
