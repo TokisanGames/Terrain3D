@@ -15,7 +15,7 @@ enum Evaluation { LIVE, FROZEN }
 		iterations = maxi(v, 1)
 		_param_changed()
 
-@export_range(0.0, 1.0, 0.01) var erosion_strength: float = 0.7:
+@export_range(0.0, 1.0, 0.01) var erosion_strength: float = 0.5:
 	set(v):
 		erosion_strength = clampf(v, 0.0, 1.0)
 		_param_changed()
@@ -25,19 +25,19 @@ enum Evaluation { LIVE, FROZEN }
 		drainage_exponent = clampf(v, 0.01, 0.8)
 		_param_changed()
 
-@export_range(0.0, 1.0, 0.01) var drainage_noise: float = 0.1:
+@export_range(0.0, 1.0, 0.01) var drainage_noise: float = 0.15:
 	set(v):
 		drainage_noise = maxf(v, 0.0)
 		_param_changed()
 
-@export_range(0.0, 0.5, 0.005) var fine_erosion_strength: float = 0.02:
+@export_range(0.0, 0.5, 0.005) var fine_erosion_strength: float = 0.05:
 	set(v):
 		fine_erosion_strength = maxf(v, 0.0)
 		_param_changed()
 
-@export_range(0.1, 4.0, 0.1) var shape_preservation: float = 2.0:
+@export_range(0.05, 4.0, 0.05) var shape_preservation: float = 0.2:
 	set(v):
-		shape_preservation = clampf(v, 0.1, 4.0)
+		shape_preservation = clampf(v, 0.05, 4.0)
 		_param_changed()
 
 @export_range(0.0, 0.5, 0.01) var bank_smoothing: float = 0.1:

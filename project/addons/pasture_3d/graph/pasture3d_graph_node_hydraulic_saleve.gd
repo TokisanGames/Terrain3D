@@ -22,15 +22,15 @@ enum Evaluation { LIVE, FROZEN }
 		_param_changed()
 
 ## Large-scale drainage erosion strength.
-@export_range(0.01, 2.0, 0.01, "or_greater") var erosion_strength: float = 0.7:
+@export_range(0.0, 1.0, 0.01) var erosion_strength: float = 0.5:
 	set(v):
-		erosion_strength = maxf(v, 0.0)
+		erosion_strength = clampf(v, 0.0, 1.0)
 		_param_changed()
 
 ## Catchment drainage exponent for stream power scaling.
-@export_range(0.01, 1.0, 0.01) var drainage_exponent: float = 0.2:
+@export_range(0.01, 0.8, 0.01) var drainage_exponent: float = 0.15:
 	set(v):
-		drainage_exponent = clampf(v, 0.01, 1.0)
+		drainage_exponent = clampf(v, 0.01, 0.8)
 		_param_changed()
 
 ## Coherent noise strength perturbing drainage flow routing to create natural dendritic branching.
@@ -46,9 +46,9 @@ enum Evaluation { LIVE, FROZEN }
 		_param_changed()
 
 ## Mountain shape preservation strength; preserves macroscopic mountain silhouette.
-@export_range(0.0, 2.0, 0.05) var shape_preservation: float = 0.8:
+@export_range(0.05, 4.0, 0.05) var shape_preservation: float = 0.2:
 	set(v):
-		shape_preservation = clampf(v, 0.0, 2.0)
+		shape_preservation = clampf(v, 0.05, 4.0)
 		_param_changed()
 
 ## Transverse river channel bank smoothing rate [0.0..0.5].

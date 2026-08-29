@@ -11,11 +11,11 @@ namespace godot {
 
 struct HydraulicSaleveParams {
 	int iterations = 25;
-	float erosion_strength = 0.7f;
-	float drainage_exponent = 0.2f;
+	float erosion_strength = 0.5f;
+	float drainage_exponent = 0.15f;
 	float drainage_noise = 0.15f;
 	float fine_erosion_strength = 0.05f;
-	float shape_preservation = 0.8f;
+	float shape_preservation = 0.2f;
 	float bank_smoothing = 0.1f;
 	float sediment_strength = 0.3f;
 	int seed = 0;
