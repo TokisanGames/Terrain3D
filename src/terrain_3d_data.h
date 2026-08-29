@@ -131,6 +131,8 @@ public:
 	void save_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_16_bit = false);
 	void load_directory(const String &p_dir);
 	void load_region(const Vector2i &p_region_loc, const String &p_dir, const bool p_update = true);
+	void unload_region(const Vector2i &p_region_loc, const bool p_update = true);
+	void update_streaming(const PackedVector3Array &p_target_positions, const real_t p_radius);
 
 	// Maps
 	TypedArray<Image> get_height_maps() const { return _height_maps; }

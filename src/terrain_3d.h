@@ -66,6 +66,22 @@ private:
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
 
+	// Region streaming. 0 (default) disables streaming entirely -- existing
+	// eager load_directory()/manual load_region() behavior is unaffected
+	// unless this is explicitly set. See Terrain3DData::update_streaming()
+	// for the real load/unload logic; this class only tracks targets and
+	// triggers it periodically.
+	real_t _region_streaming_radius = 0.f;
+	// Extra streaming interest points beyond the usual clipmap/collision/
+	// camera targets below -- e.g. other connected players on a server, which
+	// have no reason to be the clipmap/collision/camera target but whose
+	// nearby regions must still stay loaded. Stored as instance IDs, not raw
+	// pointers, since a registered Node3D can be freed without unregistering
+	// (a disconnecting player, say) -- resolved through ObjectDB and silently
+	// skipped if invalid each time streaming runs, same safety pattern as
+	// TargetNode3D uses for the single-target fields below.
+	PackedInt64Array _streaming_target_ids;
+
 	// Tracked Targets
 	TargetNode3D _clipmap_target;
 	TargetNode3D _collision_target;
@@ -115,6 +131,7 @@ private:
 	void _initialize();
 	void __physics_process(const double p_delta);
 	void _grab_camera();
+	void _update_streaming();
 
 	void _destroy_collision(const bool p_final = false);
 
@@ -178,6 +195,12 @@ public:
 	void set_label_size(const int p_size);
 	int get_label_size() const { return _label_size; }
 	void update_region_labels();
+
+	// Region Streaming
+	void set_region_streaming_radius(const real_t p_radius) { _region_streaming_radius = MAX(p_radius, 0.f); }
+	real_t get_region_streaming_radius() const { return _region_streaming_radius; }
+	void add_streaming_target(Node3D *p_node);
+	void remove_streaming_target(Node3D *p_node);
 
 	// Target Tracking
 	void set_camera(Camera3D *p_camera);

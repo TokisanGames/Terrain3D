@@ -459,6 +459,156 @@ void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_di
 	add_region(region, p_update);
 }
 
+// Removes a region from memory without marking it for disk deletion. Unlike
+// remove_region() -- which soft-deletes for the editor's undo/redo-aware Add/
+// Remove Region workflow, keeping the object in _regions until the NEXT
+// save_region() call notices is_deleted() and actually erases it -- this is a
+// clean, immediate unload: the file on disk (if any) is left untouched, only
+// the in-memory copy goes away right now. Used by update_streaming(), where
+// "no longer needed nearby" must free memory immediately, not wait for a
+// future save. Caller is responsible for having already saved any modified
+// data; this does not check is_modified() or save anything itself.
+void Terrain3DData::unload_region(const Vector2i &p_region_loc, const bool p_update) {
+	int idx = _region_locations.find(p_region_loc);
+	if (idx < 0) {
+		LOG(DEBUG, "Region ", p_region_loc, " not active, nothing to unload");
+		return;
+	}
+	LOG(DEBUG, "Unloading region ", p_region_loc, " from memory (file on disk untouched)");
+	_region_locations.remove_at(idx);
+	_regions.erase(p_region_loc);
+	_region_map_dirty = true;
+	if (p_update) {
+		update_maps(TYPE_MAX, true, false);
+	}
+}
+
+// Real disk-based region streaming: loads regions from _terrain's data_directory
+// as they come within p_radius of any position in p_target_positions, and
+// unloads (freeing memory, saving first if modified) regions that fall
+// outside p_radius of ALL of them. p_target_positions is deliberately a list,
+// not a single position -- computing the union of "needed nearby" across every
+// tracked position BEFORE any unload happens is what keeps this safe for
+// multiple simultaneous players/cameras: a region only unloads if it's out of
+// range of every target, never based on evaluating targets independently
+// (which could evict a region a different target is still standing on).
+//
+// No-ops completely -- no disk access, no eviction -- if p_radius <= 0 (the
+// default; existing eager load_directory()/manual load_region() behavior is
+// unaffected unless this is explicitly enabled) or if _terrain has no
+// data_directory set (pure in-memory/procedural use, e.g. building a terrain
+// entirely via import_images() with nothing ever saved to disk, must behave
+// exactly as before).
+//
+// Deliberately does NOT touch the existing region addressing/REGION_MAP_SIZE
+// bound -- a region can only stream in if it's within the same ±16 region
+// range that's always been valid. This keeps the change isolated to "which
+// in-bounds regions are currently resident in memory," not "how big can the
+// world be," which is a separate, much larger question (see the design note
+// on GitHub issue #491).
+void Terrain3DData::update_streaming(const PackedVector3Array &p_target_positions, const real_t p_radius) {
+	if (p_radius <= 0.f || p_target_positions.is_empty()) {
+		return;
+	}
+	String dir = _terrain->get_data_directory();
+	if (dir.is_empty()) {
+		return;
+	}
+
+	// Union, across every target, of region locations that should be loaded.
+	// Dictionary-as-set, matching the existing idiom used elsewhere in this
+	// file (see change_region_size()) rather than introducing a new container
+	// type for one function.
+	Dictionary desired;
+	// Clamped to the existing addressing bound up front -- the per-cell
+	// get_region_map_index() check below already excludes anything outside
+	// it, but without this clamp a large radius (the property allows up to
+	// 100000) still pays for the full O(radius^2) iteration first, wastefully,
+	// every 30 physics ticks per target, even though the result can never
+	// exceed REGION_MAP_SIZE/2 regions out either way.
+	//
+	// A region's actual world-space footprint is region_size * vertex_spacing,
+	// not region_size alone -- p_radius is a world-space distance (compared
+	// directly against region_center_world below, which IS vertex_spacing-
+	// scaled), so the search window has to be scaled the same way or this
+	// under-scans whenever vertex_spacing < 1.0 (a normal, commonly-used
+	// setting): regions genuinely inside the configured radius would silently
+	// never enter `desired`, shrinking the effective streaming radius below
+	// what was actually configured. vertex_spacing has a real minimum of 0.25
+	// (see Terrain3DRegion::set_vertex_spacing), but MAX(..., 0.001f) guards
+	// the division regardless of where that minimum is enforced.
+	int radius_regions = MIN(int(Math::ceil(p_radius / real_t(MAX(_region_size, 1)) / MAX(_vertex_spacing, real_t(0.001)))), Terrain3DData::REGION_MAP_SIZE / 2);
+	for (int i = 0; i < p_target_positions.size(); i++) {
+		Vector3 pos = p_target_positions[i];
+		Vector2i center_loc = get_region_location(pos);
+		for (int y = -radius_regions; y <= radius_regions; y++) {
+			for (int x = -radius_regions; x <= radius_regions; x++) {
+				Vector2i loc = center_loc + Vector2i(x, y);
+				if (get_region_map_index(loc) < 0) {
+					continue; // Stays within the existing addressing bound, see header comment above
+				}
+				Vector2 region_center_world = Vector2((real_t(loc.x) + .5f) * _region_size, (real_t(loc.y) + .5f) * _region_size) * _vertex_spacing;
+				if (region_center_world.distance_to(Vector2(pos.x, pos.z)) <= p_radius) {
+					desired[loc] = true;
+				}
+			}
+		}
+	}
+
+	// Load: anything desired, not already active, with a file on disk.
+	// (Streaming only ever loads pre-existing files -- it never creates
+	// regions; that stays an explicit editor/API action, same as today.)
+	Array desired_locations = desired.keys();
+	bool any_loaded = false;
+	for (int i = 0; i < desired_locations.size(); i++) {
+		Vector2i loc = desired_locations[i];
+		if (has_region(loc)) {
+			continue;
+		}
+		String path = dir + String("/") + Util::location_to_filename(loc);
+		if (FileAccess::file_exists(path)) {
+			load_region(loc, dir, false);
+			any_loaded = true;
+		}
+	}
+
+	// Evict: anything currently active, not in the desired set. Snapshot
+	// _region_locations first since unload_region() mutates it in place.
+	Array current_locations = _region_locations.duplicate();
+	bool any_unloaded = false;
+	for (int i = 0; i < current_locations.size(); i++) {
+		Vector2i loc = current_locations[i];
+		if (desired.has(loc)) {
+			continue;
+		}
+		Ref<Terrain3DRegion> region = get_region(loc);
+		if (region.is_null()) {
+			continue;
+		}
+		if (region->is_modified()) {
+			save_region(loc, dir, _terrain->get_save_16_bit());
+			if (region->is_modified()) {
+				// save_region() logs its own error; the save genuinely
+				// failed (save() only clears the modified flag on success).
+				// Do NOT unload -- that would silently lose this region's
+				// changes, since nothing else is holding a copy. Leave it
+				// loaded; it'll be retried on the next update_streaming()
+				// call once whatever caused the failure (e.g. a full disk,
+				// a permissions problem) is resolved.
+				LOG(ERROR, "Region ", loc, " failed to save, keeping it loaded rather than risk losing changes");
+				continue;
+			}
+		}
+		unload_region(loc, false);
+		any_unloaded = true;
+	}
+
+	if (any_loaded || any_unloaded) {
+		update_maps(TYPE_MAX, true, false);
+		_terrain->get_instancer()->update_mmis(-1, V2I_MAX, true);
+	}
+}
+
 TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
 	if (p_map_type < 0 || p_map_type >= TYPE_MAX) {
 		LOG(ERROR, "Specified map type out of range");
@@ -1394,6 +1544,8 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("save_region", "region_location", "directory", "save_16_bit"), &Terrain3DData::save_region, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("load_directory", "directory"), &Terrain3DData::load_directory);
 	ClassDB::bind_method(D_METHOD("load_region", "region_location", "directory", "update"), &Terrain3DData::load_region, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("unload_region", "region_location", "update"), &Terrain3DData::unload_region, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("update_streaming", "target_positions", "radius"), &Terrain3DData::update_streaming);
 
 	ClassDB::bind_method(D_METHOD("get_height_maps"), &Terrain3DData::get_height_maps);
 	ClassDB::bind_method(D_METHOD("get_control_maps"), &Terrain3DData::get_control_maps);
