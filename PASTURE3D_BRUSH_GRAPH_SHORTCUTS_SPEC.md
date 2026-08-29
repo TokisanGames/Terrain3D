@@ -201,6 +201,16 @@ context alive, so this does not disturb sculpting.
 **Depends on Phase 0.** This is the feature most likely to be pressed when the brush is *not* selected —
 which is the exact case the broken group lookup fails.
 
+**Built 2026-08-29.** Gate: `bench/BrushDetailsButtonGate.tscn`, 6 criteria, 0 failures. What the press
+DOES is two `EditorInterface` calls that cannot run headless, so the gate pins the half that can go wrong
+silently — the visibility rule and the host lookup under it. [B] binds the graph *without* handing over the
+modifier or the brush, so the group scan is the only route left, which is the state the dock is really in;
+that criterion returned null before Phase 0. [C] is the control: a standalone graph no brush owns must hide
+the button, or "visible" could just mean the button is always visible.
+
+Note `_rebuild()` now resolves `_find_host_brush()` once and shares it with the `Bake to Brush` visibility
+check, rather than each button doing its own lookup.
+
 ---
 
 ## Phase 3 — Graph dropdown

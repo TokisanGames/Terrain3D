@@ -37,6 +37,7 @@ var _frame_button: Button
 var _minimap_button: Button
 var _arrange_button: Button
 var _bake_brush_button: Button
+var _brush_details_button: Button
 var _title: Label
 var _hint: Label
 
@@ -280,6 +281,23 @@ func _find_host_modifier() -> Pasture3DNodeGraph:
 	return null
 
 
+## Point the editor at the brush this graph belongs to. Selecting AND editing, mirroring
+## editor_plugin.gd's own brush pick, so the 3D gizmo and the Layers dock follow along rather than the
+## Inspector alone; Pasture3DEditorPlugin._edit special-cases a brush to keep the terrain context alive, so
+## this does not disturb sculpting.
+##
+## This is the control that most needs _find_host_brush's group fallback to work: it is pressed while you
+## are in the graph, which is exactly when the brush is NOT the current selection.
+func _on_brush_details_pressed() -> void:
+	var brush := _find_host_brush()
+	if brush == null:
+		return
+	var sel: EditorSelection = EditorInterface.get_selection()
+	sel.clear()
+	sel.add_node(brush)
+	EditorInterface.edit_node(brush)
+
+
 func _on_bake_brush_pressed() -> void:
 	var mod := _find_host_modifier()
 	if mod != null:
@@ -379,6 +397,13 @@ func _build_ui() -> void:
 	_bake_brush_button.pressed.connect(_on_bake_brush_pressed)
 	_bake_brush_button.visible = false
 	bar.add_child(_bake_brush_button)
+
+	_brush_details_button = Button.new()
+	_brush_details_button.text = "Brush Details"
+	_brush_details_button.tooltip_text = "Select the brush hosting this graph and show it in the Inspector"
+	_brush_details_button.pressed.connect(_on_brush_details_pressed)
+	_brush_details_button.visible = false
+	bar.add_child(_brush_details_button)
 	
 	_title = Label.new()
 	_title.text = "  (no graph)"
@@ -522,8 +547,13 @@ func _rebuild() -> void:
 	if _minimap_button != null: _minimap_button.disabled = not has
 	if _arrange_button != null: _arrange_button.disabled = not has
 	var mod := _find_host_modifier()
+	var brush := _find_host_brush()
 	if _bake_brush_button != null:
 		_bake_brush_button.visible = (has and mod != null)
+	# Hidden rather than disabled when there is no host: a graph opened as a standalone .tres has no brush
+	# to show, and a button reading "Brush Details" that can never do anything is worse than no button.
+	if _brush_details_button != null:
+		_brush_details_button.visible = (has and brush != null)
 	if _title != null: _title.text = "  editing: %s" % _graph_label() if has else "  (no graph)"
 	if _hint != null: _hint.visible = not has
 	if not has:
