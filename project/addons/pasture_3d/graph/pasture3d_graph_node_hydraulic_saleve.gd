@@ -39,14 +39,8 @@ enum Evaluation { LIVE, FROZEN }
 		drainage_noise = maxf(v, 0.0)
 		_param_changed()
 
-## Secondary micro-rill fine flow erosion along steep hillslope flanks.
-@export_range(0.0, 0.5, 0.005) var fine_erosion_strength: float = 0.05:
-	set(v):
-		fine_erosion_strength = maxf(v, 0.0)
-		_param_changed()
-
 ## Mountain shape preservation strength; preserves macroscopic mountain silhouette.
-@export_range(0.05, 4.0, 0.05) var shape_preservation: float = 0.2:
+@export_range(0.05, 4.0, 0.05) var shape_preservation: float = 2.0:
 	set(v):
 		shape_preservation = clampf(v, 0.05, 4.0)
 		_param_changed()
@@ -57,16 +51,61 @@ enum Evaluation { LIVE, FROZEN }
 		bank_smoothing = clampf(v, 0.0, 0.5)
 		_param_changed()
 
-## Alluvial sediment mask strength.
-@export_range(0.0, 1.0, 0.01) var sediment_strength: float = 0.3:
-	set(v):
-		sediment_strength = clampf(v, 0.0, 1.0)
-		_param_changed()
-
 ## Noise seed for drainage branch perturbation.
 @export var seed: int = 0:
 	set(v):
 		seed = v
+		_param_changed()
+
+@export_group("Sediment Deposition (Stage 2)")
+## Alluvial depression hole filling radius ratio.
+@export_range(0.0, 0.5, 0.01) var deposition_radius: float = 0.1:
+	set(v):
+		deposition_radius = maxf(v, 0.0)
+		_param_changed()
+
+## Alluvial sediment deposition strength.
+@export_range(0.0, 1.0, 0.01) var deposition_strength: float = 0.5:
+	set(v):
+		deposition_strength = clampf(v, 0.0, 1.0)
+		_param_changed()
+
+@export_group("Fine River Incision (Stage 3)")
+## Secondary fine dendritic rill erosion strength.
+@export_range(0.0, 1.0, 0.005) var stream_strength: float = 0.02:
+	set(v):
+		stream_strength = clampf(v, 0.0, 1.0)
+		_param_changed()
+
+## Secondary stream influence exponent.
+@export_range(0.01, 1.0, 0.01) var stream_exp: float = 0.8:
+	set(v):
+		stream_exp = clampf(v, 0.01, 1.0)
+		_param_changed()
+
+@export_group("Post-Processing (Stage 4)")
+## Enable spatial post-smoothing.
+@export var enable_post_smoothing: bool = false:
+	set(v):
+		enable_post_smoothing = v
+		_param_changed()
+
+## Tonal gain scaling multiplier.
+@export_range(0.0, 5.0, 0.05) var gain: float = 1.0:
+	set(v):
+		gain = maxf(v, 0.0)
+		_param_changed()
+
+## Gamma curve contrast exponent.
+@export_range(0.1, 4.0, 0.05) var gamma: float = 1.0:
+	set(v):
+		gamma = maxf(v, 0.01)
+		_param_changed()
+
+## Overall mix factor blending eroded terrain with input surface.
+@export_range(0.0, 1.0, 0.01) var mix_factor: float = 1.0:
+	set(v):
+		mix_factor = clampf(v, 0.0, 1.0)
 		_param_changed()
 
 @export_group("Evaluation")
@@ -102,30 +141,28 @@ func needs_grid() -> bool:
 
 
 func input_count() -> int:
-	return 5
+	return 4
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["in", "mask", "iterations", "erosion_strength", "drainage_exponent"])
+	return PackedStringArray(["in", "dx", "dy", "mask"])
 
 
 func input_port_types() -> PackedInt32Array:
 	return PackedInt32Array([
 		PortType.HEIGHT,
+		PortType.FLOAT,
+		PortType.FLOAT,
 		PortType.MASK,
-		PortType.INT,
-		PortType.FLOAT,
-		PortType.FLOAT,
 	])
 
 
 func input_unwired_default(p_port: int) -> float:
 	match p_port:
 		0: return 0.0
-		1: return 1.0
-		2: return float(iterations)
-		3: return erosion_strength
-		4: return drainage_exponent
+		1: return 0.0
+		2: return 0.0
+		3: return 1.0
 		_: return 0.0
 
 
@@ -162,10 +199,9 @@ func node_warnings() -> PackedStringArray:
 func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> Array:
 	var n := p_gw * p_gh
 	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
-	var mask_in: PackedFloat32Array = (p_inputs[1] as PackedFloat32Array) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array) else PackedFloat32Array()
-	var iters: int = int(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else iterations
-	var er: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else erosion_strength
-	var de: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else drainage_exponent
+	var dx_in: PackedFloat32Array = (p_inputs[1] as PackedFloat32Array) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array) else PackedFloat32Array()
+	var dy_in: PackedFloat32Array = (p_inputs[2] as PackedFloat32Array) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array) else PackedFloat32Array()
+	var mask_in: PackedFloat32Array = (p_inputs[3] as PackedFloat32Array) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array) else PackedFloat32Array()
 
 	if surface.size() != n:
 		surface = Pasture3DGraphOps.zeros(n)
@@ -176,7 +212,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 			if _dirty_since_bake or key != _cache_key:
 				_set_stale(true)
 			return _cache[_cache_key]
-		var solved := _solve_dynamic(surface, p_gw, p_gh, p_rect, iters, er, de, mask_in)
+		var solved := _solve_dynamic(surface, p_gw, p_gh, p_rect, dx_in, dy_in, mask_in)
 		_cache = {}
 		_cache_key = key
 		_cache[key] = solved
@@ -187,7 +223,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 	if not _cache.is_empty():
 		_cache.clear()
 	_set_stale(false)
-	return _solve_dynamic(surface, p_gw, p_gh, p_rect, iters, er, de, mask_in)
+	return _solve_dynamic(surface, p_gw, p_gh, p_rect, dx_in, dy_in, mask_in)
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:
@@ -216,19 +252,27 @@ func _surface_hash(p_surface: PackedFloat32Array, p_gw: int, p_gh: int) -> int:
 	return h
 
 
-func _solve_dynamic(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_iters: int, p_er: float, p_de: float, p_mask: PackedFloat32Array) -> Array:
+func _solve_dynamic(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_dx: PackedFloat32Array, p_dy: PackedFloat32Array, p_mask: PackedFloat32Array) -> Array:
 	var n := p_gw * p_gh
 	var params := {
-		"iterations": p_iters,
-		"erosion_strength": p_er,
-		"drainage_exponent": p_de,
+		"iterations": iterations,
+		"erosion_strength": erosion_strength,
+		"drainage_exponent": drainage_exponent,
 		"drainage_noise": drainage_noise,
-		"fine_erosion_strength": fine_erosion_strength,
 		"shape_preservation": shape_preservation,
 		"bank_smoothing": bank_smoothing,
-		"sediment_strength": sediment_strength,
 		"seed": seed,
+		"dx": p_dx,
+		"dy": p_dy,
 		"mask": p_mask,
+		"deposition_radius": deposition_radius,
+		"deposition_strength": deposition_strength,
+		"stream_strength": stream_strength,
+		"stream_exp": stream_exp,
+		"enable_post_smoothing": enable_post_smoothing,
+		"gain": gain,
+		"gamma": gamma,
+		"mix_factor": mix_factor,
 	}
 
 	if not ClassDB.class_has_method("Pasture3DUtil", "hydraulic_saleve_solve_grid"):

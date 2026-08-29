@@ -56,6 +56,36 @@ HydraulicSaleveParams HydraulicSaleveParams::from_dict(const Dictionary &p_dict)
 	if (p_dict.has("mask")) {
 		p.mask = p_dict["mask"];
 	}
+	if (p_dict.has("dx")) {
+		p.dx = p_dict["dx"];
+	}
+	if (p_dict.has("dy")) {
+		p.dy = p_dict["dy"];
+	}
+	if (p_dict.has("deposition_radius")) {
+		p.deposition_radius = std::max(0.0f, (float)p_dict["deposition_radius"]);
+	}
+	if (p_dict.has("deposition_strength")) {
+		p.deposition_strength = std::clamp((float)p_dict["deposition_strength"], 0.0f, 1.0f);
+	}
+	if (p_dict.has("stream_strength")) {
+		p.stream_strength = std::clamp((float)p_dict["stream_strength"], 0.0f, 1.0f);
+	}
+	if (p_dict.has("stream_exp")) {
+		p.stream_exp = std::clamp((float)p_dict["stream_exp"], 0.01f, 1.0f);
+	}
+	if (p_dict.has("enable_post_smoothing")) {
+		p.enable_post_smoothing = (bool)p_dict["enable_post_smoothing"];
+	}
+	if (p_dict.has("gain")) {
+		p.gain = std::max(0.0f, (float)p_dict["gain"]);
+	}
+	if (p_dict.has("gamma")) {
+		p.gamma = std::max(0.01f, (float)p_dict["gamma"]);
+	}
+	if (p_dict.has("mix_factor")) {
+		p.mix_factor = std::clamp((float)p_dict["mix_factor"], 0.0f, 1.0f);
+	}
 	return p;
 }
 
@@ -82,6 +112,10 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 	const float *src_height = p_surface.ptr();
 	const bool has_mask = (p_params.mask.size() == n);
 	const float *mask_ptr = has_mask ? p_params.mask.ptr() : nullptr;
+	const bool has_dx = (p_params.dx.size() == n);
+	const bool has_dy = (p_params.dy.size() == n);
+	const float *dx_ptr = has_dx ? p_params.dx.ptr() : nullptr;
+	const float *dy_ptr = has_dy ? p_params.dy.ptr() : nullptr;
 
 	float zmin = std::numeric_limits<float>::max();
 	float zmax = -std::numeric_limits<float>::max();
@@ -152,8 +186,11 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 	std::vector<float> response_times(n, 0.0f);
 	std::vector<int> order(n);
 
+	// ================================================================================================
+	// Stage 1: Steady-State Fluvial Incision (Chi-Transform LEM with dx/dy perturbation)
+	// ================================================================================================
 	for (int iter = 0; iter < iterations; iter++) {
-		// 1. Compute steepest descent receivers with noise perturbation
+		// 1. Compute steepest descent receivers with domain noise / dx/dy perturbation
 		for (int iz = 0; iz < p_gh; iz++) {
 			for (int ix = 0; ix < p_gw; ix++) {
 				int idx = iz * p_gw + ix;
@@ -175,7 +212,11 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 						if (dz_val > 0.0f) {
 							float slope = dz_val / (float)n_dist[k];
 							float noise = fast_hash_to_unit(seed + (uint32_t)iter * 17, (uint32_t)(idx ^ (n_idx << 16)));
-							float score = slope * (1.0f + noise_strength * noise);
+							float warp_factor = 1.0f;
+							if (dx_ptr && dy_ptr) {
+								warp_factor += 0.5f * (dx_ptr[idx] * (float)n_dx[k] + dy_ptr[idx] * (float)n_dz[k]);
+							}
+							float score = slope * (warp_factor + noise_strength * noise);
 							if (score > best_score) {
 								best_score = score;
 								best_k = n_idx;
@@ -255,7 +296,7 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 		}
 	}
 
-	// 6. Remap back to [0..1] range
+	// Remap Stage 1 back to [0..1]
 	float ze_min = std::numeric_limits<float>::max();
 	float ze_max = -std::numeric_limits<float>::max();
 	for (int i = 0; i < n; i++) {
@@ -267,10 +308,67 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 		z[i] = (z[i] - ze_min) / ze_span;
 	}
 
-	// 7. Post-smoothing / Transverse Diffusion
-	if (p_params.bank_smoothing > 0.0f) {
+	// ================================================================================================
+	// Stage 2: Sediment Deposition (Deposition / Alluvial Flats)
+	// ================================================================================================
+	std::vector<float> sediment(n, 0.0f);
+	if (p_params.deposition_strength > 0.0f && p_params.deposition_radius > 0.0f) {
+		int ir = std::max(1, (int)(p_params.deposition_radius * (float)std::min(p_gw, p_gh)));
+		std::vector<float> z_fill = z;
+
+		// Morphological depression smoothing to fill valley floors
+		for (int iz = 0; iz < p_gh; iz++) {
+			for (int ix = 0; ix < p_gw; ix++) {
+				int idx = iz * p_gw + ix;
+				float max_n = z_fill[idx];
+				for (int dy_i = -ir; dy_i <= ir; dy_i++) {
+					int ny = iz + dy_i;
+					if (ny < 0 || ny >= p_gh) continue;
+					for (int dx_i = -ir; dx_i <= ir; dx_i++) {
+						int nx = ix + dx_i;
+						if (nx < 0 || nx >= p_gw) continue;
+						if (dx_i * dx_i + dy_i * dy_i <= ir * ir) {
+							max_n = std::max(max_n, z_fill[ny * p_gw + nx]);
+						}
+					}
+				}
+				z_fill[idx] = 0.5f * (z_fill[idx] + max_n);
+			}
+		}
+
+		for (int i = 0; i < n; i++) {
+			float diff = std::max(0.0f, z_fill[i] - z[i]);
+			float dep = p_params.deposition_strength * diff;
+			z[i] += dep;
+			sediment[i] = dep * zptp;
+		}
+	}
+
+	// ================================================================================================
+	// Stage 3: Fine River Channel Incision (HydraulicStreamLog secondary pass)
+	// ================================================================================================
+	if (p_params.stream_strength > 0.0f) {
+		for (int idx : order) {
+			int r = receivers[idx];
+			if (r != idx) {
+				int ix = idx % p_gw;
+				int iz = idx / p_gw;
+				int rx = r % p_gw;
+				int rz = r / p_gw;
+				float d = (float)std::sqrt(std::pow((ix - rx) * dx, 2.0) + std::pow((iz - rz) * dz, 2.0));
+				float slope = std::max(0.0f, (z[idx] - z[r]) / std::max(d, 1.0e-5f));
+				float stream_inc = p_params.stream_strength * std::log(1.0f + std::pow(std::max(area_acc[idx], 1.0f), p_params.stream_exp) * slope) * erodibility[idx] * 0.15f;
+				z[idx] = std::max(z[r], z[idx] - stream_inc);
+			}
+		}
+	}
+
+	// ================================================================================================
+	// Stage 4: Post-Processing & Tonal Controls
+	// ================================================================================================
+	if (p_params.enable_post_smoothing || p_params.bank_smoothing > 0.0f) {
 		std::vector<float> smoothed = z;
-		float blend = p_params.bank_smoothing * 0.4f;
+		float blend = p_params.enable_post_smoothing ? 0.3f : (p_params.bank_smoothing * 0.4f);
 		for (int iz = 1; iz < p_gh - 1; iz++) {
 			for (int ix = 1; ix < p_gw - 1; ix++) {
 				int idx = iz * p_gw + ix;
@@ -282,10 +380,15 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 		z = smoothed;
 	}
 
-	// 8. Blend with original heightfield in real world metres
+	if (p_params.gamma != 1.0f || p_params.gain != 1.0f) {
+		for (int i = 0; i < n; i++) {
+			z[i] = p_params.gain * std::pow(std::clamp(z[i], 0.0f, 1.0f), p_params.gamma);
+		}
+	}
+
+	// 5. Final Composite with original heightfield in world metres
 	std::vector<float> final_height(n);
-	std::vector<float> eroded_rock(n);
-	std::vector<float> sediment(n, 0.0f);
+	std::vector<float> eroded_rock(n, 0.0f);
 
 	for (int i = 0; i < n; i++) {
 		float orig_h = src_height[i];
@@ -297,9 +400,9 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 
 		float eroded_h = zmin + z[i] * zptp;
 		float m_val = has_mask ? mask_ptr[i] : 1.0f;
-		float strength = p_params.erosion_strength * m_val;
+		float eff_weight = p_params.erosion_strength * p_params.mix_factor * m_val;
 
-		float res_h = (1.0f - strength) * orig_h + strength * eroded_h;
+		float res_h = (1.0f - eff_weight) * orig_h + eff_weight * eroded_h;
 		final_height[i] = res_h;
 		eroded_rock[i] = std::max(0.0f, orig_h - res_h);
 	}

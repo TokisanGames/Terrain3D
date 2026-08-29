@@ -15,11 +15,27 @@ struct HydraulicSaleveParams {
 	float drainage_exponent = 0.15f;
 	float drainage_noise = 0.15f;
 	float fine_erosion_strength = 0.05f;
-	float shape_preservation = 0.2f;
+	float shape_preservation = 2.0f;
 	float bank_smoothing = 0.1f;
 	float sediment_strength = 0.3f;
 	int seed = 0;
 	PackedFloat32Array mask;
+	PackedFloat32Array dx;
+	PackedFloat32Array dy;
+
+	// Stage 2: Sediment Deposition (Deposition / Alluvial flats)
+	float deposition_radius = 0.1f;
+	float deposition_strength = 0.5f;
+
+	// Stage 3: Fine River Channel Incision (HydraulicStreamLog secondary pass)
+	float stream_strength = 0.02f;
+	float stream_exp = 0.8f;
+
+	// Stage 4: Post-Processing & Tonal Controls
+	bool enable_post_smoothing = false;
+	float gain = 1.0f;
+	float gamma = 1.0f;
+	float mix_factor = 1.0f;
 
 	static HydraulicSaleveParams from_dict(const Dictionary &p_dict);
 };
