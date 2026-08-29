@@ -482,13 +482,25 @@ TypedArray<Image> Terrain3DData::get_maps(const MapType p_map_type) const {
 
 void Terrain3DData::update_maps(const MapType p_map_type, const bool p_all_regions, const bool p_generate_mipmaps) {
 	// Generate region color mipmaps
-	if (p_generate_mipmaps && (p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
+	if (p_generate_mipmaps && (p_map_type == TYPE_HEIGHT || p_map_type == TYPE_COLOR || p_map_type == TYPE_MAX)) {
 		LOG(EXTREME, "Regenerating color mipmaps");
 		for (const Vector2i &region_loc : _regions.keys()) {
 			Terrain3DRegion *region = get_region_ptr(region_loc);
 			// Generate all or only those marked edited
 			if (region && !region->is_deleted() && (p_all_regions || region->is_edited())) {
-				region->get_color_map()->generate_mipmaps();
+				switch (p_map_type) {
+					case TYPE_HEIGHT:
+						region->get_height_map()->generate_mipmaps();
+						break;
+					case TYPE_COLOR:
+						region->get_color_map()->generate_mipmaps();
+						break;
+					case TYPE_MAX:
+						region->get_height_map()->generate_mipmaps();
+						region->get_color_map()->generate_mipmaps();
+						break;
+				}
+				
 			}
 		}
 	}

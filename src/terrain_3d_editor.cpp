@@ -557,7 +557,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 		}
 	}
 	// Regenerate color mipmaps for edited regions
-	if (map_type == TYPE_COLOR) {
+	if (map_type == TYPE_COLOR || map_type == TYPE_HEIGHT) {
 		for (Ref<Terrain3DRegion> region : _edited_regions) {
 			if (region.is_valid()) {
 				region->get_map(map_type)->generate_mipmaps();
