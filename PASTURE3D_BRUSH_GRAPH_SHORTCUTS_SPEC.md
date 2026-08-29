@@ -246,6 +246,21 @@ existing behaviour does not move.
 It will *not* run when a modifier is added to the brush from the Inspector. Same staleness as Phase 1,
 same answer: accept it here, fix it in Phase 4.
 
+**Built 2026-08-29.** Gate: `bench/GraphPickerGate.tscn`, 20 criteria, 0 failures. Two criteria are pinned
+harder than the rest because getting them wrong is silent:
+
+- **[E] metadata is the stack index, not the object.** Selecting re-resolves against the live stack, so a
+  modifier deleted after the menu was built cannot be reopened through a stale reference. The criterion
+  deletes a modifier, rebuilds, and checks the surviving one's metadata followed it from 1 to 0.
+- **[D] a graph the stack does not own is appended and selected.** Showing another graph's name while
+  editing this one is the failure nobody would notice; its entry carries metadata −1 so picking it is a
+  no-op rather than a jump to the wrong graph.
+
+[C] is the control for the naming rule, and it is worth stating what it actually catches: the stack is
+`[Noise, labelled graph, bare graph]`, so the bare one must read `Terrain Graph 2` — its index in
+`modifiers` — and not `Terrain Graph 1`, which is what counting only the graphs would give. A labelled
+modifier must keep its label, or "the label is used" could just mean every item gets identical text.
+
 ---
 
 ## Phase 4 — Live sync (optional, only if 1 and 3 grate)
@@ -276,6 +291,11 @@ property write) for a cosmetic problem that may not be noticeable. Build 0–3, 
   control, named for what it does.
 - **No persistence of the dock's last graph.** Reopening the editor still starts from whatever
   `edit_graph` was last handed.
+
+## 5.1 Status
+
+Phases 0-3 are **built** (2026-08-29): `df7ba894`, `83f40f52`, `dd9a6710`, and this one. Four gates,
+52 criteria between them, each with a control that fails. Phase 4 remains conditional and unbuilt.
 
 ## 6. Build order and why
 
