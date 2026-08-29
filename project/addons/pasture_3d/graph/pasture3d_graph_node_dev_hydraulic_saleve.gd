@@ -1,7 +1,8 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
 # Pasture3DGraphNodeDevHydraulicSaleve — Pure GDScript Reference Oracle for Salève Hydraulic Erosion.
-# Features structural joint fracture alignment, crest curvature preservation, and sediment deposition.
+# Features large-scale dendritic drainage routing with noise perturbation, secondary micro-rill flow,
+# mountain shape preservation, and transverse channel bank diffusion.
 
 @tool
 class_name Pasture3DGraphNodeDevHydraulicSaleve
@@ -10,39 +11,49 @@ extends Pasture3DGraphNode
 enum Evaluation { LIVE, FROZEN }
 
 @export_group("Simulation")
-@export_range(1, 50, 1, "or_greater") var iterations: int = 20:
+@export_range(1, 100, 1, "or_greater") var iterations: int = 25:
 	set(v):
 		iterations = maxi(v, 1)
 		_param_changed()
 
-@export_range(0.01, 2.0, 0.01, "or_greater") var incision_rate: float = 0.2:
+@export_range(0.01, 2.0, 0.01, "or_greater") var erosion_strength: float = 0.7:
 	set(v):
-		incision_rate = maxf(v, 0.0)
+		erosion_strength = maxf(v, 0.0)
 		_param_changed()
 
-@export_range(0.0, 360.0, 1.0) var joint_azimuth: float = 45.0:
+@export_range(0.01, 1.0, 0.01) var drainage_exponent: float = 0.2:
 	set(v):
-		joint_azimuth = fmod(v, 360.0)
+		drainage_exponent = clampf(v, 0.01, 1.0)
 		_param_changed()
 
-@export_range(0.0, 1.0, 0.01) var joint_strength: float = 0.4:
+@export_range(0.0, 1.0, 0.01) var drainage_noise: float = 0.15:
 	set(v):
-		joint_strength = clampf(v, 0.0, 1.0)
+		drainage_noise = maxf(v, 0.0)
 		_param_changed()
 
-@export_range(0.0, 1.0, 0.01) var ridge_preservation: float = 0.8:
+@export_range(0.0, 0.5, 0.005) var fine_erosion_strength: float = 0.05:
 	set(v):
-		ridge_preservation = clampf(v, 0.0, 1.0)
+		fine_erosion_strength = maxf(v, 0.0)
 		_param_changed()
 
-@export_range(0.0, 1.0, 0.01) var deposition_rate: float = 0.3:
+@export_range(0.0, 2.0, 0.05) var shape_preservation: float = 0.8:
 	set(v):
-		deposition_rate = clampf(v, 0.0, 1.0)
+		shape_preservation = clampf(v, 0.0, 2.0)
 		_param_changed()
 
 @export_range(0.0, 0.5, 0.01) var bank_smoothing: float = 0.1:
 	set(v):
 		bank_smoothing = clampf(v, 0.0, 0.5)
+		_param_changed()
+
+@export_range(0.0, 1.0, 0.01) var sediment_strength: float = 0.3:
+	set(v):
+		sediment_strength = clampf(v, 0.0, 1.0)
+		_param_changed()
+
+@export var seed: int = 0:
+	set(v):
+		seed = v
 		_param_changed()
 
 @export_group("Evaluation")
@@ -80,7 +91,7 @@ func input_count() -> int:
 
 
 func input_names() -> PackedStringArray:
-	return PackedStringArray(["in", "mask", "iterations", "joint_azimuth", "joint_strength"])
+	return PackedStringArray(["in", "mask", "iterations", "erosion_strength", "drainage_exponent"])
 
 
 func input_port_types() -> PackedInt32Array:
@@ -98,8 +109,8 @@ func input_unwired_default(p_port: int) -> float:
 		0: return 0.0
 		1: return 1.0
 		2: return float(iterations)
-		3: return joint_azimuth
-		4: return joint_strength
+		3: return erosion_strength
+		4: return drainage_exponent
 		_: return 0.0
 
 
@@ -136,20 +147,22 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 	var surface: PackedFloat32Array = (p_inputs[0] as PackedFloat32Array) if (p_inputs.size() > 0 and p_inputs[0] is PackedFloat32Array) else Pasture3DGraphOps.zeros(n)
 	var mask_in: PackedFloat32Array = (p_inputs[1] as PackedFloat32Array) if (p_inputs.size() > 1 and p_inputs[1] is PackedFloat32Array) else PackedFloat32Array()
 	var iters: int = int(p_inputs[2][0]) if (p_inputs.size() > 2 and p_inputs[2] is PackedFloat32Array and p_inputs[2].size() > 0) else iterations
-	var az: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else joint_azimuth
-	var js: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else joint_strength
+	var er: float = float(p_inputs[3][0]) if (p_inputs.size() > 3 and p_inputs[3] is PackedFloat32Array and p_inputs[3].size() > 0) else erosion_strength
+	var de: float = float(p_inputs[4][0]) if (p_inputs.size() > 4 and p_inputs[4] is PackedFloat32Array and p_inputs[4].size() > 0) else drainage_exponent
 
 	if surface.size() != n:
 		surface = Pasture3DGraphOps.zeros(n)
 
 	var p := {
 		"iterations": iters,
-		"incision_rate": incision_rate,
-		"joint_azimuth": az,
-		"joint_strength": js,
-		"ridge_preservation": ridge_preservation,
-		"deposition_rate": deposition_rate,
+		"erosion_strength": er,
+		"drainage_exponent": de,
+		"drainage_noise": drainage_noise,
+		"fine_erosion_strength": fine_erosion_strength,
+		"shape_preservation": shape_preservation,
 		"bank_smoothing": bank_smoothing,
+		"sediment_strength": sediment_strength,
+		"seed": seed,
 		"mask": mask_in,
 	}
 
@@ -166,6 +179,32 @@ func _param_changed() -> void:
 	emit_changed()
 
 
+static func _hash2d(x: int, y: int, p_seed: int) -> float:
+	var n: int = int((x * 73856093) ^ (y * 19349663) ^ (p_seed * 83492791)) & 0xffffffff
+	n = int((n ^ (n >> 13)) * 0x5bd1e995) & 0xffffffff
+	n = (n ^ (n >> 15)) & 0xffffffff
+	return float(n & 0x00ffffff) / 8388608.0 - 1.0
+
+
+static func _smooth_noise2d(x: float, z: float, p_seed: int) -> float:
+	var ix: int = int(floorf(x))
+	var iz: int = int(floorf(z))
+	var fx: float = x - float(ix)
+	var fz: float = z - float(iz)
+
+	var wx: float = fx * fx * fx * (fx * (fx * 6.0 - 15.0) + 10.0)
+	var wz: float = fz * fz * fz * (fz * (fz * 6.0 - 15.0) + 10.0)
+
+	var v00: float = _hash2d(ix, iz, p_seed)
+	var v10: float = _hash2d(ix + 1, iz, p_seed)
+	var v01: float = _hash2d(ix, iz + 1, p_seed)
+	var v11: float = _hash2d(ix + 1, iz + 1, p_seed)
+
+	var nx0: float = lerpf(v00, v10, wx)
+	var nx1: float = lerpf(v01, v11, wx)
+	return lerpf(nx0, nx1, wz)
+
+
 ## Pure GDScript reference solver implementation
 static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_params: Dictionary) -> Array:
 	var n: int = p_gw * p_gh
@@ -173,6 +212,8 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 		return [p_surface.duplicate(), PackedFloat32Array(), PackedFloat32Array()]
 
 	var height := p_surface.duplicate()
+	var orig_height := p_surface.duplicate()
+
 	var eroded_rock := PackedFloat32Array()
 	eroded_rock.resize(n)
 	eroded_rock.fill(0.0)
@@ -184,13 +225,15 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 	var mask: PackedFloat32Array = p_params.get("mask", PackedFloat32Array())
 	var has_mask: bool = (mask.size() == n)
 
-	var iterations: int = maxi(1, int(p_params.get("iterations", 20)))
-	var incision_rate: float = maxf(0.0, float(p_params.get("incision_rate", 0.2)))
-	var joint_azimuth: float = float(p_params.get("joint_azimuth", 45.0))
-	var joint_strength: float = clampf(float(p_params.get("joint_strength", 0.4)), 0.0, 1.0)
-	var ridge_preservation: float = clampf(float(p_params.get("ridge_preservation", 0.8)), 0.0, 1.0)
-	var deposition_rate: float = clampf(float(p_params.get("deposition_rate", 0.3)), 0.0, 1.0)
+	var iterations: int = maxi(1, int(p_params.get("iterations", 25)))
+	var erosion_strength: float = maxf(0.0, float(p_params.get("erosion_strength", 0.7)))
+	var drainage_exponent: float = clampf(float(p_params.get("drainage_exponent", 0.2)), 0.01, 1.0)
+	var drainage_noise: float = maxf(0.0, float(p_params.get("drainage_noise", 0.15)))
+	var fine_erosion_strength: float = maxf(0.0, float(p_params.get("fine_erosion_strength", 0.05)))
+	var shape_preservation: float = clampf(float(p_params.get("shape_preservation", 0.8)), 0.0, 2.0)
 	var bank_smoothing: float = clampf(float(p_params.get("bank_smoothing", 0.1)), 0.0, 0.5)
+	var sediment_strength: float = clampf(float(p_params.get("sediment_strength", 0.3)), 0.0, 1.0)
+	var p_seed: int = int(p_params.get("seed", 0))
 
 	var dx: float = p_rect.size.x / float(maxi(p_gw, 1))
 	var dz: float = p_rect.size.y / float(maxi(p_gh, 1))
@@ -199,18 +242,6 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 	var n_dx: Array[int] = [-1, 1, 0, 0, -1, 1, -1, 1]
 	var n_dz: Array[int] = [0, 0, -1, 1, -1, -1, 1, 1]
 	var n_dist: Array[float] = [dx, dx, dz, dz, diag_dist, diag_dist, diag_dist, diag_dist]
-
-	# Precompute joint alignment angle factors
-	var joint_rad: float = deg_to_rad(joint_azimuth)
-	var joint_ux: float = sin(joint_rad)
-	var joint_uz: float = -cos(joint_rad)
-	var joint_weights: Array[float] = []
-	joint_weights.resize(8)
-	for k in range(8):
-		var nx_dir: float = float(n_dx[k]) * dx / n_dist[k]
-		var nz_dir: float = float(n_dz[k]) * dz / n_dist[k]
-		var dot: float = absf(nx_dir * joint_ux + nz_dir * joint_uz) # [0..1]
-		joint_weights[k] = (1.0 - joint_strength) + joint_strength * dot
 
 	for pass_idx in range(iterations):
 		# 1. Sort indices descending by elevation
@@ -227,7 +258,7 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 			return ha > hb
 		)
 
-		# 2. Accumulate drainage flow with joint-biased weighting
+		# 2. Accumulate drainage flow with noise perturbation
 		var current_flow := PackedFloat32Array()
 		current_flow.resize(n)
 		current_flow.fill(1.0)
@@ -254,7 +285,12 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 					var h_n: float = height[n_idx]
 					if is_finite(h_n) and h_n < h_c:
 						var drop: float = (h_c - h_n) / n_dist[k]
-						var weighted_drop: float = pow(drop, 1.2) * joint_weights[k]
+
+						if drainage_noise > 0.0:
+							var noise_val: float = _smooth_noise2d(float(nx) * 0.2, float(nz) * 0.2, p_seed + pass_idx * 17)
+							drop *= maxf(0.01, 1.0 + drainage_noise * noise_val)
+
+						var weighted_drop: float = pow(drop, 1.3)
 						drops[k] = weighted_drop
 						sum_drop += weighted_drop
 
@@ -270,7 +306,7 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 						current_flow[n_idx] += my_flow * frac
 						current_sediment[n_idx] += my_sed * frac
 
-		# 3. Compute Salève Incision with Ridge Curvature Shielding & Lateral Bank Width
+		# 3. Compute Salève Incision
 		var incision_map := PackedFloat32Array()
 		incision_map.resize(n)
 		incision_map.fill(0.0)
@@ -300,39 +336,38 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 				var gz: float = (h_d - h_u) / (2.0 * dz)
 				var slope: float = sqrt(gx * gx + gz * gz)
 
-				# 2D discrete Laplacian curvature (convex ridge = negative)
-				var lap: float = (h_l + h_r - 2.0 * h_c) / (dx * dx) + (h_u + h_d - 2.0 * h_c) / (dz * dz)
-				var ridge_shield: float = 1.0
-				if lap < 0.0:
-					# Ridge crest — shield from erosion
-					ridge_shield = maxf(0.0, 1.0 - ridge_preservation * clampf(-lap * dx * 0.5, 0.0, 1.0))
-
 				var flow_val: float = current_flow[idx]
 				var a_accum: float = log(1.0 + maxf(0.0, flow_val - 1.0))
 
+				var inc_primary: float = 0.0
 				if a_accum > 0.01 and slope > 1.0e-5:
-					var power: float = sqrt(a_accum) * slope
-					var incision: float = incision_rate * log(1.0 + power) * ridge_shield * m_val
+					var power: float = pow(a_accum, drainage_exponent) * slope
+					inc_primary = erosion_strength * 0.25 * log(1.0 + power) * m_val
 
+				var inc_fine: float = 0.0
+				if fine_erosion_strength > 0.0 and slope > 0.02:
+					inc_fine = fine_erosion_strength * 0.1 * pow(slope, 0.8) * m_val
+
+				var total_incision: float = inc_primary + inc_fine
+
+				if total_incision > 0.0:
 					var center_w: float = 1.0 - bank_smoothing * 0.6
 					var neigh_w: float = (bank_smoothing * 0.6) * 0.25
 
-					incision_map[idx] += incision * center_w
-					if ix > 0: incision_map[row + ix - 1] += incision * neigh_w
-					if ix < p_gw - 1: incision_map[row + ix + 1] += incision * neigh_w
-					if iz > 0: incision_map[(iz - 1) * p_gw + ix] += incision * neigh_w
-					if iz < p_gh - 1: incision_map[(iz + 1) * p_gw + ix] += incision * neigh_w
+					incision_map[idx] += total_incision * center_w
+					if ix > 0: incision_map[row + ix - 1] += total_incision * neigh_w
+					if ix < p_gw - 1: incision_map[row + ix + 1] += total_incision * neigh_w
+					if iz > 0: incision_map[(iz - 1) * p_gw + ix] += total_incision * neigh_w
+					if iz < p_gh - 1: incision_map[(iz + 1) * p_gw + ix] += total_incision * neigh_w
 
-					# Add eroded rock to sediment flux
-					current_sediment[idx] += incision
+					current_sediment[idx] += total_incision
 
-				# Deposition mask in flat / low-slope basins
-				if slope < 0.2 and current_sediment[idx] > 0.0:
-					var dep: float = deposition_rate * current_sediment[idx] * (1.0 - slope / 0.2) * m_val
+				if slope < 0.15 and current_sediment[idx] > 0.0:
+					var dep: float = sediment_strength * current_sediment[idx] * (1.0 - slope / 0.15) * m_val
 					dep_map[idx] += dep
 					current_sediment[idx] = maxf(0.0, current_sediment[idx] - dep)
 
-		# 4. Apply incision to surface elevation and record sediment mask
+		# 4. Apply incision with shape preservation envelope
 		var next_height := height.duplicate()
 		for iz in range(p_gh):
 			var row: int = iz * p_gw
@@ -354,10 +389,15 @@ static func solve_oracle(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_
 							var h_n: float = height[nz * p_gw + nx]
 							if is_finite(h_n) and h_n < min_downhill:
 								min_downhill = h_n
-					var max_cut: float = maxf(0.0, (h_c - min_downhill) + 0.05 * cut)
+					var max_cut: float = maxf(0.0, (h_c - min_downhill) + 0.1 * cut)
 					cut = minf(cut, max_cut)
 					eroded_rock[idx] += cut
-					next_height[idx] = h_c - cut
+
+					var restore: float = 0.0
+					if shape_preservation > 0.0 and orig_height[idx] > h_c:
+						restore = 0.02 * shape_preservation * (orig_height[idx] - h_c)
+
+					next_height[idx] = h_c - cut + restore
 
 				sediment[idx] += dep_map[idx]
 

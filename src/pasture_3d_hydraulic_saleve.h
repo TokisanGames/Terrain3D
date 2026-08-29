@@ -10,13 +10,15 @@
 namespace godot {
 
 struct HydraulicSaleveParams {
-	int iterations = 20;
-	float incision_rate = 0.2f;
-	float joint_azimuth = 45.0f;
-	float joint_strength = 0.4f;
-	float ridge_preservation = 0.8f;
-	float deposition_rate = 0.3f;
+	int iterations = 25;
+	float erosion_strength = 0.7f;
+	float drainage_exponent = 0.2f;
+	float drainage_noise = 0.15f;
+	float fine_erosion_strength = 0.05f;
+	float shape_preservation = 0.8f;
 	float bank_smoothing = 0.1f;
+	float sediment_strength = 0.3f;
+	int seed = 0;
 	PackedFloat32Array mask;
 
 	static HydraulicSaleveParams from_dict(const Dictionary &p_dict);

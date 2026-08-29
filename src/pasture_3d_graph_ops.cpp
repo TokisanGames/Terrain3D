@@ -648,12 +648,14 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				HydraulicSaleveParams p;
 				p.iterations = (int)params[s];
-				p.incision_rate = params_b[s];
-				p.joint_azimuth = params_c[s];
-				p.joint_strength = params_d[s];
-				p.ridge_preservation = params_e[s];
-				p.deposition_rate = params_f[s];
+				p.erosion_strength = params_b[s];
+				p.drainage_exponent = params_c[s];
+				p.drainage_noise = params_d[s];
+				p.fine_erosion_strength = params_e[s];
+				p.shape_preservation = params_f[s];
 				p.bank_smoothing = params_g ? params_g[s] : 0.1f;
+				p.sediment_strength = params_h ? params_h[s] : 0.3f;
+				p.seed = params_i ? (int)params_i[s] : 0;
 				if (in1 && in1[s] >= 0) {
 					p.mask = get_grid_packed(in1[s]);
 				}

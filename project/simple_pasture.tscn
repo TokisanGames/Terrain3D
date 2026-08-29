@@ -7,8 +7,6 @@
 [ext_resource type="Script" uid="uid://dvx0o4df24s75" path="res://addons/pasture_3d/graph/pasture3d_graph_node_output.gd" id="5_wej47"]
 [ext_resource type="Script" uid="uid://dbvt4w4rnlb6k" path="res://addons/pasture_3d/graph/pasture3d_graph_node_noise_swiss.gd" id="6_ii4qc"]
 [ext_resource type="Script" uid="uid://bindlf2awqi6e" path="res://addons/pasture_3d/graph/pasture3d_graph_node_blend.gd" id="7_wv1iv"]
-[ext_resource type="Script" uid="uid://82lkphq4dfon" path="res://addons/pasture_3d/graph/pasture3d_graph_node_hydraulic_particle.gd" id="8_6pcwc"]
-[ext_resource type="Script" uid="uid://uaa2iiq8h0cs" path="res://addons/pasture_3d/graph/pasture3d_graph_node_hydraulic_stream_log.gd" id="8_ii4qc"]
 [ext_resource type="Script" uid="uid://dr7vsokvx1xjs" path="res://addons/pasture_3d/graph/pasture3d_terrain_graph.gd" id="8_wv1iv"]
 [ext_resource type="Script" uid="uid://717mgmmlrimi" path="res://addons/pasture_3d/connectors/pasture3d_mod_graph.gd" id="9_6pcwc"]
 [ext_resource type="Script" uid="uid://ybwedanry756" path="res://addons/pasture_3d/graph/pasture3d_graph_node_hydraulic_saleve.gd" id="10_6pcwc"]
@@ -53,57 +51,23 @@ mesh_list = Array[Pasture3DMeshAsset]([SubResource("Pasture3DMeshAsset_qlie2")])
 
 [sub_resource type="Resource" id="Resource_4khcl"]
 script = ExtResource("4_4khcl")
-graph_position = Vector2(-60, 80)
+graph_position = Vector2(120, 180)
 preview_on = true
 
 [sub_resource type="Resource" id="Resource_wej47"]
 script = ExtResource("5_wej47")
-graph_position = Vector2(1640, 140)
+graph_position = Vector2(1360, 200)
 preview_on = true
-
-[sub_resource type="Resource" id="Resource_cad7k"]
-script = ExtResource("7_wv1iv")
-graph_position = Vector2(440, 200)
-preview_on = true
-
-[sub_resource type="Resource" id="Resource_r5vgm"]
-script = ExtResource("6_ii4qc")
-amplitude = 20.0
-graph_position = Vector2(-60, 360)
-preview_on = true
-
-[sub_resource type="Resource" id="Resource_5q6a7"]
-script = ExtResource("6_ii4qc")
-amplitude = 20.0
-graph_position = Vector2(720, 820)
-preview_on = true
-
-[sub_resource type="Resource" id="Resource_ddf1r"]
-script = ExtResource("7_wv1iv")
-graph_position = Vector2(1240, 900)
-muted = true
-
-[sub_resource type="Resource" id="Resource_ft08i"]
-script = ExtResource("8_6pcwc")
-graph_position = Vector2(880, 680)
-preview_on = true
-
-[sub_resource type="Resource" id="Resource_201xj"]
-script = ExtResource("8_ii4qc")
-graph_position = Vector2(860, 480)
 
 [sub_resource type="Resource" id="Resource_6fins"]
 script = ExtResource("10_6pcwc")
-incision_rate = 0.21000000000000002
-joint_strength = 0.59
-bank_smoothing = 0.5
-graph_position = Vector2(920, 120)
+graph_position = Vector2(640, 200)
 preview_on = true
 
 [sub_resource type="Resource" id="Resource_6pcwc"]
 script = ExtResource("8_wv1iv")
-nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_4khcl"), SubResource("Resource_wej47"), SubResource("Resource_cad7k"), SubResource("Resource_r5vgm"), SubResource("Resource_5q6a7"), SubResource("Resource_ddf1r"), SubResource("Resource_ft08i"), SubResource("Resource_201xj"), SubResource("Resource_6fins")])
-connections = [PackedInt32Array(0, 0, 2, 0), PackedInt32Array(3, 0, 2, 1), PackedInt32Array(4, 0, 5, 1), PackedInt32Array(2, 0, 6, 0), PackedInt32Array(2, 0, 7, 0), PackedInt32Array(2, 0, 8, 0), PackedInt32Array(8, 0, 1, 0)]
+nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_4khcl"), SubResource("Resource_wej47"), SubResource("Resource_6fins")])
+connections = [PackedInt32Array(2, 0, 1, 0), PackedInt32Array(0, 0, 2, 0)]
 
 [sub_resource type="Resource" id="Resource_pnkh5"]
 script = ExtResource("9_6pcwc")
@@ -112,10 +76,10 @@ metadata/_custom_type_script = "uid://717mgmmlrimi"
 
 [sub_resource type="Curve3D" id="Curve3D_xkygt"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -54.84561, 0.99999994, -55.24388, 0, 0, 0, 0, 0, 0, -2.7812347, 0.99999994, -36.006332, 0, 0, 0, 0, 0, 0, 43.932655, 0.99999994, -50.38936, 0, 0, 0, 0, 0, 0, 76.41815, 0.99999994, 2.3556824, 0, 0, 0, 0, 0, 0, 93.303055, 1.0000093, 68.00786, 0, 0, 0, 0, 0, 0, 77.838554, 1.000009, 99.52057, 0, 0, 0, 0, 0, 0, 34.99357, 1.0000085, 114.103806, 0, 0, 0, 0, 0, 0, 13.218208, 1.0000082, 91.83332, 0, 0, 0, 0, 0, 0, 44.445084, 1.0000076, 59.376793, 0, 0, 0, 0, 0, 0, 26.404976, 1.000006, 44.10205, 0, 0, 0, 0, 0, 0, 26.425568, 1.000006, 65.88434, 0, 0, 0, 0, 0, 0, -27.213104, 1.0000037, 103.56949, 0, 0, 0, 0, 0, 0, -64.80658, 1.000002, 102.54659, 0, 0, 0, 0, 0, 0, -54.337585, 1.0000005, 55.29431, 0, 0, 0, 0, 0, 0, -67.77559, 0.99999994, 22.46054),
-"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+"points": PackedVector3Array(-11.703454, 0, -0.5751739, 11.703454, 0, 0.5751739, -2.7812347, 0.99999994, -54.21544, -9.534978, 0, -6.8107142, 9.534978, 0, 6.8107142, 43.932655, 0.99999994, -50.38936, -1.1569494, -6.6872275e-07, -15.443303, 1.1569494, 6.6872275e-07, 15.443303, 76.41815, 0.99999994, 2.3556824, 14.973851, -3.824588e-07, -10.673129, -14.973851, 3.824588e-07, 10.673129, 53.11045, 1.0000052, 72.118576, 15.787368, 6.927933e-07, 6.485196, -15.787368, -6.927933e-07, -6.485196, -37.92891, 1.0000029, 83.860504, 0, 0, 0, 0, 0, 0, -67.77559, 0.99999994, 22.46054, -8.039548, 0, 9.484519, 8.039548, 0, -9.484519, -54.65547, 0.99999994, -30.365906),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0)
 }
-point_count = 15
+point_count = 7
 
 [sub_resource type="Resource" id="Resource_67nn0"]
 script = ExtResource("8_wv1iv")

@@ -1,8 +1,8 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# GraphHydraulicSaleveGate: Parity & Regression test for Salève Structural Hydraulic Erosion.
-# Tests C++ Native vs GDScript Tier 1 oracle bit-level equivalence, joint azimuth deflection,
-# mountain crest curvature shielding, and sediment deposition.
+# GraphHydraulicSaleveGate: Parity & Regression test for Salève Large-Scale Drainage Erosion.
+# Tests C++ Native vs GDScript Tier 1 oracle bit-level equivalence, dendritic tributary branching,
+# fine rill incision, shape preservation, and sediment mask tracking.
 
 extends Node
 
@@ -15,11 +15,11 @@ var _fail := 0
 
 
 func _ready() -> void:
-	print("=== GraphHydraulicSaleveGate: Salève Structural Hydraulic Erosion Gate ===\n")
+	print("=== GraphHydraulicSaleveGate: Salève Large-Scale Drainage Erosion Gate ===\n")
 	_test_single_pass_parity()
 	_test_multi_pass_parity()
-	_test_joint_azimuth_deflection()
-	_test_ridge_preservation()
+	_test_dendritic_branching()
+	_test_mountain_shape_preservation()
 	_test_nan_boundary_invariance()
 	print("\n=== %s (%d failures) ===\n" % [
 		"GRAPH HYDRAULIC SALEVE PASS" if _fail == 0 else "GRAPH HYDRAULIC SALEVE FAIL",
@@ -37,12 +37,14 @@ func _test_single_pass_parity() -> void:
 
 	var params := {
 		"iterations": 1,
-		"incision_rate": 0.25,
-		"joint_azimuth": 45.0,
-		"joint_strength": 0.5,
-		"ridge_preservation": 0.8,
-		"deposition_rate": 0.3,
+		"erosion_strength": 0.7,
+		"drainage_exponent": 0.2,
+		"drainage_noise": 0.15,
+		"fine_erosion_strength": 0.05,
+		"shape_preservation": 0.8,
 		"bank_smoothing": 0.1,
+		"sediment_strength": 0.3,
+		"seed": 42,
 	}
 
 	var res_gd: Array = DevHydraulicSaleve.solve_oracle(surface, gw, gh, rect, params)
@@ -70,12 +72,14 @@ func _test_multi_pass_parity() -> void:
 
 	var params := {
 		"iterations": 15,
-		"incision_rate": 0.2,
-		"joint_azimuth": 30.0,
-		"joint_strength": 0.4,
-		"ridge_preservation": 0.8,
-		"deposition_rate": 0.25,
+		"erosion_strength": 0.7,
+		"drainage_exponent": 0.2,
+		"drainage_noise": 0.15,
+		"fine_erosion_strength": 0.05,
+		"shape_preservation": 0.8,
 		"bank_smoothing": 0.1,
+		"sediment_strength": 0.3,
+		"seed": 1337,
 	}
 
 	var res_gd: Array = DevHydraulicSaleve.solve_oracle(surface, gw, gh, rect, params)
@@ -94,68 +98,55 @@ func _test_multi_pass_parity() -> void:
 		print("    !! Multi-pass C++ native solver diverged beyond iterative tolerance")
 
 
-func _test_joint_azimuth_deflection() -> void:
-	print("\n[B] Structural Joint Azimuth Deflection")
-	var gw := 48
-	var gh := 48
+func _test_dendritic_branching() -> void:
+	print("\n[B] Dendritic Drainage Tributary Branching & Carving")
+	var gw := 64
+	var gh := 64
 	var rect := Rect2(0, 0, 100, 100)
-	var surface := _create_mountain_dome(gw, gh, 20.0)
+	var surface := _create_mountain_dome(gw, gh, 30.0)
 
-	var p_45 := {
-		"iterations": 10,
-		"incision_rate": 0.3,
-		"joint_azimuth": 45.0,
-		"joint_strength": 0.8,
-		"ridge_preservation": 0.5,
-		"deposition_rate": 0.0,
+	var res: Dictionary = Pasture3DUtil.hydraulic_saleve_solve_grid(surface, gw, gh, rect, {
+		"iterations": 25,
+		"erosion_strength": 0.8,
+		"drainage_exponent": 0.2,
+		"drainage_noise": 0.2,
+		"fine_erosion_strength": 0.05,
+		"shape_preservation": 0.8,
 		"bank_smoothing": 0.1,
-	}
-	var res_45: Dictionary = Pasture3DUtil.hydraulic_saleve_solve_grid(surface, gw, gh, rect, p_45)
+		"seed": 999,
+	})
 
-	var p_135 := {
-		"iterations": 10,
-		"incision_rate": 0.3,
-		"joint_azimuth": 135.0,
-		"joint_strength": 0.8,
-		"ridge_preservation": 0.5,
-		"deposition_rate": 0.0,
-		"bank_smoothing": 0.1,
-	}
-	var res_135: Dictionary = Pasture3DUtil.hydraulic_saleve_solve_grid(surface, gw, gh, rect, p_135)
-
-	var diff := _max_diff(res_45["height"], res_135["height"])
-	print("    Max height variance between 45° and 135° joint azimuths = %.4f m (want > 0.10 m)" % diff)
-	if diff < 0.10:
+	var max_carve: float = _max_val(res["eroded_rock"])
+	print("    Max bedrock incision depth = %.4f m (want > 2.0 m)" % max_carve)
+	if max_carve < 2.0:
 		_fail += 1
-		print("    !! Joint azimuth did not meaningfully deflect stream carving pathways")
+		print("    !! Insufficient dendritic canyon carving")
 
 
-func _test_ridge_preservation() -> void:
-	print("\n[C] Mountain Ridge Crest Preservation")
+func _test_mountain_shape_preservation() -> void:
+	print("\n[C] Mountain Shape Preservation")
 	var gw := 48
 	var gh := 48
 	var rect := Rect2(0, 0, 100, 100)
 	var surface := _create_mountain_dome(gw, gh, 30.0)
 
-	var p_shielded := {
-		"iterations": 15,
-		"incision_rate": 0.3,
-		"joint_azimuth": 0.0,
-		"joint_strength": 0.0,
-		"ridge_preservation": 1.0,
-		"deposition_rate": 0.0,
+	var res: Dictionary = Pasture3DUtil.hydraulic_saleve_solve_grid(surface, gw, gh, rect, {
+		"iterations": 25,
+		"erosion_strength": 0.7,
+		"drainage_exponent": 0.2,
+		"drainage_noise": 0.15,
+		"shape_preservation": 1.0,
 		"bank_smoothing": 0.1,
-	}
-	var res_shield: Dictionary = Pasture3DUtil.hydraulic_saleve_solve_grid(surface, gw, gh, rect, p_shielded)
+	})
 
 	var orig_peak: float = _max_val(surface)
-	var eroded_peak: float = _max_val(res_shield["height"])
+	var eroded_peak: float = _max_val(res["height"])
 	var peak_retention: float = (eroded_peak / orig_peak) * 100.0
 
 	print("    Original peak: %.2f m | Eroded peak: %.2f m (retention: %.1f%%)" % [orig_peak, eroded_peak, peak_retention])
-	if peak_retention < 95.0:
+	if peak_retention < 90.0:
 		_fail += 1
-		print("    !! Mountain ridge crest was excessively flattened")
+		print("    !! Mountain peak was excessively collapsed")
 
 
 func _test_nan_boundary_invariance() -> void:
@@ -174,11 +165,9 @@ func _test_nan_boundary_invariance() -> void:
 
 	var res: Dictionary = Pasture3DUtil.hydraulic_saleve_solve_grid(arr, gw, gh, rect, {
 		"iterations": 5,
-		"incision_rate": 0.2,
-		"joint_azimuth": 45.0,
-		"joint_strength": 0.5,
-		"ridge_preservation": 0.8,
-		"deposition_rate": 0.3,
+		"erosion_strength": 0.7,
+		"drainage_exponent": 0.2,
+		"drainage_noise": 0.15,
 	})
 
 	var nan_ok := true

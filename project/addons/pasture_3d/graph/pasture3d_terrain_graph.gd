@@ -1139,7 +1139,7 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 			&"hydraulic_stream_log":
 				op_id = 35; p0 = float(_i.call(&"iterations", 15)); pb = _f.call(&"incision_rate", 0.15); pc = _f.call(&"area_exponent", 0.5); pd = _f.call(&"slope_exponent", 1.0); pe = _f.call(&"min_catchment", 1.0); pf = _f.call(&"bank_smoothing", 0.1)
 			&"hydraulic_saleve":
-				op_id = 36; p0 = float(_i.call(&"iterations", 20)); pb = _f.call(&"incision_rate", 0.2); pc = _f.call(&"joint_azimuth", 45.0); pd = _f.call(&"joint_strength", 0.4); pe = _f.call(&"ridge_preservation", 0.8); pf = _f.call(&"deposition_rate", 0.3); pg = _f.call(&"bank_smoothing", 0.1)
+				op_id = 36; p0 = float(_i.call(&"iterations", 25)); pb = _f.call(&"erosion_strength", 0.7); pc = _f.call(&"drainage_exponent", 0.2); pd = _f.call(&"drainage_noise", 0.15); pe = _f.call(&"fine_erosion_strength", 0.05); pf = _f.call(&"shape_preservation", 0.8); pg = _f.call(&"bank_smoothing", 0.1); ph = _f.call(&"sediment_strength", 0.3); pi = float(_i.call(&"seed", 0))
 			_:
 				return {} # an op the native evaluator does not implement
 
