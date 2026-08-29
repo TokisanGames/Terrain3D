@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/BrushGroupLookupGate.gd" id="1_bglg"]
+
+[node name="BrushGroupLookupGate" type="Node"]
+script = ExtResource("1_bglg")

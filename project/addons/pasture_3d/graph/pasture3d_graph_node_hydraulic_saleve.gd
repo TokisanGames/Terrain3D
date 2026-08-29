@@ -45,6 +45,17 @@ enum Evaluation { LIVE, FROZEN }
 		shape_preservation = clampf(v, 0.05, 4.0)
 		_param_changed()
 
+## The vertical scale, in metres, every length in the solver is measured against — set it and the drainage
+## network becomes a property of the TERRAIN rather than of the grid it is solved on. 0 takes it from the
+## input's own relief, which moves whenever the solved extent does: a brush's Modifier Margin brings the
+## surrounding ground into range without moving one vertex of the shape, and the pattern rescales. Pin it
+## to roughly the relief you are eroding (a 90 m mound → 90) to hold a shape steady across margins,
+## footprint edits and re-bakes.
+@export_range(0.0, 500.0, 1.0, "or_greater", "suffix:m") var reference_relief: float = 0.0:
+	set(v):
+		reference_relief = maxf(v, 0.0)
+		_param_changed()
+
 ## Transverse river channel bank smoothing rate [0.0..0.5].
 @export_range(0.0, 0.5, 0.01) var bank_smoothing: float = 0.1:
 	set(v):
@@ -58,8 +69,9 @@ enum Evaluation { LIVE, FROZEN }
 		_param_changed()
 
 @export_group("Sediment Deposition (Stage 2)")
-## Alluvial depression hole filling radius ratio.
-@export_range(0.0, 0.5, 0.01) var deposition_radius: float = 0.1:
+## Alluvial depression hole filling radius, in METRES. It was a fraction of the grid's smaller dimension,
+## so the flats grew whenever the solved extent did; it is now a size on the ground.
+@export_range(0.0, 200.0, 0.5, "or_greater", "suffix:m") var deposition_radius: float = 25.0:
 	set(v):
 		deposition_radius = maxf(v, 0.0)
 		_param_changed()
@@ -260,6 +272,7 @@ func _solve_dynamic(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect:
 		"drainage_exponent": drainage_exponent,
 		"drainage_noise": drainage_noise,
 		"shape_preservation": shape_preservation,
+		"reference_relief": reference_relief,
 		"bank_smoothing": bank_smoothing,
 		"seed": seed,
 		"dx": p_dx,

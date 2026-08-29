@@ -248,6 +248,9 @@ func _paint_spline(path: Path3D) -> void:
 			"fit_ex": frame[4], "fit_ez": frame[5],
 			"need_fields": use_fields, "sim_result": sim_dict,
 			"need_host_fields": false,
+			# Metres of real ground seeded off the loop so an Erosion modifier can deposit a skirt there
+			# (0 = §6.8's no-margin behaviour). The grid was already widened to match by `_total_padding`.
+			"modifier_margin": _effective_modifier_margin(),
 		}
 		if relative_to_terrain or use_fields:
 			params["base_below"] = _base_below_grid(min_x, min_z, vs, gw, gh)
@@ -299,6 +302,8 @@ func _paint_spline(path: Path3D) -> void:
 			"fields": fields, "sim_fields": sim_fields, "host_fields": [],
 			"measured": measured, "host_measured": [], "host_div": 1.0,
 			"profile": profile, "basey": basey, "extent": extent,
+			# The signed distance (positive inside the loop) the Modifier Margin feathers its band against.
+			"sdf": field, "edge_offset": edge_offset,
 		}
 		vals = _run_modifier_stack(stack["gd"], amp, profile, basey, ctx)
 		_commit_modifier_caches(stack, extent, [fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])

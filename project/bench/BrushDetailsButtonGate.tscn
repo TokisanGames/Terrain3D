@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/BrushDetailsButtonGate.gd" id="1_bdbg"]
+
+[node name="BrushDetailsButtonGate" type="Node"]
+script = ExtResource("1_bdbg")

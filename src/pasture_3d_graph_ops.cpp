@@ -669,7 +669,8 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.drainage_noise = params_d[s];
 				p.shape_preservation = params_e[s];
 				p.bank_smoothing = params_f[s];
-				p.deposition_radius = params_g ? params_g[s] : 0.1f;
+				p.deposition_radius = params_g ? params_g[s] : 25.0f;
+				p.reference_relief = params_p ? std::max(0.0f, params_p[s]) : 0.0f;
 				p.deposition_strength = params_h ? params_h[s] : 0.5f;
 				p.stream_strength = params_i ? params_i[s] : 0.02f;
 				p.stream_exp = params_j ? params_j[s] : 0.8f;

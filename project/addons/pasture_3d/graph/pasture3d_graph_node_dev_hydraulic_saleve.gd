@@ -35,6 +35,13 @@ enum Evaluation { LIVE, FROZEN }
 		shape_preservation = clampf(v, 0.05, 4.0)
 		_param_changed()
 
+## Vertical scale (metres) every length is measured against; 0 = the input's own relief. Mirrors the
+## native node's Reference Relief.
+@export_range(0.0, 500.0, 1.0, "or_greater", "suffix:m") var reference_relief: float = 0.0:
+	set(v):
+		reference_relief = maxf(v, 0.0)
+		_param_changed()
+
 @export_range(0.0, 0.5, 0.01) var bank_smoothing: float = 0.1:
 	set(v):
 		bank_smoothing = clampf(v, 0.0, 0.5)
@@ -46,7 +53,8 @@ enum Evaluation { LIVE, FROZEN }
 		_param_changed()
 
 @export_group("Sediment Deposition (Stage 2)")
-@export_range(0.0, 0.5, 0.01) var deposition_radius: float = 0.1:
+## Alluvial hole-filling radius in METRES (mirrors the native node).
+@export_range(0.0, 200.0, 0.5, "or_greater", "suffix:m") var deposition_radius: float = 25.0:
 	set(v):
 		deposition_radius = maxf(v, 0.0)
 		_param_changed()
@@ -188,6 +196,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 		"drainage_exponent": drainage_exponent,
 		"drainage_noise": drainage_noise,
 		"shape_preservation": shape_preservation,
+		"reference_relief": reference_relief,
 		"bank_smoothing": bank_smoothing,
 		"seed": seed,
 		"dx": dx_in,
@@ -219,7 +228,7 @@ static func _fast_hash_to_unit(p_seed: int, key: int) -> float:
 	return float((n & 0x00ffffff)) / 8388608.0 - 1.0
 
 
-static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rect: Rect2, p_params: Dictionary) -> Array:
+static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect: Rect2, p_params: Dictionary) -> Array:
 	var n: int = p_gw * p_gh
 	if p_surface.size() != n or p_gw < 2 or p_gh < 2:
 		var empty := PackedFloat32Array()
@@ -242,7 +251,8 @@ static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rec
 	var bank_smoothing: float = clampf(float(p_params.get("bank_smoothing", 0.1)), 0.0, 0.5)
 	var p_seed: int = int(p_params.get("seed", 0))
 
-	var dep_radius: float = maxf(0.0, float(p_params.get("deposition_radius", 0.1)))
+	var reference_relief: float = maxf(0.0, float(p_params.get("reference_relief", 0.0)))
+	var dep_radius: float = maxf(0.0, float(p_params.get("deposition_radius", 25.0)))
 	var dep_strength: float = clampf(float(p_params.get("deposition_strength", 0.5)), 0.0, 1.0)
 	var str_strength: float = clampf(float(p_params.get("stream_strength", 0.02)), 0.0, 1.0)
 	var str_exp: float = clampf(float(p_params.get("stream_exp", 0.8)), 0.01, 1.0)
@@ -265,6 +275,12 @@ static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rec
 		return [p_surface.duplicate(), zeroes.duplicate(), zeroes]
 
 	var zptp: float = zmax - zmin
+	# The solver's unit of length: a vertical scale in metres that every horizontal distance is divided by,
+	# so slopes are true gradients and the grid's cell COUNT enters nothing. 0 = take it from the input's
+	# own relief (moves with the solved extent — a Modifier Margin brings surrounding ground into range).
+	# Mirrors hydraulic_saleve_solve; the parity gate compares the two.
+	var relief_ref: float = reference_relief if reference_relief > 0.0 else zptp
+	var vref: float = maxf(relief_ref, 1.0e-5)
 	var z := PackedFloat32Array()
 	z.resize(n)
 	var erodibility := PackedFloat32Array()
@@ -282,12 +298,15 @@ static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rec
 				continue
 			var zn: float = (h - zmin) / zptp
 			z[idx] = zn
-			erodibility[idx] = pow(clampf(1.0 - zn, 0.01, 1.0), shape_preservation)
+			erodibility[idx] = pow(clampf(1.0 - (h - zmin) / vref, 0.01, 1.0), shape_preservation)
 			is_outlet[idx] = (ix == 0 or ix == p_gw - 1 or iz == 0 or iz == p_gh - 1)
 
-	var dx: float = 1.0 / float(maxi(p_gw, 1))
-	var dz: float = 1.0 / float(maxi(p_gh, 1))
+	var cell_dx: float = (p_rect.size.x / float(maxi(p_gw, 1))) if p_rect.size.x > 0.0 else 1.0
+	var cell_dz: float = (p_rect.size.y / float(maxi(p_gh, 1))) if p_rect.size.y > 0.0 else 1.0
+	var dx: float = cell_dx / vref
+	var dz: float = cell_dz / vref
 	var diag_dist: float = sqrt(dx * dx + dz * dz)
+	var cell_area: float = dx * dz
 	var n_dx: Array[int] = [-1, 1, 0, 0, -1, 1, -1, 1]
 	var n_dz: Array[int] = [0, 0, -1, 1, -1, -1, 1, 1]
 	var n_dist: Array[float] = [dx, dx, dz, dz, diag_dist, diag_dist, diag_dist, diag_dist]
@@ -334,7 +353,7 @@ static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rec
 		order.sort_custom(func(a: int, b: int) -> bool:
 			return z[a] > z[b]
 		)
-		area_acc.fill(1.0)
+		area_acc.fill(cell_area)
 		for idx in order:
 			var r: int = receivers[idx]
 			if r != idx:
@@ -349,7 +368,7 @@ static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rec
 				var rx: int = r % p_gw
 				var rz: int = r / p_gw
 				var d: float = maxf(sqrt(pow(float(ix - rx) * dx, 2.0) + pow(float(iz - rz) * dz, 2.0)), 1.0e-5)
-				var celerity: float = erodibility[idx] * pow(maxf(area_acc[idx], 1.0), m_exp)
+				var celerity: float = erodibility[idx] * pow(maxf(area_acc[idx], cell_area), m_exp)
 				response_times[idx] = response_times[r] + (d / maxf(celerity, 1.0e-4))
 			else:
 				response_times[idx] = 0.0
@@ -385,7 +404,9 @@ static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rec
 	sediment.fill(0.0)
 
 	if dep_strength > 0.0 and dep_radius > 0.0:
-		var ir: int = maxi(1, int(dep_radius * float(mini(p_gw, p_gh))))
+		var cell_m: float = maxf(minf(cell_dx, cell_dz), 1.0e-4)
+		var ir: int = maxi(1, int(round(dep_radius / cell_m)))
+		ir = mini(ir, maxi(1, mini(p_gw, p_gh) / 2))
 		var z_fill := z.duplicate()
 		for iz in range(p_gh):
 			for ix in range(p_gw):
@@ -405,7 +426,7 @@ static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rec
 			var d_val: float = maxf(0.0, z_fill[i] - z[i])
 			var dep: float = dep_strength * d_val
 			z[i] += dep
-			sediment[i] = dep * zptp
+			sediment[i] = dep * relief_ref
 
 	# Stage 3: Fine Stream Power Incision
 	if str_strength > 0.0:
@@ -418,7 +439,7 @@ static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rec
 				var rz: int = r / p_gw
 				var d: float = maxf(sqrt(pow(float(ix - rx) * dx, 2.0) + pow(float(iz - rz) * dz, 2.0)), 1.0e-5)
 				var slope: float = maxf(0.0, (z[idx] - z[r]) / d)
-				var stream_inc: float = str_strength * log(1.0 + pow(maxf(area_acc[idx], 1.0), str_exp) * slope) * erodibility[idx] * 0.15
+				var stream_inc: float = str_strength * log(1.0 + pow(maxf(area_acc[idx], cell_area), str_exp) * slope) * erodibility[idx] * 0.15
 				z[idx] = maxf(z[r], z[idx] - stream_inc)
 
 	# Stage 4: Post-Processing & Tonal Controls
@@ -449,7 +470,7 @@ static func solve_gd(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, _p_rec
 			eroded_rock[i] = 0.0
 			continue
 
-		var eroded_h: float = zmin + z[i] * zptp
+		var eroded_h: float = zmin + z[i] * relief_ref
 		var m_val: float = mask[i] if has_mask else 1.0
 		var eff_weight: float = erosion_strength * mix_val * m_val
 

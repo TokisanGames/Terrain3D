@@ -606,6 +606,16 @@ func _get_property_list() -> Array[Dictionary]:
 	if _supports_modifiers():
 		props.append({"name": "Modifiers", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP,
 				"hint_string": ""})
+		# A stack-wide setting, so it sits at the top of the group, above the ordered list it applies to.
+		# Declared here rather than as an @export for the same reason `modifiers` is (see its note): only a
+		# host that actually runs the stack should show it.
+		props.append({
+			"name": "modifier_margin",
+			"type": TYPE_FLOAT,
+			"hint": PROPERTY_HINT_RANGE,
+			"hint_string": "0,200,0.5,or_greater,suffix:m",
+			"usage": PROPERTY_USAGE_DEFAULT,
+		})
 		props.append({
 			"name": "modifiers",
 			"type": TYPE_ARRAY,
@@ -1536,7 +1546,9 @@ func _compute_stamp_key(path: Path3D) -> int:
 
 
 func _brush_param_signature() -> Array:
-	return [snap_to_surface, surface_offset, force_gdscript_raster]
+	# `modifier_margin` changes the grid extent, so a cached stamp keyed without it would be reused at the
+	# wrong size after a margin edit (the setter also clears the cache; this covers the undo/redo path).
+	return [snap_to_surface, surface_offset, force_gdscript_raster, _effective_modifier_margin()]
 
 
 func _modifier_signature() -> Array:
@@ -3112,7 +3124,7 @@ func _spline_span(p_spline: Path3D) -> float:
 	var box := _spline_footprint_aabb(p_spline)
 	if box.size == Vector3.ZERO:
 		return 0.0
-	var pad := _padding() * 2.0
+	var pad := _total_padding() * 2.0
 	return maxf(maxf(box.size.x - pad, box.size.z - pad), 0.0)
 
 
@@ -3142,7 +3154,7 @@ func _spline_footprint_aabb(path: Path3D) -> AABB:
 		mn.y = minf(mn.y, p.z)
 		mx.x = maxf(mx.x, p.x)
 		mx.y = maxf(mx.y, p.z)
-	var pad := _padding()
+	var pad := _total_padding()
 	mn -= Vector2(pad, pad)
 	mx += Vector2(pad, pad)
 	return AABB(Vector3(mn.x, -10000.0, mn.y), Vector3(mx.x - mn.x, 20000.0, mx.y - mn.y))
@@ -3440,6 +3452,30 @@ var modifiers: Array[Pasture3DNode] = []:
 		_queue_mask_preview()
 		_schedule_refresh()
 		update_configuration_warnings()
+
+## Extra metres of terrain drawn into the working grid around each loop, so the modifier stack has ground
+## OFF the loop to work on. The brush's own profile still stops at the loop edge (§6.8's NaN outside is
+## unchanged there); this only widens the grid on every side and seeds the widened band with the REAL
+## surface below. Its reason for existing is erosion: with a margin, the sediment an Erosion modifier
+## carries off the flanks has somewhere to deposit, forming a skirt that blends the brush into the
+## surrounding landscape instead of ending in the hard cut §6.8 leaves. 0 keeps the historical footprint
+## (loop + `_padding()`'s ~2 m technical pad) and the exact no-margin, drainage-divide behaviour §6.8
+## measured. Surfaced through `_get_property_list` (Modifiers group) so it only shows on hosts that run the
+## stack. See PASTURE3D_BRUSH_EROSION_SPEC.md §6.8.
+## Below this movement (metres) a margin cell counts as untouched by the stack and goes back to being a
+## no-write, so an unworked skirt zone does not stamp the base surface across the widened box.
+const MODIFIER_MARGIN_EPS := 0.001
+
+var modifier_margin: float = 0.0:
+	set(v):
+		v = maxf(v, 0.0)
+		if v == modifier_margin:
+			return
+		modifier_margin = v
+		# The footprint AABB — and so the grid extent — just changed, which makes every cached stamp the
+		# wrong size to reuse. Drop them and take the full-repaint path.
+		_stamp_cache.clear()
+		_schedule_refresh()
 
 ## Last Mask Preview Source list, and last set of modifier names. Not exported — they are comparison
 ## caches, and a stale one after a scene load costs at most one extra rebuild.
@@ -3804,7 +3840,54 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 	var n: int = int(p_ctx["gw"]) * int(p_ctx["gh"])
 	var add: bool = p_ctx["add"]
 	p_ctx["basey"] = p_basey # a field modifier may need the absolute surface, not the delta
+
+	# ---- The Modifier Margin, applied ONCE, HERE (PASTURE3D_BRUSH_EROSION_SPEC.md §6.8.1) --------------
+	#
+	# THIS IS THE WHOLE FEATURE, and it is deliberately at the stack BOUNDARY rather than inside any
+	# modifier. The grid was already widened by `_total_padding()`; every cell in the widened band is a cell
+	# the brush itself contributes nothing to (`amp` = NaN) but which HAS real ground under it (`basey`
+	# finite). Materialising those cells as `amp = 0` — "the brush adds nothing here, but this cell is in
+	# play" — hands the stack a working surface that simply extends past the loop onto the real terrain.
+	#
+	# Every modifier then gets the margin for free and none of them knows it exists: an Erosion step reads
+	# an absolute surface with ground off the loop, so its sediment has somewhere to land instead of
+	# draining out of §6.8's NaN outlet at the loop edge. That is the skirt. A modifier added later inherits
+	# the same behaviour without being taught anything.
+	#
+	# THE PROFILE IS EXTENDED TOO, and it has to be: `profile` is the 0..1 mask every modifier scales its
+	# output by, and it is 0 off the loop — so materialising the ground alone would hand a Graph modifier a
+	# wider surface and then multiply its answer by zero out there. The band ramps 1 at the loop edge down
+	# to 0 at the outer margin edge (smoothstep), so a skirt fades out instead of ending on a second hard
+	# rim. Point modifiers (Noise / Relief) are scaled by the same mask, so they fade outward through the
+	# margin as well rather than stopping dead at the loop.
+	#
+	# The reverse conversion is at the other end of this function, and is the reason materialising is safe:
+	# a margin cell the stack did not actually move goes back to NaN, so the widened footprint is never
+	# flooded with base terrain. Only ground the stack WORKED is written.
+	var margin_m := _effective_modifier_margin()
+	var margin: bool = margin_m > 0.0
+	var margin_mask := PackedByteArray()
+	if margin:
+		margin_mask.resize(n)
+		var sdf: PackedFloat32Array = p_ctx.get("sdf", PackedFloat32Array())
+		var edge_off: float = p_ctx.get("edge_offset", 0.0)
+		var have_sdf := sdf.size() == n
+		for k in range(n):
+			if is_finite(p_amp[k]) or not is_finite(p_basey[k]):
+				continue
+			p_amp[k] = 0.0
+			margin_mask[k] = 1
+			if not have_sdf:
+				continue
+			# Metres OUTSIDE the loop boundary (the signed field is positive inside), feathered to 0 at the
+			# outer edge of the band so the skirt has somewhere to fade rather than a second hard rim.
+			var d_out: float = -(sdf[k] + edge_off)
+			if d_out < 0.0:
+				continue
+			p_profile[k] = smoothstep(0.0, 1.0, 1.0 - clampf(d_out / margin_m, 0.0, 1.0))
 	p_ctx["profile"] = p_profile # a graph node feathers its whole-grid output by the interior profile
+	p_ctx["margin_mask"] = margin_mask # which cells are the band (a FILTER graph masks differently there)
+
 	var vals := PackedFloat32Array()
 	vals.resize(n)
 	var in_vals := false
@@ -3858,6 +3941,18 @@ func _run_modifier_stack(p_steps: Array, p_amp: PackedFloat64Array, p_profile: P
 		for k in range(n):
 			var a: float = p_amp[k]
 			vals[k] = NAN if not is_finite(a) else (a if add else p_basey[k] + a)
+
+	# The other half of the margin (see the note at the top). A margin cell the stack MOVED keeps its value
+	# and composites through the brush's own blend — under the default MAX that means deposition raises the
+	# skirt and cuts are ignored. A margin cell it did not move goes back to being a no-write, so an
+	# untouched skirt zone leaves the surrounding terrain exactly as it was.
+	if margin:
+		for k in range(n):
+			if margin_mask[k] == 0 or not is_finite(vals[k]):
+				continue
+			var moved: float = vals[k] if add else (vals[k] - p_basey[k])
+			if absf(moved) <= MODIFIER_MARGIN_EPS:
+				vals[k] = NAN
 	return vals
 
 
@@ -3990,7 +4085,8 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 
 	# The absolute surface the graph reads and writes (§6.8, as the erosion step): the working grid holds a
 	# delta under ADD. NaN outside the loop stays NaN — an Input node's Smooth is NaN-aware and every write
-	# back below skips those cells.
+	# back below skips those cells. (A Modifier Margin has already turned the margin band into ordinary
+	# finite ground before this step runs — see `_run_modifier_stack` — so there is nothing to do here.)
 	var z := PackedFloat32Array()
 	z.resize(n)
 	for i in range(n):
@@ -4007,6 +4103,31 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	# generator is world-fixed, so its key is just the content revision and the cache serves across drags.
 	var reads: bool = g.reads_input()
 
+	# ---- A FILTER IS NOT FEATHERED BY THE SHAPE PROFILE --------------------------------------------
+	#
+	# `profile` is 1 at the loop centre falling to 0 at its edge. Scaling an ADDED displacement by it is
+	# right and is why Noise and Relief use it: authored detail has to fade out or the rim is a cliff. It
+	# was carried over to the graph mount wholesale, and for a FILTER that is wrong — it scales a
+	# TRANSFORMATION of ground that is already there, so an Erosion node inside a graph eroded the middle
+	# of a mound at full strength and its flanks at almost none, reaching exactly zero at the rim. That is
+	# a smooth dome wearing a detailed cap, and it silently fought the Modifier Margin.
+	#
+	# `Pasture3DNodeErosion` — the other filter in the system — never consults `profile` and never did.
+	# This makes the two agree: a filter applies at full `amount` across the brush, and tapers only through
+	# the MARGIN band, where the taper is what keeps a graph that also generates from ending on a hard
+	# outer edge. Continuous at the loop rim (1 inside, 1 at the start of the band), unlike the profile it
+	# replaces. A pure GENERATOR keeps the feather — it invents terrain, so it must still fade at the rim.
+	var mask: PackedFloat64Array = profile
+	if reads:
+		var mm: PackedByteArray = p_ctx.get("margin_mask", PackedByteArray())
+		var have_mm := mm.size() == n
+		mask = PackedFloat64Array()
+		mask.resize(n)
+		for k in range(n):
+			# In the band, `profile` already holds the margin feather (1 at the loop edge → 0 at the outer
+			# edge); everywhere the brush itself covers, a filter applies fully.
+			mask[k] = profile[k] if (have_mm and mm[k] == 1) else 1.0
+
 	# ---- FROZEN cache (mirrors _apply_erosion_step §6.3) ----
 	#
 	# The cache holds the graph's ABSOLUTE output, keyed by extent. A MISS evaluates; a cached extent is
@@ -4020,7 +4141,7 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	var entry: Dictionary = m.cache_for(extent) if frozen and extent != "" else {}
 	var zo: PackedFloat32Array = entry.get("grid", PackedFloat32Array())
 	if zo.size() == n:
-		_composite_graph(p_vals, z, zo, profile, amount, basey, add, n)
+		_composite_graph(p_vals, z, zo, mask, amount, basey, add, n)
 		out_slot["stale"] = int(entry.get("key", 0)) != key
 		out_slot["served"] = true
 		return p_vals
@@ -4049,7 +4170,7 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 
 	# MISS: evaluate, handing the graph the absolute surface for its Input node.
 	zo = g.evaluate(gw, gh, rect, null, z)
-	_composite_graph(p_vals, z, zo, profile, amount, basey, add, n)
+	_composite_graph(p_vals, z, zo, mask, amount, basey, add, n)
 	if p_step.has("out"):
 		out_slot["key"] = key
 		out_slot["grid"] = zo
@@ -4058,18 +4179,18 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	return p_vals
 
 
-## Composite the graph's absolute output `p_zo` over the absolute input surface `p_z`, feathered by the
-## interior profile and scaled by `p_amount` (0 = no change, 1 = full effect at the profile's centre), then
+## Composite the graph's absolute output `p_zo` over the absolute input surface `p_z`, masked by `p_mask`
+## and scaled by `p_amount` (0 = no change, 1 = full effect where the mask is 1), then
 ## write it back into the working grid in that grid's own units (a delta under ADD). Cells the brush does
 ## not contribute to (NaN) pass through untouched. `p_zo == p_z` (a bare Input → Output) is the identity.
 func _composite_graph(p_vals: PackedFloat32Array, p_z: PackedFloat32Array, p_zo: PackedFloat32Array,
-		p_profile: PackedFloat64Array, p_amount: float, p_basey: PackedFloat32Array,
+		p_mask: PackedFloat64Array, p_amount: float, p_basey: PackedFloat32Array,
 		p_add: bool, p_n: int) -> void:
 	for k in range(p_n):
 		var v: float = p_vals[k]
 		if not is_finite(v):
 			continue
-		var t: float = p_amount * p_profile[k]
+		var t: float = p_amount * p_mask[k]
 		var abs_out: float = p_z[k] + (p_zo[k] - p_z[k]) * t
 		p_vals[k] = (abs_out - p_basey[k]) if p_add else abs_out
 
@@ -4093,6 +4214,10 @@ func _apply_erosion_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	# §6.8 fact 2: NaN outside the loop passes straight through and becomes the boundary condition —
 	# `erosion_solve` turns non-finite input into a fixed outlet at the field minimum, which for a mound
 	# is exactly right: the ground off the loop is where the mountain's water goes.
+	#
+	# A Modifier Margin does not appear here. It is applied ONCE at the stack boundary
+	# (`_run_modifier_stack`), so by the time this step runs the margin band is already ordinary finite
+	# ground in `p_vals` and this code cannot tell the difference. See `modifier_margin`.
 	var z := PackedFloat32Array()
 	z.resize(n)
 	for i in range(n):
@@ -4887,6 +5012,20 @@ func _default_snap_to_surface() -> bool:
 
 func _padding() -> float:
 	return 2.0
+
+
+## The Modifier Margin actually in force: the exported metres, but only on a host that runs the stack (the
+## property is hidden elsewhere and a stray stored value must not silently widen a brush that can't use it).
+func _effective_modifier_margin() -> float:
+	return maxf(modifier_margin, 0.0) if _supports_modifiers() else 0.0
+
+
+## The lateral reach the footprint AABB is padded by on every side: the subclass's intrinsic `_padding()`
+## (which keeps the SDF a cell or two clear of the grid edge) PLUS the Modifier Margin. Every footprint /
+## span / grid-extent computation goes through this, so widening the margin widens the grid the modifier
+## stack evaluates over — which is the whole point (see `modifier_margin`).
+func _total_padding() -> float:
+	return _padding() + _effective_modifier_margin()
 
 
 func _spline_paintable(path: Path3D) -> bool:

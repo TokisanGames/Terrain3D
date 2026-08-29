@@ -260,6 +260,9 @@ func _paint_spline(path: Path3D) -> void:
 			"fit_ex": frame[4], "fit_ez": frame[5],
 			"need_fields": use_fields, "sim_result": sim_dict,
 			"need_host_fields": use_host,
+			# Metres of real ground seeded off the loop so an Erosion modifier can deposit a skirt there
+			# (0 = §6.8's no-margin behaviour). The grid was already widened to match by `_total_padding`.
+			"modifier_margin": _effective_modifier_margin(),
 		}
 		# C++ derives the slope/curvature/gradient grids itself (same formula, same input, so the two paths
 		# agree) — but only if it is handed the below-layer heights, which otherwise travel only when the
@@ -371,6 +374,8 @@ func _paint_spline(path: Path3D) -> void:
 		"fields": fields, "sim_fields": sim_fields, "measured": measured,
 		"host_fields": host_fields, "host_measured": host_measured, "host_div": host_div,
 		"extent": extent,
+		# The signed distance (positive inside the loop) the Modifier Margin feathers its band against.
+		"sdf": field, "edge_offset": edge_offset,
 	})
 	_commit_modifier_caches(stack, extent,
 			[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])

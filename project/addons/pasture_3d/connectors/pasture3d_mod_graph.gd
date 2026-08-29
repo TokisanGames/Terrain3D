@@ -98,7 +98,7 @@ func bake_graph(p_host: Pasture3DTerrainBrush = null) -> void:
 					brush = nd as Pasture3DTerrainBrush
 					break
 			if brush == null:
-				for b in tree.get_nodes_in_group("pasture3d_brushes"):
+				for b in tree.get_nodes_in_group(Pasture3DTerrainBrush.BRUSH_GROUP):
 					if b is Pasture3DTerrainBrush and (b as Pasture3DTerrainBrush).modifiers.has(self):
 						brush = b as Pasture3DTerrainBrush
 						break

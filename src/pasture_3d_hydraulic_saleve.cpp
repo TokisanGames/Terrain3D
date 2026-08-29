@@ -62,6 +62,9 @@ HydraulicSaleveParams HydraulicSaleveParams::from_dict(const Dictionary &p_dict)
 	if (p_dict.has("dy")) {
 		p.dy = p_dict["dy"];
 	}
+	if (p_dict.has("reference_relief")) {
+		p.reference_relief = std::max(0.0f, (float)p_dict["reference_relief"]);
+	}
 	if (p_dict.has("deposition_radius")) {
 		p.deposition_radius = std::max(0.0f, (float)p_dict["deposition_radius"]);
 	}
@@ -139,6 +142,24 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 
 	const float zptp = zmax - zmin;
 
+	// ---- THE SOLVER'S UNIT OF LENGTH -------------------------------------------------------------
+	//
+	// This is a shape solver: it works on a unit-elevation field and is remapped back to metres at the
+	// end, so its horizontal scale has to be expressed in the SAME unit as its vertical one or the
+	// aspect ratio it erodes at is not the terrain's. It used to take dx = 1/gw — "one cell is one grid
+	// fraction" — which makes every slope, drainage distance and chi integral a function of how many
+	// cells the caller happened to ask for. Widen the grid (a brush's Modifier Margin does exactly
+	// that, without moving one vertex of the shape) and the whole drainage network rescales against the
+	// landform it is cutting.
+	//
+	// Now: cell size in metres from the world rect, divided by the vertical reference. Slopes are true
+	// dimensionless gradients (max_slope 4.0 == 76 degrees), and gw/gh do not enter any length. What
+	// remains extent-dependent is the reference itself when it is left on auto — pin `reference_relief`
+	// to make the node invariant to margins and footprint edits alike.
+	const float relief_ref = (p_params.reference_relief > 0.0f) ? p_params.reference_relief : zptp;
+	const double cell_dx = (p_rect.size.x > 0.0f) ? ((double)p_rect.size.x / (double)std::max(p_gw, 1)) : 1.0;
+	const double cell_dz = (p_rect.size.y > 0.0f) ? ((double)p_rect.size.y / (double)std::max(p_gh, 1)) : 1.0;
+
 	// Normalized unit elevation [0..1]
 	std::vector<float> z(n);
 	std::vector<float> erodibility(n, 1.0f);
@@ -156,8 +177,10 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 			float zn = (h - zmin) / zptp;
 			z[idx] = zn;
 
-			// Hesiod Shape Preservation: erodibility = (1.0 - z_norm)^shape_exp
-			erodibility[idx] = std::pow(std::clamp(1.0f - zn, 0.01f, 1.0f), p_params.shape_preservation);
+			// Hesiod Shape Preservation: erodibility = (1.0 - z_norm)^shape_exp. Measured against the
+			// reference relief, so a pinned reference keeps a given height eroding at a given rate.
+			const float zr = (h - zmin) / std::max(relief_ref, 1.0e-5f);
+			erodibility[idx] = std::pow(std::clamp(1.0f - zr, 0.01f, 1.0f), p_params.shape_preservation);
 
 			// Border cells are default outlets
 			if (ix == 0 || ix == p_gw - 1 || iz == 0 || iz == p_gh - 1) {
@@ -173,9 +196,15 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 	const float max_slope = 4.0f;
 	const uint32_t seed = (uint32_t)p_params.seed;
 
-	const double dx = 1.0 / (double)std::max(p_gw, 1);
-	const double dz = 1.0 / (double)std::max(p_gh, 1);
+	// Cell size in units of the vertical reference (see above): metres / metres, so it is the same unit
+	// the unit-elevation field is in and gw/gh cancel out of it entirely.
+	const double vref = (double)std::max(relief_ref, 1.0e-5f);
+	const double dx = cell_dx / vref;
+	const double dz = cell_dz / vref;
 	const double diag_dist = std::sqrt(dx * dx + dz * dz);
+	// Drainage area in the same squared unit, so accumulation is an area on the ground rather than a
+	// count of however many cells the caller asked for.
+	const double cell_area = dx * dz;
 
 	const int n_dx[8] = { -1, 1, 0, 0, -1, 1, -1, 1 };
 	const int n_dz[8] = { 0, 0, -1, 1, -1, -1, 1, 1 };
@@ -237,7 +266,7 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 		});
 
 		// 3. Accumulate drainage area (upstream -> downstream)
-		std::fill(area_acc.begin(), area_acc.end(), 1.0f);
+		std::fill(area_acc.begin(), area_acc.end(), (float)cell_area);
 		for (int idx : order) {
 			int r = receivers[idx];
 			if (r != idx) {
@@ -258,7 +287,7 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 				float d = (float)std::sqrt(std::pow((ix - rx) * dx, 2.0) + std::pow((iz - rz) * dz, 2.0));
 				d = std::max(d, 1.0e-5f);
 
-				float celerity = erodibility[idx] * std::pow(std::max(area_acc[idx], 1.0f), m_exp);
+				float celerity = erodibility[idx] * std::pow(std::max(area_acc[idx], (float)cell_area), m_exp);
 				response_times[idx] = response_times[r] + (d / std::max(celerity, 1.0e-4f));
 			} else {
 				response_times[idx] = 0.0f;
@@ -313,7 +342,11 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 	// ================================================================================================
 	std::vector<float> sediment(n, 0.0f);
 	if (p_params.deposition_strength > 0.0f && p_params.deposition_radius > 0.0f) {
-		int ir = std::max(1, (int)(p_params.deposition_radius * (float)std::min(p_gw, p_gh)));
+		// Radius in METRES converted to cells, not a fraction of the grid: the alluvial flat is a size on
+		// the ground, so it must not grow when the solved extent does.
+		const double cell_m = std::max(std::min(cell_dx, cell_dz), 1.0e-4);
+		int ir = std::max(1, (int)std::lround((double)p_params.deposition_radius / cell_m));
+		ir = std::min(ir, std::max(1, std::min(p_gw, p_gh) / 2));
 		std::vector<float> z_fill = z;
 
 		// Morphological depression smoothing to fill valley floors
@@ -340,7 +373,7 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 			float diff = std::max(0.0f, z_fill[i] - z[i]);
 			float dep = p_params.deposition_strength * diff;
 			z[i] += dep;
-			sediment[i] = dep * zptp;
+			sediment[i] = dep * relief_ref;
 		}
 	}
 
@@ -357,7 +390,7 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 				int rz = r / p_gw;
 				float d = (float)std::sqrt(std::pow((ix - rx) * dx, 2.0) + std::pow((iz - rz) * dz, 2.0));
 				float slope = std::max(0.0f, (z[idx] - z[r]) / std::max(d, 1.0e-5f));
-				float stream_inc = p_params.stream_strength * std::log(1.0f + std::pow(std::max(area_acc[idx], 1.0f), p_params.stream_exp) * slope) * erodibility[idx] * 0.15f;
+				float stream_inc = p_params.stream_strength * std::log(1.0f + std::pow(std::max(area_acc[idx], (float)cell_area), p_params.stream_exp) * slope) * erodibility[idx] * 0.15f;
 				z[idx] = std::max(z[r], z[idx] - stream_inc);
 			}
 		}
@@ -398,7 +431,10 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 			continue;
 		}
 
-		float eroded_h = zmin + z[i] * zptp;
+		// Stage 1 renormalised the field to [0..1], so the amplitude out is the REFERENCE, anchored at the
+		// input's low point — not "whatever range happened to be in the grid". On auto these are the same
+		// number; pinned, it is what stops a margin band's surrounding terrain from stretching the landform.
+		float eroded_h = zmin + z[i] * relief_ref;
 		float m_val = has_mask ? mask_ptr[i] : 1.0f;
 		float eff_weight = p_params.erosion_strength * p_params.mix_factor * m_val;
 

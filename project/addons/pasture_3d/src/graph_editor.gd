@@ -37,7 +37,8 @@ var _frame_button: Button
 var _minimap_button: Button
 var _arrange_button: Button
 var _bake_brush_button: Button
-var _title: Label
+var _brush_details_button: Button
+var _graph_picker: OptionButton
 var _hint: Label
 
 var _last_structure_hash: int = 0
@@ -232,11 +233,13 @@ func _auto_fit_node_range(p_index: int) -> void:
 func _find_brush_for_modifier(p_mod: Pasture3DNodeGraph) -> Pasture3DTerrainBrush:
 	if p_mod == null or not is_inside_tree():
 		return null
-	var sel := EditorInterface.get_selection().get_selected_nodes()
-	for nd in sel:
-		if nd is Pasture3DTerrainBrush and (nd as Pasture3DTerrainBrush).modifiers.has(p_mod):
-			return nd as Pasture3DTerrainBrush
-	for b in get_tree().get_nodes_in_group("pasture3d_brushes"):
+	# The selection is the fast path and only exists in the editor; `EditorInterface` is not there in a
+	# headless run, so reading it unguarded takes the whole lookup down before the group scan is reached.
+	if Engine.is_editor_hint():
+		for nd in EditorInterface.get_selection().get_selected_nodes():
+			if nd is Pasture3DTerrainBrush and (nd as Pasture3DTerrainBrush).modifiers.has(p_mod):
+				return nd as Pasture3DTerrainBrush
+	for b in get_tree().get_nodes_in_group(Pasture3DTerrainBrush.BRUSH_GROUP):
 		if b is Pasture3DTerrainBrush and b.modifiers.has(p_mod):
 			return b
 	return null
@@ -249,14 +252,16 @@ func _find_host_brush() -> Pasture3DTerrainBrush:
 		var b := _find_brush_for_modifier(host_modifier)
 		if b != null:
 			return b
-	if plugin != null and graph != null and is_inside_tree():
-		var sel := EditorInterface.get_selection().get_selected_nodes()
-		for nd in sel:
-			if nd is Pasture3DTerrainBrush:
-				for m in (nd as Pasture3DTerrainBrush).modifiers:
-					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
-						return nd as Pasture3DTerrainBrush
-		for b in get_tree().get_nodes_in_group("pasture3d_brushes"):
+	# `plugin` used to gate this block and is not read anywhere inside it — so a panel that had a graph and
+	# a tree but no plugin reference (a test, or an early call) skipped a search that would have succeeded.
+	if graph != null and is_inside_tree():
+		if Engine.is_editor_hint():
+			for nd in EditorInterface.get_selection().get_selected_nodes():
+				if nd is Pasture3DTerrainBrush:
+					for m in (nd as Pasture3DTerrainBrush).modifiers:
+						if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
+							return nd as Pasture3DTerrainBrush
+		for b in get_tree().get_nodes_in_group(Pasture3DTerrainBrush.BRUSH_GROUP):
 			if b is Pasture3DTerrainBrush:
 				for m in b.modifiers:
 					if m is Pasture3DNodeGraph and (m as Pasture3DNodeGraph).graph == graph:
@@ -274,6 +279,112 @@ func _find_host_modifier() -> Pasture3DNodeGraph:
 				host_modifier = m
 				return m
 	return null
+
+
+## Fill the picker from the host brush's modifier stack and select the graph being edited.
+##
+## Item metadata is the modifier's INDEX in `brush.modifiers`, never the object: this control is rebuilt
+## from a list that can change underneath it, and an index is re-resolved against the live stack on select
+## while a stashed reference would outlive a deleted modifier.
+##
+## Four cases that are not the happy path, and all of them happen:
+##   * no graph bound          -> "(no graph)", disabled. What the old label said.
+##   * no host brush           -> the graph's own file name, disabled. A standalone .tres has no stack.
+##   * host brush, N graphs    -> one item each, in stack order. Left enabled even at N == 1, so the arrow
+##                                still tells you the stack has exactly one.
+##   * graph not in the stack  -> appended as a trailing item and selected, rather than silently showing
+##                                some other graph's name.
+func _populate_graph_picker(p_brush: Pasture3DTerrainBrush) -> void:
+	if _graph_picker == null:
+		return
+	_graph_picker.clear()
+
+	if graph == null:
+		_graph_picker.add_item("(no graph)")
+		_graph_picker.set_item_metadata(0, -1)
+		_graph_picker.disabled = true
+		return
+
+	if p_brush == null:
+		_graph_picker.add_item(_graph_label())
+		_graph_picker.set_item_metadata(0, -1)
+		_graph_picker.disabled = true
+		return
+
+	var selected := -1
+	for i in range(p_brush.modifiers.size()):
+		var m = p_brush.modifiers[i]
+		if not (m is Pasture3DNodeGraph):
+			continue
+		var mg := m as Pasture3DNodeGraph
+		if mg.graph == null:
+			continue
+		var slot := _graph_picker.item_count
+		_graph_picker.add_item(_mod_display_name(mg, i))
+		_graph_picker.set_item_metadata(slot, i)
+		if mg.graph == graph:
+			selected = slot
+
+	if selected < 0:
+		# Editing something the stack does not contain — a .tres opened directly while a brush happens to
+		# be selected. Name it honestly and select it rather than leaving another graph's name showing.
+		var slot := _graph_picker.item_count
+		_graph_picker.add_item(_graph_label())
+		_graph_picker.set_item_metadata(slot, -1)
+		selected = slot
+
+	if _graph_picker.item_count == 0:
+		_graph_picker.add_item(_graph_label())
+		_graph_picker.set_item_metadata(0, -1)
+		selected = 0
+
+	_graph_picker.disabled = false
+	_graph_picker.select(selected)
+
+
+## The modifier's own label, else "Terrain Graph <i>" by its index in the stack — the same number the
+## Inspector prints on the row, so the fallback names something you can actually find. The graph's resource
+## path is deliberately NOT used here: for a scene sub-resource it reads
+## "simple_pasture.tscn::Resource_6pcwc", which identifies nothing. Mirrors Pasture3DBrushGraphRow.
+func _mod_display_name(p_mod: Pasture3DNodeGraph, p_index: int) -> String:
+	if p_mod.resource_name != "":
+		return p_mod.resource_name
+	return "Terrain Graph %d" % p_index
+
+
+func _on_graph_picked(p_index: int) -> void:
+	if _graph_picker == null:
+		return
+	var stack_index: int = int(_graph_picker.get_item_metadata(p_index))
+	if stack_index < 0:
+		return # the disabled placeholder, or the not-in-stack entry: already what we are editing
+	var brush := _find_host_brush()
+	if brush == null or stack_index >= brush.modifiers.size():
+		return
+	var m = brush.modifiers[stack_index]
+	if not (m is Pasture3DNodeGraph):
+		return
+	var mod := m as Pasture3DNodeGraph
+	if mod.graph == null or mod.graph == graph:
+		return
+	edit_graph(mod.graph, mod, brush)
+
+
+## Point the editor at the brush this graph belongs to. Selecting AND editing, mirroring
+## editor_plugin.gd's own brush pick, so the 3D gizmo and the Layers dock follow along rather than the
+## Inspector alone; Pasture3DEditorPlugin._edit special-cases a brush to keep the terrain context alive, so
+## this does not disturb sculpting.
+##
+## This is the control that most needs _find_host_brush's group fallback to work: it is pressed while you
+## are in the graph, which is exactly when the brush is NOT the current selection.
+func _on_brush_details_pressed() -> void:
+	var brush := _find_host_brush()
+	if brush == null:
+		return
+	var sel: EditorSelection = EditorInterface.get_selection()
+	sel.clear()
+	sel.add_node(brush)
+	EditorInterface.edit_node(brush)
 
 
 func _on_bake_brush_pressed() -> void:
@@ -375,10 +486,20 @@ func _build_ui() -> void:
 	_bake_brush_button.pressed.connect(_on_bake_brush_pressed)
 	_bake_brush_button.visible = false
 	bar.add_child(_bake_brush_button)
+
+	_brush_details_button = Button.new()
+	_brush_details_button.text = "Brush Details"
+	_brush_details_button.tooltip_text = "Select the brush hosting this graph and show it in the Inspector"
+	_brush_details_button.pressed.connect(_on_brush_details_pressed)
+	_brush_details_button.visible = false
+	bar.add_child(_brush_details_button)
 	
-	_title = Label.new()
-	_title.text = "  (no graph)"
-	bar.add_child(_title)
+	# Replaces the read-only "editing: ..." label. It still NAMES the graph in the same place, and when the
+	# host brush carries several it is also how you switch between them without going back to the Inspector.
+	_graph_picker = OptionButton.new()
+	_graph_picker.tooltip_text = "The graph being edited. Lists every Terrain Graph on the host brush."
+	_graph_picker.item_selected.connect(_on_graph_picked)
+	bar.add_child(_graph_picker)
 
 	_graphedit = GraphEdit.new()
 	_graphedit.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -518,9 +639,14 @@ func _rebuild() -> void:
 	if _minimap_button != null: _minimap_button.disabled = not has
 	if _arrange_button != null: _arrange_button.disabled = not has
 	var mod := _find_host_modifier()
+	var brush := _find_host_brush()
 	if _bake_brush_button != null:
 		_bake_brush_button.visible = (has and mod != null)
-	if _title != null: _title.text = "  editing: %s" % _graph_label() if has else "  (no graph)"
+	# Hidden rather than disabled when there is no host: a graph opened as a standalone .tres has no brush
+	# to show, and a button reading "Brush Details" that can never do anything is worse than no button.
+	if _brush_details_button != null:
+		_brush_details_button.visible = (has and brush != null)
+	_populate_graph_picker(brush)
 	if _hint != null: _hint.visible = not has
 	if not has:
 		return
