@@ -142,6 +142,17 @@ func _gui_input(p_event: InputEvent) -> void:
 
 func remove_dock(p_force: bool = false) -> void:
 	plugin.remove_dock(_dock)
+	# plugin.remove_dock() only unregisters _dock; it was created here via
+	# ClassDB.instantiate() and is owned by this script, not the scene tree.
+	# Without an explicit free it leaks at editor shutdown along with its
+	# dock_icon (terrain3d.svg) and the backing Texture + CanvasItem RIDs.
+	# `self` is a child of _dock, so detach before freeing (editor_plugin.gd
+	# still queue_free()s `self` afterward).
+	if is_instance_valid(_dock):
+		if get_parent() == _dock:
+			_dock.remove_child(self)
+		_dock.free()
+		_dock = null
 
 
 func update_dock() -> void:
