@@ -27,6 +27,7 @@ const PORT_COLORS: Array[Color] = [
 var plugin: EditorPlugin
 var graph: Pasture3DTerrainGraph
 var host_modifier: Pasture3DNodeGraph = null
+var host_brush: Pasture3DTerrainBrush = null
 
 var _graphedit: GraphEdit
 var _search_dialog: PopupPanel
@@ -82,11 +83,16 @@ func remove_dock() -> void:
 
 
 ## Bind the panel to a graph (or null). Reconnects the `changed` -> rebuild link and redraws.
-func edit_graph(p_graph: Pasture3DTerrainGraph, p_mod: Pasture3DNodeGraph = null) -> void:
+func edit_graph(p_graph: Pasture3DTerrainGraph, p_mod: Pasture3DNodeGraph = null, p_brush: Pasture3DTerrainBrush = null) -> void:
 	if p_mod != null:
 		host_modifier = p_mod
 	elif host_modifier != null and (p_graph == null or host_modifier.graph != p_graph):
 		host_modifier = null
+
+	if p_brush != null:
+		host_brush = p_brush
+	elif host_brush != null and p_graph == null:
+		host_brush = null
 
 	if graph == p_graph:
 		_on_graph_changed()
@@ -237,6 +243,8 @@ func _find_brush_for_modifier(p_mod: Pasture3DNodeGraph) -> Pasture3DTerrainBrus
 
 
 func _find_host_brush() -> Pasture3DTerrainBrush:
+	if host_brush != null:
+		return host_brush
 	if host_modifier != null:
 		var b := _find_brush_for_modifier(host_modifier)
 		if b != null:
@@ -272,6 +280,15 @@ func _on_bake_brush_pressed() -> void:
 	var mod := _find_host_modifier()
 	if mod != null:
 		mod.bake_graph()
+		return
+	var brush := _find_host_brush()
+	if brush != null:
+		if brush.has_method(&"clear_cache_and_rebake"):
+			brush.clear_cache_and_rebake()
+		elif brush.has_method(&"_schedule_refresh"):
+			brush._schedule_refresh()
+		elif brush.has_method(&"refresh"):
+			brush.refresh()
 
 
 ## The surface + world rect a preview (or the curve auto-fit) should evaluate over.
@@ -326,6 +343,9 @@ func _build_ui() -> void:
 	popup.add_item("Eroded Alpine Massif (Noise + Hydraulic + Thermal + Ridge)", 5)
 	popup.add_item("Sedimentary Canyon (Strata + Curvature + Curve Remap)", 6)
 	popup.add_item("Glacial Valley (Domain Warp + Furrows + Hydraulic Erosion)", 7)
+	popup.add_item("Alpine Mountain Cone (MountainCone + HydraulicSaleve)", 8)
+	popup.add_item("Radial Alpine Range (MountainRangeRadial + HydraulicSaleve + Talus)", 9)
+	popup.add_item("Volcanic Caldera & Shield (Caldera + MountainTibesti + Thermal)", 10)
 	popup.id_pressed.connect(_on_preset_selected)
 	bar.add_child(_presets_button)
 	
@@ -668,7 +688,7 @@ func _populate_node_slots_and_controls(p_gn: GraphNode, p_index: int, p_node: Pa
 		var row_box := HBoxContainer.new()
 		row_box.custom_minimum_size = Vector2(0, 24)
 
-		var in_name: String = names[r] if r < n_in else ""
+		var in_name: String = names[r] if r < names.size() else ""
 		if not in_name.is_empty():
 			var lbl := Label.new()
 			lbl.text = in_name
@@ -1503,6 +1523,66 @@ func _insert_preset(p_id: int, p_pos: Vector2) -> void:
 			_ur_add_do_method(graph, &"connect_ports", [base_idx + 2, 0, base_idx + 3, 0])
 			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2, base_idx + 3], "Glacial Valley"])
 			
+		8: # Alpine Mountain Cone (MountainCone + HydraulicSaleve)
+			var cone = Pasture3DGraphNodeRegistry.create(&"mountain_cone")
+			cone.set("elevation", 45.0)
+			cone.set("scale", 1.0)
+			cone.set("peak_kw", 4.0)
+			cone.set("ridge_amp", 0.45)
+			cone.set("cone_alpha", 1.2)
+
+			var saleve = Pasture3DGraphNodeRegistry.create(&"hydraulic_saleve")
+			saleve.set("iterations", 25)
+			saleve.set("erosion_strength", 0.5)
+			saleve.set("fine_erosion_strength", 0.05)
+			saleve.set("shape_preservation", 0.2)
+
+			_ur_add_do_method(graph, &"add_node", [cone, p_pos])
+			_ur_add_do_method(graph, &"add_node", [saleve, p_pos + Vector2(240, 0)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1], "Alpine Mountain Cone"])
+
+		9: # Radial Alpine Range (MountainRangeRadial + HydraulicSaleve + Talus)
+			var range_rad = Pasture3DGraphNodeRegistry.create(&"mountain_range_radial")
+			range_rad.set("elevation", 35.0)
+			range_rad.set("half_width", 0.25)
+			range_rad.set("angle_spread_ratio", 0.4)
+
+			var saleve = Pasture3DGraphNodeRegistry.create(&"hydraulic_saleve")
+			saleve.set("iterations", 20)
+			saleve.set("erosion_strength", 0.4)
+
+			var talus = Pasture3DGraphNodeRegistry.create(&"talus_projection")
+			talus.set("talus_angle_deg", 38.0)
+			talus.set("iterations", 10)
+
+			_ur_add_do_method(graph, &"add_node", [range_rad, p_pos])
+			_ur_add_do_method(graph, &"add_node", [saleve, p_pos + Vector2(240, 0)])
+			_ur_add_do_method(graph, &"add_node", [talus, p_pos + Vector2(480, 0)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 1, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2], "Radial Alpine Range"])
+
+		10: # Volcanic Caldera & Shield (Caldera + MountainTibesti + Thermal)
+			var cald = Pasture3DGraphNodeRegistry.create(&"caldera")
+			cald.set("elevation", 30.0)
+			cald.set("radius", 0.22)
+			cald.set("z_bottom", 0.25)
+
+			var tibesti = Pasture3DGraphNodeRegistry.create(&"mountain_tibesti")
+			tibesti.set("elevation", 20.0)
+			tibesti.set("scale", 0.8)
+
+			var blend = Pasture3DGraphNodeRegistry.create(&"blend")
+			blend.set("mode", 0) # ADD
+
+			_ur_add_do_method(graph, &"add_node", [cald, p_pos])
+			_ur_add_do_method(graph, &"add_node", [tibesti, p_pos + Vector2(0, 180)])
+			_ur_add_do_method(graph, &"add_node", [blend, p_pos + Vector2(240, 90)])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx, 0, base_idx + 2, 0])
+			_ur_add_do_method(graph, &"connect_ports", [base_idx + 1, 0, base_idx + 2, 1])
+			_ur_add_do_method(graph, &"group_nodes_in_frame", [[base_idx, base_idx + 1, base_idx + 2], "Volcanic Caldera & Shield"])
+
 	_ur_add_undo_property(graph, &"nodes", old_nodes)
 	_ur_add_undo_property(graph, &"connections", old_conns)
 	_ur_add_undo_property(graph, &"frames", old_frames)

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cgeo882772prim"]
+
+[ext_resource type="Script" path="res://bench/GraphGeoPrimitivesGate.gd" id="1_geo"]
+
+[node name="GraphGeoPrimitivesGate" type="Node"]
+script = ExtResource("1_geo")

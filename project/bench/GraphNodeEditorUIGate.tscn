@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://b7vyu1nm3o28a"]
+
+[ext_resource type="Script" path="res://bench/GraphNodeEditorUIGate.gd" id="1_gate"]
+
+[node name="GraphNodeEditorUIGate" type="Node"]
+script = ExtResource("1_gate")

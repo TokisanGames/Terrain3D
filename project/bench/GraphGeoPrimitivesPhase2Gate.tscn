@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cxu84p1m2yq9a"]
+
+[ext_resource type="Script" path="res://bench/GraphGeoPrimitivesPhase2Gate.gd" id="1_gate"]
+
+[node name="GraphGeoPrimitivesPhase2Gate" type="Node"]
+script = ExtResource("1_gate")
