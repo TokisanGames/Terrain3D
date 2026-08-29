@@ -100,6 +100,11 @@ Gate: `bench/BrushGroupLookupGate.tscn`, 4 criteria, each paired with the old st
 - `_parse_begin`: for a brush, add one `HBoxContainer` holding both buttons, each with
   `size_flags_horizontal = SIZE_EXPAND_FILL`. For a graph or a graph modifier, keep the single
   "Edit in Graph Editor" button exactly as it is — those objects have no modifier stack to describe.
+- **The row is its own class, `Pasture3DBrushGraphRow` (`src/brush_graph_row.gd`), not code inside the
+  inspector plugin.** `EditorInspectorPlugin` can only be instantiated by the editor, so logic living
+  inside one cannot be driven by a gate at all — and what this row says about a stack that disagrees with
+  itself is exactly the part worth testing. The row is a plain `HBoxContainer`; the one thing it cannot do
+  without the editor, revealing the bottom panel, is injected as a `Callable`.
 - Guard on `brush._supports_modifiers()`. A brush that does not run a stack (Ridge, Trough, Splat, Sim)
   must get no row at all rather than a row that cannot work. This is the same rule
   `_get_property_list` already applies to the Modifiers group.
@@ -154,7 +159,21 @@ Phase 4 has the fix.
 second graph modifier set to LIVE while the first is FROZEN, assert the toggle reads `Mixed`; press it,
 assert **both** are FROZEN and the label reads `Frozen`; press again, assert both are LIVE. Control that
 must fail: the same assertions against a `Pasture3DRidge`, whose `_supports_modifiers()` is false — it must
-get no row.
+get no row, paired with a `Pasture3DMound` that must report true, or "refused" could just mean the check
+always says no.
+
+**Built 2026-08-29.** Gate: `bench/BrushGraphRowGate.tscn`, 20 criteria, 0 failures. Three things the
+building turned up:
+
+1. **The first gate reported PASS while every criterion errored.** `Pasture3DGraphInspectorPlugin.new()`
+   fails outside the editor, so each test raised a runtime error on a null object — and a runtime error
+   increments no failure counter. Every gate that constructs its subject now needs a preflight that FAILS
+   when the subject cannot be built; this one has one.
+2. **A `class_name` does not resolve in a headless run.** It enters the project's global class cache on an
+   editor filesystem scan, so a newly added one is invisible to `godot --headless <scene>`. Both the gate
+   and the inspector plugin therefore `preload` the row script rather than name it.
+3. **For the same reason the row has no static `create()` factory.** A static factory must name its own
+   class to instantiate it, which fails on a clean checkout; construction is `.new().setup(brush, cb)`.
 
 ---
 
