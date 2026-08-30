@@ -345,6 +345,23 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 		return arr;
 	};
 
+	// A generator's FLOAT parameter socket. Wired, the driven value is cell 0 of the source grid; unwired,
+	// the value baked into the program stands. Reading cell 0 is not a shortcut - it is the convention the
+	// GDScript nodes' eval_grid already uses (`p_inputs[k][0]`), and the two paths have to agree exactly or
+	// the parity gates are comparing different graphs.
+	//
+	// Without this the native evaluator read `params[s]` alone and silently ignored every wire into a
+	// parameter port, so a Const driving an amplitude did nothing at all. Note that only in0..in3 exist:
+	// a node's port 4 and beyond cannot be represented here, which is why native_supported() declines a
+	// graph that wires one rather than quietly dropping it again.
+	auto driven = [&](const int32_t *in, int s, float p_fallback) -> float {
+		if (!in || in[s] < 0 || in[s] >= p_prog.count) {
+			return p_fallback;
+		}
+		const int b = slot_buffer[in[s]];
+		return (b >= 0) ? pool[b][0] : p_fallback;
+	};
+
 	// 3. Sequential evaluation of nodes in topological order
 	for (int s = 0; s < p_prog.count; s++) {
 		int out_b = acquire_buffer();
@@ -468,7 +485,10 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			} break;
 
 			case GRAPH_OP_NOISE_JORDAN: {
-				PackedFloat32Array res = noise_jordan_grid(p_gw, p_gh, p_rect, params[s], params_b[s], (int)params_c[s], params_d[s], params_e[s], params_f[s], params_g[s], (int)params_h[s]);
+				PackedFloat32Array res = noise_jordan_grid(p_gw, p_gh, p_rect,
+						driven(in0, s, params[s]), params_b[s], (int)params_c[s],
+						driven(in3, s, params_d[s]), params_e[s],
+						driven(in1, s, params_f[s]), driven(in2, s, params_g[s]), (int)params_h[s]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
@@ -480,28 +500,40 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			} break;
 
 			case GRAPH_OP_NOISE_SWISS: {
-				PackedFloat32Array res = noise_swiss_grid(p_gw, p_gh, p_rect, params[s], params_b[s], (int)params_c[s], params_d[s], params_e[s], params_f[s], params_g[s], (int)params_h[s]);
+				PackedFloat32Array res = noise_swiss_grid(p_gw, p_gh, p_rect,
+						driven(in0, s, params[s]), params_b[s], (int)params_c[s],
+						driven(in3, s, params_d[s]), params_e[s],
+						driven(in1, s, params_f[s]), driven(in2, s, params_g[s]), (int)params_h[s]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_GEOLOGICAL_PRIMITIVE: {
 				Vector2 offset(params_j ? params_j[s] : 0.f, params_k ? params_k[s] : 0.f);
-				PackedFloat32Array res = geological_primitive_grid(p_gw, p_gh, p_rect, (int)params[s], (int)params_b[s], params_c[s], params_d[s], params_e[s], params_f[s], params_g[s], offset);
+				PackedFloat32Array res = geological_primitive_grid(p_gw, p_gh, p_rect, (int)params[s],
+						(int)params_b[s], driven(in0, s, params_c[s]), driven(in1, s, params_d[s]),
+						driven(in3, s, params_e[s]), driven(in2, s, params_f[s]), params_g[s], offset);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_FURROWS: {
-				PackedFloat32Array res = furrows_grid(p_gw, p_gh, p_rect, params[s], params_b[s], params_c[s], (int)params_d[s], params_e[s], params_f[s], (int)params_g[s]);
+				PackedFloat32Array res = furrows_grid(p_gw, p_gh, p_rect,
+						driven(in0, s, params[s]), driven(in1, s, params_b[s]), driven(in2, s, params_c[s]),
+						(int)params_d[s], driven(in3, s, params_e[s]), params_f[s], (int)params_g[s]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_DUNES: {
-				PackedFloat32Array res = dunes_grid(p_gw, p_gh, p_rect, params[s], params_b[s], params_c[s], params_d[s], params_e[s], params_f[s], params_g[s], (int)params_h[s]);
+				PackedFloat32Array res = dunes_grid(p_gw, p_gh, p_rect,
+						driven(in0, s, params[s]), driven(in1, s, params_b[s]), driven(in2, s, params_c[s]),
+						driven(in3, s, params_d[s]), params_e[s], params_f[s], params_g[s], (int)params_h[s]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_CRATER: {
-				PackedFloat32Array res = crater_grid(p_gw, p_gh, p_rect, params[s], params_b[s], params_c[s], params_d[s], params_e[s], params_f[s], (int)params_g[s]);
+				PackedFloat32Array res = crater_grid(p_gw, p_gh, p_rect,
+						driven(in0, s, params[s]), driven(in1, s, params_b[s]),
+						driven(in2, s, params_c[s]), driven(in3, s, params_d[s]),
+						params_e[s], params_f[s], (int)params_g[s]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 

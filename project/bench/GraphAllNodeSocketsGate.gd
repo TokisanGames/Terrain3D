@@ -7,6 +7,7 @@
 #   [B] Unwired default evaluation backward-compatibility
 #   [C] Dynamically driven parameter socket evaluation
 #   [D] Single-call native C++ graph program lowering with new node sockets
+#   [E] Every generator honours a driven parameter socket, on BOTH evaluators
 extends Node
 
 var _fail := 0
@@ -18,6 +19,7 @@ func _ready() -> void:
 	_b_unwired_defaults_and_eval()
 	_c_driven_parameter_sockets()
 	_d_native_lowering_all_nodes()
+	_e_driven_params_all_generators()
 	print("\n=== %s (%d failures) ===\n" % ["GRAPH ALL NODE SOCKETS PASS" if _fail == 0 else "GRAPH ALL NODE SOCKETS FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -132,6 +134,77 @@ func _d_native_lowering_all_nodes() -> void:
 	var prog: Dictionary = g.compile_graph_program()
 	_assert(not prog.is_empty(), "compile_graph_program produced valid native program")
 	_assert((prog.get("ops", []) as Array).size() == 4, "Compiled program contains all 4 ops")
+
+
+# [E] The regression net for a bug that was silent for months: the native evaluator read a generator's
+# parameters out of the compiled program and ignored every wire into a parameter port, so a Const driving
+# an amplitude changed nothing. Section C caught it for Swiss only, and only on port 0.
+#
+# Each generator below is evaluated twice — once with its local property at a small value, once with that
+# same property driven from a Const at a large one — on BOTH evaluators. Three things have to hold, and the
+# first two are the controls that make the third mean something:
+#   * the undriven run must NOT already produce the driven magnitude, or the check would pass on a node
+#     that ignores the wire entirely;
+#   * the two evaluators must agree, or one of them is silently reading a different graph;
+#   * driving the port must actually move the output.
+func _e_driven_params_all_generators() -> void:
+	print("[E] Driven parameter sockets on every generator, native and unfolded")
+	# op, the property on port 0, its quiet value, and the driven value.
+	var cases: Array[Dictionary] = [
+		{"op": &"noise_swiss", "prop": &"amplitude", "quiet": 1.0, "driven": 123.0},
+		{"op": &"noise_jordan", "prop": &"amplitude", "quiet": 1.0, "driven": 123.0},
+		{"op": &"furrows", "prop": &"amplitude", "quiet": 1.0, "driven": 90.0},
+		{"op": &"dunes", "prop": &"amplitude", "quiet": 1.0, "driven": 90.0},
+		{"op": &"crater", "prop": &"amplitude", "quiet": 5.0, "driven": 80.0},
+		{"op": &"geological_primitive", "prop": &"height", "quiet": 5.0, "driven": 80.0},
+	]
+	var rect := Rect2(0, 0, 400, 400)
+	for c in cases:
+		var quiet := _peak(c["op"], c["prop"], c["quiet"], 0.0, false)
+		var native := _peak(c["op"], c["prop"], c["quiet"], c["driven"], false)
+		var unfolded := _peak(c["op"], c["prop"], c["quiet"], c["driven"], true)
+		# The control. If the quiet run already reaches the driven magnitude the comparison is vacuous.
+		_assert(quiet < 0.5 * native, "%s undriven stays small (%.2f vs driven %.2f)" % [c["op"], quiet, native])
+		_assert(absf(native - unfolded) <= maxf(1e-3, 1e-4 * absf(native)),
+				"%s agrees across evaluators (native %.4f, unfolded %.4f)" % [c["op"], native, unfolded])
+		_assert(native > quiet * 2.0, "%s port 0 responds to a driven Const" % c["op"])
+
+	# in0..in3 is all a compiled program carries, so a wire into port 4 must send the graph to the GDScript
+	# evaluator rather than being dropped on the floor by the native one.
+	var g := Pasture3DTerrainGraph.new()
+	var s5: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"noise_swiss")
+	var c5: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"const")
+	c5.set("value", 0.01)
+	var o5: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"output")
+	var i_c5 := g.add_node(c5)
+	var i_s5 := g.add_node(s5)
+	g.connect_ports(i_c5, 0, i_s5, 4) # frequency
+	g.connect_ports(i_s5, 0, g.add_node(o5), 0)
+	_assert(not g.native_supported(), "a wire into port 4 declines the native path")
+
+
+## The peak |height| of a one-generator graph, optionally with port 0 driven by a Const, on either the
+## folded/native evaluator or the unfolded reference.
+func _peak(p_op: StringName, p_prop: StringName, p_local: float, p_driven: float,
+		p_unfolded: bool) -> float:
+	var g := Pasture3DTerrainGraph.new()
+	var n: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(p_op)
+	n.set(p_prop, p_local)
+	var o: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"output")
+	var i_n := g.add_node(n)
+	var i_o := g.add_node(o)
+	if p_driven != 0.0:
+		var c: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"const")
+		c.set("value", p_driven)
+		g.connect_ports(g.add_node(c), 0, i_n, 0)
+	g.connect_ports(i_n, 0, i_o, 0)
+	var rect := Rect2(0, 0, 400, 400)
+	var grid: PackedFloat32Array = g._eval_unfolded(32, 32, rect) if p_unfolded else g.evaluate(32, 32, rect)
+	var m := 0.0
+	for v in grid:
+		if is_finite(v):
+			m = maxf(m, absf(v))
+	return m
 
 
 func _assert(condition: bool, message: String) -> void:

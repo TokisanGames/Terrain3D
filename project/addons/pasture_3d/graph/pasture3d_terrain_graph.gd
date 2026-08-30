@@ -1119,7 +1119,11 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 			&"dunes":
 				op_id = 17; p0 = _f.call(&"amplitude", 2.0); pb = _f.call(&"wavelength", 30.0); pc = _f.call(&"direction_degrees", 0.0); pd = _f.call(&"asymmetry", 0.4); pe = _f.call(&"crest_sharpness", 0.6); pf = _f.call(&"wander_amount", 2.0); pg = _f.call(&"wander_size", 60.0); ph = float(_i.call(&"seed", 0))
 			&"crater":
-				op_id = 18; p0 = _f.call(&"radius", 25.0); pb = _f.call(&"floor_depth", 10.0); pc = _f.call(&"rim_height", 4.0); pd = _f.call(&"rim_width", 8.0); pe = _f.call(&"ejecta_falloff", 40.0); pf = _f.call(&"floor_flatness", 0.5); var off2: Vector2 = node.get("center_offset") if node.get("center_offset") != null else Vector2.ZERO; pg = off2.x; ph = off2.y
+				# `radius` and `center_offset` are not properties of Pasture3DGraphNodeCrater, so `_f` fell
+				# through to its defaults and the native path baked a fixed amplitude of 25.0 and a fixed
+				# terrace_steps of 0 into EVERY crater, whatever the node was set to. The names below are
+				# the node's own, and the order is crater_grid()'s signature.
+				op_id = 18; p0 = _f.call(&"amplitude", 20.0); pb = _f.call(&"floor_depth", 0.7); pc = _f.call(&"rim_height", 0.15); pd = _f.call(&"rim_width", 0.25); pe = _f.call(&"ejecta_falloff", 2.0); pf = _f.call(&"floor_flatness", 0.35); pg = float(_i.call(&"terrace_steps", 0))
 			&"warp":
 				op_id = 19; p0 = _f.call(&"strength", 20.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 3)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = float(_i.call(&"seed", 0))
 			&"strata":
@@ -1444,6 +1448,15 @@ func native_supported(p_root_node: int = -1) -> bool:
 			var from_node := int(c[0])
 			if order.has(to_node) and order.has(from_node):
 				return false
+	# A compiled program carries four input slots, in0..in3. A wire into port 4 or beyond cannot be
+	# represented, and the native kernel would fall back to the baked local value without saying so — which
+	# is exactly the silent-drop bug this guard exists to stop recurring. NoiseSwiss and NoiseJordan expose
+	# `frequency` on port 4 and Dunes exposes `sharpness`, so this is reachable, not theoretical.
+	for c in connections:
+		if c.size() >= 4 and int(c[3]) >= 4:
+			var to_node := int(c[2])
+			if order.has(to_node):
+				return false
 	return true
 
 
@@ -1468,14 +1481,13 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input 
 		var in_grids := _input_grids(ni, grids, aux, n)
 		if node.muted:
 			grids[ni] = (in_grids[0] as PackedFloat32Array) if not in_grids.is_empty() else Pasture3DGraphOps.zeros(n)
-		elif node.op() == &"noise_jordan":
-			grids[ni] = Pasture3DUtil.noise_jordan_grid(p_gw, p_gh, p_rect, node.amplitude, node.frequency, node.octaves, node.gain, node.lacunarity, node.warp_strength, node.damp_strength, node.seed)
-		elif node.op() == &"noise_swiss":
-			grids[ni] = Pasture3DUtil.noise_swiss_grid(p_gw, p_gh, p_rect, node.amplitude, node.frequency, node.octaves, node.gain, node.lacunarity, node.ridge_offset, node.erosion_accent, node.seed)
-		elif node.op() == &"furrows":
-			grids[ni] = Pasture3DUtil.furrows_grid(p_gw, p_gh, p_rect, node.amplitude, node.spacing, node.direction_degrees, int(node.profile), node.wobble_amount, node.wobble_size, node.seed)
-		elif node.op() == &"dunes":
-			grids[ni] = Pasture3DUtil.dunes_grid(p_gw, p_gh, p_rect, node.amplitude, node.wavelength, node.direction_degrees, node.asymmetry, node.crest_sharpness, node.wander_amount, node.wander_size, node.seed)
+		elif node.op() == &"noise_jordan" or node.op() == &"noise_swiss" or node.op() == &"furrows" or node.op() == &"dunes":
+			# These are cell nodes, so the generic branch below would evaluate them one cell at a time in
+			# script; each has a whole-grid kernel, and this shortcut takes it. It must still go through
+			# `eval_grid(in_grids, ...)` — the previous version called the Pasture3DUtil kernel directly with
+			# `node.<property>`, which threw away every wire into a parameter port. A Const driving an
+			# amplitude did nothing, silently. Matches the same branch in `evaluate()`.
+			grids[ni] = node.eval_grid(_input_grids(ni, grids, aux, n), p_gw, p_gh, p_mask, p_rect)
 		elif node.needs_grid() and node.output_count() > 1:
 			var chans: Array = node.eval_grid_channels(in_grids, p_gw, p_gh, p_mask, p_rect)
 			grids[ni] = chans[0]
