@@ -48,3 +48,6 @@ export_presets.cfg
 
 # MSVC build artifact from the VS/NMake project
 *.pdb
+
+# Bench A/B renders — regenerate with bench/GraphScreeMudslideAB.tscn
+project/bench/ab_out/

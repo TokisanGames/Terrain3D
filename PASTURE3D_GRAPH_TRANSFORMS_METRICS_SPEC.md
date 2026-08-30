@@ -902,6 +902,28 @@ Building the phases in order means each of those exists before its second consum
    masked brush regions agree where they meet. A `Transform` node deliberately breaks that agreement inside
    its subtree. Should it emit a `node_warnings()` entry when used inside a brush graph (as opposed to a
    full-terrain graph), or is the break the whole point and the warning just noise?
-3. **`Mudslide` vs `Scree`.** Both deposit loose material downslope and both output a shed/deposition mask.
-   If in practice they read the same on screen, the batch is better off with twelve nodes than thirteen.
-   Worth an A/B on a real fixture before Phase 5 starts.
+3. **`Mudslide` vs `Scree`.** ~~Both deposit loose material downslope and both output a shed/deposition
+   mask. If in practice they read the same on screen, the batch is better off with twelve nodes than
+   thirteen.~~ **Answered 2026-08-30: keep both.** `project/bench/GraphScreeMudslideAB.tscn` runs the A/B on
+   a Gavoronoise mountainside (256² over 512 m, 2 m cells, 61 m of relief) and compares the two *deltas*,
+   which is the only fair comparison — Scree's port 0 is the deposit alone, Mudslide's is the surface after
+   the slide, so the outputs are not the same kind of thing to begin with. Findings:
+   - **They are different operations.** Mudslide conserves exactly (net 0.0 m; half of all its movement is
+     removal). Scree nets +36,560 m over the patch: most of what it lays down is material it invented. No
+     parameter on either node crosses that line.
+   - **They do not resemble each other**, judged against how much each node resembles itself. Scree reseeded
+     against itself correlates +0.797; Mudslide at 60 m against 90 m of travel, +0.882; Scree against
+     Mudslide, **+0.246**.
+   - **They put material in different places.** Scree deposits on ground averaging 33.2° — the steep face its
+     slope gate selects. Mudslide deposits on 29.4° and takes from 35.5°: it empties the face and builds
+     below it.
+   - **Texture scale does not separate them**, contrary to the expectation going in: both deltas are
+     dominated by detail finer than 20 m, and Mudslide is marginally the finer of the two. Recorded because
+     the measure was run; it is not part of the case.
+   - **On screen** the delta maps settle it. Scree is a red-only filigree threaded along the crests; Mudslide
+     is broad blue scour across the upper faces with red accumulating in the drainage network. Nobody would
+     mistake one for the other.
+
+   One tuning observation from the same run, not a defect: at a 22° talus angle on terrain this steep,
+   Mudslide mobilises nearly everywhere at once and the surface reads as granular scour rather than as
+   discrete lobes. Distinct slides want a talus angle above most of the terrain's slope, or a wired mask.
