@@ -1,6 +1,18 @@
 # Pasture3D Terrain Graph — Transforms, Metrics & Morphology Nodes Spec
 
-**Status:** Phases 1-2 built and gated (2026-08-29); Phases 3-5 proposed.
+**Status:** Phases 1-3 built and gated (2026-08-29); Phases 4-5 proposed.
+
+**Phase 3 amendments made during the build.** §6 called for three gate files, one per node. They shipped
+as ONE — `project/bench/GraphTerrainMetricsGate.gd` — because all three criteria sets need the same
+fixtures (the analytic ridge field, the metric ramp) and the same parity and GPU-route harness, and
+three copies of those would have been three places for the definition of "50 metres" to drift. Criterion
+names are unchanged: RA-RC, SA-SD, KA-KD, plus the shared parity and GPU blocks.
+
+RC's fixture is the ridge field, not the cone §6.1 suggested. Outside a cone the plain is perfectly flat,
+the node correctly returns its 0.5 "neither basin nor crest" midpoint there, and the ring where the disc
+just grazes the cone base flips between 0.5 and 0 as the resolution changes — a fact about the fixture's
+flat region, not about whether the radius is metric. SE/SF and KE/KF are folded into the shared parity and
+resolution work rather than repeated per node.
 
 > **Phase 1** (Transform, Falloff, Contrast) — opcodes 44/45/46, GPU shader modes 4/5.
 > Gates: `GraphTransformGate`, `GraphDomainRangeGate`.

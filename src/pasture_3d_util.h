@@ -227,6 +227,25 @@ public:
 			const PackedFloat32Array &p_mask, int p_gw, int p_gh, const Rect2 &p_rect, int p_mode,
 			double p_radius_m, int p_kernel, int p_iterations, double p_amount);
 
+	// Phase 3 (spec §6). Radii are METRES.
+	static PackedFloat32Array box_mean_grid(const PackedFloat32Array &p_surface, int p_gw, int p_gh,
+			const Rect2 &p_rect, double p_radius_m);
+
+	static PackedFloat32Array relative_elevation_grid(const PackedFloat32Array &p_surface, int p_gw,
+			int p_gh, const Rect2 &p_rect, double p_radius_m, int p_units);
+
+	// Returns { "height": PackedFloat32Array, "deposition": PackedFloat32Array, "divisor": float }.
+	// The deposition channel is normalised, so its divisor travels with it — same rule as
+	// distance_transform_grid.
+	static Dictionary smooth_fill_grid(const PackedFloat32Array &p_surface,
+			const PackedFloat32Array &p_mask, int p_gw, int p_gh, const Rect2 &p_rect, int p_mode,
+			double p_radius_m, double p_k, double p_amount);
+
+	static PackedFloat32Array recast_cliff_grid(const PackedFloat32Array &p_surface,
+			const PackedFloat32Array &p_mask, int p_gw, int p_gh, const Rect2 &p_rect,
+			double p_talus_angle_deg, double p_radius_m, double p_amplitude, double p_gain,
+			double p_direction_deg, double p_direction_spread_deg, double p_amount);
+
 	static PackedFloat32Array talus_projection_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
 			const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
 			const int p_iterations, const double p_transfer_rate, const double p_amount);

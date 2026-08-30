@@ -34,7 +34,8 @@ layout(set = 0, binding = 3, std430) restrict readonly buffer CBuf { float c[]; 
 
 layout(push_constant, std430) uniform Params {
 	int mode; // 0 COPY, 1 BLEND, 2 SMOOTH_H, 3 SMOOTH_V, 4 FALLOFF, 5 CONTRAST,
-	          // 6 DT_SEED, 7 DT_JFA, 8 DT_RESOLVE, 9 DT_FINALIZE, 10 MORPH, 11 MORPH_BLEND
+	          // 6 DT_SEED, 7 DT_JFA, 8 DT_RESOLVE, 9 DT_FINALIZE, 10 MORPH, 11 MORPH_BLEND,
+	          // 12 BOXMEAN_H, 13 BOXMEAN_V, 14 REL_ELEV, 15 SMOOTH_FILL, 16 RECAST_CLIFF
 	int gw;
 	int gh;
 	int ip;   // BLEND: blend mode 0..4 | FALLOFF: shape 0..3 | CONTRAST: mode 0..1
@@ -235,6 +236,135 @@ void main() {
 			}
 		}
 		o[i] = any ? best : (0.0 / 0.0);
+		return;
+	}
+	// ---- Phase 3 shared: the separable box mean (spec §6) -----------------------------------------
+	// Two 1D passes of DIRECT gathers, matching the CPU kernel tap for tap. An incremental running sum
+	// would be cheaper on the CPU and would accumulate in a different order here, and the two would then
+	// disagree by more than float32 rounding at large radii.
+	if (p.mode == 12 || p.mode == 13) {
+		bool horiz = (p.mode == 12);
+		int w = int(horiz ? p.f0 : p.f1);
+		float sum = 0.0;
+		int count = 0;
+		for (int o = -w; o <= w; o++) {
+			int nx = horiz ? (ix + o) : ix;
+			int nz = horiz ? iz : (iz + o);
+			if (nx < 0 || nx >= p.gw || nz < 0 || nz >= p.gh) { continue; }
+			float v = a[nz * p.gw + nx];
+			if (isnan(v)) { continue; } // skipped, not counted
+			sum += v;
+			count += 1;
+		}
+		// A fully masked window keeps the cell's own value rather than inventing a mean.
+		o[i] = (count > 0) ? (sum / float(count)) : a[i];
+		return;
+	}
+	if (p.mode == 14) { // REL_ELEV: a = z, b = local min, c = local max. f0 units (1 = metres).
+		float z = a[i];
+		if (isnan(z)) { o[i] = z; return; }
+		float zlo = b[i];
+		float zhi = c[i];
+		if (p.f0 > 0.5) { o[i] = z - zlo; return; }
+		float span = zhi - zlo;
+		// A flat neighbourhood is neither basin nor crest: 0.5 is the honest midpoint. Returning 0
+		// would paint every plain as basin floor.
+		o[i] = (span > 1e-9) ? ((z - zlo) / span) : 0.5;
+		return;
+	}
+	if (p.mode == 15) { // SMOOTH_FILL: a = z, b = blurred z, c = mask.
+	                    // f0 k, f1 amount, f2 mask wired, ip = mode.
+		float z = a[i];
+		if (isnan(z)) { o[i] = z; return; }
+		float zb = b[i];
+		float k = max(p.f0, 0.0);
+		float h = z;
+		bool apply = true;
+		if (p.ip == 1) { // FILL_HOLES — a pit is concave along BOTH axes; a valley is not.
+			int xm = max(ix - 1, 0);
+			int xp = min(ix + 1, p.gw - 1);
+			int zm = max(iz - 1, 0);
+			int zp = min(iz + 1, p.gh - 1);
+			float zxm = a[iz * p.gw + xm];
+			float zxp = a[iz * p.gw + xp];
+			float zzm = a[zm * p.gw + ix];
+			float zzp = a[zp * p.gw + ix];
+			if (isnan(zxm) || isnan(zxp) || isnan(zzm) || isnan(zzp)) { apply = false; }
+			else {
+				float d2x = (zxp - 2.0 * z + zxm) / (p.dx * p.dx);
+				float d2z = (zzp - 2.0 * z + zzm) / (p.dz * p.dz);
+				apply = (d2x > 0.0 && d2z > 0.0);
+			}
+		}
+		if (p.ip == 2) { // SMEAR_PEAKS — the mirror: smooth-min instead of smooth-max.
+			if (k <= 1e-9) { h = min(z, zb); }
+			else {
+				float hh = clamp(0.5 + 0.5 * (zb - z) / k, 0.0, 1.0);
+				h = (zb * (1.0 - hh) + z * hh) - k * hh * (1.0 - hh);
+			}
+		} else if (apply) {
+			if (k <= 1e-9) { h = max(z, zb); }
+			else {
+				// smax(a,b,k) = -smin(-a,-b,k), written out so the arithmetic matches the CPU exactly.
+				float na = -z;
+				float nb = -zb;
+				float hh = clamp(0.5 + 0.5 * (nb - na) / k, 0.0, 1.0);
+				h = -((nb * (1.0 - hh) + na * hh) - k * hh * (1.0 - hh));
+			}
+		}
+		float w = p.f1;
+		if (p.f2 > 0.5) { float mv = c[i]; if (!isnan(mv)) { w *= clamp(mv, 0.0, 1.0); } }
+		w = clamp(w, 0.0, 1.0);
+		o[i] = z + (h - z) * w;
+		return;
+	}
+	if (p.mode == 16) { // RECAST_CLIFF: a = z, b = blurred z, c = mask.
+	                    // f0 tan(talus), f1 amplitude, f2 gain, f3 direction rad (<0 = omni),
+	                    // f4 spread rad, f5 amount, f6 mask wired.
+		float z = a[i];
+		if (isnan(z)) { o[i] = z; return; }
+		int xm = max(ix - 1, 0);
+		int xp = min(ix + 1, p.gw - 1);
+		int zm = max(iz - 1, 0);
+		int zp = min(iz + 1, p.gh - 1);
+		float zxm = a[iz * p.gw + xm];
+		float zxp = a[iz * p.gw + xp];
+		float zzm = a[zm * p.gw + ix];
+		float zzp = a[zp * p.gw + ix];
+		if (isnan(zxm) || isnan(zxp) || isnan(zzm) || isnan(zzp)) { o[i] = z; return; }
+
+		// A METRIC gradient — rise over run in metres. The per-cell rise would move the cliff
+		// threshold every time the bake resolution changed.
+		float gx = (zxp - zxm) / (float(xp - xm) * p.dx);
+		float gz = (zzp - zzm) / (float(zp - zm) * p.dz);
+		float slope = sqrt(gx * gx + gz * gz);
+
+		float loG = p.f0 * 0.75;
+		float hiG = p.f0 * 1.25;
+		float gate;
+		if (hiG <= loG) { gate = (slope >= p.f0) ? 1.0 : 0.0; }
+		else { float u = clamp((slope - loG) / (hiG - loG), 0.0, 1.0); gate = u * u * (3.0 - 2.0 * u); }
+
+		if (p.f3 >= 0.0 && gate > 0.0) {
+			if (slope <= 1e-12) { gate = 0.0; }
+			else {
+				float face = atan(-gz, -gx); // the bearing the ground FACES is downhill
+				float diff = face - p.f3;
+				const float TAU = 6.28318530717958647692;
+				const float PIF = 3.14159265358979323846;
+				diff = diff - TAU * floor((diff + PIF) / TAU);
+				float ang = abs(diff);
+				if (p.f4 <= 0.0 || ang >= p.f4) { gate = 0.0; }
+				else { float u = 1.0 - (ang / p.f4); gate *= u * u * (3.0 - 2.0 * u); }
+			}
+		}
+
+		float w = p.f5 * gate;
+		if (p.f6 > 0.5) { float mv = c[i]; if (!isnan(mv)) { w *= clamp(mv, 0.0, 1.0); } }
+		if (w <= 0.0) { o[i] = z; return; }
+		float dev = z - b[i];
+		float sg = 1.0 / (1.0 + exp(-p.f2 * dev / p.f1));
+		o[i] = z + p.f1 * (sg - 0.5) * w;
 		return;
 	}
 	if (p.mode == 11) { // MORPH_BLEND: a input, b morphed, c mask. f0 amount, f1 = is a mask wired.
@@ -479,6 +609,29 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 	std::vector<RID> slot_buf(p_prog.count);
 	std::vector<GraphDispatch> plan;
 
+	// The separable box mean, as a two-dispatch sub-plan. Shared by SmoothFill and RecastCliff so the
+	// blur they measure against is the same blur, produced the same way.
+	auto blur_plan = [&](RID p_src, double p_radius_m) -> RID {
+		const double bdx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
+		const double bdz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+		const int bwx = (bdx > 0.0) ? (int)std::lround(p_radius_m / bdx) : 0;
+		const int bwz = (bdz > 0.0) ? (int)std::lround(p_radius_m / bdz) : 0;
+		if (bwx <= 0 && bwz <= 0) {
+			return p_src;
+		}
+		const RID mid = empty_buf();
+		GraphDispatch h{ mid, p_src, zero_buf, zero_buf, 12, 0 };
+		h.f0 = (float)bwx;
+		h.f1 = (float)bwz;
+		plan.push_back(h);
+		const RID out = empty_buf();
+		GraphDispatch v{ out, mid, zero_buf, zero_buf, 13, 0 };
+		v.f0 = (float)bwx;
+		v.f1 = (float)bwz;
+		plan.push_back(v);
+		return out;
+	};
+
 	std::vector<float> host((size_t)n);
 	for (int s = 0; s < p_prog.count; s++) {
 		switch (ops[s]) {
@@ -699,6 +852,83 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 				bd.f0 = amount;
 				bd.f1 = (in1[s] >= 0) ? 1.0f : 0.0f; // is a mask actually wired?
 				plan.push_back(bd);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_RELATIVE_ELEVATION: {
+				// Spec §6.1. The local min and max reuse the SAME morphology mode the ExpandShrink gate
+				// already pins down, so this node's disc is provably that disc.
+				const RID src = in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf;
+				const double radius_m = (double)p_prog.params[s];
+				const double dx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
+				const double dz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+				const int wx = (dx > 0.0) ? (int)std::lround(radius_m / dx) : 0;
+				const int wz = (dz > 0.0) ? (int)std::lround(radius_m / dz) : 0;
+
+				const RID lo = empty_buf();
+				GraphDispatch dlo{ lo, src, zero_buf, zero_buf, 10, 0 }; // disc, minimum
+				dlo.f0 = (float)wx;
+				dlo.f1 = (float)wz;
+				plan.push_back(dlo);
+
+				const RID hi = empty_buf();
+				GraphDispatch dhi{ hi, src, zero_buf, zero_buf, 10, 2 }; // disc, maximum
+				dhi.f0 = (float)wx;
+				dhi.f1 = (float)wz;
+				plan.push_back(dhi);
+
+				const RID out = empty_buf();
+				GraphDispatch d{ out, src, lo, hi, 14, 0 };
+				d.f0 = (float)(int)p_prog.params_b[s]; // units
+				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_SMOOTH_FILL: {
+				// Spec §6.2. The deposition channel is not produced here; a graph that wires it uses a
+				// secondary port, which native_supported() already routes to the multi-channel path.
+				const RID src = in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf;
+				const double radius_m = (double)p_prog.params_b[s];
+				const float amount = std::clamp(p_prog.params_d[s], 0.0f, 1.0f);
+				if (amount <= 0.0f || radius_m <= 0.0) {
+					const RID out = empty_buf();
+					plan.push_back({ out, src, zero_buf, zero_buf, 0, 0 });
+					slot_buf[s] = out;
+					break;
+				}
+				const RID blurred = blur_plan(src, radius_m);
+				const RID out = empty_buf();
+				GraphDispatch d{ out, src, blurred, in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, 15,
+					(int)p_prog.params[s] };
+				d.f0 = std::max(p_prog.params_c[s], 0.0f); // k
+				d.f1 = amount;
+				d.f2 = (in1[s] >= 0) ? 1.0f : 0.0f;
+				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_RECAST_CLIFF: {
+				// Spec §6.3.
+				const RID src = in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf;
+				const float amount = std::clamp(p_prog.params_g[s], 0.0f, 1.0f);
+				const float amplitude = p_prog.params_c[s];
+				if (amount <= 0.0f || amplitude == 0.0f) {
+					const RID out = empty_buf();
+					plan.push_back({ out, src, zero_buf, zero_buf, 0, 0 });
+					slot_buf[s] = out;
+					break;
+				}
+				const RID blurred = blur_plan(src, (double)p_prog.params_b[s]);
+				const RID out = empty_buf();
+				GraphDispatch d{ out, src, blurred, in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, 16, 0 };
+				const double kPi = 3.14159265358979323846;
+				d.f0 = (float)std::tan((double)p_prog.params[s] * kPi / 180.0); // tan(talus)
+				d.f1 = amplitude;
+				d.f2 = std::max(p_prog.params_d[s], 1e-6f); // gain
+				d.f3 = (p_prog.params_e[s] >= 0.0f)
+						? (float)((double)p_prog.params_e[s] * kPi / 180.0)
+						: -1.0f; // direction, or omnidirectional
+				d.f4 = (float)(std::max((double)p_prog.params_f[s], 0.0) * kPi / 180.0); // spread
+				d.f5 = amount;
+				d.f6 = (in1[s] >= 0) ? 1.0f : 0.0f;
+				plan.push_back(d);
 				slot_buf[s] = out;
 			} break;
 			case GRAPH_OP_OUTPUT: {

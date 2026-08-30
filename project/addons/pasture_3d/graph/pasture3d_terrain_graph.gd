@@ -1127,7 +1127,11 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 			&"remap":
 				op_id = 22; p0 = _f.call(&"in_min", 0.0); pb = _f.call(&"in_max", 100.0); pc = _f.call(&"out_min", 0.0); pd = _f.call(&"out_max", 100.0); pe = 1.0 if bool(node.get("clamp_output")) else 0.0; pf = _f.call(&"soft_knee", 0.0)
 			&"mask":
-				op_id = 23; p0 = float(_i.call(&"mode", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 100.0); pd = _f.call(&"falloff_lo", 10.0); pe = _f.call(&"falloff_hi", 10.0); pf = 1.0 if bool(node.get("invert")) else 0.0
+				# The property is exported as `property`, not `mode`, and `strength` is params_g. Reading
+				# the wrong name silently lowered SLOPE for every mask, and leaving strength at its 0
+				# default made mask_grid lerp all the way back to "ungated" — so a native-path Mask
+				# returned 1.0 everywhere while the node's own eval_grid returned the right field.
+				op_id = 23; p0 = float(_i.call(&"property", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 100.0); pd = _f.call(&"falloff_lo", 10.0); pe = _f.call(&"falloff_hi", 10.0); pf = 1.0 if bool(node.get("invert")) else 0.0; pg = _f.call(&"strength", 1.0)
 			&"curvature":
 				op_id = 24; p0 = float(_i.call(&"feature", 0)); pb = _f.call(&"strength", 1.0); pc = _f.call(&"contrast", 1.0)
 			&"falloff":
@@ -1158,6 +1162,17 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				p0 = float(_i.call(&"mode", 0)); pb = _f.call(&"radius", 5.0)
 				pc = float(_i.call(&"kernel", 0)); pd = float(_i.call(&"iterations", 1))
 				pe = _f.call(&"amount", 1.0)
+			&"relative_elevation":
+				op_id = 49; p0 = _f.call(&"radius", 200.0); pb = float(_i.call(&"output_units", 0))
+			&"smooth_fill":
+				op_id = 50; p0 = float(_i.call(&"mode", 0)); pb = _f.call(&"radius", 50.0)
+				pc = _f.call(&"k", 0.1); pd = _f.call(&"amount", 1.0)
+			&"recast_cliff":
+				op_id = 51
+				p0 = _f.call(&"talus_angle_deg", 40.0); pb = _f.call(&"radius", 20.0)
+				pc = _f.call(&"amplitude", 10.0); pd = _f.call(&"gain", 2.0)
+				pe = _f.call(&"direction_deg", -1.0); pf = _f.call(&"direction_spread_deg", 60.0)
+				pg = _f.call(&"amount", 1.0)
 			&"talus_projection":
 				op_id = 25; p0 = _f.call(&"talus_angle_deg", 35.0); pb = float(_i.call(&"iterations", 16)); pc = _f.call(&"transfer_rate", 0.5); pd = _f.call(&"amount", 1.0)
 			&"spectral_equalizer":
@@ -1388,7 +1403,8 @@ func native_supported(p_root_node: int = -1) -> bool:
 		# graph goes to the native evaluator, and an op missing from it does not fail loudly — it
 		# silently drops the ENTIRE graph onto the GDScript path, where a pointwise node like Falloff
 		# runs per cell in script. Any new op with a case in pasture_3d_graph_ops.cpp belongs here.
-		&"falloff", &"contrast", &"transform", &"distance_transform", &"expand_shrink"
+		&"falloff", &"contrast", &"transform", &"distance_transform", &"expand_shrink",
+		&"relative_elevation", &"smooth_fill", &"recast_cliff"
 	]
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):

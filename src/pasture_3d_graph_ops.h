@@ -74,6 +74,9 @@ enum GraphCellOpType {
 	GRAPH_OP_TRANSFORM = 46, // FILTER grid: affine resample in world XZ (spec §4.1)
 	GRAPH_OP_DISTANCE_TRANSFORM = 47, // FILTER grid: metric distance to a thresholded mask (spec §5.1)
 	GRAPH_OP_EXPAND_SHRINK = 48, // FILTER grid: grayscale morphology, radius in metres (spec §5.2)
+	GRAPH_OP_RELATIVE_ELEVATION = 49, // FILTER grid: position between local basin floor and crest (§6.1)
+	GRAPH_OP_SMOOTH_FILL = 50, // FILTER grid: raise concave ground toward a blurred reference (§6.2)
+	GRAPH_OP_RECAST_CLIFF = 51, // FILTER grid: push steep ground toward a stepped face (§6.3)
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed

@@ -42,6 +42,9 @@ func _ready() -> void:
 	_check("Transform", _transform())
 	_check("DistanceTransform", _distance_transform(), _blob_mask())
 	_check("ExpandShrink", _expand_shrink())
+	_check("RelativeElevation", _relative_elevation())
+	_check("SmoothFill", _smooth_fill())
+	_check("RecastCliff", _recast_cliff())
 	_control_an_unlisted_op_is_refused()
 
 	print("\n=== %s (%d failures) ===\n" % ["NATIVE ROUTE PASS" if _fail == 0 else "NATIVE ROUTE FAIL", _fail])
@@ -150,6 +153,33 @@ func _expand_shrink() -> Pasture3DGraphNode:
 	n.radius = 14.0
 	n.kernel = 0
 	n.iterations = 1
+	return n
+
+
+func _relative_elevation() -> Pasture3DGraphNode:
+	var n := Pasture3DGraphNodeRelativeElevation.new()
+	n.radius = 40.0
+	n.output_units = 0
+	return n
+
+
+func _smooth_fill() -> Pasture3DGraphNode:
+	var n := Pasture3DGraphNodeSmoothFill.new()
+	n.mode = 0
+	n.radius = 30.0
+	n.k = 0.1
+	n.amount = 1.0
+	return n
+
+
+func _recast_cliff() -> Pasture3DGraphNode:
+	var n := Pasture3DGraphNodeRecastCliff.new()
+	n.talus_angle_deg = 30.0
+	n.radius = 15.0
+	n.amplitude = 8.0
+	n.gain = 2.0
+	n.direction_deg = -1.0
+	n.amount = 1.0
 	return n
 
 
