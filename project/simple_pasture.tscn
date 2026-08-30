@@ -140,7 +140,6 @@ output_node = 3
 resource_name = "NoiseAndErosion"
 script = ExtResource("9_6pcwc")
 graph = SubResource("Resource_6pcwc")
-evaluation = 1
 metadata/_custom_type_script = "uid://717mgmmlrimi"
 
 [sub_resource type="Curve3D" id="Curve3D_xkygt"]
@@ -350,7 +349,7 @@ slope_angle = 35.0
 terrain = NodePath("..")
 snap_to_surface = false
 _layer_owner = "pasture3d_brush:Mounds"
-modifier_margin = 20.0
+modifier_margin = 40.0
 modifiers = Array[ExtResource("2_n4cpt")]([SubResource("Resource_pnkh5")])
 
 [node name="Loop1" type="Path3D" parent="Pasture3D/Mound" unique_id=70890649]
@@ -412,7 +411,7 @@ script = ExtResource("10_v7ey8")
 blend_mode = 0
 terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"
-modifier_margin = 85.5
+modifier_margin = 47.5
 modifiers = Array[ExtResource("2_n4cpt")]([SubResource("Resource_xq5ji")])
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Plow" unique_id=674137980]
