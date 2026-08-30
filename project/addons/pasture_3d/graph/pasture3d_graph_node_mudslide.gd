@@ -122,6 +122,12 @@ func output_port_types() -> PackedInt32Array:
 	return PackedInt32Array([PortType.HEIGHT, PortType.MASK])
 
 
+## FROZEN means this node serves its own cache, which only the GDScript evaluator can do. See
+## Pasture3DGraphNode.blocks_native().
+func blocks_native() -> bool:
+	return evaluation == Evaluation.FROZEN
+
+
 ## The METRES the normalised deposition channel was divided by. A 0..1 channel is meaningless without it, so
 ## it is readable rather than printed — a downstream Remap can put the channel back into metres.
 func deposition_divisor() -> float:

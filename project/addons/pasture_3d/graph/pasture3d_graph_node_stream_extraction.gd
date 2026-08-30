@@ -34,6 +34,12 @@ enum Evaluation { LIVE, FROZEN }
 	set(v):
 		channel_width = maxf(v, 0.5)
 		_param_changed()
+## FROZEN means this node serves its own cache, which only the GDScript evaluator can do. See
+## Pasture3DGraphNode.blocks_native().
+func blocks_native() -> bool:
+	return evaluation == Evaluation.FROZEN
+
+
 
 ## Lateral bank transition falloff (metres).
 @export_range(0.5, 32.0, 0.5) var bank_falloff: float = 4.0:

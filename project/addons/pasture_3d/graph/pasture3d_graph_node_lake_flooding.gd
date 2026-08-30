@@ -37,6 +37,12 @@ enum Evaluation { LIVE, FROZEN }
 	set(v):
 		flood_percent = clampf(v, 0.0, 1.0)
 		_param_changed()
+## FROZEN means this node serves its own cache, which only the GDScript evaluator can do. See
+## Pasture3DGraphNode.blocks_native().
+func blocks_native() -> bool:
+	return evaluation == Evaluation.FROZEN
+
+
 
 ## Shoreline transition feathering width in metres.
 @export_range(0.5, 32.0, 0.5) var shoreline_width: float = 4.0:

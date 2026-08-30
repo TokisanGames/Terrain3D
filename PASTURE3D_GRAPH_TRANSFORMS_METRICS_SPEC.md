@@ -3,11 +3,14 @@
 **Status:** Phases 1-5 built and gated (2026-08-30). All thirteen nodes exist, run on native C++ or the
 GPU, and are covered by gates with live controls.
 
-**Known issue — `HydraulicSaleve` ignores its `dx`/`dy` fields on the native path (found 2026-08-30, NOT
-fixed).** Driving either port moves the GDScript result by about 0.02% and leaves the native result
-bit-identical, so `hydraulic_saleve_solve` is not using the per-cell field the evaluator hands it. These are
-the only two parameter ports excluded from `GraphAllNodeSocketsGate` section F, and the exclusion is written
-into the gate with this reason rather than the threshold being widened. It needs its own investigation.
+**Resolved — `HydraulicSaleve` ignored its `dx`/`dy` fields on the native path (found 2026-08-30, fixed
+2026-08-30).** Driving either port moved the GDScript result and left the native result bit-identical. The
+cause was not the field plumbing, which was correct on both sides: `hydraulic_saleve_solve` applied its
+drainage warp only when BOTH `dx` and `dy` were present, and the two evaluators disagree about what an
+unwired port is — `_input_grids` hands the solver a zeros GRID, so one axis alone still warped there, while
+the compiled program passes `in = -1` (absent), so one axis alone did nothing. A missing component is now a
+zero component. The exclusion has been removed from `GraphAllNodeSocketsGate` section F, which sweeps all 95
+parameter ports with none skipped.
 
 **§8 amendments (Phase 5).**
 

@@ -222,16 +222,13 @@ func _peak(p_op: StringName, p_prop: StringName, p_local: float, p_driven: float
 # and "measured nothing" would be indistinguishable from "measured well".
 func _f_no_native_path_ignores_a_driven_port() -> void:
 	print("[F] Sweep: does any node's native path ignore a driven parameter port?")
-	# Ports this criterion does not apply to. hydraulic_saleve's dx/dy are typed FLOAT but are per-cell
-	# FIELDS, not scalar parameters: the native case consumes them as grids via in1/in2, so "did the native
-	# path drop a scalar" is the wrong question to ask of them.
-	#
-	# This is an exclusion, not a clean bill of health. Driving them moves the unfolded result by about 0.02%
-	# and leaves the native result bit-identical, so the native solver is not using the field it is handed.
-	# That is a real discrepancy, it is recorded in the spec as an open issue, and it is NOT fixed here —
-	# narrowing a criterion to hide a failure is the thing this gate exists to prevent, so the reason is
-	# written down rather than the threshold quietly widened.
-	var skip := {&"hydraulic_saleve": [1, 2]}
+	# Nothing is excluded from this sweep. hydraulic_saleve's dx/dy used to be, because they are typed
+	# FLOAT but are per-cell FIELDS the native case consumes as grids — and driving one moved the
+	# unfolded result while leaving native bit-identical. That turned out to be a real bug, not a
+	# wrongly-shaped question: the solver applied its drainage warp only when BOTH axes were present,
+	# and the two evaluators disagree about an unwired port (a zeros GRID in GDScript, absent in the
+	# compiled program), so dx alone warped on one path and did nothing on the other. Fixed in
+	# pasture_3d_hydraulic_saleve.cpp; the exclusion is gone rather than documented.
 	var ignored: Array[String] = []
 	var responded := 0
 	var swept := 0
@@ -246,8 +243,6 @@ func _f_no_native_path_ignores_a_driven_port() -> void:
 		var names: PackedStringArray = probe.input_names()
 		for k in mini(types.size(), 4):
 			if types[k] != Pasture3DGraphNode.PortType.FLOAT and types[k] != Pasture3DGraphNode.PortType.INT:
-				continue
-			if skip.has(op) and (skip[op] as Array).has(k):
 				continue
 			swept += 1
 			# 16x16 and two values, because this runs over 105 ports and some of them are iterative

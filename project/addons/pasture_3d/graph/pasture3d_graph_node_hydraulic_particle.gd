@@ -88,6 +88,12 @@ enum Evaluation { LIVE, FROZEN }
 		seed = v
 		_param_changed()
 
+## FROZEN means this node serves its own cache, which only the GDScript evaluator can do. See
+## Pasture3DGraphNode.blocks_native().
+func blocks_native() -> bool:
+	return evaluation == Evaluation.FROZEN
+
+
 @export_group("Evaluation")
 ## LIVE re-solves on every evaluation; FROZEN caches the solve until Bake is pressed.
 @export var evaluation: Evaluation = Evaluation.LIVE:
