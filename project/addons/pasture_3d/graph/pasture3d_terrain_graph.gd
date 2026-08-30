@@ -1180,6 +1180,18 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				pc = _f.call(&"amplitude", 10.0); pd = _f.call(&"gain", 2.0)
 				pe = _f.call(&"direction_deg", -1.0); pf = _f.call(&"direction_spread_deg", 60.0)
 				pg = _f.call(&"amount", 1.0)
+			&"flooding_uniform_level":
+				op_id = 54
+				p0 = _f.call(&"water_level", 0.0); pb = 1.0 if bool(node.get("clamp_terrain")) else 0.0
+			&"water_mask":
+				op_id = 55
+				p0 = _f.call(&"depth_threshold", 0.01); pb = _f.call(&"shore_width", 8.0)
+				pc = float(_i.call(&"shore_falloff", 1))
+			&"mudslide":
+				op_id = 56
+				p0 = _f.call(&"talus_angle_deg", 30.0); pb = _f.call(&"depth", 4.0)
+				pc = _f.call(&"travel_distance", 60.0); pd = _f.call(&"depth_exponent", 1.0)
+				pe = _f.call(&"viscosity_power", 1.0); pf = _f.call(&"amount", 1.0)
 			&"warp_downslope":
 				op_id = 52
 				p0 = _f.call(&"displacement", 20.0); pb = _f.call(&"radius", 20.0)
@@ -1417,7 +1429,9 @@ func native_supported(p_root_node: int = -1) -> bool:
 		&"falloff", &"contrast", &"transform", &"distance_transform", &"expand_shrink",
 		&"relative_elevation", &"smooth_fill", &"recast_cliff",
 		# Spec phase 4.
-		&"warp_downslope"
+		&"warp_downslope",
+		# Spec phase 5.
+		&"flooding_uniform_level", &"water_mask", &"mudslide"
 	]
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):

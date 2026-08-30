@@ -36,6 +36,8 @@
 #include "pasture_3d_distance_transform.h"
 #include "pasture_3d_morphology.h"
 #include "pasture_3d_gavoronoise.h"
+#include "pasture_3d_mudslide.h"
+#include "pasture_3d_water_nodes.h"
 #include "pasture_3d_terrain_metrics.h"
 #include "pasture_3d_warp_downslope.h"
 #include "pasture_3d_transform.h"
@@ -1594,6 +1596,47 @@ PackedFloat32Array Pasture3DUtil::noise_jordan_grid(const int p_gw, const int p_
 			p_gain, p_lacunarity, p_warp_strength, p_damp_strength, p_seed);
 }
 
+Dictionary Pasture3DUtil::flooding_uniform_level_grid(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const double p_level, const bool p_clamp_terrain) {
+	PackedFloat32Array depth;
+	PackedFloat32Array mask;
+	PackedFloat32Array height = godot::flooding_uniform_level_solve(p_surface, p_gw, p_gh, p_level,
+			p_clamp_terrain, &depth, &mask);
+	Dictionary d;
+	d["height"] = height;
+	d["depth"] = depth;
+	d["mask"] = mask;
+	return d;
+}
+
+Dictionary Pasture3DUtil::water_mask_grid(const PackedFloat32Array &p_depth, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const double p_depth_threshold,
+		const double p_shore_width_m, const int p_shore_falloff) {
+	PackedFloat32Array shore;
+	PackedFloat32Array water = godot::water_mask_solve(p_depth, p_gw, p_gh, p_rect, p_depth_threshold,
+			p_shore_width_m, p_shore_falloff, &shore);
+	Dictionary d;
+	d["water"] = water;
+	d["shore"] = shore;
+	return d;
+}
+
+Dictionary Pasture3DUtil::mudslide_grid(const PackedFloat32Array &p_surface,
+		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_talus_angle_deg, const double p_depth_m, const double p_travel_distance_m,
+		const double p_depth_exponent, const double p_viscosity_power, const double p_amount) {
+	PackedFloat32Array deposition;
+	double divisor = 1.0;
+	PackedFloat32Array height = godot::mudslide_solve(p_surface, p_mask, p_gw, p_gh, p_rect,
+			p_talus_angle_deg, p_depth_m, p_travel_distance_m, p_depth_exponent, p_viscosity_power,
+			p_amount, &deposition, &divisor);
+	Dictionary d;
+	d["height"] = height;
+	d["deposition"] = deposition;
+	d["divisor"] = divisor;
+	return d;
+}
+
 PackedFloat32Array Pasture3DUtil::gavoronoise_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
 		const double p_amplitude, const double p_frequency, const int p_octaves, const int p_seed,
 		const double p_angle_deg, const double p_angle_spread, const double p_slope_strength,
@@ -2039,6 +2082,15 @@ void Pasture3DUtil::_bind_methods() {
 			D_METHOD("warp_grid", "surface", "gw", "gh", "rect", "warp_type", "frequency", "strength", "octaves", "amplitude", "roughness", "seed"),
 			&Pasture3DUtil::warp_grid);
 	// Terrain graph — Procedural Generators & Solvers.
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("flooding_uniform_level_grid", "surface", "gw", "gh", "level", "clamp_terrain"),
+			&Pasture3DUtil::flooding_uniform_level_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("water_mask_grid", "depth", "gw", "gh", "rect", "depth_threshold", "shore_width_m", "shore_falloff"),
+			&Pasture3DUtil::water_mask_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mudslide_grid", "surface", "mask", "gw", "gh", "rect", "talus_angle_deg", "depth_m", "travel_distance_m", "depth_exponent", "viscosity_power", "amount"),
+			&Pasture3DUtil::mudslide_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("gavoronoise_grid", "gw", "gh", "rect", "amplitude", "frequency", "octaves", "seed", "angle_deg", "angle_spread", "slope_strength", "branch_strength", "z_cut_min", "z_cut_max"),
 			&Pasture3DUtil::gavoronoise_grid);

@@ -79,6 +79,9 @@ enum GraphCellOpType {
 	GRAPH_OP_RECAST_CLIFF = 51, // FILTER grid: push steep ground toward a stepped face (§6.3)
 	GRAPH_OP_WARP_DOWNSLOPE = 52, // FILTER grid: displace the surface along its own gradient (§7.1)
 	GRAPH_OP_GAVORONOISE = 53, // GENERATOR: gradient-aware Voronoi with derivative feedback (§7.2)
+	GRAPH_OP_FLOODING_UNIFORM_LEVEL = 54, // FILTER: clamp the surface up to a uniform water level (§8.1)
+	GRAPH_OP_WATER_MASK = 55, // FILTER grid: submerged mask plus a metric shore band (§8.2)
+	GRAPH_OP_MUDSLIDE = 56, // SOLVER grid: move a finite, maskable quantity of material downhill (§8.3)
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed

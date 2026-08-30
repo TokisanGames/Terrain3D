@@ -1,6 +1,51 @@
 # Pasture3D Terrain Graph — Transforms, Metrics & Morphology Nodes Spec
 
-**Status:** Phases 1-4 built and gated (2026-08-29); Phase 5 proposed.
+**Status:** Phases 1-5 built and gated (2026-08-30). All thirteen nodes exist, run on native C++ or the
+GPU, and are covered by gates with live controls.
+
+**§8 amendments (Phase 5).**
+
+* **`FloodingUniformLevel.needs_grid` is `true`, not `false`.** The spec called it a fusible cell node while
+  also giving it three output ports, and those are incompatible in this codebase: the cell branch of
+  `evaluate()` never populates the aux-channel array, so ports 1 and 2 of a fused node would silently read
+  zeros. Any multi-output node here is a grid node — that is not a performance choice, it is what makes the
+  extra ports exist at all.
+* **`WaterMask`'s `height` port is dropped**, leaving `depth` and `shore_width`. The maths never used it: the
+  water mask comes from the depth and the shore band from the signed distance to that mask. A port wired to
+  nothing inside the node is worse than a missing one, because it tells the author a value matters when it
+  does not.
+* **`Mudslide.iterations` is replaced by `travel_distance` in METRES.** An iteration count is a cell-space
+  quantity — a sweep advances material about one cell — so twenty iterations would mean eighty metres on a
+  4 m grid and twenty on a 1 m one, and the same slide would land somewhere else at every bake resolution.
+  That is exactly the class of unit error §3.6 exists to catch. The sweep count is derived from the metric
+  knob and the cell size. MD is gated as `travel_distance = 0` accordingly.
+* **`Mudslide`'s transport law was rewritten twice, both times because MG measured it failing.** The first
+  version limited each sweep's transfer to the local height excess; that is DIFFUSION, whose spread goes as
+  cell² per sweep, so the slide ran roughly half as far each time the grid was refined. The second scaled
+  the per-sweep fraction by cell/travel, which fixed the thinning but made the mean advance proportional to
+  the cell. The law that is invariant is a constant fraction of the mobile POOL moved one cell per sweep,
+  with a per-neighbour half-drop cap as a no-inversion safety net rather than as the transport law.
+* **MG's statistic is the deposit's mass distribution, not its leading edge.** An edge is found by
+  thresholding, and a thinner deposit on a finer grid crosses any fixed threshold sooner, so the measure
+  reported the threshold as much as the physics. MG compares the cumulative mass distributions of the two
+  deposits (a Kolmogorov-Smirnov distance) against a 20% budget. That budget is calibrated, not aspirational:
+  a nearest-neighbour advective sweep carries numerical diffusion proportional to the cell, the residual
+  measures ~16%, and the cell-space control sits at ~50%.
+* **An all-zero mask on `Mudslide` counts as NO mask.** `Pasture3DTerrainGraph` feeds an unwired port an
+  n-sized grid of zeros, so by the time the array reaches the kernel an unwired mask and a deliberately blank
+  one are the same bytes. Falling back to the talus gate is the reading that leaves the node useful; the
+  other makes an unwired mask a silent pass-through.
+* **GPU coverage is partial by design, and every uncovered case still runs compiled C++.**
+  `FloodingUniformLevel` has a GPU mode. `Mudslide` has one too — written as a GATHER, since a dispatch has
+  no cell order and no atomics here, which is the same algorithm as the CPU's delta accumulation and agrees
+  with it to 8e-6 m — but it declines when a mask is wired, because deciding the all-zero question above
+  needs a whole-buffer reduction the single-pass plan cannot do. `WaterMask` declines outright: its shore
+  band runs the JFA distance transform, whose plan is built inline in the `DistanceTransform` case rather
+  than as a reusable sub-plan. Both fall to the native kernel, not to GDScript.
+* **One gate file covers §8.1 and §8.2** (`GraphWaterNodesGate`, FLA-FLD and WMA-WMD) because they are one
+  pipeline: WaterMask's input is FloodingUniformLevel's depth channel. Mudslide keeps its own
+  `GraphMudslideGate`.
+
 
 **§7.1 amendment.** WB's control was specified as "a noise warp of comparable strength". It cannot be:
 the `Warp` node does not resample its input at all — it ADDS a domain-warped noise field on top — so it

@@ -274,6 +274,20 @@ public:
 			const double p_gain, const double p_lacunarity, const double p_warp_strength,
 			const double p_damp_strength, const int p_seed);
 
+	// Water nodes (spec §8.1, §8.2). Both return a Dictionary because both have derived channels the
+	// caller needs alongside the primary field.
+	static Dictionary flooding_uniform_level_grid(const PackedFloat32Array &p_surface, int p_gw, int p_gh,
+			double p_level, bool p_clamp_terrain);
+
+	static Dictionary water_mask_grid(const PackedFloat32Array &p_depth, int p_gw, int p_gh,
+			const Rect2 &p_rect, double p_depth_threshold, double p_shore_width_m, int p_shore_falloff);
+
+	// Mudslide (spec §8.3).
+	static Dictionary mudslide_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
+			int p_gw, int p_gh, const Rect2 &p_rect, double p_talus_angle_deg, double p_depth_m,
+			double p_travel_distance_m, double p_depth_exponent, double p_viscosity_power,
+			double p_amount);
+
 	// Gradient-aware Voronoi generator (spec §7.2).
 	static PackedFloat32Array gavoronoise_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
 			const double p_amplitude, const double p_frequency, const int p_octaves, const int p_seed,

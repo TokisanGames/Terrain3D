@@ -47,6 +47,9 @@ func _ready() -> void:
 	_check("RecastCliff", _recast_cliff())
 	_check("WarpDownslope", _warp_downslope())
 	_check_generator("Gavoronoise", _gavoronoise())
+	_check("FloodingUniformLevel", _flooding_uniform_level())
+	_check("WaterMask", _water_mask(), _depth_field())
+	_check("Mudslide", _mudslide())
 	_control_an_unlisted_op_is_refused()
 
 	print("\n=== %s (%d failures) ===\n" % ["NATIVE ROUTE PASS" if _fail == 0 else "NATIVE ROUTE FAIL", _fail])
@@ -246,6 +249,51 @@ func _warp_downslope() -> Pasture3DGraphNode:
 	n.reverse = false
 	n.amount = 1.0
 	return n
+
+
+func _flooding_uniform_level() -> Pasture3DGraphNode:
+	var n := Pasture3DGraphNodeFloodingUniformLevel.new()
+	# Between the troughs and the crests of _bumps(), so the node has something to clamp and something to
+	# leave alone. A level under the whole field would pass R and P while doing nothing.
+	n.water_level = 4.0
+	n.clamp_terrain = true
+	return n
+
+
+func _water_mask() -> Pasture3DGraphNode:
+	var n := Pasture3DGraphNodeWaterMask.new()
+	n.depth_threshold = 0.5
+	n.shore_width = 20.0
+	n.shore_falloff = Pasture3DGraphNodeWaterMask.ShoreFalloff.SMOOTH
+	return n
+
+
+func _mudslide() -> Pasture3DGraphNode:
+	var n := Pasture3DGraphNodeMudslide.new()
+	n.talus_angle_deg = 20.0
+	n.depth = 6.0
+	n.travel_distance = 40.0
+	n.depth_exponent = 1.0
+	n.viscosity_power = 1.0
+	n.amount = 1.0
+	# LIVE, not the node's FROZEN default: a frozen node serves a cache, and this gate is comparing the
+	# routes that produce the field, not the cache in front of them.
+	n.evaluation = Pasture3DGraphNodeMudslide.Evaluation.LIVE
+	return n
+
+
+## A depth field for WaterMask: positive in a disc, zero outside. Feeding it _bumps() would work too, but a
+## depth is what the port actually means and a fixture that lies about units is how metres get lost.
+func _depth_field() -> PackedFloat32Array:
+	var g := PackedFloat32Array()
+	g.resize(GW * GH)
+	for iz in GH:
+		for ix in GW:
+			var wx := RECT.position.x + (float(ix) + 0.5) * RECT.size.x / float(GW)
+			var wz := RECT.position.y + (float(iz) + 0.5) * RECT.size.y / float(GH)
+			var r := sqrt(wx * wx + wz * wz)
+			g[iz * GW + ix] = maxf(60.0 - r, 0.0) * 0.2
+	return g
 
 
 # --- helpers ------------------------------------------------------------------------------------------

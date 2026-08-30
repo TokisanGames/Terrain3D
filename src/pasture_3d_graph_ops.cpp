@@ -22,6 +22,8 @@
 #include "pasture_3d_lake_flooding.h"
 #include "pasture_3d_math_ops.h"
 #include "pasture_3d_gavoronoise.h"
+#include "pasture_3d_mudslide.h"
+#include "pasture_3d_water_nodes.h"
 #include "pasture_3d_noise_jordan.h"
 #include "pasture_3d_noise_swiss.h"
 #include "pasture_3d_scree.h"
@@ -601,6 +603,28 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
 				PackedFloat32Array res = warp_downslope_solve(in_arr, msk_arr, p_gw, p_gh, p_rect,
 						params[s], params_b[s], params_c[s] > 0.5f, params_d[s]);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			case GRAPH_OP_FLOODING_UNIFORM_LEVEL: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				PackedFloat32Array res = flooding_uniform_level_solve(in_arr, p_gw, p_gh, params[s],
+						params_b[s] > 0.5f, nullptr, nullptr);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			case GRAPH_OP_WATER_MASK: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				PackedFloat32Array res = water_mask_solve(in_arr, p_gw, p_gh, p_rect, params[s],
+						params_b[s], (int)params_c[s], nullptr);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			case GRAPH_OP_MUDSLIDE: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
+				PackedFloat32Array res = mudslide_solve(in_arr, msk_arr, p_gw, p_gh, p_rect, params[s],
+						params_b[s], params_c[s], params_d[s], params_e[s], params_f[s], nullptr, nullptr);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 

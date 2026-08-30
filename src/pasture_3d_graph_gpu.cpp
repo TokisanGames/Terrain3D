@@ -536,6 +536,123 @@ static const char *GRAPH_GRID_GLSL_2 = R"(	if (p.mode == 18) { // GAVORONOISE: a
 		o[i] = vin + (vout - vin) * w;
 		return;
 	}
+)";
+
+static const char *GRAPH_GRID_GLSL_3 = R"(	if (p.mode == 19) { // FLOODING UNIFORM LEVEL (spec §8.1). f0 level, f1 clamp-terrain flag.
+		float z = a[i];
+		// NaN is the brush-loop mask: a masked-out cell is absent, not dry land at 0 m. max() with a NaN
+		// is undefined in GLSL, so the test comes first rather than trusting the builtin.
+		o[i] = isnan(z) ? z : ((p.f1 > 0.5) ? max(z, p.f0) : z);
+	}
+
+	// ---- MUDSLIDE (spec §8.3) ------------------------------------------------------------------------
+	// A GATHER, where the CPU kernel accumulates deltas. The two are the same algorithm: a dispatch has no
+	// defined cell order and no atomics here, so instead of scattering material out of a cell, every cell
+	// recomputes what each of its eight neighbours would give it. Nine reductions per cell instead of one,
+	// and no ordering assumption anywhere.
+	if (p.mode >= 20 && p.mode <= 22) {
+		int MOX[8] = int[8](-1, 1, 0, 0, -1, 1, -1, 1);
+		int MOZ[8] = int[8](0, 0, -1, 1, -1, -1, 1, 1);
+		// The neighbour that gives BACK along each direction: (0,1) (2,3) (4,7) (5,6).
+		int MOPP[8] = int[8](1, 0, 3, 2, 7, 6, 5, 4);
+		float MDIST[8];
+		float mdiag = sqrt(p.dx * p.dx + p.dz * p.dz);
+		MDIST[0] = p.dx; MDIST[1] = p.dx; MDIST[2] = p.dz; MDIST[3] = p.dz;
+		MDIST[4] = mdiag; MDIST[5] = mdiag; MDIST[6] = mdiag; MDIST[7] = mdiag;
+
+		if (p.mode == 20) { // INIT the mobile pool. f0 tan(repose), f1 depth, f2 have-mask flag.
+			float h0 = a[i];
+			float mob = 0.0;
+			if (!isnan(h0)) {
+				if (p.f2 > 0.5) {
+					float mv = b[i];
+					mob = p.f1 * (isnan(mv) ? 0.0 : clamp(mv, 0.0, 1.0));
+				} else {
+					int xm = max(ix - 1, 0);
+					int xp = min(ix + 1, p.gw - 1);
+					int zm = max(iz - 1, 0);
+					int zp = min(iz + 1, p.gh - 1);
+					float hxm = a[iz * p.gw + xm];
+					float hxp = a[iz * p.gw + xp];
+					float hzm = a[zm * p.gw + ix];
+					float hzp = a[zp * p.gw + ix];
+					if (!isnan(hxm) && !isnan(hxp) && !isnan(hzm) && !isnan(hzp)) {
+						float gx = (hxp - hxm) / (float(xp - xm) * p.dx);
+						float gz = (hzp - hzm) / (float(zp - zm) * p.dz);
+						if (sqrt(gx * gx + gz * gz) > p.f0) {
+							mob = p.f1;
+						}
+					}
+				}
+			}
+			o[i] = mob;
+		} else { // 21 = advance the height, 22 = advance the mobile pool. Both read the OLD h and pool.
+			// f0 tan(repose), f1 depth, f2 depth exponent, f3 viscosity power, f4 amount.
+			float given = 0.0;
+			float received = 0.0;
+			for (int src = 0; src < 9; src++) {
+				int sx = ix;
+				int sz = iz;
+				if (src < 8) {
+					sx = ix + MOX[src];
+					sz = iz + MOZ[src];
+					if (sx < 0 || sx >= p.gw || sz < 0 || sz >= p.gh) { continue; }
+				}
+				int si = sz * p.gw + sx;
+				float m = b[si];
+				float hs = a[si];
+				if (!(m > 1e-9) || isnan(hs)) { continue; }
+				float frac = clamp(pow(clamp(m / max(p.f1, 1e-12), 0.0, 1.0), p.f2), 0.0, 1.0);
+				float budget = m * frac * p.f4;
+				if (budget <= 1e-12) { continue; }
+
+				float w[8];
+				float dr[8];
+				float wsum = 0.0;
+				int lower = 0;
+				for (int k = 0; k < 8; k++) {
+					w[k] = 0.0;
+					dr[k] = 0.0;
+					int nx = sx + MOX[k];
+					int nz = sz + MOZ[k];
+					if (nx < 0 || nx >= p.gw || nz < 0 || nz >= p.gh) { continue; }
+					float hn = a[nz * p.gw + nx];
+					if (isnan(hn)) { continue; } // material does not flow into a hole in the world
+					float excess = (hs - hn) - MDIST[k] * p.f0;
+					if (excess <= 0.0) { continue; }
+					w[k] = pow(excess / MDIST[k], p.f3);
+					wsum += w[k];
+					dr[k] = hs - hn;
+					lower++;
+				}
+				if (lower == 0 || wsum <= 0.0) { continue; }
+				// f5 is the per-sweep transport fraction, computed host-side from TRANSPORT_GAIN and the
+				// cell size (src/pasture_3d_mudslide.cpp). The transfer is driven by the POOL; the
+				// per-neighbour half-drop below is only a no-inversion safety net.
+				float mt = budget * p.f5;
+				if (mt <= 1e-12) { continue; }
+
+				if (src == 8) {
+					// This cell itself: everything it hands out.
+					for (int k = 0; k < 8; k++) {
+						if (w[k] <= 0.0) { continue; }
+						given += max(min(mt * (w[k] / wsum), 0.5 * dr[k]), 0.0);
+					}
+				} else {
+					int kb = MOPP[src];
+					if (w[kb] > 0.0) {
+						received += max(min(mt * (w[kb] / wsum), 0.5 * dr[kb]), 0.0);
+					}
+				}
+			}
+			float h0 = a[i];
+			if (p.mode == 21) {
+				o[i] = isnan(h0) ? h0 : (h0 + received - given);
+			} else {
+				o[i] = isnan(h0) ? b[i] : max(0.0, b[i] + received - given);
+			}
+		}
+	}
 }
 )";
 
@@ -594,10 +711,15 @@ bool Pasture3DGraphGPU::_ensure_init() {
 	}
 	Ref<RDShaderSource> src;
 	src.instantiate();
-	src->set_stage_source(RenderingDevice::SHADER_STAGE_COMPUTE, String(GRAPH_GRID_GLSL) + String(GRAPH_GRID_GLSL_2));
+	src->set_stage_source(RenderingDevice::SHADER_STAGE_COMPUTE, String(GRAPH_GRID_GLSL) + String(GRAPH_GRID_GLSL_2) + String(GRAPH_GRID_GLSL_3));
 	Ref<RDShaderSPIRV> spirv = _rd->shader_compile_spirv_from_source(src);
 	if (spirv.is_null() || !spirv->get_stage_compile_error(RenderingDevice::SHADER_STAGE_COMPUTE).is_empty()) {
-		UtilityFunctions::push_warning("Graph GPU: compute shader compile failed; falling back to the CPU evaluator.");
+		// The compile log goes into the warning. Without it a shader typo is indistinguishable from "no
+		// RenderingDevice", and the gate reports NO-SIGNAL for what is actually a broken kernel.
+		UtilityFunctions::push_warning(String("Graph GPU: compute shader compile failed; falling back to "
+				"the CPU evaluator. ") + (spirv.is_null()
+						? String("(no SPIR-V returned)")
+						: spirv->get_stage_compile_error(RenderingDevice::SHADER_STAGE_COMPUTE)));
 		memdelete(_rd);
 		_rd = nullptr;
 		_init_failed = true;
@@ -1129,6 +1251,83 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 				d.f6 = p_prog.params_j.is_empty() ? 0.0f : p_prog.params_j[s]; // z cut min
 				d.f7 = p_prog.params_k.is_empty() ? 1.0f : p_prog.params_k[s]; // z cut max
 				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_FLOODING_UNIFORM_LEVEL: {
+				// Spec §8.1. Pointwise; only the primary height channel travels through the program.
+				const RID src = in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf;
+				const RID out = empty_buf();
+				GraphDispatch d{ out, src, zero_buf, zero_buf, 19, 0 };
+				d.f0 = p_prog.params[s]; // level, world metres
+				d.f1 = p_prog.params_b[s]; // clamp terrain
+				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_MUDSLIDE: {
+				// Spec §8.3. The sweep count IS the travel distance over the cell size — the same line as
+				// mudslide_solve, because that line is what makes the node resolution-invariant and two
+				// copies of it would be two chances to disagree.
+				const RID src = in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf;
+				const float amount = std::clamp(p_prog.params_f[s], 0.0f, 1.0f);
+				const double mdx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
+				const double mdz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+				const double mcell = std::min(mdx, mdz);
+				const double depth_m = (double)p_prog.params_b[s];
+				const double travel = (double)p_prog.params_c[s];
+				if (amount <= 0.0f || depth_m <= 0.0 || travel <= 0.0 || mcell <= 0.0) {
+					const RID out = empty_buf();
+					plan.push_back({ out, src, zero_buf, zero_buf, 0, 0 });
+					slot_buf[s] = out;
+					break;
+				}
+				const int sweeps = (int)std::clamp((long)std::lround(travel / mcell), 1L, 4096L);
+				// Two dispatches per sweep. Past this the plan is longer than a GPU round trip is worth,
+				// and the native kernel is the better route — so hand the graph back rather than build it.
+				if (sweeps > 512) {
+					return fail();
+				}
+				const double kPi = 3.14159265358979323846;
+				const float tan_repose =
+						(float)std::tan(std::clamp((double)p_prog.params[s], 0.0, 89.0) * kPi / 180.0);
+				// A wired mask goes to the native CPU kernel instead. The kernel reads an ALL-ZERO mask as
+				// no mask at all (the graph gives an unwired port a grid of zeros, so the two are the same
+				// bytes), and deciding that needs a reduction over the whole buffer that this single-pass
+				// plan cannot do — a per-cell test would mean something different. Declining is honest;
+				// silently disagreeing with the CPU on a mask that happens to be blank is not.
+				if (in1[s] >= 0) {
+					return fail();
+				}
+				const RID mask = zero_buf;
+
+				RID cur_h = src;
+				RID cur_m = empty_buf();
+				{
+					GraphDispatch init{ cur_m, src, mask, zero_buf, 20, 0 };
+					init.f0 = tan_repose;
+					init.f1 = (float)depth_m;
+					init.f2 = (in1[s] >= 0) ? 1.0f : 0.0f;
+					plan.push_back(init);
+				}
+				for (int sw = 0; sw < sweeps; sw++) {
+					const RID nh = empty_buf();
+					const RID nm = empty_buf();
+					GraphDispatch dh{ nh, cur_h, cur_m, zero_buf, 21, 0 };
+					dh.f0 = tan_repose;
+					dh.f1 = (float)depth_m;
+					dh.f2 = std::max(p_prog.params_d[s], 1e-6f);
+					dh.f3 = std::max(p_prog.params_e[s], 1e-6f);
+					dh.f4 = amount;
+					dh.f5 = 0.25f; // TRANSPORT_GAIN
+					GraphDispatch dm = dh;
+					dm.out = nm;
+					dm.mode = 22;
+					plan.push_back(dh);
+					plan.push_back(dm);
+					cur_h = nh;
+					cur_m = nm;
+				}
+				const RID out = empty_buf();
+				plan.push_back({ out, cur_h, zero_buf, zero_buf, 0, 0 });
 				slot_buf[s] = out;
 			} break;
 			case GRAPH_OP_OUTPUT: {
