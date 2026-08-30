@@ -360,14 +360,22 @@ If a solver supports GPU compute acceleration or multi-tier routing (e.g. `erosi
    - Solvers that generate auxiliary mask channels (e.g. `sediment`, `flow`, `talus`, `shoreline`, `water_depth`) output them on port $\ge 1$.
    - The native whole-graph DAG pipeline evaluates primary height buffers (port 0). If a graph wires secondary output ports into downstream nodes, `compile_graph_program()` and `native_supported()` automatically detect `from_port > 0` and defer execution to the channel-aware GDScript evaluator.
 
-4. **The Four-Input Ceiling**:
-   - A compiled program carries exactly four input slots, `in0..in3`. A wire into port >= 4 cannot be
-     represented at all, and the kernel would quietly use the node's baked local value instead.
-   - `native_supported()` therefore declines any graph with such a wire. This is **reachable in ordinary
-     user graphs**, not theoretical: `noise_swiss` and `noise_jordan` expose `frequency` on port 4 and
-     `dunes` exposes `sharpness`, so driving one of those costs the user every native op in the graph.
-   - When adding a node, put the ports a user is likely to DRIVE in slots 0-3 and leave the rarely-driven
-     scalars beyond. Port order is an acceleration decision, not just a UI one.
+4. **Four GRID Slots, Unlimited Driven Scalars**:
+   - A compiled program carries exactly four **grid** slots, `in0..in3`. A driven **scalar** needs no grid
+     slot: the evaluator reads cell 0 of the source buffer, which is the same convention the GDScript
+     nodes' `eval_grid` uses (`p_inputs[k][0]`).
+   - Scalar ports at index >= 4 therefore travel in a flat overflow table — `pdrv_node` / `pdrv_param` /
+     `pdrv_src`, one entry per wire — and the graph keeps its acceleration. Flat, not `in4`/`in5`, so a
+     node with a seventh port is not another schema change.
+   - This mattered: 14 of 60 ops have more than four ports, and `noise_swiss`/`noise_jordan` expose
+     `frequency` on port 4 while `dunes` exposes `sharpness`. Until 2026-08-30, wiring one Const to any of
+     those cost the user **every native op in the graph**, silently.
+   - The requirement is now simply that `PARAM_PORT_MAP` maps the port. An unmapped port >= 4 is a real
+     grid input with nowhere to go, and `native_supported()` still declines it rather than letting the
+     kernel fall back to the baked local value (`terrain_bus_merge`'s `flow` channel is the live example).
+   - **So: when you add a port past the third, add its params slot to `PARAM_PORT_MAP` in the same
+     commit.** `GraphAllNodeSocketsGate` section F sweeps all 105 ports on all 60 ops and fails on any the
+     native path ignores.
 
 ---
 
@@ -459,6 +467,10 @@ supposed to agree.
 * **Let the fixture decide, do not exempt by name.** DLA does not read its input surface, so a surface
   change is the wrong stimulus for it. The gate probes each solver's LIVE response and picks the
   stimulus from that, with a census control so the surface path cannot go untested wholesale.
+* **State a premise, do not borrow one.** `GraphNodeCachingGate` needs the GDScript path, and used to get
+  there by wiring a Const into port 4 because that happened to decline native. When port 4 stopped
+  declining, the premise expired. Graphs now carry `force_gdscript_evaluation` for exactly this; a gate
+  that depends on an incidental limitation is a gate with an expiry date nobody wrote down.
 * **Never widen a threshold to clear a red gate.** Fix the evaluator.
 
 ---

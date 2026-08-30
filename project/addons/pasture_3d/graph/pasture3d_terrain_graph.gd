@@ -1033,6 +1033,13 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 	var pmap1 := PackedInt32Array()
 	var pmap2 := PackedInt32Array()
 	var pmap3 := PackedInt32Array()
+	# The overflow table for driven scalars on ports >= 4, which have no in-slot to ride in. Three parallel
+	# arrays, one entry per such wire: which compiled slot is being driven, which of the sixteen params it
+	# overrides, and which compiled slot supplies the value. Flat rather than in4/in5/... because the next
+	# node with a seventh port should not be another schema change.
+	var pdrv_node := PackedInt32Array()
+	var pdrv_param := PackedInt32Array()
+	var pdrv_src := PackedInt32Array()
 	var noise_tab: Array = []
 	var luts_tab: Array = []
 
@@ -1074,6 +1081,13 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		pmap1.append(_pm[1] if _pm.size() > 1 else -1)
 		pmap2.append(_pm[2] if _pm.size() > 2 else -1)
 		pmap3.append(_pm[3] if _pm.size() > 3 else -1)
+		for k in range(4, _pm.size()):
+			var pslot: int = int(_pm[k])
+			var psrc: int = int(srcs[k]) if srcs.size() > k else -1
+			if pslot >= 0 and psrc >= 0:
+				pdrv_node.append(ops.size() - 1)
+				pdrv_param.append(pslot)
+				pdrv_src.append(int(slot_of[psrc]))
 
 	return {
 		"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
@@ -1082,6 +1096,7 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		"params_m": params_m, "params_n": params_n, "params_o": params_o, "params_p": params_p,
 		"in0": in0, "in1": in1, "in2": in2, "in3": in3,
 		"pmap0": pmap0, "pmap1": pmap1, "pmap2": pmap2, "pmap3": pmap3,
+		"pdrv_node": pdrv_node, "pdrv_param": pdrv_param, "pdrv_src": pdrv_src,
 		"noise": noise_tab, "luts": luts_tab, "output": int(slot_of[out]),
 	}
 
@@ -1095,8 +1110,12 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 ## overrides when it is wired, or -1 when the port is not a scalar parameter (a HEIGHT or MASK grid input,
 ## or an unmapped port).
 ##
-## Only the first four ports appear because a compiled program carries in0..in3. `native_supported()`
-## declines a graph that wires port 4 or beyond rather than dropping it silently.
+## Entries may run PAST four ports. A compiled program carries only four grid slots (in0..in3), but a
+## driven scalar does not need a grid slot: the native evaluator reads cell 0 of the source buffer, and the
+## source is already a compiled slot. Ports >= 4 that this table maps therefore travel in a flat overflow
+## table (`pdrv_node` / `pdrv_param` / `pdrv_src`) instead, so wiring Swiss `frequency` or Dunes `sharpness`
+## no longer costs the whole graph its acceleration. A port >= 4 that this table does NOT map is a grid port
+## with nowhere to go, and `native_supported()` still declines it rather than dropping it silently.
 ##
 ## The values were derived by matching each node's `input_names()` against the property names its lowering
 ## reads, then checked against the node's own `eval_grid`. GraphAllNodeSocketsGate section F sweeps every
@@ -1108,22 +1127,22 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 const PARAM_PORT_MAP := {
 		&"noise": [0],
 		&"terrace": [-1, 0, 1, -1],
-		&"noise_jordan": [0, 5, 6, 3],
+		&"noise_jordan": [0, 5, 6, 3, 1],
 		&"gavoronoise": [0, 4, 1],
-		&"noise_swiss": [0, 5, 6, 3],
+		&"noise_swiss": [0, 5, 6, 3, 1],
 		&"geological_primitive": [2, 3, 5, 4],
 		&"furrows": [0, 1, 2, 4],
-		&"dunes": [0, 1, 2, 3],
+		&"dunes": [0, 1, 2, 3, 4],
 		&"crater": [0, 1, 2, 3],
 		&"warp": [-1, 2, 4, 1],
-		&"strata": [-1, 0, 1, 3],
-		&"curve": [-1, 0, 1, 2],
-		&"remap": [-1, 0, 1, 2],
-		&"mask": [-1, 1, 2, 3],
+		&"strata": [-1, 0, 1, 3, 4, 2],
+		&"curve": [-1, 0, 1, 2, 3, 4],
+		&"remap": [-1, 0, 1, 2, 3],
+		&"mask": [-1, 1, 2, 3, 4, 6],
 		&"curvature": [-1, 1, 2],
 		&"falloff": [-1, 5, 3, -1],
 		&"contrast": [-1, 1, -1],
-		&"transform": [-1, -1, 2, 3],
+		&"transform": [-1, -1, 2, 3, 7],
 		&"distance_transform": [-1, 0],
 		&"expand_shrink": [-1, 1, -1],
 		&"relative_elevation": [-1, 0],
@@ -1133,16 +1152,16 @@ const PARAM_PORT_MAP := {
 		&"water_mask": [-1, 1],
 		&"mudslide": [-1, -1, 5],
 		&"warp_downslope": [-1, 3, -1],
-		&"talus_projection": [-1, 0, 1, 2],
-		&"spectral_equalizer": [-1, 0, 1, 2],
+		&"talus_projection": [-1, 0, 1, 2, 3],
+		&"spectral_equalizer": [-1, 0, 1, 2, 5],
 		&"depression_filling": [-1, 1, -1],
 		&"lake_flooding": [-1, 1, -1, 3],
 		&"stream_extraction": [-1, 0, 1, 2],
-		&"erosion_hydraulic": [-1, 0, 1, 4],
-		&"erosion_thermal": [-1, -1, 0, 1],
+		&"erosion_hydraulic": [-1, 0, 1, 4, 5],
+		&"erosion_thermal": [-1, -1, 0, 1, 2],
 		&"scree": [-1, 0, 1, 4],
 		&"erosion": [-1, 0, 1, 3],
-		&"hydraulic_particle": [-1, -1, 0, 4],
+		&"hydraulic_particle": [-1, -1, 0, 4, 5],
 		&"hydraulic_stream_log": [-1, -1, 0, 1],
 	}
 
@@ -1489,6 +1508,13 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 	var pmap1 := PackedInt32Array()
 	var pmap2 := PackedInt32Array()
 	var pmap3 := PackedInt32Array()
+	# The overflow table for driven scalars on ports >= 4, which have no in-slot to ride in. Three parallel
+	# arrays, one entry per such wire: which compiled slot is being driven, which of the sixteen params it
+	# overrides, and which compiled slot supplies the value. Flat rather than in4/in5/... because the next
+	# node with a seventh port should not be another schema change.
+	var pdrv_node := PackedInt32Array()
+	var pdrv_param := PackedInt32Array()
+	var pdrv_src := PackedInt32Array()
 	var noise_tab: Array = []
 	var luts_tab: Array = []
 	for ni in order:
@@ -1521,6 +1547,13 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 		pmap1.append(_pm[1] if _pm.size() > 1 else -1)
 		pmap2.append(_pm[2] if _pm.size() > 2 else -1)
 		pmap3.append(_pm[3] if _pm.size() > 3 else -1)
+		for k in range(4, _pm.size()):
+			var pslot: int = int(_pm[k])
+			var psrc: int = int(srcs[k]) if srcs.size() > k else -1
+			if pslot >= 0 and psrc >= 0:
+				pdrv_node.append(ops.size() - 1)
+				pdrv_param.append(pslot)
+				pdrv_src.append(int(slot_of[psrc]))
 	var out_slot := 0
 	for r in p_roots:
 		var ri := int(r)
@@ -1535,6 +1568,7 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 			"params_m": params_m, "params_n": params_n, "params_o": params_o, "params_p": params_p,
 			"in0": in0, "in1": in1, "in2": in2, "in3": in3,
 		"pmap0": pmap0, "pmap1": pmap1, "pmap2": pmap2, "pmap3": pmap3,
+		"pdrv_node": pdrv_node, "pdrv_param": pdrv_param, "pdrv_src": pdrv_src,
 			"noise": noise_tab, "luts": luts_tab, "output": out_slot,
 		},
 		"slot_of": slot_of,
@@ -1542,7 +1576,18 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 
 
 ## True when every node feeding the output has an op the native whole-graph evaluator implements.
+## Set to hold a graph on the GDScript evaluator no matter what it contains. Not exported and not a user
+## setting — it exists so that the things which live ONLY on the script path (per-node caching, a solver's
+## frozen cache) can be tested for what they are, instead of a gate having to smuggle in whichever native
+## limitation happens to survive. GraphNodeCachingGate used to force the path with a wire into port 4;
+## when that stopped declining, the gate went red rather than vacuous, but the lesson is that a premise
+## should be stated, not borrowed.
+var force_gdscript_evaluation := false
+
+
 func native_supported(p_root_node: int = -1) -> bool:
+	if force_gdscript_evaluation:
+		return false
 	var out := p_root_node if (p_root_node >= 0 and p_root_node < nodes.size()) else output_index()
 	if out < 0 or out >= nodes.size() or nodes[out] == null:
 		return false
@@ -1589,14 +1634,21 @@ func native_supported(p_root_node: int = -1) -> bool:
 			var from_node := int(c[0])
 			if order.has(to_node) and order.has(from_node):
 				return false
-	# A compiled program carries four input slots, in0..in3. A wire into port 4 or beyond cannot be
-	# represented, and the native kernel would fall back to the baked local value without saying so — which
-	# is exactly the silent-drop bug this guard exists to stop recurring. NoiseSwiss and NoiseJordan expose
-	# `frequency` on port 4 and Dunes exposes `sharpness`, so this is reachable, not theoretical.
+	# A compiled program carries four GRID slots, in0..in3, so a wire into port 4 or beyond has no in-slot.
+	# A driven SCALAR does not need one — the native evaluator reads cell 0 of the source buffer, and those
+	# ports now travel in the flat pdrv_* overflow table (see PARAM_PORT_MAP). A port >= 4 that the table
+	# does not map is a real grid input with nowhere to go, and the kernel would fall back to the baked
+	# local value without saying so, which is exactly the silent-drop this guard exists to stop.
 	for c in connections:
 		if c.size() >= 4 and int(c[3]) >= 4:
 			var to_node := int(c[2])
-			if order.has(to_node):
+			if not order.has(to_node) or nodes[to_node] == null:
+				continue
+			if nodes[to_node].muted:
+				return false # muted lowers to passthrough, which carries no params at all
+			var pm = PARAM_PORT_MAP.get(nodes[to_node].op(), [])
+			var port := int(c[3])
+			if port >= pm.size() or int(pm[port]) < 0:
 				return false
 	return true
 

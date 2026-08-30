@@ -171,18 +171,55 @@ func _e_driven_params_all_generators() -> void:
 				"%s agrees across evaluators (native %.4f, unfolded %.4f)" % [c["op"], native, unfolded])
 		_assert(native > quiet * 2.0, "%s port 0 responds to a driven Const" % c["op"])
 
-	# in0..in3 is all a compiled program carries, so a wire into port 4 must send the graph to the GDScript
-	# evaluator rather than being dropped on the floor by the native one.
+	# Ports past the fourth. A compiled program carries four GRID slots, in0..in3 — but a driven SCALAR
+	# needs no grid slot, only cell 0 of its source, so those ports ride a flat overflow table and the graph
+	# stays native. This used to decline outright, which cost a user every native op in the graph for
+	# wiring one Const to Swiss `frequency`. Both halves are asserted: the mapped port keeps acceleration
+	# AND is actually honoured, the unmapped port still declines rather than being dropped on the floor.
 	var g := Pasture3DTerrainGraph.new()
 	var s5: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"noise_swiss")
 	var c5: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"const")
-	c5.set("value", 0.01)
+	c5.set("value", 0.05)
 	var o5: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"output")
 	var i_c5 := g.add_node(c5)
 	var i_s5 := g.add_node(s5)
 	g.connect_ports(i_c5, 0, i_s5, 4) # frequency
 	g.connect_ports(i_s5, 0, g.add_node(o5), 0)
-	_assert(not g.native_supported(), "a wire into port 4 declines the native path")
+	_assert(g.native_supported(), "a driven scalar on port 4 keeps the native path")
+
+	# Honoured, not merely tolerated: a frequency an order of magnitude apart must change the surface. The
+	# node's own local frequency is left alone, so the only thing that moved is the wire.
+	var rect5 := Rect2(-256.0, -256.0, 512.0, 512.0)
+	var lo := g.evaluate(64, 64, rect5)
+	c5.set("value", 0.0005)
+	var hi := g.evaluate(64, 64, rect5)
+	var moved := 0.0
+	for i in range(mini(lo.size(), hi.size())):
+		moved = maxf(moved, absf(lo[i] - hi[i]))
+	_assert(moved > 1.0, "port 4 actually reaches the native kernel (peak delta %.3f m)" % moved)
+
+	# The unfolded oracle is the second opinion. If only the native path moved, the two evaluators now
+	# disagree about what port 4 means, which is the bug class this whole gate exists for.
+	var uf := g._eval_unfolded(64, 64, rect5)
+	var agree := 0.0
+	for i in range(mini(uf.size(), hi.size())):
+		agree = maxf(agree, absf(uf[i] - hi[i]))
+	_assert(agree <= maxf(1e-2, 1e-3 * moved), "port 4 agrees across evaluators (max |native - unfolded| %.4f)" % agree)
+
+	# CONTROL: a port >= 4 that PARAM_PORT_MAP does not map is a grid input with nowhere to go, and must
+	# still decline. terrain_bus_merge's port 4 carries a `flow` channel, not a scalar. Without this the
+	# relaxation above would read as "port >= 4 is fine now", which is not what was built.
+	var gb := Pasture3DTerrainGraph.new()
+	var bm: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"terrain_bus_merge")
+	if bm != null and bm.input_count() > 4:
+		var cb: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"const")
+		var i_cb := gb.add_node(cb)
+		var i_bm := gb.add_node(bm)
+		gb.connect_ports(i_cb, 0, i_bm, 4)
+		gb.connect_ports(i_bm, 0, gb.add_node(Pasture3DGraphNodeRegistry.create(&"output")), 0)
+		_assert(not gb.native_supported(), "an UNMAPPED port 4 still declines the native path")
+	else:
+		_assert(false, "control gone: terrain_bus_merge no longer has an unmapped fifth port")
 
 
 ## The peak |height| of a one-generator graph, optionally with port 0 driven by a Const, on either the
@@ -241,7 +278,11 @@ func _f_no_native_path_ignores_a_driven_port() -> void:
 			continue
 		var types: PackedInt32Array = probe.input_port_types()
 		var names: PackedStringArray = probe.input_names()
-		for k in mini(types.size(), 4):
+		# EVERY port, not the first four. The cap was here because a wire past port 3 declined the native
+		# path outright, so there was nothing to compare; driven scalars beyond it now ride the pdrv_*
+		# overflow table, and they need sweeping exactly like the rest. A port >= 4 that is still unmapped
+		# sends the graph to GDScript, where both readings move together, so it cannot fail this falsely.
+		for k in types.size():
 			if types[k] != Pasture3DGraphNode.PortType.FLOAT and types[k] != Pasture3DGraphNode.PortType.INT:
 				continue
 			swept += 1

@@ -226,6 +226,17 @@ bool graph_build(const Dictionary &p_prog, GraphProgram &r_out) {
 	if (p_prog.has("pmap1")) r_out.pmap1 = p_prog["pmap1"];
 	if (p_prog.has("pmap2")) r_out.pmap2 = p_prog["pmap2"];
 	if (p_prog.has("pmap3")) r_out.pmap3 = p_prog["pmap3"];
+	if (p_prog.has("pdrv_node")) r_out.pdrv_node = p_prog["pdrv_node"];
+	if (p_prog.has("pdrv_param")) r_out.pdrv_param = p_prog["pdrv_param"];
+	if (p_prog.has("pdrv_src")) r_out.pdrv_src = p_prog["pdrv_src"];
+	if (r_out.pdrv_node.size() != r_out.pdrv_param.size() || r_out.pdrv_node.size() != r_out.pdrv_src.size()) {
+		// Three arrays that must be read in lockstep. A ragged set means the compiler that produced this
+		// program is not the one this build expects, and silently using the shortest is how a driven
+		// parameter goes missing without anyone noticing.
+		r_out.pdrv_node = PackedInt32Array();
+		r_out.pdrv_param = PackedInt32Array();
+		r_out.pdrv_src = PackedInt32Array();
+	}
 	r_out.output = (int)p_prog["output"];
 	const int n = r_out.ops.size();
 	const Array noise_in = p_prog["noise"];
@@ -365,6 +376,10 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 		p_prog.pmap3.size() == p_prog.count ? p_prog.pmap3.ptr() : nullptr,
 	};
 	const int32_t *in_arr[4] = { in0, in1, in2, in3 };
+	const int n_pdrv = p_prog.pdrv_node.size();
+	const int32_t *pdrv_node = n_pdrv ? p_prog.pdrv_node.ptr() : nullptr;
+	const int32_t *pdrv_param = n_pdrv ? p_prog.pdrv_param.ptr() : nullptr;
+	const int32_t *pdrv_src = n_pdrv ? p_prog.pdrv_src.ptr() : nullptr;
 
 	// 3. Sequential evaluation of nodes in topological order
 	for (int s = 0; s < p_prog.count; s++) {
@@ -404,6 +419,23 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			}
 			const int slot = pmap_arr[k][s];
 			const int src = in_arr[k][s];
+			if (slot < 0 || slot >= 16 || src < 0 || src >= p_prog.count) {
+				continue;
+			}
+			const int b = slot_buffer[src];
+			if (b >= 0) {
+				P[slot] = pool[b][0];
+				PH[slot] = true;
+			}
+		}
+		// The same override for ports >= 4, which carry no in-slot. Read from cell 0 exactly as above, so
+		// a parameter driven through port 5 is indistinguishable from one driven through port 1.
+		for (int k = 0; k < n_pdrv; k++) {
+			if (pdrv_node[k] != s) {
+				continue;
+			}
+			const int slot = pdrv_param[k];
+			const int src = pdrv_src[k];
 			if (slot < 0 || slot >= 16 || src < 0 || src >= p_prog.count) {
 				continue;
 			}

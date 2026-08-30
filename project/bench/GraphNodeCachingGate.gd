@@ -23,10 +23,8 @@ const EPS := 1.0e-6
 ## "terrace hardness edit" set a property on a node that has none, and the control went dead.
 const IDX_NOISE := 0
 const IDX_SMOOTH := 1
-const IDX_BARRIER := 2
-const IDX_TERRACE := 3
-const IDX_OUTPUT := 4
-const IDX_ZERO := 5
+const IDX_TERRACE := 2
+const IDX_OUTPUT := 3
 
 var _fail := 0
 
@@ -257,25 +255,21 @@ func _create_test_pipeline(p_amp: float, p_passes: int, p_band: float, p_hardnes
 	# two EMPTY cached buffers and read `empty == empty` as "upstream cache reused", and E's control
 	# correctly reported itself dead because one cached grid can never exceed a 20 KB budget.
 	#
-	# The barrier holding it on the GDScript path is a Talus whose `amount` is wired to 0. Two things make
-	# that the right choice: a wire into port >= 4 is itself a native decline (a compiled program carries
-	# only in0..in3), and amount 0 returns the input untouched, so the barrier costs the FIELD nothing.
-	# A barrier that changes the values would flatten every control in this gate — which is exactly what
-	# a DevCurvature barrier did when it was tried here.
-	var n_barrier := Pasture3DGraphNodeTalusProjection.new()
-	var n_zero := Pasture3DGraphNodeConst.new()
-	n_zero.value = 0.0
+	# The fixture is held on the GDScript path by `force_gdscript_evaluation`, an explicit switch on the
+	# graph. It used to be held there by a Talus barrier whose `amount` was wired to port 4, because a wire
+	# past in0..in3 was a native decline — and then driven scalars beyond port 3 became representable and
+	# the barrier stopped barring. Borrowing a limitation as a premise means the premise expires without
+	# notice. This says what it means, and costs the FIELD nothing, which a barrier node could not promise.
 	var n_out := Pasture3DGraphNodeOutput.new()
-	
-	var nodes: Array[Pasture3DGraphNode] = [n_noise, n_smooth, n_barrier, n_terrace, n_out, n_zero]
+
+	var nodes: Array[Pasture3DGraphNode] = [n_noise, n_smooth, n_terrace, n_out]
 	g.nodes = nodes
 	g.connections = [
 		PackedInt32Array([0, 0, 1, 0]), # Noise -> Smooth
-		PackedInt32Array([1, 0, 2, 0]), # Smooth -> Talus (native barrier, amount 0 = identity)
-		PackedInt32Array([5, 0, 2, 4]), # Const 0 -> Talus.amount (port 4: the native decline)
-		PackedInt32Array([2, 0, 3, 0]), # Talus -> Terrace
-		PackedInt32Array([3, 0, 4, 0]), # Terrace -> Output
+		PackedInt32Array([1, 0, 2, 0]), # Smooth -> Terrace
+		PackedInt32Array([2, 0, 3, 0]), # Terrace -> Output
 	]
+	g.force_gdscript_evaluation = true
 	g.output_node = IDX_OUTPUT
 	return g
 

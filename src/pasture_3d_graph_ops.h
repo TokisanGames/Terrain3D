@@ -169,6 +169,13 @@ struct GraphProgram {
 	PackedInt32Array pmap1;
 	PackedInt32Array pmap2;
 	PackedInt32Array pmap3;
+	// Driven scalars on input ports >= 4, which have no in-slot to ride in. Three parallel arrays, one
+	// entry per such wire: the compiled slot being driven, which of the sixteen params it overrides, and
+	// the compiled slot supplying the value. Flat rather than in4/in5/... so a node with a seventh port
+	// is not another schema change. Empty on programs compiled before this existed.
+	PackedInt32Array pdrv_node;
+	PackedInt32Array pdrv_param;
+	PackedInt32Array pdrv_src;
 	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless NOISE or JITTER
 	std::vector<PackedFloat32Array> luts; // parallel to slots; for CURVE
 	int output = -1; // the slot whose grid is the graph output
