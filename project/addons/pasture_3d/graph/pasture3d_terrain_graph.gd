@@ -628,15 +628,47 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 						var wx: float = min_x + float(ix) * dx
 						g[idx] = node.eval_cell(wx, wz, cell_in)
 			else:
-				for iz in range(p_gh):
-					var row := iz * p_gw
-					var wz: float = min_z + float(iz) * dz
-					for ix in range(p_gw):
-						var idx := row + ix
-						var wx: float = min_x + float(ix) * dx
-						for p in range(in_count):
-							cell_in[p] = (in_grids[p] as PackedFloat32Array)[idx]
-						g[idx] = node.eval_cell(wx, wz, cell_in)
+				# Only ports WIRED to an upstream node vary per cell. An unwired port is a constant fill
+				# (see _input_grids), so re-reading one per cell fetched the same number n times through a
+				# Variant cast. Terrace is the common shape and the reason this matters: one wired surface
+				# and three unwired parameter sockets, i.e. three quarters of the per-cell work was
+				# re-reading constants. Hoist them, and loop only over what actually varies.
+				#
+				# A port BEYOND the connection list is treated as varying, not constant: a TERRAIN_BUS wire
+				# widens in_grids past input_count with real per-cell channels, and calling those constant
+				# would silently flatten them.
+				var srcs_c: Array = inputs_of[ni]
+				var vary_ports := PackedInt32Array()
+				var vary_grids: Array = []
+				for p in range(in_count):
+					var gp: PackedFloat32Array = in_grids[p]
+					if p < srcs_c.size() and int(srcs_c[p]) < 0:
+						cell_in[p] = gp[0] if not gp.is_empty() else 0.0
+					else:
+						vary_ports.append(p)
+						vary_grids.append(gp)
+				var vary_count := vary_ports.size()
+				if vary_count == 1:
+					var vp: int = vary_ports[0]
+					var vg: PackedFloat32Array = vary_grids[0]
+					for iz in range(p_gh):
+						var row := iz * p_gw
+						var wz: float = min_z + float(iz) * dz
+						for ix in range(p_gw):
+							var idx := row + ix
+							var wx: float = min_x + float(ix) * dx
+							cell_in[vp] = vg[idx]
+							g[idx] = node.eval_cell(wx, wz, cell_in)
+				else:
+					for iz in range(p_gh):
+						var row := iz * p_gw
+						var wz: float = min_z + float(iz) * dz
+						for ix in range(p_gw):
+							var idx := row + ix
+							var wx: float = min_x + float(ix) * dx
+							for p in range(vary_count):
+								cell_in[vary_ports[p]] = (vary_grids[p] as PackedFloat32Array)[idx]
+							g[idx] = node.eval_cell(wx, wz, cell_in)
 			grids[ni] = g
 
 		# The bake does not touch 2D node previews — the graph editor owns them (see the note above).

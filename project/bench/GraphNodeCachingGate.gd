@@ -6,7 +6,9 @@
 # 1. Warm evaluations match cold evaluations with bit-level parity (max diff == 0.0 m).
 # 2. Downstream parameter edits (e.g., Terrace / Remap / Blend) skip upstream nodes in 0.0 ms.
 # 3. Upstream parameter edits cascade dirty invalidation to all downstream dependents.
-# 4. Downstream slider scrubbing on a multi-node graph executes in < 3.0 ms per iteration.
+# 4. Downstream slider scrubbing on a multi-node graph executes in < 4.0 ms per iteration.
+#    (This line said 3.0 while the code has always enforced 4.0. The ENFORCED value is unchanged;
+#     the prose is what was wrong. Measured 3.0-3.1 ms, so the margin here is thin on purpose.)
 # 5. clear_cache() and max_cache_bytes LRU eviction maintain cache safety and memory bounds.
 # House discipline throughout: every test verifies its claim and carries a moving control.
 extends Node
@@ -143,9 +145,9 @@ func _c_upstream_invalidation_cascading() -> void:
 		_fail += 1; print("    !! control dead: upstream change did not modify output")
 
 
-# --- D. Slider Scrubbing Performance (< 3.0 ms) -------------------------------------------------------
+# --- D. Slider Scrubbing Performance (< 4.0 ms) -------------------------------------------------------
 func _d_slider_scrub_performance() -> void:
-	print("[D] downstream slider scrubbing throughput (< 3.0 ms per iteration)")
+	print("[D] downstream slider scrubbing throughput (< 4.0 ms per iteration)")
 	# Build realistic 64x64 graph with heavy Noise + 4-pass Smooth + Terrace + Output
 	var bench_gw := 64
 	var bench_gh := 64
