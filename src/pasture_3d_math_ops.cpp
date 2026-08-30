@@ -189,3 +189,140 @@ PackedFloat32Array godot::mask_grid(const PackedFloat32Array &p_surface, int p_g
 
 	return out;
 }
+
+// --- Falloff (PASTURE3D_GRAPH_TRANSFORMS_METRICS_SPEC.md §4.2) ---------------------------------------
+//
+// Mirrors Pasture3DGraphNodeFalloff.attenuation / eval_cell. Distances are WORLD METRES taken from the
+// cell centre via the same mapping as Pasture3DTerrainGraph.cell_to_world (dx divides by gw, sample at
+// +0.5), so the falloff reads identically at any bake resolution and under any modifier margin.
+PackedFloat32Array godot::falloff_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_noise,
+		int p_gw, int p_gh, const Rect2 &p_rect, int p_shape, double p_centre_x, double p_centre_z,
+		double p_radius, double p_feather, double p_strength, bool p_invert, double p_distance_noise) {
+	const int n = p_gw * p_gh;
+	PackedFloat32Array result;
+	result.resize(n);
+	if (p_surface.size() != n || n <= 0) {
+		return result;
+	}
+
+	const float *src = p_surface.ptr();
+	const float *nz = (p_noise.size() == n) ? p_noise.ptr() : nullptr;
+	float *dst = result.ptrw();
+
+	const double dx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
+	const double dz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+	const double ox = (double)p_rect.position.x;
+	const double oz = (double)p_rect.position.y;
+	const double strength = std::clamp(p_strength, 0.0, 1.0);
+
+	Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+		for (int iz = z0; iz < z1; iz++) {
+			const int row = iz * p_gw;
+			const double wz = oz + ((double)iz + 0.5) * dz;
+			for (int ix = 0; ix < p_gw; ix++) {
+				const int i = row + ix;
+				const double v = (double)src[i];
+				if (!std::isfinite(v)) {
+					dst[i] = src[i]; // NaN is the loop mask; it survives untouched.
+					continue;
+				}
+
+				const double wx = ox + ((double)ix + 0.5) * dx;
+				const double ddx = wx - p_centre_x;
+				const double ddz = wz - p_centre_z;
+
+				double d = 0.0;
+				switch (p_shape) {
+					case GRAPH_FALLOFF_SQUARE: d = std::max(std::abs(ddx), std::abs(ddz)); break;
+					case GRAPH_FALLOFF_AXIS_X: d = std::abs(ddx); break;
+					case GRAPH_FALLOFF_AXIS_Z: d = std::abs(ddz); break;
+					case GRAPH_FALLOFF_RADIAL:
+					default: d = std::sqrt(ddx * ddx + ddz * ddz); break;
+				}
+				if (nz != nullptr && std::isfinite(nz[i])) {
+					d += p_distance_noise * (double)nz[i];
+				}
+
+				// A zero feather is a hard edge, not a divide by zero.
+				double t;
+				if (p_feather <= 0.0) {
+					t = (d <= p_radius) ? 0.0 : 1.0;
+				} else {
+					const double u = std::clamp((d - p_radius) / p_feather, 0.0, 1.0);
+					t = u * u * (3.0 - 2.0 * u);
+				}
+
+				double a = 1.0 - t;
+				if (p_invert) {
+					a = 1.0 - a;
+				}
+
+				dst[i] = (float)(v * (1.0 + (a - 1.0) * strength));
+			}
+		}
+	});
+
+	return result;
+}
+
+// --- Contrast (PASTURE3D_GRAPH_TRANSFORMS_METRICS_SPEC.md §4.3) --------------------------------------
+//
+// Mirrors Pasture3DGraphNodeContrast.eval_cell. Heights OUTSIDE the window pass through untouched rather
+// than being clamped into it — clamping would flatten every peak above the window into a plateau.
+PackedFloat32Array godot::contrast_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
+		int p_mode, double p_amount, double p_range_min, double p_range_max, double p_mask_amount) {
+	const int n = p_surface.size();
+	PackedFloat32Array result;
+	result.resize(n);
+	if (n <= 0) {
+		return result;
+	}
+
+	const float *src = p_surface.ptr();
+	const float *msk = (p_mask.size() == n) ? p_mask.ptr() : nullptr;
+	float *dst = result.ptrw();
+
+	const double span = p_range_max - p_range_min;
+	if (span <= 0.0) {
+		// A degenerate window has no defined normalisation; pass through rather than invent one.
+		std::copy(src, src + n, dst);
+		return result;
+	}
+
+	const double amount = std::max(p_amount, 0.001);
+	const double mask_amount = std::clamp(p_mask_amount, 0.0, 1.0);
+
+	Pasture3DThreadPool::parallel_for_elements(n, 1024, [&](int i0, int i1) {
+		for (int i = i0; i < i1; i++) {
+			const double v = (double)src[i];
+			if (!std::isfinite(v)) {
+				dst[i] = src[i];
+				continue;
+			}
+			if (v <= p_range_min || v >= p_range_max) {
+				dst[i] = src[i];
+				continue;
+			}
+
+			const double t = (v - p_range_min) / span;
+			double c;
+			if (p_mode == GRAPH_CONTRAST_GAMMA) {
+				c = std::pow(t, amount);
+			} else if (t < 0.5) {
+				c = 0.5 * std::pow(2.0 * t, amount);
+			} else {
+				c = 1.0 - 0.5 * std::pow(2.0 - 2.0 * t, amount);
+			}
+
+			const double shaped = p_range_min + c * span;
+			double w = mask_amount;
+			if (msk != nullptr && std::isfinite(msk[i])) {
+				w *= (double)msk[i];
+			}
+			w = std::clamp(w, 0.0, 1.0);
+			dst[i] = (float)(v + (shaped - v) * w);
+		}
+	});
+
+	return result;
+}

@@ -1130,6 +1130,34 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				op_id = 23; p0 = float(_i.call(&"mode", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 100.0); pd = _f.call(&"falloff_lo", 10.0); pe = _f.call(&"falloff_hi", 10.0); pf = 1.0 if bool(node.get("invert")) else 0.0
 			&"curvature":
 				op_id = 24; p0 = float(_i.call(&"feature", 0)); pb = _f.call(&"strength", 1.0); pc = _f.call(&"contrast", 1.0)
+			&"falloff":
+				op_id = 44
+				var fc: Vector2 = node.get("centre") if node.get("centre") != null else Vector2.ZERO
+				p0 = float(_i.call(&"shape", 0)); pb = fc.x; pc = fc.y
+				pd = _f.call(&"radius", 500.0); pe = _f.call(&"feather", 200.0)
+				pf = _f.call(&"strength", 1.0)
+				pg = 1.0 if bool(node.get("invert")) else 0.0
+				ph = _f.call(&"distance_noise", 0.0)
+			&"contrast":
+				op_id = 45; p0 = float(_i.call(&"mode", 0)); pb = _f.call(&"amount", 1.0); pc = _f.call(&"range_min", 0.0); pd = _f.call(&"range_max", 100.0); pe = _f.call(&"mask_amount", 1.0)
+			&"transform":
+				op_id = 46
+				var toff: Vector2 = node.get("offset") if node.get("offset") != null else Vector2.ZERO
+				var tpiv: Vector2 = node.get("pivot") if node.get("pivot") != null else Vector2.ZERO
+				p0 = toff.x; pb = toff.y
+				pc = _f.call(&"rotation_deg", 0.0); pd = _f.call(&"scale", 1.0)
+				pe = tpiv.x; pf = tpiv.y
+				pg = float(_i.call(&"edge_mode", 0)); ph = _f.call(&"amount", 1.0)
+			&"distance_transform":
+				op_id = 47
+				p0 = _f.call(&"threshold", 0.5); pb = float(_i.call(&"direction", 0))
+				pc = float(_i.call(&"metric", 0)); pd = float(_i.call(&"output_units", 0))
+				pe = _f.call(&"max_distance", 0.0)
+			&"expand_shrink":
+				op_id = 48
+				p0 = float(_i.call(&"mode", 0)); pb = _f.call(&"radius", 5.0)
+				pc = float(_i.call(&"kernel", 0)); pd = float(_i.call(&"iterations", 1))
+				pe = _f.call(&"amount", 1.0)
 			&"talus_projection":
 				op_id = 25; p0 = _f.call(&"talus_angle_deg", 35.0); pb = float(_i.call(&"iterations", 16)); pc = _f.call(&"transfer_rate", 0.5); pd = _f.call(&"amount", 1.0)
 			&"spectral_equalizer":
@@ -1355,7 +1383,12 @@ func native_supported(p_root_node: int = -1) -> bool:
 		&"hydraulic_particle", &"hydraulic_stream_log", &"hydraulic_saleve",
 		&"mountain_cone", &"mountain_inselberg",
 		&"mountain_range_radial", &"mountain_tibesti", &"mountain_stump",
-		&"shattered_peak", &"caldera"
+		&"shattered_peak", &"caldera",
+		# Spec phases 1-2. These MUST be listed here. This allow-list is what decides whether the whole
+		# graph goes to the native evaluator, and an op missing from it does not fail loudly — it
+		# silently drops the ENTIRE graph onto the GDScript path, where a pointwise node like Falloff
+		# runs per cell in script. Any new op with a case in pasture_3d_graph_ops.cpp belongs here.
+		&"falloff", &"contrast", &"transform", &"distance_transform", &"expand_shrink"
 	]
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):

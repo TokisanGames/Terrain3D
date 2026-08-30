@@ -1,4 +1,7 @@
 #include "pasture_3d_graph_ops.h"
+#include "pasture_3d_distance_transform.h"
+#include "pasture_3d_morphology.h"
+#include "pasture_3d_transform.h"
 #include "pasture_3d_thread_pool.h"
 #include "pasture_3d_crater.h"
 #include "pasture_3d_curvature.h"
@@ -506,6 +509,53 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			case GRAPH_OP_REMAP: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array res = remap_grid(in_arr, params[s], params_b[s], params_c[s], params_d[s], params_e[s] > 0.5f, params_f[s], params_g[s] > 0.5f);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			case GRAPH_OP_FALLOFF: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				// in1 is the optional distance-perturbation grid; an unwired port passes an empty array,
+				// which falloff_grid reads as "no perturbation" rather than as zeros.
+				PackedFloat32Array nz_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
+				PackedFloat32Array res = falloff_grid(in_arr, nz_arr, p_gw, p_gh, p_rect, (int)params[s],
+						params_b[s], params_c[s], params_d[s], params_e[s], params_f[s],
+						params_g[s] > 0.5f, params_h[s]);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			case GRAPH_OP_CONTRAST: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
+				PackedFloat32Array res = contrast_grid(in_arr, msk_arr, (int)params[s], params_b[s],
+						params_c[s], params_d[s], params_e[s]);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			case GRAPH_OP_TRANSFORM: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				PackedFloat32Array res = transform_solve(in_arr, p_gw, p_gh, p_rect,
+						Vector2((float)params[s], (float)params_b[s]), params_c[s], params_d[s],
+						Vector2((float)params_e[s], (float)params_f[s]), (int)params_g[s], params_h[s]);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			case GRAPH_OP_DISTANCE_TRANSFORM: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				// The divisor is discarded on this path. The node computes it again on the GDScript side
+				// so it can be stored and shown; recomputing is cheap next to the JFA itself, and the
+				// alternative is threading an out-parameter through the whole program struct.
+				double divisor = 1.0;
+				PackedFloat32Array res = distance_transform_solve(in_arr, p_gw, p_gh, p_rect,
+						params[s], (int)params_b[s], (int)params_c[s], (int)params_d[s], params_e[s],
+						&divisor);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			case GRAPH_OP_EXPAND_SHRINK: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
+				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
+				PackedFloat32Array res = expand_shrink_solve(in_arr, msk_arr, p_gw, p_gh, p_rect,
+						(int)params[s], params_b[s], (int)params_c[s], (int)params_d[s], params_e[s]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 

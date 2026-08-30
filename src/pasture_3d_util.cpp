@@ -33,6 +33,9 @@
 #include "pasture_3d_strata.h"
 #include "pasture_3d_stream_extraction.h"
 #include "pasture_3d_thread_pool.h"
+#include "pasture_3d_distance_transform.h"
+#include "pasture_3d_morphology.h"
+#include "pasture_3d_transform.h"
 #include "pasture_3d_util.h"
 #include "pasture_3d_warp.h"
 
@@ -1486,6 +1489,33 @@ Dictionary Pasture3DUtil::erosion_thermal_solve_grid(const PackedFloat32Array &p
 	return res.to_dict();
 }
 
+PackedFloat32Array Pasture3DUtil::transform_grid(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const Vector2 &p_offset, const double p_rotation_deg,
+		const double p_scale, const Vector2 &p_pivot, const int p_edge_mode, const double p_amount) {
+	return godot::transform_solve(p_surface, p_gw, p_gh, p_rect, p_offset, p_rotation_deg, p_scale,
+			p_pivot, p_edge_mode, p_amount);
+}
+
+Dictionary Pasture3DUtil::distance_transform_grid(const PackedFloat32Array &p_mask, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const double p_threshold, const int p_direction,
+		const int p_metric, const int p_units, const double p_max_distance) {
+	double divisor = 1.0;
+	PackedFloat32Array grid = godot::distance_transform_solve(p_mask, p_gw, p_gh, p_rect, p_threshold,
+			p_direction, p_metric, p_units, p_max_distance, &divisor);
+	Dictionary out;
+	out["grid"] = grid;
+	out["divisor"] = divisor;
+	return out;
+}
+
+PackedFloat32Array Pasture3DUtil::expand_shrink_grid(const PackedFloat32Array &p_surface,
+		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const int p_mode, const double p_radius_m, const int p_kernel, const int p_iterations,
+		const double p_amount) {
+	return godot::expand_shrink_solve(p_surface, p_mask, p_gw, p_gh, p_rect, p_mode, p_radius_m,
+			p_kernel, p_iterations, p_amount);
+}
+
 PackedFloat32Array Pasture3DUtil::talus_projection_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
 		const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
 		const int p_iterations, const double p_transfer_rate, const double p_amount) {
@@ -1920,6 +1950,15 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("erosion_thermal_solve_grid", "surface", "hardness", "gw", "gh", "rect", "talus_angle_deg", "iterations", "settling_rate"),
 			&Pasture3DUtil::erosion_thermal_solve_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("transform_grid", "surface", "gw", "gh", "rect", "offset", "rotation_deg", "scale", "pivot", "edge_mode", "amount"),
+			&Pasture3DUtil::transform_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("distance_transform_grid", "mask", "gw", "gh", "rect", "threshold", "direction", "metric", "units", "max_distance"),
+			&Pasture3DUtil::distance_transform_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("expand_shrink_grid", "surface", "mask", "gw", "gh", "rect", "mode", "radius_m", "kernel", "iterations", "amount"),
+			&Pasture3DUtil::expand_shrink_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("talus_projection_grid", "surface", "mask", "gw", "gh", "rect", "talus_angle_deg", "iterations", "transfer_rate", "amount"),
 			&Pasture3DUtil::talus_projection_grid);

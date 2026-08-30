@@ -1,0 +1,810 @@
+# Pasture3D Terrain Graph — Transforms, Metrics & Morphology Nodes Spec
+
+**Status:** Phases 1-2 built and gated (2026-08-29); Phases 3-5 proposed.
+
+> **Phase 1** (Transform, Falloff, Contrast) — opcodes 44/45/46, GPU shader modes 4/5.
+> Gates: `GraphTransformGate`, `GraphDomainRangeGate`.
+>
+> **Phase 2** (DistanceTransform, ExpandShrink) — opcodes 47/48, GPU shader modes 6-11.
+> Gates: `GraphDistanceTransformGate`, `GraphMorphologyGate`.
+>
+> The GPU criteria report NO-SIGNAL under `--headless` because there is no RenderingDevice; **run these
+> four gates windowed** or they pass without having tested the GPU at all.
+>
+> Two decisions in §5 changed during the build and this document has been amended to match: the
+> morphology kernel uses a monotonic deque rather than van Herk-Gil-Werman (NaN must be skipped, not
+> folded in as an identity), and the GPU declines DistanceTransform in NORMALISED mode with no explicit
+> Max Distance, because that divisor is a whole-field reduction.
+
+## 1. Why this batch
+
+The graph currently has strong generators (Noise/Jordan/Swiss, five Mountain primitives, Caldera, Crater,
+Dunes, Furrows, Strata, ShatteredPeak, DLA, Scree) and strong solvers (Erosion ×3, Hydraulic ×3,
+LakeFlooding, StreamExtraction). What it does not have is the layer that makes those composable:
+
+* **No domain control.** Every generator is nailed to the world origin at world orientation. `Warp` is the
+  only coordinate manipulator and it can only warp *its own* noise, never an upstream subgraph.
+* **No distance.** Nothing answers "how far is this cell from the water / from the ridge / from the edge".
+  That single missing field is why shorelines, falloffs and mask feathering are currently hand-built out of
+  Mask + Blend chains.
+* **No mask hygiene.** Masks come out of `Mask` and `Curvature` speckled, and there is no dilate/erode/
+  open/close to clean or grow them.
+* **Thin analytic metrics.** `Mask` covers slope / altitude / curvature. Height-above-local-basin, the
+  single most useful gating field for snow, vegetation and rock, is absent.
+
+Thirteen nodes, five phases. Each phase is independently shippable and leaves the graph in a working state.
+
+---
+
+## 2. Licensing posture (unchanged, and it constrains this document)
+
+Hesiod is GPLv3 and HighMap is GPLv3. **No code is copied.** This spec cites Hesiod/HighMap only for
+*parameter surface and naming*, so a user who knows Hesiod finds the same knobs. Every algorithm below is
+specified from its published primary source or from standard image-processing mathematics, and is to be
+implemented clean-room in Pasture3D's MIT tree:
+
+| Node | Algorithm provenance (implement from this, not from HighMap) |
+|---|---|
+| DistanceTransform | Jump flooding (Rong & Tan 2006) on both paths; Meijster, Roerdink & Hesselink (2000) exact transform in the gate only — see §3.7 |
+| ExpandShrink / Morphology | Standard grayscale morphology (van Herk–Gil–Werman separable min/max) |
+| RelativeElevation | Standard local min/max normalisation over a disc kernel |
+| SmoothFill | Polynomial smooth-min/smooth-max (Quílez), applied against a box-blurred reference |
+| RecastCliff | Sigmoid gain applied to a slope-gated height offset |
+| Gavoronoise | Gradient-aware Voronoi (the "gavoronoise" shadertoy lineage), rederived |
+| Mudslide | Depth-driven viscous mass-transport relaxation, standard diffusion form |
+| everything else | Elementary maths, no provenance question |
+
+If any implementer finds themselves reading a HighMap `.cpp` to get an implementation working, **stop** —
+that is the boundary. Reading a `.hpp` for parameter names is fine and is what was done to write this doc.
+
+---
+
+## 3. Cross-cutting architecture
+
+### 3.1 The coordinate-frame finding (read before Phase 1)
+
+`Pasture3DGraphNode.eval_cell(wx, wz, inputs)` receives its inputs **already evaluated at `(wx, wz)`**. A
+node therefore cannot ask its upstream for a value at a *different* coordinate. `Warp` sidesteps this by
+never warping its input at all — it warps only its own internal `FastNoiseLite` sample and adds the result
+to a pass-through input (`pasture3d_graph_node_warp.gd:103-128`).
+
+This means **`Transform` cannot be a cell node.** Two designs exist:
+
+* **(A) Grid resample — specced here.** `needs_grid() = true`. Bilinear-sample the already-evaluated input
+  grid at inverse-transformed positions. Works against *any* upstream including solver output. Costs one
+  grid materialisation and is band-limited by the input grid, so heavy zoom-in blurs.
+* **(B) Coordinate-frame push-down — deferred.** The evaluator carries a per-node 2×3 affine and cell nodes
+  are invoked at the transformed coordinate, letting the whole upstream cell fold re-evaluate analytically.
+  Exact and fusible, but it is an evaluator change touching the fold, the GPU program emitter and the
+  freeze/cache key.
+
+Ship (A) in Phase 1. Revisit (B) only if zoom quality becomes a real complaint; if it does, it is its own
+spec, and (A)'s node keeps its op tag and parameters so graphs do not break.
+
+### 3.2 Per-node deliverables
+
+Every node in this spec ships **all six** of the following (item 6 applies only where §3.7 requires a
+shader). A node missing one of them is not done.
+
+1. **Production GDScript node** — `project/addons/pasture_3d/graph/pasture3d_graph_node_<op>.gd`, following
+   the `talus_projection` template exactly: `op()`, `role()`, `needs_grid()`, `input_count()`,
+   `input_names()`, `input_port_types()`, `input_unwired_default()`, `eval_cell` or `eval_grid`,
+   `node_warnings()`. Every `@export` setter calls `emit_changed()`.
+2. **Native implementation** — `src/pasture_3d_<op>.cpp/.h`, bound as a `Pasture3DUtil` static method,
+   guarded on the GDScript side by `ClassDB.class_has_method(...)` with the standard
+   `"is not bound. Rebuild GDExtension."` error, and a pass-through fallback.
+3. **`[Dev/GD]` oracle twin** — `pasture3d_graph_node_dev_<op>.gd`, `op()` returns `&"dev_<op>"`,
+   `display_name()` returns `"[Dev/GD] <Title>"`, pure GDScript, registered in `_dev_entries()`.
+   *Exception:* nodes marked **no-oracle** below are pure closed-form arithmetic where the native path and a
+   GDScript path would be the same three lines; those ship without a twin, and this is stated per node.
+4. **Registry entry** — `pasture3d_graph_node_registry.gd`: `const <X>Script = preload(...)` plus an
+   `entries()` dictionary with `op` / `title` / `category` / `role` / `script` / `tags` / `description`.
+5. **Bench gate** — `project/bench/<Name>Gate.gd` + `.tscn`, run headless. Per the project's gate
+   practices: **every criterion needs a control that fails**, and the gate must distinguish "measured
+   nothing" from "measured well". Parity criteria hold the native path to the oracle at the standard
+   A/B tolerance (≤ 2 × 10⁻⁶ m).
+6. **GPU compute path**, for the nodes §3.7 marks as requiring one — a `src/shaders/graph_*.glsl` compute
+   shader plus a `<op>_solve_best` router gated on `graph_gpu_threshold`, called from *both* the
+   `Pasture3DUtil` binding and `src/pasture_3d_graph_ops.cpp`. Fusible cell nodes need no shader; they
+   inherit the GPU through `graph_eval_grid_best` and must simply stay fusible.
+
+### 3.3 Port-type notes
+
+No new `PortType` values are required. Two conventions to hold:
+
+* Nodes that emit a normalised field (`DistanceTransform` normalised mode, `RelativeElevation`,
+  `WaterMask`) declare `PortType.MASK` on output port 0, so the editor colours the slot amber and the
+  unwired-input default is the mask default rather than 0.
+* `DistanceTransform` in **metres** mode outputs `PortType.HEIGHT`, because its units are metres and a
+  downstream Remap should read it as such. The mode switch changes the declared output type; the editor
+  already re-colours slots on `emit_changed()`.
+
+Multi-output nodes keep the established rule: **editor slots are contiguous from row 0, so port index ==
+channel index.** Do not introduce a node whose channel 1 sits on row 2.
+
+### 3.4 Grid-node margin and NaN discipline
+
+Every grid node added here reads neighbours and therefore has a support radius. Two existing rules apply
+and must be honoured, not re-invented:
+
+* **Margins are applied once at the stack boundary** (`modifier_margin`). No node in this spec knows
+  margins exist. Do not add a per-node margin parameter.
+* **NaN is the brush-loop mask.** A NaN input cell propagates to a NaN output cell. Neighbour reads that
+  land on NaN are *excluded from the reduction*, not treated as zero — treating them as zero pulls a
+  visible dark seam along every loop rim. `Pasture3DGraphOps` should grow a shared
+  `neighbour_reduce_skip_nan` helper rather than each node open-coding it.
+
+### 3.5 Units
+
+Every spatial parameter in this spec is in **world metres**, converted to a cell radius internally from
+`p_rect` and `gw`/`gh`. No parameter is in grid cells. This is not stylistic: a grid-fraction radius
+silently rescales with resolution and with the modifier margin, which is exactly the defect that had to be
+fixed in the Salève node. Each grid node's gate carries a criterion that fails a grid-fraction
+implementation.
+
+### 3.6 Hesiod normalised space → Pasture3D world space
+
+**This is the single highest-risk part of every port in this document. Read it before writing any node.**
+
+Hesiod and HighMap operate on a **doubly normalised** space: array values sit in roughly `[0, 1]`, and the
+domain is the unit square `bbox = {0, 1, 0, 1}` sampled at `shape` cells. Pasture3D operates in **metres on
+both axes**, over an arbitrary world `p_rect` at an arbitrary `gw`/`gh`. Almost every HighMap parameter is
+therefore in units that do not exist in this codebase, and several of them *look* dimensionless while not
+being so.
+
+#### The trap, stated concretely
+
+Hesiod's thermal node computes its slope threshold like this:
+
+```cpp
+// Hesiod-main/Hesiod/src/model/nodes/nodes_function/thermal.cpp:102
+const float talus = talus_global / float(p_out->shape.x);
+```
+
+The user-facing `talus_global` is divided by the grid width. That is correct *there*: HighMap's solver
+consumes "elevation delta per cell step", and in a unit domain one cell step is `1/shape.x`, so dividing by
+`shape.x` converts a rise-over-run slope into a per-cell delta. It works only because Hesiod's vertical
+unit and horizontal unit are the same normalised `[0,1]`.
+
+Port that line literally and the threshold becomes a function of grid resolution and of the modifier
+margin — the same class of defect that had to be fixed in the Salève node. **A division by `shape.x`,
+`shape.y`, `gw` or `gh` appearing anywhere in a ported routine is a defect until proven otherwise.**
+
+#### The conversion table
+
+| HighMap / Hesiod quantity | Its actual unit | Pasture3D parameter | Conversion |
+|---|---|---|---|
+| array value `z` | normalised, ~`[0,1]` | metres | multiply by the intended height range; never assume `[0,1]` |
+| `bbox` | unit square | `p_rect` | `cell_x = rect.size.x / (gw - 1)`, `cell_y = rect.size.y / (gh - 1)` |
+| `kw` (wavenumber) | cycles per unit domain | `frequency` | `frequency = kw / domain_size_m` (cycles per metre, what `FastNoiseLite` wants) |
+| `ir` (filter radius) | **grid cells** (HighMap docs say "in pixels") | `radius` in metres | `ir = round(radius_m / cell_x)`, clamped ≥ 1 |
+| `talus_global` | normalised rise per unit run | `talus_angle_deg` | user gives degrees; internal threshold per neighbour step = `tan(deg) * step_distance_m` |
+| `talus` (solver-internal) | normalised Δz per cell | Δz in metres per cell | `tan(deg) * step_distance_m`, where the step distance differs for orthogonal vs diagonal neighbours |
+| `k` (smooth-min sharpness) | normalised height | metres | scales with the height range, not with the grid |
+| `amplitude`, `depth`, `z_cut_*` | normalised height | metres | direct, once a height range is chosen |
+| `gain`, `gamma`, exponents | dimensionless | dimensionless | unchanged — these are the only genuinely safe direct ports |
+
+#### The two rules
+
+1. **Slopes are angles at the interface, and metric deltas internally.** Every node here that thresholds on
+   steepness exposes `*_angle_deg` to the user, never a raw slope scalar. Internally it uses
+   `tan(angle)` against the **metric** distance to each neighbour — `cell_x` for a horizontal step,
+   `cell_y` for a vertical one, `sqrt(cell_x² + cell_y²)` for a diagonal. Diagonals are not the same
+   distance as orthogonals and must not share a threshold.
+
+2. **Heights are metres, so nothing may assume a `[0,1]` range.** Any HighMap routine containing `pow()`,
+   `log()`, `sqrt()` or a hardcoded constant against a raw array value is assuming normalisation. Each one
+   needs either an explicit height window (as `Contrast` §4.3 does) or a scale-invariant reformulation.
+   Negative heights are legal in Pasture3D and are what turn a naive `pow()` into NaN.
+
+#### The reference implementation already in the tree
+
+`godot::talus_projection_solve` in `src/pasture_3d_erosion_thermal.cpp:149-180` already does this correctly
+and is the model to copy:
+
+```cpp
+const double dx = (double)p_rect.size.x / std::max((double)(p_gw - 1), 1.0);
+const double dz = (double)p_rect.size.y / std::max((double)(p_gh - 1), 1.0);
+const double diag_d  = std::sqrt(dx * dx + dz * dz);
+const double tan_talus = std::tan(deg_to_rad(p_talus_angle_deg));
+// ...per-neighbour offsets each carry their own metric distance
+```
+
+Degrees at the interface, `tan()` internally, metric distances from `p_rect`, per-offset step distances,
+no division by `gw`. New nodes match this or they are wrong.
+
+#### Which nodes in this spec are exposed
+
+| Node | Exposed quantity | Risk |
+|---|---|---|
+| RecastCliff §6.3 | `talus_angle_deg`, `radius`, `amplitude` | **high** — slope threshold + height offset + cell radius, all three trap classes at once |
+| Mudslide §8.3 | `talus_angle_deg`, `depth`, `viscosity_power` | **high** — slope threshold plus a normalised-depth exponent |
+| ExpandShrink §5.2 | `radius` | medium — pure `ir` conversion |
+| SmoothFill §6.2 | `radius`, `k` | medium — `k` is a height quantity and scales with the terrain's amplitude |
+| RelativeElevation §6.1 | `radius` | medium — pure `ir` conversion |
+| WarpDownslope §7.1 | `displacement`, `radius` | medium — both metric |
+| Gavoronoise §7.2 | `frequency`, `amplitude`, `z_cut_*` | medium — `kw` → cycles/metre, and the `z_cut` window is normalised-height |
+| DistanceTransform §5.1 | output units | medium — covered by §5.1's own NORMALISED caveat |
+| Contrast §4.3 | height window | covered explicitly in §4.3 |
+| Transform, Falloff, FloodingUniformLevel, WaterMask | metric by construction | low |
+
+#### Gate obligation
+
+Every node in the table above with medium or high risk carries a **resolution-invariance criterion** in its
+gate: run the identical world fixture at two grid resolutions (129² and 257² over the same `p_rect`) and
+assert the results agree within one cell size. A grid-fraction implementation fails it; a metric one passes.
+Where a node's gate below already lists such a criterion (DB, EC, RC, WC, WMB) that is this obligation being
+discharged — the remaining nodes need one added. **This is the criterion that catches a bad normalisation
+port, and it is the only one that catches it cheaply**, because a wrongly-scaled parameter still produces a
+plausible-looking terrain at whatever resolution it was authored at.
+
+---
+
+### 3.7 GPU acceleration
+
+**Requirement: every operation Hesiod runs on the GPU must run on the GPU in Pasture3D.** This section
+records which those are, what Pasture3D already gives for free, and the one place where matching Hesiod's
+GPU algorithm conflicts with this project's parity rule.
+
+#### What each side already has
+
+Hesiod accelerates through OpenCL, in `hmap::gpu`. Pasture3D accelerates through `RenderingDevice` compute
+in `src/pasture_3d_graph_gpu.cpp` (1104 lines, a persistent local `RenderingDevice`, shaders in
+`src/shaders/graph_*.glsl`). Pasture3D's existing routers are `graph_eval_grid_best`,
+`erosion_hydraulic_solve_best`, and one per mountain primitive, each gated on
+`pasture_3d/performance/graph_gpu_threshold` (default 65536 cells = 256²), falling back to the CPU kernel
+below the threshold or on any GPU failure.
+
+**Correction to an earlier draft of this section: there is no "free" GPU path.** `Pasture3DGraphGPU::eval_grid`
+implements exactly six ops — `INPUT`, `NOISE`, `CONST`, `BLEND`, `SMOOTH`, `OUTPUT` — and its switch ends in
+`default: return fail()` (`src/pasture_3d_graph_gpu.cpp:310-370`). `NOISE` and `CONST` are evaluated
+host-side into buffers; only `BLEND` and `SMOOTH` are real dispatches, through a four-mode kernel
+(`COPY`, `BLEND`, `SMOOTH_H`, `SMOOTH_V`) in `GRAPH_GRID_GLSL`.
+
+Two consequences, and the second one is the one that matters:
+
+1. `needs_grid() = false` buys **nothing** on the GPU by itself. Even `Terrace`, op 4 and fusible, has no
+   GPU path today.
+2. **`fail()` drops the *whole graph* to the CPU, not just the unsupported node.** So shipping a node
+   without a GPU path does not leave it merely unaccelerated — it de-accelerates every graph that contains
+   it. Adding `Falloff` without shader support would make a Noise→Falloff→Smooth graph *slower than it is
+   today*.
+
+Therefore every node in this spec that can appear in a cell/grid program needs its op handled in
+`eval_grid`, either host-side (like `NOISE`) or as a new kernel mode. "Keep it fusible" is still the right
+instruction — gate criterion **FD** in §4.2 still enforces it — but fusibility is about the CPU fold and
+about *eligibility* for the GPU program, not a free ride on it.
+
+#### Per-node GPU obligation
+
+| Node | Hesiod GPU? | Pasture3D path | Obligation |
+|---|---|---|---|
+| Transform §4.1 | partial (`gpu::rotate`) | dedicated shader | **new** `graph_transform.glsl` + `transform_solve_best` |
+| Falloff §4.2 | no | **new kernel mode** | mode 4 in `GRAPH_GRID_GLSL` + host-side param upload; without it the whole graph falls back |
+| Contrast §4.3 | no (only `gamma_correction_local`) | **new kernel mode** | mode 5 in `GRAPH_GRID_GLSL` |
+| DistanceTransform §5.1 | **yes** — `gpu::distance_transform_jfa`, `gpu::signed_distance_transform` | dedicated shader | **new** `graph_distance_jfa.glsl` — see the algorithm conflict below |
+| ExpandShrink §5.2 | **yes** — `gpu::dilation`, `erosion`, `opening`, `closing`, `morphological_gradient`, `expand`, `shrink` | dedicated shader | **new** `graph_morphology.glsl` + `expand_shrink_solve_best` |
+| RelativeElevation §6.1 | **yes** — `gpu::relative_elevation`, `local_min`, `local_max` | dedicated shader | shares `graph_morphology.glsl` (it is the same min/max kernel) |
+| SmoothFill §6.2 | **yes** — `gpu::smooth_fill`, `smooth_fill_holes`, `smooth_fill_smear_peaks` | dedicated shader | **new** `graph_smooth_fill.glsl` + `smooth_fill_solve_best` |
+| RecastCliff §6.3 | no | dedicated shader | **new**, and worth doing anyway — gradient + blur + sigmoid is ideal GPU work |
+| WarpDownslope §7.1 | no (`gpu::warp` exists, not the downslope variant) | dedicated shader | **new**, shares the gradient pass with RecastCliff |
+| Gavoronoise §7.2 | **yes** — `gpu::gavoronoise` | host-side buffer | evaluate into a buffer host-side exactly as `GRAPH_OP_NOISE` does, or a generator kernel mode if profiling wants one |
+| FloodingUniformLevel §8.1 | no | **new kernel mode** | pointwise, cheapest possible mode |
+| WaterMask §8.2 | no | dedicated shader | reuses the distance-transform shader |
+| Mudslide §8.3 | **yes** — `gpu::mudslide` | dedicated shader | **new** `graph_solver_mudslide.glsl` + `mudslide_solve_best` |
+
+Six operations are GPU in Hesiod (DistanceTransform, ExpandShrink, RelativeElevation, SmoothFill,
+Gavoronoise, Mudslide). All six are GPU here. **Every other node in this spec also needs an `eval_grid`
+case**, not for parity with Hesiod but because of consequence 2 above — an unhandled op costs the whole
+graph its acceleration.
+
+#### The rule that makes GPU parity tractable
+
+Pasture3D holds every node to CPU↔GPU agreement. That is only achievable if the two paths are
+**numerically equivalent, not merely visually similar**, so the algorithm choice on each side is
+constrained:
+
+* **Prefer algorithm pairs that agree exactly.** ExpandShrink is the clean case: the CPU path uses the
+  sequential van Herk–Gil–Werman running min/max and the GPU path uses a tiled separable min/max. Different
+  algorithms, *identical* results, because both compute an exact min over the same window.
+* **Accumulate deltas, never update in place.** An iterative solver that writes into the height field as it
+  scans is order-dependent, and a GPU dispatch has no defined cell order — so the CPU and GPU results
+  diverge and no tolerance will save them. `godot::talus_projection_solve` already demonstrates the correct
+  shape: fill a `delta` buffer for every cell, then apply it in a second pass. **Mudslide (§8.3) must be
+  written this way from the start.** This is not an optimisation detail; it is the difference between a
+  solver that can be GPU-accelerated and one that cannot.
+* **Threshold and fall back like the existing routers.** Every `_best` router added here gates on
+  `graph_gpu_threshold` and falls back to the CPU kernel when the grid is small or the GPU path fails.
+  Per the acceleration guide §3.2.4, `src/pasture_3d_graph_ops.cpp` must call the **same** `_best` router
+  as the `Pasture3DUtil` binding — a node routed through the GPU from the Inspector but through the CPU
+  during a whole-graph bake is the exact defect that guide rule exists to prevent.
+
+#### The one real conflict: DistanceTransform
+
+This needs a decision, because "match Hesiod's GPU" and "hold CPU↔GPU parity" pull in opposite directions
+here.
+
+§5.1 specs the exact Meijster transform. Meijster is a **sequential lower-envelope scan** — a poor GPU fit.
+Hesiod's GPU path is therefore a *different algorithm*: `distance_transform_jfa`, jump flooding, which is
+**approximate**. Ship both as specced and the CPU and GPU paths disagree by more than the 2 × 10⁻⁶ m
+tolerance, on a field that feeds WaterMask and every shore effect downstream.
+
+**Resolution — use JFA on both paths.** The CPU kernel, the GPU shader and the `[Dev/GD]` oracle all
+implement jump flooding, so all three agree by construction and the standard parity tolerance holds
+unchanged. Exact Meijster is then implemented **once, in the gate only**, as the ground truth that bounds
+JFA's error:
+
+* Amend §5.1's algorithm provenance from "Meijster exact" to "jump flooding (Rong & Tan 2006), with
+  Meijster retained as the gate's reference".
+* Add gate criterion **DF**: JFA output is within one cell size of the exact Meijster result across the
+  whole field. *Control:* a JFA run truncated to too few passes must fail it. JFA+1 (one extra pass at
+  step 1) is the cheap accuracy improvement if DF is marginal.
+* Criterion **DA** (the single-seed exactness test) still holds — JFA is exact for a single seed; it is
+  multi-seed configurations where it can err.
+
+The alternative — exact on CPU, JFA on GPU, with a widened tolerance for this one node — is rejected. It
+makes a node's output depend on which path ran, and the GPU path is threshold-gated, so the same graph
+would produce different terrain at 256² than at 128². That is precisely the class of resolution-dependent
+behaviour §3.6 exists to eliminate.
+
+#### Gate obligation
+
+Every node above with a dedicated shader carries a **GPU parity criterion** in its gate, matching the
+existing `GraphGpuParityGate.gd` pattern: run the same fixture through the CPU kernel and through the GPU
+shader and assert agreement within 2 × 10⁻⁶ m. Force the GPU path by setting `graph_gpu_threshold` to 1
+rather than by growing the fixture, so the criterion is cheap enough to run every time. A gate that only
+ever exercises the CPU path because its fixture sits below the default 65536-cell threshold is measuring
+nothing — and per the project's gate practices, it must report NO-SIGNAL rather than PASS in that case.
+
+---
+
+## 4. Phase 1 — Domain & Range Foundations
+
+*Three nodes. No new algorithms; this phase is about making the existing library placeable and shapeable.
+Do it first because Phases 3–5 all want a Falloff in their test graphs.*
+
+### 4.1 `Transform` — `op = &"transform"`
+
+* **Class:** `Pasture3DGraphNodeTransform` · **Role:** FILTER · **needs_grid:** `true` (see §3.1)
+* **Replaces:** Hesiod `Translate` + `Rotate` + `Zoom`, deliberately fused into one node. Three nodes for
+  one affine is three grid resamples and three chances to blur.
+* **Ports:** `in` (HEIGHT), `offset` (VECTOR), `rotation` (FLOAT, degrees), `scale` (FLOAT), `amount` (MASK)
+* **Parameters:** `offset: Vector2 = (0,0)` metres · `rotation_deg: float = 0.0` ·
+  `scale: float = 1.0` (>0, uniform) · `pivot: Vector2 = (0,0)` world metres ·
+  `edge_mode: {CLAMP, ZERO, WRAP} = CLAMP` · `amount: float = 1.0`
+* **Maths:** build the forward affine `M = T(pivot) · R(rotation) · S(scale) · T(-pivot) · T(offset)`.
+  For each output cell at world `(wx, wz)`, sample the input grid at `M⁻¹ · (wx, wz)` with bilinear
+  interpolation. Out-of-grid reads follow `edge_mode`. Result is `lerp(input, resampled, amount)`.
+* **Native:** `Pasture3DUtil.transform_grid(in, gw, gh, rect, offset, rot_deg, scale, pivot, edge_mode, amount)`
+* **Oracle:** yes — bilinear plus inverse-affine is exactly where an off-by-half-a-texel creeps in.
+* **Gate — `GraphTransformGate.gd`:**
+  * **TA** identity: `offset=0, rot=0, scale=1` reproduces the input bit-for-bit. *Control:* `offset=(5,0)`
+    must fail it.
+  * **TB** round-trip: transform by `M` then by `M⁻¹` returns to the input within resample tolerance,
+    measured on the grid interior only (edges are `edge_mode` territory). *Control:* a single transform
+    must fail.
+  * **TC** rotation is about `pivot`, not about the grid origin — a feature at the pivot does not move.
+    *Control:* pivot at a corner must move it.
+  * **TD** NaN in ⇒ NaN out, and no finite cell is contaminated by a NaN neighbour through the bilinear tap.
+  * **TE** "measured nothing" guard: the fixture's height range must exceed 1 m, else the gate reports
+    NO-SIGNAL rather than PASS.
+
+### 4.2 `Falloff` — `op = &"falloff"`
+
+* **Class:** `Pasture3DGraphNodeFalloff` · **Role:** FILTER · **needs_grid:** `false` (cell node, fusible)
+* **Hesiod:** `Falloff` / `ZeroedEdges`
+* **Ports:** `in` (HEIGHT), `strength` (FLOAT), `radius` (FLOAT), `noise` (HEIGHT — perturbs the distance)
+* **Parameters:** `shape: {RADIAL, SQUARE, AXIS_X, AXIS_Z} = RADIAL` ·
+  `centre: Vector2 = (0,0)` world metres · `radius: float = 500.0` m · `feather: float = 200.0` m ·
+  `strength: float = 1.0` · `invert: bool = false` · `distance_noise: float = 0.0` m
+* **Maths:** per cell, `d = shape_distance(wx - cx, wz - cz) + distance_noise * noise_in`. Attenuation
+  `a = 1 - smoothstep(radius, radius + feather, d)`, inverted if `invert`, mixed by `strength`:
+  `out = in * lerp(1, a, strength)`. `RADIAL` uses Euclidean distance, `SQUARE` uses Chebyshev, the axis
+  modes use single-axis absolute distance. (This is Hesiod's `distance_function` enum, renamed to something
+  a level designer can read.)
+* **Native:** folds into the existing cell-node program emitter — a new opcode in
+  `pasture_3d_graph_ops.cpp`, not a standalone `.cpp`.
+* **Oracle:** **no-oracle** — closed-form arithmetic, covered by the fold parity gate.
+* **Gate — folded into `GraphDomainRangeGate.gd`:**
+  * **FA** `strength=0` is a pass-through. *Control:* `strength=1` must differ.
+  * **FB** at `d > radius + feather` the output is 0 (within 1e-6 m); at `d = 0` it equals the input.
+  * **FC** `invert` produces exactly `1 - a` attenuation. *Control:* comparing against `a` must fail.
+  * **FD** the node participates in the cell fold — assert it is fused, not grid-materialised, by checking
+    the compiled program's node count. This is the criterion that stops it silently regressing into a grid
+    node.
+
+### 4.3 `Contrast` — `op = &"contrast"`
+
+* **Class:** `Pasture3DGraphNodeContrast` · **Role:** FILTER · **needs_grid:** `false`
+* **Hesiod:** `Gain` + `GammaCorrection`, fused. Both are one-line pointwise curves on a normalised value;
+  two palette entries for that is clutter.
+* **Ports:** `in` (HEIGHT), `amount` (FLOAT), `mask` (MASK)
+* **Parameters:** `mode: {GAIN, GAMMA} = GAIN` · `amount: float = 1.0` (gain factor / gamma exponent,
+  1.0 = identity in both modes) · `range_min / range_max: float` — the height window mapped to [0,1]
+  before the curve and back after · `mask_amount: float = 1.0`
+* **Maths:** `t = clamp((in - range_min) / (range_max - range_min), 0, 1)`.
+  * GAIN (Schlick bias/gain): `t < 0.5 ? 0.5*pow(2t, k) : 1 - 0.5*pow(2-2t, k)` with `k = amount`.
+  * GAMMA: `pow(t, amount)`.
+
+  Then `out = lerp(in, range_min + t' * (range_max - range_min), mask * mask_amount)`.
+* **Why the explicit window:** Hesiod operates on `[0,1]` heightmaps. Pasture3D heights are **metres**, so
+  a bare `pow()` on a metre value is meaningless and negative heights produce NaN. The window is not
+  optional polish — it is what makes this node correct in this codebase. Emit a `node_warnings()` entry
+  when `range_max <= range_min`.
+* **Native:** cell-fold opcode. **no-oracle.**
+* **Gate:** **CA** `amount=1` is identity in both modes (control: `amount=2` differs); **CB** values outside
+  `[range_min, range_max]` pass through unchanged; **CC** no NaN is produced for negative input heights —
+  *this is the criterion that catches the naive `pow()` port.*
+
+---
+
+## 5. Phase 2 — Distance & Morphology
+
+*Two nodes, both grid. This is the phase that unlocks the most downstream, and DistanceTransform is a
+dependency of the Phase 5 water masks, so it lands before them.*
+
+### 5.1 `DistanceTransform` — `op = &"distance_transform"`
+
+* **Class:** `Pasture3DGraphNodeDistanceTransform` · **Role:** FILTER · **needs_grid:** `true`
+* **Hesiod:** `DistanceTransform`
+* **Ports:** `in` (MASK), `threshold` (FLOAT)
+* **Parameters:** `threshold: float = 0.5` — cells above this are "inside" ·
+  `direction: {OUTSIDE, INSIDE, SIGNED} = OUTSIDE` ·
+  `metric: {EUCLIDEAN, MANHATTAN, CHEBYSHEV} = EUCLIDEAN` ·
+  `output_units: {METRES, NORMALISED} = METRES` · `max_distance: float = 0.0` (0 = unbounded; otherwise
+  clamps, and is the divisor in NORMALISED mode)
+* **Maths:** jump flooding (§3.7). Seed each "inside" cell with its own coordinate, then run
+  `log2(max(gw, gh))` passes at halving step sizes, each cell adopting the nearest seed among its eight
+  step-offset neighbours; the distance is the metric distance to the adopted seed. Chosen over the exact
+  Meijster transform because it is the algorithm that parallelises, so the CPU kernel, the GPU shader and
+  the oracle can all run it and agree by construction. `SIGNED` computes both directions and returns
+  `d_out - d_in`. **Distances are in metres**, so each pass is scaled by the
+  cell size derived from `p_rect` and `gw`/`gh` — *not* in grid cells (§3.5).
+* **NORMALISED caveat, and it must be honoured:** if `max_distance = 0` in NORMALISED mode the divisor is
+  the field's own maximum, which makes the output **resolution- and content-dependent**. Per the project's
+  calibration rule, the node must expose the divisor it used — store it as a read-only
+  `last_normalisation_divisor` and surface it in `node_warnings()`. A normalised field whose divisor is only
+  printed is not an interface.
+* **Native:** `Pasture3DUtil.distance_transform_grid(mask, gw, gh, rect, threshold, direction, metric, units, max_distance)`
+* **Oracle:** yes — the parabola-envelope pass is the most error-prone routine in this spec.
+* **Gate — `GraphDistanceTransformGate.gd`:**
+  * **DA** a single interior seed cell yields a field whose value at offset `(i,j)` equals
+    `cell_size * sqrt(i² + j²)` within 1e-6 m. *Control:* a Manhattan implementation must fail this.
+  * **DB** metric independence: the same fixture at 129² and 257² over the same world rect yields the same
+    *metre* distances within one cell size. *Control:* a grid-cell implementation must fail. This criterion
+    exists specifically to catch the Salève bug class.
+  * **DC** SIGNED changes sign exactly at the threshold contour.
+  * **DD** native ↔ oracle parity ≤ 2e-6 m on a random mask.
+  * **DE** NO-SIGNAL guard: if the input mask is uniformly above or below threshold, report NO-SIGNAL — an
+    all-zero distance field is not a passing measurement.
+  * **DF** JFA accuracy: the output is within one cell size of an exact Meijster transform computed in the
+    gate as ground truth. *Control:* a JFA run truncated to too few passes must fail. Use JFA+1 (an extra
+    pass at step 1) if this criterion comes out marginal.
+  * **DG** GPU parity: CPU kernel vs compute shader. **Amended during the build in two ways.** The
+    tolerance is 1e-3 (`GraphGpuParityGate.TOL`), not 2e-6: the shader accumulates in float32, so a field
+    of hundreds of metres already carries ~1e-5 m of rounding, and holding it to the double-vs-double
+    budget would fail on arithmetic. And the route is proven by calling `graph_eval_grid_gpu` DIRECTLY —
+    it returns an empty array when it bails — rather than by forcing `graph_gpu_threshold`, which cannot
+    distinguish a GPU run from a second CPU run. The GPU deliberately DECLINES NORMALISED mode with
+    Max Distance 0, since that divisor is a whole-field reduction; DG asserts that bail.
+
+### 5.2 `ExpandShrink` — `op = &"expand_shrink"`
+
+* **Class:** `Pasture3DGraphNodeExpandShrink` · **Role:** FILTER · **needs_grid:** `true`
+* **Hesiod:** `ExpandShrink`, `Dilation`, `Erosion`, `Opening`, `Closing`, `MorphologicalGradient` — six
+  nodes fused into one with a mode enum, because they are the same separable min/max kernel.
+* **Ports:** `in` (HEIGHT or MASK — untyped pass-through), `radius` (FLOAT), `amount` (MASK)
+* **Parameters:** `mode: {EXPAND, SHRINK, OPEN, CLOSE, GRADIENT} = EXPAND` ·
+  `radius: float = 5.0` **metres** · `kernel: {DISC, SQUARE} = DISC` · `iterations: int = 1` ·
+  `amount: float = 1.0`
+* **Maths:** grayscale dilation (local max) and erosion (local min) over the kernel. `OPEN` = erode then
+  dilate, `CLOSE` = dilate then erode, `GRADIENT` = dilate − erode. Use the van Herk–Gil–Werman running
+  min/max for the `SQUARE` kernel (O(1) per cell regardless of radius); `DISC` uses the standard
+  decomposition into a small set of separable passes. NaN neighbours are skipped, never treated as ±∞.
+  **Amended during the build:** vHGW was replaced by a monotonic deque. vHGW's prefix/suffix block scan
+  assumes every sample participates, which is incompatible with skipping NaN — a NaN folded in as −∞
+  under a max is invisible, and as +∞ under a min it swallows the window. The deque only ever holds
+  indices of finite samples and is still O(1) amortised. The disc is defined ONCE, as the offsets inside
+  the unit ellipse in cell space, and all three implementations (CPU row decomposition, GPU 2D gather,
+  oracle offset walk) must reproduce exactly that set — a floor-vs-round slip in the per-row half-width
+  is invisible everywhere except criterion ED.
+* **Naming note:** the mode is called **SHRINK**, not "Erosion". The graph already has five nodes with
+  "Erosion" in the name and they are all geological simulations. A morphological erosion sharing that word
+  in the palette would be a genuine usability trap.
+* **Native:** `Pasture3DUtil.expand_shrink_grid(in, mask, gw, gh, rect, mode, radius_m, kernel, iterations, amount)`
+* **Oracle:** yes — a naive O(r²) GDScript reference is fine, and is exactly what the running-min/max
+  implementation needs checking against.
+* **Gate — `GraphMorphologyGate.gd`:** **EA** dilate then erode at the same radius is idempotent on a binary
+  mask with no features smaller than the radius (control: a mask with a 1-cell speckle must fail); **EB**
+  `OPEN` removes speckle smaller than the radius and leaves larger features untouched; **EC** radius is
+  metric — the same world radius at two grid resolutions grows the mask by the same world distance; **ED**
+  native ↔ oracle parity; **EE** `radius = 0` is a pass-through.
+
+---
+
+## 6. Phase 3 — Terrain Metrics & Structural Shaping
+
+*Three nodes. The payoff phase for how terrain reads. Depends on Phase 2's separable min/max kernel — build
+it once in `pasture_3d_graph_ops` and share it.*
+
+### 6.1 `RelativeElevation` — `op = &"relative_elevation"`
+
+* **Class:** `Pasture3DGraphNodeRelativeElevation` · **Role:** FILTER · **needs_grid:** `true`
+* **Hesiod:** `RelativeElevation`
+* **Ports:** `in` (HEIGHT), `radius` (FLOAT)
+* **Parameters:** `radius: float = 200.0` metres · `output_units: {NORMALISED, METRES} = NORMALISED`
+* **Maths:** over a disc of `radius`, compute local min `z_lo` and local max `z_hi` (reuse §5.2's kernel).
+  NORMALISED: `(z - z_lo) / max(z_hi - z_lo, ε)` → MASK output, 0 on the local basin floor and 1 on the
+  local crest. METRES: `z - z_lo` → HEIGHT output, i.e. height above the local basin floor.
+* **Why it earns its place:** this is the correct gating field for snow, treeline, exposed rock and cliff
+  vegetation. `Mask(ALTITUDE)` gates on *absolute* height, which is wrong the moment a graph has more than
+  one massif — every mountain gets its snowline at the same world Y. RelativeElevation gates each landform
+  against its own base.
+* **Native:** `Pasture3DUtil.relative_elevation_grid(in, gw, gh, rect, radius_m, units)`
+* **Oracle:** yes.
+* **Gate — `GraphTerrainMetricsGate.gd`:** **RA** on a single cone the output is ~1 at the apex and ~0 at the
+  base (control: a flat plane produces a uniform field and must be reported NO-SIGNAL, not PASS); **RB** two
+  cones of different absolute heights both reach ~1 at their apexes — *this is the criterion that
+  distinguishes it from `Mask(ALTITUDE)`, and `Mask` must fail it*; **RC** radius is metric across
+  resolutions; **RD** parity.
+
+### 6.2 `SmoothFill` — `op = &"smooth_fill"`
+
+* **Class:** `Pasture3DGraphNodeSmoothFill` · **Role:** FILTER · **needs_grid:** `true`
+* **Hesiod:** `SmoothFill`, `SmoothFillHoles`, `SmoothFillSmearPeaks` — fused via a mode enum.
+* **Ports:** `in` (HEIGHT), `radius` (FLOAT), `k` (FLOAT), `mask` (MASK)
+* **Parameters:** `mode: {FILL_VALLEYS, FILL_HOLES, SMEAR_PEAKS} = FILL_VALLEYS` ·
+  `radius: float = 50.0` metres · `k: float = 0.1` (smoothing sharpness, > 0) · `amount: float = 1.0`
+* **Outputs:** port 0 `height` (HEIGHT), port 1 `deposition` (MASK) — where and how much material was added.
+* **Maths:** let `zb` be the input box-blurred at `radius`. FILL_VALLEYS uses the polynomial smooth-max
+  `h = smax(z, zb, k)`, which raises concave ground toward the blurred reference while leaving convex
+  ridges alone. SMEAR_PEAKS uses `smin(z, zb, k)`, the mirror. FILL_HOLES restricts FILL_VALLEYS to cells
+  whose local curvature is concave in **both** principal directions, so it fills pits without filling
+  valleys. `deposition = h - z`, normalised by its own max — and per the calibration rule that divisor is
+  exposed on the node, not merely printed. Final `out = lerp(z, h, amount * mask)`.
+* **Why it earns its place:** highest visual payoff in the batch. Raw fBm reads as noise because its valleys
+  are as sharp as its ridges; real terrain has sediment in the low ground. SmoothFill is the cheap
+  non-simulated way to get that asymmetry, and it composes with the erosion solvers rather than competing
+  with them.
+* **Native:** `Pasture3DUtil.smooth_fill_grid(in, mask, gw, gh, rect, mode, radius_m, k, amount)` returning
+  the height grid, with the deposition channel returned via the established multi-output path.
+* **Oracle:** yes.
+* **Gate — `GraphSmoothFillGate.gd`:** **SA** ridge crests move by < 1% of their prominence while valley
+  floors rise measurably — *the asymmetry is the whole point, and a symmetric blur must fail this*; **SB**
+  total volume strictly increases in FILL_VALLEYS and strictly decreases in SMEAR_PEAKS; **SC** `k → 0`
+  converges to a hard `max(z, zb)`; **SD** the deposition channel is non-zero exactly where the height
+  changed; **SE** parity; **SF** resolution invariance (§3.6) for both `radius` and `k`.
+
+### 6.3 `RecastCliff` — `op = &"recast_cliff"`
+
+* **Class:** `Pasture3DGraphNodeRecastCliff` · **Role:** FILTER · **needs_grid:** `true`
+* **Hesiod:** `RecastCliff`, `RecastCliffDirectional`
+* **Ports:** `in` (HEIGHT), `talus` (FLOAT), `amplitude` (FLOAT), `mask` (MASK)
+* **Parameters:** `talus_angle_deg: float = 40.0` — slope above which a cliff forms ·
+  `radius: float = 20.0` metres (the reference-blur radius that sets cliff face width) ·
+  `amplitude: float = 10.0` metres (how far the face is pushed out) · `gain: float = 2.0` (sigmoid
+  sharpness) · `direction_deg: float = -1.0` (< 0 = omnidirectional; ≥ 0 = only faces whose gradient points
+  within `direction_spread_deg` of this bearing) · `direction_spread_deg: float = 60.0` ·
+  `amount: float = 1.0`
+* **Maths:** compute the gradient magnitude in metres/metre and gate it with a `smoothstep` around
+  `tan(talus_angle)`. In directional mode multiply the gate by the angular window. Take the local height
+  deviation `dz = z - blur(z, radius)`, push it through the sigmoid
+  `s = 1/(1 + exp(-gain * dz / amplitude))`, and add `amplitude * (s - 0.5) * gate * mask * amount`. Net
+  effect: ground that is already steep is pushed to a stepped, near-vertical face; ground below the talus
+  angle is untouched.
+* **Composition note:** this is the vertical-axis complement to `Terrace`/`Strata`, which quantise on the
+  height axis. RecastCliff quantises on the *slope* axis. Wired after `Strata` it gives banded cliffs; wired
+  after `SmoothFill` it gives cliff-above-scree.
+* **Native:** `Pasture3DUtil.recast_cliff_grid(in, mask, gw, gh, rect, talus_deg, radius_m, amplitude, gain, direction_deg, spread_deg, amount)`
+* **Oracle:** yes.
+* **Gate — `GraphRecastGate.gd`:** **KA** flat ground (slope 0) is untouched to 1e-6 m (control: setting
+  `talus_angle_deg = 0` must change it); **KB** a synthetic ramp steeper than the talus angle gains slope and
+  one below it does not; **KC** directional mode changes only faces within the angular window — a face
+  pointing the opposite way is bit-identical; **KD** `amplitude = 0` is a pass-through; **KE** parity; **KF** resolution invariance (§3.6) — the same world fixture at 129² and 257² produces the same cliff faces within one cell size. *Control:* a `talus / gw` implementation must fail.
+
+---
+
+## 7. Phase 4 — Motion & Synthesis
+
+*Two nodes. Both are "look" nodes with no downstream dependencies, so this phase can slip without blocking
+Phase 5.*
+
+### 7.1 `WarpDownslope` — `op = &"warp_downslope"`
+
+* **Class:** `Pasture3DGraphNodeWarpDownslope` · **Role:** FILTER · **needs_grid:** `true`
+* **Hesiod:** `WarpDownslope`
+* **Ports:** `in` (HEIGHT), `amount` (FLOAT), `mask` (MASK)
+* **Parameters:** `displacement: float = 20.0` metres · `radius: float = 20.0` metres (smoothing radius of
+  the gradient used for direction) · `reverse: bool = false` (warp upslope instead) · `amount: float = 1.0`
+* **Maths:** compute the gradient of the input smoothed at `radius`; the warp direction is the normalised
+  downslope vector `-∇z/|∇z|`, negated when `reverse`. Resample the input bilinearly at
+  `(wx, wz) + displacement * dir * amount * mask`. Cells with `|∇z|` below a small epsilon do not move.
+  Reuse Transform's bilinear resampler (§4.1).
+* **Why it earns its place:** noise-based `Warp` distorts terrain in directions unrelated to the terrain.
+  Warping *along the gradient* is what fluvial transport actually does to a surface, so it buys a
+  water-worked read for a fraction of an erosion solve — the useful middle rung between "no erosion" and
+  "freeze a solver". It also reuses the gradient code already written for `Mask` and `Curvature`.
+* **Native:** `Pasture3DUtil.warp_downslope_grid(in, mask, gw, gh, rect, displacement_m, radius_m, reverse, amount)`
+* **Oracle:** yes.
+* **Gate — `GraphWarpDownslopeGate.gd`:** **WA** a flat plane is unchanged (control: a tilted plane must
+  shift); **WB** on a single cone mass moves downhill — measure the radius containing 50% of the volume and
+  assert it grows, and that `reverse = true` shrinks it; **WC** displacement is metric across resolutions;
+  **WD** parity; **WE** NO-SIGNAL when the fixture's gradient is everywhere below epsilon.
+
+### 7.2 `Gavoronoise` — `op = &"gavoronoise"`
+
+* **Class:** `Pasture3DGraphNodeGavoronoise` · **Role:** GENERATOR · **needs_grid:** `false` (cell, fusible)
+* **Hesiod:** `Gavoronoise`
+* **Ports:** `amplitude` (FLOAT), `angle` (FLOAT — a per-cell angle field may be wired in), `frequency` (FLOAT)
+* **Parameters:** `frequency: float = 0.002` · `amplitude: float = 60.0` metres · `seed: int` ·
+  `angle_deg: float = 0.0` and `angle_spread: float = 1.0` (tectonic strike direction, and how far cells
+  deviate from it) · `octaves: int = 4` · `slope_strength: float = 1.0` · `branch_strength: float = 2.0` ·
+  `z_cut_min: float = 0.2` / `z_cut_max: float = 1.0`
+* **Maths:** a gradient-aware Voronoi. Per octave, evaluate a Voronoi/worley cell field, but instead of
+  taking the raw distance, accumulate the *directional derivative* of the cell field along a strike
+  direction and attenuate each subsequent octave by the accumulated slope — the same derivative-feedback
+  idea already implemented in `noise_jordan`, applied to a cellular rather than a gradient-noise base.
+  `branch_strength` scales the derivative feedback (higher = more dendritic branching); `z_cut_min/max`
+  window the output before amplitude scaling.
+* **Why it earns its place:** a genuine gap. `FastNoiseLite`'s cellular mode gives the distance field but
+  not the gradient feedback, and that feedback is what produces branching ridgelines that read as eroded
+  with no erosion pass. Best quality-per-millisecond generator in Hesiod's catalogue, and it is fusible.
+* **Implementation reuse:** share the derivative-accumulation scaffold with `pasture_3d_noise_jordan.cpp`
+  rather than duplicating it. If the two need to diverge, that is a refactor, not two copies.
+* **Native:** `src/pasture_3d_gavoronoise.cpp` plus a cell-fold opcode.
+* **Oracle:** yes — a fusible generator needs the fold-parity oracle, like Jordan and Swiss have.
+* **Gate — `GraphGavoronoiseGate.gd`:** **GA** determinism — the field is a pure function of the seed
+  (control: a different seed must differ); **GB** the field is dendritic, not a smooth blob and not white
+  noise. Reuse the DLA gate's two-scalar approach: *no single scalar separates a branching field from both
+  nulls*, so measure two, each against the null it exists to exclude (a ridge-connectivity measure against
+  the noise null, and a spectral-slope measure against the blob null); **GC** `angle_deg` visibly rotates the
+  dominant ridge orientation and `angle_spread = 0` makes ridges parallel; **GD** amplitude scales the field
+  linearly; **GE** fold parity against the oracle; **GF** resolution invariance (§3.6) — `frequency` is
+  cycles per metre, so the same world rect at two grid resolutions yields the same ridge spacing in metres.
+
+---
+
+## 8. Phase 5 — Water & Mass Wasting
+
+*Three nodes. Last, because `WaterMask`'s shore band wants Phase 2's `DistanceTransform`, and because the
+existing water system is the most integration-sensitive part of the plugin.*
+
+### 8.1 `FloodingUniformLevel` — `op = &"flooding_uniform_level"`
+
+* **Class:** `Pasture3DGraphNodeFloodingUniformLevel` · **Role:** FILTER · **needs_grid:** `false`
+* **Hesiod:** `FloodingUniformLevel`
+* **Ports:** `in` (HEIGHT), `level` (FLOAT)
+* **Outputs:** port 0 `height` (HEIGHT — the input clamped up to the water level), port 1 `depth` (HEIGHT —
+  `max(level - z, 0)`), port 2 `mask` (MASK — 1 where flooded)
+* **Parameters:** `level: float = 0.0` metres (world Y) · `clamp_terrain: bool = true` — when false the
+  height output passes through untouched and only the depth/mask channels are produced
+* **Maths:** trivially pointwise. That is the point: `LakeFlooding` is a solver that has to find basins and
+  spillways, and it is overkill when the author just wants a sea level. This node is the cheap path, and
+  unlike `LakeFlooding` it is a **cell node**, so it fuses.
+* **Integration — read this before implementing:** this node does **not** spawn `Pasture3DPond` bodies.
+  `LakeFlooding` owns that relationship, and two nodes racing to spawn water bodies is a bug factory. State
+  it in the node's header comment and in its registry `description`.
+* **Native:** cell-fold opcode. **no-oracle.**
+* **Gate:** **FLA** depth is exactly `max(level - z, 0)`; **FLB** with `clamp_terrain = false` the height
+  output is bit-identical to the input (control: `true` must differ); **FLC** the mask is 1 exactly where
+  depth > 0; **FLD** no pond bodies are spawned — assert the scene's pond count is unchanged. This is the
+  integration mistake most likely to be made, so it gets a criterion.
+
+### 8.2 `WaterMask` — `op = &"water_mask"`
+
+* **Class:** `Pasture3DGraphNodeWaterMask` · **Role:** FILTER · **needs_grid:** `true`
+* **Hesiod:** `WaterMask`, `WaterDepthFromMask`
+* **Ports:** `depth` (HEIGHT), `height` (HEIGHT), `shore_width` (FLOAT)
+* **Outputs:** port 0 `water` (MASK — submerged), port 1 `shore` (MASK — the band within `shore_width` of
+  the waterline, on either side)
+* **Parameters:** `depth_threshold: float = 0.01` m · `shore_width: float = 15.0` metres ·
+  `shore_falloff: {LINEAR, SMOOTH} = SMOOTH`
+* **Maths:** `water = depth > depth_threshold`. The shore band is built by running §5.1's
+  `DistanceTransform` in SIGNED mode against the water mask and windowing `|d| < shore_width`. **Call the
+  native distance routine; do not write a second distance implementation.**
+* **Why it earns its place:** it is the consumer that makes `DistanceTransform` pay for itself, and it
+  produces the field the material system wants for wet sand, beach shingle and shoreline vegetation.
+* **Native:** `Pasture3DUtil.water_mask_grid(...)`, internally calling the distance transform.
+* **Oracle:** yes.
+* **Gate:** **WMA** the water mask matches a direct threshold of the depth channel; **WMB** the shore band has
+  the specified metric width on both sides of the waterline (control: a band measured in grid cells must
+  fail at a second resolution); **WMC** with `shore_width = 0` the shore channel is empty; **WMD** parity.
+
+### 8.3 `Mudslide` — `op = &"mudslide"`
+
+* **Class:** `Pasture3DGraphNodeMudslide` · **Role:** SOLVER · **needs_grid:** `true` · **FROZEN by default**
+* **Hesiod:** `Mudslide`
+* **Ports:** `in` (HEIGHT), `landslide_mask` (MASK), `depth` (FLOAT), `iterations` (INT)
+* **Outputs:** port 0 `height` (HEIGHT), port 1 `deposition` (MASK)
+* **Parameters:** `talus_angle_deg: float = 30.0` (the trigger angle when no mask is wired) ·
+  `depth: float = 5.0` metres of mobile material · `iterations: int = 20` · `depth_exponent: float = 0.5` ·
+  `viscosity_power: float = 1.5` · `amount: float = 1.0`
+* **Maths:** initialise a mobile-depth field — either `depth * mask`, or `depth` gated to cells exceeding the
+  talus angle. Iterate: at each cell, move mobile material to lower neighbours proportionally to the slope
+  raised to `viscosity_power`, with the transportable fraction scaled by
+  `(local_depth / depth)^depth_exponent`, conserving volume. Deposit remaining material where the slope
+  falls below the angle of repose. Output the deposition delta on channel 1.
+* **Relationship to what exists:** `TalusProjection` and `ErosionThermal` relax slope *everywhere*; Mudslide
+  moves a *finite, maskable quantity* of material as a discrete event. It is the node for a specific scar on
+  a specific hillside, not for global weathering. Keep that distinction in the description or it will be
+  treated as a duplicate.
+* **Freeze behaviour:** as a SOLVER it follows the established rule — FROZEN is the default, it caches its
+  result, and `Bake All` clears frozen caches before re-running. It gates on the **mask/flow input**, not on
+  its own output. Follow the existing solver nodes; do not invent a new pattern.
+* **Write it delta-accumulated from the start (§3.7).** Each iteration fills a `delta` buffer for every
+  cell and applies it in a second pass — never an in-place scatter as the scan proceeds. In-place updates
+  are order-dependent, a GPU dispatch has no defined cell order, and Hesiod runs `gpu::mudslide` on the
+  GPU, so an order-dependent CPU kernel would foreclose the GPU path entirely. `talus_projection_solve`
+  is the model.
+* **Native:** `src/pasture_3d_mudslide.cpp`.
+* **Oracle:** yes.
+* **Gate — `GraphMudslideGate.gd`:** **MA** volume conservation — the total height integral changes by < 0.1%
+  (control: a lossy implementation must fail); **MB** material moves strictly downhill; **MC** with a mask,
+  cells outside the mask are bit-identical to the input; **MD** `iterations = 0` is a pass-through; **ME**
+  FROZEN holds its result across a graph revision bump and `Bake All` regrows it against the current
+  upstream; **MF** parity; **MG** resolution invariance (§3.6) — the same slide at two grid resolutions moves
+  the same volume the same world distance. *Control:* a `talus / gw` implementation must fail.
+
+---
+
+## 9. Summary table
+
+| Phase | Node | Op tag | Role | Grid? | Fusible | Oracle | Native | GPU |
+|---|---|---|---|---|---|---|---|---|
+| 1 | Transform | `transform` | FILTER | ✓ | — | ✓ | `pasture_3d_transform.cpp` | new `.glsl` |
+| 1 | Falloff | `falloff` | FILTER | — | ✓ | — | fold opcode | via cell fold |
+| 1 | Contrast | `contrast` | FILTER | — | ✓ | — | fold opcode | via cell fold |
+| 2 | Distance Transform | `distance_transform` | FILTER | ✓ | — | ✓ | `pasture_3d_distance_transform.cpp` | new `.glsl` |
+| 2 | Expand / Shrink | `expand_shrink` | FILTER | ✓ | — | ✓ | `pasture_3d_morphology.cpp` | new `.glsl` |
+| 3 | Relative Elevation | `relative_elevation` | FILTER | ✓ | — | ✓ | `pasture_3d_local_metrics.cpp` | shares a shader |
+| 3 | Smooth Fill | `smooth_fill` | FILTER | ✓ | — | ✓ | `pasture_3d_smooth_fill.cpp` | new `.glsl` |
+| 3 | Recast Cliff | `recast_cliff` | FILTER | ✓ | — | ✓ | `pasture_3d_recast.cpp` | new `.glsl` |
+| 4 | Warp Downslope | `warp_downslope` | FILTER | ✓ | — | ✓ | `pasture_3d_warp_downslope.cpp` | new `.glsl` |
+| 4 | Gavoronoise | `gavoronoise` | GENERATOR | — | ✓ | ✓ | `pasture_3d_gavoronoise.cpp` | via cell fold |
+| 5 | Flooding (Uniform Level) | `flooding_uniform_level` | FILTER | — | ✓ | — | fold opcode | via cell fold |
+| 5 | Water Mask | `water_mask` | FILTER | ✓ | — | ✓ | `pasture_3d_water_mask.cpp` | shares a shader |
+| 5 | Mudslide | `mudslide` | SOLVER | ✓ | — | ✓ | `pasture_3d_mudslide.cpp` | new `.glsl` |
+
+**Registry categories:** Transform, Falloff, Contrast, DistanceTransform, ExpandShrink, RelativeElevation,
+SmoothFill, RecastCliff, WarpDownslope → `"Filters & Modifiers"`; Gavoronoise → `"Generators"`;
+FloodingUniformLevel, WaterMask, Mudslide → `"Solvers & Realism"`.
+
+**Shared code built once, used repeatedly** — this is why the phase order is what it is:
+
+* the separable min/max kernel (§5.2) → used by RelativeElevation (§6.1)
+* the box blur → used by SmoothFill (§6.2), RecastCliff (§6.3), WarpDownslope (§7.1)
+* the exact distance transform (§5.1) → used by WaterMask (§8.2)
+* the bilinear resampler (§4.1) → used by WarpDownslope (§7.1)
+* the derivative-accumulation scaffold in `noise_jordan` → used by Gavoronoise (§7.2)
+
+Building the phases in order means each of those exists before its second consumer needs it.
+
+---
+
+## 10. Explicitly out of scope
+
+* **The `Cloud*` / `Path*` families (~40 Hesiod nodes).** They require new `PortType` values and a bridge to
+  the existing spline/brush system. That is its own spec, not a batch.
+* **`Voronoi` / `NoiseFbm` / `NoiseRidged` / `Voronoise`.** `FastNoiseLite` already covers these through the
+  existing `Noise` node; wrappers would be palette clutter. Gavoronoise is included precisely because it is
+  the one member of that family FastNoiseLite cannot express.
+* **Export / colour / texture nodes.** Pasture3D's material and export paths are host-side, not graph-side.
+* **The Quilting family.** High implementation complexity, narrow application.
+* **Coordinate-frame push-down (§3.1 option B).** Deferred deliberately, with a migration path that keeps
+  the `transform` op tag stable.
+
+---
+
+## 11. Open questions for the author
+
+1. **`Contrast` height window.** The spec requires an explicit `range_min`/`range_max` because Pasture3D
+   heights are metres. The alternative is auto-windowing to the input's own min/max per bake — cheaper to
+   author, but it makes the node's output content-dependent and therefore unstable across a brush's loop
+   boundary. This spec chose the explicit window; confirm that is the right trade.
+2. **`Transform` and world-space continuity.** Every generator in the graph samples in *world* XZ so that two
+   masked brush regions agree where they meet. A `Transform` node deliberately breaks that agreement inside
+   its subtree. Should it emit a `node_warnings()` entry when used inside a brush graph (as opposed to a
+   full-terrain graph), or is the break the whole point and the warning just noise?
+3. **`Mudslide` vs `Scree`.** Both deposit loose material downslope and both output a shed/deposition mask.
+   If in practice they read the same on screen, the batch is better off with twelve nodes than thirteen.
+   Worth an A/B on a real fixture before Phase 5 starts.

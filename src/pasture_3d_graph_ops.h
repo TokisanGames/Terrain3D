@@ -69,6 +69,11 @@ enum GraphCellOpType {
 	GRAPH_OP_MOUNTAIN_STUMP = 41, // PRIMITIVE grid: eroded residual ancient mountain stump
 	GRAPH_OP_SHATTERED_PEAK = 42, // PRIMITIVE grid: fractured alpine peak with Voronoi fissures
 	GRAPH_OP_CALDERA = 43, // PRIMITIVE grid: volcanic collapse caldera with inner drop and outer flanks
+	GRAPH_OP_FALLOFF = 44, // FILTER: metric distance attenuation toward 0 (spec §4.2)
+	GRAPH_OP_CONTRAST = 45, // FILTER: gain / gamma on a height window (spec §4.3)
+	GRAPH_OP_TRANSFORM = 46, // FILTER grid: affine resample in world XZ (spec §4.1)
+	GRAPH_OP_DISTANCE_TRANSFORM = 47, // FILTER grid: metric distance to a thresholded mask (spec §5.1)
+	GRAPH_OP_EXPAND_SHRINK = 48, // FILTER grid: grayscale morphology, radius in metres (spec §5.2)
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed

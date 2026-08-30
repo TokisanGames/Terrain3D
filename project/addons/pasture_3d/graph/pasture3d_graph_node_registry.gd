@@ -30,6 +30,11 @@ const MountainTibestiScript = preload("res://addons/pasture_3d/graph/pasture3d_g
 const MountainStumpScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_mountain_stump.gd")
 const ShatteredPeakScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_shattered_peak.gd")
 const CalderaScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_caldera.gd")
+const TransformScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_transform.gd")
+const FalloffScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_falloff.gd")
+const ContrastScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_contrast.gd")
+const DistanceTransformScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_distance_transform.gd")
+const ExpandShrinkScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_expand_shrink.gd")
 const BlendScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_blend.gd")
 const SmoothScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_smooth.gd")
 const TalusProjectionScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_talus_projection.gd")
@@ -78,6 +83,9 @@ const DevMountainTibestiScript = preload("res://addons/pasture_3d/graph/pasture3
 const DevMountainStumpScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_mountain_stump.gd")
 const DevShatteredPeakScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_shattered_peak.gd")
 const DevCalderaScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_caldera.gd")
+const DevTransformScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_transform.gd")
+const DevDistanceTransformScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_distance_transform.gd")
+const DevExpandShrinkScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_expand_shrink.gd")
 
 
 ## Checks if the developer flag for exposing [Dev/GD] reference nodes is enabled.
@@ -133,6 +141,11 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 		{"op": &"shattered_peak", "title": "Shattered Peak", "category": "Generators", "role": "Generator", "script": ShatteredPeakScript, "tags": ["mountain", "peak", "shattered", "fracture", "fault", "fissure", "horn", "hesiod", "primitive"], "description": "Tectonically shattered alpine horn / peak with Voronoi fissure lines and bulk prominence."},
 		{"op": &"caldera", "title": "Caldera", "category": "Generators", "role": "Generator", "script": CalderaScript, "tags": ["volcano", "caldera", "crater", "depression", "rim", "magma", "hesiod", "primitive"], "description": "Volcanic collapse caldera with inner exponential floor drop and outer asymptotic flank decay."},
 		
+		{"op": &"transform", "title": "Transform", "category": "Filters & Modifiers", "role": "Filter", "script": TransformScript, "tags": ["translate", "rotate", "zoom", "scale", "move", "offset", "pivot", "affine", "place", "coordinate", "hesiod"], "description": "Moves, rotates and scales an upstream subgraph in world XZ by resampling it through an affine."},
+		{"op": &"falloff", "title": "Falloff", "category": "Filters & Modifiers", "role": "Filter", "script": FalloffScript, "tags": ["falloff", "edge", "island", "coast", "border", "distance", "attenuate", "fade", "vignette", "zeroed", "hesiod"], "description": "Fades the input toward 0 with metric distance from a world centre, for island and coastline edges."},
+		{"op": &"contrast", "title": "Contrast", "category": "Filters & Modifiers", "role": "Filter", "script": ContrastScript, "tags": ["gain", "gamma", "contrast", "curve", "bias", "shaping", "punch", "flatten", "hesiod"], "description": "Gain or gamma shaping applied inside an explicit height window, in metres."},
+		{"op": &"distance_transform", "title": "Distance Transform", "category": "Filters & Modifiers", "role": "Filter", "script": DistanceTransformScript, "tags": ["distance", "sdf", "signed", "mask", "shoreline", "bank", "verge", "proximity", "euclidean", "jfa", "hesiod"], "description": "Distance in world metres from every cell to the nearest cell of a thresholded mask."},
+		{"op": &"expand_shrink", "title": "Expand / Shrink", "category": "Filters & Modifiers", "role": "Filter", "script": ExpandShrinkScript, "tags": ["dilate", "dilation", "morphology", "open", "close", "gradient", "grow", "widen", "narrow", "speckle", "cleanup", "hesiod"], "description": "Grayscale morphology over a metric radius: expand, shrink, open, close, or the morphological gradient."},
 		{"op": &"smooth", "title": "Smooth", "category": "Filters & Modifiers", "role": "Filter", "script": SmoothScript, "tags": ["blur", "gaussian", "average", "filter", "soften"], "description": "Smooths / blurs terrain height variations."},
 		{"op": &"talus_projection", "title": "Talus Projection", "category": "Filters & Modifiers", "role": "Filter", "script": TalusProjectionScript, "tags": ["talus", "scree", "repose", "cliff", "relaxation", "slope", "angle", "apron", "rubble"], "description": "Relaxes slopes exceeding a critical angle of repose to deposit natural scree aprons."},
 		{"op": &"spectral_equalizer", "title": "Spectral Equalizer", "category": "Filters & Modifiers", "role": "Filter", "script": SpectralEqualizerScript, "tags": ["spectral", "equalizer", "frequency", "macro", "meso", "micro", "laplacian", "pyramid", "filter", "detail"], "description": "3-band spatial frequency equalizer for macro mountain mass, meso ridges, and micro crags."},
@@ -176,6 +189,9 @@ static func _dev_entries() -> Array[Dictionary]:
 		{"op": &"dev_lake_flooding", "title": "[Dev/GD] Lake Flooding", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevLakeFloodingScript, "tags": ["dev", "gdscript", "oracle", "lake", "pond", "water", "flood"], "description": "Pure GDScript reference oracle for lake flooding and shoreline extraction."},
 		{"op": &"dev_stream_extraction", "title": "[Dev/GD] Stream Extraction", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevStreamExtractionScript, "tags": ["dev", "gdscript", "oracle", "stream", "river", "thalweg", "flow"], "description": "Pure GDScript reference oracle for stream extraction and thalweg routing."},
 		{"op": &"dev_spectral_equalizer", "title": "[Dev/GD] Spectral Equalizer", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevSpectralEqualizerScript, "tags": ["dev", "gdscript", "oracle", "spectral", "equalizer", "frequency", "blur"], "description": "Pure GDScript reference oracle for 3-band spatial spectral equalizer."},
+		{"op": &"dev_transform", "title": "[Dev/GD] Transform", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevTransformScript, "tags": ["dev", "gdscript", "oracle", "transform", "affine", "bilinear", "resample"], "description": "Pure GDScript reference oracle for the Transform affine resample."},
+		{"op": &"dev_distance_transform", "title": "[Dev/GD] Distance Transform", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevDistanceTransformScript, "tags": ["dev", "gdscript", "oracle", "distance", "jfa", "jump", "flooding"], "description": "Pure GDScript reference oracle for the distance transform. Runs jump flooding, matching the native kernel rather than being exact."},
+		{"op": &"dev_expand_shrink", "title": "[Dev/GD] Expand / Shrink", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevExpandShrinkScript, "tags": ["dev", "gdscript", "oracle", "morphology", "dilate", "erode"], "description": "Pure GDScript reference oracle for grayscale morphology. The naive O(r^2) gather, on purpose."},
 		{"op": &"dev_talus_projection", "title": "[Dev/GD] Talus Projection", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevTalusProjectionScript, "tags": ["dev", "gdscript", "oracle", "talus", "scree", "repose"], "description": "Pure GDScript reference oracle for talus projection slope relaxation."},
 		{"op": &"dev_curvature", "title": "[Dev/GD] Curvature Mask", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevCurvatureScript, "tags": ["dev", "gdscript", "oracle", "curvature", "convexity", "concavity", "ridge"], "description": "Pure GDScript reference oracle for discrete Laplacian curvature."},
 		{"op": &"dev_warp", "title": "[Dev/GD] Domain Warp", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevWarpScript, "tags": ["dev", "gdscript", "oracle", "warp", "distortion", "noise"], "description": "Pure GDScript reference oracle for domain warp coordinate distortion."},

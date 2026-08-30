@@ -27,12 +27,24 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(set = 0, binding = 0, std430) restrict writeonly buffer OutBuf { float o[]; };
 layout(set = 0, binding = 1, std430) restrict readonly buffer ABuf { float a[]; };
 layout(set = 0, binding = 2, std430) restrict readonly buffer BBuf { float b[]; };
+// A THIRD input. Two was enough while every op was pointwise, but ExpandShrink needs input, result and
+// mask at once to do its masked cross-fade, and splitting that across dispatches would need a scratch
+// buffer per node anyway. Unused bindings get the shared zero buffer.
+layout(set = 0, binding = 3, std430) restrict readonly buffer CBuf { float c[]; };
 
 layout(push_constant, std430) uniform Params {
-	int mode; // 0 COPY, 1 BLEND, 2 SMOOTH_H, 3 SMOOTH_V
+	int mode; // 0 COPY, 1 BLEND, 2 SMOOTH_H, 3 SMOOTH_V, 4 FALLOFF, 5 CONTRAST,
+	          // 6 DT_SEED, 7 DT_JFA, 8 DT_RESOLVE, 9 DT_FINALIZE, 10 MORPH, 11 MORPH_BLEND
 	int gw;
 	int gh;
-	int ip;   // BLEND: the blend mode 0..4
+	int ip;   // BLEND: blend mode 0..4 | FALLOFF: shape 0..3 | CONTRAST: mode 0..1
+	          // DT_JFA/DT_RESOLVE: metric 0..2 | MORPH: bit0 kernel, bit1 is_max
+	// Op-specific scalars. FALLOFF uses f0..f6; CONTRAST uses f0..f3. The cell-centre world mapping
+	// (ox, oz, dx, dz) is PASSED IN rather than recomputed here, so the shader cannot drift from
+	// Pasture3DTerrainGraph.cell_to_world.
+	float f0; float f1; float f2; float f3;
+	float f4; float f5; float f6; float f7;
+	float ox; float oz; float dx; float dz;
 } p;
 
 void main() {
@@ -76,6 +88,166 @@ void main() {
 		if (iz > 0) { float u = a[i - p.gw]; if (!isnan(u)) { s += 0.25 * u; w += 0.25; } }
 		if (iz < p.gh - 1) { float d = a[i + p.gw]; if (!isnan(d)) { s += 0.25 * d; w += 0.25; } }
 		o[i] = s / w;
+		return;
+	}
+	if (p.mode == 4) { // FALLOFF: f0 centre_x, f1 centre_z, f2 radius, f3 feather,
+	                   //          f4 strength, f5 invert, f6 distance_noise. b = the noise grid.
+		float v = a[i];
+		if (isnan(v)) { o[i] = v; return; }
+		float wx = p.ox + (float(ix) + 0.5) * p.dx;
+		float wz = p.oz + (float(iz) + 0.5) * p.dz;
+		float ddx = wx - p.f0;
+		float ddz = wz - p.f1;
+		float d;
+		if (p.ip == 1) { d = max(abs(ddx), abs(ddz)); }
+		else if (p.ip == 2) { d = abs(ddx); }
+		else if (p.ip == 3) { d = abs(ddz); }
+		else { d = sqrt(ddx * ddx + ddz * ddz); }
+		float nv = b[i];
+		if (!isnan(nv)) { d += p.f6 * nv; }
+		float t;
+		if (p.f3 <= 0.0) { t = (d <= p.f2) ? 0.0 : 1.0; }
+		else { float u = clamp((d - p.f2) / p.f3, 0.0, 1.0); t = u * u * (3.0 - 2.0 * u); }
+		float at = 1.0 - t;
+		if (p.f5 > 0.5) { at = 1.0 - at; }
+		o[i] = v * (1.0 + (at - 1.0) * p.f4);
+		return;
+	}
+	if (p.mode == 5) { // CONTRAST: f0 amount, f1 range_min, f2 range_max, f3 mask_amount. b = mask grid.
+		float v = a[i];
+		if (isnan(v)) { o[i] = v; return; }
+		float span = p.f2 - p.f1;
+		// A degenerate window, and heights outside the window, pass through. Clamping into the window
+		// would flatten every peak above it into a plateau.
+		if (span <= 0.0 || v <= p.f1 || v >= p.f2) { o[i] = v; return; }
+		float t = (v - p.f1) / span;
+		float c;
+		if (p.ip == 1) { c = pow(t, p.f0); }
+		else if (t < 0.5) { c = 0.5 * pow(2.0 * t, p.f0); }
+		else { c = 1.0 - 0.5 * pow(2.0 - 2.0 * t, p.f0); }
+		float shaped = p.f1 + c * span;
+		float w = p.f3;
+		// f7 flags whether a mask is actually wired. Without it an unwired port would bind the zero
+		// buffer and multiply the shaping away entirely, which is the opposite of "no mask".
+		if (p.f7 > 0.5) { float mv = b[i]; if (!isnan(mv)) { w *= mv; } }
+		w = clamp(w, 0.0, 1.0);
+		o[i] = v + (shaped - v) * w;
+		return;
+	}
+
+	// ---- DistanceTransform (spec §5.1) ------------------------------------------------------------
+	// The seed field carries the FLAT CELL INDEX of the nearest inside cell found so far, stored in a
+	// float, with -1 for "nothing adopted yet". A float holds an integer exactly up to 2^24, and the
+	// host refuses the GPU path above that many cells rather than silently losing sites.
+	if (p.mode == 6) { // DT_SEED: f0 threshold, f1 want (1 = seed the inside, 0 = seed the outside)
+		float m = a[i];
+		// NaN is the brush loop mask: neither inside nor outside, so it never seeds either field.
+		if (isnan(m)) { o[i] = -1.0; return; }
+		bool inside = m > p.f0;
+		bool want = p.f1 > 0.5;
+		o[i] = (inside == want) ? float(i) : -1.0;
+		return;
+	}
+	if (p.mode == 7 || p.mode == 8) {
+		float dxm = p.dx;
+		float dzm = p.dz;
+		if (p.mode == 7) { // DT_JFA: one flooding sweep at step f0
+			int k = int(p.f0);
+			float bestSite = a[i];
+			float bestD = 3.4e38;
+			if (bestSite >= 0.0) {
+				int bi = int(bestSite);
+				float ax = abs(float(ix - (bi % p.gw))) * dxm;
+				float az = abs(float(iz - (bi / p.gw))) * dzm;
+				bestD = (p.ip == 1) ? (ax + az) : ((p.ip == 2) ? max(ax, az) : sqrt(ax * ax + az * az));
+			}
+			for (int oz = -1; oz <= 1; oz++) {
+				for (int ox = -1; ox <= 1; ox++) {
+					if (ox == 0 && oz == 0) { continue; }
+					int nx = ix + ox * k;
+					int nz = iz + oz * k;
+					if (nx < 0 || nx >= p.gw || nz < 0 || nz >= p.gh) { continue; }
+					float cand = a[nz * p.gw + nx];
+					if (cand < 0.0) { continue; }
+					int ci = int(cand);
+					float ax = abs(float(ix - (ci % p.gw))) * dxm;
+					float az = abs(float(iz - (ci / p.gw))) * dzm;
+					float d = (p.ip == 1) ? (ax + az) : ((p.ip == 2) ? max(ax, az) : sqrt(ax * ax + az * az));
+					if (d < bestD) { bestD = d; bestSite = cand; }
+				}
+			}
+			o[i] = bestSite;
+			return;
+		}
+		// DT_RESOLVE: turn adopted sites into metric distances.
+		float site = a[i];
+		if (site < 0.0) {
+			// No seed anywhere in the field. The diagonal is a finite stand-in for infinity; 0 would
+			// read as "every cell is on the boundary", which is the opposite of the truth.
+			float fw = float(p.gw) * dxm;
+			float fh = float(p.gh) * dzm;
+			o[i] = sqrt(fw * fw + fh * fh);
+			return;
+		}
+		int si = int(site);
+		float ax = abs(float(ix - (si % p.gw))) * dxm;
+		float az = abs(float(iz - (si / p.gw))) * dzm;
+		o[i] = (p.ip == 1) ? (ax + az) : ((p.ip == 2) ? max(ax, az) : sqrt(ax * ax + az * az));
+		return;
+	}
+	if (p.mode == 9) { // DT_FINALIZE: clamp to f0 (0 = unbounded), divide by f1. b = the ORIGINAL mask.
+		float mv = b[i];
+		if (isnan(mv)) { o[i] = mv; return; } // NaN in, NaN out
+		float d = a[i];
+		if (p.f0 > 0.0) { d = clamp(d, -p.f0, p.f0); }
+		o[i] = d / p.f1;
+		return;
+	}
+
+	// ---- ExpandShrink (spec §5.2) -----------------------------------------------------------------
+	if (p.mode == 10) { // MORPH: f0 wx, f1 wz cells. ip bit0 = square kernel, bit1 = take the maximum.
+		int wx = int(p.f0);
+		int wz = int(p.f1);
+		bool square = (p.ip & 1) != 0;
+		bool isMax = (p.ip & 2) != 0;
+		float best = 0.0;
+		bool any = false;
+		float rx = float(max(wx, 1));
+		float rz = float(max(wz, 1));
+		for (int oz = -wz; oz <= wz; oz++) {
+			int nz = iz + oz;
+			if (nz < 0 || nz >= p.gh) { continue; }
+			for (int ox = -wx; ox <= wx; ox++) {
+				int nx = ix + ox;
+				if (nx < 0 || nx >= p.gw) { continue; }
+				if (!square) {
+					// The disc is defined ONCE, here and in the CPU kernel and in the oracle, as the
+					// offsets inside the unit ellipse in cell space. Elliptical in cells is what keeps
+					// it circular in metres when the cells are not square.
+					float fx = float(ox) / rx;
+					float fz = float(oz) / rz;
+					if (fx * fx + fz * fz > 1.0) { continue; }
+				}
+				float v = a[nz * p.gw + nx];
+				if (isnan(v)) { continue; } // skipped, never folded in as an identity
+				if (!any) { best = v; any = true; }
+				else if (isMax ? (v > best) : (v < best)) { best = v; }
+			}
+		}
+		o[i] = any ? best : (0.0 / 0.0);
+		return;
+	}
+	if (p.mode == 11) { // MORPH_BLEND: a input, b morphed, c mask. f0 amount, f1 = is a mask wired.
+		float vin = a[i];
+		if (isnan(vin)) { o[i] = vin; return; }
+		float vout = b[i];
+		// Everything in the structuring element was masked out; leave the input rather than writing a
+		// NaN it never had.
+		if (isnan(vout)) { o[i] = vin; return; }
+		float w = p.f0;
+		if (p.f1 > 0.5) { float mv = c[i]; if (!isnan(mv)) { w *= clamp(mv, 0.0, 1.0); } }
+		w = clamp(w, 0.0, 1.0);
+		o[i] = vin + (vout - vin) * w;
 		return;
 	}
 }
@@ -242,8 +414,11 @@ struct GraphDispatch {
 	RID out;
 	RID a;
 	RID b;
+	RID c;
 	int mode = 0;
 	int ip = 0;
+	// Op-specific scalars, mirroring the shader's push-constant block. All zero for COPY/BLEND/SMOOTH.
+	float f0 = 0, f1 = 0, f2 = 0, f3 = 0, f4 = 0, f5 = 0, f6 = 0, f7 = 0;
 };
 } // namespace
 
@@ -339,7 +514,7 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 			case GRAPH_OP_BLEND: {
 				const RID out = empty_buf();
 				plan.push_back({ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf,
-						in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, 1, (int)params[s] });
+						in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, zero_buf, 1, (int)params[s] });
 				slot_buf[s] = out;
 			} break;
 			case GRAPH_OP_SMOOTH: {
@@ -347,26 +522,195 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 				const int passes = (int)params[s];
 				if (passes <= 0) {
 					const RID out = empty_buf();
-					plan.push_back({ out, src, zero_buf, 0, 0 });
+					plan.push_back({ out, src, zero_buf, zero_buf, 0, 0 });
 					slot_buf[s] = out;
 				} else {
 					const RID ta = empty_buf();
 					const RID tb = empty_buf();
 					RID cur = src;
 					for (int pass = 0; pass < passes; pass++) {
-						plan.push_back({ tb, cur, zero_buf, 2, 0 });
-						plan.push_back({ ta, tb, zero_buf, 3, 0 });
+						plan.push_back({ tb, cur, zero_buf, zero_buf, 2, 0 });
+						plan.push_back({ ta, tb, zero_buf, zero_buf, 3, 0 });
 						cur = ta;
 					}
 					slot_buf[s] = ta;
 				}
 			} break;
+			case GRAPH_OP_FALLOFF: {
+				// Spec §4.2. An unwired noise port binds the zero buffer, which reads as no
+				// perturbation — the same defined 0 the CPU kernel uses for a missing grid.
+				const RID out = empty_buf();
+				GraphDispatch d{ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf,
+					in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, zero_buf, 4, (int)p_prog.params[s] };
+				d.f0 = p_prog.params_b[s]; // centre x
+				d.f1 = p_prog.params_c[s]; // centre z
+				d.f2 = p_prog.params_d[s]; // radius
+				d.f3 = p_prog.params_e[s]; // feather
+				d.f4 = std::clamp(p_prog.params_f[s], 0.0f, 1.0f); // strength
+				d.f5 = p_prog.params_g[s]; // invert
+				d.f6 = p_prog.params_h[s]; // distance_noise
+				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_CONTRAST: {
+				// Spec §4.3. An unwired mask port binds the zero buffer; the shader reads a 0 there as
+				// "no shaping", matching the CPU kernel's behaviour for a wired but empty mask.
+				const RID out = empty_buf();
+				GraphDispatch d{ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf,
+					in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, zero_buf, 5, (int)p_prog.params[s] };
+				d.f0 = std::max(p_prog.params_b[s], 0.001f); // amount
+				d.f1 = p_prog.params_c[s]; // range_min
+				d.f2 = p_prog.params_d[s]; // range_max
+				d.f3 = std::clamp(p_prog.params_e[s], 0.0f, 1.0f); // mask_amount
+				d.f7 = (in1[s] >= 0) ? 1.0f : 0.0f; // mask wired?
+				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_DISTANCE_TRANSFORM: {
+				// Spec §5.1, run as a JFA plan: seed, log2(n) flooding sweeps plus a repair sweep,
+				// resolve to metres, then clamp/normalise. Multi-dispatch is already how SMOOTH works,
+				// so this needs no new machinery beyond the barriers the plan loop already inserts.
+				const RID src = in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf;
+				const int units = (int)p_prog.params_d[s];
+				const double max_d = (double)p_prog.params_e[s];
+
+				// A site is a cell index carried in a float, which is exact only to 2^24. Refusing here
+				// is the honest failure: past this size the GPU would quietly adopt the wrong seeds.
+				if (n > (1 << 24)) {
+					return fail();
+				}
+				// NORMALISED with no Max Distance divides by the field's own maximum, and a maximum is a
+				// reduction this single-pass kernel cannot do. Rather than compute a DIFFERENT divisor
+				// here and hand back a field that disagrees with the CPU, decline the whole graph — the
+				// node already warns that this configuration is content-dependent.
+				if (units == 1 && max_d <= 0.0) {
+					return fail();
+				}
+
+				const int direction = (int)p_prog.params_b[s];
+				const int metric = (int)p_prog.params_c[s];
+				const float threshold = p_prog.params[s];
+
+				int max_step = 1;
+				while (max_step < std::max(p_gw, p_gh)) {
+					max_step <<= 1;
+				}
+
+				// One distance field: seed with `want`, flood, resolve. Returns the resolved buffer.
+				auto build_field = [&](float want) -> RID {
+					const RID seed_a = empty_buf();
+					GraphDispatch sd{ seed_a, src, zero_buf, zero_buf, 6, 0 };
+					sd.f0 = threshold;
+					sd.f1 = want;
+					plan.push_back(sd);
+
+					RID cur = seed_a;
+					RID other = empty_buf();
+					for (int k = max_step / 2; k >= 1; k >>= 1) {
+						GraphDispatch jd{ other, cur, zero_buf, zero_buf, 7, metric };
+						jd.f0 = (float)k;
+						plan.push_back(jd);
+						std::swap(cur, other);
+					}
+					// JFA+1: the repair sweep at step 1, matching the CPU kernel and the oracle exactly.
+					GraphDispatch jd{ other, cur, zero_buf, zero_buf, 7, metric };
+					jd.f0 = 1.0f;
+					plan.push_back(jd);
+					std::swap(cur, other);
+
+					const RID resolved = empty_buf();
+					plan.push_back({ resolved, cur, zero_buf, zero_buf, 8, metric });
+					return resolved;
+				};
+
+				RID dist;
+				if (direction == 2) { // SIGNED
+					// d_out is already 0 inside the mask and d_in is already 0 outside it, so the signed
+					// field is just their difference — no inside/outside test needed on either side.
+					const RID d_out = build_field(1.0f);
+					const RID d_in = build_field(0.0f);
+					const RID diff = empty_buf();
+					plan.push_back({ diff, d_out, d_in, zero_buf, 1, 1 }); // BLEND subtract
+					dist = diff;
+				} else {
+					dist = build_field(direction == 1 ? 0.0f : 1.0f);
+				}
+
+				const RID out = empty_buf();
+				GraphDispatch fd{ out, dist, src, zero_buf, 9, 0 };
+				fd.f0 = (float)std::max(max_d, 0.0);
+				fd.f1 = (units == 1 && max_d > 0.0) ? (float)max_d : 1.0f;
+				plan.push_back(fd);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_EXPAND_SHRINK: {
+				// Spec §5.2. A direct 2D gather per cell rather than the CPU's separable decomposition:
+				// the decomposition exists to avoid O(r^2) work on a CPU, and a GPU has the lanes to just
+				// do it. Both walk the SAME structuring element — the unit ellipse in cell space — so
+				// they agree on shape, which is the part that has to match.
+				const RID src = in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf;
+				const int mode = (int)p_prog.params[s];
+				const double radius_m = (double)p_prog.params_b[s];
+				const int kernel = (int)p_prog.params_c[s];
+				const int iterations = std::clamp((int)p_prog.params_d[s], 0, 64);
+				const float amount = std::clamp(p_prog.params_e[s], 0.0f, 1.0f);
+
+				const double dx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
+				const double dz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+				const int wx = (dx > 0.0) ? (int)std::lround(radius_m / dx) : 0;
+				const int wz = (dz > 0.0) ? (int)std::lround(radius_m / dz) : 0;
+
+				if (amount <= 0.0f || iterations <= 0 || (wx <= 0 && wz <= 0)) {
+					const RID out = empty_buf();
+					plan.push_back({ out, src, zero_buf, zero_buf, 0, 0 });
+					slot_buf[s] = out;
+					break;
+				}
+
+				const int ip_base = (kernel == 1) ? 1 : 0;
+				auto morph = [&](RID in_buf, bool is_max) -> RID {
+					const RID out = empty_buf();
+					GraphDispatch d{ out, in_buf, zero_buf, zero_buf, 10, ip_base | (is_max ? 2 : 0) };
+					d.f0 = (float)wx;
+					d.f1 = (float)wz;
+					plan.push_back(d);
+					return out;
+				};
+
+				RID cur = src;
+				for (int it = 0; it < iterations; it++) {
+					switch (mode) {
+						case 1: cur = morph(cur, false); break; // SHRINK
+						case 2: cur = morph(morph(cur, false), true); break; // OPEN
+						case 3: cur = morph(morph(cur, true), false); break; // CLOSE
+						case 4: { // GRADIENT
+							const RID hi = morph(cur, true);
+							const RID lo = morph(cur, false);
+							const RID diff = empty_buf();
+							plan.push_back({ diff, hi, lo, zero_buf, 1, 1 }); // BLEND subtract
+							cur = diff;
+						} break;
+						default: cur = morph(cur, true); break; // EXPAND
+					}
+				}
+
+				const RID out = empty_buf();
+				GraphDispatch bd{ out, src, cur, in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, 11, 0 };
+				bd.f0 = amount;
+				bd.f1 = (in1[s] >= 0) ? 1.0f : 0.0f; // is a mask actually wired?
+				plan.push_back(bd);
+				slot_buf[s] = out;
+			} break;
 			case GRAPH_OP_OUTPUT: {
 				const RID out = empty_buf();
-				plan.push_back({ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf, zero_buf, 0, 0 });
+				plan.push_back({ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf, zero_buf, zero_buf, 0, 0 });
 				slot_buf[s] = out;
 			} break;
 			default:
+				// GRAPH_OP_TRANSFORM lands here deliberately: an affine resample is a gather, not the
+				// pointwise map this kernel expresses, and it needs its own shader (spec §3.7). Falling
+				// back costs the WHOLE graph its GPU path, which is why every op above is handled here
+				// rather than left to this branch.
 				return fail();
 		}
 		if (!slot_buf[s].is_valid()) {
@@ -395,10 +739,18 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 		ub->set_uniform_type(RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER);
 		ub->set_binding(2);
 		ub->add_id(d.b);
+		Ref<RDUniform> uc;
+		uc.instantiate();
+		uc->set_uniform_type(RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER);
+		uc->set_binding(3);
+		// Every dispatch binds all four buffers whether or not its mode reads them — an unbound binding
+		// is a validation error, not an optional slot.
+		uc->add_id(d.c.is_valid() ? d.c : d.b);
 		TypedArray<RDUniform> us;
 		us.push_back(uo);
 		us.push_back(ua);
 		us.push_back(ub);
+		us.push_back(uc);
 		const RID set = _rd->uniform_set_create(us, _shader, 0);
 		if (!set.is_valid()) {
 			for (RID s2 : sets) {
@@ -414,12 +766,27 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 	const int64_t cl = _rd->compute_list_begin();
 	_rd->compute_list_bind_compute_pipeline(cl, _pipeline);
 	for (size_t k = 0; k < plan.size(); k++) {
+		// 16 bytes of ints + 8 op scalars + the 4 world-mapping floats = 64 bytes. The mapping is
+		// computed here, once, from the same expressions as Pasture3DTerrainGraph.cell_to_world (dx
+		// divides by gw, NOT gw-1) rather than being re-derived inside the shader.
 		PackedByteArray push;
-		push.resize(16);
+		push.resize(64);
 		push.encode_s32(0, plan[k].mode);
 		push.encode_s32(4, p_gw);
 		push.encode_s32(8, p_gh);
 		push.encode_s32(12, plan[k].ip);
+		push.encode_float(16, plan[k].f0);
+		push.encode_float(20, plan[k].f1);
+		push.encode_float(24, plan[k].f2);
+		push.encode_float(28, plan[k].f3);
+		push.encode_float(32, plan[k].f4);
+		push.encode_float(36, plan[k].f5);
+		push.encode_float(40, plan[k].f6);
+		push.encode_float(44, plan[k].f7);
+		push.encode_float(48, (float)p_rect.position.x);
+		push.encode_float(52, (float)p_rect.position.y);
+		push.encode_float(56, (float)((double)p_rect.size.x / (double)std::max(p_gw, 1)));
+		push.encode_float(60, (float)((double)p_rect.size.y / (double)std::max(p_gh, 1)));
 		_rd->compute_list_bind_uniform_set(cl, sets[k], 0);
 		_rd->compute_list_set_push_constant(cl, push, push.size());
 		_rd->compute_list_dispatch(cl, gx, gy, 1);

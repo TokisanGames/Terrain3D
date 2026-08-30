@@ -209,6 +209,24 @@ public:
 			const int p_iterations, const double p_settling_rate);
 
 	// Native Angle-of-Repose Talus Projection filter.
+	// Transform — affine resample of a height grid (spec §4.1).
+	static PackedFloat32Array transform_grid(const PackedFloat32Array &p_surface, int p_gw, int p_gh,
+			const Rect2 &p_rect, const Vector2 &p_offset, double p_rotation_deg, double p_scale,
+			const Vector2 &p_pivot, int p_edge_mode, double p_amount);
+
+	// DistanceTransform (spec §5.1). Returns a Dictionary { "grid": PackedFloat32Array,
+	// "divisor": float } rather than a bare array ON PURPOSE: in NORMALISED mode the field is
+	// meaningless without the divisor that produced it, and a divisor that is only printed is not an
+	// interface. Making the caller unpack it is what stops it being dropped.
+	static Dictionary distance_transform_grid(const PackedFloat32Array &p_mask, int p_gw, int p_gh,
+			const Rect2 &p_rect, double p_threshold, int p_direction, int p_metric, int p_units,
+			double p_max_distance);
+
+	// ExpandShrink (spec §5.2). Grayscale morphology; p_radius_m is METRES, not cells.
+	static PackedFloat32Array expand_shrink_grid(const PackedFloat32Array &p_surface,
+			const PackedFloat32Array &p_mask, int p_gw, int p_gh, const Rect2 &p_rect, int p_mode,
+			double p_radius_m, int p_kernel, int p_iterations, double p_amount);
+
 	static PackedFloat32Array talus_projection_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
 			const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
 			const int p_iterations, const double p_transfer_rate, const double p_amount);
