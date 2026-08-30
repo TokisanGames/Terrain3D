@@ -35,7 +35,8 @@ layout(set = 0, binding = 3, std430) restrict readonly buffer CBuf { float c[]; 
 layout(push_constant, std430) uniform Params {
 	int mode; // 0 COPY, 1 BLEND, 2 SMOOTH_H, 3 SMOOTH_V, 4 FALLOFF, 5 CONTRAST,
 	          // 6 DT_SEED, 7 DT_JFA, 8 DT_RESOLVE, 9 DT_FINALIZE, 10 MORPH, 11 MORPH_BLEND,
-	          // 12 BOXMEAN_H, 13 BOXMEAN_V, 14 REL_ELEV, 15 SMOOTH_FILL, 16 RECAST_CLIFF
+	          // 12 BOXMEAN_H, 13 BOXMEAN_V, 14 REL_ELEV, 15 SMOOTH_FILL, 16 RECAST_CLIFF,
+	          // 17 WARP_DOWNSLOPE
 	int gw;
 	int gh;
 	int ip;   // BLEND: blend mode 0..4 | FALLOFF: shape 0..3 | CONTRAST: mode 0..1
@@ -365,6 +366,60 @@ void main() {
 		float dev = z - b[i];
 		float sg = 1.0 / (1.0 + exp(-p.f2 * dev / p.f1));
 		o[i] = z + p.f1 * (sg - 0.5) * w;
+		return;
+	}
+	if (p.mode == 17) { // WARP_DOWNSLOPE: a = z, b = z smoothed at radius, c = mask.
+	                    // f0 displacement metres (already signed by `reverse`), f1 amount, f2 mask wired.
+		float z = a[i];
+		if (isnan(z)) { o[i] = z; return; } // NaN is the brush-loop mask: it stays put and stays NaN.
+		int xm = max(ix - 1, 0);
+		int xp = min(ix + 1, p.gw - 1);
+		int zm = max(iz - 1, 0);
+		int zp = min(iz + 1, p.gh - 1);
+		float sxm = b[iz * p.gw + xm];
+		float sxp = b[iz * p.gw + xp];
+		float szm = b[zm * p.gw + ix];
+		float szp = b[zp * p.gw + ix];
+		if (isnan(sxm) || isnan(sxp) || isnan(szm) || isnan(szp)) { o[i] = z; return; }
+
+		float gx = (sxp - sxm) / (float(xp - xm) * p.dx);
+		float gz = (szp - szm) / (float(zp - zm) * p.dz);
+		float mag = sqrt(gx * gx + gz * gz);
+		// The SAME epsilon as GRADIENT_EPSILON in pasture_3d_warp_downslope.cpp. Below it the downhill
+		// direction is numerical noise, and moving a cell along it is moving it at random.
+		if (mag <= 1.0e-4) { o[i] = z; return; }
+
+		float w = p.f1;
+		if (p.f2 > 0.5) { float mv = c[i]; if (!isnan(mv)) { w *= clamp(mv, 0.0, 1.0); } else { w = 0.0; } }
+		if (w <= 0.0) { o[i] = z; return; }
+
+		// Displace in METRES, then convert to cells. Doing it in cells would make the warp strengthen
+		// every time the bake resolution rose.
+		float step = p.f0 * w;
+		float fx = float(ix) + (gx / mag) * step / p.dx;
+		float fz = float(iz) + (gz / mag) * step / p.dz;
+
+		// Bilinear tap, CLAMP edges, NaN taps DROPPED rather than averaged — tap for tap the same rule as
+		// transform_sample_bilinear, which is the CPU path's sampler.
+		int x0 = int(floor(fx));
+		int z0 = int(floor(fz));
+		float tx = fx - float(x0);
+		float tz = fz - float(z0);
+		float acc = 0.0;
+		float wsum = 0.0;
+		for (int k = 0; k < 4; k++) {
+			int sx = clamp(x0 + (k & 1), 0, p.gw - 1);
+			int sz = clamp(z0 + (k >> 1), 0, p.gh - 1);
+			float wx = ((k & 1) == 1) ? tx : (1.0 - tx);
+			float wz = ((k >> 1) == 1) ? tz : (1.0 - tz);
+			float ww = wx * wz;
+			if (ww <= 0.0) { continue; }
+			float v = a[sz * p.gw + sx];
+			if (isnan(v)) { continue; }
+			acc += ww * v;
+			wsum += ww;
+		}
+		o[i] = (wsum <= 0.0) ? 0.0 : (acc / wsum);
 		return;
 	}
 	if (p.mode == 11) { // MORPH_BLEND: a input, b morphed, c mask. f0 amount, f1 = is a mask wired.
@@ -928,6 +983,30 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 				d.f4 = (float)(std::max((double)p_prog.params_f[s], 0.0) * kPi / 180.0); // spread
 				d.f5 = amount;
 				d.f6 = (in1[s] >= 0) ? 1.0f : 0.0f;
+				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_WARP_DOWNSLOPE: {
+				// Spec §7.1. params: 0 displacement_m, b radius_m, c reverse, d amount.
+				const RID src = in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf;
+				const float amount = std::clamp(p_prog.params_d[s], 0.0f, 1.0f);
+				const float disp = p_prog.params[s];
+				if (amount <= 0.0f || disp == 0.0f) {
+					const RID out = empty_buf();
+					plan.push_back({ out, src, zero_buf, zero_buf, 0, 0 });
+					slot_buf[s] = out;
+					break;
+				}
+				// The gradient is read off the SMOOTHED copy, through the same blur_plan SmoothFill and
+				// RecastCliff use, so "radius" means one thing across all three.
+				const RID smoothed = blur_plan(src, (double)p_prog.params_b[s]);
+				const RID out = empty_buf();
+				GraphDispatch d{ out, src, smoothed, in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, 17, 0 };
+				// Sample UPHILL so the surface moves downhill — a resample is a backward map. Matches the
+				// `sign` in warp_downslope_solve; flipping one without the other is a silent CPU/GPU split.
+				d.f0 = (p_prog.params_c[s] > 0.5f) ? -disp : disp;
+				d.f1 = amount;
+				d.f2 = (in1[s] >= 0) ? 1.0f : 0.0f;
 				plan.push_back(d);
 				slot_buf[s] = out;
 			} break;

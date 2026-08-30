@@ -1,6 +1,19 @@
 # Pasture3D Terrain Graph — Transforms, Metrics & Morphology Nodes Spec
 
-**Status:** Phases 1-3 built and gated (2026-08-29); Phases 4-5 proposed.
+**Status:** Phases 1-3 built and gated (2026-08-29); §7.1 `WarpDownslope` built and gated; §7.2
+`Gavoronoise` and Phase 5 proposed.
+
+**§7.1 amendment.** WB's control was specified as "a noise warp of comparable strength". It cannot be:
+the `Warp` node does not resample its input at all — it ADDS a domain-warped noise field on top — so it
+can never move a cone's mass whatever its settings, and it would have been a control that passes for the
+wrong reason. The control is a rigid `Transform` displacement of the same 40 m instead, and the spread
+measure is taken about the mass CENTROID rather than the origin, so a direction-blind translation scores
+identically to the input and only genuine spreading registers.
+
+The resample sign is worth recording because it reads correct while being backwards. A resample is a
+BACKWARD map: `out(x) = in(x + d)` shifts the surface by `-d`. Sampling at the downhill point — which is
+what "warp downslope" sounds like — drags the terrain UPHILL. The kernel samples UPHILL so the surface
+moves downhill, and WB is what caught it.
 
 **Phase 3 amendments made during the build.** §6 called for three gate files, one per node. They shipped
 as ONE — `project/bench/GraphTerrainMetricsGate.gd` — because all three criteria sets need the same

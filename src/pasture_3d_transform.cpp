@@ -18,7 +18,7 @@ namespace {
 // a finite neighbour pulls a seam along every loop rim. Dropping the weight keeps the finite part of the
 // tap correctly normalised. TRANSFORM_EDGE_ZERO is the one case that KEEPS its weight while contributing
 // nothing, so the field fades out at the border instead of being renormalised back to full amplitude.
-inline double sample_bilinear(const float *g, double fx, double fz, int gw, int gh, int edge_mode) {
+double sample_bilinear(const float *g, double fx, double fz, int gw, int gh, int edge_mode) {
 	const int x0 = (int)std::floor(fx);
 	const int z0 = (int)std::floor(fz);
 	const double tx = fx - (double)x0;
@@ -70,6 +70,11 @@ inline double sample_bilinear(const float *g, double fx, double fz, int gw, int 
 }
 
 } // namespace
+
+double godot::transform_sample_bilinear(const float *p_grid, double p_fx, double p_fz, int p_gw, int p_gh,
+		int p_edge_mode) {
+	return sample_bilinear(p_grid, p_fx, p_fz, p_gw, p_gh, p_edge_mode);
+}
 
 PackedFloat32Array godot::transform_solve(const PackedFloat32Array &p_surface, int p_gw, int p_gh,
 		const Rect2 &p_rect, const Vector2 &p_offset, double p_rotation_deg, double p_scale,

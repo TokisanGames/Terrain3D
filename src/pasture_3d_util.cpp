@@ -36,6 +36,7 @@
 #include "pasture_3d_distance_transform.h"
 #include "pasture_3d_morphology.h"
 #include "pasture_3d_terrain_metrics.h"
+#include "pasture_3d_warp_downslope.h"
 #include "pasture_3d_transform.h"
 #include "pasture_3d_util.h"
 #include "pasture_3d_warp.h"
@@ -1550,6 +1551,14 @@ PackedFloat32Array Pasture3DUtil::recast_cliff_grid(const PackedFloat32Array &p_
 			p_radius_m, p_amplitude, p_gain, p_direction_deg, p_direction_spread_deg, p_amount);
 }
 
+PackedFloat32Array Pasture3DUtil::warp_downslope_grid(const PackedFloat32Array &p_surface,
+		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_displacement_m, const double p_radius_m, const bool p_reverse,
+		const double p_amount) {
+	return godot::warp_downslope_solve(p_surface, p_mask, p_gw, p_gh, p_rect, p_displacement_m,
+			p_radius_m, p_reverse, p_amount);
+}
+
 PackedFloat32Array Pasture3DUtil::talus_projection_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
 		const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
 		const int p_iterations, const double p_transfer_rate, const double p_amount) {
@@ -2002,6 +2011,9 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("smooth_fill_grid", "surface", "mask", "gw", "gh", "rect", "mode", "radius_m", "k", "amount"),
 			&Pasture3DUtil::smooth_fill_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("warp_downslope_grid", "surface", "mask", "gw", "gh", "rect", "displacement_m", "radius_m", "reverse", "amount"),
+			&Pasture3DUtil::warp_downslope_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("recast_cliff_grid", "surface", "mask", "gw", "gh", "rect", "talus_angle_deg", "radius_m", "amplitude", "gain", "direction_deg", "direction_spread_deg", "amount"),
 			&Pasture3DUtil::recast_cliff_grid);

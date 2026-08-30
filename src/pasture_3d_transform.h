@@ -22,6 +22,13 @@ enum TransformEdgeMode {
 	TRANSFORM_EDGE_WRAP = 2,
 };
 
+// The bilinear read at FRACTIONAL cell coordinates that Transform resamples with. Exposed because
+// WarpDownslope (§7.1) resamples the same way and the spec asks it to REUSE this rather than copy it: two
+// copies of a NaN-dropping, edge-mode-aware tap would be two places for the brush-loop seam rules to
+// drift apart.
+double transform_sample_bilinear(const float *p_grid, double p_fx, double p_fz, int p_gw, int p_gh,
+		int p_edge_mode);
+
 // Resample p_surface at inverse-transformed cell centres. Returns a grid of p_gw * p_gh, or an
 // empty-sized grid when the input size disagrees with the requested grid.
 PackedFloat32Array transform_solve(const PackedFloat32Array &p_surface, int p_gw, int p_gh,

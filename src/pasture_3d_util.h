@@ -246,6 +246,10 @@ public:
 			double p_talus_angle_deg, double p_radius_m, double p_amplitude, double p_gain,
 			double p_direction_deg, double p_direction_spread_deg, double p_amount);
 
+	static PackedFloat32Array warp_downslope_grid(const PackedFloat32Array &p_surface,
+			const PackedFloat32Array &p_mask, int p_gw, int p_gh, const Rect2 &p_rect,
+			double p_displacement_m, double p_radius_m, bool p_reverse, double p_amount);
+
 	static PackedFloat32Array talus_projection_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
 			const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
 			const int p_iterations, const double p_transfer_rate, const double p_amount);

@@ -45,6 +45,7 @@ func _ready() -> void:
 	_check("RelativeElevation", _relative_elevation())
 	_check("SmoothFill", _smooth_fill())
 	_check("RecastCliff", _recast_cliff())
+	_check("WarpDownslope", _warp_downslope())
 	_control_an_unlisted_op_is_refused()
 
 	print("\n=== %s (%d failures) ===\n" % ["NATIVE ROUTE PASS" if _fail == 0 else "NATIVE ROUTE FAIL", _fail])
@@ -179,6 +180,15 @@ func _recast_cliff() -> Pasture3DGraphNode:
 	n.amplitude = 8.0
 	n.gain = 2.0
 	n.direction_deg = -1.0
+	n.amount = 1.0
+	return n
+
+
+func _warp_downslope() -> Pasture3DGraphNode:
+	var n := Pasture3DGraphNodeWarpDownslope.new()
+	n.displacement = 18.0
+	n.radius = 12.0
+	n.reverse = false
 	n.amount = 1.0
 	return n
 
