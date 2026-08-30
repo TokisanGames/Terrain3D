@@ -273,10 +273,23 @@ func _paint_spline(path: Path3D) -> void:
 		basey.resize(gw * gh)
 		basey.fill(global_position.y)
 
+	# The Modifier Margin's mask: THIS SAME RAMP, translated outward by the margin, so a modifier reaches
+	# into the band and fades at the band's outer edge rather than at the loop rim. Only the host knows the
+	# curve, which is why it is built here and not in `_run_modifier_stack`. Empty at margin 0 — the stack
+	# then uses `profile` unchanged, which is byte-for-byte the historical path.
+	var margin_m := _effective_modifier_margin()
+	var profile_ext := PackedFloat64Array()
+	if margin_m > 0.0:
+		profile_ext.resize(gw * gh)
+
 	for iz in range(gh):
 		var row := iz * gw
 		for ix in range(gw):
 			var signed_d := field[row + ix] + edge_offset
+			# Computed for EVERY cell, including the ones the loop skips below: the band is made of exactly
+			# those, and they are where the extended ramp has to carry a value.
+			if margin_m > 0.0:
+				profile_ext[row + ix] = clampf(_ramp(falloff_curve, (signed_d + margin_m) / ramp_denom), 0.0, 1.0)
 			if signed_d <= 0.0:
 				amp[row + ix] = NAN
 				profile[row + ix] = 0.0
@@ -303,7 +316,7 @@ func _paint_spline(path: Path3D) -> void:
 			"measured": measured, "host_measured": [], "host_div": 1.0,
 			"profile": profile, "basey": basey, "extent": extent,
 			# The signed distance (positive inside the loop) the Modifier Margin feathers its band against.
-			"sdf": field, "edge_offset": edge_offset,
+			"sdf": field, "edge_offset": edge_offset, "profile_ext": profile_ext,
 		}
 		vals = _run_modifier_stack(stack["gd"], amp, profile, basey, ctx)
 		_commit_modifier_caches(stack, extent, [fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])

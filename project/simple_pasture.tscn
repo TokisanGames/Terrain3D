@@ -226,12 +226,8 @@ preview_on = true
 
 [sub_resource type="Resource" id="Resource_xk4pu"]
 script = ExtResource("16_cad7k")
-peak_kw = 6.6
-rugosity = 0.54
-cone_alpha = 1.06
-ridge_amp = 1.7
-base_noise_amp = 0.09
 graph_position = Vector2(-760, 220)
+preview_on = true
 
 [sub_resource type="Resource" id="Resource_x65ay"]
 script = ExtResource("18_r5vgm")
@@ -244,13 +240,12 @@ graph_position = Vector2(180, 280)
 [sub_resource type="Resource" id="Resource_nnq34"]
 script = ExtResource("8_wv1iv")
 nodes = Array[ExtResource("3_ugt7v")]([SubResource("Resource_3ucqc"), SubResource("Resource_jc6ve"), SubResource("Resource_xk4pu"), SubResource("Resource_x65ay"), SubResource("Resource_mayxm")])
-connections = [PackedInt32Array(2, 0, 3, 0), PackedInt32Array(3, 0, 4, 0), PackedInt32Array(4, 0, 0, 0)]
+connections = [PackedInt32Array(2, 0, 3, 0), PackedInt32Array(3, 0, 4, 0), PackedInt32Array(2, 0, 0, 0)]
 
 [sub_resource type="Resource" id="Resource_xq5ji"]
 resource_name = "Terrain Graph"
 script = ExtResource("9_6pcwc")
 graph = SubResource("Resource_nnq34")
-evaluation = 1
 
 [sub_resource type="Curve3D" id="Curve3D_x65ay"]
 closed = true
@@ -354,7 +349,7 @@ slope_angle = 35.0
 terrain = NodePath("..")
 snap_to_surface = false
 _layer_owner = "pasture3d_brush:Mounds"
-modifier_margin = 20.0
+modifier_margin = 40.0
 modifiers = Array[ExtResource("2_n4cpt")]([SubResource("Resource_pnkh5")])
 
 [node name="Loop1" type="Path3D" parent="Pasture3D/Mound" unique_id=70890649]
@@ -411,12 +406,12 @@ modifiers = Array[ExtResource("2_n4cpt")]([])
 curve = SubResource("Curve3D_4beio")
 
 [node name="Plow" type="Node3D" parent="Pasture3D" unique_id=1977854530 node_paths=PackedStringArray("terrain")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 96.97227, 0, 94.98071)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 88.85525, 0, 68.90621)
 script = ExtResource("10_v7ey8")
 blend_mode = 0
 terrain = NodePath("..")
 _layer_owner = "pasture3d_brush:Plow"
-modifier_margin = 0.0
+modifier_margin = 47.5
 modifiers = Array[ExtResource("2_n4cpt")]([SubResource("Resource_xq5ji")])
 
 [node name="Area1" type="Path3D" parent="Pasture3D/Plow" unique_id=674137980]

@@ -1334,9 +1334,15 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	if (margin_active) {
 		margin_mask.assign((size_t)gw * gh, 0);
 	}
-	// The margin band's share of the 0..1 profile mask every modifier scales its output by (§6.8.1). Ramps
-	// 1 at the loop edge down to 0 at the outer margin edge, so a skirt fades out instead of ending on a
-	// second hard rim. 0 for any cell that is not a margin cell. The twin of the feather in
+	// The margin band's taper, and it belongs to FILTERS ONLY (§6.8.1). Ramps 1 at the loop edge down to 0
+	// at the outer margin edge, so an erosion skirt fades out instead of ending on a second hard rim. 0 for
+	// any cell that is not a margin cell.
+	//
+	// It is deliberately NOT folded into the interior profile. That profile runs the other way — 1 at the
+	// loop centre, 0 at the rim — so a GENERATOR reading one grid carrying both saw its mask fall to 0 at
+	// the rim and jump back to 1 one cell outside it: a step of the modifier's full amplitude, ringing the
+	// loop. A generator instead takes the interior ramp TRANSLATED OUTWARD by the margin, which reaches
+	// into the band without any step; only filters use this taper. The twin of `margin_feather` in
 	// Pasture3DTerrainBrush._run_modifier_stack; kept as a lambda rather than a stored grid for the reason
 	// in the note above `amp` — a float profile grid would round every product it appears in.
 	const auto margin_profile_at = [&](const int p_i) -> double {
@@ -1458,11 +1464,11 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 					const double x = min_x + ix * vs;
 					double pr = 0.0;
 					double unused = 0.0;
-					if (!host_profile_at((double)field[i] + edge_offset, unused, pr)) {
+					// NOISE and RELIEF are generators, and take the ramp TRANSLATED OUTWARD by the margin
+					// (§6.8.1) so they reach into the band and fade at its outer edge instead of at the rim.
+					// `modifier_margin` is 0 without one, which makes this the historical expression.
+					if (!host_profile_at((double)field[i] + edge_offset + modifier_margin, unused, pr)) {
 						pr = 0.0; // host_profile_at leaves `pr` untouched when it declines the cell
-					}
-					if (margin_active && margin_mask[(size_t)i]) {
-						pr = margin_profile_at(i); // §6.8.1: the band's own feather
 					}
 					double a = amp[i];
 					for (size_t k = si; k < sj; k++) {
@@ -1519,12 +1525,24 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 				const int row = iz * gw;
 				for (int ix = 0; ix < gw; ix++) {
 					const int i = row + ix;
+					if (graph_filter && margin_active && margin_mask[(size_t)i]) {
+						gprofile[i] = (float)margin_profile_at(i); // the skirt's taper
+						continue;
+					}
+					if (graph_filter) {
+						// A filter applies FULLY everywhere that is not the band — not `pr`, and not gated
+						// on host_profile_at succeeding. It declines a cell whose ramp rounds to 0, which is
+						// a one-cell ring just inside the rim; the GDScript twin (`mask[k] = 1.0`) never
+						// consulted it and this is what put the two paths back in agreement.
+						gprofile[i] = 1.f;
+						continue;
+					}
+					// A GENERATOR takes the ramp translated outward by the margin, the same as NOISE and
+					// RELIEF above: it reaches into the band and fades at the band's outer edge.
 					double a = 0.0;
 					double pr = 0.0;
-					if (host_profile_at((double)field[i] + edge_offset, a, pr)) {
-						gprofile[i] = graph_filter ? 1.f : (float)pr;
-					} else if (margin_active && margin_mask[(size_t)i]) {
-						gprofile[i] = (float)margin_profile_at(i); // §6.8.1: the band's own feather
+					if (host_profile_at((double)field[i] + edge_offset + modifier_margin, a, pr)) {
+						gprofile[i] = (float)pr;
 					}
 				}
 			}

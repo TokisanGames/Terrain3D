@@ -188,5 +188,13 @@ static func ensure_graph_modifier(p_brush: Pasture3DTerrainBrush) -> Pasture3DNo
 		mod.graph.output_node = 1
 	else:
 		mod.graph = Pasture3DTerrainGraph.create_default()
-	p_brush.modifiers.append(mod)
+	# THROUGH THE SETTER, not `modifiers.append(mod)`. The array is a reference, so appending to it in place
+	# mutates the stack without the setter ever running — and the setter is what connects the new modifier's
+	# `changed` to the brush (`_bind_modifiers`). A modifier added the direct way is invisible to the brush
+	# for the rest of the session: editing its graph notifies nobody, the debounced re-bake is never armed,
+	# and the brush appears to update only when Bake is pressed, which calls the rasteriser itself. It also
+	# skips the inspector rebuild that draws the new row.
+	var list: Array[Pasture3DNode] = p_brush.modifiers.duplicate()
+	list.append(mod)
+	p_brush.modifiers = list
 	return mod

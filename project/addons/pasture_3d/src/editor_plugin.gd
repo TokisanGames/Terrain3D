@@ -10,6 +10,7 @@ const Pasture3DLayersDock: Script = preload("res://addons/pasture_3d/src/layers_
 const Pasture3DBrushGizmo: Script = preload("res://addons/pasture_3d/src/brush_gizmo.gd")
 const Pasture3DPoolGizmo: Script = preload("res://addons/pasture_3d/src/pool_gizmo.gd")
 const ReliefFractalScript: Script = preload("res://addons/pasture_3d/connectors/pasture3d_relief_fractal.gd")
+const BrushGraphRow: Script = preload("res://addons/pasture_3d/src/brush_graph_row.gd")
 const ASSET_DOCK: String = "res://addons/pasture_3d/src/asset_dock.tscn"
 const ASSET_DOCK_45: String = "res://addons/pasture_3d/src/asset_dock_45.tscn"
 
@@ -541,21 +542,11 @@ func _apply_placement_defaults(node: Node3D) -> void:
 	if node is Pasture3DPlow:
 		var plow := node as Pasture3DPlow
 		if plow.modifiers.is_empty():
-			var mg := Pasture3DNodeGraph.new()
-			mg.resource_name = "Terrain Graph"
-			mg.graph = Pasture3DTerrainGraph.new()
-			var cone = Pasture3DGraphNodeRegistry.create(&"mountain_cone")
-			if cone != null:
-				cone.set("elevation", 35.0)
-			var out_n = Pasture3DGraphNodeRegistry.create(&"output")
-			if cone != null and out_n != null:
-				mg.graph.add_node(cone)
-				mg.graph.add_node(out_n)
-				mg.graph.connect_ports(0, 0, 1, 0)
-				mg.graph.output_node = 1
-			else:
-				mg.graph = Pasture3DTerrainGraph.create_default()
-			plow.modifiers.append(mg)
+			# Through the shared helper, which assigns the stack THROUGH THE SETTER. The copy that used to
+			# live here ended in `plow.modifiers.append(mg)`, mutating the array in place — so the brush's
+			# `_bind_modifiers` never ran and it never heard its own graph change. Every Plow placed from the
+			# toolbar was born deaf: editing its graph updated nothing until Bake was pressed.
+			BrushGraphRow.ensure_graph_modifier(plow)
 
 
 ## Place a new landscape brush at `world_pos`, as ONE undoable action: do = add the node under the
