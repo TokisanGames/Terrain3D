@@ -1536,6 +1536,12 @@ func native_supported(p_root_node: int = -1) -> bool:
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):
 			return false
+		# A FROZEN solver owns a cache the native program knows nothing about. Lowering it silently re-solved
+		# on every evaluation and never reported itself stale, so the freeze looked like it worked while doing
+		# nothing at all — which is worse than being slow. Only DLA escaped it, and only because its op was
+		# never added to the allow-list above.
+		if nodes[ni] != null and not nodes[ni].muted and nodes[ni].blocks_native():
+			return false
 	# If any wire in the active DAG feeds from a secondary port (port >= 1, e.g. a solver mask),
 	# stay on the multi-channel GDScript evaluator so the secondary channel is correctly read.
 	for c in connections:
@@ -1615,6 +1621,7 @@ func _eval_unfolded(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input 
 func _input_grids(p_ni: int, p_grids: Dictionary, p_aux: Dictionary, p_n: int) -> Array:
 	var node: Pasture3DGraphNode = nodes[p_ni]
 	var count: int = node.input_count()
+	var types: PackedInt32Array = node.input_port_types()
 	var out: Array = []
 	out.resize(count)
 	for p in range(count):
@@ -1627,6 +1634,18 @@ func _input_grids(p_ni: int, p_grids: Dictionary, p_aux: Dictionary, p_n: int) -
 			var from_port := int(c[1])
 			if to_port >= 0 and to_port < count:
 				out[to_port] = _read_channel(from, from_port, p_grids, p_aux, p_n)
+				# A TERRAIN_BUS wire is ONE connection carrying the source's whole channel bundle, so the
+				# port-per-grid rule above cannot express it: it hands the receiver channel 0 and drops the
+				# rest. TerrainBusSplit declares a single `bus` port and reads five grids, so without this
+				# every channel past height came back as the unwired zeros — silently, since a zeroed water
+				# depth is a legitimate value. Widen the array in place so the bundle arrives whole.
+				if types.size() > to_port and types[to_port] == Pasture3DGraphNode.PortType.TERRAIN_BUS:
+					var src_channels: int = nodes[from].output_count() if nodes[from] != null else 1
+					for ch in range(1, src_channels):
+						var at := to_port + ch
+						while out.size() <= at:
+							out.append(Pasture3DGraphOps.zeros(p_n))
+						out[at] = _read_channel(from, ch, p_grids, p_aux, p_n)
 	return out
 
 

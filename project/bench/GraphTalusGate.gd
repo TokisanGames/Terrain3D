@@ -101,7 +101,10 @@ func _c_amount_and_mask_control() -> void:
 	g_masked.connect_ports(0, 0, 1, 0)
 	g_masked.connect_ports(1, 0, 2, 0)
 
-	var out_masked := t_masked.eval_grid([cliff, mask], GW, GH, null, RECT)
+	# The mask is the evaluator's mask ARGUMENT, not an input port: port 1 is `talus_angle`. Passing it as
+	# [cliff, mask] read 1.0 as a one-degree angle of repose and relaxed the whole grid, which is what this
+	# check was reporting rather than a mask failure.
+	var out_masked := t_masked.eval_grid([cliff], GW, GH, mask, RECT)
 	var diff_right := 0.0
 	for iz in range(GH):
 		for ix in range(GW / 2, GW):
@@ -137,8 +140,14 @@ func _e_metadata_and_warnings() -> void:
 		_fail += 1; print("    !! role() mismatch")
 	if not t.needs_grid():
 		_fail += 1; print("    !! needs_grid() should be true")
-	if t.input_count() != 2:
-		_fail += 1; print("    !! input_count() != 2")
+	# One surface input at port 0, then scalar parameter sockets. Counting ports was a stale way to say this
+	# once talus_angle/iterations/transfer_rate/amount became wirable.
+	var in_types: PackedInt32Array = t.input_port_types()
+	var ports_ok: bool = in_types.size() == t.input_count() and t.input_names().size() == t.input_count() \
+			and in_types.size() > 0 and in_types[0] == Pasture3DGraphNode.PortType.HEIGHT
+	print("    input_count=%d names=%s types=%s" % [t.input_count(), t.input_names(), in_types])
+	if not ports_ok:
+		_fail += 1; print("    !! port arrays disagree, or port 0 is not the surface input")
 
 	t.amount = 0.0
 	if t.node_warnings().is_empty():

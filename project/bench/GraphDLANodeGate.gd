@@ -71,11 +71,18 @@ func _a_declares_two_outputs() -> void:
 	print("[A] DLA declares two outputs (height + footprint mask), role SOLVER, one seed input")
 	var d := _new_dla(DLAScript.Evaluation.LIVE)
 	var types: PackedInt32Array = d.output_port_types()
+	var in_types: PackedInt32Array = d.input_port_types()
 	var ok: bool = d.output_count() == 2 and d.output_names().size() == 2 and types.size() == 2 \
 			and types[0] == Pasture3DGraphNode.PortType.HEIGHT and types[1] == Pasture3DGraphNode.PortType.MASK \
-			and d.role() == Pasture3DGraphNode.Role.SOLVER and d.needs_grid() and d.input_count() == 1
-	print("    output_count=%d names=%s types=%s role=%d needs_grid=%s input_count=%d" % [
-		d.output_count(), d.output_names(), types, d.role(), d.needs_grid(), d.input_count()])
+			and d.role() == Pasture3DGraphNode.Role.SOLVER and d.needs_grid() \
+			and in_types.size() == d.input_count() and d.input_names().size() == d.input_count() \
+			and in_types.size() > 0 and in_types[0] == Pasture3DGraphNode.PortType.HEIGHT \
+			and _param_ports(in_types) == d.input_count() - 1
+	# One SEED input, at port 0. The node later grew FLOAT parameter sockets, so `input_count() == 1` stopped
+	# being the way to say that; every port after the seed must be a scalar parameter, and the three port
+	# arrays must agree on how many ports there are.
+	print("    output_count=%d names=%s types=%s role=%d needs_grid=%s input_count=%d in_types=%s" % [
+		d.output_count(), d.output_names(), types, d.role(), d.needs_grid(), d.input_count(), in_types])
 	if not ok:
 		_fail += 1; print("    !! DLA did not declare [HEIGHT, MASK] outputs as a grid SOLVER with one input")
 
@@ -277,3 +284,12 @@ func _max_abs_diff(p_a: PackedFloat32Array, p_b: PackedFloat32Array) -> float:
 			continue
 		d = maxf(d, absf(av - bv))
 	return d
+
+
+## How many of these ports are scalar parameter sockets rather than field inputs.
+func _param_ports(p_types: PackedInt32Array) -> int:
+	var c := 0
+	for t in p_types:
+		if t == Pasture3DGraphNode.PortType.FLOAT or t == Pasture3DGraphNode.PortType.INT:
+			c += 1
+	return c

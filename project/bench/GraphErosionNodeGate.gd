@@ -81,13 +81,19 @@ func _a_declares_five_outputs() -> void:
 	var e := _new_erosion(ErosionScript.Evaluation.LIVE)
 	var types: PackedInt32Array = e.output_port_types()
 	var names: PackedStringArray = e.output_names()
+	var in_types: PackedInt32Array = e.input_port_types()
 	var ok: bool = e.output_count() == 5 and names.size() == 5 and types.size() == 5 \
 			and types[0] == Pasture3DGraphNode.PortType.HEIGHT \
 			and types[1] == Pasture3DGraphNode.PortType.MASK \
 			and types[4] == Pasture3DGraphNode.PortType.MASK \
-			and e.role() == Pasture3DGraphNode.Role.SOLVER and e.needs_grid() and e.input_count() == 1
-	print("    output_count=%d names=%s types=%s role=%d needs_grid=%s" % [
-		e.output_count(), names, types, e.role(), e.needs_grid()])
+			and e.role() == Pasture3DGraphNode.Role.SOLVER and e.needs_grid() \
+			and in_types.size() == e.input_count() and e.input_names().size() == e.input_count() \
+			and in_types.size() > 0 and in_types[0] == Pasture3DGraphNode.PortType.HEIGHT \
+			and _param_ports(in_types) == e.input_count() - 1
+	# One SURFACE input, at port 0. The node later grew INT/FLOAT parameter sockets, so `input_count() == 1`
+	# stopped being the way to say that; every port after the surface must be a scalar parameter.
+	print("    output_count=%d names=%s types=%s role=%d needs_grid=%s input_count=%d in_types=%s" % [
+		e.output_count(), names, types, e.role(), e.needs_grid(), e.input_count(), in_types])
 	if not ok:
 		_fail += 1; print("    !! Erosion did not declare [HEIGHT, MASK*4] outputs as a grid SOLVER")
 
@@ -315,3 +321,12 @@ func _max_abs_diff(p_a: PackedFloat32Array, p_b: PackedFloat32Array) -> float:
 			continue
 		d = maxf(d, absf(av - bv))
 	return d
+
+
+## How many of these ports are scalar parameter sockets rather than field inputs.
+func _param_ports(p_types: PackedInt32Array) -> int:
+	var c := 0
+	for t in p_types:
+		if t == Pasture3DGraphNode.PortType.FLOAT or t == Pasture3DGraphNode.PortType.INT:
+			c += 1
+	return c

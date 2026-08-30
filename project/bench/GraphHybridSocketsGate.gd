@@ -84,8 +84,13 @@ func _b_parameter_socket_modulation() -> void:
 	var res := g.evaluate(8, 8, Rect2(0, 0, 100, 100))
 	_assert(res.size() == 64, "Evaluated modulated noise grid (64 cells)")
 	
-	# Cell 0 amplitude verification
-	var raw_sample := fn.get_noise_2d(0, 0)
+	# Cell 0 amplitude verification. Cell 0 is NOT world (0, 0): the evaluator samples at the cell
+	# CENTRE, with dx = rect.size.x / gw, so an 8-wide grid over a 100 m rect puts cell 0 at 6.25 m.
+	# Sampling the oracle at the rect's corner instead compared two different points and reported it
+	# as an amplitude failure.
+	var dx := 100.0 / 8.0
+	var wx := 0.0 + 0.5 * dx
+	var raw_sample := fn.get_noise_2d(wx, wx)
 	var expected := 50.0 * raw_sample
 	_assert(is_equal_approx(res[0], expected), "Cell 0 equals modulated 50.0 * noise (%f vs %f)" % [res[0], expected])
 
@@ -107,7 +112,12 @@ func _c_editor_smart_collapse() -> void:
 
 	var editor: Pasture3DGraphEditor = GraphEditorScript.new()
 	add_child(editor)
-	editor.load_graph(g)
+	# The panel builds its GraphEdit in initialize(); with no plugin it just skips docking itself.
+	# Without this `_graphedit` stays null and the section walked a null node.
+	editor.initialize(null)
+	# `load_graph` was renamed `edit_graph`; the old call threw, which aborted section C without
+	# counting a failure — the gate looked one short rather than broken.
+	editor.edit_graph(g)
 
 	# Locate the GraphNode for nz_node ("n1")
 	var gn_noise: GraphNode = null

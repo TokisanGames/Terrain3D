@@ -138,9 +138,29 @@ func _e_graph_with_constants_eval() -> void:
 	_assert(is_equal_approx(result[0], 15.0), "Evaluated result (10.0 + 5) equals 15.0")
 
 	print("[F] Native C++ single-call SSA compilation integrity")
+	# The CELL compiler is pointwise-only: ops 1-4 in pasture_3d_graph_ops.h are cell ops, and the
+	# structural ops (input, output) are 10-12, handled by the WHOLE-GRAPH evaluator instead. A graph
+	# carrying an Output sink therefore must NOT lower to a cell program — it has to decline so the
+	# caller stays on a path that can actually run the sink. This gate used to demand the opposite.
 	var cell_prog: Dictionary = g.compile_cell_program()
-	_assert(not cell_prog.is_empty(), "compile_cell_program lowers successfully to native SSA")
-	_assert((cell_prog.get("ops", PackedInt32Array()) as PackedInt32Array).size() == 4, "SSA program contains all 4 node ops")
+	_assert(cell_prog.is_empty(), "compile_cell_program declines a graph carrying an Output sink")
+	# CONTROL: the same pointwise chain WITHOUT the sink lowers, so the check above is reporting the
+	# sink and not a cell compiler that refuses everything.
+	var g_no_sink := Pasture3DTerrainGraph.new()
+	var s_float: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"const")
+	s_float.set("value", 10.0)
+	var s_int: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"const_int")
+	s_int.set("value", 5)
+	var s_blend: Pasture3DGraphNode = Pasture3DGraphNodeRegistry.create(&"blend")
+	var j0 := g_no_sink.add_node(s_float)
+	var j1 := g_no_sink.add_node(s_int)
+	var j2 := g_no_sink.add_node(s_blend)
+	g_no_sink.connect_ports(j0, 0, j2, 0)
+	g_no_sink.connect_ports(j1, 0, j2, 1)
+	g_no_sink.output_node = j2 # no sink node, so the graph result is named by index
+	var sink_free: Dictionary = g_no_sink.compile_cell_program()
+	_assert(not sink_free.is_empty(), "control: the same chain without a sink lowers to native SSA")
+	_assert((sink_free.get("ops", PackedInt32Array()) as PackedInt32Array).size() == 3, "SSA program contains all 3 cell ops")
 
 	var graph_prog: Dictionary = g.compile_graph_program()
 	_assert(not graph_prog.is_empty(), "compile_graph_program lowers successfully to native graph program")
