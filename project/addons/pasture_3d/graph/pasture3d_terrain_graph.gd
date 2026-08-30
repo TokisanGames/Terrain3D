@@ -529,7 +529,7 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 				# The bake does not touch 2D node previews. The graph editor owns previews end to end,
 				# rendering them off the main thread from its own single low-res tap pass (see graph_editor.gd).
 				if p_root_node < 0 or p_root_node == output_index():
-					nodes[out].store_cache(field, {}, _compute_node_inputs_hash(out, p_gw, p_gh, p_rect, p_mask, p_input, {}, {}), _global_access_tick)
+					nodes[out].store_cache(field, {}, _compute_node_inputs_hash(out, p_gw, p_gh, p_rect, p_mask, p_input, {}, {}, {}, _content_sig(p_input), _content_sig(p_mask)), _global_access_tick)
 				return field
 
 	# 2. GDScript Folded / Multi-Channel Evaluation Reference Path
@@ -542,6 +542,9 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 	var materialize: Dictionary = plan["materialize"]
 
 	_global_access_tick += 1
+	# Once per evaluate, not once per node: every node's signature folds in the same two arrays.
+	var surf_sig := _content_sig(p_input)
+	var mask_sig := _content_sig(p_mask)
 
 	var dx := p_rect.size.x / float(maxi(p_gw, 1))
 	var dz := p_rect.size.y / float(maxi(p_gh, 1))
@@ -552,7 +555,7 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 	var aux := {}   # node index -> { output_port >= 1 : grid } for multi-output solver channels
 	for ni in order:
 		var node: Pasture3DGraphNode = nodes[ni]
-		var inputs_hash: int = _compute_node_inputs_hash(ni, p_gw, p_gh, p_rect, p_mask, p_input, inputs_of, input_ports_of)
+		var inputs_hash: int = _compute_node_inputs_hash(ni, p_gw, p_gh, p_rect, p_mask, p_input, inputs_of, input_ports_of, {}, surf_sig, mask_sig)
 
 		# Cache hit check: if clean and matching size, serve cached grid in 0.0 ms
 		if not node.is_dirty(inputs_hash) and node.get_cached_grid().size() == n:
@@ -679,8 +682,16 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 	return grids[out]
 
 
+## A content signature for one of the arrays handed to `evaluate`: its hash, or 0 when it is not a
+## grid at all. Separated out so both the native and the folded path identify a surface the same way.
+func _content_sig(p_arr) -> int:
+	if p_arr is PackedFloat32Array and not (p_arr as PackedFloat32Array).is_empty():
+		return hash(p_arr)
+	return 0
+
+
 ## Computes a signature hash representing node inputs, wiring, and spatial evaluation context.
-func _compute_node_inputs_hash(p_ni: int, p_gw: int, p_gh: int, p_rect: Rect2, p_mask, p_input, p_inputs_of: Dictionary, p_input_ports_of: Dictionary, p_materialize: Dictionary = {}) -> int:
+func _compute_node_inputs_hash(p_ni: int, p_gw: int, p_gh: int, p_rect: Rect2, p_mask, p_input, p_inputs_of: Dictionary, p_input_ports_of: Dictionary, p_materialize: Dictionary = {}, p_surf_sig: int = 0, p_mask_sig: int = 0) -> int:
 	var node: Pasture3DGraphNode = nodes[p_ni]
 	var sig: Array = [
 		p_gw,
@@ -692,20 +703,16 @@ func _compute_node_inputs_hash(p_ni: int, p_gw: int, p_gh: int, p_rect: Rect2, p
 		node.muted,
 		node.op(),
 	]
+	# The surface and the mask are identified by CONTENT. This used to sample size, cell 0 and cell n-1,
+	# which is not an identity: two genuinely different surfaces agreeing on their first and last cell
+	# read as the same input, and the cache served one node's result for the other. A brush edit in the
+	# middle of a region is exactly that shape — the corners do not move. Hashing the whole array is
+	# cheap here because the caller computes it ONCE per evaluate and passes it in, rather than once per
+	# node; see p_surf_sig / p_mask_sig.
 	if node.op() == &"input":
-		if p_input is PackedFloat32Array:
-			sig.append(p_input.size())
-			if not p_input.is_empty():
-				sig.append(p_input[0])
-				sig.append(p_input[p_input.size() - 1])
-		else:
-			sig.append(0)
+		sig.append(p_surf_sig)
 	if node.needs_grid() and p_mask != null:
-		if p_mask is PackedFloat32Array:
-			sig.append(p_mask.size())
-			if not p_mask.is_empty():
-				sig.append(p_mask[0])
-				sig.append(p_mask[p_mask.size() - 1])
+		sig.append(p_mask_sig)
 
 	var srcs: Array = p_inputs_of.get(p_ni, [])
 	var ports: Array = p_input_ports_of.get(p_ni, [])

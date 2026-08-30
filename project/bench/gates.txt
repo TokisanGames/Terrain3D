@@ -212,3 +212,7 @@ bench/MarginSeamGate.tscn
 # --- A modifier added at runtime must be BOUND to its brush, or nothing is live but Bake ---
 # `modifiers.append(m)` mutates the array without running the setter that connects `changed`.
 bench/GraphLiveNotifyProbe.tscn
+# --- A FROZEN solver only honours its cache if the graph actually calls it ---
+# The native whole-graph path skips the node entirely, so freezing was silently a no-op for every solver
+# in the allow-list. Swept from the registry so a new solver is covered the day it appears.
+bench/GraphFrozenSolverGate.tscn

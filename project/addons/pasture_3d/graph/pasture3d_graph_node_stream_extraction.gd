@@ -261,8 +261,9 @@ func spawn_stream_in_scene() -> void:
 		EditorInterface.edit_node(stream)
 
 
+## The freeze key: a hash of the WHOLE surface. It used to sample 32 cells at a fixed stride, which is
+## not an identity — on a radial mound that stride lands on one column, every value in it is 0, and a
+## flat surface hashes the same. The node then served its cached solve for a different surface and did
+## NOT flag itself stale, which is the one thing the freeze is supposed to tell you.
 func _grid_hash(arr: PackedFloat32Array) -> int:
-	var h: int = arr.size()
-	for i in range(0, arr.size(), maxi(1, arr.size() / 32)):
-		h = (h * 31) ^ int(arr[i] * 1000.0)
-	return h
+	return hash(arr.size()) ^ hash(arr)
