@@ -3,6 +3,12 @@
 **Status:** Phases 1-5 built and gated (2026-08-30). All thirteen nodes exist, run on native C++ or the
 GPU, and are covered by gates with live controls.
 
+**Known issue — `HydraulicSaleve` ignores its `dx`/`dy` fields on the native path (found 2026-08-30, NOT
+fixed).** Driving either port moves the GDScript result by about 0.02% and leaves the native result
+bit-identical, so `hydraulic_saleve_solve` is not using the per-cell field the evaluator hands it. These are
+the only two parameter ports excluded from `GraphAllNodeSocketsGate` section F, and the exclusion is written
+into the gate with this reason rather than the threshold being widened. It needs its own investigation.
+
 **§8 amendments (Phase 5).**
 
 * **`FloodingUniformLevel.needs_grid` is `true`, not `false`.** The spec called it a fusible cell node while

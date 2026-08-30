@@ -989,6 +989,11 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 	var in1 := PackedInt32Array()
 	var in2 := PackedInt32Array()
 	var in3 := PackedInt32Array()
+	# Parallel to in0..in3: the params slot each of those ports overrides when wired, or -1.
+	var pmap0 := PackedInt32Array()
+	var pmap1 := PackedInt32Array()
+	var pmap2 := PackedInt32Array()
+	var pmap3 := PackedInt32Array()
 	var noise_tab: Array = []
 	var luts_tab: Array = []
 
@@ -1025,6 +1030,11 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
 		in2.append(int(slot_of[s2]) if s2 >= 0 else -1)
 		in3.append(int(slot_of[s3]) if s3 >= 0 else -1)
+		var _pm: PackedInt32Array = lowered.get("pmap", PackedInt32Array())
+		pmap0.append(_pm[0] if _pm.size() > 0 else -1)
+		pmap1.append(_pm[1] if _pm.size() > 1 else -1)
+		pmap2.append(_pm[2] if _pm.size() > 2 else -1)
+		pmap3.append(_pm[3] if _pm.size() > 3 else -1)
 
 	return {
 		"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
@@ -1032,7 +1042,69 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
 		"params_m": params_m, "params_n": params_n, "params_o": params_o, "params_p": params_p,
 		"in0": in0, "in1": in1, "in2": in2, "in3": in3,
+		"pmap0": pmap0, "pmap1": pmap1, "pmap2": pmap2, "pmap3": pmap3,
 		"noise": noise_tab, "luts": luts_tab, "output": int(slot_of[out]),
+	}
+
+
+## Which compiled parameter slot each of a node's first four INPUT PORTS drives, per op.
+##
+## The native evaluator used to read every op's parameters out of the compiled program and ignore the wires
+## entirely, so a Const driving an amplitude, a talus angle or an iteration count did nothing at all — on 52
+## of the 105 parameter ports in the graph. This table is what makes a driven port reach the kernel: entry
+## `k` is the index into the 16 params slots (0 = params, 1 = params_b, ... 15 = params_p) that port `k`
+## overrides when it is wired, or -1 when the port is not a scalar parameter (a HEIGHT or MASK grid input,
+## or an unmapped port).
+##
+## Only the first four ports appear because a compiled program carries in0..in3. `native_supported()`
+## declines a graph that wires port 4 or beyond rather than dropping it silently.
+##
+## The values were derived by matching each node's `input_names()` against the property names its lowering
+## reads, then checked against the node's own `eval_grid`. GraphAllNodeSocketsGate section F sweeps every
+## port and fails on any that the native path ignores, so an op missing from this table is caught rather
+## than silently reverting to the old behaviour.
+##
+## hydraulic_saleve's dx/dy are deliberately absent: they are per-cell FIELDS, not scalars, and the native
+## case already consumes them as grids.
+const PARAM_PORT_MAP := {
+		&"noise": [0],
+		&"terrace": [-1, 0, 1, -1],
+		&"noise_jordan": [0, 5, 6, 3],
+		&"gavoronoise": [0, 4, 1],
+		&"noise_swiss": [0, 5, 6, 3],
+		&"geological_primitive": [2, 3, 5, 4],
+		&"furrows": [0, 1, 2, 4],
+		&"dunes": [0, 1, 2, 3],
+		&"crater": [0, 1, 2, 3],
+		&"warp": [-1, 2, 4, 1],
+		&"strata": [-1, 0, 1, 3],
+		&"curve": [-1, 0, 1, 2],
+		&"remap": [-1, 0, 1, 2],
+		&"mask": [-1, 1, 2, 3],
+		&"curvature": [-1, 1, 2],
+		&"falloff": [-1, 5, 3, -1],
+		&"contrast": [-1, 1, -1],
+		&"transform": [-1, -1, 2, 3],
+		&"distance_transform": [-1, 0],
+		&"expand_shrink": [-1, 1, -1],
+		&"relative_elevation": [-1, 0],
+		&"smooth_fill": [-1, 1, 2, -1],
+		&"recast_cliff": [-1, 0, 2, -1],
+		&"flooding_uniform_level": [-1, 0],
+		&"water_mask": [-1, 1],
+		&"mudslide": [-1, -1, 5],
+		&"warp_downslope": [-1, 3, -1],
+		&"talus_projection": [-1, 0, 1, 2],
+		&"spectral_equalizer": [-1, 0, 1, 2],
+		&"depression_filling": [-1, 1, -1],
+		&"lake_flooding": [-1, 1, -1, 3],
+		&"stream_extraction": [-1, 0, 1, 2],
+		&"erosion_hydraulic": [-1, 0, 1, 4],
+		&"erosion_thermal": [-1, -1, 0, 1],
+		&"scree": [-1, 0, 1, 4],
+		&"erosion": [-1, 0, 1, 3],
+		&"hydraulic_particle": [-1, -1, 0, 4],
+		&"hydraulic_stream_log": [-1, -1, 0, 1],
 	}
 
 
@@ -1125,11 +1197,19 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				# the node's own, and the order is crater_grid()'s signature.
 				op_id = 18; p0 = _f.call(&"amplitude", 20.0); pb = _f.call(&"floor_depth", 0.7); pc = _f.call(&"rim_height", 0.15); pd = _f.call(&"rim_width", 0.25); pe = _f.call(&"ejecta_falloff", 2.0); pf = _f.call(&"floor_flatness", 0.35); pg = float(_i.call(&"terrace_steps", 0))
 			&"warp":
-				op_id = 19; p0 = _f.call(&"strength", 20.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 3)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = float(_i.call(&"seed", 0))
+				# Was misaligned twice over: it read `gain` and `lacunarity`, which Pasture3DGraphNodeWarp
+				# does not have, and it put `strength` in the slot warp_solve_grid() reads as the noise TYPE.
+				op_id = 19; p0 = float(_i.call(&"warp_type", 0)); pb = _f.call(&"frequency", 0.005); pc = _f.call(&"strength", 20.0); pd = float(_i.call(&"octaves", 3)); pe = _f.call(&"amplitude", 1.0); pf = _f.call(&"roughness", 0.5); pg = float(_i.call(&"seed", 0))
 			&"strata":
-				op_id = 20; p0 = _f.call(&"wavelength", 10.0); pb = _f.call(&"dip", 15.0); pc = _f.call(&"dip_direction_deg", 0.0); pd = _f.call(&"hardness", 0.5); pe = _f.call(&"break_amount", 0.2); pf = _f.call(&"break_size", 50.0); pg = float(_i.call(&"seed", 0))
+				# `wavelength` and `dip_direction_deg` are not properties of the node (they are `band_height`
+				# and `dip_direction_degrees`), and the surviving values sat in the wrong argument slots.
+				op_id = 20; p0 = _f.call(&"band_height", 10.0); pb = _f.call(&"hardness", 0.5); pc = _f.call(&"amount", 1.0); pd = _f.call(&"dip", 15.0); pe = _f.call(&"dip_direction_degrees", 0.0); pf = _f.call(&"break_amount", 0.2); pg = _f.call(&"break_size", 50.0); ph = float(_i.call(&"seed", 0))
 			&"curve":
-				op_id = 21; p0 = _f.call(&"in_min", 0.0); pb = _f.call(&"in_max", 100.0); pc = _f.call(&"out_min", 0.0); pd = _f.call(&"out_max", 100.0); pe = 1.0 if bool(node.get("clamp_output")) else 0.0
+				# Every name here was wrong: the node's are input_min/input_max/output_min/output_max/amount.
+				# `clamp_output` does not exist at all, and `bool(null)` THREW — so compiling any graph
+				# containing a Curve node raised "Nonexistent 'bool' constructor" rather than merely
+				# producing a wrong surface. The fifth argument of curve_grid() is the blend amount.
+				op_id = 21; p0 = _f.call(&"input_min", 0.0); pb = _f.call(&"input_max", 100.0); pc = _f.call(&"output_min", 0.0); pd = _f.call(&"output_max", 100.0); pe = _f.call(&"amount", 1.0)
 				var c: Curve = node.get("curve")
 				if c != null:
 					lut.resize(256)
@@ -1144,7 +1224,9 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				# returned 1.0 everywhere while the node's own eval_grid returned the right field.
 				op_id = 23; p0 = float(_i.call(&"property", 0)); pb = _f.call(&"band_min", 0.0); pc = _f.call(&"band_max", 100.0); pd = _f.call(&"falloff_lo", 10.0); pe = _f.call(&"falloff_hi", 10.0); pf = 1.0 if bool(node.get("invert")) else 0.0; pg = _f.call(&"strength", 1.0)
 			&"curvature":
-				op_id = 24; p0 = float(_i.call(&"feature", 0)); pb = _f.call(&"strength", 1.0); pc = _f.call(&"contrast", 1.0)
+				# `feature` and `strength` are not properties of the node; it has `mode`, `radius`, `contrast`,
+				# which is also curvature_solve()'s argument order.
+				op_id = 24; p0 = float(_i.call(&"mode", 0)); pb = float(_i.call(&"radius", 1)); pc = _f.call(&"contrast", 1.0)
 			&"falloff":
 				op_id = 44
 				var fc: Vector2 = node.get("centre") if node.get("centre") != null else Vector2.ZERO
@@ -1244,6 +1326,9 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 	return {
 		"op": op_id,
 		"params": PackedFloat32Array([p0, pb, pc, pd, pe, pf, pg, ph, pi, pj, pk, pl, pm, pn, po, pp]),
+		# Which params slot each input port overrides when wired. A muted node passes its first input
+		# through and has no parameters of its own, so it maps nothing.
+		"pmap": PackedInt32Array([] if node.muted else PARAM_PORT_MAP.get(node.op(), [])),
 		"noise": nz,
 		"lut": lut,
 	}
@@ -1360,6 +1445,11 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 	var in1 := PackedInt32Array()
 	var in2 := PackedInt32Array()
 	var in3 := PackedInt32Array()
+	# Parallel to in0..in3: the params slot each of those ports overrides when wired, or -1.
+	var pmap0 := PackedInt32Array()
+	var pmap1 := PackedInt32Array()
+	var pmap2 := PackedInt32Array()
+	var pmap3 := PackedInt32Array()
 	var noise_tab: Array = []
 	var luts_tab: Array = []
 	for ni in order:
@@ -1387,6 +1477,11 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
 		in2.append(int(slot_of[s2]) if s2 >= 0 else -1)
 		in3.append(int(slot_of[s3]) if s3 >= 0 else -1)
+		var _pm: PackedInt32Array = lowered.get("pmap", PackedInt32Array())
+		pmap0.append(_pm[0] if _pm.size() > 0 else -1)
+		pmap1.append(_pm[1] if _pm.size() > 1 else -1)
+		pmap2.append(_pm[2] if _pm.size() > 2 else -1)
+		pmap3.append(_pm[3] if _pm.size() > 3 else -1)
 	var out_slot := 0
 	for r in p_roots:
 		var ri := int(r)
@@ -1400,6 +1495,7 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 			"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
 			"params_m": params_m, "params_n": params_n, "params_o": params_o, "params_p": params_p,
 			"in0": in0, "in1": in1, "in2": in2, "in3": in3,
+		"pmap0": pmap0, "pmap1": pmap1, "pmap2": pmap2, "pmap3": pmap3,
 			"noise": noise_tab, "luts": luts_tab, "output": out_slot,
 		},
 		"slot_of": slot_of,

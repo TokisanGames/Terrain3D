@@ -162,6 +162,13 @@ struct GraphProgram {
 	PackedInt32Array in1; // second input's source slot, or -1
 	PackedInt32Array in2; // third input's source slot (e.g. blend mask), or -1
 	PackedInt32Array in3; // fourth input's source slot (e.g. solver mask), or -1
+	// Which of the 16 params slots each of in0..in3 OVERRIDES when that port is wired, or -1 when the port
+	// is not a scalar parameter. Without this the evaluator read parameters from the program alone and
+	// ignored every wire into a parameter port. See PARAM_PORT_MAP in pasture3d_terrain_graph.gd.
+	PackedInt32Array pmap0;
+	PackedInt32Array pmap1;
+	PackedInt32Array pmap2;
+	PackedInt32Array pmap3;
 	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless NOISE or JITTER
 	std::vector<PackedFloat32Array> luts; // parallel to slots; for CURVE
 	int output = -1; // the slot whose grid is the graph output

@@ -222,6 +222,10 @@ bool graph_build(const Dictionary &p_prog, GraphProgram &r_out) {
 	r_out.in1 = p_prog["in1"];
 	if (p_prog.has("in2")) r_out.in2 = p_prog["in2"];
 	if (p_prog.has("in3")) r_out.in3 = p_prog["in3"];
+	if (p_prog.has("pmap0")) r_out.pmap0 = p_prog["pmap0"];
+	if (p_prog.has("pmap1")) r_out.pmap1 = p_prog["pmap1"];
+	if (p_prog.has("pmap2")) r_out.pmap2 = p_prog["pmap2"];
+	if (p_prog.has("pmap3")) r_out.pmap3 = p_prog["pmap3"];
 	r_out.output = (int)p_prog["output"];
 	const int n = r_out.ops.size();
 	const Array noise_in = p_prog["noise"];
@@ -332,6 +336,15 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 		}
 	};
 
+	// An all-ones mask: "apply everywhere", matching what the GDScript nodes fall back to when the graph
+	// hands them no mask. An all-ZEROS mask means the opposite, so the two are not interchangeable.
+	auto graph_full_mask = [&](int p_n) -> PackedFloat32Array {
+		PackedFloat32Array m;
+		m.resize(p_n);
+		m.fill(1.f);
+		return m;
+	};
+
 	auto get_grid_packed = [&](int src_slot) -> PackedFloat32Array {
 		PackedFloat32Array arr;
 		arr.resize(n);
@@ -345,28 +358,61 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 		return arr;
 	};
 
-	// A generator's FLOAT parameter socket. Wired, the driven value is cell 0 of the source grid; unwired,
-	// the value baked into the program stands. Reading cell 0 is not a shortcut - it is the convention the
-	// GDScript nodes' eval_grid already uses (`p_inputs[k][0]`), and the two paths have to agree exactly or
-	// the parity gates are comparing different graphs.
-	//
-	// Without this the native evaluator read `params[s]` alone and silently ignored every wire into a
-	// parameter port, so a Const driving an amplitude did nothing at all. Note that only in0..in3 exist:
-	// a node's port 4 and beyond cannot be represented here, which is why native_supported() declines a
-	// graph that wires one rather than quietly dropping it again.
-	auto driven = [&](const int32_t *in, int s, float p_fallback) -> float {
-		if (!in || in[s] < 0 || in[s] >= p_prog.count) {
-			return p_fallback;
-		}
-		const int b = slot_buffer[in[s]];
-		return (b >= 0) ? pool[b][0] : p_fallback;
+	const int32_t *pmap_arr[4] = {
+		p_prog.pmap0.size() == p_prog.count ? p_prog.pmap0.ptr() : nullptr,
+		p_prog.pmap1.size() == p_prog.count ? p_prog.pmap1.ptr() : nullptr,
+		p_prog.pmap2.size() == p_prog.count ? p_prog.pmap2.ptr() : nullptr,
+		p_prog.pmap3.size() == p_prog.count ? p_prog.pmap3.ptr() : nullptr,
 	};
+	const int32_t *in_arr[4] = { in0, in1, in2, in3 };
 
 	// 3. Sequential evaluation of nodes in topological order
 	for (int s = 0; s < p_prog.count; s++) {
 		int out_b = acquire_buffer();
 		slot_buffer[s] = out_b;
 		float *g_ptr = pool[out_b].data();
+
+		// This slot's sixteen parameters, resolved. Every op below reads P[] rather than the program's
+		// params arrays directly, because a parameter can be DRIVEN: a wire into a parameter port overrides
+		// the value baked at compile time with the driving node's output. Doing it once here, generically,
+		// is deliberate — the previous attempt patched the generators case by case and silently missed
+		// four of them, which is the same way this bug arrived in the first place.
+		//
+		// A driven parameter is read from cell 0 of the source grid. That is not a shortcut: it is the
+		// convention the GDScript nodes' eval_grid already uses (`p_inputs[k][0]`), and the two evaluators
+		// have to agree exactly or the parity gates are comparing different graphs.
+		float P[16] = {
+			params[s], params_b ? params_b[s] : 0.f, params_c ? params_c[s] : 0.f,
+			params_d ? params_d[s] : 0.f, params_e ? params_e[s] : 0.f, params_f ? params_f[s] : 0.f,
+			params_g ? params_g[s] : 0.f, params_h ? params_h[s] : 0.f, params_i ? params_i[s] : 0.f,
+			params_j ? params_j[s] : 0.f, params_k ? params_k[s] : 0.f, params_l ? params_l[s] : 0.f,
+			params_m ? params_m[s] : 0.f, params_n ? params_n[s] : 0.f, params_o ? params_o[s] : 0.f,
+			params_p ? params_p[s] : 0.f
+		};
+		// Whether each slot has a value at all. A program may omit the higher params arrays; several ops
+		// have their own fallback for that case, and those fallbacks have to survive this rewrite. An
+		// override counts as present.
+		bool PH[16] = {
+			true, params_b != nullptr, params_c != nullptr, params_d != nullptr, params_e != nullptr,
+			params_f != nullptr, params_g != nullptr, params_h != nullptr, params_i != nullptr,
+			params_j != nullptr, params_k != nullptr, params_l != nullptr, params_m != nullptr,
+			params_n != nullptr, params_o != nullptr, params_p != nullptr
+		};
+		for (int k = 0; k < 4; k++) {
+			if (!pmap_arr[k] || !in_arr[k]) {
+				continue;
+			}
+			const int slot = pmap_arr[k][s];
+			const int src = in_arr[k][s];
+			if (slot < 0 || slot >= 16 || src < 0 || src >= p_prog.count) {
+				continue;
+			}
+			const int b = slot_buffer[src];
+			if (b >= 0) {
+				P[slot] = pool[b][0];
+				PH[slot] = true;
+			}
+		}
 
 		switch (ops[s]) {
 			case GRAPH_OP_INPUT: {
@@ -381,7 +427,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			case GRAPH_OP_NOISE: {
 				const Ref<FastNoiseLite> &nz = p_prog.noise[s];
 				if (nz.is_valid()) {
-					const double amp = (double)params[s];
+					const double amp = (double)P[0];
 					Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
 						for (int iz = z0; iz < z1; iz++) {
 							const int row = iz * p_gw;
@@ -398,14 +444,14 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			} break;
 
 			case GRAPH_OP_CONST: {
-				std::fill_n(g_ptr, n, params[s]);
+				std::fill_n(g_ptr, n, P[0]);
 			} break;
 
 			case GRAPH_OP_BLEND: {
 				const float *ga = (in0[s] >= 0 && slot_buffer[in0[s]] >= 0) ? pool[slot_buffer[in0[s]]].data() : nullptr;
 				const float *gb = (in1[s] >= 0 && slot_buffer[in1[s]] >= 0) ? pool[slot_buffer[in1[s]]].data() : nullptr;
 				const float *gc = (in2 && in2[s] >= 0 && slot_buffer[in2[s]] >= 0) ? pool[slot_buffer[in2[s]]].data() : nullptr;
-				const int mode = (int)params[s];
+				const int mode = (int)P[0];
 				Pasture3DThreadPool::parallel_for_elements(n, 1024, [&](int i0, int i1) {
 					for (int i = i0; i < i1; i++) {
 						const double a = ga ? (double)ga[i] : 0.0;
@@ -430,10 +476,10 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_TERRACE: {
 				const float *src = (in0[s] >= 0 && slot_buffer[in0[s]] >= 0) ? pool[slot_buffer[in0[s]]].data() : nullptr;
-				const float band_height = params[s] > 0.001f ? params[s] : 0.001f;
-				const float hardness = params_b ? params_b[s] : 0.8f;
-				const float amount = params_c ? params_c[s] : 1.0f;
-				const float jitter = params_d ? params_d[s] : 0.0f;
+				const float band_height = P[0] > 0.001f ? P[0] : 0.001f;
+				const float hardness = (PH[1] ? P[1] : 0.8f);
+				const float amount = (PH[2] ? P[2] : 1.0f);
+				const float jitter = (PH[3] ? P[3] : 0.0f);
 				const Ref<FastNoiseLite> &j_nz = p_prog.noise[s];
 				const double hard_exp = 1.0 + (double)hardness * 15.0;
 
@@ -471,7 +517,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 					std::fill_n(g_ptr, n, 0.f);
 				}
 				std::vector<float> tmp_v(g_ptr, g_ptr + n);
-				graph_nan_blur(tmp_v, p_gw, p_gh, (int)params[s]);
+				graph_nan_blur(tmp_v, p_gw, p_gh, (int)P[0]);
 				std::copy(tmp_v.begin(), tmp_v.end(), g_ptr);
 			} break;
 
@@ -486,73 +532,73 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_NOISE_JORDAN: {
 				PackedFloat32Array res = noise_jordan_grid(p_gw, p_gh, p_rect,
-						driven(in0, s, params[s]), params_b[s], (int)params_c[s],
-						driven(in3, s, params_d[s]), params_e[s],
-						driven(in1, s, params_f[s]), driven(in2, s, params_g[s]), (int)params_h[s]);
+						P[0], P[1], (int)P[2],
+						P[3], P[4],
+						P[5], P[6], (int)P[7]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_GAVORONOISE: {
-				PackedFloat32Array res = gavoronoise_grid(p_gw, p_gh, p_rect, params[s], params_b[s],
-						(int)params_c[s], (int)params_d[s], params_e[s], params_f[s], params_g[s],
-						params_h[s], params_j ? params_j[s] : 0.f, params_k ? params_k[s] : 1.f);
+				PackedFloat32Array res = gavoronoise_grid(p_gw, p_gh, p_rect, P[0], P[1],
+						(int)P[2], (int)P[3], P[4], P[5], P[6],
+						P[7], (PH[9] ? P[9] : 0.f), (PH[10] ? P[10] : 1.f));
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_NOISE_SWISS: {
 				PackedFloat32Array res = noise_swiss_grid(p_gw, p_gh, p_rect,
-						driven(in0, s, params[s]), params_b[s], (int)params_c[s],
-						driven(in3, s, params_d[s]), params_e[s],
-						driven(in1, s, params_f[s]), driven(in2, s, params_g[s]), (int)params_h[s]);
+						P[0], P[1], (int)P[2],
+						P[3], P[4],
+						P[5], P[6], (int)P[7]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_GEOLOGICAL_PRIMITIVE: {
-				Vector2 offset(params_j ? params_j[s] : 0.f, params_k ? params_k[s] : 0.f);
-				PackedFloat32Array res = geological_primitive_grid(p_gw, p_gh, p_rect, (int)params[s],
-						(int)params_b[s], driven(in0, s, params_c[s]), driven(in1, s, params_d[s]),
-						driven(in3, s, params_e[s]), driven(in2, s, params_f[s]), params_g[s], offset);
+				Vector2 offset((PH[9] ? P[9] : 0.f), (PH[10] ? P[10] : 0.f));
+				PackedFloat32Array res = geological_primitive_grid(p_gw, p_gh, p_rect, (int)P[0],
+						(int)P[1], P[2], P[3],
+						P[4], P[5], P[6], offset);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_FURROWS: {
 				PackedFloat32Array res = furrows_grid(p_gw, p_gh, p_rect,
-						driven(in0, s, params[s]), driven(in1, s, params_b[s]), driven(in2, s, params_c[s]),
-						(int)params_d[s], driven(in3, s, params_e[s]), params_f[s], (int)params_g[s]);
+						P[0], P[1], P[2],
+						(int)P[3], P[4], P[5], (int)P[6]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_DUNES: {
 				PackedFloat32Array res = dunes_grid(p_gw, p_gh, p_rect,
-						driven(in0, s, params[s]), driven(in1, s, params_b[s]), driven(in2, s, params_c[s]),
-						driven(in3, s, params_d[s]), params_e[s], params_f[s], params_g[s], (int)params_h[s]);
+						P[0], P[1], P[2],
+						P[3], P[4], P[5], P[6], (int)P[7]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_CRATER: {
 				PackedFloat32Array res = crater_grid(p_gw, p_gh, p_rect,
-						driven(in0, s, params[s]), driven(in1, s, params_b[s]),
-						driven(in2, s, params_c[s]), driven(in3, s, params_d[s]),
-						params_e[s], params_f[s], (int)params_g[s]);
+						P[0], P[1],
+						P[2], P[3],
+						P[4], P[5], (int)P[6]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_STRATA: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array res = strata_grid(in_arr, p_gw, p_gh, p_rect, params[s], params_b[s], params_c[s], params_d[s], params_e[s], params_f[s], params_g[s], (int)params_h[s]);
+				PackedFloat32Array res = strata_grid(in_arr, p_gw, p_gh, p_rect, P[0], P[1], P[2], P[3], P[4], P[5], P[6], (int)P[7]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_CURVE: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				const PackedFloat32Array &lut = p_prog.luts[s];
-				PackedFloat32Array res = curve_grid(in_arr, lut, params[s], params_b[s], params_c[s], params_d[s], params_e[s]);
+				PackedFloat32Array res = curve_grid(in_arr, lut, P[0], P[1], P[2], P[3], P[4]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_REMAP: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array res = remap_grid(in_arr, params[s], params_b[s], params_c[s], params_d[s], params_e[s] > 0.5f, params_f[s], params_g[s] > 0.5f);
+				PackedFloat32Array res = remap_grid(in_arr, P[0], P[1], P[2], P[3], P[4] > 0.5f, P[5], P[6] > 0.5f);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
@@ -561,25 +607,25 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				// in1 is the optional distance-perturbation grid; an unwired port passes an empty array,
 				// which falloff_grid reads as "no perturbation" rather than as zeros.
 				PackedFloat32Array nz_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
-				PackedFloat32Array res = falloff_grid(in_arr, nz_arr, p_gw, p_gh, p_rect, (int)params[s],
-						params_b[s], params_c[s], params_d[s], params_e[s], params_f[s],
-						params_g[s] > 0.5f, params_h[s]);
+				PackedFloat32Array res = falloff_grid(in_arr, nz_arr, p_gw, p_gh, p_rect, (int)P[0],
+						P[1], P[2], P[3], P[4], P[5],
+						P[6] > 0.5f, P[7]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_CONTRAST: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
-				PackedFloat32Array res = contrast_grid(in_arr, msk_arr, (int)params[s], params_b[s],
-						params_c[s], params_d[s], params_e[s]);
+				PackedFloat32Array res = contrast_grid(in_arr, msk_arr, (int)P[0], P[1],
+						P[2], P[3], P[4]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_TRANSFORM: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array res = transform_solve(in_arr, p_gw, p_gh, p_rect,
-						Vector2((float)params[s], (float)params_b[s]), params_c[s], params_d[s],
-						Vector2((float)params_e[s], (float)params_f[s]), (int)params_g[s], params_h[s]);
+						Vector2((float)P[0], (float)P[1]), P[2], P[3],
+						Vector2((float)P[4], (float)P[5]), (int)P[6], P[7]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
@@ -590,7 +636,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				// alternative is threading an out-parameter through the whole program struct.
 				double divisor = 1.0;
 				PackedFloat32Array res = distance_transform_solve(in_arr, p_gw, p_gh, p_rect,
-						params[s], (int)params_b[s], (int)params_c[s], (int)params_d[s], params_e[s],
+						P[0], (int)P[1], (int)P[2], (int)P[3], P[4],
 						&divisor);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
@@ -599,14 +645,14 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
 				PackedFloat32Array res = expand_shrink_solve(in_arr, msk_arr, p_gw, p_gh, p_rect,
-						(int)params[s], params_b[s], (int)params_c[s], (int)params_d[s], params_e[s]);
+						(int)P[0], P[1], (int)P[2], (int)P[3], P[4]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_RELATIVE_ELEVATION: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array res = relative_elevation_solve(in_arr, p_gw, p_gh, p_rect,
-						params[s], (int)params_b[s]);
+						P[0], (int)P[1]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
@@ -617,7 +663,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				// graph that wires the deposition port is routed to the multi-channel path instead, so
 				// nothing is lost by not computing it.
 				PackedFloat32Array res = smooth_fill_solve(in_arr, msk_arr, p_gw, p_gh, p_rect,
-						(int)params[s], params_b[s], params_c[s], params_d[s], nullptr, nullptr);
+						(int)P[0], P[1], P[2], P[3], nullptr, nullptr);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
@@ -625,8 +671,8 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
 				PackedFloat32Array res = recast_cliff_solve(in_arr, msk_arr, p_gw, p_gh, p_rect,
-						params[s], params_b[s], params_c[s], params_d[s], params_e[s], params_f[s],
-						params_g[s]);
+						P[0], P[1], P[2], P[3], P[4], P[5],
+						P[6]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
@@ -634,73 +680,79 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
 				PackedFloat32Array res = warp_downslope_solve(in_arr, msk_arr, p_gw, p_gh, p_rect,
-						params[s], params_b[s], params_c[s] > 0.5f, params_d[s]);
+						P[0], P[1], P[2] > 0.5f, P[3]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_FLOODING_UNIFORM_LEVEL: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array res = flooding_uniform_level_solve(in_arr, p_gw, p_gh, params[s],
-						params_b[s] > 0.5f, nullptr, nullptr);
+				PackedFloat32Array res = flooding_uniform_level_solve(in_arr, p_gw, p_gh, P[0],
+						P[1] > 0.5f, nullptr, nullptr);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_WATER_MASK: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array res = water_mask_solve(in_arr, p_gw, p_gh, p_rect, params[s],
-						params_b[s], (int)params_c[s], nullptr);
+				PackedFloat32Array res = water_mask_solve(in_arr, p_gw, p_gh, p_rect, P[0],
+						P[1], (int)P[2], nullptr);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_MUDSLIDE: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
-				PackedFloat32Array res = mudslide_solve(in_arr, msk_arr, p_gw, p_gh, p_rect, params[s],
-						params_b[s], params_c[s], params_d[s], params_e[s], params_f[s], nullptr, nullptr);
+				PackedFloat32Array res = mudslide_solve(in_arr, msk_arr, p_gw, p_gh, p_rect, P[0],
+						P[1], P[2], P[3], P[4], P[5], nullptr, nullptr);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_MASK: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array res = mask_grid(in_arr, p_gw, p_gh, p_rect, (int)params[s], params_b[s], params_c[s], params_d[s], params_e[s], params_f[s] > 0.5f, params_g[s]);
+				PackedFloat32Array res = mask_grid(in_arr, p_gw, p_gh, p_rect, (int)P[0], P[1], P[2], P[3], P[4], P[5] > 0.5f, P[6]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_WARP: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array res = warp_solve_grid(in_arr, p_gw, p_gh, p_rect, (WarpNoiseType)(int)params[s], params_b[s], params_c[s], (int)params_d[s], params_e[s], params_f[s], (int)params_g[s]);
+				PackedFloat32Array res = warp_solve_grid(in_arr, p_gw, p_gh, p_rect, (WarpNoiseType)(int)P[0], P[1], P[2], (int)P[3], P[4], P[5], (int)P[6]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_CURVATURE: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array res = curvature_solve(in_arr, p_gw, p_gh, (CurvatureMode)(int)params[s], (int)params_b[s], params_c[s]);
+				PackedFloat32Array res = curvature_solve(in_arr, p_gw, p_gh, (CurvatureMode)(int)P[0], (int)P[1], P[2]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_TALUS_PROJECTION: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array in_mask = get_grid_packed(in1[s]);
-				PackedFloat32Array res = talus_projection_solve(in_arr, in_mask, p_gw, p_gh, p_rect, params[s], (int)params_b[s], params_c[s], params_d[s]);
+				// NOT in1. Port 1 of this node is `talus_angle`, a scalar; its mask is not a port at all
+				// but the graph-level mask, which the GDScript node defaults to filled(1.0) — apply
+				// everywhere. Reading in1 here meant an unwired port 1 handed the solver a mask of zeros,
+				// so the native path applied the talus relaxation NOWHERE and silently passed the surface
+				// through. Driving port 1 then "fixed" it by accident, which is how it stayed hidden.
+				PackedFloat32Array in_mask = graph_full_mask(n);
+				PackedFloat32Array res = talus_projection_solve(in_arr, in_mask, p_gw, p_gh, p_rect, P[0], (int)P[1], P[2], P[3]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_SPECTRAL_EQUALIZER: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array in_mask = get_grid_packed(in1[s]);
-				PackedFloat32Array res = spectral_equalizer_solve(in_arr, in_mask, p_gw, p_gh, params[s], params_b[s], params_c[s], (int)params_d[s], (int)params_e[s], params_f[s]);
+				// Same as talus_projection above: port 1 is `macro_gain`, not a mask.
+				PackedFloat32Array in_mask = graph_full_mask(n);
+				PackedFloat32Array res = spectral_equalizer_solve(in_arr, in_mask, p_gw, p_gh, P[0], P[1], P[2], (int)P[3], (int)P[4], P[5]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_DEPRESSION_FILLING: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				PackedFloat32Array res = depression_filling_solve(in_arr, p_gw, p_gh, p_rect, params[s], params_b[s], params_c[s]);
+				PackedFloat32Array res = depression_filling_solve(in_arr, p_gw, p_gh, p_rect, P[0], P[1], P[2]);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 
 			case GRAPH_OP_LAKE_FLOODING: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				LakeFloodingResult res = lake_flooding_solve(in_arr, p_gw, p_gh, p_rect, (LakeFloodMode)(int)params[s], params_b[s], params_c[s], params_d[s]);
+				LakeFloodingResult res = lake_flooding_solve(in_arr, p_gw, p_gh, p_rect, (LakeFloodMode)(int)P[0], P[1], P[2], P[3]);
 				if (res.ok && res.height.size() == n) {
 					std::copy_n(res.height.ptr(), n, g_ptr);
 				}
@@ -708,7 +760,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_STREAM_EXTRACTION: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				StreamExtractionResult res = stream_extraction_solve(in_arr, p_gw, p_gh, p_rect, params[s], params_b[s], params_c[s], params_d[s]);
+				StreamExtractionResult res = stream_extraction_solve(in_arr, p_gw, p_gh, p_rect, P[0], P[1], P[2], P[3]);
 				if (res.ok && res.height.size() == n) {
 					std::copy_n(res.height.ptr(), n, g_ptr);
 				}
@@ -717,13 +769,13 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			case GRAPH_OP_EROSION_HYDRAULIC: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				ErosionHydraulicParams p;
-				p.iterations = (int)params[s];
-				p.rain_rate = params_b[s];
-				p.evaporation_rate = params_c[s];
-				p.sediment_capacity = params_d[s];
-				p.erosion_speed = params_e[s];
-				p.deposition_speed = params_f[s];
-				p.min_slope = params_g ? params_g[s] : 0.01f;
+				p.iterations = (int)P[0];
+				p.rain_rate = P[1];
+				p.evaporation_rate = P[2];
+				p.sediment_capacity = P[3];
+				p.erosion_speed = P[4];
+				p.deposition_speed = P[5];
+				p.min_slope = (PH[6] ? P[6] : 0.01f);
 				ErosionHydraulicResult res = erosion_hydraulic_solve_best(in_arr, p_gw, p_gh, p_rect, p);
 				if (res.ok && res.height.size() == n) {
 					std::copy_n(res.height.ptr(), n, g_ptr);
@@ -733,7 +785,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			case GRAPH_OP_EROSION_THERMAL: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array in_hard = get_grid_packed(in1[s]);
-				ErosionThermalResult res = erosion_thermal_solve(in_arr, in_hard, p_gw, p_gh, p_rect, params[s], (int)params_b[s], params_c[s]);
+				ErosionThermalResult res = erosion_thermal_solve(in_arr, in_hard, p_gw, p_gh, p_rect, P[0], (int)P[1], P[2]);
 				if (res.ok && res.height.size() == n) {
 					std::copy_n(res.height.ptr(), n, g_ptr);
 				}
@@ -741,7 +793,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_SCREE: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
-				Array res = scree_solve_grid(in_arr, p_gw, p_gh, p_rect, params[s], params_b[s], params_c[s], params_d[s], params_e[s], params_f[s], (int)params_g[s]);
+				Array res = scree_solve_grid(in_arr, p_gw, p_gh, p_rect, P[0], P[1], P[2], P[3], P[4], P[5], (int)P[6]);
 				if (res.size() > 0) {
 					PackedFloat32Array h = res[0];
 					if (h.size() == n) std::copy_n(h.ptr(), n, g_ptr);
@@ -755,11 +807,11 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				p.gw = p_gw;
 				p.gh = p_gh;
 				p.cell_size = (double)p_rect.size.x / (double)std::max(p_gw, 1);
-				p.iterations = (int)params[s];
-				p.erosion_rate = params_b[s];
-				p.area_exponent = params_c[s];
-				p.diffusion = params_d[s];
-				p.deposition = params_e[s];
+				p.iterations = (int)P[0];
+				p.erosion_rate = P[1];
+				p.area_exponent = P[2];
+				p.diffusion = P[3];
+				p.deposition = P[4];
 				std::vector<float> z_in(in_arr.ptr(), in_arr.ptr() + n);
 				ErosionResult res = erosion_solve(z_in, p, in_erod);
 				if (res.ok && (int)res.z.size() == n) {
@@ -770,18 +822,18 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			case GRAPH_OP_HYDRAULIC_PARTICLE: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				HydraulicParticleParams p;
-				p.droplet_count = (int)params[s];
-				p.max_lifetime = (int)params_b[s];
-				p.inertia = params_c[s];
-				p.sediment_capacity = params_d[s];
-				p.erosion_speed = params_e[s];
-				p.deposition_speed = params_f[s];
-				p.evaporation_rate = params_g ? params_g[s] : 0.01f;
-				p.min_slope = params_h ? params_h[s] : 0.01f;
-				p.gravity = params_i ? params_i[s] : 4.0f;
-				p.seed = params_j ? (int64_t)params_j[s] : 1337;
-				p.bedrock_gap = params_k ? params_k[s] : 2.0f;
-				p.ridge_forcing = params_l ? params_l[s] : 0.0f;
+				p.droplet_count = (int)P[0];
+				p.max_lifetime = (int)P[1];
+				p.inertia = P[2];
+				p.sediment_capacity = P[3];
+				p.erosion_speed = P[4];
+				p.deposition_speed = P[5];
+				p.evaporation_rate = (PH[6] ? P[6] : 0.01f);
+				p.min_slope = (PH[7] ? P[7] : 0.01f);
+				p.gravity = (PH[8] ? P[8] : 4.0f);
+				p.seed = params_j ? (int64_t)P[9] : 1337;
+				p.bedrock_gap = (PH[10] ? P[10] : 2.0f);
+				p.ridge_forcing = (PH[11] ? P[11] : 0.0f);
 				if (in1 && in1[s] >= 0) {
 					p.mask = get_grid_packed(in1[s]);
 				}
@@ -794,14 +846,14 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			case GRAPH_OP_HYDRAULIC_STREAM_LOG: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				HydraulicStreamLogParams p;
-				p.iterations = (int)params[s];
-				p.incision_rate = params_b[s];
-				p.area_exponent = params_c[s];
-				p.slope_exponent = params_d[s];
-				p.min_catchment = params_e[s];
-				p.bank_smoothing = params_f[s];
-				p.peak_preservation = params_g ? params_g[s] : 0.5f;
-				p.gradient_power = params_h ? params_h[s] : 0.8f;
+				p.iterations = (int)P[0];
+				p.incision_rate = P[1];
+				p.area_exponent = P[2];
+				p.slope_exponent = P[3];
+				p.min_catchment = P[4];
+				p.bank_smoothing = P[5];
+				p.peak_preservation = (PH[6] ? P[6] : 0.5f);
+				p.gradient_power = (PH[7] ? P[7] : 0.8f);
 				if (in1 && in1[s] >= 0) {
 					p.mask = get_grid_packed(in1[s]);
 				}
@@ -814,22 +866,22 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 			case GRAPH_OP_HYDRAULIC_SALEVE: {
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				HydraulicSaleveParams p;
-				p.iterations = (int)params[s];
-				p.erosion_strength = params_b[s];
-				p.drainage_exponent = params_c[s];
-				p.drainage_noise = params_d[s];
-				p.shape_preservation = params_e[s];
-				p.bank_smoothing = params_f[s];
-				p.deposition_radius = params_g ? params_g[s] : 25.0f;
-				p.reference_relief = params_p ? std::max(0.0f, params_p[s]) : 0.0f;
-				p.deposition_strength = params_h ? params_h[s] : 0.5f;
-				p.stream_strength = params_i ? params_i[s] : 0.02f;
-				p.stream_exp = params_j ? params_j[s] : 0.8f;
-				p.gain = params_k ? params_k[s] : 1.0f;
-				p.gamma = params_l ? params_l[s] : 1.0f;
-				p.mix_factor = params_m ? params_m[s] : 1.0f;
-				p.seed = params_n ? (int)params_n[s] : 0;
-				p.enable_post_smoothing = params_o ? (params_o[s] > 0.5f) : false;
+				p.iterations = (int)P[0];
+				p.erosion_strength = P[1];
+				p.drainage_exponent = P[2];
+				p.drainage_noise = P[3];
+				p.shape_preservation = P[4];
+				p.bank_smoothing = P[5];
+				p.deposition_radius = (PH[6] ? P[6] : 25.0f);
+				p.reference_relief = params_p ? std::max(0.0f, P[15]) : 0.0f;
+				p.deposition_strength = (PH[7] ? P[7] : 0.5f);
+				p.stream_strength = (PH[8] ? P[8] : 0.02f);
+				p.stream_exp = (PH[9] ? P[9] : 0.8f);
+				p.gain = (PH[10] ? P[10] : 1.0f);
+				p.gamma = (PH[11] ? P[11] : 1.0f);
+				p.mix_factor = (PH[12] ? P[12] : 1.0f);
+				p.seed = params_n ? (int)P[13] : 0;
+				p.enable_post_smoothing = params_o ? (P[14] > 0.5f) : false;
 				if (in1 && in1[s] >= 0) {
 					p.dx = get_grid_packed(in1[s]);
 				}
@@ -847,17 +899,17 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_MOUNTAIN_CONE: {
 				MountainConeParams p;
-				p.seed = (int)params[s];
-				p.elevation = params_b[s];
-				p.scale = params_c[s];
-				p.octaves = (int)params_d[s];
-				p.peak_kw = params_e[s];
-				p.rugosity = params_f[s];
-				p.angle = params_g ? params_g[s] : 45.0f;
-				p.gamma = params_h ? params_h[s] : 0.5f;
-				p.cone_alpha = params_i ? params_i[s] : 1.2f;
-				p.ridge_amp = params_j ? params_j[s] : 0.4f;
-				p.base_noise_amp = params_k ? params_k[s] : 0.05f;
+				p.seed = (int)P[0];
+				p.elevation = P[1];
+				p.scale = P[2];
+				p.octaves = (int)P[3];
+				p.peak_kw = P[4];
+				p.rugosity = P[5];
+				p.angle = (PH[6] ? P[6] : 45.0f);
+				p.gamma = (PH[7] ? P[7] : 0.5f);
+				p.cone_alpha = (PH[8] ? P[8] : 1.2f);
+				p.ridge_amp = (PH[9] ? P[9] : 0.4f);
+				p.base_noise_amp = (PH[10] ? P[10] : 0.05f);
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
 				if (in2 && in2[s] >= 0) p.envelope = get_grid_packed(in2[s]);
@@ -869,15 +921,15 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_MOUNTAIN_INSELBERG: {
 				MountainInselbergParams p;
-				p.seed = (int)params[s];
-				p.elevation = params_b[s];
-				p.scale = params_c[s];
-				p.octaves = (int)params_d[s];
-				p.rugosity = params_e[s];
-				p.angle = params_f[s];
-				p.gamma = params_g ? params_g[s] : 0.5f;
-				p.bulk_amp = params_h ? params_h[s] : 0.5f;
-				p.base_noise_amp = params_i ? params_i[s] : 0.05f;
+				p.seed = (int)P[0];
+				p.elevation = P[1];
+				p.scale = P[2];
+				p.octaves = (int)P[3];
+				p.rugosity = P[4];
+				p.angle = P[5];
+				p.gamma = (PH[6] ? P[6] : 0.5f);
+				p.bulk_amp = (PH[7] ? P[7] : 0.5f);
+				p.base_noise_amp = (PH[8] ? P[8] : 0.05f);
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
 				PackedFloat32Array res = mountain_inselberg_solve_best(p_gw, p_gh, p_rect, p);
@@ -888,17 +940,17 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_MOUNTAIN_RANGE_RADIAL: {
 				MountainRangeRadialParams p;
-				p.seed = (int)params[s];
-				p.elevation = params_b[s];
-				p.kw_x = params_c[s];
-				p.kw_y = params_d[s];
-				p.half_width = params_e[s];
-				p.angle_spread_ratio = params_f[s];
-				p.core_size_ratio = params_g ? params_g[s] : 0.2f;
-				p.octaves = params_h ? (int)params_h[s] : 8;
-				p.weight = params_i ? params_i[s] : 0.7f;
-				p.persistence = params_j ? params_j[s] : 0.5f;
-				p.lacunarity = params_k ? params_k[s] : 2.0f;
+				p.seed = (int)P[0];
+				p.elevation = P[1];
+				p.kw_x = P[2];
+				p.kw_y = P[3];
+				p.half_width = P[4];
+				p.angle_spread_ratio = P[5];
+				p.core_size_ratio = (PH[6] ? P[6] : 0.2f);
+				p.octaves = params_h ? (int)P[7] : 8;
+				p.weight = (PH[8] ? P[8] : 0.7f);
+				p.persistence = (PH[9] ? P[9] : 0.5f);
+				p.lacunarity = (PH[10] ? P[10] : 2.0f);
 				if (in0[s] >= 0) p.ctrl_param = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dx = get_grid_packed(in1[s]);
 				if (in2 && in2[s] >= 0) p.dy = get_grid_packed(in2[s]);
@@ -913,17 +965,17 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_MOUNTAIN_TIBESTI: {
 				MountainTibestiParams p;
-				p.seed = (int)params[s];
-				p.elevation = params_b[s];
-				p.scale = params_c[s];
-				p.octaves = (int)params_d[s];
-				p.peak_kw = params_e[s];
-				p.rugosity = params_f[s];
-				p.angle = params_g ? params_g[s] : 45.0f;
-				p.angle_spread_ratio = params_h ? params_h[s] : 0.5f;
-				p.gamma = params_i ? params_i[s] : 0.5f;
-				p.bulk_amp = params_j ? params_j[s] : 0.5f;
-				p.base_noise_amp = params_k ? params_k[s] : 0.05f;
+				p.seed = (int)P[0];
+				p.elevation = P[1];
+				p.scale = P[2];
+				p.octaves = (int)P[3];
+				p.peak_kw = P[4];
+				p.rugosity = P[5];
+				p.angle = (PH[6] ? P[6] : 45.0f);
+				p.angle_spread_ratio = (PH[7] ? P[7] : 0.5f);
+				p.gamma = (PH[8] ? P[8] : 0.5f);
+				p.bulk_amp = (PH[9] ? P[9] : 0.5f);
+				p.base_noise_amp = (PH[10] ? P[10] : 0.05f);
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
 				PackedFloat32Array res = mountain_tibesti_solve_best(p_gw, p_gh, p_rect, p);
@@ -934,17 +986,17 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_MOUNTAIN_STUMP: {
 				MountainStumpParams p;
-				p.seed = (int)params[s];
-				p.elevation = params_b[s];
-				p.scale = params_c[s];
-				p.octaves = (int)params_d[s];
-				p.peak_kw = params_e[s];
-				p.rugosity = params_f[s];
-				p.angle = params_g ? params_g[s] : 45.0f;
-				p.k_smoothing = params_h ? params_h[s] : 0.05f;
-				p.gamma = params_i ? params_i[s] : 0.5f;
-				p.ridge_amp = params_j ? params_j[s] : 0.4f;
-				p.base_noise_amp = params_k ? params_k[s] : 0.05f;
+				p.seed = (int)P[0];
+				p.elevation = P[1];
+				p.scale = P[2];
+				p.octaves = (int)P[3];
+				p.peak_kw = P[4];
+				p.rugosity = P[5];
+				p.angle = (PH[6] ? P[6] : 45.0f);
+				p.k_smoothing = (PH[7] ? P[7] : 0.05f);
+				p.gamma = (PH[8] ? P[8] : 0.5f);
+				p.ridge_amp = (PH[9] ? P[9] : 0.4f);
+				p.base_noise_amp = (PH[10] ? P[10] : 0.05f);
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
 				PackedFloat32Array res = mountain_stump_solve_best(p_gw, p_gh, p_rect, p);
@@ -955,17 +1007,17 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_SHATTERED_PEAK: {
 				ShatteredPeakParams p;
-				p.seed = (int)params[s];
-				p.elevation = params_b[s];
-				p.scale = params_c[s];
-				p.octaves = (int)params_d[s];
-				p.peak_kw = params_e[s];
-				p.rugosity = params_f[s];
-				p.angle = params_g ? params_g[s] : 45.0f;
-				p.gamma = params_h ? params_h[s] : 0.5f;
-				p.bulk_amp = params_i ? params_i[s] : 0.5f;
-				p.base_noise_amp = params_j ? params_j[s] : 0.05f;
-				p.k_smoothing = params_k ? params_k[s] : 0.05f;
+				p.seed = (int)P[0];
+				p.elevation = P[1];
+				p.scale = P[2];
+				p.octaves = (int)P[3];
+				p.peak_kw = P[4];
+				p.rugosity = P[5];
+				p.angle = (PH[6] ? P[6] : 45.0f);
+				p.gamma = (PH[7] ? P[7] : 0.5f);
+				p.bulk_amp = (PH[8] ? P[8] : 0.5f);
+				p.base_noise_amp = (PH[9] ? P[9] : 0.05f);
+				p.k_smoothing = (PH[10] ? P[10] : 0.05f);
 				if (in0[s] >= 0) p.dx = get_grid_packed(in0[s]);
 				if (in1 && in1[s] >= 0) p.dy = get_grid_packed(in1[s]);
 				PackedFloat32Array res = shattered_peak_solve_best(p_gw, p_gh, p_rect, p);
@@ -976,13 +1028,13 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_CALDERA: {
 				CalderaParams p;
-				p.elevation = params[s];
-				p.radius = params_b[s];
-				p.sigma_inner = params_c[s];
-				p.sigma_outer = params_d[s];
-				p.z_bottom = params_e[s];
-				p.noise_r_amp = params_f[s];
-				p.noise_z_ratio = params_g ? params_g[s] : 0.05f;
+				p.elevation = P[0];
+				p.radius = P[1];
+				p.sigma_inner = P[2];
+				p.sigma_outer = P[3];
+				p.z_bottom = P[4];
+				p.noise_r_amp = P[5];
+				p.noise_z_ratio = (PH[6] ? P[6] : 0.05f);
 				if (in0[s] >= 0) p.noise = get_grid_packed(in0[s]);
 				PackedFloat32Array res = caldera_solve_best(p_gw, p_gh, p_rect, p);
 				if (res.size() == n) {
