@@ -441,7 +441,14 @@ func _gate_ay_stack_sources() -> void:
 	layer.selector = _sel(K_ALTITUDE, mid, 1.0e6, 0.0, 0.0)
 	var stack := Pasture3DReliefStack.new()
 	stack.layers = [layer] as Array[Pasture3DReliefMaterial]
-	plow.relief = stack
+	# Relief reaches a brush through the MODIFIER STACK. This used to say `plow.relief = stack`, which is
+	# the pre-stack API: Plow has no such property any more, `set` on a missing property is silent, and the
+	# gate then measured a brush with no relief at all. Assigned as a whole array rather than appended, so
+	# the setter runs and binds the modifier's `changed` signal to the brush.
+	var mr := Pasture3DNodeRelief.new()
+	mr.resource_name = "Relief"
+	mr.material = stack
+	plow.modifiers = [mr] as Array[Pasture3DNode]
 
 	var sources: Array = plow._preview_selector_sources(stack)
 	print("    dropdown offers %d source(s): %s" % [sources.size(),

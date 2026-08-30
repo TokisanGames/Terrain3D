@@ -33,6 +33,14 @@
 #include "pasture_3d_strata.h"
 #include "pasture_3d_stream_extraction.h"
 #include "pasture_3d_thread_pool.h"
+#include "pasture_3d_distance_transform.h"
+#include "pasture_3d_morphology.h"
+#include "pasture_3d_gavoronoise.h"
+#include "pasture_3d_mudslide.h"
+#include "pasture_3d_water_nodes.h"
+#include "pasture_3d_terrain_metrics.h"
+#include "pasture_3d_warp_downslope.h"
+#include "pasture_3d_transform.h"
 #include "pasture_3d_util.h"
 #include "pasture_3d_warp.h"
 
@@ -1486,6 +1494,74 @@ Dictionary Pasture3DUtil::erosion_thermal_solve_grid(const PackedFloat32Array &p
 	return res.to_dict();
 }
 
+PackedFloat32Array Pasture3DUtil::transform_grid(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const Vector2 &p_offset, const double p_rotation_deg,
+		const double p_scale, const Vector2 &p_pivot, const int p_edge_mode, const double p_amount) {
+	return godot::transform_solve(p_surface, p_gw, p_gh, p_rect, p_offset, p_rotation_deg, p_scale,
+			p_pivot, p_edge_mode, p_amount);
+}
+
+Dictionary Pasture3DUtil::distance_transform_grid(const PackedFloat32Array &p_mask, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const double p_threshold, const int p_direction,
+		const int p_metric, const int p_units, const double p_max_distance) {
+	double divisor = 1.0;
+	PackedFloat32Array grid = godot::distance_transform_solve(p_mask, p_gw, p_gh, p_rect, p_threshold,
+			p_direction, p_metric, p_units, p_max_distance, &divisor);
+	Dictionary out;
+	out["grid"] = grid;
+	out["divisor"] = divisor;
+	return out;
+}
+
+PackedFloat32Array Pasture3DUtil::expand_shrink_grid(const PackedFloat32Array &p_surface,
+		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const int p_mode, const double p_radius_m, const int p_kernel, const int p_iterations,
+		const double p_amount) {
+	return godot::expand_shrink_solve(p_surface, p_mask, p_gw, p_gh, p_rect, p_mode, p_radius_m,
+			p_kernel, p_iterations, p_amount);
+}
+
+PackedFloat32Array Pasture3DUtil::box_mean_grid(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const double p_radius_m) {
+	return godot::box_mean_solve(p_surface, p_gw, p_gh, p_rect, p_radius_m);
+}
+
+PackedFloat32Array Pasture3DUtil::relative_elevation_grid(const PackedFloat32Array &p_surface,
+		const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_radius_m, const int p_units) {
+	return godot::relative_elevation_solve(p_surface, p_gw, p_gh, p_rect, p_radius_m, p_units);
+}
+
+Dictionary Pasture3DUtil::smooth_fill_grid(const PackedFloat32Array &p_surface,
+		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const int p_mode, const double p_radius_m, const double p_k, const double p_amount) {
+	PackedFloat32Array deposition;
+	double divisor = 1.0;
+	PackedFloat32Array height = godot::smooth_fill_solve(p_surface, p_mask, p_gw, p_gh, p_rect, p_mode,
+			p_radius_m, p_k, p_amount, &deposition, &divisor);
+	Dictionary out;
+	out["height"] = height;
+	out["deposition"] = deposition;
+	out["divisor"] = divisor;
+	return out;
+}
+
+PackedFloat32Array Pasture3DUtil::recast_cliff_grid(const PackedFloat32Array &p_surface,
+		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_talus_angle_deg, const double p_radius_m, const double p_amplitude,
+		const double p_gain, const double p_direction_deg, const double p_direction_spread_deg,
+		const double p_amount) {
+	return godot::recast_cliff_solve(p_surface, p_mask, p_gw, p_gh, p_rect, p_talus_angle_deg,
+			p_radius_m, p_amplitude, p_gain, p_direction_deg, p_direction_spread_deg, p_amount);
+}
+
+PackedFloat32Array Pasture3DUtil::warp_downslope_grid(const PackedFloat32Array &p_surface,
+		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_displacement_m, const double p_radius_m, const bool p_reverse,
+		const double p_amount) {
+	return godot::warp_downslope_solve(p_surface, p_mask, p_gw, p_gh, p_rect, p_displacement_m,
+			p_radius_m, p_reverse, p_amount);
+}
+
 PackedFloat32Array Pasture3DUtil::talus_projection_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
 		const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_talus_angle_deg,
 		const int p_iterations, const double p_transfer_rate, const double p_amount) {
@@ -1518,6 +1594,55 @@ PackedFloat32Array Pasture3DUtil::noise_jordan_grid(const int p_gw, const int p_
 		const double p_damp_strength, const int p_seed) {
 	return godot::noise_jordan_grid(p_gw, p_gh, p_rect, p_amplitude, p_frequency, p_octaves,
 			p_gain, p_lacunarity, p_warp_strength, p_damp_strength, p_seed);
+}
+
+Dictionary Pasture3DUtil::flooding_uniform_level_grid(const PackedFloat32Array &p_surface, const int p_gw,
+		const int p_gh, const double p_level, const bool p_clamp_terrain) {
+	PackedFloat32Array depth;
+	PackedFloat32Array mask;
+	PackedFloat32Array height = godot::flooding_uniform_level_solve(p_surface, p_gw, p_gh, p_level,
+			p_clamp_terrain, &depth, &mask);
+	Dictionary d;
+	d["height"] = height;
+	d["depth"] = depth;
+	d["mask"] = mask;
+	return d;
+}
+
+Dictionary Pasture3DUtil::water_mask_grid(const PackedFloat32Array &p_depth, const int p_gw,
+		const int p_gh, const Rect2 &p_rect, const double p_depth_threshold,
+		const double p_shore_width_m, const int p_shore_falloff) {
+	PackedFloat32Array shore;
+	PackedFloat32Array water = godot::water_mask_solve(p_depth, p_gw, p_gh, p_rect, p_depth_threshold,
+			p_shore_width_m, p_shore_falloff, &shore);
+	Dictionary d;
+	d["water"] = water;
+	d["shore"] = shore;
+	return d;
+}
+
+Dictionary Pasture3DUtil::mudslide_grid(const PackedFloat32Array &p_surface,
+		const PackedFloat32Array &p_mask, const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_talus_angle_deg, const double p_depth_m, const double p_travel_distance_m,
+		const double p_depth_exponent, const double p_viscosity_power, const double p_amount) {
+	PackedFloat32Array deposition;
+	double divisor = 1.0;
+	PackedFloat32Array height = godot::mudslide_solve(p_surface, p_mask, p_gw, p_gh, p_rect,
+			p_talus_angle_deg, p_depth_m, p_travel_distance_m, p_depth_exponent, p_viscosity_power,
+			p_amount, &deposition, &divisor);
+	Dictionary d;
+	d["height"] = height;
+	d["deposition"] = deposition;
+	d["divisor"] = divisor;
+	return d;
+}
+
+PackedFloat32Array Pasture3DUtil::gavoronoise_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_amplitude, const double p_frequency, const int p_octaves, const int p_seed,
+		const double p_angle_deg, const double p_angle_spread, const double p_slope_strength,
+		const double p_branch_strength, const double p_z_cut_min, const double p_z_cut_max) {
+	return godot::gavoronoise_grid(p_gw, p_gh, p_rect, p_amplitude, p_frequency, p_octaves, p_seed,
+			p_angle_deg, p_angle_spread, p_slope_strength, p_branch_strength, p_z_cut_min, p_z_cut_max);
 }
 
 PackedFloat32Array Pasture3DUtil::noise_swiss_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
@@ -1921,6 +2046,30 @@ void Pasture3DUtil::_bind_methods() {
 			D_METHOD("erosion_thermal_solve_grid", "surface", "hardness", "gw", "gh", "rect", "talus_angle_deg", "iterations", "settling_rate"),
 			&Pasture3DUtil::erosion_thermal_solve_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("transform_grid", "surface", "gw", "gh", "rect", "offset", "rotation_deg", "scale", "pivot", "edge_mode", "amount"),
+			&Pasture3DUtil::transform_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("distance_transform_grid", "mask", "gw", "gh", "rect", "threshold", "direction", "metric", "units", "max_distance"),
+			&Pasture3DUtil::distance_transform_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("expand_shrink_grid", "surface", "mask", "gw", "gh", "rect", "mode", "radius_m", "kernel", "iterations", "amount"),
+			&Pasture3DUtil::expand_shrink_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("box_mean_grid", "surface", "gw", "gh", "rect", "radius_m"),
+			&Pasture3DUtil::box_mean_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("relative_elevation_grid", "surface", "gw", "gh", "rect", "radius_m", "units"),
+			&Pasture3DUtil::relative_elevation_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("smooth_fill_grid", "surface", "mask", "gw", "gh", "rect", "mode", "radius_m", "k", "amount"),
+			&Pasture3DUtil::smooth_fill_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("warp_downslope_grid", "surface", "mask", "gw", "gh", "rect", "displacement_m", "radius_m", "reverse", "amount"),
+			&Pasture3DUtil::warp_downslope_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("recast_cliff_grid", "surface", "mask", "gw", "gh", "rect", "talus_angle_deg", "radius_m", "amplitude", "gain", "direction_deg", "direction_spread_deg", "amount"),
+			&Pasture3DUtil::recast_cliff_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("talus_projection_grid", "surface", "mask", "gw", "gh", "rect", "talus_angle_deg", "iterations", "transfer_rate", "amount"),
 			&Pasture3DUtil::talus_projection_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
@@ -1933,6 +2082,18 @@ void Pasture3DUtil::_bind_methods() {
 			D_METHOD("warp_grid", "surface", "gw", "gh", "rect", "warp_type", "frequency", "strength", "octaves", "amplitude", "roughness", "seed"),
 			&Pasture3DUtil::warp_grid);
 	// Terrain graph — Procedural Generators & Solvers.
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("flooding_uniform_level_grid", "surface", "gw", "gh", "level", "clamp_terrain"),
+			&Pasture3DUtil::flooding_uniform_level_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("water_mask_grid", "depth", "gw", "gh", "rect", "depth_threshold", "shore_width_m", "shore_falloff"),
+			&Pasture3DUtil::water_mask_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("mudslide_grid", "surface", "mask", "gw", "gh", "rect", "talus_angle_deg", "depth_m", "travel_distance_m", "depth_exponent", "viscosity_power", "amount"),
+			&Pasture3DUtil::mudslide_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("gavoronoise_grid", "gw", "gh", "rect", "amplitude", "frequency", "octaves", "seed", "angle_deg", "angle_spread", "slope_strength", "branch_strength", "z_cut_min", "z_cut_max"),
+			&Pasture3DUtil::gavoronoise_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("noise_jordan_grid", "gw", "gh", "rect", "amplitude", "frequency", "octaves", "gain", "lacunarity", "warp_strength", "damp_strength", "seed"),
 			&Pasture3DUtil::noise_jordan_grid);

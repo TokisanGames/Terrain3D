@@ -185,6 +185,12 @@ func output_port_types() -> PackedInt32Array:
 	return PackedInt32Array([PortType.HEIGHT, PortType.MASK])
 
 
+## FROZEN means this node serves its own cache, which only the GDScript evaluator can do. See
+## Pasture3DGraphNode.blocks_native().
+func blocks_native() -> bool:
+	return evaluation == Evaluation.FROZEN
+
+
 ## Drop the grown mountain so the next evaluation regrows. The explicit Bake.
 func clear_cache() -> void:
 	if _cache.is_empty() and not _stale and not _dirty_since_bake:

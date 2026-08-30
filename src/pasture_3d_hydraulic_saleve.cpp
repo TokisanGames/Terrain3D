@@ -242,8 +242,15 @@ HydraulicSaleveResult godot::hydraulic_saleve_solve(const PackedFloat32Array &p_
 							float slope = dz_val / (float)n_dist[k];
 							float noise = fast_hash_to_unit(seed + (uint32_t)iter * 17, (uint32_t)(idx ^ (n_idx << 16)));
 							float warp_factor = 1.0f;
-							if (dx_ptr && dy_ptr) {
-								warp_factor += 0.5f * (dx_ptr[idx] * (float)n_dx[k] + dy_ptr[idx] * (float)n_dz[k]);
+							// EITHER axis on its own is a real warp: a missing component is a ZERO component,
+							// not a reason to drop the perturbation. Requiring both made the two evaluators
+							// disagree, because they disagree about what an unwired port is — GDScript's
+							// _input_grids hands the solver a zeros GRID, so dx alone warped there, while the
+							// compiled program passes in = -1 (absent), so dx alone did nothing here.
+							if (dx_ptr || dy_ptr) {
+								const float wdx = dx_ptr ? dx_ptr[idx] : 0.0f;
+								const float wdy = dy_ptr ? dy_ptr[idx] : 0.0f;
+								warp_factor += 0.5f * (wdx * (float)n_dx[k] + wdy * (float)n_dz[k]);
 							}
 							float score = slope * (warp_factor + noise_strength * noise);
 							if (score > best_score) {

@@ -216,7 +216,7 @@ func _gate_l1_flow_gates_relief() -> void:
 	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.FLOW, _channel_m2, 1.0e9)
 	sel.falloff_low = 0.0
 	var mat := _fractal(sel)
-	plow.relief = mat
+	_set_relief(plow, mat)
 
 	var gated := _bake_and_bin(plow)
 	print("    gated:   mean |relief| channel %.4f m | ridge %.4f m" % [gated[0], gated[1]])
@@ -275,7 +275,7 @@ func _gate_l2_all_kinds_wired() -> void:
 			print("    %-11s !! too flat at this site to gate on (band floor %.4f, %d of %d probes in)" % [
 					_kind_name(kind), t, n_in, vals.size()])
 			continue
-		plow.relief = _fractal(_sim_selector(kind, t, 1.0e9))
+		_set_relief(plow, _fractal(_sim_selector(kind, t, 1.0e9)))
 		plow._refresh_owner(plow._layer_owner, false, [])
 		var hit := 0.0
 		var miss := 0.0
@@ -322,7 +322,7 @@ func _gate_l3_flow_band_is_area() -> void:
 	var biggest := _max_area()
 	print("    the masks' largest catchment here is %.0f m2, i.e. log %.2f" % [biggest, log(biggest)])
 	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.FLOW, _channel_m2, 1.0e9)
-	plow.relief = _fractal(sel)
+	_set_relief(plow, _fractal(sel))
 	var as_area := _bake_and_bin(plow)
 	print("    band %.0f..1e9 (m2):     channel %.4f m | ridge %.4f m" % [
 			_channel_m2, as_area[0], as_area[1]])
@@ -372,7 +372,7 @@ func _gate_l4_erosion_is_positive() -> void:
 		print("    !! the sim barely eroded; L4 has no band to test")
 		return
 	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.EROSION, 2.0, 1.0e9)
-	plow.relief = _fractal(sel)
+	_set_relief(plow, _fractal(sel))
 	var positive := _bake_mean(plow)
 	print("    band 2..1e9 (m removed): mean |relief| %.4f m" % positive)
 	if positive < 0.2:
@@ -409,7 +409,7 @@ func _gate_l5_outside_extent() -> void:
 		return
 	# A band that admits every value the channel can actually hold, but NOT the defined 0.
 	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.FLOW, 1.5, 1.0e9)
-	outside.relief = _fractal(sel)
+	_set_relief(outside, _fractal(sel))
 	var probes: Array[Vector3] = []
 	for i in range(-4, 5):
 		for j in range(-4, 5):
@@ -427,7 +427,7 @@ func _gate_l5_outside_extent() -> void:
 	var inside = _make_plow("Inside")
 	if inside == null:
 		return
-	inside.relief = _fractal(_sim_selector(Pasture3DTerrainMask.FilterType.FLOW, 1.5, 1.0e9))
+	_set_relief(inside, _fractal(_sim_selector(Pasture3DTerrainMask.FilterType.FLOW, 1.5, 1.0e9)))
 	var in_mean := _bake_mean(inside)
 	print("    CONTROL the same brush inside the extent: mean |relief| %.4f m (want > 0.2)" % in_mean)
 	if in_mean < 0.2:
@@ -462,7 +462,7 @@ func _gate_l6_parity() -> void:
 		return
 	var sel := _sim_selector(Pasture3DTerrainMask.FilterType.FLOW, _channel_m2, 1.0e9)
 	sel.sim_result = _coarse
-	plow.relief = _fractal(sel)
+	_set_relief(plow, _fractal(sel))
 	plow.force_gdscript_raster = false
 	plow._refresh_owner(plow._layer_owner, false, [])
 	var native := _snapshot(_probes)
@@ -495,7 +495,7 @@ func _gate_l7_no_drift() -> void:
 	var plow = _make_plow("Drift")
 	if plow == null:
 		return
-	plow.relief = _fractal(_sim_selector(Pasture3DTerrainMask.FilterType.FLOW, _channel_m2, 1.0e9))
+	_set_relief(plow, _fractal(_sim_selector(Pasture3DTerrainMask.FilterType.FLOW, _channel_m2, 1.0e9)))
 	plow._refresh_owner(plow._layer_owner, false, [])
 	var first := _snapshot(_probes)
 	var moved := 0.0
@@ -602,7 +602,7 @@ func _mean_abs(p_probes: Array[Vector3], p_base: Array[float]) -> float:
 
 ## Empty the brush's layer and drop it, so the next criterion measures against untouched ground.
 func _clear(p_plow) -> void:
-	p_plow.relief = null
+	_set_relief(p_plow, null)
 	p_plow.source = Pasture3DPlow.Source.RELIEF
 	p_plow._refresh_owner(p_plow._layer_owner, false, [])
 	p_plow.queue_free()
@@ -648,3 +648,24 @@ func _snapshot(p_points: Array[Vector3]) -> Array[float]:
 
 func _height(p_at: Vector3) -> float:
 	return _data.get_height(Vector3(p_at.x, 0.0, p_at.z))
+
+
+## Put a relief material on a brush, the way a brush actually carries one: a Relief MODIFIER in the stack.
+##
+## This gate used to assign `plow.relief`, the pre-modifier-stack property. That still reaches a brush
+## through the legacy migration — but the migration is deliberately ONE-SHOT (it must never clobber a
+## stack the user has since built), so the second and later assignments on the same brush did nothing and
+## four criteria silently re-measured the FIRST selector. Assigned as a whole array rather than appended,
+## so the setter runs and binds the modifier's `changed` signal.
+##
+## Strength 8.0 is the legacy `height_scale` this fixture used, which is what the old rasteriser
+## multiplied the material by.
+func _set_relief(p_brush, p_mat) -> void:
+	if p_mat == null:
+		p_brush.modifiers = [] as Array[Pasture3DNode]
+		return
+	var mr := Pasture3DNodeRelief.new()
+	mr.resource_name = "Relief"
+	mr.material = p_mat
+	mr.strength = 8.0
+	p_brush.modifiers = [mr] as Array[Pasture3DNode]

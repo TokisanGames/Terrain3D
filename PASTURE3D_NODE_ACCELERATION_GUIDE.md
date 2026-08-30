@@ -360,6 +360,119 @@ If a solver supports GPU compute acceleration or multi-tier routing (e.g. `erosi
    - Solvers that generate auxiliary mask channels (e.g. `sediment`, `flow`, `talus`, `shoreline`, `water_depth`) output them on port $\ge 1$.
    - The native whole-graph DAG pipeline evaluates primary height buffers (port 0). If a graph wires secondary output ports into downstream nodes, `compile_graph_program()` and `native_supported()` automatically detect `from_port > 0` and defer execution to the channel-aware GDScript evaluator.
 
+4. **Four GRID Slots, Unlimited Driven Scalars**:
+   - A compiled program carries exactly four **grid** slots, `in0..in3`. A driven **scalar** needs no grid
+     slot: the evaluator reads cell 0 of the source buffer, which is the same convention the GDScript
+     nodes' `eval_grid` uses (`p_inputs[k][0]`).
+   - Scalar ports at index >= 4 therefore travel in a flat overflow table — `pdrv_node` / `pdrv_param` /
+     `pdrv_src`, one entry per wire — and the graph keeps its acceleration. Flat, not `in4`/`in5`, so a
+     node with a seventh port is not another schema change.
+   - This mattered: 14 of 60 ops have more than four ports, and `noise_swiss`/`noise_jordan` expose
+     `frequency` on port 4 while `dunes` exposes `sharpness`. Until 2026-08-30, wiring one Const to any of
+     those cost the user **every native op in the graph**, silently.
+   - The requirement is now simply that `PARAM_PORT_MAP` maps the port. An unmapped port >= 4 is a real
+     grid input with nowhere to go, and `native_supported()` still declines it rather than letting the
+     kernel fall back to the baked local value (`terrain_bus_merge`'s `flow` channel is the live example).
+   - **So: when you add a port past the third, add its params slot to `PARAM_PORT_MAP` in the same
+     commit.** `GraphAllNodeSocketsGate` section F sweeps all 105 ports on all 60 ops and fails on any the
+     native path ignores.
+
+---
+
+### 3.4 The Two-Evaluator Trap: bugs that only exist because there is more than one evaluator
+
+Everything in 3.1 was one bug. The bugs found on 2026-08-30 were four, and they were all the *same* bug
+wearing different clothes: **a graph has three evaluators, and anything true of only one of them is a
+latent defect.** The three are `evaluate()`'s native/compiled path, `evaluate()`'s folded GDScript path,
+and `_eval_unfolded()` (the independent oracle). They must agree on results *and* on side effects.
+
+#### 1. State that lives on the GDScript node does not exist on the native path
+
+`evaluate()` tries native FIRST, and a natively-lowered graph **never calls the node object at all** —
+no `eval_grid`, no cache lookup, no stale flag. Eleven solvers owned a FROZEN cache and every one of
+them in the allow-list re-solved on every evaluation and never reported itself stale. It did not error;
+it looked like it worked.
+
+**Rule.** If a node owns behaviour the compiled program cannot carry — a cache, a bake, a warning it
+raises about itself, anything stateful — it must override:
+
+```gdscript
+func blocks_native() -> bool:
+	return evaluation == Evaluation.FROZEN
+```
+
+`native_supported()` honours this and takes the WHOLE graph off the native path. Do not solve this by
+leaving the op out of the allow-list: that works by accident (it is why DLA alone escaped), it costs
+every *other* node in the graph its acceleration unconditionally, and nothing records the intent.
+
+#### 2. The evaluators disagree about what an UNWIRED port means
+
+This is the sharpest edge in the codebase. **The GDScript path hands an unwired port a zero-filled
+GRID. The compiled program passes `in = -1`, meaning ABSENT.** A kernel written as "if the pointer is
+null, skip the term" silently means something different from "the value is zero" — and only on one
+path.
+
+The Salève solver read a dx/dy warp pair and skipped the perturbation unless *both* pointers were
+present. One axis wired on its own is a real warp with a zero second component, so native produced no
+warp where GDScript produced one. Fixed by treating a missing component as zero, not as a veto:
+
+```cpp
+if (dx_ptr || dy_ptr) {                       // EITHER axis is a real warp
+	const float wdx = dx_ptr ? dx_ptr[idx] : 0.0f;
+	const float wdy = dy_ptr ? dy_ptr[idx] : 0.0f;
+	warp_factor += 0.5f * (wdx * n_dx[k] + wdy * n_dz[k]);
+}
+```
+
+**Rule.** In every kernel, decide explicitly whether a null input port means *absent* or *zero*, and
+make it match what `_input_grids()` gives the GDScript path for that same port. `GraphAllNodeSocketsGate`
+sweeps every port on every node for exactly this; do not add exclusions to its `skip` map to make it
+green — the exclusion IS the bug report.
+
+#### 3. A sampled hash is not an identity
+
+Two separate caches keyed themselves on a handful of samples of the input surface, and both served a
+stale result for a *different* surface without flagging themselves:
+
+* the graph's `_compute_node_inputs_hash` sampled `size`, `[0]` and `[n-1]`. A radial mound's corners
+  are 0.0, so it hashed identically to a flat field.
+* `lake_flooding` and `stream_extraction` sampled 32 cells at a fixed stride. On a mound that stride
+  lands on one all-zero column.
+
+**Rule.** Hash the whole buffer — `hash(arr.size()) ^ hash(arr)`. GDScript's `hash()` on a
+`PackedFloat32Array` is a native content hash and is not the thing that will be slow about your solver.
+Sampling is only acceptable where a false MATCH is harmless, and for a cache key it never is.
+
+#### 4. `native_supported()` is graph-wide and silent
+
+An op missing from `SUPPORTED`, a wire from a secondary port, a wire into port >= 4, or any node
+returning `blocks_native()` drops **the entire graph** to GDScript. Nothing is printed. A pointwise
+node like Falloff then runs per cell in script and the only symptom is that the editor feels slow.
+
+**Rule.** Any new op with a case in `pasture_3d_graph_ops.cpp` goes into `SUPPORTED` in the same
+commit. When you need to know which path a graph actually took, assert on `native_supported()` or call
+`Pasture3DUtil.graph_eval_grid*` directly — a matching result proves nothing, because both paths are
+supposed to agree.
+
+#### Gate discipline that follows from all of this
+
+* **Every criterion needs a control that fails.** Section [A] of `GraphFrozenSolverGate` asserts "FROZEN
+  declines native", which is trivially true of a family that never reached native — so it also counts
+  how many lower when LIVE and fails if that is not most of them.
+* **A gate must distinguish "measured nothing" from "measured well."** Read a flag between the stimulus
+  and the remedy, never after: sampling `_stale` below the `clear_cache()` that clears it reported all
+  eleven solvers as never having gone stale.
+* **Sweep the registry, not a list of names.** `GraphFrozenSolverGate` finds its subjects by looking for
+  `clear_cache` + an `evaluation` property, so a solver written next month is covered the day it appears.
+* **Let the fixture decide, do not exempt by name.** DLA does not read its input surface, so a surface
+  change is the wrong stimulus for it. The gate probes each solver's LIVE response and picks the
+  stimulus from that, with a census control so the surface path cannot go untested wholesale.
+* **State a premise, do not borrow one.** `GraphNodeCachingGate` needs the GDScript path, and used to get
+  there by wiring a Const into port 4 because that happened to decline native. When port 4 stopped
+  declining, the premise expired. Graphs now carry `force_gdscript_evaluation` for exactly this; a gate
+  that depends on an incidental limitation is a gate with an expiry date nobody wrote down.
+* **Never widen a threshold to clear a red gate.** Fix the evaluator.
+
 ---
 
 ## 4. Current Registry of Native Nodes (All 29 Production Nodes)

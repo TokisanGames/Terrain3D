@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://bench/GraphMudslideGate.gd" id="1_Mudsld"]
+
+[node name="GraphMudslideGate" type="Node"]
+script = ExtResource("1_Mudsld")

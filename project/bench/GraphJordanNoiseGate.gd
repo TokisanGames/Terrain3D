@@ -123,8 +123,19 @@ func _f_metadata_and_warnings() -> void:
 		_fail += 1; print("    !! op() mismatch: got %s, want &\"noise_jordan\"" % j.op())
 	if j.role() != Pasture3DGraphNode.Role.GENERATOR:
 		_fail += 1; print("    !! role() mismatch: got %d, want Role.GENERATOR" % j.role())
-	if j.input_count() != 0:
-		_fail += 1; print("    !! input_count() != 0")
+	# Was `input_count() != 0`, written when this node had no sockets at all. It gained five FLOAT
+	# parameter ports later and the criterion was never updated, so the gate went red for describing an
+	# older node rather than for finding anything wrong. Assert the contract that now holds: the ports
+	# exist, they are FLOAT, and they are in the order the native lowering indexes them by.
+	var want := PackedStringArray(["amplitude", "warp_strength", "damp_strength", "gain", "frequency"])
+	if j.input_count() != want.size():
+		_fail += 1; print("    !! input_count() = %d, want %d" % [j.input_count(), want.size()])
+	elif j.input_names() != want:
+		_fail += 1; print("    !! input_names() = %s, want %s" % [j.input_names(), want])
+	else:
+		for k in want.size():
+			if j.input_port_types()[k] != Pasture3DGraphNode.PortType.FLOAT:
+				_fail += 1; print("    !! port %d (%s) is not FLOAT" % [k, want[k]])
 	if j.needs_grid():
 		_fail += 1; print("    !! needs_grid() should be false for cell node")
 

@@ -141,10 +141,13 @@ func _e_categories_and_native_fallback() -> void:
 	print("[E] node categories, and a relief-node graph falls back to GDScript")
 	var f := Pasture3DGraphNodeFurrows.new()
 	var t := Pasture3DGraphNodeTerrace.new()
-	var cats_ok := f.input_count() == 0 and f.role() == Pasture3DGraphNode.Role.GENERATOR and f.has_output() \
-			and t.input_count() == 1 and t.role() == Pasture3DGraphNode.Role.FILTER and t.has_output()
-	print("    Furrows: inputs=%d role=%d ; Terrace: inputs=%d role=%d"
-		% [f.input_count(), f.role(), t.input_count(), t.role()])
+	# What makes a node a GENERATOR is that it reads no surface, not that it has no ports at all: both of
+	# these later grew FLOAT parameter sockets, and counting ports called that a category change. The
+	# durable statement is about the SURFACE ports — how many inputs carry a field in rather than a scalar.
+	var cats_ok := _surface_inputs(f) == 0 and f.role() == Pasture3DGraphNode.Role.GENERATOR and f.has_output() \
+			and _surface_inputs(t) == 1 and t.role() == Pasture3DGraphNode.Role.FILTER and t.has_output()
+	print("    Furrows: surface inputs=%d of %d ports, role=%d ; Terrace: surface inputs=%d of %d ports, role=%d"
+		% [_surface_inputs(f), f.input_count(), f.role(), _surface_inputs(t), t.input_count(), t.role()])
 	if not cats_ok:
 		_fail += 1; print("    !! a node reported the wrong category (generator/filter)")
 	# A graph with an unlowered experimental op (DevErosion) is NOT natively supported -> falls back to GDScript.
@@ -658,3 +661,13 @@ func _max_abs_diff(p_a: PackedFloat32Array, p_b: PackedFloat32Array) -> float:
 	for i in range(p_a.size()):
 		m = maxf(m, absf(p_a[i] - p_b[i]))
 	return m
+
+
+## Ports that carry a field in, as opposed to a scalar parameter socket. Port 0 of a filter is its
+## surface; FLOAT/INT ports are parameters and say nothing about the node's category.
+func _surface_inputs(p_node: Pasture3DGraphNode) -> int:
+	var c := 0
+	for t in p_node.input_port_types():
+		if t == Pasture3DGraphNode.PortType.HEIGHT:
+			c += 1
+	return c

@@ -69,6 +69,19 @@ enum GraphCellOpType {
 	GRAPH_OP_MOUNTAIN_STUMP = 41, // PRIMITIVE grid: eroded residual ancient mountain stump
 	GRAPH_OP_SHATTERED_PEAK = 42, // PRIMITIVE grid: fractured alpine peak with Voronoi fissures
 	GRAPH_OP_CALDERA = 43, // PRIMITIVE grid: volcanic collapse caldera with inner drop and outer flanks
+	GRAPH_OP_FALLOFF = 44, // FILTER: metric distance attenuation toward 0 (spec §4.2)
+	GRAPH_OP_CONTRAST = 45, // FILTER: gain / gamma on a height window (spec §4.3)
+	GRAPH_OP_TRANSFORM = 46, // FILTER grid: affine resample in world XZ (spec §4.1)
+	GRAPH_OP_DISTANCE_TRANSFORM = 47, // FILTER grid: metric distance to a thresholded mask (spec §5.1)
+	GRAPH_OP_EXPAND_SHRINK = 48, // FILTER grid: grayscale morphology, radius in metres (spec §5.2)
+	GRAPH_OP_RELATIVE_ELEVATION = 49, // FILTER grid: position between local basin floor and crest (§6.1)
+	GRAPH_OP_SMOOTH_FILL = 50, // FILTER grid: raise concave ground toward a blurred reference (§6.2)
+	GRAPH_OP_RECAST_CLIFF = 51, // FILTER grid: push steep ground toward a stepped face (§6.3)
+	GRAPH_OP_WARP_DOWNSLOPE = 52, // FILTER grid: displace the surface along its own gradient (§7.1)
+	GRAPH_OP_GAVORONOISE = 53, // GENERATOR: gradient-aware Voronoi with derivative feedback (§7.2)
+	GRAPH_OP_FLOODING_UNIFORM_LEVEL = 54, // FILTER: clamp the surface up to a uniform water level (§8.1)
+	GRAPH_OP_WATER_MASK = 55, // FILTER grid: submerged mask plus a metric shore band (§8.2)
+	GRAPH_OP_MUDSLIDE = 56, // SOLVER grid: move a finite, maskable quantity of material downhill (§8.3)
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed
@@ -149,6 +162,20 @@ struct GraphProgram {
 	PackedInt32Array in1; // second input's source slot, or -1
 	PackedInt32Array in2; // third input's source slot (e.g. blend mask), or -1
 	PackedInt32Array in3; // fourth input's source slot (e.g. solver mask), or -1
+	// Which of the 16 params slots each of in0..in3 OVERRIDES when that port is wired, or -1 when the port
+	// is not a scalar parameter. Without this the evaluator read parameters from the program alone and
+	// ignored every wire into a parameter port. See PARAM_PORT_MAP in pasture3d_terrain_graph.gd.
+	PackedInt32Array pmap0;
+	PackedInt32Array pmap1;
+	PackedInt32Array pmap2;
+	PackedInt32Array pmap3;
+	// Driven scalars on input ports >= 4, which have no in-slot to ride in. Three parallel arrays, one
+	// entry per such wire: the compiled slot being driven, which of the sixteen params it overrides, and
+	// the compiled slot supplying the value. Flat rather than in4/in5/... so a node with a seventh port
+	// is not another schema change. Empty on programs compiled before this existed.
+	PackedInt32Array pdrv_node;
+	PackedInt32Array pdrv_param;
+	PackedInt32Array pdrv_src;
 	std::vector<Ref<FastNoiseLite>> noise; // parallel to slots; null unless NOISE or JITTER
 	std::vector<PackedFloat32Array> luts; // parallel to slots; for CURVE
 	int output = -1; // the slot whose grid is the graph output

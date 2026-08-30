@@ -270,6 +270,20 @@ configuration warning for that combination rather than silently producing a crat
 
 ## 6. Mapping modes
 
+> **SUPERSEDED (2026-08-30) — the brush modifier stack folded this away.** A Plow's relief now comes from
+> `Pasture3DNodeRelief` modifiers, and the stack **always** evaluates at loop-normalised coordinates. That
+> makes `FIT` the only behaviour and the unconditional one, so the `mapping` property, `TILE`, `SCATTER`,
+> and the `TEXTURE`/`MATERIAL` sources no longer exist. §6.1's oriented frame survives and is what every
+> relief modifier is evaluated in; the rest of this section is kept as the record of what the modes meant.
+>
+> The migration carries `graph`, `relief` and `noise` across. It has nothing to carry `TEXTURE`,
+> `MATERIAL` or `SCATTER` into and **says so in a configuration warning** rather than dropping them in
+> silence — see `Pasture3DPlow._legacy_unsupported`. Gate H no longer compares FIT against TILE (there is
+> no TILE); it asserts the surviving guarantee, that reshaping the loop reshapes the stamp, plus a control
+> that `mapping` has not come back. Gate E asserts the warning.
+>
+> Reinstating scatter or a texture source would be new work as modifiers, not a repair.
+
 **This is the piece that makes "place an individual crater" possible.** The plow today only tiles:
 `fposmod(x / tile_size, 1.0)` in both paths ([pasture3d_plow.gd:266](project/addons/pasture_3d/connectors/pasture3d_plow.gd:266),
 [pasture_3d_brush_raster.cpp:1220](src/pasture_3d_brush_raster.cpp:1220)). There is no way to say

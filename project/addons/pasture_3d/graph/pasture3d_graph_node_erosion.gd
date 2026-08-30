@@ -135,6 +135,12 @@ func output_port_types() -> PackedInt32Array:
 	return PackedInt32Array([PortType.HEIGHT, PortType.MASK, PortType.MASK, PortType.MASK, PortType.MASK])
 
 
+## FROZEN means this node serves its own cache, which only the GDScript evaluator can do. See
+## Pasture3DGraphNode.blocks_native().
+func blocks_native() -> bool:
+	return evaluation == Evaluation.FROZEN
+
+
 ## Drop the cached solve, so the next evaluation re-solves. This is the explicit Bake.
 func clear_cache() -> void:
 	if _cache.is_empty() and not _stale and not _dirty_since_bake:
@@ -216,7 +222,11 @@ func _solve_dynamic(p_surface: PackedFloat32Array, p_gw: int, p_gh: int, p_rect:
 		var z := Pasture3DGraphOps.zeros(n)
 		return [p_surface.duplicate(), z, z, z, z]
 
-	return [res["height"], res["flow"], res["erosion"], res["deposition"], res["wetness"]]
+	# The keys are the binding's, not the port names. Pasture3DUtil.erosion_solve_grid publishes
+	# z/flow/ero/dep/wet; reading "height" threw on every call, so this node's GDScript path had never
+	# produced a surface at all — the native path carried it, and nothing compared the two until the
+	# parameter sweep did.
+	return [res["z"], res["flow"], res["ero"], res["dep"], res["wet"]]
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:

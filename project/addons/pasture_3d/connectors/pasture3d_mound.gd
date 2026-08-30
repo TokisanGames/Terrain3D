@@ -485,34 +485,5 @@ func _supports_modifiers() -> bool:
 	return true
 
 
-func _update_mask_preview() -> void:
-	_update_relief_mask_preview(_preview_relief_material() if _mask_preview_on else null)
 
 
-## §18.6: the material whose selectors the Mask Preview Source dropdown lists — the first Relief modifier
-## in the stack WITH A MATERIAL ASSIGNED. The overlay shows one material's selectors, and a stack with two
-## of them has to pick; first is the honest pick, because it is the one whose gating decides what
-## everything after it lands on.
-##
-## NOT `is_active()`, which was the first build and was wrong twice over. `is_active()` is false at
-## `strength == 0`, so this dropdown — and therefore the node's whole property list — was A FUNCTION OF A
-## SLIDER: dragging Strength up from 0 made the Mask Preview group appear, which rebuilt the inspector,
-## which collapsed the modifier being edited, under the cursor. Toggling `enabled` did the same. See
-## `_inspector_rebuild_signature`.
-##
-## It is also the better rule on its own terms: the preview exists to show WHERE a selector would put
-## things, which is exactly what you want to look at before you decide how many metres to ask for.
-## `_mask_preview_warnings` says so when the previewed modifier is not currently stamping.
-func _preview_relief_material():
-	for m in modifiers:
-		if m is Pasture3DNodeRelief and m.material != null:
-			return m.material
-	return null
-
-
-## The Relief modifier `_preview_relief_material` picked, so the warnings can talk about it by name.
-func _preview_relief_modifier():
-	for m in modifiers:
-		if m is Pasture3DNodeRelief and m.material != null:
-			return m
-	return null

@@ -100,18 +100,47 @@ func _ready() -> void:
 
 
 # --- F: the migration guarantee ------------------------------------------------------------------
-# A scene saved before RELIEF existed omits `source` entirely, so the DECLARED default is what those
-# nodes load as. If this ever reports RELIEF, every pre-existing Plow in every user scene silently
-# changed source on load. See spec §11.
+# A scene saved before the modifier stack carries `source` / `noise` / `height_scale` and no modifiers at
+# all. What those nodes load as is the whole guarantee: they must come back doing what they did.
+#
+# This used to read `Pasture3DPlow.new().source` and assert the declared default was NOISE. `source` is
+# not a property any more — it is a legacy key consumed by the migration — so the read threw and the
+# section aborted, taking its criterion with it. The guarantee it was protecting still exists; it just
+# lives one level down now, in what the migration BUILDS.
 func _gate_f_declared_default() -> void:
-	print("[F] the declared default is still NOISE (pre-existing scenes omit `source`):")
+	print("[F] a legacy Plow migrates into the modifier stack rather than coming back empty:")
+	# Set BEFORE the node enters the tree, which is how a saved scene loads: every property arrives, then
+	# _ready runs the migration once with all of them. Assigning after _ready migrates on the first key
+	# alone — `noise` would build a Noise modifier at the default strength and the `height_scale` that
+	# followed would find a stack already there and be dropped.
 	var fresh := Pasture3DPlow.new()
-	print("    Pasture3DPlow.new().source = %d (want %d = NOISE)" % [
-			fresh.source, Pasture3DPlow.Source.NOISE])
-	if fresh.source != Pasture3DPlow.Source.NOISE:
+	fresh.name = "MigrateF"
+	fresh.set("noise", FastNoiseLite.new())
+	fresh.set("height_scale", 7.0)
+	_root.add_child(fresh)
+	var mods: Array = fresh.modifiers
+	var kinds: Array = []
+	for m in mods:
+		kinds.append("%s(strength=%s)" % [m.resource_name, m.get("strength")])
+	print("    a Plow with `noise` + `height_scale` migrates to %d modifier(s): %s" % [mods.size(), kinds])
+	if mods.size() != 1 or not (mods[0] is Pasture3DNodeNoise):
 		_fail += 1
-		print("    !! the declared default moved; every legacy scene's Plow just changed source on load")
-	fresh.free()
+		print("    !! a legacy noise Plow did not migrate to a Noise modifier; that scene comes back empty")
+	elif not is_equal_approx(float(mods[0].get("strength")), 7.0):
+		_fail += 1
+		print("    !! the legacy height_scale did not become the modifier's strength, so it stamps nothing")
+
+	# CONTROL: a Plow with NO legacy keys must stay empty. Without this, a migration that appended a
+	# modifier unconditionally would satisfy every line above.
+	var blank := Pasture3DPlow.new()
+	blank.name = "MigrateFBlank"
+	_root.add_child(blank)
+	print("    CONTROL a Plow with no legacy keys carries %d modifier(s) (want 0)" % blank.modifiers.size())
+	if not blank.modifiers.is_empty():
+		_fail += 1
+		print("    !! a fresh Plow invents a modifier, so the migration above proves nothing")
+	blank.queue_free()
+	fresh.queue_free()
 
 
 # --- A: the existing sources still bake ----------------------------------------------------------
@@ -302,73 +331,48 @@ func _gate_d_parity() -> void:
 		print("    !! the probes measured flat ground, so the parity result is vacuous")
 
 
-# --- E: SCATTER places a deterministic field ------------------------------------------------------
+# --- E: a legacy setting the stack cannot carry is REPORTED, not dropped in silence ---------------
+# This section used to bake a SCATTER field of craters and check it was deterministic. The modifier stack
+# removed mapping entirely — it always evaluates at loop-normalised coordinates, which is what FIT meant —
+# so SCATTER, TILE, the TEXTURE source and the MATERIAL source have nothing to migrate into. The old body
+# read `plow._scatter_shortfall`, which no longer exists, and the section aborted on the access.
+#
+# Removing those is the design. Removing them WITHOUT A WORD is not: a saved Plow built on a height
+# texture or a scatter field re-opened as a brush that stamps nothing and said nothing about why. That is
+# the defect this section now guards, because it is the one still reachable by a user.
 func _gate_e_scatter() -> void:
-	print("\n[E] Mapping = SCATTER, a deterministic crater field:")
-	var probes: Array[Vector3] = []
-	for i in range(-3, 4):
-		for j in range(-3, 4):
-			probes.append(SITE_SCATTER + Vector3(i * 9.0, 0.0, j * 9.0))
-	var plow = _make_plow("Scatter", SITE_SCATTER, 45.0, 45.0)
-	if plow == null:
-		return
-	var mat := Pasture3DReliefCrater.new()
-	mat.floor_depth = 0.8
-	mat.rim_height = 0.2
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.mapping = Pasture3DPlow.Mapping.SCATTER
-	plow.relief = mat
-	plow.height_scale = 10.0
-	plow.scatter_count = 9
-	plow.scatter_seed = 1234
-	plow.scatter_radius_min = 6.0
-	plow.scatter_radius_max = 12.0
+	print("
+[E] a legacy setting the stack cannot carry is reported rather than silently dropped:")
+	for key in ["height_texture", "scatter_count", "plow_material"]:
+		var plow := Pasture3DPlow.new()
+		plow.name = "LegacyDrop"
+		plow.set(key, load(DEMO_HEIGHT_TEX) if key == "height_texture" else 9)
+		_root.add_child(plow) # before the tree, as a saved scene loads: see the note in [F]
+		var said := false
+		for w in plow._get_configuration_warnings():
+			if String(w).contains("does not carry"):
+				said = true
+		print("    %-16s -> %d modifier(s), warns = %s" % [key, plow.modifiers.size(), said])
+		if not said:
+			_fail += 1
+			print("      !! %s was dropped in silence; that scene comes back doing nothing" % key)
+		plow.queue_free()
 
-	var base := _snapshot(probes)
-	plow._refresh_owner(plow._layer_owner, false, [])
-	var run1 := _snapshot(probes)
-	print("    instances short by %d of %d" % [plow._scatter_shortfall, plow.scatter_count])
-	if plow._scatter_shortfall > 0:
+	# CONTROL: a legacy setting the stack CAN carry must not raise it. Without this, a warning hard-coded
+	# on for every migrated Plow would pass every line above.
+	var ok := Pasture3DPlow.new()
+	ok.name = "LegacyOK"
+	ok.set("noise", FastNoiseLite.new())
+	_root.add_child(ok)
+	var false_alarm := false
+	for w in ok._get_configuration_warnings():
+		if String(w).contains("does not carry"):
+			false_alarm = true
+	print("    CONTROL a legacy `noise` Plow warns = %s (want false)" % false_alarm)
+	if false_alarm:
 		_fail += 1
-		print("    !! placement ran out of attempts; the field is thinner than requested")
-
-	var relief_max := 0.0
-	for i in range(probes.size()):
-		relief_max = maxf(relief_max, absf(run1[i] - base[i]))
-	print("    max |relief| across probes: %.4f m" % relief_max)
-	if relief_max < 0.5:
-		_fail += 1
-		print("    !! scatter stamped nothing; every later comparison here would be vacuous")
-
-	# Same seed must reproduce the field exactly, or a scene re-bakes into a different landscape.
-	plow._refresh_owner(plow._layer_owner, false, [])
-	var same := 0.0
-	for i in range(probes.size()):
-		same = maxf(same, absf(_height(probes[i]) - run1[i]))
-	print("    same seed, re-bake: worst drift %.8f m" % same)
-	if same > 1.0e-4:
-		_fail += 1
-		print("    !! placement is not deterministic; the same scene bakes differently each time")
-
-	# CONTROL -- a different seed must produce a DIFFERENT field. If it does not, the seed is not wired
-	# and the determinism result above is just "nothing ever changes".
-	plow.scatter_seed = 4321
-	plow._refresh_owner(plow._layer_owner, false, [])
-	var differs := 0.0
-	var relief2 := 0.0
-	for i in range(probes.size()):
-		var h := _height(probes[i])
-		differs = maxf(differs, absf(h - run1[i]))
-		relief2 = maxf(relief2, absf(h - base[i]))
-	print("    CONTROL different seed: worst change %.4f m, own relief %.4f m" % [differs, relief2])
-	if differs < 0.5:
-		_fail += 1
-		print("    !! changing the seed changed nothing; scatter_seed is not reaching placement")
-	# The second field must itself be a field. Otherwise "it changed" could just mean placement failed
-	# and the ground went back to flat -- which would satisfy the check above for the wrong reason.
-	if relief2 < 0.5:
-		_fail += 1
-		print("    !! the reseeded field stamped nothing; the change above is placement failing, not moving")
+		print("    !! a source that DID migrate is being reported as lost")
+	ok.queue_free()
 
 
 # --- G: the phase-2 ops agree between the two paths -----------------------------------------------
@@ -425,67 +429,66 @@ func _gate_g_phase2_ops() -> void:
 
 
 
-# --- H: FIT maps a height TEXTURE once onto the loop ----------------------------------------------
-# Spec §6 promises FIT for the LUT sources too, not just RELIEF. The failure mode is silent: the branch
-# just keeps tiling and the loop's shape is ignored.
+# --- H: relief is mapped onto the loop's oriented frame, unconditionally --------------------------
+# Spec §6 gave the brush a `mapping` of TILE / FIT / SCATTER, and this section checked that FIT reached
+# the TEXTURE source too. The modifier stack folded that away: it always evaluates at loop-normalised
+# coordinates, so FIT is the only behaviour and there is no TILE to compare against. The old body set
+# `plow.mapping` and `plow.source`, neither of which exists, so it measured one stamp twice and reported
+# "FIT and TILE produced the same stamp" — true, and no longer a defect.
+#
+# What still has to hold is the half of FIT that users can see: reshape the loop and the stamp reshapes
+# with it, rather than the loop merely cropping a world-space pattern.
 func _gate_h_fit_texture() -> void:
-	print("\n[H] Mapping = FIT applies to Source = TEXTURE, not just RELIEF:")
-	var tex: Texture2D = load(DEMO_HEIGHT_TEX)
-	if tex == null:
-		_fail += 1
-		print("    !! could not load %s; the fixture is broken" % DEMO_HEIGHT_TEX)
-		return
+	print("
+[H] relief maps onto the loop's oriented frame, so reshaping the loop reshapes the stamp:")
 	var probes: Array[Vector3] = []
 	for i in range(-2, 3):
 		for j in range(-2, 3):
 			probes.append(SITE_TEX + Vector3(i * 6.0, 0.0, j * 6.0))
-	var plow = _make_plow("FitTexture", SITE_TEX, 48.0, 20.0)
+	var plow = _make_plow("FitFrame", SITE_TEX, 48.0, 20.0)
 	if plow == null:
 		return
-	plow.source = Pasture3DPlow.Source.TEXTURE
-	plow.height_texture = tex
-	plow.height_scale = 10.0
-	plow.tile_size = 24.0
+	# A CRATER, because it is radial in the normalised frame: stretching the loop stretches the crater,
+	# which is exactly the property being claimed. A fractal would only translate.
+	var mat := Pasture3DReliefCrater.new()
+	var mr := Pasture3DNodeRelief.new()
+	mr.resource_name = "Relief"
+	mr.material = mat
+	mr.strength = 10.0
+	plow.modifiers = [mr] as Array[Pasture3DNode]
 
-	plow.mapping = Pasture3DPlow.Mapping.TILE
 	plow._refresh_owner(plow._layer_owner, false, [])
-	var tiled := _snapshot(probes)
-	plow.mapping = Pasture3DPlow.Mapping.FIT
-	plow._refresh_owner(plow._layer_owner, false, [])
-	var fitted := _snapshot(probes)
-	var diff := 0.0
+	var wide := _snapshot(probes)
+	var span := 0.0
 	for i in range(probes.size()):
-		diff = maxf(diff, absf(fitted[i] - tiled[i]))
-	print("    max |FIT - TILE| = %.4f m (must be nonzero)" % diff)
-	if diff < 0.01:
-		_fail += 1
-		print("    !! FIT and TILE produced the same stamp; the LUT branch still always tiles")
-
-	# CONTROL -- under TILE the sample depends only on world XZ, so reshaping the loop must NOT change
-	# the interior. Under FIT it must. That pair is what proves FIT is reading the oriented frame.
+		span = maxf(span, absf(wide[i]))
 	_set_loop(plow, 20.0, 48.0)
 	plow._refresh_owner(plow._layer_owner, false, [])
-	var fit_reshaped := _snapshot(probes)
-	var fit_change := 0.0
+	var tall := _snapshot(probes)
+	var change := 0.0
 	for i in range(probes.size()):
-		fit_change = maxf(fit_change, absf(fit_reshaped[i] - fitted[i]))
-	plow.mapping = Pasture3DPlow.Mapping.TILE
-	plow._refresh_owner(plow._layer_owner, false, [])
-	var tile_change := 0.0
-	for i in range(probes.size()):
-		tile_change = maxf(tile_change, absf(_height(probes[i]) - tiled[i]))
-	print("    reshaping the loop -- FIT changes by %.4f m, TILE by %.4f m" % [fit_change, tile_change])
-	if fit_change < 0.01:
+		change = maxf(change, absf(tall[i] - wide[i]))
+	print("    swapping the loop's axes moves the stamp by %.4f m" % change)
+	if change < 0.5:
 		_fail += 1
-		print("    !! FIT ignored the loop's shape")
-	# TILE is not expected to be perfectly still here -- reshaping the loop also reshapes the falloff
-	# MASK, which moves the probes near the edges either way. What must hold is that FIT responds much
-	# more strongly, because only FIT re-maps the image itself. Without this ratio the check above would
-	# pass on the mask movement alone.
-	if fit_change < tile_change * 3.0:
+		print("    !! the stamp ignored the loop's shape; relief is not using the oriented frame")
+
+	# CONTROL: the probes must be on ground the brush actually reaches, or "it moved" is measuring noise.
+	print("    CONTROL max |relief| across the probes: %.4f m (must be well above the threshold)" % span)
+	if span < 1.0:
 		_fail += 1
-		print(("    !! FIT moved no more than the mask alone (%.4f vs %.4f); the loop's shape is only "
-			+ "reaching the falloff, not the sampling") % [fit_change, tile_change])
+		print("    !! the probes sat outside the stamp, so the reshape result proves nothing")
+
+	# CONTROL: `mapping` really is gone. If a TILE mode came back, the claim above narrows to "under the
+	# default mapping" and this section would be quietly testing less than it says.
+	var has_mapping := false
+	for prop in plow.get_property_list():
+		if String(prop["name"]) == "mapping":
+			has_mapping = true
+	print("    CONTROL the brush exposes a `mapping` property = %s (want false)" % has_mapping)
+	if has_mapping:
+		_fail += 1
+		print("    !! `mapping` is back; this section no longer covers every mode")
 
 
 # --- I: the shipped presets load and produce relief -----------------------------------------------
@@ -581,8 +584,19 @@ func _gate_j_period_guard() -> void:
 
 	# A material with no periodic op at all must not be flagged — fractal octaves are MEANT to run past
 	# the vertex spacing and simply stop contributing.
-	plow.relief = Pasture3DReliefFractal.new()
-	var fractal_warned := _has_period_warning(plow)
+	# A FRESH brush, not `plow.relief = ...` on this one. Relief reaches a brush through the modifier
+	# stack; the legacy property still works, but only ONCE per node (the migration must never clobber a
+	# stack the user has built), so reassigning it here left the Furrows modifier in place and this
+	# criterion re-measured the deliberately-too-fine spacing above.
+	var frac = _make_plow("FractalPeriod", SITE_TEX, 48.0, 48.0)
+	if frac == null:
+		return
+	var fmr := Pasture3DNodeRelief.new()
+	fmr.resource_name = "Relief"
+	fmr.material = Pasture3DReliefFractal.new()
+	fmr.strength = 8.0
+	frac.modifiers = [fmr] as Array[Pasture3DNode]
+	var fractal_warned := _has_period_warning(frac)
 	print("    a fractal material warns = %s (want false)" % fractal_warned)
 	if fractal_warned:
 		_fail += 1

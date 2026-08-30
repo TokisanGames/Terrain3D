@@ -146,6 +146,15 @@ func needs_grid() -> bool:
 	return false
 
 
+## True when this node holds state the native whole-graph evaluator cannot see — in practice, a per-solver
+## FROZEN cache. The native program is a pure function of the graph's parameters and its input surface; it
+## has no way to serve a cached solve or to notice it has gone stale. A node that answers true takes the
+## WHOLE graph off the native path (the bail is graph-wide), which is the price of the cache actually
+## working. Solvers that are LIVE must keep answering false, or freezing would cost native everywhere.
+func blocks_native() -> bool:
+	return false
+
+
 ## True when this node exposes an output port that other nodes can wire from. The Output sink returns
 ## false — its value is the graph's result, read by the host, not consumed downstream. EDITOR-only (drives
 ## whether a right-side slot is drawn); the evaluator reads the output through `output_index`.

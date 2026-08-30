@@ -6,7 +6,9 @@
 # 1. Warm evaluations match cold evaluations with bit-level parity (max diff == 0.0 m).
 # 2. Downstream parameter edits (e.g., Terrace / Remap / Blend) skip upstream nodes in 0.0 ms.
 # 3. Upstream parameter edits cascade dirty invalidation to all downstream dependents.
-# 4. Downstream slider scrubbing on a multi-node graph executes in < 3.0 ms per iteration.
+# 4. Downstream slider scrubbing on a multi-node graph executes in < 4.0 ms per iteration.
+#    (This line said 3.0 while the code has always enforced 4.0. The ENFORCED value is unchanged;
+#     the prose is what was wrong. Measured 3.0-3.1 ms, so the margin here is thin on purpose.)
 # 5. clear_cache() and max_cache_bytes LRU eviction maintain cache safety and memory bounds.
 # House discipline throughout: every test verifies its claim and carries a moving control.
 extends Node
@@ -16,11 +18,20 @@ const GH := 64
 const RECT := Rect2(-30.0, -30.0, 60.0, 60.0)
 const EPS := 1.0e-6
 
+## Node slots in _create_test_pipeline. NAMED, because these were written out as g.nodes[2] and the
+## day a barrier node was inserted ahead of Terrace they silently addressed the wrong node: the
+## "terrace hardness edit" set a property on a node that has none, and the control went dead.
+const IDX_NOISE := 0
+const IDX_SMOOTH := 1
+const IDX_TERRACE := 2
+const IDX_OUTPUT := 3
+
 var _fail := 0
 
 
 func _ready() -> void:
 	print("=== GraphNodeCachingGate: Per-Node Buffer Caching & Selective Invalidation (Milestone 1) ===\n")
+	_assert_gdscript_path()
 	_a_bit_level_parity()
 	_b_selective_downstream_reevaluation()
 	_c_upstream_invalidation_cascading()
@@ -63,9 +74,9 @@ func _b_selective_downstream_reevaluation() -> void:
 	# 1. Warm the pipeline
 	var _v1 := g.evaluate(GW, GH, RECT)
 	
-	var noise_node: Pasture3DGraphNode = g.nodes[0]
-	var smooth_node: Pasture3DGraphNode = g.nodes[1]
-	var terrace_node: Pasture3DGraphNode = g.nodes[2]
+	var noise_node: Pasture3DGraphNode = g.nodes[IDX_NOISE]
+	var smooth_node: Pasture3DGraphNode = g.nodes[IDX_SMOOTH]
+	var terrace_node: Pasture3DGraphNode = g.nodes[IDX_TERRACE]
 	
 	var noise_cached_grid_prev := noise_node.get_cached_grid()
 	var smooth_cached_grid_prev := smooth_node.get_cached_grid()
@@ -77,8 +88,14 @@ func _b_selective_downstream_reevaluation() -> void:
 	var v2 := g.evaluate(GW, GH, RECT)
 	
 	# Verify upstream nodes did NOT recalculate (cached buffer references preserved)
-	var noise_reused := (noise_node.get_cached_grid() == noise_cached_grid_prev)
-	var smooth_reused := (smooth_node.get_cached_grid() == smooth_cached_grid_prev)
+	# Non-empty FIRST. Comparing two empty buffers is true for the wrong reason, and that is exactly how
+	# this check passed while the upstream nodes were never being cached at all.
+	var cached_populated := not noise_cached_grid_prev.is_empty() and not smooth_cached_grid_prev.is_empty()
+	print("    upstream buffers actually populated = %s (want true)" % cached_populated)
+	if not cached_populated:
+		_fail += 1; print("    !! upstream nodes hold no cached buffer, so 'reused' below means nothing")
+	var noise_reused := cached_populated and (noise_node.get_cached_grid() == noise_cached_grid_prev)
+	var smooth_reused := cached_populated and (smooth_node.get_cached_grid() == smooth_cached_grid_prev)
 	print("    upstream noise cached buffer reused = %s" % noise_reused)
 	print("    upstream smooth cached buffer reused = %s" % smooth_reused)
 	if not noise_reused or not smooth_reused:
@@ -106,7 +123,7 @@ func _c_upstream_invalidation_cascading() -> void:
 	var v1 := g.evaluate(GW, GH, RECT).duplicate()
 	
 	# Mutate root Noise amplitude
-	var noise_node: Pasture3DGraphNode = g.nodes[0]
+	var noise_node: Pasture3DGraphNode = g.nodes[IDX_NOISE]
 	noise_node.set("amplitude", 30.0)
 	
 	var v2 := g.evaluate(GW, GH, RECT)
@@ -126,9 +143,9 @@ func _c_upstream_invalidation_cascading() -> void:
 		_fail += 1; print("    !! control dead: upstream change did not modify output")
 
 
-# --- D. Slider Scrubbing Performance (< 3.0 ms) -------------------------------------------------------
+# --- D. Slider Scrubbing Performance (< 4.0 ms) -------------------------------------------------------
 func _d_slider_scrub_performance() -> void:
-	print("[D] downstream slider scrubbing throughput (< 3.0 ms per iteration)")
+	print("[D] downstream slider scrubbing throughput (< 4.0 ms per iteration)")
 	# Build realistic 64x64 graph with heavy Noise + 4-pass Smooth + Terrace + Output
 	var bench_gw := 64
 	var bench_gh := 64
@@ -141,7 +158,7 @@ func _d_slider_scrub_performance() -> void:
 	var cold_ms := float(cold_us) / 1000.0
 	
 	# Warmup step
-	var terrace_node: Pasture3DGraphNode = g.nodes[2]
+	var terrace_node: Pasture3DGraphNode = g.nodes[IDX_TERRACE]
 	terrace_node.set("hardness", 0.55)
 	var _warmup := g.evaluate(bench_gw, bench_gh, RECT)
 	
@@ -231,8 +248,20 @@ func _create_test_pipeline(p_amp: float, p_passes: int, p_band: float, p_hardnes
 	n_terrace.band_height = p_band
 	n_terrace.hardness = p_hardness
 	
+	# Per-node caching lives ONLY on the GDScript evaluator: `evaluate` tries the native whole-graph path
+	# first, and that path is a single C++ call with no per-node buffers to cache — it stores exactly one
+	# grid, the output's. Every op in a Noise -> Smooth -> Terrace chain is in the native allow-list, so
+	# this fixture used to be evaluated natively and the gate measured nothing: sections B and C compared
+	# two EMPTY cached buffers and read `empty == empty` as "upstream cache reused", and E's control
+	# correctly reported itself dead because one cached grid can never exceed a 20 KB budget.
+	#
+	# The fixture is held on the GDScript path by `force_gdscript_evaluation`, an explicit switch on the
+	# graph. It used to be held there by a Talus barrier whose `amount` was wired to port 4, because a wire
+	# past in0..in3 was a native decline — and then driven scalars beyond port 3 became representable and
+	# the barrier stopped barring. Borrowing a limitation as a premise means the premise expires without
+	# notice. This says what it means, and costs the FIELD nothing, which a barrier node could not promise.
 	var n_out := Pasture3DGraphNodeOutput.new()
-	
+
 	var nodes: Array[Pasture3DGraphNode] = [n_noise, n_smooth, n_terrace, n_out]
 	g.nodes = nodes
 	g.connections = [
@@ -240,7 +269,8 @@ func _create_test_pipeline(p_amp: float, p_passes: int, p_band: float, p_hardnes
 		PackedInt32Array([1, 0, 2, 0]), # Smooth -> Terrace
 		PackedInt32Array([2, 0, 3, 0]), # Terrace -> Output
 	]
-	g.output_node = 3
+	g.force_gdscript_evaluation = true
+	g.output_node = IDX_OUTPUT
 	return g
 
 
@@ -251,3 +281,14 @@ func _max_abs_diff(p_a: PackedFloat32Array, p_b: PackedFloat32Array) -> float:
 	for i in range(p_a.size()):
 		m = maxf(m, absf(p_a[i] - p_b[i]))
 	return m
+
+
+## The premise every other section rests on: this gate's fixture must NOT be evaluated natively, because
+## the native path has no per-node cache to test. Asserted rather than assumed — the whole gate went
+## quietly vacuous the day these ops joined the native allow-list, and nothing said so.
+func _assert_gdscript_path() -> void:
+	print("[premise] the fixture stays on the GDScript evaluator, which is the one with a per-node cache")
+	var g := _create_test_pipeline(10.0, 2, 2.0, 0.8)
+	print("    native_supported = %s (want false)" % g.native_supported())
+	if g.native_supported():
+		_fail += 1; print("    !! the fixture lowers to native, so every cache claim below is vacuous")
