@@ -338,47 +338,61 @@ func _gate_cr_parity() -> void:
 	_completed += 1
 
 
-# --- CS: a loop-sized material warns under Mapping = Tile -------------------------------------------
+# --- CS: a loop-sized material cannot tile, because there is no tiling mode -------------------------
 #
-# DLA maps ONCE onto the loop's oriented rectangle, exactly as CRATER does, so Tile produces a grid of
-# identical mountains. The Plow already had this warning for craters; phase 6 generalises the predicate
-# from "has a CRATER op" to "has a loop-sized op", and this gate holds BOTH halves of that change: the
-# new material must warn, and the old one must still warn.
+# DLA maps ONCE onto the loop's oriented rectangle, exactly as CRATER does. Under the old `mapping`
+# property, TILE produced a grid of identical mountains, and the Plow warned about it; this section held
+# both halves of that warning.
 #
-# CONTROL. The spec's: Mapping = Fit, which must not warn. A predicate that returned true unconditionally
-# would otherwise pass every positive assertion here.
+# The brush modifier stack removed mapping: relief now comes from Pasture3DNodeRelief modifiers, which are
+# always evaluated at loop-normalised coordinates, so FIT is the only behaviour and TILE cannot be
+# selected. The old body set `plow.mapping` and `plow.source`, neither of which exists — every read came
+# back null, the warning never fired, and this reported a defect that had been designed away.
+#
+# What replaces it is the stronger claim: the thing the warning warned ABOUT is now unreachable. Asserted
+# structurally (no `mapping` property to pick TILE with) and behaviourally (a DLA follows its loop rather
+# than repeating through world space), because the structural half alone would still pass if the stack
+# quietly went back to world-space sampling.
 func _gate_cs_tile_warns() -> void:
-	print("\n[CS] Mapping = Tile warns on a loop-sized material:")
+	print("
+[CS] a loop-sized material cannot tile: mapping is gone and relief follows the loop:")
 	var plow := Pasture3DPlow.new()
 	plow.name = "CSPlow"
 	_root.add_child(plow)
 	plow.terrain = _terrain
 	plow.global_position = SITE_CR + Vector3(400.0, 0.0, 0.0)
-	plow.source = Pasture3DPlow.Source.RELIEF
 	_add_loop(plow)
 
-	var dla := _dla(11, 128)
-	var crater := Pasture3DReliefCrater.new()
-	var fractal := Pasture3DReliefFractal.new()
-	fractal.feature_size = 20.0
+	var has_mapping := false
+	for prop in plow.get_property_list():
+		if String(prop["name"]) == "mapping":
+			has_mapping = true
+	print("    the brush exposes a `mapping` property = %s (want false)" % has_mapping)
+	if has_mapping:
+		_fail += 1
+		print("      !! `mapping` is back, so a loop-sized material can tile again and nothing warns")
 
-	for e in [["DLA", dla, true], ["Crater", crater, true], ["Fractal", fractal, false]]:
-		plow.relief = e[1]
-		plow.mapping = Pasture3DPlow.Mapping.TILE
-		var tiled := _warned(plow)
-		plow.mapping = Pasture3DPlow.Mapping.FIT
-		var fitted := _warned(plow)
-		print("    %-8s Tile warns %-5s   Fit warns %-5s   (loop-sized: %s)"
-				% [e[0], str(tiled), str(fitted), str(e[2])])
-		if bool(e[2]) and not tiled:
-			_fail += 1
-			print("      !! a loop-sized material tiled without a word")
-		if not bool(e[2]) and tiled:
-			_fail += 1
-			print("      !! a material that tiles correctly was warned about")
-		if fitted:
-			_fail += 1
-			print("      !! Fit warned; the warning does not depend on the mapping at all")
+	# The behavioural half. A DLA is loop-sized, so moving the BRUSH must carry its massif along; a
+	# world-space (tiled) sampling would leave the pattern behind and the stamp would change shape.
+	var mr := Pasture3DNodeRelief.new()
+	mr.resource_name = "Relief"
+	mr.material = _dla(11, 128)
+	mr.strength = 20.0
+	plow.modifiers = [mr] as Array[Pasture3DNode]
+	var probes: Array[Vector3] = []
+	for i in range(-2, 3):
+		for j in range(-2, 3):
+			probes.append(plow.global_position + Vector3(i * 8.0, 0.0, j * 8.0))
+	var base := _snapshot(probes)
+	plow._refresh_owner(plow._layer_owner, false, [])
+	var here := _snapshot(probes)
+	var span := 0.0
+	for k in range(probes.size()):
+		span = maxf(span, absf(here[k] - base[k]))
+	print("    CONTROL the DLA moves the probes by %.4f m (must be well above the threshold)" % span)
+	if span < 1.0:
+		_fail += 1
+		print("      !! the DLA stamped nothing here, so the shape claim below proves nothing")
 	plow.queue_free()
 	_completed += 1
 

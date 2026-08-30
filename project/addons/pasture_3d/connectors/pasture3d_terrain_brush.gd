@@ -4402,25 +4402,6 @@ func _publish_erosion_fields(p_before: PackedFloat32Array, p_after: PackedFloat3
 	p_ctx["sim_fields"] = [flow, ero, dep, wet]
 
 
-## The name of the first LOOP-SIZED op the material emits, or "" if it has none. These are the ops that
-## map ONCE onto the loop's oriented rectangle instead of tiling through world XZ: CRATER, which reads the
-## normalised radius, and DLA, which bilinear-samples its baked field across the same rectangle.
-##
-## Every mapping mode derives nu,nv from that one oriented frame, so this is purely a warning hook for
-## hosts whose mapping can actually repeat the loop -- the Plow. The modifier stack always evaluates at
-## loop-normalised coordinates and so has nothing to warn about.
-func _relief_loop_sized_op(mat: Pasture3DReliefMaterial) -> String:
-	if mat == null:
-		return ""
-	var ops: PackedInt32Array = mat.compile()[0]
-	for i in range(0, ops.size(), Pasture3DReliefMaterial.OP_STRIDE):
-		if ops[i] == Pasture3DReliefMaterial.Op.CRATER:
-			return "Crater"
-		if ops[i] == Pasture3DReliefMaterial.Op.DLA:
-			return "DLA"
-	return ""
-
-
 ## Shortest repeat distance, in metres, over the ops that have one (DUNES wavelength, FURROWS spacing —
 ## both in param slot 1). 0 when the material has no periodic op. Fractal ops are excluded on purpose:
 ## their high octaves are *meant* to fall below the vertex spacing and simply stop contributing, whereas a

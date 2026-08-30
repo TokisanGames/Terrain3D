@@ -125,10 +125,21 @@ func _b_thermal_erosion() -> void:
 	if node == null:
 		_fail += 1; print("    !! failed to instance erosion_thermal from registry"); return
 
-	var ok_decl: bool = node.output_count() == 2 and node.input_count() == 2 \
-			and node.output_port_types()[0] == Pasture3DGraphNode.PortType.HEIGHT \
-			and node.output_port_types()[1] == Pasture3DGraphNode.PortType.MASK
-	print("    inputs=%d outputs=%d ok_decl=%s" % [node.input_count(), node.output_count(), ok_decl])
+	# Ports are asserted by SHAPE, not by count. `input_count() == 2` was a literal, and it broke the day
+	# erosion_thermal exposed talus_angle / iterations / settling_rate as driveable parameter ports — a
+	# gate going red because the node gained a feature, which teaches everyone to ignore it. What has to
+	# hold is that port 0 is the surface, every other input is a scalar parameter, and the two output
+	# channels are still height + mask.
+	var in_types: PackedInt32Array = node.input_port_types()
+	# Port 1 is the `hardness` MASK — a real grid, not a scalar: thermal erosion resists where the rock is
+	# hard. Everything past it is a driveable scalar.
+	var params := 0
+	for i in range(2, in_types.size()):
+		if in_types[i] == Pasture3DGraphNode.PortType.FLOAT or in_types[i] == Pasture3DGraphNode.PortType.INT:
+			params += 1
+	var ok_decl: bool = node.output_count() == 2 and node.output_names().size() == 2 			and node.output_port_types()[0] == Pasture3DGraphNode.PortType.HEIGHT 			and node.output_port_types()[1] == Pasture3DGraphNode.PortType.MASK 			and in_types.size() == node.input_count() and node.input_names().size() == node.input_count() 			and in_types.size() > 1 and in_types[0] == Pasture3DGraphNode.PortType.HEIGHT 			and in_types[1] == Pasture3DGraphNode.PortType.MASK 			and params == node.input_count() - 2
+	print("    inputs=%d (surface + hardness mask + %d parameters) outputs=%d ok_decl=%s"
+			% [node.input_count(), params, node.output_count(), ok_decl])
 	if not ok_decl:
 		_fail += 1; print("    !! thermal erosion ports declaration mismatch")
 
