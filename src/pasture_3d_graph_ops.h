@@ -78,6 +78,7 @@ enum GraphCellOpType {
 	GRAPH_OP_SMOOTH_FILL = 50, // FILTER grid: raise concave ground toward a blurred reference (§6.2)
 	GRAPH_OP_RECAST_CLIFF = 51, // FILTER grid: push steep ground toward a stepped face (§6.3)
 	GRAPH_OP_WARP_DOWNSLOPE = 52, // FILTER grid: displace the surface along its own gradient (§7.1)
+	GRAPH_OP_GAVORONOISE = 53, // GENERATOR: gradient-aware Voronoi with derivative feedback (§7.2)
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed

@@ -35,6 +35,7 @@
 #include "pasture_3d_thread_pool.h"
 #include "pasture_3d_distance_transform.h"
 #include "pasture_3d_morphology.h"
+#include "pasture_3d_gavoronoise.h"
 #include "pasture_3d_terrain_metrics.h"
 #include "pasture_3d_warp_downslope.h"
 #include "pasture_3d_transform.h"
@@ -1593,6 +1594,14 @@ PackedFloat32Array Pasture3DUtil::noise_jordan_grid(const int p_gw, const int p_
 			p_gain, p_lacunarity, p_warp_strength, p_damp_strength, p_seed);
 }
 
+PackedFloat32Array Pasture3DUtil::gavoronoise_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_amplitude, const double p_frequency, const int p_octaves, const int p_seed,
+		const double p_angle_deg, const double p_angle_spread, const double p_slope_strength,
+		const double p_branch_strength, const double p_z_cut_min, const double p_z_cut_max) {
+	return godot::gavoronoise_grid(p_gw, p_gh, p_rect, p_amplitude, p_frequency, p_octaves, p_seed,
+			p_angle_deg, p_angle_spread, p_slope_strength, p_branch_strength, p_z_cut_min, p_z_cut_max);
+}
+
 PackedFloat32Array Pasture3DUtil::noise_swiss_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
 		const double p_amplitude, const double p_frequency, const int p_octaves,
 		const double p_gain, const double p_lacunarity, const double p_ridge_offset,
@@ -2030,6 +2039,9 @@ void Pasture3DUtil::_bind_methods() {
 			D_METHOD("warp_grid", "surface", "gw", "gh", "rect", "warp_type", "frequency", "strength", "octaves", "amplitude", "roughness", "seed"),
 			&Pasture3DUtil::warp_grid);
 	// Terrain graph — Procedural Generators & Solvers.
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("gavoronoise_grid", "gw", "gh", "rect", "amplitude", "frequency", "octaves", "seed", "angle_deg", "angle_spread", "slope_strength", "branch_strength", "z_cut_min", "z_cut_max"),
+			&Pasture3DUtil::gavoronoise_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("noise_jordan_grid", "gw", "gh", "rect", "amplitude", "frequency", "octaves", "gain", "lacunarity", "warp_strength", "damp_strength", "seed"),
 			&Pasture3DUtil::noise_jordan_grid);

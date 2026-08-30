@@ -36,7 +36,7 @@ layout(push_constant, std430) uniform Params {
 	int mode; // 0 COPY, 1 BLEND, 2 SMOOTH_H, 3 SMOOTH_V, 4 FALLOFF, 5 CONTRAST,
 	          // 6 DT_SEED, 7 DT_JFA, 8 DT_RESOLVE, 9 DT_FINALIZE, 10 MORPH, 11 MORPH_BLEND,
 	          // 12 BOXMEAN_H, 13 BOXMEAN_V, 14 REL_ELEV, 15 SMOOTH_FILL, 16 RECAST_CLIFF,
-	          // 17 WARP_DOWNSLOPE
+	          // 17 WARP_DOWNSLOPE, 18 GAVORONOISE
 	int gw;
 	int gh;
 	int ip;   // BLEND: blend mode 0..4 | FALLOFF: shape 0..3 | CONTRAST: mode 0..1
@@ -47,7 +47,34 @@ layout(push_constant, std430) uniform Params {
 	float f0; float f1; float f2; float f3;
 	float f4; float f5; float f6; float f7;
 	float ox; float oz; float dx; float dz;
+	// GAVORONOISE needs one integer beyond `ip` (octaves) — the seed — and the eight float slots are
+	// exactly full. Appended rather than packed into `ip`, because packing a 32-bit seed into spare bits
+	// would silently truncate it and two seeds would start producing the same terrain.
+	int ip2; int pad0; int pad1; int pad2;
 } p;
+
+// The Gavoronoise hash. INTEGER arithmetic, matching hash_u32/hash_cell in pasture_3d_gavoronoise.cpp
+// exactly. A sin/fract hash would be shorter and would not agree with the CPU in its low bits.
+uint gavHashU32(uint x) {
+	x ^= x >> 16;
+	x *= 0x7feb352du;
+	x ^= x >> 15;
+	x *= 0x846ca68bu;
+	x ^= x >> 16;
+	return x;
+}
+
+uint gavHashCell(int cx, int cz, int sd, uint salt) {
+	uint h = gavHashU32(uint(cx) * 0x9e3779b1u);
+	h = gavHashU32(h ^ (uint(cz) * 0x85ebca6bu));
+	h = gavHashU32(h ^ uint(sd));
+	return gavHashU32(h ^ salt);
+}
+
+// 24 bits into [0,1) — exact in a 32-bit float.
+float gavRnd01(uint h) {
+	return float(h & 0x00ffffffu) / 16777216.0;
+}
 
 void main() {
 	int ix = int(gl_GlobalInvocationID.x);
@@ -368,6 +395,80 @@ void main() {
 		o[i] = z + p.f1 * (sg - 0.5) * w;
 		return;
 	}
+)";
+
+// MSVC caps a single string literal at 16380 bytes and this shader crossed it. The source is SPLIT, not
+// shortened: the two halves are concatenated at pipeline-creation time and the GLSL is unchanged.
+static const char *GRAPH_GRID_GLSL_2 = R"(	if (p.mode == 18) { // GAVORONOISE: a pure generator; no input buffers are read.
+	                    // ip = octaves, ip2 = seed. f0 amplitude, f1 frequency, f2 strike radians,
+	                    // f3 angle spread, f4 slope strength, f5 branch strength, f6/f7 the z-cut window.
+	                    //
+	                    // The algorithm is defined in src/pasture_3d_gavoronoise.h. This is one of its
+	                    // three implementations; nothing here is a GPU-specific approximation.
+		float wx = p.ox + (float(ix) + 0.5) * p.dx;
+		float wz = p.oz + (float(iz) + 0.5) * p.dz;
+		float cs = cos(p.f2);
+		float sn = sin(p.f2);
+		float sx = wx * cs + wz * sn;
+		float sz = -wx * sn + wz * cs;
+
+		float total = 0.0;
+		float maxAmp = 0.0;
+		float amp = 1.0;
+		float freq = p.f1;
+		float gradX = 0.0;
+		float gradZ = 0.0;
+
+		for (int oc = 0; oc < p.ip; oc++) {
+			float aniso = max(clamp(p.f3, 0.0, 1.0), 0.02); // along-strike compression; see the header
+			float qx = (sx * freq + gradX * p.f5) * aniso;
+			float qz = sz * freq + gradZ * p.f5;
+			int bx = int(floor(qx));
+			int bz = int(floor(qz));
+
+			float best = 1.0e30;
+			float bestDx = 0.0;
+			float bestDz = 0.0;
+			for (int oz2 = -1; oz2 <= 1; oz2++) {
+				for (int ox2 = -1; ox2 <= 1; ox2++) {
+					int cx = bx + ox2;
+					int cz = bz + oz2;
+					int sd = p.ip2 + oc * 7919;
+					uint h0 = gavHashCell(cx, cz, sd, 1u);
+					uint h1 = gavHashCell(cx, cz, sd, 2u);
+					float fx = float(cx) + gavRnd01(h0);
+					float fz = float(cz) + gavRnd01(h1);
+					float ddx = qx - fx;
+					float ddz = qz - fz;
+					float d2 = ddx * ddx + ddz * ddz;
+					if (d2 < best) { best = d2; bestDx = ddx; bestDz = ddz; }
+				}
+			}
+
+			float dist = sqrt(best);
+			float v = clamp(1.0 - dist, 0.0, 1.0);
+			float gx = 0.0;
+			float gz = 0.0;
+			if (dist > 1e-12 && v > 0.0) { gx = -bestDx / dist; gz = -bestDz / dist; }
+
+			float gl2 = gradX * gradX + gradZ * gradZ;
+			float damp = 1.0 / (1.0 + p.f4 * gl2);
+
+			total += amp * v * damp;
+			gradX += gx * amp * damp;
+			gradZ += gz * amp * damp;
+			maxAmp += amp;
+
+			amp *= 0.5;  // gain,       fixed — see the kernel header
+			freq *= 2.0; // lacunarity, fixed
+		}
+
+		float t = total / max(maxAmp, 1e-4);
+		if (p.f7 - p.f6 > 1e-9) { t = clamp((t - p.f6) / (p.f7 - p.f6), 0.0, 1.0); }
+		else { t = (t >= p.f7) ? 1.0 : 0.0; }
+		o[i] = t * p.f0;
+		return;
+	}
 	if (p.mode == 17) { // WARP_DOWNSLOPE: a = z, b = z smoothed at radius, c = mask.
 	                    // f0 displacement metres (already signed by `reverse`), f1 amount, f2 mask wired.
 		float z = a[i];
@@ -493,7 +594,7 @@ bool Pasture3DGraphGPU::_ensure_init() {
 	}
 	Ref<RDShaderSource> src;
 	src.instantiate();
-	src->set_stage_source(RenderingDevice::SHADER_STAGE_COMPUTE, String(GRAPH_GRID_GLSL));
+	src->set_stage_source(RenderingDevice::SHADER_STAGE_COMPUTE, String(GRAPH_GRID_GLSL) + String(GRAPH_GRID_GLSL_2));
 	Ref<RDShaderSPIRV> spirv = _rd->shader_compile_spirv_from_source(src);
 	if (spirv.is_null() || !spirv->get_stage_compile_error(RenderingDevice::SHADER_STAGE_COMPUTE).is_empty()) {
 		UtilityFunctions::push_warning("Graph GPU: compute shader compile failed; falling back to the CPU evaluator.");
@@ -604,6 +705,7 @@ struct GraphDispatch {
 	int ip = 0;
 	// Op-specific scalars, mirroring the shader's push-constant block. All zero for COPY/BLEND/SMOOTH.
 	float f0 = 0, f1 = 0, f2 = 0, f3 = 0, f4 = 0, f5 = 0, f6 = 0, f7 = 0;
+	int ip2 = 0; // GAVORONOISE: the seed. See the push-constant block.
 };
 } // namespace
 
@@ -1010,6 +1112,25 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 				plan.push_back(d);
 				slot_buf[s] = out;
 			} break;
+			case GRAPH_OP_GAVORONOISE: {
+				// Spec §7.2. A generator: it reads no input buffer, so all three slots stay bound to the
+				// zero buffer and only the push constants carry its parameters.
+				const RID out = empty_buf();
+				const double kPi = 3.14159265358979323846;
+				GraphDispatch d{ out, zero_buf, zero_buf, zero_buf, 18,
+					std::clamp((int)p_prog.params_c[s], 1, 8) };
+				d.ip2 = (int)p_prog.params_d[s]; // seed
+				d.f0 = p_prog.params[s]; // amplitude
+				d.f1 = p_prog.params_b[s]; // frequency, cycles per metre
+				d.f2 = (float)((double)p_prog.params_e[s] * kPi / 180.0); // strike
+				d.f3 = std::clamp(p_prog.params_f[s], 0.0f, 1.0f); // angle spread
+				d.f4 = std::max(p_prog.params_g[s], 0.0f); // slope strength
+				d.f5 = std::max(p_prog.params_h[s], 0.0f); // branch strength
+				d.f6 = p_prog.params_j.is_empty() ? 0.0f : p_prog.params_j[s]; // z cut min
+				d.f7 = p_prog.params_k.is_empty() ? 1.0f : p_prog.params_k[s]; // z cut max
+				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
 			case GRAPH_OP_OUTPUT: {
 				const RID out = empty_buf();
 				plan.push_back({ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf, zero_buf, zero_buf, 0, 0 });
@@ -1075,11 +1196,11 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 	const int64_t cl = _rd->compute_list_begin();
 	_rd->compute_list_bind_compute_pipeline(cl, _pipeline);
 	for (size_t k = 0; k < plan.size(); k++) {
-		// 16 bytes of ints + 8 op scalars + the 4 world-mapping floats = 64 bytes. The mapping is
+		// 16 bytes of ints + 8 op scalars + the 4 world-mapping floats + ip2 and its padding = 80 bytes. The mapping is
 		// computed here, once, from the same expressions as Pasture3DTerrainGraph.cell_to_world (dx
 		// divides by gw, NOT gw-1) rather than being re-derived inside the shader.
 		PackedByteArray push;
-		push.resize(64);
+		push.resize(80);
 		push.encode_s32(0, plan[k].mode);
 		push.encode_s32(4, p_gw);
 		push.encode_s32(8, p_gh);
@@ -1096,6 +1217,10 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 		push.encode_float(52, (float)p_rect.position.y);
 		push.encode_float(56, (float)((double)p_rect.size.x / (double)std::max(p_gw, 1)));
 		push.encode_float(60, (float)((double)p_rect.size.y / (double)std::max(p_gh, 1)));
+		push.encode_s32(64, plan[k].ip2);
+		push.encode_s32(68, 0);
+		push.encode_s32(72, 0);
+		push.encode_s32(76, 0);
 		_rd->compute_list_bind_uniform_set(cl, sets[k], 0);
 		_rd->compute_list_set_push_constant(cl, push, push.size());
 		_rd->compute_list_dispatch(cl, gx, gy, 1);

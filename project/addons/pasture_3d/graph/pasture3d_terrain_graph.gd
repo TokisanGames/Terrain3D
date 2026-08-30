@@ -1103,6 +1103,13 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				op_id = 11; p0 = float(_i.call(&"passes", 1))
 			&"noise_jordan":
 				op_id = 13; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"warp_strength", 0.35); pg = _f.call(&"damp_strength", 0.8); ph = float(_i.call(&"seed", 0))
+			&"gavoronoise":
+				op_id = 53
+				p0 = _f.call(&"amplitude", 60.0); pb = _f.call(&"frequency", 0.002)
+				pc = float(_i.call(&"octaves", 4)); pd = float(_i.call(&"seed", 0))
+				pe = _f.call(&"angle_deg", 0.0); pf = _f.call(&"angle_spread", 1.0)
+				pg = _f.call(&"slope_strength", 1.0); ph = _f.call(&"branch_strength", 2.0)
+				pj = _f.call(&"z_cut_min", 0.2); pk = _f.call(&"z_cut_max", 1.0)
 			&"noise_swiss":
 				op_id = 14; p0 = _f.call(&"amplitude", 100.0); pb = _f.call(&"frequency", 0.005); pc = float(_i.call(&"octaves", 6)); pd = _f.call(&"gain", 0.5); pe = _f.call(&"lacunarity", 2.0); pf = _f.call(&"ridge_offset", 1.0); pg = _f.call(&"erosion_accent", 0.3); ph = float(_i.call(&"seed", 0))
 			&"geological_primitive":
@@ -1395,7 +1402,7 @@ func native_supported(p_root_node: int = -1) -> bool:
 		&"input", &"output", &"reroute", &"terrain_bus_merge", &"terrain_bus_split",
 		&"noise", &"const", &"const_int", &"const_vector", &"const_color", &"const_bool", &"const_curve",
 		&"blend", &"smooth", &"terrace",
-		&"noise_jordan", &"noise_swiss", &"geological_primitive", &"furrows", &"dunes",
+		&"noise_jordan", &"noise_swiss", &"gavoronoise", &"geological_primitive", &"furrows", &"dunes",
 		&"crater", &"warp", &"strata", &"curve", &"remap", &"mask", &"curvature",
 		&"talus_projection", &"spectral_equalizer", &"depression_filling", &"lake_flooding",
 		&"stream_extraction", &"erosion_hydraulic", &"erosion_thermal", &"scree", &"erosion",

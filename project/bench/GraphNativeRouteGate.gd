@@ -46,6 +46,7 @@ func _ready() -> void:
 	_check("SmoothFill", _smooth_fill())
 	_check("RecastCliff", _recast_cliff())
 	_check("WarpDownslope", _warp_downslope())
+	_check_generator("Gavoronoise", _gavoronoise())
 	_control_an_unlisted_op_is_refused()
 
 	print("\n=== %s (%d failures) ===\n" % ["NATIVE ROUTE PASS" if _fail == 0 else "NATIVE ROUTE FAIL", _fail])
@@ -181,6 +182,60 @@ func _recast_cliff() -> Pasture3DGraphNode:
 	n.gain = 2.0
 	n.direction_deg = -1.0
 	n.amount = 1.0
+	return n
+
+
+## GENERATORS take no height input, so _check's "wire the surface into port 0" harness does not apply —
+## on Gavoronoise port 0 is `amplitude`, and feeding a height grid into it would be testing something
+## else entirely. Same two claims, different wiring.
+func _check_generator(p_name: String, p_node: Pasture3DGraphNode) -> void:
+	print("[%s]" % p_name)
+	var g := Pasture3DTerrainGraph.new()
+	var nodes: Array[Pasture3DGraphNode] = [p_node, Pasture3DGraphNodeOutput.new()]
+	g.nodes = nodes
+	g.connections = [PackedInt32Array([0, 0, 1, 0])]
+
+	var supported: bool = g.native_supported()
+	print("    native_supported() = %s (want true)" % str(supported))
+	if not supported:
+		_fail += 1
+		print("    !! op \"%s\" is missing from the SUPPORTED list in native_supported()." % str(p_node.op()))
+		print("       This does not fail loudly: it drops the WHOLE graph onto the GDScript evaluator.")
+		return
+
+	var prog: Dictionary = g.compile_graph_program()
+	if prog.is_empty():
+		_fail += 1; print("    !! compile_graph_program returned nothing — the op has no _lower_node_op case")
+		return
+
+	var empty := PackedFloat32Array()
+	var native: PackedFloat32Array = Pasture3DUtil.graph_eval_grid(prog, GW, GH, RECT, empty)
+	var script_side: PackedFloat32Array = g._eval_unfolded(GW, GH, RECT, null, empty)
+	var d := _max_abs_diff(native, script_side)
+	print("    max |native - gdscript| = %.7f (want < %.6f)" % [d, EPS])
+	if d > EPS:
+		_fail += 1
+		print("    !! the native lowering disagrees with the node's own GDScript evaluation.")
+		print("       Check the parameter slots in _lower_node_op() against the evaluator case.")
+
+	var lo := INF
+	var hi := -INF
+	for i in native.size():
+		lo = minf(lo, native[i])
+		hi = maxf(hi, native[i])
+	print("    control: the generator produced %.4f m of relief (want > 0.01)" % (hi - lo))
+	if hi - lo <= 0.01:
+		_fail += 1; print("    !! NO-SIGNAL — a flat field, so the comparison above compared two flat grids")
+
+
+func _gavoronoise() -> Pasture3DGraphNode:
+	var n := Pasture3DGraphNodeGavoronoise.new()
+	n.amplitude = 80.0
+	n.frequency = 0.01
+	n.octaves = 3
+	n.seed = 5
+	n.z_cut_min = 0.0
+	n.z_cut_max = 1.0
 	return n
 
 

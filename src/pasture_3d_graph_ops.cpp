@@ -21,6 +21,7 @@
 #include "pasture_3d_hydraulic_stream_log.h"
 #include "pasture_3d_lake_flooding.h"
 #include "pasture_3d_math_ops.h"
+#include "pasture_3d_gavoronoise.h"
 #include "pasture_3d_noise_jordan.h"
 #include "pasture_3d_noise_swiss.h"
 #include "pasture_3d_scree.h"
@@ -466,6 +467,13 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 
 			case GRAPH_OP_NOISE_JORDAN: {
 				PackedFloat32Array res = noise_jordan_grid(p_gw, p_gh, p_rect, params[s], params_b[s], (int)params_c[s], params_d[s], params_e[s], params_f[s], params_g[s], (int)params_h[s]);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			case GRAPH_OP_GAVORONOISE: {
+				PackedFloat32Array res = gavoronoise_grid(p_gw, p_gh, p_rect, params[s], params_b[s],
+						(int)params_c[s], (int)params_d[s], params_e[s], params_f[s], params_g[s],
+						params_h[s], params_j ? params_j[s] : 0.f, params_k ? params_k[s] : 1.f);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 

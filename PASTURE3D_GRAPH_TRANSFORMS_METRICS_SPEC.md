@@ -1,7 +1,6 @@
 # Pasture3D Terrain Graph — Transforms, Metrics & Morphology Nodes Spec
 
-**Status:** Phases 1-3 built and gated (2026-08-29); §7.1 `WarpDownslope` built and gated; §7.2
-`Gavoronoise` and Phase 5 proposed.
+**Status:** Phases 1-4 built and gated (2026-08-29); Phase 5 proposed.
 
 **§7.1 amendment.** WB's control was specified as "a noise warp of comparable strength". It cannot be:
 the `Warp` node does not resample its input at all — it ADDS a domain-warped noise field on top — so it
@@ -14,6 +13,34 @@ The resample sign is worth recording because it reads correct while being backwa
 BACKWARD map: `out(x) = in(x + d)` shifts the surface by `-d`. Sampling at the downhill point — which is
 what "warp downslope" sounds like — drags the terrain UPHILL. The kernel samples UPHILL so the surface
 moves downhill, and WB is what caught it.
+
+**§7.2 amendments.**
+
+`needs_grid` is **true**, not the false the spec proposed. "Cell, fusible" means having an `eval_cell` the
+fold can inline, and an octave loop with derivative feedback is not a per-cell expression. Jordan and
+Swiss claim false and are then special-cased back out of the cell path in *two* separate evaluators;
+saying true is the same behaviour with one fewer place to forget. The route gate caught the omission
+immediately, because the second of those two lists had not been updated.
+
+`angle_spread` **compresses the along-strike axis** rather than jittering the feature points across
+strike. The jitter reading was implemented first and does not produce parallel ridges at spread 0: a row
+of feature points at a fixed `z` still gives a field that varies in `x`, and GC's anisotropy measure
+correctly scored it at 1.04 against a required 2.0. Compressing the axis elongates the Voronoi cells into
+strike-parallel ribbons, which does; GC then measured 36.8.
+
+GF is measured as the **99th percentile** of the cross-resolution difference, with the maximum reported
+alongside, and the fine grid is read **bilinearly**. Both are stated in the gate. The field is chaotic
+exactly at Voronoi walls — a sample a hair either side picks a different winning feature point and the
+feedback amplifies that through every later octave — so a thin set of cells genuinely differs between two
+samplings of the same continuous field; and cell centres at `(i + 0.5)d` never coincide across
+resolutions, so nearest-cell sampling contributes more than the whole budget on its own. GF also runs at a
+lower frequency than the other criteria, because at the default the fourth octave is barely above Nyquist
+against the coarse cell and the disagreement measured is aliasing rather than units.
+
+GE splits into **two** parity claims. Kernel-versus-oracle with identical doubles holds to 2e-6 (measured:
+exactly 0). The graph route cannot, and the reason is honest rather than a tolerance: `GraphProgram`
+stores parameters as float32, so `frequency` reaches the kernel as 0.0005000000237, and in a chaotic field
+that last bit is worth a few thousandths of a metre. That claim gets its own 0.1%-of-relief budget.
 
 **Phase 3 amendments made during the build.** §6 called for three gate files, one per node. They shipped
 as ONE — `project/bench/GraphTerrainMetricsGate.gd` — because all three criteria sets need the same

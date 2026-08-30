@@ -274,6 +274,12 @@ public:
 			const double p_gain, const double p_lacunarity, const double p_warp_strength,
 			const double p_damp_strength, const int p_seed);
 
+	// Gradient-aware Voronoi generator (spec §7.2).
+	static PackedFloat32Array gavoronoise_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
+			const double p_amplitude, const double p_frequency, const int p_octaves, const int p_seed,
+			const double p_angle_deg, const double p_angle_spread, const double p_slope_strength,
+			const double p_branch_strength, const double p_z_cut_min, const double p_z_cut_max);
+
 	// Native Swiss ridge noise generator.
 	static PackedFloat32Array noise_swiss_grid(const int p_gw, const int p_gh, const Rect2 &p_rect,
 			const double p_amplitude, const double p_frequency, const int p_octaves,
