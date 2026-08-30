@@ -1833,9 +1833,31 @@ func _mask_preview_warnings() -> PackedStringArray:
 	return out
 
 
-## The relief material whose selector this brush can preview, or null. Overridden by the brushes that
-## have one (`Pasture3DPlow`, `Pasture3DMound`) so the dropdown below can live here once.
+## The relief material whose selector this brush can preview, or null.
+##
+## Every brush that has relief now keeps it in the modifier stack, so this scans `modifiers` HERE rather
+## than being overridden per subclass. It used to return null and rely on subclasses; only Mound was ever
+## given the override, so Plow — named in this very comment as one of the two — silently offered no Mask
+## Preview dropdown at all. `Pasture3DSim` is on a different base and never reaches this.
+##
+## §18.6: the material whose selectors the Mask Preview Source dropdown lists — the first Relief modifier
+## in the stack WITH A MATERIAL ASSIGNED. The overlay shows one material's selectors, and a stack with two
+## of them has to pick; first is the honest pick, because it is the one whose gating decides what
+## everything after it lands on.
+##
+## NOT `is_active()`, which was the first build and was wrong twice over. `is_active()` is false at
+## `strength == 0`, so this dropdown — and therefore the node's whole property list — was A FUNCTION OF A
+## SLIDER: dragging Strength up from 0 made the Mask Preview group appear, which rebuilt the inspector,
+## which collapsed the modifier being edited, under the cursor. Toggling `enabled` did the same. See
+## `_inspector_rebuild_signature`.
+##
+## It is also the better rule on its own terms: the preview exists to show WHERE a selector would put
+## things, which is exactly what you want to look at before you decide how many metres to ask for.
+## `_mask_preview_warnings` says so when the previewed modifier is not currently stamping.
 func _preview_relief_material():
+	for m in modifiers:
+		if m is Pasture3DNodeRelief and m.material != null:
+			return m.material
 	return null
 
 
@@ -1843,6 +1865,9 @@ func _preview_relief_material():
 ## Null on hosts whose relief is a plain property — there is nothing there that can be switched off
 ## independently of the material being assigned.
 func _preview_relief_modifier():
+	for m in modifiers:
+		if m is Pasture3DNodeRelief and m.material != null:
+			return m
 	return null
 
 
@@ -1969,13 +1994,18 @@ func _preview_area_mask(p_min_x: float, p_min_z: float, p_cell: float, p_gw: int
 
 
 ## Rebuild (or drop) this node's mask preview after anything that could have moved the ground under it
-## — the field comes from `composite_height_below`, so a bake invalidates it. Default no-op; a brush with
-## a preview toggle overrides it and re-runs its own build.
+## — the field comes from `composite_height_below`, so a bake invalidates it.
 ##
 ## Rebuilding rather than clearing on purpose: §18.5 requires the preview never be stale, and a preview
 ## that vanishes every time you press Simulate reads as broken. Both are satisfied by recomputing it.
+##
+## This used to be a no-op that each brush with a toggle overrode. Only Mound ever did, so on Plow the
+## Mask Preview toggle set a flag and nothing else happened — a dead switch, which is precisely the defect
+## §18.6 exists to prevent. Now that `_preview_relief_material` scans the modifier stack here, the body is
+## the same for every relief brush and lives once. A host whose preview is not a relief selector
+## (`Pasture3DSim`, whose masks multiply into one field) still overrides.
 func _update_mask_preview() -> void:
-	pass
+	_update_relief_mask_preview(_preview_relief_material() if _mask_preview_on else null)
 
 
 ## True when the terrain material is currently showing THIS node's preview. The material cannot call a

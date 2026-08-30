@@ -101,10 +101,14 @@ func _ready() -> void:
 func _migrate_legacy() -> void:
 	if _legacy.is_empty():
 		return
-	var old := _legacy
-	_legacy = {}
 	if not modifiers.is_empty():
+		_legacy = {}
 		return
+	# NOT cleared yet. `_apply_legacy_property` runs this once per property assigned after _ready, so the
+	# keys arrive one at a time and any single one of them is an incomplete picture: setting `height_scale`
+	# and then `relief` used to consume and DISCARD the height_scale, and the relief then migrated with no
+	# amplitude at all. Kept until a migration actually produces something.
+	var old := _legacy
 
 	var out: Array[Pasture3DNode] = []
 	var src = old.get("source", Source.NOISE)
@@ -122,6 +126,11 @@ func _migrate_legacy() -> void:
 			var mr := Pasture3DNodeRelief.new()
 			mr.resource_name = "Relief"
 			mr.material = rel
+			# The legacy amplitude, exactly as the Noise branch below reads it: the old rasteriser did
+			# `amp = height_scale * relief.eval(...)`. Omitting it left `strength` at its 0.0 default,
+			# where `is_active()` is false — so every project that had used Source.RELIEF came back from
+			# the upgrade stamping nothing at all, silently.
+			mr.strength = float(old.get("height_scale", 8.0))
 			out.append(mr)
 	elif src == Source.NOISE or old.has("noise"):
 		var nz = old.get("noise", null)
@@ -135,6 +144,7 @@ func _migrate_legacy() -> void:
 
 	if out.is_empty():
 		return
+	_legacy = {}
 	modifiers = out
 
 
