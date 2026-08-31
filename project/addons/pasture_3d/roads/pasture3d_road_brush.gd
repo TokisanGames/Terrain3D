@@ -274,9 +274,244 @@ func _make_starter_curve() -> Curve3D:
 	return c
 
 
-## P0: no terrain effect. The grading modifier is P2 — see the header.
-func _paint_spline(_path: Path3D) -> void:
-	pass
+## The terrain effect lives in the Pasture3DNodeRoad modifier, not here — see the header and §8. This
+## hook still has to run, because it is what establishes the footprint grid the stack is applied over;
+## the road brush contributes no profile of its own, so it paints a flat zero amplitude and lets the
+## grader write the actual surface.
+func _paint_spline(path: Path3D) -> void:
+	if not is_configured():
+		return
+	_paint_flat_footprint(path)
+
+
+
+
+## Establish the working grid over this road's corridor and run the modifier stack on it.
+##
+## The road brush contributes NO profile of its own — this paints a flat, zero-amplitude footprint and
+## the Pasture3DNodeRoad step writes the surface. That is not a placeholder: a road has no falloff to
+## author, because the thing that blends it into the surrounding terrain is the BATTER, which is real
+## geometry with a slope an engineer would recognise rather than a ramp curve. So `profile` is 1 across
+## the whole corridor and 0 outside it, and the grader's batter does the job a falloff does elsewhere.
+##
+## Without an active road modifier the footprint is written back unchanged, so a road brush with an empty
+## stack leaves the terrain exactly as it found it rather than stamping a flat pad.
+func _paint_flat_footprint(path: Path3D) -> void:
+	var plan := _plan_points()
+	if plan.size() < 2:
+		return
+	var vs: float = terrain.vertex_spacing
+	var b := _snapped_bounds(_spline_footprint_aabb(path), vs)
+	var min_x: float = b[0]
+	var min_z: float = b[2]
+	var gw := int(round((b[1] - b[0]) / vs)) + 1
+	var gh := int(round((b[3] - b[2]) / vs)) + 1
+	if gw < 1 or gh < 1:
+		return
+	var n := gw * gh
+
+	var t := resolved_road_type()
+	var reach: float = (t.disturbed_width(resolved_lane_count()) * 0.5) if t != null else 16.0
+	var cum := Pasture3DRoadGrader.cumulative_length(plan)
+
+	var extent := _extent_key(min_x, min_z, vs, gw, gh)
+	var stack := _compile_modifiers(extent, 1.0, 1.0)
+	var basey := _base_below_grid(min_x, min_z, vs, gw, gh)
+	if basey.is_empty():
+		basey.resize(n)
+		basey.fill(global_position.y)
+
+	# NaN outside the corridor is the brush-loop contract (§6.8): those cells are not this brush's to
+	# write, and the grader passes them straight through.
+	var amp := PackedFloat64Array()
+	var profile := PackedFloat64Array()
+	amp.resize(n)
+	profile.resize(n)
+	for iz in range(gh):
+		var wz := min_z + float(iz) * vs
+		var row := iz * gw
+		for ix in range(gw):
+			var hit := Pasture3DRoadGrader.nearest_on_plan(plan, cum, Vector2(min_x + float(ix) * vs, wz))
+			if float(hit[0]) > reach:
+				amp[row + ix] = NAN
+				profile[row + ix] = 0.0
+			else:
+				amp[row + ix] = 0.0
+				profile[row + ix] = 1.0
+
+	var vals := PackedFloat32Array()
+	vals.resize(n)
+	vals.fill(NAN)
+	if not stack["gd"].is_empty():
+		vals = _run_modifier_stack(stack["gd"], amp, profile, basey, {
+			"gw": gw, "gh": gh, "min_x": min_x, "min_z": min_z, "vs": vs, "add": false,
+			"fit_cx": 0.0, "fit_cz": 0.0, "fit_cos": 1.0, "fit_sin": 0.0,
+			"inv_ex": 1.0, "inv_ez": 1.0,
+			"fields": [], "sim_fields": [], "host_fields": [],
+			"measured": [], "host_measured": [], "host_div": 1.0,
+			"profile": profile, "basey": basey, "extent": extent,
+			"sdf": PackedFloat32Array(), "edge_offset": 0.0,
+			"profile_ext": PackedFloat64Array(),
+		})
+		_commit_modifier_caches(stack, extent, [0.0, 0.0, 1.0, 0.0, 1.0, 1.0, min_x, min_z, vs])
+	else:
+		for k in range(n):
+			if not is_nan(amp[k]):
+				vals[k] = basey[k]
+
+	_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, vals,
+			_spline_footprint_aabb(path))
+	if _layer_id >= 0 and terrain.data.has_method("apply_sim_block"):
+		terrain.data.apply_sim_block(_layer_id, min_x, min_z, vs, gw, gh, vals, _blend)
+	else:
+		for iz in range(gh):
+			var z := min_z + iz * vs
+			var row := iz * gw
+			for ix in range(gw):
+				var wv := vals[row + ix]
+				if is_finite(wv):
+					_paint_height(Vector3(min_x + ix * vs, 0.0, z), wv, 0.0)
+
+# ---- Grading (P2) -------------------------------------------------------------------------------
+
+## Grade `p_z` (an ABSOLUTE surface, row-major gw × gh) into this road's corridor, for one
+## Pasture3DNodeRoad step. Returns the grader's `{height, roadbed, cut, fill, verge, structure}`, or an
+## empty Dictionary when there is nothing to grade.
+##
+## This is where the resolve chain meets the geometry: widths, batters and bridging are asked for PER
+## ALIGNMENT SAMPLE, so a segment covering 800–1040 m simply produces different numbers at those indices
+## and the grader never learns that segments exist.
+func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int, p_gh: int,
+		p_min_x: float, p_min_z: float, p_vs: float) -> Dictionary:
+	var plan := _plan_points()
+	if plan.size() < 2:
+		return {}
+	var cum := Pasture3DRoadGrader.cumulative_length(plan)
+	var total: float = cum[cum.size() - 1]
+	var ds: float = maxf(p_mod.alignment_step, 0.05)
+	var n_s := maxi(int(ceil(total / ds)) + 1, 2)
+
+	# The ground the alignment is solved against is the SURFACE ENTERING THIS STEP, not the terrain — so
+	# an Erosion step above this one is ground the road cuts through, which is the ordering §8 exists to
+	# make editable.
+	var ground := PackedFloat32Array()
+	ground.resize(n_s)
+	for i in n_s:
+		var at := _plan_point_at(plan, cum, float(i) * ds)
+		ground[i] = _sample_grid(p_z, p_gw, p_gh, p_min_x, p_min_z, p_vs, at)
+
+	var t := resolved_road_type()
+	if t == null:
+		return {}
+	var half := PackedFloat32Array()
+	var shoulder := PackedFloat32Array()
+	var verge := PackedFloat32Array()
+	var suppress := PackedByteArray()
+	half.resize(n_s); shoulder.resize(n_s); verge.resize(n_s); suppress.resize(n_s)
+	for i in n_s:
+		var s := float(i) * ds
+		var ti := resolved_road_type(s)
+		var tt: Pasture3DRoadType = ti if ti != null else t
+		half[i] = tt.half_width(resolved_lane_count(s))
+		shoulder[i] = tt.shoulder_width
+		verge[i] = p_mod.verge_override if p_mod.verge_override >= 0.0 else tt.verge_width
+		suppress[i] = 1 if is_bridge_at(s) else 0
+
+	var alignment: Pasture3DRoadAlignment
+	if resolved_follow_terrain():
+		# A draped road is a deliberate choice, not a fallback: the alignment is the ground, so the
+		# grader still crowns, banks and batters — it just does not solve a profile.
+		alignment = Pasture3DRoadAlignment.new()
+		alignment.ds = ds
+		alignment.z = ground.duplicate()
+		alignment.ground = ground.duplicate()
+		alignment.bank = Pasture3DRoadGrader._zeros(n_s)
+		alignment.curvature = Pasture3DRoadGrader._zeros(n_s)
+	else:
+		alignment = Pasture3DRoadAlignmentSolver.solve_with_plan(_resample_plan(plan, cum, ds, n_s),
+				ground, ds, t.max_grade, t.design_speed, t.max_superelevation)
+	p_mod.last_alignment = alignment
+
+	var res := Pasture3DRoadGrader.grade(p_z, p_gw, p_gh, p_min_x, p_min_z, p_vs, plan, alignment,
+			half, shoulder, verge, suppress, {
+				"crown": p_mod.resolved_number(p_mod.crown_override, t.crown),
+				"cut_batter": p_mod.resolved_number(p_mod.cut_batter_override, t.cut_batter),
+				"fill_batter": p_mod.resolved_number(p_mod.fill_batter_override, t.fill_batter),
+			})
+	p_mod.last_masks = {} if not p_mod.publish_masks else {
+		"roadbed": res["roadbed"], "cut": res["cut"], "fill": res["fill"],
+		"verge": res["verge"], "structure": res["structure"], "gw": p_gw, "gh": p_gh,
+	}
+	return res
+
+
+## This road's splines as ONE world-space XZ polyline. Multiple splines under one road brush are
+## concatenated in child order, which is also the order arc length runs in — the same order segments
+## are measured against, so a segment range means the same thing here as it does in the inspector.
+func _plan_points() -> PackedVector2Array:
+	var out := PackedVector2Array()
+	for path: Path3D in _get_splines():
+		if path == null or path.curve == null or path.curve.point_count < 2:
+			continue
+		var xf := path.global_transform
+		for p in path.curve.tessellate():
+			var w: Vector3 = xf * p
+			out.append(Vector2(w.x, w.z))
+	return out
+
+
+## The point `p_s` metres along the plan polyline.
+func _plan_point_at(p_plan: PackedVector2Array, p_cum: PackedFloat32Array, p_s: float) -> Vector2:
+	var n := p_plan.size()
+	if n == 0:
+		return Vector2.ZERO
+	var s := clampf(p_s, 0.0, p_cum[n - 1])
+	for i in range(n - 1):
+		if s <= p_cum[i + 1] or i == n - 2:
+			var span: float = p_cum[i + 1] - p_cum[i]
+			var t: float = 0.0 if span <= 0.0 else (s - p_cum[i]) / span
+			return p_plan[i].lerp(p_plan[i + 1], clampf(t, 0.0, 1.0))
+	return p_plan[n - 1]
+
+
+## The plan resampled at the alignment's own spacing. The solver's curvature is a three-point formula, so
+## it needs UNIFORM arc-length samples — handing it the raw tessellation would make curvature a function
+## of how densely Godot happened to tessellate, which changes with the curve's own shape.
+func _resample_plan(p_plan: PackedVector2Array, p_cum: PackedFloat32Array, p_ds: float,
+		p_n: int) -> PackedVector2Array:
+	var out := PackedVector2Array()
+	out.resize(p_n)
+	for i in p_n:
+		out[i] = _plan_point_at(p_plan, p_cum, float(i) * p_ds)
+	return out
+
+
+## Bilinear sample of a working grid at a world XZ. NaN-aware: a tap on a cell the brush does not own
+## falls back to the nearest finite corner rather than poisoning the alignment with NaN ground.
+func _sample_grid(p_z: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: float, p_min_z: float,
+		p_vs: float, p_at: Vector2) -> float:
+	if p_gw <= 0 or p_gh <= 0:
+		return 0.0
+	var fx := clampf((p_at.x - p_min_x) / p_vs, 0.0, float(p_gw - 1))
+	var fz := clampf((p_at.y - p_min_z) / p_vs, 0.0, float(p_gh - 1))
+	var x0 := int(floor(fx))
+	var z0 := int(floor(fz))
+	var x1 := mini(x0 + 1, p_gw - 1)
+	var z1 := mini(z0 + 1, p_gh - 1)
+	var tx := fx - float(x0)
+	var tz := fz - float(z0)
+	var v00 := p_z[z0 * p_gw + x0]
+	var v10 := p_z[z0 * p_gw + x1]
+	var v01 := p_z[z1 * p_gw + x0]
+	var v11 := p_z[z1 * p_gw + x1]
+	var acc := 0.0
+	var wsum := 0.0
+	for pair in [[v00, (1.0 - tx) * (1.0 - tz)], [v10, tx * (1.0 - tz)],
+			[v01, (1.0 - tx) * tz], [v11, tx * tz]]:
+		if is_finite(pair[0]):
+			acc += float(pair[0]) * float(pair[1])
+			wsum += float(pair[1])
+	return (acc / wsum) if wsum > 0.0 else 0.0
 
 
 func _get_configuration_warnings() -> PackedStringArray:

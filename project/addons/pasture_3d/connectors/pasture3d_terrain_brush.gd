@@ -3316,6 +3316,11 @@ func _stack_forces_gdscript() -> bool:
 		if m != null and m.is_active() and m.op() == &"graph":
 			if m.graph == null or not m.graph.native_supported():
 				return true
+		# The native rasteriser has no BrushModStep::ROAD yet, so a road grader must take the GDScript
+		# path or it would be silently dropped from the stack — a road brush that paints nothing and
+		# says nothing about why.
+		if m != null and m.is_active() and m.op() == &"road":
+			return true
 	return false
 
 
@@ -4107,7 +4112,53 @@ func _apply_field_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 		return _apply_erosion_step(p_step, p_vals, p_ctx)
 	if p_step["op"] == &"graph":
 		return _apply_graph_step(p_step, p_vals, p_ctx)
+	if p_step["op"] == &"road":
+		return _apply_road_step(p_step, p_vals, p_ctx)
 	return p_vals
+
+
+## One Pasture3DNodeRoad over the whole grid: solve the run's vertical alignment, then grade the working
+## surface into the corridor around it.
+##
+## Like the erosion and graph steps this reads and writes an ABSOLUTE surface, so the working grid's
+## delta is lifted before the grader sees it and dropped back after — the grader's whole job is stated in
+## world heights (the road is at 412 m here), and a delta has no answer to that question.
+##
+## NaN passthrough is the grader's own contract rather than something applied here: cells outside the
+## brush loop stay NaN through the kernel, so the road never invents ground the brush does not own.
+func _apply_road_step(p_step: Dictionary, p_vals: PackedFloat32Array,
+		p_ctx: Dictionary) -> PackedFloat32Array:
+	var m: Pasture3DNodeRoad = p_step["mod"]
+	if not (self is Pasture3DRoadBrush):
+		return p_vals # warned about in modifier_warnings; silently doing nothing here would be worse
+	var gw: int = p_ctx["gw"]
+	var gh: int = p_ctx["gh"]
+	var n := gw * gh
+	var vs: float = p_ctx["vs"]
+	var add: bool = p_ctx["add"]
+	var basey: PackedFloat32Array = p_ctx["basey"]
+
+	var z := PackedFloat32Array()
+	z.resize(n)
+	for i in range(n):
+		var v: float = p_vals[i]
+		z[i] = (basey[i] + v) if add else v
+
+	var res: Dictionary = (self as Pasture3DRoadBrush).grade_surface(m, z, gw, gh,
+			float(p_ctx["min_x"]), float(p_ctx["min_z"]), vs)
+	if res.is_empty():
+		return p_vals
+	var graded: PackedFloat32Array = res["height"]
+
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for i in range(n):
+		var g: float = graded[i]
+		if not is_finite(g):
+			out[i] = p_vals[i]
+			continue
+		out[i] = (g - basey[i]) if add else g
+	return out
 
 
 ## One Pasture3DNodeGraph over the whole grid, as a FILTER (input → output paradigm): feed the graph the

@@ -83,6 +83,7 @@ output_node = 1
 resource_name = "Terrain Graph"
 script = ExtResource("8_wv1iv")
 graph = SubResource("Resource_5q6a7")
+evaluation = 1
 
 [sub_resource type="Curve3D" id="Curve3D_67nn0"]
 closed = true
@@ -100,16 +101,16 @@ speed_limit = nan
 script = ExtResource("11_ii4qc")
 speed_limit = nan
 
-[sub_resource type="Resource" id="Resource_vfv27"]
+[sub_resource type="Resource" id="Resource_wej47"]
 script = ExtResource("11_ii4qc")
 speed_limit = nan
 
-[sub_resource type="Curve3D" id="Curve3D_cyndd"]
+[sub_resource type="Curve3D" id="Curve3D_ii4qc"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 1, -50, 0, 0, 0, 0, 0, 0, 0, 0, 50),
-"tilts": PackedFloat32Array(0, 0)
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 1, -50, -0.8370937, -1.7881433e-07, -4.8734756, 0.8370937, 1.7881433e-07, 4.8734756, 0, 1, 28.741695, 0.095799886, -4.8014243e-07, -4.943917, -0.095799886, 4.8014243e-07, 4.943917, 18.416021, 1.0000043, 35.957928, -1.1733812, -5.817379e-08, -6.874801, 1.1733812, 5.817379e-08, 6.874801, -0.7849083, 1.000007, 69.24823, 0, 0, 0, 0, 0, 0, 25.629473, 1.0000043, 99.4796),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0)
 }
-point_count = 2
+point_count = 5
 
 [node name="SimplePasture" type="Node3D" unique_id=3132789]
 
@@ -158,12 +159,13 @@ script = ExtResource("12_wv1iv")
 road_defaults = SubResource("Resource_ddf1r")
 metadata/_custom_type_script = "uid://bm62pke4asne6"
 
-[node name="Pasture3DRoadBrush" type="Node3D" parent="Pasture3DRoadNetwork/Pasture3DRoadGroup" unique_id=881885673]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.819412, 0, 0)
+[node name="Road" type="Node3D" parent="Pasture3DRoadNetwork/Pasture3DRoadGroup" unique_id=1923952867 node_paths=PackedStringArray("terrain")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16.623407, 0, 55.241108)
 script = ExtResource("13_6pcwc")
-road_defaults = SubResource("Resource_vfv27")
+road_defaults = SubResource("Resource_wej47")
+road_speed_limit = nan
+terrain = NodePath("../../../Pasture3D")
 _layer_owner = "pasture3d_brush:Roads"
-metadata/_custom_type_script = "uid://co0q8plo6atk7"
 
-[node name="Road1" type="Path3D" parent="Pasture3DRoadNetwork/Pasture3DRoadGroup/Pasture3DRoadBrush" unique_id=1514446994]
-curve = SubResource("Curve3D_cyndd")
+[node name="Road1" type="Path3D" parent="Pasture3DRoadNetwork/Pasture3DRoadGroup/Road" unique_id=543105003]
+curve = SubResource("Curve3D_ii4qc")

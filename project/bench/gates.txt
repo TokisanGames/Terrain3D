@@ -237,3 +237,9 @@ bench/RoadModelGate.tscn
 # impossible pin pair surfaces as a reported breach, never as a moved pin), banking is v²·κ/g, and the
 # solved profile's second derivative is what signs a crest against a dip for P6's pace notes.
 bench/RoadAlignmentGate.tscn
+
+# P2 - the road grading kernel. A road CUTS AND FILLS the ground into a corridor rather than draping a
+# ribbon over it: the carriageway is flat across a tilted plane, the batter meets the ground where its
+# slope says it should, the masks partition the corridor, a bridged stretch leaves the ground alone, and
+# NaN outside the brush loop survives. Every answer is closed-form, not a golden image.
+bench/RoadGraderGate.tscn

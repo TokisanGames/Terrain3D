@@ -144,4 +144,4 @@ func half_width(p_lane_count: int = -1) -> float:
 ## Total width the road disturbs, metres: the sealed surface plus a verge each side. The footprint a
 ## brush has to reserve, and the outer edge of the rally corridor.
 func disturbed_width(p_lane_count: int = -1) -> float:
-	return (half_width(p_lane_count) + verge_width) * 2.0
+	return (half_width(p_lane_count) + shoulder_width + verge_width) * 2.0
