@@ -226,6 +226,7 @@ func resolve_junctions() -> void:
 			b.schedule_junction_rebake()
 	paint_roads(brushes)
 	build_chunks(brushes)
+	build_runtime(brushes)
 	# The junction gizmo draws from these records, and nothing else tells the editor they moved.
 	update_gizmos()
 
@@ -574,6 +575,77 @@ func _clear_paint_layers(p_brushes: Array) -> void:
 		# Composite deferred: the paint pass composites once at the end, so a clear that composited here
 		# would push every touched region twice.
 		entry["terrain"].data.clear_layer_in_area(int(entry["layer"]), entry["box"], false)
+
+
+## Stable run ids, keyed by `road_key()`. Held so an id survives a re-resolve: a route names runs by id
+## (§9.2), and an id that changed every bake would detach every route on every edit — the exact failure
+## the id exists to prevent, arriving through the back door.
+@export var run_ids: Dictionary = {}
+@export var next_run_id: int = 0
+
+## The baked runtime (§9.1). Exported so it saves with the scene and can be handed to a game, which then
+## needs neither this node nor a terrain to read it.
+@export var runtime: Pasture3DRoadRuntime
+
+
+## Bake the resolved network into a resource a GAME can load — no editor plugin, no terrain (§9.1).
+##
+## Built AFTER the junction resolve and the lane graphs, because a run carries the alignment those
+## produced and the links come from the junction records themselves. Building it earlier would bake the
+## profiles roads wanted before they were asked to meet each other.
+##
+## Everything is COPIED. Nothing in the runtime may reach back into the scene: that is what makes the
+## editor-free load real rather than aspirational, and it is why a run holds `source_key` as a string it
+## never resolves.
+func build_runtime(p_brushes: Array = []) -> int:
+	var brushes: Array = p_brushes if not p_brushes.is_empty() else road_brushes()
+	var rt := Pasture3DRoadRuntime.new()
+	rt.built_at = Time.get_datetime_string_from_system()
+	var id_of := {}
+	for b in brushes:
+		var run: Dictionary = b.build_run()
+		if run.is_empty():
+			continue
+		var key: String = run["key"]
+		if not run_ids.has(key):
+			run_ids[key] = next_run_id
+			next_run_id += 1
+		var r := Pasture3DRoadRun.new()
+		r.id = int(run_ids[key])
+		r.source_key = key
+		r.label = b.name
+		r.plan = run["plan"]
+		r.cum = run["cum"]
+		r.alignment = run["alignment"]
+		r.half_width = float(run["half_width"])
+		var t: Pasture3DRoadType = b.resolved_road_type()
+		if t != null:
+			r.shoulder_width = t.shoulder_width
+			r.crown = t.crown
+		r.one_way = b.resolved_one_way()
+		r.lanes = b.resolved_lanes()
+		r.corridor_half_width = b.corridor_half_width()
+		r.surfaces = b.surface_intervals()
+		id_of[key] = r.id
+		rt.runs.append(r)
+
+	for j in junctions:
+		if not j.detected:
+			continue
+		var ids := PackedInt32Array()
+		var at_s := PackedFloat32Array()
+		for i in j.road_keys.size():
+			var k: String = j.road_keys[i]
+			if not id_of.has(k):
+				continue
+			ids.append(int(id_of[k]))
+			at_s.append(j.arc_lengths[i] if i < j.arc_lengths.size() else 0.0)
+		# A link needs two ends. A junction whose other participants failed to bake is not a connection
+		# yet, and recording it as one would let the validator pass a route across a gap.
+		if ids.size() >= 2:
+			rt.links.append({ "at": j.center, "runs": ids, "s": at_s })
+	runtime = rt
+	return rt.runs.size()
 
 
 ## Rebuild every road's tier-MID ribbon (§10, P5b). Returns the total chunk count.

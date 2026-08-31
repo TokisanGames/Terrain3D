@@ -777,6 +777,46 @@ func build_run() -> Dictionary:
 	}
 
 
+## Surface as DATA, along the whole road: `[[from_s, to_s, surface_id], ...]`, ascending and adjacent.
+##
+## Rally physics reads this rather than sampling the control map (§9.1). The control map is a rendering
+## artifact — blended, resampled to the vertex grid, and carrying whatever else was painted over the road
+## — whereas the surface a car is on is a fact about the road, and this is where that fact lives.
+##
+## Built by asking `resolved_surface_id` at the boundaries the segments define, so it inherits the whole
+## override chain rather than reading `segments` directly: a surface set on the network, on the group, on
+## the brush or on a segment all arrive here the same way.
+func surface_intervals() -> Array:
+	var total := _spline_length()
+	if not is_finite(total) or total <= 0.0:
+		return []
+	var cuts := PackedFloat32Array([0.0, total])
+	for seg in segments:
+		if seg == null or seg.length() <= 0.0:
+			continue
+		for edge in [seg.from_distance, seg.to_distance]:
+			var e := clampf(float(edge), 0.0, total)
+			if not cuts.has(e):
+				cuts.append(e)
+	var sorted := Array(cuts)
+	sorted.sort()
+	var out: Array = []
+	for i in range(sorted.size() - 1):
+		var a := float(sorted[i])
+		var c := float(sorted[i + 1])
+		if c - a < 0.01:
+			continue
+		# Sampled at the MIDPOINT, not at the edge. A segment's range is half-open in effect, and asking
+		# exactly at a boundary asks which of two intervals owns a point of zero length — a question with
+		# no answer that matters and two plausible ones that disagree.
+		var id := resolved_surface_id((a + c) * 0.5)
+		if out.size() > 0 and StringName(out[out.size() - 1][2]) == id:
+			out[out.size() - 1][1] = c  # merge with the previous run of the same surface
+		else:
+			out.append([a, c, id])
+	return out
+
+
 ## The world box this road's surface paint can reach: its plan, padded by the whole corridor.
 ##
 ## Padded by `corridor_half_width` rather than by the carriageway, because the paint fades out over the
