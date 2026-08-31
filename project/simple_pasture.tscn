@@ -129,7 +129,7 @@ road_keys = PackedStringArray("Road", "Road2")
 arc_lengths = PackedFloat32Array(287.91766, 347.2767)
 trim_backs = PackedFloat32Array(4.0033674, 4.0033674)
 radius = 4.0033674
-elevation = 1.7685522858810145
+elevation = 1.7685522858810143
 
 [sub_resource type="Resource" id="Resource_wv1iv"]
 script = ExtResource("11_ii4qc")
