@@ -76,6 +76,10 @@ Pasture3DReliefMaterial          (Resource, abstract base — the contract)
 └── Pasture3DReliefStack         phase 1   ordered list of children + per-child blend
 ```
 
+> **OVERTAKEN 2026-08-30.** `Pasture3DPlowMaterial` and `plow_noise.tres` were both deleted when the
+> pre-modifier-stack Plow properties were removed; the class had no callers left once `source =
+> MATERIAL` was gone. The paragraph below describes the position as of this spec's writing.
+
 `Pasture3DPlowMaterial` is **not** touched, **not** reparented, and **not** deprecated. `plow_noise.tres`
 and any user `.tres` built on it keep working.
 

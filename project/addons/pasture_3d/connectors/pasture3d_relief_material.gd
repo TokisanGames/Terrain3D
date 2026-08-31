@@ -5,7 +5,8 @@
 # layer list, not a scripting language) which the native rasteriser evaluates per cell; this script also
 # carries the GDScript evaluator, which is the A/B oracle the C++ path must match to 1e-4.
 #
-# This is deliberately separate from Pasture3DPlowMaterial (a single tiling height map). Assign one on a
+# This is a procedural OP STACK, not a single tiling height map. (It was once contrasted here with
+# Pasture3DPlowMaterial, which held one; that class went with the pre-modifier-stack Plow.) Assign one on a
 # Pasture3DPlow with Source = RELIEF. See PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md.
 @tool
 class_name Pasture3DReliefMaterial

@@ -158,7 +158,8 @@ SLOPE_ANGLE), `blend_mode`, `invert`, `profile`, `width_curve`. Crest line: `clo
 All shape exports keep their `_schedule_refresh()` setters where they have them; `flank_mode`,
 `slope_angle`, `width_curve`, `crest_height`/`depth`, `width` should get setters too so edits re-bake
 live (today only `blend_mode`/`closed`/`slope_tilt` do). `width_curve` setter must (dis)connect the
-curve's `changed` signal like `plow_material` does in [pasture3d_plow.gd](project/addons/pasture_3d/connectors/pasture3d_plow.gd).
+curve's `changed` signal like `falloff_curve` does in [pasture3d_plow.gd](project/addons/pasture_3d/connectors/pasture3d_plow.gd).
+(The original reference here was `plow_material`, removed 2026-08-30 with the pre-modifier-stack properties; `falloff_curve` is the surviving example of the same pattern in that file.)
 
 ---
 

@@ -76,6 +76,15 @@ default** (robust, GDScript-only, no asset prep, exactly fits "small hills / cra
   it purely additive bumps, or `0.5` to make mid-grey = no change (signed up/down relief).
 
 ### 3.3 `MATERIAL` — a dedicated `Pasture3DPlowMaterial` brush material (REVISED 2026-06-19)
+
+> **REMOVED 2026-08-30.** The `Source` enum, the `MATERIAL` mode and the `Pasture3DPlowMaterial`
+> class are all gone, along with `project/demo/data/plow_noise.tres`. The Plow is driven by the node
+> graph powered modifier stack (`modifiers: Array[Pasture3DNode]`) and by nothing else; a single
+> tiling height map has no modifier equivalent and is not being rebuilt as one — the graph is the
+> plan of record for it. Nothing migrates: a scene saved with `plow_material` set loads with an
+> empty stack. The section below is kept as the record of what was, not as documentation of what
+> ships. See `PASTURE3D_PLOW_RELIEF_MATERIAL_SPEC.md` §6 for the same note about mapping.
+
 - **Decision (user 2026-06-19):** MATERIAL must be a *brush material assigned on the plow*, NOT the
   terrain's surface textures (reusing the landscape's materials was explicitly unwanted). The original
   "sample a terrain `Pasture3DTextureAsset`'s alpha height via a named dropdown" design was dropped.

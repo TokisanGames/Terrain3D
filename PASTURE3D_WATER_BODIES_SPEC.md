@@ -618,7 +618,7 @@ configured to carve and vice versa:
 |---|---|
 | `Mound` | `blend_mode` ∈ {`MAX`, `ADD`} and `invert == false` |
 | `Ridge` | `blend_mode` ∈ {`MAX`, `ADD`} and `invert == false` (it is the raise tool; this is its normal state) |
-| `Plow` | `blend_mode ∈ {MAX, ADD}` and the stamp's net sign is positive (`plow_material.invert == false`, and only in `MATERIAL` mode) — it has no `invert` of its own |
+| `Plow` | `blend_mode ∈ {MAX, ADD}` and the stamp's net sign is positive — it has no `invert` of its own. **Revised 2026-08-30:** the sign now comes from the relief materials in its MODIFIER STACK (`Pasture3DNodeRelief.material._raises()` against the modifier's `strength` sign), because `source = MATERIAL` and `Pasture3DPlowMaterial` were removed. See `_raise_inverted()` in `pasture3d_plow.gd`. |
 | `Trough` | `blend_mode ∈ {MAX, ADD}` — it has no `invert`; carving is its default (`MIN`) and the warning only fires when that has been changed |
 | `Splat` | never — `_map_type()` puts it on control/colour, so it paints material and never moves height. No warning |
 

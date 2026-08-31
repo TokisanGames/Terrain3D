@@ -46,7 +46,6 @@ const SITE_WARP_SCOPE := Vector3(580.0, 0.0, 500.0)
 ## A probe counts as steep / flat for the binned selector gates at these slopes, in degrees.
 const STEEP_DEG := 30.0
 const FLAT_DEG := 10.0
-const DEMO_HEIGHT_TEX := "res://demo/assets/textures/noise_test_alb.png"
 const PRESET_DIR := "res://demo/data/relief"
 const PARITY_TOL := 1.0e-4
 
