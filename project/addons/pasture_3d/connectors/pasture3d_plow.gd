@@ -14,13 +14,7 @@ extends Pasture3DTerrainBrush
 
 enum BlendMode { REPLACE, ADD, MAX, MIN }
 
-# Legacy compatibility enums
-enum Source { NOISE, TEXTURE, MATERIAL, RELIEF, GRAPH }
-enum Mapping { TILE, FIT, SCATTER }
-enum ScatterBlend { STRONGEST, ADD, MAX, MIN }
-
 const _LUT_MAX := 256
-const ReliefFractalScript: Script = preload("res://addons/pasture_3d/connectors/pasture3d_relief_fractal.gd")
 
 @export_group("Mask")
 ## Metres from the loop edge inward over which the relief fades to flat (seamless with the surrounds).
@@ -64,131 +58,6 @@ const ReliefFractalScript: Script = preload("res://addons/pasture_3d/connectors/
 	set(v):
 		smooth_passes = clampi(v, 0, 5)
 		_schedule_refresh()
-
-
-# ---- Legacy property migration ----------------------------------------------------------------------
-const _LEGACY_PROPS := [
-	"source", "noise", "height_texture", "plow_material", "relief", "graph",
-	"mapping", "height_scale", "height_offset", "tile_size",
-	"scatter_count", "scatter_seed", "scatter_radius_min", "scatter_radius_max",
-	"scatter_rotation_jitter", "scatter_scale_jitter", "scatter_overlap", "scatter_blend",
-]
-
-var _legacy: Dictionary = {}
-
-## Legacy settings the modifier stack has no home for, kept so `_get_configuration_warnings` can SAY so.
-##
-## The stack replaced `source`/`mapping` with a list of modifiers evaluated at loop-normalised
-## coordinates, which folded FIT in as the only behaviour and left TILE, SCATTER, the TEXTURE source and
-## the MATERIAL source with nothing to migrate into. The migration simply dropped them: a saved Plow built
-## on a height texture or a scatter field re-opened as a brush that stamps nothing, in silence. Dropping
-## them is the design, but doing it without a word is not — a warning is the difference between a feature
-## that was removed and a scene that is broken.
-var _legacy_unsupported: PackedStringArray = []
-
-
-func _set(property: StringName, value: Variant) -> bool:
-	if _LEGACY_PROPS.has(String(property)):
-		if _ready_done:
-			_apply_legacy_property(String(property), value)
-			return true
-		_legacy[String(property)] = value
-		return true
-	return super(property, value)
-
-
-func _get(property: StringName) -> Variant:
-	if _LEGACY_PROPS.has(String(property)):
-		return _legacy.get(String(property), null)
-	return super(property)
-
-
-func _ready() -> void:
-	super()
-	_migrate_legacy()
-
-
-func _migrate_legacy() -> void:
-	if _legacy.is_empty():
-		return
-	if not modifiers.is_empty():
-		_legacy = {}
-		return
-	# NOT cleared yet. `_apply_legacy_property` runs this once per property assigned after _ready, so the
-	# keys arrive one at a time and any single one of them is an incomplete picture: setting `height_scale`
-	# and then `relief` used to consume and DISCARD the height_scale, and the relief then migrated with no
-	# amplitude at all. Kept until a migration actually produces something.
-	var old := _legacy
-
-	var out: Array[Pasture3DNode] = []
-	var src = old.get("source", Source.NOISE)
-
-	# Anything the stack cannot express. Recorded before the branches below, because they say nothing
-	# about a source they have no case for and the node would otherwise come up empty and quiet.
-	if src == Source.TEXTURE or old.has("height_texture"):
-		_note_unsupported("Source = TEXTURE (height_texture)")
-	if src == Source.MATERIAL or old.has("plow_material"):
-		_note_unsupported("Source = MATERIAL (plow_material)")
-	if int(old.get("mapping", Mapping.TILE)) == Mapping.SCATTER or old.has("scatter_count"):
-		_note_unsupported("Mapping = SCATTER")
-
-	if src == Source.GRAPH or old.has("graph"):
-		var g: Pasture3DTerrainGraph = old.get("graph", null)
-		if g != null:
-			var mg := Pasture3DNodeGraph.new()
-			mg.resource_name = "Terrain Graph"
-			mg.graph = g
-			out.append(mg)
-	elif src == Source.RELIEF or old.has("relief"):
-		var rel = old.get("relief", null)
-		if rel != null:
-			var mr := Pasture3DNodeRelief.new()
-			mr.resource_name = "Relief"
-			mr.material = rel
-			# The legacy amplitude, exactly as the Noise branch below reads it: the old rasteriser did
-			# `amp = height_scale * relief.eval(...)`. Omitting it left `strength` at its 0.0 default,
-			# where `is_active()` is false — so every project that had used Source.RELIEF came back from
-			# the upgrade stamping nothing at all, silently.
-			mr.strength = float(old.get("height_scale", 8.0))
-			out.append(mr)
-	elif src == Source.NOISE or old.has("noise"):
-		var nz = old.get("noise", null)
-		if nz != null:
-			var mn := Pasture3DNodeNoise.new()
-			mn.resource_name = "Noise"
-			mn.noise = nz
-			var hs = float(old.get("height_scale", 8.0))
-			mn.strength = hs
-			out.append(mn)
-
-	if out.is_empty():
-		return
-	_legacy = {}
-	modifiers = out
-
-
-## Record a legacy setting the stack cannot carry, once, and make the inspector show it.
-func _note_unsupported(p_what: String) -> void:
-	if _legacy_unsupported.has(p_what):
-		return
-	_legacy_unsupported.append(p_what)
-	update_configuration_warnings()
-
-
-func _get_configuration_warnings() -> PackedStringArray:
-	var w := super()
-	if not _legacy_unsupported.is_empty():
-		w.append(("This Plow was saved with %s, which the modifier stack does not carry — the stack "
-			+ "evaluates at loop-normalised coordinates, so TILE and SCATTER mapping and the texture and "
-			+ "material sources have no equivalent. Nothing was migrated for it; rebuild the effect with "
-			+ "modifiers.") % ", ".join(_legacy_unsupported))
-	return w
-
-
-func _apply_legacy_property(prop: String, val: Variant) -> void:
-	_legacy[prop] = val
-	_migrate_legacy()
-	_schedule_refresh()
 
 
 func _default_layer_name() -> String:

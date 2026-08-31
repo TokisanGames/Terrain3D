@@ -94,7 +94,7 @@ func _gate_bj() -> void:
 	l1.selector.sim_result = null # the natural configuration: the stack already carries one
 	var stack := Pasture3DReliefStack.new()
 	stack.layers = [l0, l1] as Array[Pasture3DReliefMaterial]
-	plow.relief = stack
+	plow.modifiers = _relief_mods(stack, 8.0)
 	plow.mask_preview = true
 
 	var f0 := _preview_layer(plow, 0)
@@ -346,7 +346,6 @@ func _make_plow(p_name: String, p_at: Vector3) -> Pasture3DPlow:
 	plow.terrain = _terrain
 	plow.global_position = p_at
 	plow.snap_to_surface = false
-	plow.source = Pasture3DPlow.Source.RELIEF
 	plow._layer_owner = "pasture3d_brush:Preview_%s" % p_name
 	_add_square(plow, LOOP_HALF)
 	return plow
@@ -494,3 +493,13 @@ func _max_abs_diff(p_a: PackedFloat32Array, p_b: PackedFloat32Array) -> float:
 		if is_finite(p_a[i]) and is_finite(p_b[i]):
 			m = maxf(m, absf(p_a[i] - p_b[i]))
 	return m
+
+
+## The modifier stack replaced the Plow's old `source`/`relief`/`noise`/`height_scale` properties, and
+## the compatibility shim that carried them is gone. Relief reaches a brush as a modifier or not at all.
+func _relief_mods(p_mat, p_strength: float = 8.0) -> Array[Pasture3DNode]:
+	var mr := Pasture3DNodeRelief.new()
+	mr.resource_name = "Relief"
+	mr.material = p_mat
+	mr.strength = p_strength
+	return [mr] as Array[Pasture3DNode]

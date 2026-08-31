@@ -75,7 +75,6 @@ func _ready() -> void:
 	_gate_b_fractal()
 	_gate_c_crater_fit()
 	_gate_d_parity()
-	_gate_e_scatter()
 	_gate_g_phase2_ops()
 	_gate_h_fit_texture()
 	_gate_i_presets()
@@ -99,47 +98,50 @@ func _ready() -> void:
 	get_tree().quit(0 if _fail == 0 else 1)
 
 
-# --- F: the migration guarantee ------------------------------------------------------------------
-# A scene saved before the modifier stack carries `source` / `noise` / `height_scale` and no modifiers at
-# all. What those nodes load as is the whole guarantee: they must come back doing what they did.
-#
-# This used to read `Pasture3DPlow.new().source` and assert the declared default was NOISE. `source` is
-# not a property any more — it is a legacy key consumed by the migration — so the read threw and the
-# section aborted, taking its criterion with it. The guarantee it was protecting still exists; it just
-# lives one level down now, in what the migration BUILDS.
+# --- F: the legacy keys are gone -----------------------------------------------------------------
+# There WAS a compatibility shim here: a Plow saved before the modifier stack carried `source` / `noise`
+# / `height_scale`, and `_ready` migrated those keys into modifiers. The shim has been removed —
+# the node graph powered modifier stack is the workflow, and the pre-stack properties are not
+# deprecated-but-working, they are gone. So this section asserts the removal instead of the migration:
+# the keys must not exist, and nothing may quietly conjure a modifier out of them.
 func _gate_f_declared_default() -> void:
-	print("[F] a legacy Plow migrates into the modifier stack rather than coming back empty:")
-	# Set BEFORE the node enters the tree, which is how a saved scene loads: every property arrives, then
-	# _ready runs the migration once with all of them. Assigning after _ready migrates on the first key
-	# alone — `noise` would build a Noise modifier at the default strength and the `height_scale` that
-	# followed would find a stack already there and be dropped.
+	print("[F] the pre-stack Plow properties are gone, and relief arrives as a modifier or not at all:")
 	var fresh := Pasture3DPlow.new()
 	fresh.name = "MigrateF"
+	var props: Array = []
+	for pr in fresh.get_property_list():
+		props.append(String(pr.get("name", "")))
+	var survivors: Array = []
+	for k in ["source", "noise", "relief", "graph", "mapping", "height_scale", "plow_material"]:
+		if props.has(k):
+			survivors.append(k)
+	print("    pre-stack properties still declared: %s (want [])" % [survivors])
+	if not survivors.is_empty():
+		_fail += 1
+		print("    !! the Plow still declares pre-stack properties, so two ways to author it coexist")
+
+	# `set()` on a Node with no such property is a silent no-op, which is exactly the shape the old shim
+	# used to intercept. Assert it produces NOTHING now, or a scene could look migrated when it is not.
 	fresh.set("noise", FastNoiseLite.new())
 	fresh.set("height_scale", 7.0)
 	_root.add_child(fresh)
-	var mods: Array = fresh.modifiers
-	var kinds: Array = []
-	for m in mods:
-		kinds.append("%s(strength=%s)" % [m.resource_name, m.get("strength")])
-	print("    a Plow with `noise` + `height_scale` migrates to %d modifier(s): %s" % [mods.size(), kinds])
-	if mods.size() != 1 or not (mods[0] is Pasture3DNodeNoise):
+	print("    a Plow fed the old keys carries %d modifier(s) (want 0)" % fresh.modifiers.size())
+	if not fresh.modifiers.is_empty():
 		_fail += 1
-		print("    !! a legacy noise Plow did not migrate to a Noise modifier; that scene comes back empty")
-	elif not is_equal_approx(float(mods[0].get("strength")), 7.0):
-		_fail += 1
-		print("    !! the legacy height_scale did not become the modifier's strength, so it stamps nothing")
+		print("    !! something is still migrating the removed keys")
 
-	# CONTROL: a Plow with NO legacy keys must stay empty. Without this, a migration that appended a
-	# modifier unconditionally would satisfy every line above.
-	var blank := Pasture3DPlow.new()
-	blank.name = "MigrateFBlank"
-	_root.add_child(blank)
-	print("    CONTROL a Plow with no legacy keys carries %d modifier(s) (want 0)" % blank.modifiers.size())
-	if not blank.modifiers.is_empty():
+	# CONTROL. Every line above is satisfied by a Plow that cannot hold a modifier at all, which would
+	# make this section prove nothing. The stack must still take one.
+	var built := Pasture3DPlow.new()
+	built.name = "MigrateFBuilt"
+	built.modifiers = _relief_mods(Pasture3DReliefFractal.new(), 7.0)
+	_root.add_child(built)
+	var ok_built: bool = built.modifiers.size() == 1 and built.modifiers[0] is Pasture3DNodeRelief 			and is_equal_approx(float(built.modifiers[0].get("strength")), 7.0)
+	print("    CONTROL an explicitly built stack survives: %s" % ok_built)
+	if not ok_built:
 		_fail += 1
-		print("    !! a fresh Plow invents a modifier, so the migration above proves nothing")
-	blank.queue_free()
+		print("    !! the modifier stack itself is broken, so the absence above measures nothing")
+	built.queue_free()
 	fresh.queue_free()
 
 
@@ -152,11 +154,9 @@ func _gate_a_noise_regression() -> void:
 	var plow = _make_plow("NoiseRegression", SITE_NOISE, 30.0, 30.0)
 	if plow == null:
 		return
-	plow.source = Pasture3DPlow.Source.NOISE
 	var n := FastNoiseLite.new()
 	n.frequency = 0.02
-	plow.noise = n
-	plow.height_scale = 12.0
+	plow.modifiers = _noise_mods(n, 12.0)
 
 	var base := _snapshot(probes)
 	plow._refresh_owner(plow._layer_owner, false, [])
@@ -180,10 +180,7 @@ func _gate_b_fractal() -> void:
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 24.0
 	mat.octaves = 4
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.mapping = Pasture3DPlow.Mapping.TILE
-	plow.relief = mat
-	plow.height_scale = 10.0
+	plow.modifiers = _relief_mods(mat, 10.0)
 
 	var base := _snapshot(probes)
 	plow._refresh_owner(plow._layer_owner, false, [])
@@ -236,10 +233,7 @@ func _gate_c_crater_fit() -> void:
 	var mat := Pasture3DReliefCrater.new()
 	mat.floor_depth = 0.8
 	mat.rim_height = 0.2
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.mapping = Pasture3DPlow.Mapping.FIT
-	plow.relief = mat
-	plow.height_scale = 10.0
+	plow.modifiers = _relief_mods(mat, 10.0)
 	plow.falloff_width = 6.0
 
 	var base := _snapshot(probes)
@@ -300,9 +294,7 @@ func _gate_d_parity() -> void:
 	detail.sharpness = 1.6
 	detail.seed = 99
 	stack.layers = [shape, detail]
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = stack
-	plow.height_scale = 9.0
+	plow.modifiers = _relief_mods(stack, 9.0)
 
 	var base := _snapshot(probes)
 
@@ -329,50 +321,6 @@ func _gate_d_parity() -> void:
 	if spread < 0.1:
 		_fail += 1
 		print("    !! the probes measured flat ground, so the parity result is vacuous")
-
-
-# --- E: a legacy setting the stack cannot carry is REPORTED, not dropped in silence ---------------
-# This section used to bake a SCATTER field of craters and check it was deterministic. The modifier stack
-# removed mapping entirely — it always evaluates at loop-normalised coordinates, which is what FIT meant —
-# so SCATTER, TILE, the TEXTURE source and the MATERIAL source have nothing to migrate into. The old body
-# read `plow._scatter_shortfall`, which no longer exists, and the section aborted on the access.
-#
-# Removing those is the design. Removing them WITHOUT A WORD is not: a saved Plow built on a height
-# texture or a scatter field re-opened as a brush that stamps nothing and said nothing about why. That is
-# the defect this section now guards, because it is the one still reachable by a user.
-func _gate_e_scatter() -> void:
-	print("
-[E] a legacy setting the stack cannot carry is reported rather than silently dropped:")
-	for key in ["height_texture", "scatter_count", "plow_material"]:
-		var plow := Pasture3DPlow.new()
-		plow.name = "LegacyDrop"
-		plow.set(key, load(DEMO_HEIGHT_TEX) if key == "height_texture" else 9)
-		_root.add_child(plow) # before the tree, as a saved scene loads: see the note in [F]
-		var said := false
-		for w in plow._get_configuration_warnings():
-			if String(w).contains("does not carry"):
-				said = true
-		print("    %-16s -> %d modifier(s), warns = %s" % [key, plow.modifiers.size(), said])
-		if not said:
-			_fail += 1
-			print("      !! %s was dropped in silence; that scene comes back doing nothing" % key)
-		plow.queue_free()
-
-	# CONTROL: a legacy setting the stack CAN carry must not raise it. Without this, a warning hard-coded
-	# on for every migrated Plow would pass every line above.
-	var ok := Pasture3DPlow.new()
-	ok.name = "LegacyOK"
-	ok.set("noise", FastNoiseLite.new())
-	_root.add_child(ok)
-	var false_alarm := false
-	for w in ok._get_configuration_warnings():
-		if String(w).contains("does not carry"):
-			false_alarm = true
-	print("    CONTROL a legacy `noise` Plow warns = %s (want false)" % false_alarm)
-	if false_alarm:
-		_fail += 1
-		print("    !! a source that DID migrate is being reported as lost")
-	ok.queue_free()
 
 
 # --- G: the phase-2 ops agree between the two paths -----------------------------------------------
@@ -402,9 +350,7 @@ func _gate_g_phase2_ops() -> void:
 	terraces.base_amount = 0.0 # terrace what the layers below produced, do not add a shape
 	terraces.steps = 7
 	stack.layers = [strata, dunes, furrows, terraces]
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = stack
-	plow.height_scale = 8.0
+	plow.modifiers = _relief_mods(stack, 8.0)
 
 	var base := _snapshot(probes)
 	plow.force_gdscript_raster = false
@@ -561,8 +507,7 @@ func _gate_j_period_guard() -> void:
 	if plow == null:
 		return
 	var mat := Pasture3DReliefFurrows.new()
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = mat
+	plow.modifiers = _relief_mods(mat, 8.0)
 
 	# The shipped default must be legible on a 1 m terrain, or every new Furrows starts broken.
 	mat.spacing = Pasture3DReliefFurrows.new().spacing
@@ -651,9 +596,7 @@ func _gate_k_slope_selector() -> void:
 	sel.falloff_low = 8.0
 	sel.falloff_high = 0.0
 	mat.selector = sel
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = mat
-	plow.height_scale = 8.0
+	plow.modifiers = _relief_mods(mat, 8.0)
 
 	var base := _snapshot(probes)
 	plow._refresh_owner(plow._layer_owner, false, [])
@@ -723,9 +666,7 @@ func _gate_l_scree() -> void:
 	mat.amplitude = 0.5
 	mat.toe_deposition = 0.4
 	mat.downslope_streak = 0.0
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = mat
-	plow.height_scale = 8.0
+	plow.modifiers = _relief_mods(mat, 8.0)
 
 	var base := _snapshot(probes)
 	plow._refresh_owner(plow._layer_owner, false, [])
@@ -807,9 +748,7 @@ func _gate_m_phase3_parity() -> void:
 	over12.measure_radius = 12.0
 	wide.selector = over12
 	stack.layers = [rock, scree, wide]
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = stack
-	plow.height_scale = 8.0
+	plow.modifiers = _relief_mods(stack, 8.0)
 
 	var base := _snapshot(probes)
 	plow.force_gdscript_raster = false
@@ -910,9 +849,7 @@ func _gate_n_profile_ops_are_gated() -> void:
 		_fail += 1
 		print("    !! no flat probes at this site; the baked half of this gate measured nothing")
 		return
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = mat
-	plow.height_scale = 8.0
+	plow.modifiers = _relief_mods(mat, 8.0)
 	var base := _snapshot(probes)
 	plow._refresh_owner(plow._layer_owner, false, [])
 	var baked_flat := _mean_abs_delta(probes, base, slopes, FLAT_DEG, false)
@@ -1440,10 +1377,7 @@ func _crater_parity() -> void:
 	mat.rim_width = 0.25
 	mat.rim_height = 0.25
 	mat.floor_depth = 0.6
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = mat
-	plow.mapping = Pasture3DPlow.Mapping.FIT
-	plow.height_scale = 9.0
+	plow.modifiers = _relief_mods(mat, 9.0)
 	# Probes strung along BOTH of the loop's axes, out where the rim and the ejecta live — the band that
 	# moved. A lattice would spend most of its points in the floor, where the two formulas agree anyway.
 	var probes: Array[Vector3] = []
@@ -1562,9 +1496,7 @@ func _gate_t_warp_scope() -> void:
 	for i in range(-2, 3):
 		for j in range(-2, 3):
 			probes.append(SITE_WARP_SCOPE + Vector3(i * 8.0, 0.0, j * 8.0))
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = _stack(_warper(false), below)
-	plow.height_scale = 9.0
+	plow.modifiers = _relief_mods(_stack(_warper(false), below), 9.0)
 	var base := _snapshot(probes)
 	plow.force_gdscript_raster = false
 	plow._refresh_owner(plow._layer_owner, false, [])
@@ -1630,3 +1562,21 @@ func _stack(p_a: Pasture3DReliefMaterial, p_b: Pasture3DReliefMaterial) -> Pastu
 	var l: Array[Pasture3DReliefMaterial] = [p_a, p_b]
 	st.layers = l
 	return st
+
+
+## The modifier stack replaced the Plow's old `source`/`relief`/`noise`/`height_scale` properties, and
+## the compatibility shim that carried them is gone. Relief reaches a brush as a modifier or not at all.
+func _relief_mods(p_mat, p_strength: float = 8.0) -> Array[Pasture3DNode]:
+	var mr := Pasture3DNodeRelief.new()
+	mr.resource_name = "Relief"
+	mr.material = p_mat
+	mr.strength = p_strength
+	return [mr] as Array[Pasture3DNode]
+
+
+func _noise_mods(p_noise, p_strength: float = 8.0) -> Array[Pasture3DNode]:
+	var mn := Pasture3DNodeNoise.new()
+	mn.resource_name = "Noise"
+	mn.noise = p_noise
+	mn.strength = p_strength
+	return [mn] as Array[Pasture3DNode]

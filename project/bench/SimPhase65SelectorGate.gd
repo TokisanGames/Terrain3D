@@ -510,9 +510,7 @@ func _gate_bh_inverted_band() -> void:
 	var plow = _make_plow("InvertedBand", SITE_BAND)
 	if plow == null:
 		return
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.relief = mat
-	plow.height_scale = 6.0
+	plow.modifiers = _relief_mods(mat, 6.0)
 	var warned := _warns_about_band(plow)
 	print("    Plow with a 60..20 band: %s" % ("warns" if warned else "SILENT"))
 	if not warned:
@@ -861,3 +859,13 @@ func _add_loop(p_node, p_half: float) -> void:
 	c.closed = true
 	path.curve = c
 	p_node.add_child(path)
+
+
+## The modifier stack replaced the Plow's old `source`/`relief`/`noise`/`height_scale` properties, and
+## the compatibility shim that carried them is gone. Relief reaches a brush as a modifier or not at all.
+func _relief_mods(p_mat, p_strength: float = 8.0) -> Array[Pasture3DNode]:
+	var mr := Pasture3DNodeRelief.new()
+	mr.resource_name = "Relief"
+	mr.material = p_mat
+	mr.strength = p_strength
+	return [mr] as Array[Pasture3DNode]

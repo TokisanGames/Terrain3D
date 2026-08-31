@@ -112,13 +112,15 @@ func _e_plow_graph_integration() -> void:
 	var plow := Pasture3DPlow.new()
 	if not plow._supports_modifiers():
 		_fail += 1; print("    !! plow does not report modifier support")
-	plow.source = Pasture3DPlow.Source.GRAPH
 	var g := Pasture3DTerrainGraph.new()
 	var gp := Pasture3DGraphNodeGeologicalPrimitive.new()
 	gp.height = 40.0
 	g.nodes = [gp]
 	g.output_node = 0
-	plow.graph = g
+	var mg := Pasture3DNodeGraph.new()
+	mg.resource_name = "Terrain Graph"
+	mg.graph = g
+	plow.modifiers = [mg] as Array[Pasture3DNode]
 	var warnings := plow._get_configuration_warnings()
 	print("    plow graph warnings count = %d" % warnings.size())
 	plow.free()

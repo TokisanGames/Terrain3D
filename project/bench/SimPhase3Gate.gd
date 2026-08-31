@@ -550,8 +550,6 @@ func _make_plow(p_name: String, p_at: Vector3 = SITE_SIM):
 	_root.add_child(plow)
 	plow.terrain = _terrain
 	plow.global_position = p_at
-	plow.source = Pasture3DPlow.Source.RELIEF
-	plow.height_scale = 8.0
 	_add_loop(plow, PLOW_HALF)
 	return plow
 
@@ -603,7 +601,6 @@ func _mean_abs(p_probes: Array[Vector3], p_base: Array[float]) -> float:
 ## Empty the brush's layer and drop it, so the next criterion measures against untouched ground.
 func _clear(p_plow) -> void:
 	_set_relief(p_plow, null)
-	p_plow.source = Pasture3DPlow.Source.RELIEF
 	p_plow._refresh_owner(p_plow._layer_owner, false, [])
 	p_plow.queue_free()
 

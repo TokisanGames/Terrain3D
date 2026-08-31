@@ -155,9 +155,17 @@ func _case_plow_relief(p_at: Vector3) -> void:
 	var mat := Pasture3DReliefFractal.new()
 	mat.style = Pasture3DReliefFractal.Style.CRAGGY
 	mat.feature_size = 20.0
-	p.source = Pasture3DPlow.Source.RELIEF
-	p.relief = mat
-	p.height_scale = 9.0
+	p.modifiers = _relief_mods(mat, 9.0)
 	_loop(p, 40.0, 40.0)
 	p._refresh_owner(p._layer_owner, false, [])
 	_record("plow_relief", p_at)
+
+
+## The modifier stack replaced the Plow's old `source`/`relief`/`noise`/`height_scale` properties, and
+## the compatibility shim that carried them is gone. Relief reaches a brush as a modifier or not at all.
+func _relief_mods(p_mat, p_strength: float = 8.0) -> Array[Pasture3DNode]:
+	var mr := Pasture3DNodeRelief.new()
+	mr.resource_name = "Relief"
+	mr.material = p_mat
+	mr.strength = p_strength
+	return [mr] as Array[Pasture3DNode]

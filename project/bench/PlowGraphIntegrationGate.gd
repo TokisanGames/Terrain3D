@@ -127,27 +127,48 @@ func _test_c_plow_mountain_cone_eval() -> void:
 		print("    !! Plow graph evaluation produced insufficient elevation")
 
 
+## The pre-stack `source` / `graph` properties and the `_migrate_legacy` shim that consumed them are
+## gone: a graph reaches a Plow as a Pasture3DNodeGraph modifier, and by no other route. This section
+## used to assert the migration produced that modifier; it now asserts the only route still exists and
+## the removed one really is removed.
 func _test_d_legacy_migration() -> void:
-	print("\n[D] Legacy Property Migration into Modifiers")
+	print("
+[D] A graph reaches the Plow only as a modifier")
 	var plow := Pasture3DPlow.new()
 	var g := Pasture3DTerrainGraph.new()
 	var cone = Pasture3DGraphNodeRegistry.create(&"mountain_cone")
 	g.add_node(cone)
 
-	plow.set("source", 4) # Source.GRAPH
-	plow.set("graph", g)
-	plow._migrate_legacy()
+	var has_shim: bool = plow.has_method("_migrate_legacy")
+	print("    the migration shim still exists = %s (want false)" % has_shim)
+	if has_shim:
+		_fail += 1
+		print("    !! _migrate_legacy survived, so pre-stack scenes still take a second authoring path")
 
-	print("    migrated modifiers count = %d (want 1)" % plow.modifiers.size())
+	var mg := Pasture3DNodeGraph.new()
+	mg.resource_name = "Terrain Graph"
+	mg.graph = g
+	plow.modifiers = [mg] as Array[Pasture3DNode]
+	print("    modifiers count = %d (want 1)" % plow.modifiers.size())
 	if plow.modifiers.size() != 1 or not (plow.modifiers[0] is Pasture3DNodeGraph):
 		_fail += 1
-		print("    !! Legacy migration failed to produce Pasture3DNodeGraph modifier")
+		print("    !! the Plow did not accept a graph modifier")
 	else:
-		var mg: Pasture3DNodeGraph = plow.modifiers[0] as Pasture3DNodeGraph
-		print("    migrated modifier graph matches = %s (want true)" % str(mg.graph == g))
-		if mg.graph != g:
+		var got: Pasture3DNodeGraph = plow.modifiers[0] as Pasture3DNodeGraph
+		print("    modifier graph matches = %s (want true)" % str(got.graph == g))
+		if got.graph != g:
 			_fail += 1
-			print("    !! Migrated modifier graph mismatch")
+			print("    !! graph modifier mismatch")
+
+	# CONTROL: the removed keys must not build anything behind the stack's back.
+	var bare := Pasture3DPlow.new()
+	bare.set("source", 4)
+	bare.set("graph", g)
+	print("    CONTROL a Plow fed the removed keys carries %d modifier(s) (want 0)" % bare.modifiers.size())
+	if not bare.modifiers.is_empty():
+		_fail += 1
+		print("    !! the removed keys still produce modifiers")
+	bare.free()
 
 	plow.free()
 

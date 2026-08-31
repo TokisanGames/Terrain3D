@@ -86,7 +86,6 @@ func _d1_relief_stack() -> void:
 	plow.terrain = _terrain
 	plow.global_position = SITE_D1
 	plow.snap_to_surface = false
-	plow.source = Pasture3DPlow.Source.RELIEF
 	plow._layer_owner = "pasture3d_brush:Plow_D1"
 	var path := Path3D.new()
 	var c := Curve3D.new()
@@ -113,7 +112,7 @@ func _d1_relief_stack() -> void:
 	l1.selector.sim_result = null # the natural configuration: the stack already carries one
 	var stack := Pasture3DReliefStack.new()
 	stack.layers = [l0, l1] as Array[Pasture3DReliefMaterial]
-	plow.relief = stack
+	plow.modifiers = _relief_mods(stack, 8.0)
 
 	# What the BAKE will hand the compiled program, asked of the bake's own resolver.
 	var baked_res: Pasture3DSimResult = plow._sim_result_for()
@@ -451,3 +450,13 @@ func _fraction_over(p_a: PackedFloat32Array, p_t: float) -> float:
 		if is_finite(v) and v > p_t:
 			n += 1
 	return float(n) / float(p_a.size())
+
+
+## The modifier stack replaced the Plow's old `source`/`relief`/`noise`/`height_scale` properties, and
+## the compatibility shim that carried them is gone. Relief reaches a brush as a modifier or not at all.
+func _relief_mods(p_mat, p_strength: float = 8.0) -> Array[Pasture3DNode]:
+	var mr := Pasture3DNodeRelief.new()
+	mr.resource_name = "Relief"
+	mr.material = p_mat
+	mr.strength = p_strength
+	return [mr] as Array[Pasture3DNode]

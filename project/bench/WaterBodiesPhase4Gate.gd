@@ -302,21 +302,26 @@ func _gate_c_raise_matrix() -> void:
 			falses += 1
 		brush.queue_free()
 
-	# Pasture3DPlow's inversion lives on its material and only in MATERIAL mode — the one row a
-	# generic get("invert") gets wrong, and the reason _raise_inverted() is overridable.
+	# Pasture3DPlow's carve signal lives on the RELIEF MATERIAL in its modifier stack, not on a generic
+	# `invert` flag — the one row a blanket get("invert") gets wrong, and the reason _raise_inverted() is
+	# overridable. (It used to live on a Pasture3DPlowMaterial under the removed `source = MATERIAL`;
+	# the claim survived the removal, the route to it did not.)
 	var plow := _make_brush("Pasture3DPlow", root, [])
 	plow.blend_mode = B_ADD
-	plow.source = 2 # Source.MATERIAL
-	var pm := Pasture3DPlowMaterial.new()
-	pm.invert = true
-	plow.plow_material = pm
+	var carver := Pasture3DNodeRelief.new()
+	carver.material = Pasture3DReliefCrater.new()   # _raises() == false: a crater digs
+	carver.strength = 8.0
+	plow.modifiers = [carver] as Array[Pasture3DNode]
 	var plow_inverted: bool = plow.brush_raises()
-	pm.invert = false
+	var raiser := Pasture3DNodeRelief.new()
+	raiser.material = Pasture3DReliefFractal.new()  # _raises() == true: a fractal mound raises
+	raiser.strength = 8.0
+	plow.modifiers = [raiser] as Array[Pasture3DNode]
 	var plow_upright: bool = plow.brush_raises()
 	plow.queue_free()
 	if plow_inverted or not plow_upright:
 		bad += 1
-		print("    !! Plow material invert: inverted -> %s (want false), upright -> %s (want true)"
+		print("    !! Plow relief carve signal: crater -> %s (want false), fractal -> %s (want true)"
 			% [plow_inverted, plow_upright])
 
 	if bad == 0:
