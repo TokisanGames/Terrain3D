@@ -45,6 +45,34 @@ extends Node3D
 ## for turning off — see Pasture3DRoadMesher.DEPTH_LIFT for why coplanar is not an option.
 @export var depth_lift: float = Pasture3DRoadMesher.DEPTH_LIFT
 
+## Give each chunk a collider on the carriageway.
+##
+## ---- WHAT THIS IS AND IS NOT FOR ----
+##
+## NOT the driving surface. The road went through the HEIGHTMAP (P2), so the terrain's own collision
+## already is the road: a vehicle is supported by the graded ground whether this is on or off, and
+## turning it on adds nothing to hold the car up. What it adds is IDENTITY — a raycast that answers "am
+## I on tarmac or on grass", on its own physics layer, without sampling the control map and decoding a
+## texture id. Off by default, because a road that does not need the question asked should not pay for
+## the shapes.
+@export var collision_enabled: bool = false
+
+## Physics layer and mask for those colliders. Layer 2 by default so a road query cannot be confused
+## with a terrain query, and mask 0 because these shapes answer questions — nothing needs to collide
+## WITH them.
+@export_flags_3d_physics var collision_layer: int = 2
+@export_flags_3d_physics var collision_mask: int = 0
+
+## Draw lane markings on the carriageway (§10, P5c).
+@export var markings_enabled: bool = true
+
+## Material for the painted stripes. Left null, markings are built and drawn untextured — visible, but
+## not white, which reads as a bug rather than as a missing material.
+@export var markings_material: Material = null
+
+## Place the road type's verge props through the terrain's instancer (§10, P5c).
+@export var props_enabled: bool = true
+
 ## Chunks, each `{node: MeshInstance3D, centre: Vector3, meshes: Array[ArrayMesh], lod: int}`.
 var _chunks: Array = []
 var _dirty_lod: bool = true
@@ -89,6 +117,7 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 				% [cum[cum.size() - 1] if cum.size() > 0 else 0.0, region, skips.size()])
 		return 0
 	var rejected := 0
+	var prop_transforms: Array = []
 	for span in spans:
 		var meshes: Array = []
 		var empty := false
@@ -114,6 +143,13 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 		# the graded ground where it was.
 		mi.top_level = true
 		add_child(mi)
+		if collision_enabled:
+			_add_collider(mi, plan, cum, alignment, float(span[0]), float(span[1]), half, shoulder, crown)
+		if markings_enabled:
+			_add_markings(mi, p_brush, plan, cum, alignment, float(span[0]), float(span[1]), crown)
+		if props_enabled:
+			prop_transforms.append_array(_prop_transforms(t, plan, cum, alignment, float(span[0]),
+					float(span[1]), crown))
 		var mid := (float(span[0]) + float(span[1])) * 0.5
 		var at := Pasture3DRoadGrader.plan_point_at(plan, cum, mid)
 		_chunks.append({
@@ -122,11 +158,106 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 			"meshes": meshes,
 			"lod": 0,
 		})
+	if props_enabled:
+		_place_props(p_brush, t, prop_transforms)
 	_dirty_lod = true
 	_report = true
 	if _chunks.is_empty():
 		_why(p_brush, "%d span(s) were found but every one failed to mesh" % rejected)
 	return _chunks.size()
+
+
+## One chunk's collider, as a child of the chunk so it is culled, hidden and freed with it.
+##
+## Built at lift ZERO, and that is the whole subtlety: the ribbon is lifted DEPTH_LIFT above the ground
+## so it cannot z-fight with the surface it was graded into, but a COLLIDER lifted by the same amount is
+## a road that sits two centimetres above itself. A wheel rests on it early, a raycast looking for the
+## ground hits the road before the terrain, and "on the road" and "on the ground" stop being the same
+## height. The lift is a rendering fix; collision has no z-fighting to fix.
+##
+## LOD 0 only. A collider that changed shape with camera distance would move the ground under a car
+## parked at the edge of a threshold.
+func _add_collider(p_parent: Node3D, p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
+		p_alignment: Pasture3DRoadAlignment, p_from: float, p_to: float, p_half: float,
+		p_shoulder: float, p_crown: float) -> void:
+	var arrays := Pasture3DRoadMesher.build_chunk(p_plan, p_cum, p_alignment, p_from, p_to, p_half,
+			p_shoulder, p_crown, 0, 0.0)
+	if arrays.is_empty():
+		return
+	var faces := PackedVector3Array()
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	for i: int in arrays[Mesh.ARRAY_INDEX]:
+		faces.append(verts[i])
+	var shape := ConcavePolygonShape3D.new()
+	shape.set_faces(faces)
+	var body := StaticBody3D.new()
+	body.name = "Collision"
+	body.collision_layer = collision_layer
+	body.collision_mask = collision_mask
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	body.add_child(cs)
+	p_parent.add_child(body)
+
+
+## One chunk's lane markings, as a child of the chunk for the same reason the collider is.
+##
+## The stripe plan is resolved at the START of the span rather than once per road: `resolved_lanes` and
+## `resolved_one_way` both take a distance, so a road that gains a lane part way along gains a lane line
+## there too. Resolving once for the whole road would draw the first chunk's cross-section over all of it.
+func _add_markings(p_parent: Node3D, p_brush: Pasture3DRoadBrush, p_plan: PackedVector2Array,
+		p_cum: PackedFloat32Array, p_alignment: Pasture3DRoadAlignment, p_from: float, p_to: float,
+		p_crown: float) -> void:
+	var t: Pasture3DRoadType = p_brush.resolved_road_type()
+	if t == null:
+		return
+	var stripes := Pasture3DRoadMarkings.plan(p_brush.resolved_lanes(p_from), t.divider_type,
+			p_brush.resolved_one_way(p_from))
+	var arrays := Pasture3DRoadMarkings.build(p_plan, p_cum, p_alignment, stripes, p_from, p_to,
+			p_crown, 2.0, depth_lift)
+	if arrays.is_empty():
+		return
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	if markings_material != null:
+		mesh.surface_set_material(0, markings_material)
+	var mi := MeshInstance3D.new()
+	mi.name = "Markings"
+	mi.mesh = mesh
+	p_parent.add_child(mi)
+
+
+## The transforms for one span's verge props. Nothing is placed here — they are accumulated across the
+## whole road and handed over in one call, because the instancer is cleared per mesh id and a per-span
+## hand-off would leave only the last span's props standing.
+func _prop_transforms(p_type: Pasture3DRoadType, p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
+		p_alignment: Pasture3DRoadAlignment, p_from: float, p_to: float, p_crown: float) -> Array:
+	if p_type == null or p_type.prop_mesh_id < 0:
+		return []
+	if p_type.prop_both_sides:
+		return Pasture3DRoadProps.place_both(p_plan, p_cum, p_alignment, p_from, p_to,
+				p_type.prop_offset, p_type.prop_spacing, p_crown)
+	return Pasture3DRoadProps.place(p_plan, p_cum, p_alignment, p_from, p_to, p_type.prop_offset,
+			p_type.prop_spacing, p_crown)
+
+
+## Hand the road's props to the terrain's instancer, which keys multimeshes by region location — so road
+## props stream with terrain regions and need no streaming code of their own (§10).
+##
+## Cleared by mesh id before placing, for the reason the paint pass clears before painting: nothing else
+## removes them, so moving a road would leave its old guardrail standing in a field. The cost is that a
+## road sharing a mesh id with another road clears that road's props too — which is why the clear is
+## here, once per rebuild, rather than per span.
+func _place_props(p_brush: Pasture3DRoadBrush, p_type: Pasture3DRoadType, p_transforms: Array) -> void:
+	if p_type == null or p_type.prop_mesh_id < 0 or p_brush == null or p_brush.terrain == null:
+		return
+	var inst = p_brush.terrain.get_instancer()
+	if inst == null:
+		return
+	inst.clear_by_mesh(p_type.prop_mesh_id)
+	if p_transforms.is_empty():
+		return
+	inst.add_transforms(p_type.prop_mesh_id, p_transforms, PackedColorArray(), true)
 
 
 ## Build one apron per junction. `p_aprons` is prepared by the network, each entry

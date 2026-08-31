@@ -544,7 +544,7 @@ Writing it found three gaps, all closed in the DATA rather than worked around in
 The gate also caught a defect in the follower itself, which is the other half of its value: it decided its movement a stopping distance short of the line and then entered the connector from there, teleporting the vehicle that margin — because a connector begins at the stop line. Criterion [F] asks the *position* whether anything moved further than it could have driven, so no bookkeeping error can hide inside it.
 | **P5a** ✅ | **Tier FAR (§10)** — the carriageway painted into the group's reserved control layer: a `surface` coverage mask out of the grader, a pure control-word kernel (`Pasture3DRoadPaint`), and a network paint pass in ascending priority. GDScript; native/GPU later with this as the A/B oracle. | `RoadPaintGate` — coverage is solid to the edge of formation and smoothsteps out over the shoulder (control: zero fade gives a hard edge); control words pack where the engine reads them, asserted against literal shifts (control: a texture id of 31 must not bleed into the next field); the base texture and the hole bit survive a paint (control: `preserve_base` off replaces the base); coverage becomes blend and a bare cell is not written at all (control: full coverage writes every cell); paint order is ascending priority (control: swapping the priorities reverses it); a cell lands where the bake grid says it does (control: a different vertex spacing scales it). |
 | **P5b** ✅ | **Tier MID (§10)** — the chunked ribbon: `Pasture3DRoadMesher` (a pure kernel) plus `Pasture3DRoadChunkHost` (LOD swap by distance, hidden beyond tier FAR). Cuts snap to region boundaries and never cross a junction footprint. | `RoadMeshGate` — cuts land on region boundaries (controls: a different region size moves them; a 45° road is cut on both axes); seam vertices are compared for EXACT equality, at LOD 0 and at LOD 2; nothing chunks across a footprint (controls: something did cover it without one, and the road either side survives); LOD coarsens monotonically, never narrows the carriageway, and drops camber before shoulder; ribbon height is checked against the GRADER, not against a copy of its formula; the surface is wound face-up with recomputed normals; UVs run in metres; distance picks the tier its thresholds name (control: more thresholds than LOD levels must clamp, not index past the meshes). |
-| **P5c** | Tier NEAR — collision, lane markings from `divider_type`, roadside props via `Pasture3DInstancer`. | `RoadNearGate` — a marking follows the divider it is drawn from; collision matches the graded surface; control: changing `divider_type` changes the markings. |
+| **P5c** ✅ | **Tier NEAR (§10)** — lane markings (`Pasture3DRoadMarkings`, a pure kernel split into a stripe *plan* and a *builder*), per-chunk collision at lift zero, and verge props (`Pasture3DRoadProps`) handed to `Pasture3DInstancer` so they stream with terrain regions. | `RoadNearGate` — a one-way road has no centre line whatever its type says (control: the same road two-way must draw one); each divider type draws the stripes it names, with DASHED_SOLID's no-crossing side asserted (control: NONE removes the divider and nothing else); the divider sits where the DIRECTION changes, checked on a 2+1 where that differs from the middle of the road (controls: the two rules must disagree on the fixture; traffic side mirrors it); dashes are placed in absolute arc length and a dash across a cut is split, not dropped (control: a solid stripe stays one run); markings sit on the graded surface and strictly above the ribbon, wound Godot's way; collision matches the GRADED surface, not the lifted ribbon (control: the drawn ribbon must be higher by exactly DEPTH_LIFT); props stand on the side asked for, absolute spacing, and the far verge is TURNED not copied (control: splitting on an exact multiple of the spacing must not double a prop). A criterion that crashes before reporting is counted as a failure. |
 | **P6** | **Runtime layer** — `Pasture3DRoadRoute` (hand-picked entries + validator), checkpoints, corridor test, `locate()` / `progress()`, `sample_surface()`, pace notes, route-driven streaming lookahead, and the corridor-clearing hook for traffic. Loads with no editor and no terrain. | `RoadRouteGate` — `locate()` round-trips against sampled points; up vectors match the solved banking; a reversed route flips boundaries and travel direction; checkpoints follow a moved road; the corridor test separates verge from off-course; a surface transition blends rather than steps; the validator rejects a disconnected pair and names the gap; pace notes find a known corner, a known crest and a known surface change (control: flatten the profile and the crest call disappears). |
 | **P7** | Graph nodes (`PATH` port, Road Source / Road Grade / Path Distance / Path Mask). | `RoadGraphGate` — analytic distance vs a brute-force oracle; the two §8 wirings differ as predicted. |
 | **P8** | Auto-routing: anisotropic A* over graph-produced cost fields (slope, `water_mask`), emitting an editable brush. | `RoadRoutingGate` — found cost ≤ a straight line's; control: a wall in the cost field reroutes it. |
@@ -609,6 +609,30 @@ things fill it, and only one of them is a mesh:
 Aprons are hosted on the NETWORK's own chunk host, not on any road's: a junction belongs to no single
 road. Each carries one mesh repeated across the LOD slots — two dozen triangles have nothing worth
 decimating, and sharing the resource buys them the existing distance culling with no second code path.
+
+**P5c landed 2026-08-31.** Tier NEAR is wrong in a different way to the tiers below it. FAR and MID fail
+*visibly* — an unpainted road, a cracked seam, an invisible ribbon. NEAR fails **legibly but falsely**: a
+centre line down a one-way road renders perfectly and tells a driver the far lane is oncoming. So the
+markings kernel is split in two, `plan()` and `build()`, and the split is what makes that checkable: "this
+road has no centre line" is a claim about a handful of numbers, and reading it back out of a mesh would be
+an inference about vertex positions instead.
+
+Three things settled here:
+
+* **A one-way road has no centre line**, whatever `divider_type` says, and the divider sits where the
+  *direction changes* rather than at the middle of the carriageway. Those coincide on a symmetric two-way
+  road and diverge on every 2+1 — which is exactly the road where a driver most needs the line to be right.
+  Taking `divider_type` at face value is the obvious implementation and it is wrong on both.
+* **Collision is built at lift ZERO.** The ribbon floats `DEPTH_LIFT` above the ground so it cannot z-fight
+  with the surface it was graded into; a collider inheriting that lift is a road sitting two centimetres
+  above itself, where a wheel rests early and a ground raycast hits the road before the terrain. The lift
+  fixes a rendering problem and collision has no rendering problem to fix. And the collider is not the
+  driving surface at all — the road went through the heightmap, so the terrain already holds the car up.
+  What it adds is *identity*: "am I on tarmac", on its own physics layer, off by default.
+* **Props are placed on a HALF-OPEN interval.** Closed at both ends, two chunks meeting at an exact
+  multiple of the spacing both place a prop there — two posts in the same hole at every region boundary
+  that lands on the grid. The gate's first version cut at 13 m and passed; cutting at 20 m, on a prop,
+  failed. Half-open costs at most one prop at the very end of a road.
 
 **There is no P3.** The reorder moved the ribbon mesh from P3 to P5 and the junction split kept the
 P4a/P4b names it already had, which briefly left the mesh listed twice. The gap is deliberate rather

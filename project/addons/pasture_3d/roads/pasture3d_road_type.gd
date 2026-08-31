@@ -67,6 +67,36 @@ enum DividerType { NONE, SINGLE_DASHED, SINGLE_SOLID, DOUBLE_SOLID, DASHED_SOLID
 		divider_type = v
 		emit_changed()
 
+@export_group("Verge props")
+## Mesh asset id in the terrain's asset list, placed repeatedly along both verges (§10, P5c). -1 means
+## this road has no verge props — the same "-1 is not an index, it is a refusal" convention `surface_layer_id`
+## uses, and for the same reason: an id field with no off value forces every road to place SOMETHING.
+@export var prop_mesh_id: int = -1:
+	set(v):
+		prop_mesh_id = maxi(v, -1)
+		emit_changed()
+
+## Metres between props along the road. Absolute arc length, so chunking cannot move them.
+@export var prop_spacing: float = 25.0:
+	set(v):
+		prop_spacing = maxf(v, 0.25)
+		emit_changed()
+
+## Where the props stand, as distance from the road CENTRE in metres. Measured from the centre rather
+## than from the edge so it does not silently move when the lane count is overridden part way along a
+## road — a marker post does not step outwards where a climbing lane starts.
+@export var prop_offset: float = 5.0:
+	set(v):
+		prop_offset = maxf(v, 0.0)
+		emit_changed()
+
+## Place them on both verges. Off puts them only on the driver's right.
+@export var prop_both_sides: bool = true:
+	set(v):
+		prop_both_sides = v
+		emit_changed()
+
+
 @export_group("Alignment")
 ## The HARD constraint on the P1 vertical solver: the steepest gradient this kind of road will accept,
 ## as a rise/run ratio. A dirt track climbs what a motorway will not, and this one number is most of
