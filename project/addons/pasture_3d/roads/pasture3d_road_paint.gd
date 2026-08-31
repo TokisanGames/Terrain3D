@@ -78,6 +78,13 @@ static func blend_of(p_control: int) -> int:
 static func surface_control(p_surface: PackedFloat32Array, p_existing: PackedInt32Array,
 		p_opts: Dictionary = {}) -> Dictionary:
 	var texture_id := int(p_opts.get("texture_id", 0))
+	# A NEGATIVE texture id means "this surface does not paint" (§4.4), and it is the DEFAULT, so this
+	# is the ordinary case rather than an error. It is refused here as well as at the caller because a
+	# 5-bit field turns -1 into texture 31 silently: the road would paint, in whatever texture happens
+	# to sit in the last slot, and look like a wrong texture id rather than like a road nobody asked to
+	# be painted.
+	if texture_id < 0:
+		return {"cells": PackedInt32Array(), "control": PackedInt32Array(), "weight": PackedFloat32Array()}
 	var preserve_base := bool(p_opts.get("preserve_base", true))
 	var cells := PackedInt32Array()
 	var control := PackedInt32Array()

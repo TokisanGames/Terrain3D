@@ -587,11 +587,15 @@ func paint_surface() -> int:
 	var cover: PackedFloat32Array = masks.get("surface", PackedFloat32Array())
 	if cover.is_empty():
 		return 0
+	# The road type is asked FIRST, before a layer is reserved. `surface_layer_id` is -1 by default and
+	# -1 means "do not paint" (§4.4), so a project that has not chosen a road texture yet must end up
+	# with no layer rather than an empty one — and must not paint texture 31, which is what -1 becomes
+	# the moment it reaches a 5-bit field.
+	var t := resolved_road_type()
+	if t == null or t.surface_layer_id < 0:
+		return 0
 	var layer_id := paint_layer_id()
 	if layer_id < 0:
-		return 0
-	var t := resolved_road_type()
-	if t == null:
 		return 0
 
 	var gw := int(masks.get("gw", 0))

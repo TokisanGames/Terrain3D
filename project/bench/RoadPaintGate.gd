@@ -34,6 +34,7 @@ func _ready() -> void:
 	_d_coverage_becomes_blend_and_bare_cells_are_not_written()
 	_e_roads_paint_in_ascending_priority()
 	_f_a_cell_lands_where_the_bake_grid_says_it_does()
+	_g_a_surface_that_does_not_paint_paints_nothing()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD PAINT PASS" if _fail == 0 else "ROAD PAINT FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -298,3 +299,29 @@ func _f_a_cell_lands_where_the_bake_grid_says_it_does() -> void:
 			% [coarse.x, coarse.z, MIN_X + 6.0, MIN_Z + 4.0])
 	if not is_equal_approx(coarse.x, MIN_X + 6.0) or not is_equal_approx(coarse.z, MIN_Z + 4.0):
 		_fail += 1; print("    !! vertex spacing does not scale the cell position")
+
+
+# ---- G ------------------------------------------------------------------------------------------
+
+## [G] A surface with no texture chosen paints nothing at all.
+##
+## `surface_layer_id` is -1 by default and -1 means "do not paint" (§4.4), so this is the state every
+## project is in before somebody picks a road texture — not an error case. It is gated because of what
+## -1 does on the way into a 5-bit field: it becomes 31. The road would paint, in whatever texture sits
+## in the last slot, and the symptom would read as a wrong texture id rather than as a road nobody asked
+## to be painted at all.
+func _g_a_surface_that_does_not_paint_paints_nothing() -> void:
+	print("[G] a surface with no texture chosen paints nothing")
+	var cover := PackedFloat32Array([1.0, 1.0, 1.0])
+	var plan := Pasture3DRoadPaint.surface_control(cover, PackedInt32Array(), {"texture_id": -1})
+	var cells: PackedInt32Array = plan["cells"]
+	print("    fully covered, texture_id -1 -> %d cells written" % cells.size())
+	_check("G", cells.is_empty(), "%d cells (want 0 — -1 must not become texture 31)" % cells.size())
+
+	# CONTROL: id 0 is a real texture and must paint. Without it [G] passes on a kernel that has stopped
+	# painting entirely, and "paints nothing" is then true for the wrong reason.
+	var real: PackedInt32Array = Pasture3DRoadPaint.surface_control(cover, PackedInt32Array(),
+			{"texture_id": 0})["cells"]
+	print("    control: texture_id 0 -> %d cells (want 3)" % real.size())
+	if real.size() != 3:
+		_fail += 1; print("    !! texture 0 is being refused as though it meant nothing")
