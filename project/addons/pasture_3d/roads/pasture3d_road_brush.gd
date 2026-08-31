@@ -244,6 +244,13 @@ func is_bridge_at(p_distance: float) -> bool:
 
 # ---- Brush base hooks ---------------------------------------------------------------------------
 
+## A road IS its modifier stack — the grading step is where the whole terrain effect lives (§8), so
+## without this the brush has no Modifiers list to put a Pasture3DNodeRoad in and paints a bare footprint
+## forever. Only Mound and Plow carried the stack before roads existed.
+func _supports_modifiers() -> bool:
+	return true
+
+
 func _default_layer_name() -> String:
 	var grp := road_group()
 	return grp.layer_name if grp != null else "Roads"
