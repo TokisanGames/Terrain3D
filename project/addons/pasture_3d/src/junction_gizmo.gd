@@ -23,8 +23,12 @@ extends EditorNode3DGizmoPlugin
 const LIFT: float = 0.35
 ## Segments in the footprint circle. Enough that a 30 m junction does not look like a stop sign.
 const CIRCLE_SEGMENTS: int = 48
-## Half-length of the cross drawn at each approach's trimmed end, metres.
-const TICK: float = 2.0
+
+## The same constant-size markers the brush and pool gizmos draw their points with. Shared rather than
+## drawn as line crosses here, because a cross of two thin lines is the marker those gizmos ALREADY
+## replaced for being a pixel thick and invisible against a checkered terrain — and a junction shows
+## more of them, over a smaller area, than either of them does.
+const Sprites: Script = preload("res://addons/pasture_3d/src/gizmo_sprites.gd")
 
 ## Cyan for a live junction — no other Pasture3D gizmo uses it, so a junction is never mistaken for a
 ## brush marker (purple), a pool (orange) or a spline handle.
@@ -121,9 +125,10 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 			for sign_i in [-1.0, 1.0]:
 				var at: Vector2 = brush.call("point_at_arc", s + trim * sign_i)
 				var end: Vector3 = to_local * Vector3(at.x, j.elevation + LIFT, at.y)
-				var line := PackedVector3Array([centre, end])
-				line.append_array(_cross(end))
-				p_gizmo.add_lines(line, mat)
+				p_gizmo.add_lines(PackedVector3Array([centre, end]), mat)
+				# HOLLOW, matching the brush gizmo's unselected loop point: an arm end is a place the
+				# road stops, not something to aim at and drag.
+				Sprites._dot_sprite(p_gizmo, end, Sprites.POINT_SIZE, spoke, false)
 
 		if not j.detected or j.disabled:
 			continue
@@ -138,17 +143,20 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 			elif c.crosses_oncoming:
 				c_colour = CONFLICT
 			p_gizmo.add_lines(_curve_lines(c.curve, to_local), _material_for(c_colour))
-		# Where two movements actually meet. Small crosses in the conflict colour: a junction whose
-		# conflict points are not in its footprint, or which has none at all, is the right-of-way solver
-		# failing in a way no amount of staring at the connectors would show.
+		# Where two movements actually meet. A junction whose conflict points are not inside its
+		# footprint, or which has none at all, is the right-of-way solver failing in a way no amount of
+		# staring at the connectors would show.
+		#
+		# Filled and a size down from the arm ends: a conflict is something that HAPPENS at a point,
+		# rather than a point the geometry is built from, and the arms should stay the thing the eye
+		# lands on first at a junction this crowded.
 		#
 		# DEDUPLICATED BY POSITION, and that is a drawing decision rather than a data one. The records
 		# are per ORDERED PAIR of movements, so an ordinary crossroads produces dozens, many of them
 		# within centimetres of each other — every pair crossing the middle meets in roughly the same
 		# place. Drawn one for one they overlap into a solid blob that shows neither where the conflicts
-		# are nor how many there are. One cross per distinct place answers the question the gizmo is
+		# are nor how many there are. One marker per distinct place answers the question the gizmo is
 		# actually asked: is the right-of-way solver finding meetings inside the footprint.
-		var marks := PackedVector3Array()
 		var placed := {}
 		for r in j.conflicts:
 			if r == null:
@@ -160,9 +168,8 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 			if placed.has(cell):
 				continue
 			placed[cell] = true
-			marks.append_array(_cross(to_local * (r.point + Vector3(0.0, LIFT, 0.0))))
-		if not marks.is_empty():
-			p_gizmo.add_lines(marks, _material_for(CONFLICT))
+			Sprites._dot_sprite(p_gizmo, to_local * (r.point + Vector3(0.0, LIFT, 0.0)),
+					Sprites.TANGENT_SIZE, CONFLICT, true)
 		for sl in j.stop_lines:
 			if sl == null:
 				continue
@@ -200,14 +207,6 @@ func _curve_lines(p_curve: Curve3D, p_to_local: Transform3D) -> PackedVector3Arr
 	return out
 
 
-## A small horizontal cross at `p_at`, marking one trimmed end.
-func _cross(p_at: Vector3) -> PackedVector3Array:
-	return PackedVector3Array([
-		p_at - Vector3(TICK, 0.0, 0.0), p_at + Vector3(TICK, 0.0, 0.0),
-		p_at - Vector3(0.0, 0.0, TICK), p_at + Vector3(0.0, 0.0, TICK),
-	])
-
-
 ## One unshaded, always-visible material per colour.
 ##
 ## Built by hand rather than through create_material(), for the reason the pool marker documents: every
@@ -225,6 +224,13 @@ func _material_for(p_colour: Color) -> StandardMaterial3D:
 	# Depth-tested, unlike the brush and pool markers: those are handles that must be findable through
 	# terrain, this is a drawing of something lying ON the ground and should be hidden by a hill in
 	# front of it. A junction floating through a mountainside would be the wrong answer.
+	#
+	# THIS IS THE LINES ONLY, and the sprite markers deliberately disagree with it. They come from
+	# Pasture3DGizmoSprites, which draws on top of everything, and that is the right split rather than an
+	# oversight: the ring, the spokes and the connector paths are a picture of the road surface and
+	# should sit in the world, while a marker is a label for a place and is useless if a fold of ground
+	# hides it. Changing the markers to match would mean forking the shared sprite material, which is
+	# the thing that keeps every Pasture3D point marker looking like every other one.
 	m.no_depth_test = false
 	m.render_priority = 50
 	_mat[key] = m
