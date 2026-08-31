@@ -55,7 +55,8 @@ enum Tri { INHERIT = -1, OFF = 0, ON = 1 }
 @export var curve: Curve3D
 ## What kind of turn this is.
 @export var turn: Turn = Turn.STRAIGHT
-## Signed angle between the two headings, radians; positive turns left. `turn` is this bucketed, kept
+## Signed angle between the two headings, radians; positive turns RIGHT (the driver's right, the
+## convention the whole road system shares). `turn` is this bucketed, kept
 ## alongside it because "how sharp" is a different question from "which way" and a consumer choosing a
 ## speed wants the number.
 @export var turn_angle: float = 0.0

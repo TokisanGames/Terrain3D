@@ -33,8 +33,9 @@ extends Resource
 @export var width: float = 3.5
 
 
-## The two ends of the painted line, world space: the lane centre offset either way along the lane's
-## left normal by half its width.
+## The two ends of the painted line, world space: the lane centre offset half a width either way along
+## the across-road normal. Symmetric, so which of the two directions is the driver's right does not
+## change the answer — but it is the RIGHT, and saying otherwise is how the convention drifts.
 func endpoints() -> Array:
 	var n := Vector2(-heading.y, heading.x) * (width * 0.5)
 	return [point + Vector3(n.x, 0.0, n.y), point - Vector3(n.x, 0.0, n.y)]

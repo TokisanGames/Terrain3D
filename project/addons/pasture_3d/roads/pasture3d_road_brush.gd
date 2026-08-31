@@ -710,6 +710,13 @@ func build_run() -> Dictionary:
 	}
 
 
+## This road's resolved priority (§5.2), or 0 when it has no road type yet. Higher wins a junction, gets
+## the longer green, and holds right of way over the roads it crosses.
+func road_priority() -> int:
+	var t := resolved_road_type()
+	return t.priority if t != null else 0
+
+
 ## What this road's junctions currently ask of it, as a string. The rebake test: if this is unchanged
 ## after a resolve, the profile the brush already baked is the one the junctions want, and re-baking would
 ## produce the same bytes. That equality is what makes the bake→resolve→bake loop terminate.

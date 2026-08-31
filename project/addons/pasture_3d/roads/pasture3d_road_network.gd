@@ -55,6 +55,33 @@ enum TrafficSide { RIGHT = 0, LEFT = 1 }
 			road_defaults.changed.connect(_bump)
 		_bump()
 
+@export_group("Right of way")
+## What a junction whose own `control` is INHERIT uses. The world's default junction discipline: an
+## unsignposted world is PRIORITY, a dense city might be SIGNALS. Per-junction overrides sit on the
+## junction, where the user authored them.
+@export var default_control: Pasture3DRoadJunction.ControlType = Pasture3DRoadJunction.ControlType.PRIORITY:
+	set(v):
+		# INHERIT here would inherit from nothing. Clamped rather than warned about, because it is
+		# reachable only by dragging the enum to a value that has no meaning at this level.
+		default_control = Pasture3DRoadJunction.ControlType.PRIORITY 				if v == Pasture3DRoadJunction.ControlType.INHERIT else v
+		_bump()
+## Total signal cycle at a signalised junction, seconds. Split between the participating roads in
+## proportion to their priority (§6.4).
+@export_range(10.0, 240.0, 1.0, "or_greater") var signal_cycle: float = 60.0:
+	set(v):
+		signal_cycle = v
+		_bump()
+## Yellow after each phase's green, seconds.
+@export_range(0.0, 10.0, 0.1) var signal_yellow: float = 3.0:
+	set(v):
+		signal_yellow = v
+		_bump()
+
+## Emitted when any junction's signal phase changes. The publish half of "Pasture3D advances the phase
+## and publishes the current state" (§6.4) — a consumer that wants to react to a light rather than poll
+## it connects here, and Pasture3D still never decides what to do about it.
+signal signals_changed(junction: Pasture3DRoadJunction)
+
 ## Bumped whenever anything that could change a resolved value changes. Brushes and (later) the
 ## intersection resolver key their staleness on it, so a catalogue edit invalidates the right caches
 ## without anyone diffing the catalogue.
@@ -183,6 +210,15 @@ func _resolve_lane_graphs(p_brushes: Array) -> void:
 		var res := Pasture3DRoadLaneSolver.solve(arms, j.connectors, {"left_hand": left_hand})
 		j.connectors = _typed_connectors(res["connectors"])
 		j.stop_lines = _typed_stop_lines(res["stop_lines"])
+		# Right of way is built from the connectors that were just resolved, not alongside them: a
+		# conflict is a fact about two PATHS meeting, so it cannot be known until the paths exist.
+		j.priorities = _priorities_for(j, by_key)
+		var row := Pasture3DRoadRightOfWay.solve(j.connectors, j.road_keys, j.priorities, {
+			"left_hand": left_hand, "cycle": signal_cycle, "yellow": signal_yellow,
+		})
+		j.conflicts = _typed_conflicts(row["conflicts"])
+		j.phases = _typed_phases(row["phases"])
+		j.phase_index = clampi(j.phase_index, 0, maxi(j.phases.size() - 1, 0))
 
 
 ## The arms of one junction: two per participant — the approach BEFORE the footprint and the
@@ -216,6 +252,37 @@ func _arms_for(p_junction: Pasture3DRoadJunction, p_by_key: Dictionary) -> Array
 				"tangent": brush.tangent_at_arc(at),
 				"lanes": lanes,
 			})
+	return out
+
+
+## Each participant's resolved priority, parallel to `road_keys`. A road that has left the scene keeps
+## the priority the junction last saw, rather than silently dropping to zero and inverting who gives way.
+func _priorities_for(p_junction: Pasture3DRoadJunction, p_by_key: Dictionary) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	for i in p_junction.road_keys.size():
+		var brush = p_by_key.get(String(p_junction.road_keys[i]), null)
+		if brush != null:
+			out.append(brush.road_priority())
+		elif i < p_junction.priorities.size():
+			out.append(p_junction.priorities[i])
+		else:
+			out.append(0)
+	return out
+
+
+func _typed_conflicts(p_in: Array) -> Array[Pasture3DRoadConflict]:
+	var out: Array[Pasture3DRoadConflict] = []
+	for c in p_in:
+		if c is Pasture3DRoadConflict:
+			out.append(c)
+	return out
+
+
+func _typed_phases(p_in: Array) -> Array[Pasture3DRoadPhase]:
+	var out: Array[Pasture3DRoadPhase] = []
+	for ph in p_in:
+		if ph is Pasture3DRoadPhase:
+			out.append(ph)
 	return out
 
 
@@ -267,3 +334,68 @@ func _typed(p_in: Array) -> Array[Pasture3DRoadJunction]:
 		if j is Pasture3DRoadJunction:
 			out.append(j)
 	return out
+
+
+# ---- SIGNALS (P4b) ----------------------------------------------------------------------------------
+#
+# "Pasture3D advances the phase and publishes the current state; obeying it is the consumer's job"
+# (§6.4). This is the advancing half. It is the only per-frame work the road system does, it touches
+# nothing but a float and an int per signalised junction, and it stops entirely in the editor — a scene
+# whose lights cycled while you were building it would repaint the gizmo forever and mark the scene
+# dirty for a value that is deliberately not saved.
+
+
+func _process(p_delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
+	for j in junctions:
+		if j != null and j.advance_signals(p_delta, default_control):
+			signals_changed.emit(j)
+
+
+## Reset every junction to the start of its cycle. What a level restart wants: without it a race
+## restarted after ten minutes begins with the lights wherever the last run left them.
+func reset_signals() -> void:
+	for j in junctions:
+		if j != null:
+			j.phase_index = 0
+			j.phase_elapsed = 0.0
+
+
+# ---- THE FOUR QUERIES (§6.4) ------------------------------------------------------------------------
+#
+# A consumer holds a lane — a road key, a lane index and which end of the road it is approaching — and
+# asks these. Nothing below re-derives geometry, and nothing below decides what a vehicle should do.
+
+
+## Given a lane, the legal movements out of it, across every junction it reaches. Query one.
+func lane_connectors(p_key: String, p_lane: int, p_end: int) -> Array:
+	var out: Array = []
+	for j in junctions_for(p_key):
+		out.append_array(j.connectors_from(p_key, p_lane, p_end))
+	return out
+
+
+## Where a vehicle in that lane holds, and at which junction. Query two. Returns
+## `{junction, stop_line}`, or {} when that lane holds for nothing.
+func lane_stop(p_key: String, p_lane: int, p_end: int) -> Dictionary:
+	for j in junctions_for(p_key):
+		var sl := j.stop_line_for(p_key, p_lane, p_end)
+		if sl != null:
+			return {"junction": j, "stop_line": sl}
+	return {}
+
+
+## The signal a vehicle approaching `p_junction` on `p_key` sees. Query three. NONE means the junction
+## is not signalised and query four is the one to ask.
+func lane_signal(p_junction: Pasture3DRoadJunction, p_key: String) -> int:
+	if p_junction == null:
+		return Pasture3DRoadPhase.State.NONE
+	return p_junction.signal_state(p_key, default_control)
+
+
+## Who a movement gives way to. Query four.
+func connector_yields_to(p_junction: Pasture3DRoadJunction,
+		p_connector_id: StringName) -> Array[Pasture3DRoadConflict]:
+	var empty: Array[Pasture3DRoadConflict] = []
+	return p_junction.yields_to(p_connector_id) if p_junction != null else empty

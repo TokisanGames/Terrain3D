@@ -135,6 +135,16 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 			elif c.crosses_oncoming:
 				c_colour = CONFLICT
 			p_gizmo.add_lines(_curve_lines(c.curve, to_local), _material_for(c_colour))
+		# Where two movements actually meet. Small crosses in the conflict colour: a junction whose
+		# conflict points are not in its footprint, or which has none at all, is the right-of-way solver
+		# failing in a way no amount of staring at the connectors would show.
+		var conflict_mat := _material_for(CONFLICT)
+		var marks := PackedVector3Array()
+		for r in j.conflicts:
+			if r != null:
+				marks.append_array(_cross(to_local * (r.point + Vector3(0.0, LIFT, 0.0))))
+		if not marks.is_empty():
+			p_gizmo.add_lines(marks, conflict_mat)
 		for sl in j.stop_lines:
 			if sl == null:
 				continue

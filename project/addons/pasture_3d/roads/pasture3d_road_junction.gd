@@ -65,6 +65,24 @@ enum ControlType { INHERIT = -1, UNCONTROLLED = 0, PRIORITY = 1, STOP = 2, SIGNA
 ## on a stop line for a user to author, so these are rebuilt outright on every resolve.
 @export var stop_lines: Array[Pasture3DRoadStopLine] = []
 
+@export_group("Right of way")
+## Resolved `priority` of each participant (§5.2), parallel to `road_keys`. Stored rather than looked up
+## because right of way must still answer after a road is deleted from the scene: a junction that has
+## stopped being detected keeps its overrides, and an override on a relation nobody can evaluate is not
+## an override.
+@export var priorities: PackedInt32Array = PackedInt32Array()
+## Every directed yield relation between movements that meet here. Purely derived; rebuilt each resolve.
+@export var conflicts: Array[Pasture3DRoadConflict] = []
+## The signal cycle, one phase per participating road. Present whether or not `control` is SIGNALS — the
+## timings are derived from priority and cost nothing to keep, and a junction switched to signals at
+## runtime is then already timed.
+@export var phases: Array[Pasture3DRoadPhase] = []
+
+## Where the cycle is right now. RUNTIME STATE, deliberately not exported: a saved scene that remembered
+## its lights would come back with every junction in the world mid-phase at whatever moment it was saved.
+var phase_index: int = 0
+var phase_elapsed: float = 0.0
+
 @export_group("Overrides")
 ## The user's choices. Never written by the solver.
 @export var control: ControlType = ControlType.INHERIT
@@ -167,3 +185,113 @@ func pin_for(p_key: String) -> float:
 	if i < 0 or i == effective_major():
 		return NAN
 	return elevation
+
+
+# ---- RIGHT OF WAY (P4b) -----------------------------------------------------------------------------
+#
+# The last two of §6.4's four queries. Both are answered from stored records, so a consumer needs no
+# geometry: `signal_state` reads the cycle, `yields_to` filters the conflict set.
+
+
+## What kind of control this junction has, resolving INHERIT against the world default.
+func effective_control(p_default: ControlType = ControlType.PRIORITY) -> ControlType:
+	return p_default if control == ControlType.INHERIT else control
+
+
+## Advance the signal cycle by `p_delta` seconds. Does nothing at a junction that is not signalised, so
+## the network can call it on everything without asking first. Returns true when the phase changed.
+func advance_signals(p_delta: float, p_default: ControlType = ControlType.PRIORITY) -> bool:
+	if phases.is_empty() or effective_control(p_default) != ControlType.SIGNALS or disabled:
+		return false
+	phase_elapsed += maxf(p_delta, 0.0)
+	var changed := false
+	# A loop rather than a single test: a long frame — a stall, a level load, a debugger step — must not
+	# leave the cycle a whole phase behind and then catch up one phase per frame.
+	var guard := 0
+	while phase_elapsed >= phases[phase_index].duration() and guard < 64:
+		phase_elapsed -= phases[phase_index].duration()
+		phase_index = (phase_index + 1) % phases.size()
+		changed = true
+		guard += 1
+	return changed
+
+
+## Index of the phase serving `p_key`, or -1 when no phase does.
+func phase_for(p_key: String) -> int:
+	for i in phases.size():
+		if phases[i] != null and phases[i].serves(p_key):
+			return i
+	return -1
+
+
+## The signal a vehicle on `p_key` sees, as a Pasture3DRoadPhase.State.
+##
+## NONE at a junction that is not signalised — which is NOT the same as green. A consumer that gets NONE
+## must fall back on `yields_to`; one that gets GREEN may go once its conflicts are clear. Collapsing the
+## two would make an uncontrolled crossroads read as a green light in every direction.
+func signal_state(p_key: String, p_default: ControlType = ControlType.PRIORITY) -> int:
+	if disabled or phases.is_empty() or effective_control(p_default) != ControlType.SIGNALS:
+		return Pasture3DRoadPhase.State.NONE
+	var mine := phase_for(p_key)
+	if mine < 0:
+		return Pasture3DRoadPhase.State.RED
+	if mine != phase_index:
+		return Pasture3DRoadPhase.State.RED
+	var ph := phases[phase_index]
+	return Pasture3DRoadPhase.State.GREEN if phase_elapsed < ph.green_time 			else Pasture3DRoadPhase.State.YELLOW
+
+
+## Seconds until the signal `p_key` sees changes, or NAN when the junction is not signalised. What a
+## consumer deciding whether to stop for a yellow actually needs.
+func signal_time_remaining(p_key: String, p_default: ControlType = ControlType.PRIORITY) -> float:
+	if signal_state(p_key, p_default) == Pasture3DRoadPhase.State.NONE:
+		return NAN
+	var mine := phase_for(p_key)
+	if mine == phase_index:
+		var ph := phases[phase_index]
+		if phase_elapsed < ph.green_time:
+			return ph.green_time - phase_elapsed
+		return ph.duration() - phase_elapsed
+	# A red: the rest of the current phase plus every phase between here and mine.
+	var t := phases[phase_index].duration() - phase_elapsed
+	var i := (phase_index + 1) % phases.size()
+	while i != mine and i != phase_index:
+		t += phases[i].duration()
+		i = (i + 1) % phases.size()
+	return t
+
+
+## Who a movement must give way to: the conflicts in which `p_connector_id` is the yielding side.
+##
+## The fourth of §6.4's four queries, and the reason the conflict records are directed. A consumer holds
+## a connector, asks this, and gets the movements it must see clear — with the point at which each is
+## crossed, so it knows how far in it can commit.
+func yields_to(p_connector_id: StringName) -> Array[Pasture3DRoadConflict]:
+	var out: Array[Pasture3DRoadConflict] = []
+	if disabled:
+		return out
+	for c in conflicts:
+		if c != null and c.yielding_id == p_connector_id:
+			out.append(c)
+	return out
+
+
+## The mirror: movements that must give way to `p_connector_id`. Not needed to drive correctly, and
+## needed constantly to debug a junction, which is why it is one line here rather than a filter every
+## consumer writes.
+func has_priority_over(p_connector_id: StringName) -> Array[Pasture3DRoadConflict]:
+	var out: Array[Pasture3DRoadConflict] = []
+	if disabled:
+		return out
+	for c in conflicts:
+		if c != null and c.priority_id == p_connector_id:
+			out.append(c)
+	return out
+
+
+## The connector with this id, or null.
+func connector_by_id(p_id: StringName) -> Pasture3DRoadLaneConnector:
+	for c in connectors:
+		if c != null and c.id == p_id:
+			return c
+	return null
