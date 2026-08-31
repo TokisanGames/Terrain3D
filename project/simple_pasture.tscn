@@ -98,6 +98,10 @@ point_count = 4
 script = ExtResource("11_wv1iv")
 metadata/_custom_type_script = "uid://cavpljhh2m0bk"
 
+[sub_resource type="Resource" id="Resource_ii4qc"]
+script = ExtResource("11_ii4qc")
+speed_limit = nan
+
 [sub_resource type="Resource" id="Resource_8t6nj"]
 script = ExtResource("11_wv1iv")
 metadata/_custom_type_script = "uid://cavpljhh2m0bk"
@@ -114,7 +118,7 @@ metadata/_custom_type_script = "uid://d1q35xltb5ltv"
 
 [sub_resource type="Curve3D" id="Curve3D_cad7k"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 5.4467545, -27.500347, -99.26427, 0, 0, 0, 0, 0, 0, 0, -25.742231, -50, 0, 0, 0, 0, 0, 0, -13.060699, -14.970674, -15.768723, 0, 0, 0, 0, 0, 0, 3.2663574, -0.40567398, 8.378467, 0, 0, 0, 0, 0, 0, 19.068016, -6.8650665, 22.99307, 0, 0, 0, 0, 0, 0, 0, -23.702545, 50, 0, 0, 0, 0, 0, 0, 4.123665, -27.500347, 100.86225),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 5.4467545, -27.500347, -99.26427, 0, 0, 0, 0, 0, 0, 37.15191, -26.671837, -50, 0, 0, 0, 0, 0, 0, 16.549412, -7.41704, -15.768723, 0, 0, 0, 0, 0, 0, -2.3323212, -0.35943413, -3.4719665, 0, 0, 0, 0, 0, 0, -9.89959, -12.448376, 22.99307, 0, 0, 0, 0, 0, 0, 0, -23.702545, 50, 0, 0, 0, 0, 0, 0, 4.123665, -27.500347, 100.86225),
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0)
 }
 point_count = 7
@@ -159,6 +163,7 @@ shadow_enabled = true
 [node name="Pasture3DRoadNetwork" type="Node3D" parent="." unique_id=1153925029]
 script = ExtResource("10_wej47")
 road_types = Array[ExtResource("11_wv1iv")]([SubResource("Resource_kheh1")])
+road_defaults = SubResource("Resource_ii4qc")
 metadata/_custom_type_script = "uid://cft8dk3ton2yu"
 
 [node name="Road" type="Node3D" parent="Pasture3DRoadNetwork" unique_id=1896522691 node_paths=PackedStringArray("terrain")]

@@ -524,13 +524,31 @@ or a numeric property and carries a **control that must move if the path is dead
 | **P0** | `RoadType` / `RoadSegment` resources; `RoadBrush` with splines; `RoadGroup` / `RoadNetwork` with the §5.3 resolve chain. No terrain effect yet. | `RoadModelGate` — resolve chain returns the right value at each level; clearing an override re-inherits; exclusion survives a reorder; control: a group change moves an un-overridden child and not an overridden one. |
 | **P1** | The §7 vertical solver, standalone and headless. | `RoadAlignmentGate` — grade never exceeds `max_grade` (control: raising it changes the profile); cut/fill balance; a wall is refused; banking matches `v²κ/g`; a pinned point is honoured. |
 | **P2** | `Pasture3DRoadModifier` in the brush stack — grading + masks. GDScript first, then native `BrushModStep::ROAD`, then GPU, on the existing three-tier discipline. | `RoadModifierGate` — graded height vs an independent re-derivation; mask algebra; freeze/stale/Bake; NaN passthrough at the brush-loop boundary. Plus a native A/B and `RoadGpuParityGate`. |
-| **P3** | Ribbon mesh, region-aligned chunking, LOD tiers, collision, control-map paint into the group's reserved layer. | `RoadMeshGate` — no cracks at seams (shared-vertex identity), LOD vertex budgets, chunk↔region alignment, paint respects `priority`; control: LOD 0 and LOD 3 differ. |
 | **P4a** | **Intersections, geometry** — auto-detection with bridge exclusion, stored resolution, trim-back, priority-driven type and elevation. **Moved ahead of the runtime layer:** open-world-first means junctions exist before any stage does, and a Route is a walk through a junction graph, so routes cannot be modelled until junctions are. | `RoadJunctionGate` — a crossing resolves; a bridge crossing does **not**; the higher-priority road keeps its alignment; a user's junction override survives an unrelated spline edit. |
 | **P4b** | **Intersections, connectivity** (§6.4) — lane connectors, stop lines, turn permissions, right of way, signal phase groups from `priority`. **Data and queries only; no traffic behaviour ships** (§1.1). Split from P4a because it is roughly the same size again and has a different failure mode. | `RoadLaneGraphGate` — every incoming lane reaches a legal outgoing lane; connectors are tangent-continuous with the lanes they join; every incoming lane has a stop line inside the junction footprint; `traffic_side` flips which turn crosses traffic; a hand-override survives a re-resolve; control: forbidding a turn removes exactly that connector. **Plus the sufficiency check:** a reference agent in the demo project follows lanes and stops at intersections using only public queries — if it needs to re-derive geometry, the data is incomplete. |
 | **P5** | Ribbon mesh, region-aligned chunking, LOD tiers, collision, control-map paint into the group's reserved layer. | `RoadMeshGate` — no cracks at seams (shared-vertex identity), LOD vertex budgets, chunk↔region alignment, paint respects `priority`; control: LOD 0 and LOD 3 differ. |
 | **P6** | **Runtime layer** — `Pasture3DRoadRoute` (hand-picked entries + validator), checkpoints, corridor test, `locate()` / `progress()`, `sample_surface()`, pace notes, route-driven streaming lookahead, and the corridor-clearing hook for traffic. Loads with no editor and no terrain. | `RoadRouteGate` — `locate()` round-trips against sampled points; up vectors match the solved banking; a reversed route flips boundaries and travel direction; checkpoints follow a moved road; the corridor test separates verge from off-course; a surface transition blends rather than steps; the validator rejects a disconnected pair and names the gap; pace notes find a known corner, a known crest and a known surface change (control: flatten the profile and the crest call disappears). |
 | **P7** | Graph nodes (`PATH` port, Road Source / Road Grade / Path Distance / Path Mask). | `RoadGraphGate` — analytic distance vs a brute-force oracle; the two §8 wirings differ as predicted. |
 | **P8** | Auto-routing: anisotropic A* over graph-produced cost fields (slope, `water_mask`), emitting an editable brush. | `RoadRoutingGate` — found cost ≤ a straight line's; control: a wall in the cost field reroutes it. |
+
+**There is no P3.** The reorder moved the ribbon mesh from P3 to P5 and the junction split kept the
+P4a/P4b names it already had, which briefly left the mesh listed twice. The gap is deliberate rather
+than a missing row: renumbering the junction phases would break every reference to them in §6 and
+above, for nothing.
+
+**Why the mesh waits (settled 2026-08-31).** Junction geometry constrains the mesher, not the other
+way round: a mesher built for a single-spline ribbon has to be reworked once a footprint can merge
+with another, stop at a trim-back line and share vertices across a junction. Building it first means
+building it twice. And junctions are *visible without it* — trim-back, the merged corridor and
+priority-driven elevation all reach the heightmap through P2's grader. What a mesh would not show
+either is the lane graph, because connectors and stop lines are curves and data by design; those get
+an editor gizmo, which is the right tool for them whenever the mesh lands.
+
+**One risk this accepts:** P4a resolves junction footprints without anything having tried to mesh
+one, so it could settle on geometry that triangulates badly — a trim-back leaving a sliver, say. The
+mitigation is a gate criterion rather than a phase: `RoadJunctionGate` asserts the SHAPE properties a
+mesher will need (no gap and no overlap at the trim-back, the merged footprint is one connected
+region), not merely that the stored resolution is numerically right.
 
 **Reordered for open-world-first (mesh and junctions swapped vs v2).** P0–P2 is the honest minimum for
 "roads that look real in the editor". P0–P4 is a road *network* rather than a set of roads, which is what an
@@ -560,7 +578,7 @@ the naive traffic the user intends to test with.
    opt-out rather than the default behaviour.
 4. **Superelevation is computed, not painted.** A banking-override field is the escape hatch, not the
    mechanism.
-5. **Far-distance roads are terrain, not meshes** (§10). Committing to control-map paint in P3, rather than
+5. **Far-distance roads are terrain, not meshes** (§10). Committing to control-map paint in P5, rather than
    bolting it on, is what keeps the whole LOD story simple.
 6. **Exclusion and type references are by resource, never by index** (§5.3).
 

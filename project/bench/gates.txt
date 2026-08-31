@@ -243,3 +243,10 @@ bench/RoadAlignmentGate.tscn
 # slope says it should, the masks partition the corridor, a bridged stretch leaves the ground alone, and
 # NaN outside the brush loop survives. Every answer is closed-form, not a golden image.
 bench/RoadGraderGate.tscn
+
+# P4a - junction detection and geometry. A crossing is found and a near-miss is not; an overpass crosses
+# without meeting (bridge flag AND vertical clearance, each on its own); priority decides the junction's
+# height and the minor road gets the pin; a user's override survives an unrelated edit. Criteria E and F
+# are the mesher's bar, asserted before anything has tried to mesh one: the trim-back lands each approach
+# exactly on the other road's edge (no gap, no overlap) and grows as 1/sin(theta) on an acute crossing.
+bench/RoadJunctionGate.tscn
