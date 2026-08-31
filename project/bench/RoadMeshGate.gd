@@ -342,35 +342,64 @@ func _e_the_ribbon_sits_on_the_ground_the_grader_carved() -> void:
 
 # ---- F ------------------------------------------------------------------------------------------
 
-## [F] The surface faces up, and every triangle is wound the same way.
+## [F] The surface is wound so GODOT draws it when you look down at it.
 ##
-## A ribbon wound the wrong way is invisible under backface culling and looks like the mesher not having
-## run — the most confusing possible symptom for the most trivial possible cause. Normals are computed
-## from the geometry rather than assumed UP, so a banked corner lights as banked; the check is therefore
-## that they point upward, not that they equal UP.
+## THIS CRITERION WAS WRONG ONCE, AND THE WAY IT WAS WRONG IS THE POINT. It asserted that every
+## triangle's geometric (b-a) x (c-a) pointed +Y — the right-hand rule, the convention a maths textbook
+## uses and the one you reach for without thinking. Godot's front face is CLOCKWISE as seen from the
+## front, which is the opposite: a triangle that must be visible from above has to look clockwise from
+## above, so its geometric cross points DOWN. The gate passed, the mesh was built in the right place at
+## the right size with the right material, and it was visible only from underneath.
+##
+## A gate that encodes the convention its author assumed rather than the one the engine uses is worse
+## than no gate, because it certifies the bug. So this asserts Godot's rule explicitly, and the control
+## builds the other winding and demands that it FAIL — the check has to be able to tell the two apart,
+## which the +Y version could not, having called the broken one correct.
+##
+## Shading normals are the other way round from the winding, and that is not a contradiction: the
+## winding says which side is drawn, the normal says which way the light comes from, and both mean
+## "up" here.
 func _f_the_surface_faces_up_and_is_wound_one_way() -> void:
-	print("[F] the surface faces up and is wound one way")
+	print("[F] the surface is wound so Godot draws it from above")
 	var run := _run()
 	var surface := _chunk(run, 0.0, 32.0)
 	var verts: PackedVector3Array = surface[Mesh.ARRAY_VERTEX]
 	var indices: PackedInt32Array = surface[Mesh.ARRAY_INDEX]
 	var normals: PackedVector3Array = surface[Mesh.ARRAY_NORMAL]
-	var downward := 0
+	var wrong_way := 0
 	var i := 0
 	while i + 2 < indices.size():
+		# Front-facing from above, in Godot, means the geometric cross points DOWN.
 		var n := (verts[indices[i + 1]] - verts[indices[i]]).cross(
 				verts[indices[i + 2]] - verts[indices[i]])
-		if n.y <= 0.0:
-			downward += 1
+		if n.y >= 0.0:
+			wrong_way += 1
 		i += 3
 	var bad_normals := 0
 	for nv in normals:
 		if nv.y <= 0.9:
 			bad_normals += 1
-	print("    %d triangles, %d wound downward; %d of %d normals not pointing up"
-			% [indices.size() / 3, downward, bad_normals, normals.size()])
-	_check("F", downward == 0 and bad_normals == 0,
-			"%d downward triangles and %d bad normals (want 0 and 0)" % [downward, bad_normals])
+	print("    %d triangles, %d wound so Godot would cull them from above; %d of %d shading normals not up"
+			% [indices.size() / 3, wrong_way, bad_normals, normals.size()])
+	_check("F", wrong_way == 0 and bad_normals == 0,
+			"%d triangles facing away and %d normals pointing down (want 0 and 0)"
+					% [wrong_way, bad_normals])
+
+	# CONTROL: the check must REJECT the other winding. Without this the criterion is just a statement
+	# about a sign, and its previous version — which demanded the opposite sign — passed just as happily
+	# on a road nobody could see.
+	var flipped := 0
+	var j := 0
+	while j + 2 < indices.size():
+		var n := (verts[indices[j + 2]] - verts[indices[j]]).cross(
+				verts[indices[j + 1]] - verts[indices[j]])
+		if n.y >= 0.0:
+			flipped += 1
+		j += 3
+	print("    control: the reversed winding gives %d/%d triangles facing away (want all of them)"
+			% [flipped, indices.size() / 3])
+	if flipped != indices.size() / 3:
+		_fail += 1; print("    !! the check cannot tell the two windings apart")
 
 	# CONTROL: the normals must not be the constant UP they are seeded with — a banked road is tilted,
 	# and lighting it flat throws away the only cue that says it is banked.

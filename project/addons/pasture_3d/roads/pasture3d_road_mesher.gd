@@ -262,10 +262,12 @@ static func build_chunk(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
 			var i1 := i0 + 1
 			var i2 := i0 + across_count
 			var i3 := i2 + 1
-			# Wound so the face normal comes out +Y. Across-offsets increase toward the driver'''s RIGHT
-			# and rows advance along increasing arc length, so (row+1) x (col+1) is the up-facing order —
-			# the other one is invisible under backface culling and reads as the mesher not having run.
-			indices.append_array(PackedInt32Array([i0, i1, i2, i1, i3, i2]))
+			# GODOT'S FRONT FACE IS CLOCKWISE AS SEEN FROM THE FRONT, which is the opposite of the
+			# right-hand rule. For a surface that must be visible from ABOVE, the triangle has to look
+			# clockwise looking down — so its geometric (b-a) x (c-a) points DOWN, not up. Winding it the
+			# "mathematically up" way makes the road visible only from underneath: it draws, it is in the
+			# right place, and from every normal camera angle there is nothing there.
+			indices.append_array(PackedInt32Array([i0, i2, i1, i1, i2, i3]))
 
 	_recompute_normals(verts, indices, normals)
 	var out := []
@@ -291,9 +293,13 @@ static func _recompute_normals(p_verts: PackedVector3Array, p_indices: PackedInt
 		var a := p_indices[tri]
 		var b := p_indices[tri + 1]
 		var c := p_indices[tri + 2]
+		# Negated, because the winding above is Godot's and not the right-hand rule's: the geometric cross
+		# of a front-facing triangle points AWAY from the side you see it from. A shading normal has to
+		# point AT the viewer, so it is the opposite of the winding that makes the face visible.
+		#
 		# Not normalised: the cross product's length is twice the triangle's area, which weights big
 		# triangles more than slivers and is what stops a decimated LOD shading differently.
-		var n := (p_verts[b] - p_verts[a]).cross(p_verts[c] - p_verts[a])
+		var n := -(p_verts[b] - p_verts[a]).cross(p_verts[c] - p_verts[a])
 		p_normals[a] += n
 		p_normals[b] += n
 		p_normals[c] += n
