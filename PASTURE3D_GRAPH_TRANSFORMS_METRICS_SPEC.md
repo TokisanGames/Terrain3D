@@ -903,14 +903,42 @@ Building the phases in order means each of those exists before its second consum
 
 ## 11. Open questions for the author
 
-1. **`Contrast` height window.** The spec requires an explicit `range_min`/`range_max` because Pasture3D
-   heights are metres. The alternative is auto-windowing to the input's own min/max per bake — cheaper to
-   author, but it makes the node's output content-dependent and therefore unstable across a brush's loop
-   boundary. This spec chose the explicit window; confirm that is the right trade.
-2. **`Transform` and world-space continuity.** Every generator in the graph samples in *world* XZ so that two
-   masked brush regions agree where they meet. A `Transform` node deliberately breaks that agreement inside
-   its subtree. Should it emit a `node_warnings()` entry when used inside a brush graph (as opposed to a
-   full-terrain graph), or is the break the whole point and the warning just noise?
+All three settled as of 2026-08-30; kept with the reasoning rather than deleted.
+
+1. **`Contrast` height window.** ~~The spec requires an explicit `range_min`/`range_max` because
+   Pasture3D heights are metres.~~ **Answered 2026-08-30: auto-window by default, with an Explicit
+   Window checkbox.** The author chose the cheaper-to-author default over the stable one, and the
+   checkbox is the escape hatch rather than the other way round.
+   - **What ships.** `explicit_window` is off by default. Off, the window is the input's own finite
+     min/max for that bake and `range_min`/`range_max` are ignored entirely. On, the authored metres are
+     used verbatim and the node is a pure function of its input again.
+   - **The cost, stated plainly.** Auto makes the output content-dependent. Two masked brush regions
+     that see different extremes normalise differently, and along the edge where they meet that shows up
+     as a seam. The cure is ticking Explicit Window, so the answer to a seam is one checkbox rather than
+     a redesign — which is what makes the cheap default defensible.
+   - **The GPU had to grow a reduction.** A height window taken from the whole grid is not something a
+     pointwise kernel can compute, and declining the GPU for an auto-windowed Contrast was not an option:
+     a GPU bail is *graph-wide*, so the shipped default would have dropped every node in the graph to the
+     CPU. Auto therefore runs as three dispatches — a per-workgroup min/max reduction into shared memory
+     (`GRAPH_GRID_GLSL` mode 22), a fold of those pairs into a single pair (mode 23), then the existing
+     shaping pass reading the window from binding 3. Explicit Window still runs as one dispatch.
+   - **Gated** by `GraphDomainRangeGate` section CE: auto equals a hand-pinned window at the input's
+     extremes, the authored metres are provably dead while auto is on, and the GPU agrees with the CPU
+     to 2e-5 m. Verified windowed — headless has no RenderingDevice and the section reports NO-SIGNAL
+     there rather than passing silently.
+2. **`Transform` and world-space continuity.** ~~Should it warn inside a brush graph, or is the break
+   the whole point and the warning just noise?~~ **Answered 2026-08-30: warn inside a brush, stay silent
+   on a full terrain.** On a full-terrain graph there is no neighbouring region to disagree with, so the
+   break costs nothing and a warning there is the kind of noise users learn to ignore. Inside a brush
+   there *is* a neighbour, and the break reads as a seam.
+   - **How the node knows.** It does not, and deliberately. A new base hook `node_warnings_in_brush()`
+     (empty by default) is collected by `Pasture3DTerrainGraph.graph_warnings(p_in_brush)`, and the
+     *host* passes the flag — `Pasture3DNodeGraph` passes true. The context is an argument rather than
+     state on the resource because the same `.tres` is meant to drive a landscape AND sit in a brush;
+     caching it on the graph would make the warning depend on whichever host touched it last.
+   - An identity Transform is exempt: it relocates nothing, so there is nothing to disagree about.
+   - **Gated** by `GraphTransformGate` section TW, with the silent-on-terrain half and the identity case
+     both carried as controls.
 3. **`Mudslide` vs `Scree`.** ~~Both deposit loose material downslope and both output a shed/deposition
    mask. If in practice they read the same on screen, the batch is better off with twelve nodes than
    thirteen.~~ **Answered 2026-08-30: keep both.** `project/bench/GraphScreeMudslideAB.tscn` runs the A/B on

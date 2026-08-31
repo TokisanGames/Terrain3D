@@ -475,6 +475,52 @@ supposed to agree.
 
 ---
 
+### 3.5 A grid-wide statistic inside a pointwise kernel
+
+A node whose parameters depend on the *whole* input — an auto-normalised range, a global mean, a
+percentile — cannot be expressed as one pointwise dispatch, because no invocation can see beyond its own
+cell. There are three ways out and only one of them is acceptable.
+
+1. **Compute it on the CPU host and pass it in as a push constant.** Works only when the input is the
+   surface handed to the graph. It does NOT work in the general case, because the input to the node is
+   usually produced by an earlier dispatch and never leaves the GPU. Reaching for this and discovering
+   the value is not on the host is the common first wrong turn.
+2. **Decline the GPU for that node.** Almost always wrong, and worth stating in full because the cost is
+   invisible: a GPU bail is **graph-wide**, so declining one node drops *every* node in the graph to the
+   CPU. If the statistic is needed by a DEFAULT setting, this silently un-accelerates the common case.
+3. **Reduce on the GPU, in extra dispatches.** The plan is already a sequence of dispatches with barriers
+   (Smooth is two, the distance transform is log2(n)+3), so adding passes needs no new machinery.
+
+Contrast's auto height window took route 3, and it is the pattern to copy:
+
+- **Pass 1 — per workgroup.** Each 8x8 workgroup reduces its 64 cells through `shared` memory and writes
+  one pair into a scratch buffer. The partials are 2 floats per 64 cells, so a grid-sized buffer from the
+  existing `empty_buf()` always holds them.
+- **Pass 2 — fold the partials.** One workgroup strides the partials and folds them to a single pair.
+  Every other workgroup returns immediately. Dispatching the whole grid to keep 1/N of it busy looks
+  wasteful, and it is cheaper than plumbing a second dispatch size through a plan that assumes one.
+- **Pass 3 — the existing pointwise kernel**, reading the resolved pair from binding 3.
+
+Three things bite here, all of them silently:
+
+- **`barrier()` must be reached by every invocation in the workgroup.** The kernel's `if (ix >= p.gw ||
+  iz >= p.gh) return;` bounds guard runs before the mode switch, so an edge workgroup has invocations
+  that have already returned — and the ones that remain hang. The reduction modes therefore sit ABOVE
+  that guard and do their own bounds handling, feeding identity sentinels (`+1e30` / `-1e30`) for cells
+  outside the grid.
+- **Non-finite cells must be excluded from the reduction, not clamped into it.** A single NaN taken as a
+  min makes the whole window garbage, and NaN comparisons do not fail loudly — they produce a plateau.
+- **The empty case has to agree with the CPU.** When nothing in the grid is finite, both sides must
+  produce the same degenerate window and pass the input through. Deciding this in one place and
+  mirroring it is the whole job.
+
+And the MSVC trap this hit on the way: a single string literal is capped at 16380 bytes, so growing the
+shader source overflows `GRAPH_GRID_GLSL` with `error C2026: string too big`. The chunks are plain
+concatenation — split at any kernel boundary and add the new chunk to the `set_stage_source` expression.
+
+Gate it by comparing GPU against CPU **for the auto path specifically**, and run it windowed: headless
+has no local RenderingDevice, so a headless run proves nothing and must report NO-SIGNAL rather than pass.
+
 ## 4. Current Registry of Native Nodes (All 29 Production Nodes)
 
 | Category | Node Name | Op Tag | C++ Native Implementation | Whole-Graph Opcode |

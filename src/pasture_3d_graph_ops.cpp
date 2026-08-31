@@ -649,7 +649,7 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				PackedFloat32Array in_arr = get_grid_packed(in0[s]);
 				PackedFloat32Array msk_arr = (in1[s] >= 0) ? get_grid_packed(in1[s]) : PackedFloat32Array();
 				PackedFloat32Array res = contrast_grid(in_arr, msk_arr, (int)P[0], P[1],
-						P[2], P[3], P[4]);
+						P[2], P[3], P[4], P[5] > 0.5f);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
 			} break;
 

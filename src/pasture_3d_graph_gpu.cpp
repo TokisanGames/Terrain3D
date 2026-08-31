@@ -36,7 +36,7 @@ layout(push_constant, std430) uniform Params {
 	int mode; // 0 COPY, 1 BLEND, 2 SMOOTH_H, 3 SMOOTH_V, 4 FALLOFF, 5 CONTRAST,
 	          // 6 DT_SEED, 7 DT_JFA, 8 DT_RESOLVE, 9 DT_FINALIZE, 10 MORPH, 11 MORPH_BLEND,
 	          // 12 BOXMEAN_H, 13 BOXMEAN_V, 14 REL_ELEV, 15 SMOOTH_FILL, 16 RECAST_CLIFF,
-	          // 17 WARP_DOWNSLOPE, 18 GAVORONOISE
+	          // 17 WARP_DOWNSLOPE, 18 GAVORONOISE, 22 MINMAX_PARTIAL, 23 MINMAX_FINAL
 	int gw;
 	int gh;
 	int ip;   // BLEND: blend mode 0..4 | FALLOFF: shape 0..3 | CONTRAST: mode 0..1
@@ -76,9 +76,72 @@ float gavRnd01(uint h) {
 	return float(h & 0x00ffffffu) / 16777216.0;
 }
 
+// Contrast's AUTO height window needs the input's min/max over the WHOLE grid, which no pointwise
+// kernel can see. Reduced in two passes: mode 22 reduces each 8x8 workgroup to one pair via shared
+// memory, mode 23 folds those pairs into a single pair. Both run at the graph's normal dispatch size --
+// mode 23 simply idles every workgroup but the first, which is cheaper than plumbing a second dispatch
+// size through a plan that assumes one.
+shared float sMin[64];
+shared float sMax[64];
+
 void main() {
 	int ix = int(gl_GlobalInvocationID.x);
 	int iz = int(gl_GlobalInvocationID.y);
+
+	// These two run BEFORE the bounds guard below. barrier() must be reached by every invocation in the
+	// workgroup, and an edge workgroup has invocations outside the grid -- letting those return early
+	// would hang the ones that remain.
+	int lane = int(gl_LocalInvocationIndex);
+	if (p.mode == 22) { // PARTIAL MIN/MAX: one pair per workgroup. f0 = workgroup count.
+		bool inside = (ix < p.gw && iz < p.gh);
+		float v = inside ? a[iz * p.gw + ix] : 0.0;
+		bool ok = inside && !isnan(v) && !isinf(v);
+		sMin[lane] = ok ? v : 1.0e30;
+		sMax[lane] = ok ? v : -1.0e30;
+		barrier();
+		for (int stride = 32; stride > 0; stride >>= 1) {
+			if (lane < stride) {
+				sMin[lane] = min(sMin[lane], sMin[lane + stride]);
+				sMax[lane] = max(sMax[lane], sMax[lane + stride]);
+			}
+			barrier();
+		}
+		if (lane == 0) {
+			int wg = int(gl_WorkGroupID.y) * int(gl_NumWorkGroups.x) + int(gl_WorkGroupID.x);
+			int nwg = int(p.f0);
+			o[wg] = sMin[0];
+			o[nwg + wg] = sMax[0];
+		}
+		return;
+	}
+	if (p.mode == 23) { // FINAL MIN/MAX: fold the pairs into o[0], o[1]. f0 = workgroup count.
+		int nwg = int(p.f0);
+		if (gl_WorkGroupID.x != 0u || gl_WorkGroupID.y != 0u) { return; }
+		float lo = 1.0e30;
+		float hi = -1.0e30;
+		for (int k = lane; k < nwg; k += 64) {
+			lo = min(lo, a[k]);
+			hi = max(hi, a[nwg + k]);
+		}
+		sMin[lane] = lo;
+		sMax[lane] = hi;
+		barrier();
+		for (int stride = 32; stride > 0; stride >>= 1) {
+			if (lane < stride) {
+				sMin[lane] = min(sMin[lane], sMin[lane + stride]);
+				sMax[lane] = max(sMax[lane], sMax[lane + stride]);
+			}
+			barrier();
+		}
+		if (lane == 0) {
+			// Nothing finite in the whole grid: hand back an empty window, which the shaping pass reads
+			// as span <= 0 and passes through, exactly as the CPU kernel does.
+			if (sMin[0] > sMax[0]) { o[0] = 0.0; o[1] = 0.0; }
+			else { o[0] = sMin[0]; o[1] = sMax[0]; }
+		}
+		return;
+	}
+
 	if (ix >= p.gw || iz >= p.gh) { return; }
 	int i = iz * p.gw + ix;
 
@@ -119,7 +182,9 @@ void main() {
 		o[i] = s / w;
 		return;
 	}
-	if (p.mode == 4) { // FALLOFF: f0 centre_x, f1 centre_z, f2 radius, f3 feather,
+)";
+
+static const char *GRAPH_GRID_GLSL_1B = R"(	if (p.mode == 4) { // FALLOFF: f0 centre_x, f1 centre_z, f2 radius, f3 feather,
 	                   //          f4 strength, f5 invert, f6 distance_noise. b = the noise grid.
 		float v = a[i];
 		if (isnan(v)) { o[i] = v; return; }
@@ -143,18 +208,22 @@ void main() {
 		return;
 	}
 	if (p.mode == 5) { // CONTRAST: f0 amount, f1 range_min, f2 range_max, f3 mask_amount. b = mask grid.
+	                   // f6 = 0 means AUTO: the window was reduced into cbuf[0], cbuf[1] by modes 22/23
+	                   // and f1/f2 are ignored. f6 = 1 means the authored metres are used verbatim.
 		float v = a[i];
 		if (isnan(v)) { o[i] = v; return; }
-		float span = p.f2 - p.f1;
+		float lo = (p.f6 > 0.5) ? p.f1 : c[0];
+		float hi = (p.f6 > 0.5) ? p.f2 : c[1];
+		float span = hi - lo;
 		// A degenerate window, and heights outside the window, pass through. Clamping into the window
 		// would flatten every peak above it into a plateau.
-		if (span <= 0.0 || v <= p.f1 || v >= p.f2) { o[i] = v; return; }
-		float t = (v - p.f1) / span;
-		float c;
-		if (p.ip == 1) { c = pow(t, p.f0); }
-		else if (t < 0.5) { c = 0.5 * pow(2.0 * t, p.f0); }
-		else { c = 1.0 - 0.5 * pow(2.0 - 2.0 * t, p.f0); }
-		float shaped = p.f1 + c * span;
+		if (span <= 0.0 || v <= lo || v >= hi) { o[i] = v; return; }
+		float t = (v - lo) / span;
+		float cv;
+		if (p.ip == 1) { cv = pow(t, p.f0); }
+		else if (t < 0.5) { cv = 0.5 * pow(2.0 * t, p.f0); }
+		else { cv = 1.0 - 0.5 * pow(2.0 - 2.0 * t, p.f0); }
+		float shaped = lo + cv * span;
 		float w = p.f3;
 		// f7 flags whether a mask is actually wired. Without it an unwired port would bind the zero
 		// buffer and multiply the shaping away entirely, which is the opposite of "no mask".
@@ -711,7 +780,7 @@ bool Pasture3DGraphGPU::_ensure_init() {
 	}
 	Ref<RDShaderSource> src;
 	src.instantiate();
-	src->set_stage_source(RenderingDevice::SHADER_STAGE_COMPUTE, String(GRAPH_GRID_GLSL) + String(GRAPH_GRID_GLSL_2) + String(GRAPH_GRID_GLSL_3));
+	src->set_stage_source(RenderingDevice::SHADER_STAGE_COMPUTE, String(GRAPH_GRID_GLSL) + String(GRAPH_GRID_GLSL_1B) + String(GRAPH_GRID_GLSL_2) + String(GRAPH_GRID_GLSL_3));
 	Ref<RDShaderSPIRV> spirv = _rd->shader_compile_spirv_from_source(src);
 	if (spirv.is_null() || !spirv->get_stage_compile_error(RenderingDevice::SHADER_STAGE_COMPUTE).is_empty()) {
 		// The compile log goes into the warning. Without it a shader typo is indistinguishable from "no
@@ -987,13 +1056,39 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 			case GRAPH_OP_CONTRAST: {
 				// Spec §4.3. An unwired mask port binds the zero buffer; the shader reads a 0 there as
 				// "no shaping", matching the CPU kernel's behaviour for a wired but empty mask.
+				const RID src = in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf;
+				const bool explicit_window = p_prog.params_f[s] > 0.5f;
+
+				// AUTO window (the default): two reduction dispatches ahead of the shaping pass, whose
+				// result the shaping pass reads from binding 3. The alternative -- declining the GPU for
+				// an auto-windowed Contrast -- would drop the WHOLE graph to the CPU on a default
+				// setting, because a bail here is graph-wide.
+				RID window = zero_buf;
+				if (!explicit_window) {
+					const int nwg = ((p_gw + 7) / 8) * ((p_gh + 7) / 8);
+					// The partials are 2 floats per workgroup and a workgroup covers 64 cells, so they
+					// always fit inside a grid-sized buffer.
+					const RID partials = empty_buf();
+					window = empty_buf();
+					if (!partials.is_valid() || !window.is_valid()) {
+						return fail();
+					}
+					GraphDispatch r1{ partials, src, zero_buf, zero_buf, 22, 0 };
+					r1.f0 = (float)nwg;
+					plan.push_back(r1);
+					GraphDispatch r2{ window, partials, zero_buf, zero_buf, 23, 0 };
+					r2.f0 = (float)nwg;
+					plan.push_back(r2);
+				}
+
 				const RID out = empty_buf();
-				GraphDispatch d{ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf,
-					in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, zero_buf, 5, (int)p_prog.params[s] };
+				GraphDispatch d{ out, src,
+					in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, window, 5, (int)p_prog.params[s] };
 				d.f0 = std::max(p_prog.params_b[s], 0.001f); // amount
 				d.f1 = p_prog.params_c[s]; // range_min
 				d.f2 = p_prog.params_d[s]; // range_max
 				d.f3 = std::clamp(p_prog.params_e[s], 0.0f, 1.0f); // mask_amount
+				d.f6 = explicit_window ? 1.0f : 0.0f;
 				d.f7 = (in1[s] >= 0) ? 1.0f : 0.0f; // mask wired?
 				plan.push_back(d);
 				slot_buf[s] = out;

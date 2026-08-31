@@ -1294,7 +1294,7 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				pg = 1.0 if bool(node.get("invert")) else 0.0
 				ph = _f.call(&"distance_noise", 0.0)
 			&"contrast":
-				op_id = 45; p0 = float(_i.call(&"mode", 0)); pb = _f.call(&"amount", 1.0); pc = _f.call(&"range_min", 0.0); pd = _f.call(&"range_max", 100.0); pe = _f.call(&"mask_amount", 1.0)
+				op_id = 45; p0 = float(_i.call(&"mode", 0)); pb = _f.call(&"amount", 1.0); pc = _f.call(&"range_min", 0.0); pd = _f.call(&"range_max", 100.0); pe = _f.call(&"mask_amount", 1.0); pf = 1.0 if bool(node.get("explicit_window")) else 0.0
 			&"transform":
 				op_id = 46
 				var toff: Vector2 = node.get("offset") if node.get("offset") != null else Vector2.ZERO
@@ -1812,7 +1812,9 @@ func has_cycle() -> bool:
 
 ## Problems worth telling the user about, for a host's configuration warnings: a missing output, a cycle,
 ## a null node, an unwired required input, plus each node's own complaints.
-func graph_warnings() -> PackedStringArray:
+## `p_in_brush` is passed by the host, not stored on the graph: the same .tres is meant to drive a whole
+## landscape AND sit in a brush, so "am I in a brush" is a fact about the caller and cannot be cached here.
+func graph_warnings(p_in_brush: bool = false) -> PackedStringArray:
 	var w := PackedStringArray()
 	if output_index() < 0 or output_index() >= nodes.size():
 		w.append("Terrain graph has no output node set. Add an Output node (or Set as Output on a node), "
@@ -1837,4 +1839,6 @@ func graph_warnings() -> PackedStringArray:
 				var pname: String = names[p] if p < names.size() else str(p)
 				w.append("%s: input '%s' is unconnected and reads 0." % [node.display_name(), pname])
 		w.append_array(node.node_warnings())
+		if p_in_brush:
+			w.append_array(node.node_warnings_in_brush())
 	return w

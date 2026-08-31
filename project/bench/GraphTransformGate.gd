@@ -39,6 +39,7 @@ func _ready() -> void:
 	_tc_rotation_about_pivot()
 	_td_nan_is_not_smeared()
 	_tp_native_matches_oracle()
+	_tw_brush_context_warning()
 	print("\n=== %s (%d failures) ===\n" % ["TRANSFORM PASS" if _fail == 0 else "TRANSFORM FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -202,6 +203,64 @@ func _tp_native_matches_oracle() -> void:
 		_fail += 1; print("    !! control dead — the oracle returned the input unchanged")
 
 
+# --- TW. the brush-context warning (spec §11 q2, settled 2026-08-30) -----------------------------------
+# Every generator samples in WORLD XZ, which is what lets two masked brush regions agree where they meet.
+# Transform breaks that for its subtree. On a full-terrain graph that is the node doing its job and there
+# is nothing to disagree with, so it must stay SILENT there; inside a brush there is a neighbour and the
+# break reads as a seam, so it says so once.
+#
+# The context is an argument, not state on the graph: the same .tres is meant to drive a landscape AND
+# sit in a brush, so caching "am I in a brush" on the resource would make the warning depend on whichever
+# host touched it last.
+func _tw_brush_context_warning() -> void:
+	print("[TW] Transform warns inside a brush graph and stays silent on a full terrain")
+	var n := Pasture3DGraphNodeTransform.new()
+	n.offset = Vector2(40.0, 0.0)
+	var g := _build_graph([n])
+
+	var terrain_w := g.graph_warnings(false)
+	var brush_w := g.graph_warnings(true)
+	var in_terrain := _mentions(terrain_w, "world XZ")
+	var in_brush := _mentions(brush_w, "world XZ")
+	print("    a moved Transform: full-terrain graph warns = %s (want false), brush graph warns = %s (want true)"
+		% [in_terrain, in_brush])
+	if in_terrain:
+		_fail += 1
+		print("    !! it warns on a full terrain, where the break costs nothing — that is the noise the")
+		print("       decision was made to avoid, and users learn to ignore a tray that cries wolf")
+	if not in_brush:
+		_fail += 1
+		print("    !! it stays silent inside a brush, so a seam between two footprints goes unannounced")
+
+	# CONTROL. An identity Transform relocates nothing, so there is nothing to disagree about and it must
+	# stay silent even in a brush. Without this, a warning hardwired to fire would pass both lines above.
+	var idn := Pasture3DGraphNodeTransform.new()
+	var ident_w := _build_graph([idn]).graph_warnings(true)
+	var ident_warns := _mentions(ident_w, "world XZ")
+	print("    CONTROL an identity Transform in a brush warns = %s (want false)" % ident_warns)
+	if ident_warns:
+		_fail += 1
+		print("    !! the warning fires regardless of what the node does, so it carries no information")
+
+	# CONTROL. The brush call must not simply return everything the terrain call does plus noise: the
+	# ordinary warnings have to survive the new argument unchanged.
+	var idn2 := Pasture3DGraphNodeTransform.new()
+	var idg := _build_graph([idn2])
+	var ok_shared: bool = _mentions(idg.graph_warnings(false), "identity") \
+			and _mentions(idg.graph_warnings(true), "identity")
+	print("    CONTROL the ordinary warnings still fire in both contexts = %s" % ok_shared)
+	if not ok_shared:
+		_fail += 1
+		print("    !! the context argument dropped the node's normal warnings")
+
+
+func _mentions(p_w: PackedStringArray, p_needle: String) -> bool:
+	for line in p_w:
+		if line.contains(p_needle):
+			return true
+	return false
+
+
 # --- helpers ------------------------------------------------------------------------------------------
 func _eval(p_surf: PackedFloat32Array, p_off: Vector2, p_rot: float, p_scale: float,
 		p_pivot: Vector2) -> PackedFloat32Array:
@@ -233,6 +292,11 @@ func _eval_inverse(p_surf: PackedFloat32Array, p_off: Vector2, p_rot: float, p_s
 
 
 func _chain(p_mid: Array, p_surf: PackedFloat32Array) -> PackedFloat32Array:
+	return _build_graph(p_mid).evaluate(GW, GH, RECT, null, p_surf)
+
+
+## Split out of `_chain` so section TW can interrogate a graph's WARNINGS without evaluating it.
+func _build_graph(p_mid: Array) -> Pasture3DTerrainGraph:
 	var g := Pasture3DTerrainGraph.new()
 	var nodes: Array[Pasture3DGraphNode] = [Pasture3DGraphNodeInput.new()]
 	for m in p_mid:
@@ -243,7 +307,7 @@ func _chain(p_mid: Array, p_surf: PackedFloat32Array) -> PackedFloat32Array:
 	for i in range(nodes.size() - 1):
 		conns.append(PackedInt32Array([i, 0, i + 1, 0]))
 	g.connections = conns
-	return g.evaluate(GW, GH, RECT, null, p_surf)
+	return g
 
 
 ## Asymmetric bumps: rotation-detectable (a radially symmetric fixture would look unchanged under any

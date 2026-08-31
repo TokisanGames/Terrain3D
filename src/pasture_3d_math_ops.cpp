@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 using namespace godot;
 
@@ -270,7 +271,8 @@ PackedFloat32Array godot::falloff_grid(const PackedFloat32Array &p_surface, cons
 // Mirrors Pasture3DGraphNodeContrast.eval_cell. Heights OUTSIDE the window pass through untouched rather
 // than being clamped into it — clamping would flatten every peak above the window into a plateau.
 PackedFloat32Array godot::contrast_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
-		int p_mode, double p_amount, double p_range_min, double p_range_max, double p_mask_amount) {
+		int p_mode, double p_amount, double p_range_min, double p_range_max, double p_mask_amount,
+		bool p_explicit_window) {
 	const int n = p_surface.size();
 	PackedFloat32Array result;
 	result.resize(n);
@@ -282,7 +284,28 @@ PackedFloat32Array godot::contrast_grid(const PackedFloat32Array &p_surface, con
 	const float *msk = (p_mask.size() == n) ? p_mask.ptr() : nullptr;
 	float *dst = result.ptrw();
 
-	const double span = p_range_max - p_range_min;
+	// Mirrors Pasture3DGraphNodeContrast.resolve_window: the authored metres, or the surface's own finite
+	// extremes. Auto is the default, so the common path pays one linear scan before the shaping loop.
+	double lo = p_range_min;
+	double hi = p_range_max;
+	if (!p_explicit_window) {
+		lo = std::numeric_limits<double>::infinity();
+		hi = -std::numeric_limits<double>::infinity();
+		for (int i = 0; i < n; i++) {
+			const double v = (double)src[i];
+			if (std::isfinite(v)) {
+				lo = std::min(lo, v);
+				hi = std::max(hi, v);
+			}
+		}
+		if (!std::isfinite(lo) || !std::isfinite(hi)) {
+			// Nothing finite to measure. Pass through rather than invent a window.
+			std::copy(src, src + n, dst);
+			return result;
+		}
+	}
+
+	const double span = hi - lo;
 	if (span <= 0.0) {
 		// A degenerate window has no defined normalisation; pass through rather than invent one.
 		std::copy(src, src + n, dst);
@@ -299,12 +322,12 @@ PackedFloat32Array godot::contrast_grid(const PackedFloat32Array &p_surface, con
 				dst[i] = src[i];
 				continue;
 			}
-			if (v <= p_range_min || v >= p_range_max) {
+			if (v <= lo || v >= hi) {
 				dst[i] = src[i];
 				continue;
 			}
 
-			const double t = (v - p_range_min) / span;
+			const double t = (v - lo) / span;
 			double c;
 			if (p_mode == GRAPH_CONTRAST_GAMMA) {
 				c = std::pow(t, amount);
@@ -314,7 +337,7 @@ PackedFloat32Array godot::contrast_grid(const PackedFloat32Array &p_surface, con
 				c = 1.0 - 0.5 * std::pow(2.0 - 2.0 * t, amount);
 			}
 
-			const double shaped = p_range_min + c * span;
+			const double shaped = lo + c * span;
 			double w = mask_amount;
 			if (msk != nullptr && std::isfinite(msk[i])) {
 				w *= (double)msk[i];

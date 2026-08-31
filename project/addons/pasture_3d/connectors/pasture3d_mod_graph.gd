@@ -258,5 +258,5 @@ func modifier_warnings(_p_host) -> PackedStringArray:
 	if evaluation == Evaluation.FROZEN and not _cache.is_empty():
 		w.append("%s holds %.1f MB of cached graph output. Press Bake Graph to re-evaluate it."
 			% [display_name(), cache_bytes() / 1048576.0])
-	w.append_array(graph.graph_warnings())
+	w.append_array(graph.graph_warnings(true))
 	return w

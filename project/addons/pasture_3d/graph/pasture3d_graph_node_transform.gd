@@ -134,6 +134,25 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) ->
 	return res
 
 
+## Spec §11 q2, settled 2026-08-30: warn in a brush, stay silent on a full terrain.
+##
+## Every generator in the graph samples in WORLD XZ, which is what makes two masked brush regions agree
+## where they meet. Transform deliberately breaks that agreement for its subtree — on a full-terrain
+## graph that is simply the node doing its job and there is no neighbour to disagree with, so warning
+## there would be noise. Inside a brush there IS a neighbour, and the break shows up as a seam, so it is
+## worth one line. Only an identity Transform is exempt, because it relocates nothing.
+func node_warnings_in_brush() -> PackedStringArray:
+	var w := PackedStringArray()
+	if offset == Vector2.ZERO and is_zero_approx(rotation_deg) and is_equal_approx(scale, 1.0):
+		return w
+	if is_zero_approx(amount):
+		return w
+	w.append(("%s: this graph is inside a brush, and Transform moves its subtree out of world XZ. "
+		+ "Two brush regions sharing an edge will no longer agree there — expect a seam. Intentional "
+		+ "inside a single isolated footprint; a defect where footprints meet.") % display_name())
+	return w
+
+
 func node_warnings() -> PackedStringArray:
 	var w := PackedStringArray()
 	if is_zero_approx(amount):

@@ -42,8 +42,11 @@ PackedFloat32Array falloff_grid(const PackedFloat32Array &p_surface, const Packe
 
 // Contrast (spec §4.3). Gain / gamma on a height WINDOW, because Pasture3D heights are metres and a raw
 // pow() on a metre value is meaningless (and NaN for negative terrain).
+// `p_explicit_window` false = auto-window to the surface's own finite min/max for this call (the default
+// authoring mode); true = use p_range_min/p_range_max verbatim, in metres.
 PackedFloat32Array contrast_grid(const PackedFloat32Array &p_surface, const PackedFloat32Array &p_mask,
-		int p_mode, double p_amount, double p_range_min, double p_range_max, double p_mask_amount);
+		int p_mode, double p_amount, double p_range_min, double p_range_max, double p_mask_amount,
+		bool p_explicit_window);
 
 PackedFloat32Array mask_grid(const PackedFloat32Array &p_surface, int p_gw, int p_gh,
 		const Rect2 &p_rect, int p_property, double p_band_min, double p_band_max,

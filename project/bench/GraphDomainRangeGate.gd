@@ -46,6 +46,7 @@ func _ready() -> void:
 	_cb_outside_window_untouched()
 	_cc_negative_heights_are_not_nan()
 	_cd_contrast_gpu_path_runs()
+	_ce_auto_window()
 	print("\n=== %s (%d failures) ===\n" % ["DOMAIN/RANGE PASS" if _fail == 0 else "DOMAIN/RANGE FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -278,6 +279,88 @@ func _cd_contrast_gpu_path_runs() -> void:
 			_fail += 1; print("    !! NO-SIGNAL — the GPU returned the input unchanged (mask nulled the shaping?)")
 
 
+# --- CE. the AUTO height window (spec §11 q1, settled 2026-08-30) --------------------------------------
+# The shipped default windows to the input's own min/max for that bake instead of to authored metres.
+# Three things have to hold, and the third is the one that bites: the window must actually be the
+# input's extremes, the authored Range Min / Range Max must be IGNORED while auto is on, and the GPU
+# kernel must reach the same answer as the CPU. Auto-windowing is a whole-grid reduction, which a
+# pointwise kernel cannot do — it runs as two extra dispatches — so a CPU/GPU split here would be
+# invisible until a terrain crossed the GPU cell threshold.
+func _ce_auto_window() -> void:
+	print("[CE] the auto window is the input's own extremes, and the GPU agrees")
+	var surf := _ramp_positive()
+	var lo := INF
+	var hi := -INF
+	for v in surf:
+		lo = minf(lo, v)
+		hi = maxf(hi, v)
+	print("    the input spans %.3f .. %.3f m" % [lo, hi])
+
+	for mode in [0, 1]:
+		# Authored metres deliberately WRONG for this input, so honouring them would show up loudly.
+		var g := _contrast_graph(mode, 2.5, -900.0, -800.0, false)
+		var auto_out: PackedFloat32Array = g.evaluate(GW, GH, RECT, null, surf)
+
+		# What the same node computes when the input's extremes are authored by hand. If auto is doing
+		# what it claims, these are the same field.
+		var pinned := _eval_contrast(surf, mode, 2.5, lo, hi)
+		var d := _max_abs_diff(auto_out, pinned)
+		print("    mode %d: max |auto - hand-pinned window| = %.7f (want < %.7f)" % [mode, d, EPS])
+		if d > EPS:
+			_fail += 1
+			print("    !! auto did not window to the input's extremes")
+
+		# CONTROL. Everything above is also satisfied by a node that shapes nothing at all — the two
+		# would agree at zero. The shaping has to be visible.
+		var amp := _max_abs_diff(auto_out, surf)
+		print("    mode %d: CONTROL the auto window shaped the field by %.3f m (want > 0.5)" % [mode, amp])
+		if amp <= 0.5:
+			_fail += 1
+			print("    !! NO-SIGNAL — auto returned the input untouched, so the agreement above is vacuous")
+
+		# CONTROL. The authored metres must be dead while auto is on. Same absurd window, Explicit ON:
+		# it selects nothing in this input, so the node passes through. If THIS also shapes the field,
+		# the flag is not being read and the agreement above happened for some other reason.
+		var ignored := _eval_contrast(surf, mode, 2.5, -900.0, -800.0)
+		var moved := _max_abs_diff(ignored, surf)
+		print("    mode %d: CONTROL the same window with Explicit ON moves %.7f m (want ~0)" % [mode, moved])
+		if moved > EPS:
+			_fail += 1
+			print("    !! an explicit window far below the input still shaped it")
+
+	# The GPU half. Two extra dispatches reduce the grid before the shaping pass; if that reduction is
+	# wrong the CPU and GPU disagree only for auto-windowed nodes, and only above the GPU threshold.
+	if not ClassDB.class_has_method("Pasture3DUtil", "graph_eval_grid_gpu"):
+		_fail += 1
+		print("    !! Pasture3DUtil.graph_eval_grid_gpu is missing — the DLL is stale")
+		return
+	for mode in [0, 1]:
+		var g := _contrast_graph(mode, 2.5, -900.0, -800.0, false)
+		var gpu: PackedFloat32Array = Pasture3DUtil.graph_eval_grid_gpu(
+				g.compile_graph_program(), GW, GH, RECT, surf)
+		if gpu.is_empty():
+			var control: PackedFloat32Array = Pasture3DUtil.graph_eval_grid_gpu(
+					_io_graph().compile_graph_program(), GW, GH, RECT, surf)
+			if control.is_empty():
+				print("    NO-SIGNAL: no local RenderingDevice — GPU route unverified. Re-run windowed.")
+				return
+			_fail += 1
+			print("    !! mode %d: the GPU bailed on an auto-windowed Contrast. The bail is graph-wide," % mode)
+			print("       so the DEFAULT setting would drop every node in the graph to the CPU.")
+			continue
+		var cpu: PackedFloat32Array = g.evaluate(GW, GH, RECT, null, surf)
+		var d := _max_abs_diff(gpu, cpu)
+		print("    mode %d: max |gpu auto - cpu auto| = %.7f (want < %.7f)" % [mode, d, GPU_TOL])
+		if d > GPU_TOL:
+			_fail += 1
+			print("    !! the GPU min/max reduction disagrees with the CPU window")
+		var amp := _max_abs_diff(gpu, surf)
+		print("    mode %d: CONTROL the GPU shaped the field by %.3f m (want > 0.5)" % [mode, amp])
+		if amp <= 0.5:
+			_fail += 1
+			print("    !! NO-SIGNAL — the GPU returned the input unchanged")
+
+
 # --- helpers ------------------------------------------------------------------------------------------
 ## The one Falloff configuration every criterion here shares, as a graph, so FD can hand the SAME graph
 ## to the GPU evaluator directly instead of hoping evaluate() routed it there.
@@ -294,10 +377,14 @@ func _eval_falloff(p_surf: PackedFloat32Array, p_strength: float) -> PackedFloat
 	return _falloff_graph(p_strength).evaluate(GW, GH, RECT, null, p_surf)
 
 
-func _contrast_graph(p_mode: int, p_amount: float, p_lo: float, p_hi: float) -> Pasture3DTerrainGraph:
+## Sections CA-CD all assert behaviour of an AUTHORED window, so they pin Explicit Window on. Auto is
+## the shipped default and is section CE's subject.
+func _contrast_graph(p_mode: int, p_amount: float, p_lo: float, p_hi: float,
+		p_explicit: bool = true) -> Pasture3DTerrainGraph:
 	var n := Pasture3DGraphNodeContrast.new()
 	n.mode = p_mode
 	n.amount = p_amount
+	n.explicit_window = p_explicit
 	n.range_min = p_lo
 	n.range_max = p_hi
 	return _build_graph([n])

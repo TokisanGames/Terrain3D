@@ -250,6 +250,15 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -
 	return (p_inputs[0] as PackedFloat32Array) if p_inputs.size() > 0 else Pasture3DGraphOps.zeros(p_gw * p_gh)
 
 
+## Problems that only exist when this graph runs inside a BRUSH, where the footprint is one masked
+## region among several and neighbouring regions have to agree where they meet. Kept apart from
+## `node_warnings` because the same graph resource is meant to be reusable: what is a defect in a brush
+## can be the whole point on a full terrain, and a warning that fires in both places is one users learn
+## to ignore. Empty = nothing to say.
+func node_warnings_in_brush() -> PackedStringArray:
+	return PackedStringArray()
+
+
 ## Problems worth surfacing in the graph's configuration warnings (an unassigned noise, a zero pass
 ## count). Empty = nothing to say.
 func node_warnings() -> PackedStringArray:
