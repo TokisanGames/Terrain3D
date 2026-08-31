@@ -225,3 +225,10 @@ bench/GraphLiveNotifyProbe.tscn
 # The native whole-graph path skips the node entirely, so freezing was silently a no-op for every solver
 # in the allow-list. Swept from the registry so a new solver is covered the day it appears.
 bench/GraphFrozenSolverGate.tscn
+
+# --- Road system P0: the data model and its resolve chain (PASTURE3D_ROAD_SYSTEM_PROPOSAL.md §11) ---
+# Nothing here touches the terrain — P0 is the model. What it pins is what the later phases build on and
+# could not cheaply revisit: nearest-level resolution, clear-re-inherits (the defect that killed the
+# push-down design), arc-length segment overrides surviving a spline point insertion, and exclusion by
+# reference surviving a catalogue reorder.
+bench/RoadModelGate.tscn
