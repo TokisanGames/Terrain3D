@@ -144,7 +144,20 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 			var shoulder: float = _at(p_shoulder, si, 0.5)
 			var verge: float = _at(p_verge, si, 4.0)
 			var edge_d := half + shoulder
-			var reach := edge_d + verge
+			# THE CORRIDOR IS AS WIDE AS THE BATTER NEEDS, plus the verge.
+			#
+			# It used to be `edge_d + verge`, which silently CLIPPED the batter: a 20 m cut with a 1:1
+			# batter needs 20 m of run, and with a 4 m verge it got 4 — the remaining 16 m became a sheer
+			# vertical wall down the side of the road. It looked like a canyon and reported no error,
+			# because a clipped batter is still a legal height field.
+			#
+			# The run needed is (height to make up) / (batter slope), so it is computed here rather than
+			# authored. `verge` keeps its meaning — disturbed ground BEYOND where the batter lands — and
+			# stops being an accidental cap on how deep a cutting may be.
+			var z_ref: float = p_alignment.height_at(s)
+			var rise := absf(z_ref - ground)
+			var slope: float = cut_batter if z_ref < ground else fill_batter
+			var reach := edge_d + rise / slope + verge
 			if d > reach:
 				continue
 
@@ -184,6 +197,8 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 				m_bed[idx] = 1.0
 			elif d > edge_d:
 				m_verge[idx] = 1.0
+			if d > edge_d and absf(h - ground) <= EARTHWORK_EPSILON:
+				m_verge[idx] = 1.0 # past the batter toe: disturbed ground the road did not have to move
 			var delta := h - ground
 			if delta > EARTHWORK_EPSILON:
 				m_fill[idx] = 1.0

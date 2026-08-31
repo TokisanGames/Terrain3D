@@ -24,6 +24,7 @@ func _ready() -> void:
 	_d_masks_partition_the_corridor()
 	_e_a_bridge_does_not_touch_the_ground()
 	_f_nan_outside_the_loop_survives()
+	_g_a_deep_cut_is_not_clipped_into_a_wall()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD GRADER PASS" if _fail == 0 else "ROAD GRADER FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -408,3 +409,77 @@ func _f_nan_outside_the_loop_survives() -> void:
 			% ok["height"][holes[0]])
 	if absf(ok["height"][holes[0]] + 5.0) > 1e-3:
 		_fail += 1; print("    !! the control cell was not on the road, so the passthrough proves nothing")
+
+
+# ---- G ------------------------------------------------------------------------------------------
+
+func _g_a_deep_cut_is_not_clipped_into_a_wall() -> void:
+	print("[G] a deep cut runs its batter out to the ground instead of ending in a wall")
+	# The bug this criterion exists for: the corridor was `half + shoulder + verge` wide, so a cut deeper
+	# than the verge could absorb ended in a sheer vertical drop — legal as a height field, invisible to
+	# every other criterion here, and unmistakable in the viewport as a canyon. Every earlier fixture
+	# happened to use a verge wide enough to contain its batter, which is exactly why they all passed.
+	var gw := 161
+	var gh := 40
+	var min_x := -80.0
+	var min_z := 0.0
+	var depth := 20.0
+	var ground := _plane(gw, gh, min_x, depth, 0.0) # ground 20 m ABOVE a road held at 0
+	var n_s := 60
+	var a := _level_alignment(n_s, 0.0)
+	var half := 5.0
+	var shoulder := 1.0
+	var verge := 4.0 # far too narrow to contain a 20 m batter — that is the point
+	var res := Pasture3DRoadGrader.grade(ground, gw, gh, min_x, min_z, VS,
+			_straight_plan(float(n_s - 1)), a, _widths(n_s, half), _widths(n_s, shoulder),
+			_widths(n_s, verge), PackedByteArray(),
+			{"crown": 0.0, "cut_batter": 1.0, "fill_batter": 1.0})
+	var h: PackedFloat32Array = res["height"]
+
+	# No step between neighbouring cells may exceed the batter slope itself (1.0 per metre here), plus a
+	# little for the cell where the batter meets the ground. A clipped batter shows up as one ~14 m step.
+	var worst_step := 0.0
+	var worst_x := 0.0
+	var iz := 20
+	for ix in range(1, gw):
+		var step := absf(h[iz * gw + ix] - h[iz * gw + ix - 1])
+		if step > worst_step:
+			worst_step = step
+			worst_x = min_x + float(ix) * VS
+	print("    steepest cell-to-cell step across the corridor: %.3f m at x=%.0f (batter is 1.0/m)"
+			% [worst_step, worst_x])
+	if worst_step > 1.5:
+		_fail += 1; print("    !! there is a wall in the cross-section — the batter was clipped")
+
+	# And it genuinely reached the ground: far out, the terrain is untouched.
+	var far := h[_at(gw, min_x, min_z, 60.0, 20.0)]
+	var toe := edge_toe(half + shoulder, depth, 1.0)
+	print("    the batter toe is at %.0f m out; at 60 m the ground is %.3f (want %.1f, untouched)"
+			% [toe, far, depth])
+	if absf(far - depth) > 1e-3:
+		_fail += 1; print("    !! the road disturbed ground well past its batter")
+
+	# CONTROL: the same road on ground it barely has to cut has a SHORT batter, so [G] is reading the
+	# depth rather than always grading out to the edge of the grid.
+	var shallow := _plane(gw, gh, min_x, 1.0, 0.0)
+	var sres: Dictionary = Pasture3DRoadGrader.grade(shallow, gw, gh, min_x, min_z, VS,
+			_straight_plan(float(n_s - 1)), a, _widths(n_s, half), _widths(n_s, shoulder),
+			_widths(n_s, verge), PackedByteArray(),
+			{"crown": 0.0, "cut_batter": 1.0, "fill_batter": 1.0})
+	var sh: PackedFloat32Array = sres["height"]
+	var touched_deep := 0
+	var touched_shallow := 0
+	for ix in gw:
+		if absf(h[iz * gw + ix] - ground[iz * gw + ix]) > 1e-3:
+			touched_deep += 1
+		if absf(sh[iz * gw + ix] - shallow[iz * gw + ix]) > 1e-3:
+			touched_shallow += 1
+	print("    control: a 20 m cut disturbs %d cells across, a 1 m cut disturbs %d"
+			% [touched_deep, touched_shallow])
+	if touched_shallow >= touched_deep:
+		_fail += 1; print("    !! corridor width does not follow the depth of the cut")
+
+
+## Where a batter of `p_slope` starting at `p_edge` metres out lands, for a cut of `p_depth`.
+func edge_toe(p_edge: float, p_depth: float, p_slope: float) -> float:
+	return p_edge + p_depth / p_slope

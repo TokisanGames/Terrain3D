@@ -268,9 +268,30 @@ func _is_closed() -> bool:
 	return closed
 
 
+## Half the corridor, INCLUDING the batter run.
+##
+## The batter reaches (height to make up) / (batter slope) past the formation, so a deep cut needs a much
+## wider footprint than the road's own width suggests. Getting this wrong does not crop the batter neatly
+## — the grid simply ends and leaves a wall at its edge, which is the same artefact a clipped verge
+## produced. The allowance is the worst offset the LAST bake actually produced where that is known, and
+## the modifier's structure threshold before then, because that is the depth past which the user is being
+## told to bridge anyway.
 func _padding() -> float:
 	var t := resolved_road_type()
-	return (t.disturbed_width(resolved_lane_count()) * 0.5 + 2.0) if t != null else 16.0
+	if t == null:
+		return 16.0
+	var allowance := 8.0
+	var batter := minf(t.cut_batter, t.fill_batter)
+	for m in modifiers:
+		if m is Pasture3DNodeRoad and m.is_active():
+			var road_mod: Pasture3DNodeRoad = m
+			allowance = maxf(allowance, road_mod.structure_threshold)
+			allowance = maxf(allowance, road_mod._deepest_structure())
+			if road_mod.cut_batter_override >= 0.0:
+				batter = minf(batter, road_mod.cut_batter_override)
+			if road_mod.fill_batter_override >= 0.0:
+				batter = minf(batter, road_mod.fill_batter_override)
+	return t.disturbed_width(resolved_lane_count()) * 0.5 + allowance / maxf(batter, 0.05) + 2.0
 
 
 ## Starter shape: a straight run, matching Ridge's.
