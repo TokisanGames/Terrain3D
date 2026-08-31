@@ -434,6 +434,41 @@ catastrophic: 0 means every cell is on the road, so a downstream `Road Grade` fl
 to it; INF turns every downstream arithmetic node into NAN and never recovers. `unreachable_distance`
 defaults to 10 km.
 
+**A road did not survive being saved.** Reported as "the ribbons and assets have to be regenerated
+every time I launch the editor", and the diagnosis is worth keeping because the missing piece was not
+where the symptom was.
+
+Almost everything a road produces DOES save: the heightmap it graded, the surface it painted, the
+junction records, the lane connectors, the baked runtime. Two things did not. The chunk hosts are built
+output and are deliberately unowned by the edited scene — that part is right, and a few thousand
+vertices per road in the .tscn would be worse. But `last_alignment`, the SOLVED VERTICAL PROFILE, was a
+plain var, and it is what every downstream read goes through: `build_run`, `graph_path`, the ribbon
+mesher, the lane graph, `corridor_ahead`, the pace notes. So a reloaded road was drawn into the terrain
+and could answer nothing about itself, and nothing could rebuild the mesh even if it had been asked to.
+
+And nothing asked. `build_chunks` is reached only from `resolve_junctions`, which is reached only from a
+brush finishing a bake — so the ribbon existed for exactly as long as the editor session that baked it.
+
+Two changes, and the split between them matters. `Pasture3DNodeRoad.last_alignment` is now exported, so
+the profile survives; `Pasture3DRoadNetwork.restore_built_output` rebuilds the mesh and the lane graphs
+on `_ready`. It deliberately does NOT grade, paint or re-resolve junctions: those three write to the
+terrain and to `junctions`, their results are already on disk, and redoing them from a load hook would
+dirty the scene and fill the undo history so that opening and closing a scene was a modification.
+
+The stored profile is GUARDED rather than trusted. `Pasture3DRoadAlignment.input_digest` records what it
+was solved from — the plan polyline in WORLD space, the sample spacing, the gradient limit, the design
+speed, drape-or-solve, and the junction pins — and `restorable_alignment` refuses it when that no
+longer matches, so a spline edited or moved with the plugin disabled produces "needs a bake" instead of a
+ribbon confidently drawn along a centreline the road no longer has. Both the writing and the checking go
+through one function, because a digest computed one way when storing and another way when checking is a
+staleness test that passes when it should fail.
+
+`RoadNetworkGate` [I] round-trips a settled network through `ResourceSaver.save` and `ResourceLoader.load`
+and requires the same mesh count back with no bake. THE FIRST VERSION OF IT PASSED AGAINST THE BUG: an
+in-memory `PackedScene.pack`/`instantiate` keeps sub-resources by REFERENCE, so the modifier came along
+whether it was exported or not. A criterion about what survives serialisation has to actually serialise.
+Confirmed by A/B: with the export removed the gate reports `0/2 road(s), 7 -> 0 mesh(es)`.
+
 **P7a shipped twice, and the first time it was unreachable.** Both halves are worth recording because
 neither is a kernel bug and no criterion in `RoadGraphGate` [A]–[G] could have failed on either.
 

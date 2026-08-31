@@ -256,6 +256,11 @@ func _init() -> void:
 
 func _ready() -> void:
 	add_to_group(NETWORK_GROUP)
+	# The ribbon is BUILT output and is deliberately not saved (see Pasture3DRoadBrush.ensure_chunk_host),
+	# so something has to build it when a scene opens. Deferred: brushes are ready before their parent, but
+	# their splines' global transforms are not settled until the whole tree is in, and the digest reads
+	# them. Not gated on the editor — a shipped game needs the ribbon more than the editor does.
+	restore_built_output.call_deferred()
 	if road_defaults != null and not road_defaults.changed.is_connected(_bump):
 		road_defaults.changed.connect(_bump)
 
@@ -826,6 +831,48 @@ func build_runtime(p_brushes: Array = []) -> int:
 			rt.links.append({ "at": j.center, "runs": ids, "s": at_s })
 	runtime = rt
 	return rt.runs.size()
+
+
+## Rebuild the built output every road needs and nothing saves: the ribbon chunks, the junction aprons
+## and the lane graphs. Returns the number of roads restored.
+##
+## ---- WHAT THIS IS FOR ----
+##
+## Opening a scene used to give you a road that was in the terrain and nowhere else. The heightmap, the
+## surface paint, the junction records, the connectors and the baked runtime all save; the mesh does not,
+## and the solved profile did not either, so every road came back needing a manual bake — at which
+## point it looked identical to how it had looked when you saved it. The whole symptom was that the work
+## did not stick.
+##
+## ---- WHAT IT DELIBERATELY DOES NOT DO ----
+##
+## It does not grade, paint, or re-solve junctions, and that is the difference between this and
+## `resolve_junctions`. Those three WROTE to the terrain and to `junctions`, and their results are on
+## disk already. Redoing them at every scene open would rewrite the heightmap from a load hook —
+## dirtying the scene, filling the undo history, and making an open-and-close a modification.
+##
+## A road whose stored profile no longer matches its spline is skipped rather than rebuilt from it, and
+## said out loud, because "your road needs a bake" is a far better outcome than a ribbon confidently
+## drawn along a centreline the road no longer has.
+func restore_built_output() -> int:
+	var brushes := road_brushes()
+	if brushes.is_empty():
+		return 0
+	var ready: Array = []
+	var stale := 0
+	for b in brushes:
+		if b.restorable_alignment() != null:
+			ready.append(b)
+		else:
+			stale += 1
+	if not ready.is_empty():
+		_resolve_lane_graphs(ready)
+		build_chunks(ready)
+		update_gizmos()
+	if Engine.is_editor_hint() and (not ready.is_empty() or stale > 0):
+		print("[Pasture3D] roads restored on load: %d road(s) rebuilt from a saved profile, %d need a bake"
+				% [ready.size(), stale])
+	return ready.size()
 
 
 ## Rebuild every road's tier-MID ribbon (§10, P5b). Returns the total chunk count.

@@ -527,6 +527,7 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 	else:
 		alignment = Pasture3DRoadAlignmentSolver.solve_with_plan(_resample_plan(plan, cum, ds, n_s),
 				ground, ds, t.max_grade, t.design_speed, t.max_superelevation, {"pins": pins})
+	alignment.input_digest = alignment_digest(p_mod)
 	p_mod.last_alignment = alignment
 
 	# ---- THE CORRIDOR WIDTH DEPENDS ON A RESULT THE BAKE HAS TO PRODUCE FIRST -----------------------
@@ -775,6 +776,53 @@ func build_run() -> Dictionary:
 		"priority": t.priority,
 		"half_width": t.half_width(resolved_lane_count()),
 	}
+
+
+## What this road's alignment would be solved FROM, as a string: the plan polyline in world space, the
+## sample spacing, the gradient limit, and the junction pins.
+##
+## ---- ONE DEFINITION, TWO USES ----
+##
+## Written into the alignment when it is solved, and compared against on load. Both callers go through
+## THIS function, because a digest computed one way when storing and another way when checking is a
+## staleness test that passes when it should fail — the one failure mode a guard must not have.
+##
+## The plan points are taken through `_plan_points`, which is global-space, so MOVING a road invalidates
+## its stored profile as surely as reshaping it does. `follow_terrain` is in there because a draped road
+## and a solved one are different answers from identical geometry.
+func alignment_digest(p_mod: Pasture3DNodeRoad = null) -> String:
+	var mod: Pasture3DNodeRoad = p_mod if p_mod != null else road_modifier()
+	if mod == null:
+		return ""
+	var plan := _plan_points()
+	var t := resolved_road_type()
+	var parts := PackedStringArray()
+	parts.append("n=%d" % plan.size())
+	for p in plan:
+		parts.append("%.3f,%.3f" % [p.x, p.y])
+	parts.append("ds=%.4f" % mod.alignment_step)
+	parts.append("drape=%s" % str(resolved_follow_terrain()))
+	parts.append("grade=%.5f" % (t.max_grade if t != null else -1.0))
+	parts.append("speed=%.3f" % (t.design_speed if t != null else -1.0))
+	parts.append("pins=%s" % junction_digest())
+	return str(hash("|".join(parts)))
+
+
+## This road's stored profile if it is still an answer to the road as it stands now, else null.
+##
+## The whole point of the guard: a stored alignment whose inputs have moved is WORSE than none, because
+## the road would be rebuilt confidently in the wrong place, and nothing downstream has any way to tell.
+## Returning null puts the road back in the state it is in today — waiting for a bake — which is a
+## state the rest of the system already handles everywhere.
+func restorable_alignment() -> Pasture3DRoadAlignment:
+	var mod := road_modifier()
+	if mod == null or mod.last_alignment == null or mod.last_alignment.count() == 0:
+		return null
+	if mod.last_alignment.input_digest.is_empty():
+		return null
+	if mod.last_alignment.input_digest != alignment_digest(mod):
+		return null
+	return mod.last_alignment
 
 
 ## This road as a Pasture3DGraphPath, for a PATH port (§8). Empty until the road has a solved alignment.

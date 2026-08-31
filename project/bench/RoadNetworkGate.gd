@@ -35,6 +35,7 @@ func _ready() -> void:
 	_f_the_networks_traffic_side_reaches_the_connectors()
 	_g_every_chunk_host_setting_is_reachable_from_the_inspector()
 	_h_turning_collision_on_actually_builds_colliders()
+	_i_a_saved_and_reloaded_scene_still_has_its_roads()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD NETWORK PASS" if _fail == 0 else "ROAD NETWORK FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -573,3 +574,98 @@ func _h_turning_collision_on_actually_builds_colliders() -> void:
 		_fail += 1
 		print("    !! the fixture has no junction, so the apron half of this criterion is vacuous")
 	net.queue_free()
+
+
+## Every MeshInstance3D anywhere under `p_at`. The ribbon is the only thing under a network that makes
+## them, so this counts road mesh without knowing how the host organises it.
+func _meshes(p_at: Node) -> int:
+	var n_found := 0
+	var stack: Array[Node] = [p_at]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is MeshInstance3D:
+			n_found += 1
+		for c in n.get_children():
+			stack.append(c)
+	return n_found
+
+
+## Give every node under `p_at` an owner, so PackedScene.pack keeps it. Chunk hosts are deliberately
+## left OUT of this, exactly as ensure_chunk_host leaves them out of the edited scene — which is what
+## makes the pack-and-instantiate below a real reload rather than a copy.
+func _own(p_at: Node, p_root: Node) -> void:
+	for c in p_at.get_children():
+		if c is Pasture3DRoadChunkHost:
+			continue
+		c.owner = p_root
+		_own(c, p_root)
+
+
+# ---- I ------------------------------------------------------------------------------------------
+
+## [I] A network that is saved and reloaded still has its roads, without a bake.
+##
+## ---- THE SYMPTOM THIS IS ABOUT ----
+##
+## Everything a road writes OUT saves: the heightmap, the surface paint, the junction records, the lane
+## connectors, the baked runtime. Everything a road IS derived from did not: the solved vertical profile
+## was a plain var, so a reloaded scene had roads that answered no questions about themselves, and the
+## ribbon — which is built output and deliberately unsaved — had nothing to rebuild itself from and
+## nothing asking it to. Opening a scene gave you a road you had to bake again to get back what you had
+## already saved.
+##
+## Driven through a REAL PackedScene round trip rather than by clearing the fields by hand. The whole
+## question is which state survives serialisation, and a fixture that decides that for itself would
+## answer it whichever way it was written.
+func _i_a_saved_and_reloaded_scene_still_has_its_roads() -> void:
+	print("[I] a saved and reloaded scene still has its roads")
+	var f := _crossroads()
+	var net: Pasture3DRoadNetwork = f["net"]
+	var brushes: Array = [f["ew"], f["ns"]]
+	_settle(net, brushes, _grid(0.0))
+	net.ribbon_collision = true
+	net.build_chunks(brushes)
+	var before := _meshes(net)
+
+	# THROUGH DISK, not through PackedScene.instantiate alone. An in-memory pack keeps sub-resources by
+	# REFERENCE, so the modifier — and with it the alignment — comes along whether it is exported or
+	# not, and this criterion passed against the very bug it was written for. Saving and loading is the
+	# only version of the question that is actually about what survives.
+	var packed := PackedScene.new()
+	_own(net, net)
+	packed.pack(net)
+	var scene_path := "user://road_network_gate_reload.tscn"
+	ResourceSaver.save(packed, scene_path)
+	var from_disk: PackedScene = ResourceLoader.load(scene_path, "PackedScene",
+			ResourceLoader.CACHE_MODE_IGNORE_DEEP)
+	var reloaded: Pasture3DRoadNetwork = from_disk.instantiate()
+	add_child(reloaded)
+	var on_open := _meshes(reloaded)
+	# CONTROL: the reload must arrive EMPTY. If the chunks came through the pack, the restore below has
+	# nothing to prove and would pass on a network where restore_built_output did nothing at all.
+	print("    control: %d ribbon mesh(es) survived the save (want 0, they are built output)" % on_open)
+	if on_open != 0:
+		_fail += 1
+		print("    !! built meshes are being serialised, so this criterion cannot see a rebuild")
+
+	var restored := reloaded.restore_built_output()
+	var after := _meshes(reloaded)
+	print("    %d road(s) restored from a saved profile: %d mesh(es) before the save, %d after the reload"
+			% [restored, before, after])
+	_check("I", restored == brushes.size() and before > 0 and after == before,
+			"%d/%d road(s), %d -> %d mesh(es)" % [restored, brushes.size(), before, after])
+
+	# CONTROL: a road whose spline MOVED since the save must be refused, not rebuilt. A stored profile
+	# whose inputs have shifted is worse than none: the road comes back confidently in the wrong place
+	# and nothing downstream has any way to notice.
+	var moved: Pasture3DRoadBrush = reloaded.road_brushes()[0]
+	for c in moved.get_children():
+		if c is Path3D:
+			c.position += Vector3(0.0, 0.0, 25.0)
+	print("    control: after moving one road\'s spline, restorable_alignment %s"
+			% ("refused it" if moved.restorable_alignment() == null else "STILL ACCEPTED IT"))
+	if moved.restorable_alignment() != null:
+		_fail += 1
+		print("    !! a moved road restores its old profile, so the ribbon would be drawn off the road")
+	net.queue_free()
+	reloaded.queue_free()

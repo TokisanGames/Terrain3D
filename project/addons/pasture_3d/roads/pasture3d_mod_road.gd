@@ -88,9 +88,24 @@ extends Pasture3DNode
 @export_tool_button("Bake Road") var _bake_btn = clear_cache
 
 ## The last bake's masks, keyed by grid extent, and the diagnostics a warning is built from. Not saved:
-## they are re-derived by the next bake, and a stale copy on disk would be worse than none.
+## they are keyed by a grid extent that the next bake need not use, they are one float grid per channel,
+## and a stale copy on disk would be worse than none.
 var last_masks: Dictionary = {}
-var last_alignment: Pasture3DRoadAlignment = null
+
+## The solved vertical profile — SAVED with the scene, unlike the masks above.
+##
+## ---- WHY THIS ONE PERSISTS AND THE MASKS DO NOT ----
+##
+## Everything a road knows downstream of the solve goes through here: build_run, graph_path, the ribbon
+## mesh, the lane graph, corridor_ahead, the pace notes. Without it a reloaded scene has a road that is
+## drawn into the terrain (that part IS saved) and answers no questions about itself and shows no ribbon
+## — which reads as the road system having failed to load rather than as one derived field being absent.
+## Re-deriving it costs a full terrain bake per road at scene open; the masks cost nothing to redo.
+##
+## It is a few tens of KB per kilometre of road, and it is GUARDED: `input_digest` records what it was
+## solved from, and Pasture3DRoadBrush.restorable_alignment returns null when that no longer matches, so
+## a spline edited with the plugin disabled produces "needs a bake" rather than a road in the wrong place.
+@export var last_alignment: Pasture3DRoadAlignment = null
 var _cache: Dictionary = {}
 var _stale: bool = false
 

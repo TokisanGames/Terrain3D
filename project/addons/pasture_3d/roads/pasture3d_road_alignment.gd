@@ -61,6 +61,13 @@ extends Resource
 ## a caller that gets this should say so rather than build a road that climbs a wall.
 @export var feasible: bool = true
 
+## Digest of the INPUTS this profile was solved from — see Pasture3DRoadBrush.alignment_digest.
+##
+## Here rather than on the modifier because it travels with the thing it describes: an alignment handed
+## around, duplicated or saved cannot become separated from the statement of what it is an answer to.
+## Empty means "solved before this existed", which is treated as unusable rather than as matching.
+@export var input_digest: String = ""
+
 
 ## Number of samples.
 func count() -> int:
