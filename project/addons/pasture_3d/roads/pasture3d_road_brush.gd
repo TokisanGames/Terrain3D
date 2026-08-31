@@ -818,9 +818,12 @@ func ensure_chunk_host() -> Pasture3DRoadChunkHost:
 
 
 ## Rebuild this road's tier-MID ribbon. Returns the chunk count.
-func rebuild_chunks() -> int:
+func rebuild_chunks(p_lift: float = Pasture3DRoadMesher.DEPTH_LIFT) -> int:
 	var host := ensure_chunk_host()
-	return host.rebuild(self) if host != null else 0
+	if host == null:
+		return 0
+	host.depth_lift = p_lift
+	return host.rebuild(self)
 
 
 ## The arc-length ranges this road must NOT be meshed over: one per junction it takes part in, spanning

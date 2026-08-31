@@ -50,6 +50,21 @@ const PAINT_LAYER_MAPTYPE: int = 1 # Pasture3DData.MapType.TYPE_CONTROL
 		_bump()
 
 @export_group("Terrain")
+## Metres the tier-MID ribbon rides above the ground it was graded into (P5b, §10).
+##
+## Lives HERE and not only on the chunk host, because the host is built output and is not saved with the
+## scene — there is no node in the dock to select, so an export on it is an export nobody can reach.
+## The network owns every road's chunks anyway, so this is also the level at which the answer should be
+## the same for all of them.
+##
+## Raise it to something obvious (a metre) to find out whether a ribbon you cannot see is being drawn
+## behind the terrain or not drawn at all. See Pasture3DRoadMesher.DEPTH_LIFT for why it is never zero.
+@export var ribbon_lift: float = Pasture3DRoadMesher.DEPTH_LIFT:
+	set(v):
+		ribbon_lift = v
+		_bump()
+
+
 ## Name of the reserved CONTROL layer the carriageway paints into (P5a, §10).
 ##
 ## SEPARATE FROM `layer_name`, which names the HEIGHT layer the grading goes into, and it has to be:
@@ -518,7 +533,7 @@ func build_chunks(p_brushes: Array = []) -> int:
 	var total := 0
 	var silent := 0
 	for b in brushes:
-		var made: int = b.rebuild_chunks()
+		var made: int = b.rebuild_chunks(ribbon_lift)
 		total += made
 		if made == 0:
 			silent += 1
