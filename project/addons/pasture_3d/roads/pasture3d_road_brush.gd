@@ -657,23 +657,12 @@ func _plan_points() -> PackedVector2Array:
 	return out
 
 
-## The point `p_s` metres along the plan polyline.
+## The point `p_s` metres along the plan polyline. Delegated: the grader owns the definition, because the
+## mesher needs the same one and a second copy is a second place for an off-by-one to live.
 func _plan_point_at(p_plan: PackedVector2Array, p_cum: PackedFloat32Array, p_s: float) -> Vector2:
-	var n := p_plan.size()
-	if n == 0:
-		return Vector2.ZERO
-	var s := clampf(p_s, 0.0, p_cum[n - 1])
-	for i in range(n - 1):
-		if s <= p_cum[i + 1] or i == n - 2:
-			var span: float = p_cum[i + 1] - p_cum[i]
-			var t: float = 0.0 if span <= 0.0 else (s - p_cum[i]) / span
-			return p_plan[i].lerp(p_plan[i + 1], clampf(t, 0.0, 1.0))
-	return p_plan[n - 1]
+	return Pasture3DRoadGrader.plan_point_at(p_plan, p_cum, p_s)
 
 
-## The plan resampled at the alignment's own spacing. The solver's curvature is a three-point formula, so
-## it needs UNIFORM arc-length samples — handing it the raw tessellation would make curvature a function
-## of how densely Godot happened to tessellate, which changes with the curve's own shape.
 func _resample_plan(p_plan: PackedVector2Array, p_cum: PackedFloat32Array, p_ds: float,
 		p_n: int) -> PackedVector2Array:
 	var out := PackedVector2Array()

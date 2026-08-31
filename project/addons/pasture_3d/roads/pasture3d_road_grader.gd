@@ -43,6 +43,65 @@ static func cumulative_length(p_plan: PackedVector2Array) -> PackedFloat32Array:
 	return out
 
 
+## The road surface height at signed across-distance `p_u`, given the centreline height there.
+##
+## THE PROFILE, DEFINED ONCE. The mesher (P5b) draws the ribbon this describes and the grader carves the
+## ground it sits on, and if the two ever disagreed by a millimetre the road would z-fight along its whole
+## length — a defect that looks like a rendering bug and is arithmetic. So neither owns it.
+##
+## `p_bank` is superelevation as a rise/run ratio signed like curvature (positive across-distance is the
+## driver's RIGHT), and `p_crown` sheds water from the centreline to both edges, so it is a function of
+## |u| and the two edges come out level with each other.
+static func surface_height(p_centre: float, p_bank: float, p_crown: float, p_u: float) -> float:
+	return p_centre + p_bank * p_u - p_crown * absf(p_u)
+
+
+## World XZ of the point `p_s` metres along the plan polyline. Clamped at both ends.
+##
+## Public because the mesher, the brush and the junction gizmo all need it, and three copies of "walk the
+## cumulative lengths and lerp" is three places for an off-by-one to live.
+static func plan_point_at(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
+		p_s: float) -> Vector2:
+	var n := p_plan.size()
+	if n == 0:
+		return Vector2.ZERO
+	if n == 1 or p_cum.size() < n:
+		return p_plan[0]
+	var total: float = p_cum[n - 1]
+	var s := clampf(p_s, 0.0, total)
+	# Binary search rather than a walk: the mesher asks per vertex, and a linear scan makes meshing a road
+	# quadratic in its own length.
+	var lo := 0
+	var hi := n - 1
+	while lo + 1 < hi:
+		var mid := (lo + hi) / 2
+		if p_cum[mid] <= s:
+			lo = mid
+		else:
+			hi = mid
+	var span: float = p_cum[hi] - p_cum[lo]
+	if span <= 1e-9:
+		return p_plan[lo]
+	return p_plan[lo].lerp(p_plan[hi], (s - p_cum[lo]) / span)
+
+
+## Plan direction at `p_s`, normalised, pointing along INCREASING arc length.
+##
+## A central difference straddling the point, not the segment direction: an arc length landing exactly on
+## a plan vertex has two segment answers and would pick one by rounding — and junction arms land near
+## vertices constantly.
+static func plan_tangent_at(p_plan: PackedVector2Array, p_cum: PackedFloat32Array, p_s: float,
+		p_h: float = 0.5) -> Vector2:
+	var n := p_plan.size()
+	if n < 2 or p_cum.size() < n:
+		return Vector2.RIGHT
+	var total: float = p_cum[n - 1]
+	var a := plan_point_at(p_plan, p_cum, clampf(p_s - p_h, 0.0, total))
+	var b := plan_point_at(p_plan, p_cum, clampf(p_s + p_h, 0.0, total))
+	var d := b - a
+	return d.normalized() if d.length() > 1e-6 else Vector2.RIGHT
+
+
 ## Closest point on the plan polyline to `p_at`, as `[distance, s, side]`:
 ##   distance — metres from `p_at` to the centreline, always positive
 ##   s        — arc length of that closest point, metres from the start of the run
@@ -187,7 +246,7 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 			var u := d * side
 			var z_road: float = p_alignment.height_at(s)
 			var bank: float = p_alignment.bank[si] if si < p_alignment.bank.size() else 0.0
-			var z_surface := z_road + bank * u - crown * absf(u)
+			var z_surface := surface_height(z_road, bank, crown, u)
 
 			var h := ground
 			if d <= edge_d:
@@ -196,7 +255,7 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 				# Beyond the shoulder the batter runs from the edge of formation down (fill) or up (cut)
 				# until it MEETS the ground, and the meet is a max/min rather than a solved crossing —
 				# which is what makes the join continuous with no seam to chase, at any terrain slope.
-				var z_edge := z_road + bank * (edge_d * side) - crown * edge_d
+				var z_edge := surface_height(z_road, bank, crown, edge_d * side)
 				var beyond := d - edge_d
 				if z_edge > ground:
 					h = maxf(ground, z_edge - beyond * fill_batter)

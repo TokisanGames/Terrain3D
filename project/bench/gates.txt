@@ -294,3 +294,18 @@ bench/RoadSufficiencyGate.tscn
 # paint in ASCENDING priority - the one part of the wiring that is checkable without a terrain, and the
 # one that is silently wrong, since the wrong order still paints a complete road, just the other one.
 bench/RoadPaintGate.tscn
+
+# P5b - TIER MID (§10): the chunked ribbon mesh, where tier FAR stops being enough. Every claim §10
+# makes about chunking is arithmetic, so none of it needs a rendered frame - and a rendered frame is the
+# worst way to check a crack a millimetre wide. Chunks are cut where terrain REGIONS are, so a chunk and
+# the region under it live and die together (control: a different region size moves every cut; a 45°
+# road must be cut on both axes). Seams are compared for EXACT equality, not to a tolerance: `ring` is a
+# pure function of arc length, so two chunks meeting at the same s compute the same floats - a mesher
+# accumulating s += step per chunk would agree to six decimals, pass any tolerance, and crack. Nothing
+# chunks across a junction footprint (controls: something DID cover it without the footprint, and the
+# road either side is still built). LOD coarsens monotonically and the carriageway never narrows, with
+# camber dropped before shoulder as §10 orders. The ribbon height is checked against the GRADER rather
+# than against a formula written out here, because drifting from the grader is the only way it can go
+# wrong and a copy of the formula would drift with it. UVs run in metres, so a chunk boundary does not
+# rescale the road markings.
+bench/RoadMeshGate.tscn
