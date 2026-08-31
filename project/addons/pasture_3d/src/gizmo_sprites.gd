@@ -109,11 +109,18 @@ static func _dot(p_filled: bool) -> ImageTexture:
 	return _dot_hollow
 
 
-## A billboarded, screen-constant, always-on-top material for one texture and tint.
+## A billboarded, screen-constant material for one texture and tint.
 ##
-## `no_depth_test` mirrors what the wireframes did (`create_material(..., on_top = true)`): a brush sunk
-## below the surface stays findable, which on a terrain plugin is the common case rather than the odd one.
-static func _sprite_material(p_key: String, p_tex: Texture2D, p_color: Color) -> StandardMaterial3D:
+## Drawn on top of everything by default, which mirrors what the wireframes did
+## (`create_material(..., on_top = true)`): a brush sunk below the surface stays findable, which on a
+## terrain plugin is the common case rather than the odd one.
+##
+## `p_depth_test` opts out of that, for a gizmo whose markers belong to a drawing of the ground rather
+## than to a handle you reach for — the junction gizmo, whose ring and spokes are already depth-tested
+## for the same reason. It is a parameter rather than a second material family because the two differ in
+## exactly one flag, and the whole value of this file is that every Pasture3D marker looks alike.
+static func _sprite_material(p_key: String, p_tex: Texture2D, p_color: Color,
+		p_depth_test: bool = false) -> StandardMaterial3D:
 	if _materials.has(p_key):
 		return _materials[p_key]
 	var m := StandardMaterial3D.new()
@@ -127,7 +134,7 @@ static func _sprite_material(p_key: String, p_tex: Texture2D, p_color: Color) ->
 	m.billboard_keep_scale = true
 	m.fixed_size = true
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.no_depth_test = true
+	m.no_depth_test = not p_depth_test
 	m.disable_receive_shadows = true
 	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	m.render_priority = 10
@@ -135,11 +142,15 @@ static func _sprite_material(p_key: String, p_tex: Texture2D, p_color: Color) ->
 	return m
 
 
-## Draw one dot at `p_at` (node-local).
+## Draw one dot at `p_at` (node-local). `p_depth_test` hides it behind geometry in front of it; see
+## `_sprite_material`.
 static func _dot_sprite(p_gizmo: EditorNode3DGizmo, p_at: Vector3, p_size: float, p_color: Color,
-		p_filled: bool) -> void:
-	var key := "%s:%s" % ["filled" if p_filled else "hollow", p_color.to_html(false)]
-	p_gizmo.add_mesh(_quad_mesh(), _sprite_material(key, _dot(p_filled), p_color),
+		p_filled: bool, p_depth_test: bool = false) -> void:
+	# The depth flag is part of the key: two materials that differ only in it are still two materials,
+	# and sharing one would silently give whichever gizmo drew second the other one's setting.
+	var key := "%s:%s:%s" % ["filled" if p_filled else "hollow", p_color.to_html(false),
+			"depth" if p_depth_test else "top"]
+	p_gizmo.add_mesh(_quad_mesh(), _sprite_material(key, _dot(p_filled), p_color, p_depth_test),
 			Transform3D(Basis().scaled(Vector3.ONE * p_size), p_at))
 
 

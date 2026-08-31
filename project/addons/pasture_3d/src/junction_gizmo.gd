@@ -128,7 +128,7 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 				p_gizmo.add_lines(PackedVector3Array([centre, end]), mat)
 				# HOLLOW, matching the brush gizmo's unselected loop point: an arm end is a place the
 				# road stops, not something to aim at and drag.
-				Sprites._dot_sprite(p_gizmo, end, Sprites.POINT_SIZE, spoke, false)
+				Sprites._dot_sprite(p_gizmo, end, Sprites.POINT_SIZE, spoke, false, true)
 
 		if not j.detected or j.disabled:
 			continue
@@ -169,7 +169,7 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 				continue
 			placed[cell] = true
 			Sprites._dot_sprite(p_gizmo, to_local * (r.point + Vector3(0.0, LIFT, 0.0)),
-					Sprites.TANGENT_SIZE, CONFLICT, true)
+					Sprites.TANGENT_SIZE, CONFLICT, true, true)
 		for sl in j.stop_lines:
 			if sl == null:
 				continue
@@ -225,12 +225,10 @@ func _material_for(p_colour: Color) -> StandardMaterial3D:
 	# terrain, this is a drawing of something lying ON the ground and should be hidden by a hill in
 	# front of it. A junction floating through a mountainside would be the wrong answer.
 	#
-	# THIS IS THE LINES ONLY, and the sprite markers deliberately disagree with it. They come from
-	# Pasture3DGizmoSprites, which draws on top of everything, and that is the right split rather than an
-	# oversight: the ring, the spokes and the connector paths are a picture of the road surface and
-	# should sit in the world, while a marker is a label for a place and is useless if a fold of ground
-	# hides it. Changing the markers to match would mean forking the shared sprite material, which is
-	# the thing that keeps every Pasture3D point marker looking like every other one.
+	# The sprite markers agree: they are drawn through Pasture3DGizmoSprites with its depth-test opt-in,
+	# so the whole junction sits in the world rather than half of it floating. Everything a junction
+	# draws is a picture of the ground it is built on, markers included — unlike a brush handle, which
+	# is something you reach for and must stay findable through a hill.
 	m.no_depth_test = false
 	m.render_priority = 50
 	_mat[key] = m
