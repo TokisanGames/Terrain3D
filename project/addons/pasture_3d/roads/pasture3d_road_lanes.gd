@@ -10,12 +10,19 @@
 # other answer P4b gives is wrong in a way that looks like a junction bug. It is a closed-form function
 # of four numbers, so it is written once, here, and gated on its own.
 #
-# ---- THE SIGN CONVENTION IS THE GRADER'S, NOT A NEW ONE ----
+# ---- THE SIGN CONVENTION IS THE GRADER'S, AND IT IS RIGHT-POSITIVE ----
 #
-# `offset` is the same signed across-distance `u` that Pasture3DRoadGrader crowns and banks with:
-# POSITIVE IS LEFT of the direction of increasing arc length. Reusing it means a lane centre can be fed
-# straight to the grader's surface equation to get the height of that lane, and means there is exactly
-# one place in the road system where left and right are decided.
+# `offset` is the same signed across-distance `u` that Pasture3DRoadGrader crowns and banks with, so a
+# lane centre can be fed straight to the grader's surface equation to get the height of that lane, and
+# left and right are decided in exactly one place in the road system.
+#
+# POSITIVE IS THE DRIVER'S RIGHT. That is not a preference, it is what the code computes, and it was
+# documented backwards until an inverted stop line in the editor made someone check. The derivation, in
+# Godot's own axes: the plane is 2D (x, y) mapped to world (x, z); left of a heading h is UP x h; for
+# h = +X that is Y x X = -(X x Y) = -Z. The grader's `side` — the 2D cross of the travel direction with
+# the offset — is +1 at +Z for a +X heading, which is the RIGHT. Everything downstream (which lanes are
+# oncoming, which way a turn goes, which side of a corner is banked up) follows from this one sign, so
+# it is derived here rather than assumed anywhere.
 #
 # ---- TRAFFIC SIDE IS A WORLD CONSTANT (§6.4) ----
 #
@@ -33,18 +40,18 @@ const FORWARD: int = 1
 const BACKWARD: int = -1
 
 
-## The lanes across one road, LEFT TO RIGHT — `index` 0 is the leftmost lane, at the greatest `offset`.
+## The lanes across one road, RIGHT TO LEFT — `index` 0 is the far right lane, at the greatest `offset`.
 ##
 ## Each entry is `{index, ordinal, direction, offset, width, left_edge, right_edge}`:
-##   index      — position in the cross-section, 0 at the left edge. Geometric, and independent of which
+##   index      — position in the cross-section, 0 at the right edge. Geometric, and independent of which
 ##                side traffic drives on, so it means the same thing on a road however it is used.
 ##   ordinal    — position within this lane's OWN direction, 0 nearest the centre of the road and
 ##                increasing outward. What a driver means by "the inside lane", and what a connector
 ##                pairs on.
 ##   direction  — FORWARD or BACKWARD.
-##   offset     — lane centre, signed metres, positive LEFT (the grader's `u`).
-##   left_edge  — the lane's own edges, same sign convention. `left_edge > right_edge` always.
-##   right_edge
+##   offset     — lane centre, signed metres, positive RIGHT (the grader's `u`).
+##   right_edge — the lane's own edges, same sign convention. `right_edge > left_edge` always, because
+##   left_edge    the offsets decrease as the cross-section is walked from the right.
 ##
 ## An ODD lane count on a two-way road gives the extra lane to FORWARD. Real roads do this (a 2+1
 ## climbing lane) and there is no geometric fact that decides it, so it is a documented convention
@@ -59,31 +66,31 @@ static func cross_section(p_lane_count: int, p_lane_width: float, p_one_way: boo
 
 	var forward := n if p_one_way else int(ceil(float(n) * 0.5))
 	var backward := n - forward
-	# Which direction occupies the LEFT of the carriageway. In right-hand traffic you drive on the right,
-	# so the lanes coming at you are the ones on your left; in left-hand traffic it is reversed. On a
-	# one-way road there is nothing to be on the other side of, and every lane is forward.
-	var left_group := backward if not p_left_hand else forward
-	var left_dir := BACKWARD if not p_left_hand else FORWARD
+	# Which direction occupies the RIGHT of the carriageway — the positive-offset side. Drive on the
+	# right and that is the forward direction; drive on the left and it is the oncoming one. On a one-way
+	# road there is nothing to be on the other side of, and every lane is forward.
+	var right_group := forward if not p_left_hand else backward
+	var right_dir := FORWARD if not p_left_hand else BACKWARD
 
 	for i in n:
-		var in_left_group := i < left_group
-		var direction := left_dir if in_left_group else -left_dir
+		var in_right_group := i < right_group
+		var direction := right_dir if in_right_group else -right_dir
 		if p_one_way:
 			direction = FORWARD
-		# Ordinal counts from the DIVIDER outward. The left group's innermost lane is its last (nearest
-		# the middle of the road); the right group's innermost is its first.
-		var ordinal := (left_group - 1 - i) if in_left_group else (i - left_group)
+		# Ordinal counts from the DIVIDER outward. The right group's innermost lane is its last (nearest
+		# the middle of the road); the other group's innermost is its first.
+		var ordinal := (right_group - 1 - i) if in_right_group else (i - right_group)
 		if p_one_way:
 			ordinal = i
-		var left_edge := half - float(i) * lw
+		var right_edge := half - float(i) * lw
 		out.append({
 			"index": i,
 			"ordinal": ordinal,
 			"direction": direction,
-			"offset": left_edge - lw * 0.5,
+			"offset": right_edge - lw * 0.5,
 			"width": lw,
-			"left_edge": left_edge,
-			"right_edge": left_edge - lw,
+			"right_edge": right_edge,
+			"left_edge": right_edge - lw,
 		})
 	return out
 
@@ -103,22 +110,23 @@ static func lanes_in(p_lanes: Array, p_direction: int) -> Array:
 ## which lane that is.
 static func lane_at_offset(p_lanes: Array, p_offset: float) -> Dictionary:
 	for l: Dictionary in p_lanes:
-		# Half-open from the left, so a vehicle exactly on a lane line is in the RIGHT-hand lane of the
+		# Half-open from the right, so a vehicle exactly on a lane line is in the LEFT-hand lane of the
 		# two and never in both or neither.
-		if p_offset <= float(l["left_edge"]) and p_offset > float(l["right_edge"]):
+		if p_offset <= float(l["right_edge"]) and p_offset > float(l["left_edge"]):
 			return l
-	# The right edge of the rightmost lane is the one boundary the half-open rule would exclude.
+	# The left edge of the leftmost lane is the one boundary the half-open rule would exclude.
 	if not p_lanes.is_empty():
 		var last: Dictionary = p_lanes[p_lanes.size() - 1]
-		if is_equal_approx(p_offset, float(last["right_edge"])):
+		if is_equal_approx(p_offset, float(last["left_edge"])):
 			return last
 	return {}
 
 
 ## World XZ of a lane's centreline at a point on the plan, given the direction of travel there.
 ##
-## `p_tangent` is the plan direction at that point (increasing arc length). The left normal of a 2D
-## tangent (x, y) is (-y, x), which is what makes a positive `offset` land on the left.
+## `p_tangent` is the plan direction at that point (increasing arc length). In the (x, z) plane the
+## vector (-y, x) is the driver's RIGHT — see the header derivation — which is what puts a positive
+## `offset` on the right.
 static func lane_point(p_plan_point: Vector2, p_tangent: Vector2, p_offset: float) -> Vector2:
 	var t := p_tangent.normalized()
 	if not is_finite(t.x) or not is_finite(t.y) or t == Vector2.ZERO:

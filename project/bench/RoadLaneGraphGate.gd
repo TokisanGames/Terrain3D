@@ -48,7 +48,8 @@ func _a_the_cross_section_tiles_the_carriageway() -> void:
 	print("[A] the cross-section tiles the carriageway")
 	var lanes := Pasture3DRoadLanes.cross_section(4, 3.5, false, false)
 	print("    4 lanes at 3.5 m: %s" % _offsets(lanes))
-	# 4 × 3.5 = 14 m, so the edges are ±7 and the lane centres are ±5.25, ±1.75.
+	# 4 × 3.5 = 14 m, so the edges are ±7 and the lane centres are ±5.25, ±1.75. Index 0 is the far
+	# RIGHT lane, at the greatest offset.
 	var want := PackedFloat32Array([5.25, 1.75, -1.75, -5.25])
 	var placed := lanes.size() == 4
 	for i in mini(lanes.size(), 4):
@@ -56,21 +57,20 @@ func _a_the_cross_section_tiles_the_carriageway() -> void:
 			placed = false
 	var abutting := true
 	for i in range(1, lanes.size()):
-		if absf(float(lanes[i - 1]["right_edge"]) - float(lanes[i]["left_edge"])) > 1e-5:
+		if absf(float(lanes[i - 1]["left_edge"]) - float(lanes[i]["right_edge"])) > 1e-5:
 			abutting = false
-	var spans: bool = absf(float(lanes[0]["left_edge"]) - 7.0) < 1e-5 \
-			and absf(float(lanes[3]["right_edge"]) + 7.0) < 1e-5
+	var spans: bool = absf(float(lanes[0]["right_edge"]) - 7.0) < 1e-5 			and absf(float(lanes[3]["left_edge"]) + 7.0) < 1e-5
 	_check("A", placed and abutting and spans,
 			"centres %s (want +5.25 +1.75 -1.75 -5.25); edges %s; span %.2f..%.2f (want 7.00..-7.00)" % [
 				"correct" if placed else "WRONG", "abut" if abutting else "DO NOT ABUT",
-				float(lanes[0]["left_edge"]), float(lanes[3]["right_edge"])])
+				float(lanes[0]["right_edge"]), float(lanes[3]["left_edge"])])
 
 	# CONTROL: a different width must move every number. Without this, [A] would pass on a kernel that
 	# returned the 3.5 m answer for any input.
 	var wide := Pasture3DRoadLanes.cross_section(4, 5.0, false, false)
-	var moved: bool = absf(float(wide[0]["offset"]) - 7.5) < 1e-4 and absf(float(wide[0]["left_edge"]) - 10.0) < 1e-4
+	var moved: bool = absf(float(wide[0]["offset"]) - 7.5) < 1e-4 and absf(float(wide[0]["right_edge"]) - 10.0) < 1e-4
 	print("    control: 4 lanes at 5.0 m -> outermost centre %.2f (want 7.50), edge %.2f (want 10.00)"
-			% [float(wide[0]["offset"]), float(wide[0]["left_edge"])])
+			% [float(wide[0]["offset"]), float(wide[0]["right_edge"])])
 	if not moved:
 		_fail += 1; print("    !! lane width does not move the cross-section")
 
@@ -84,38 +84,53 @@ func _a_the_cross_section_tiles_the_carriageway() -> void:
 ## the geometry (the lanes still tile) and wrong in every connector, so it is asserted on the sign
 ## rather than on a count.
 func _b_traffic_side_decides_which_lanes_are_oncoming() -> void:
-	print("[B] traffic side decides which lanes are oncoming")
+	print("[B] traffic side puts forward traffic on the correct side, in WORLD space")
+	# A road heading +X. Left of it is UP × heading — Godot's own axes, computed here with Vector3 so
+	# the check cannot inherit the 2D convention it is testing. THIS IS THE CRITERION THAT WAS MISSING:
+	# every earlier assertion compared the kernel against a fixture written in the same convention, so
+	# an inverted left/right was invisible until a stop line appeared on the wrong side in the editor.
+	var heading := Vector3(1.0, 0.0, 0.0)
+	var world_left := Vector3.UP.cross(heading).normalized()
+	var t2 := Vector2(heading.x, heading.z)
+
 	var rht := Pasture3DRoadLanes.cross_section(4, 3.5, false, false)
 	var lht := Pasture3DRoadLanes.cross_section(4, 3.5, false, true)
 	print("    right-hand: %s" % _offsets(rht))
 	print("    left-hand:  %s" % _offsets(lht))
+	print("    heading %s -> world left is %s" % [heading, world_left])
+
 	var rht_ok := true
 	for l: Dictionary in rht:
-		# Drive on the right => forward lanes sit right of the centreline => negative offset.
-		if (float(l["offset"]) < 0.0) != (int(l["direction"]) == Pasture3DRoadLanes.FORWARD):
+		var at := Pasture3DRoadLanes.lane_point(Vector2.ZERO, t2, float(l["offset"]))
+		# Positive along world_left means the lane sits on the LEFT of the heading. Drive on the right,
+		# and every forward lane must be on the right — so this projection must be negative for them.
+		var on_left := Vector3(at.x, 0.0, at.y).dot(world_left)
+		if (on_left < 0.0) != (int(l["direction"]) == Pasture3DRoadLanes.FORWARD):
 			rht_ok = false
 	var lht_ok := true
 	for l: Dictionary in lht:
-		if (float(l["offset"]) > 0.0) != (int(l["direction"]) == Pasture3DRoadLanes.FORWARD):
+		var at := Pasture3DRoadLanes.lane_point(Vector2.ZERO, t2, float(l["offset"]))
+		var on_left := Vector3(at.x, 0.0, at.y).dot(world_left)
+		if (on_left > 0.0) != (int(l["direction"]) == Pasture3DRoadLanes.FORWARD):
 			lht_ok = false
-	# CONTROL: the two must actually DIFFER. A kernel that ignored the flag would satisfy neither check
-	# above only if the sign test is real — so assert the mirror directly.
+	# CONTROL: the two worlds must actually DIFFER, or a kernel ignoring the flag could satisfy one of
+	# the checks above by accident.
 	var mirrored := true
 	for i in 4:
 		if int(rht[i]["direction"]) != -int(lht[i]["direction"]):
 			mirrored = false
 	_check("B", rht_ok and lht_ok and mirrored,
 			"right-hand forward lanes are %s; left-hand %s; the two are %s" % [
-				"right of centre" if rht_ok else "ON THE WRONG SIDE",
-				"left of centre" if lht_ok else "ON THE WRONG SIDE",
+				"on the world right" if rht_ok else "ON THE WRONG SIDE",
+				"on the world left" if lht_ok else "ON THE WRONG SIDE",
 				"mirrored" if mirrored else "IDENTICAL (the flag does nothing)"])
 
 	# The innermost lane of each direction is the one against the divider, whichever side that is.
 	var inner_f: Array = Pasture3DRoadLanes.lanes_in(rht, Pasture3DRoadLanes.FORWARD)
 	var inner_b: Array = Pasture3DRoadLanes.lanes_in(rht, Pasture3DRoadLanes.BACKWARD)
-	print("    ordinal 0 of each direction: forward %+.2f, backward %+.2f (want -1.75, +1.75)"
+	print("    ordinal 0 of each direction: forward %+.2f, backward %+.2f (want +1.75, -1.75)"
 			% [float(inner_f[0]["offset"]), float(inner_b[0]["offset"])])
-	if absf(float(inner_f[0]["offset"]) + 1.75) > 1e-4 or absf(float(inner_b[0]["offset"]) - 1.75) > 1e-4:
+	if absf(float(inner_f[0]["offset"]) - 1.75) > 1e-4 or absf(float(inner_b[0]["offset"]) + 1.75) > 1e-4:
 		_fail += 1; print("    !! ordinal 0 is not the lane against the divider")
 
 

@@ -46,7 +46,8 @@ static func cumulative_length(p_plan: PackedVector2Array) -> PackedFloat32Array:
 ## Closest point on the plan polyline to `p_at`, as `[distance, s, side]`:
 ##   distance — metres from `p_at` to the centreline, always positive
 ##   s        — arc length of that closest point, metres from the start of the run
-##   side     — +1 left of the direction of travel, -1 right, 0 exactly on it
+##   side     — +1 RIGHT of the direction of travel, -1 left, 0 exactly on it. (In the (x, z) plane the
+##              2D cross below is positive at +Z for a +X heading, and left of +X is -Z.)
 ##
 ## Exact, by projecting onto each segment and keeping the best. Brute force over segments: a road brush's
 ## plan is tens to a few hundred points and this runs per CELL, so a uniform bucket index over segment

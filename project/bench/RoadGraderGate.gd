@@ -25,6 +25,7 @@ func _ready() -> void:
 	_e_a_bridge_does_not_touch_the_ground()
 	_f_nan_outside_the_loop_survives()
 	_g_a_deep_cut_is_not_clipped_into_a_wall()
+	_h_a_corner_is_banked_away_from_its_centre()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD GRADER PASS" if _fail == 0 else "ROAD GRADER FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -483,3 +484,83 @@ func _g_a_deep_cut_is_not_clipped_into_a_wall() -> void:
 ## Where a batter of `p_slope` starting at `p_edge` metres out lands, for a cut of `p_depth`.
 func edge_toe(p_edge: float, p_depth: float, p_slope: float) -> float:
 	return p_edge + p_depth / p_slope
+
+
+# ---- H ------------------------------------------------------------------------------------------
+
+## [H] A corner comes out banked with its OUTSIDE high, measured on the graded ground rather than on the
+## bank number.
+##
+## This is the criterion that was missing. The alignment gate checked banking against v²·κ/g and passed
+## while the sign was inverted, because the magnitude is the same either way and no gate ever asked
+## which side of the road ended up higher. A user seeing an inverted stop line in the editor is what
+## found it. Comparing the two edges at equal distance from the centreline also cancels the crown, which
+## lowers both by the same amount, so what is left is the banking alone.
+func _h_a_corner_is_banked_away_from_its_centre() -> void:
+	print("[H] a corner is banked away from its centre — the outside is the high side")
+	# A circular arc of radius R about the ORIGIN, so the centre of the turn is a point we know rather
+	# than one derived from the code under test.
+	var radius := 60.0
+	var n := 200
+	var plan := PackedVector2Array()
+	plan.resize(n)
+	for i in n:
+		var theta := float(i) * 0.5 / radius
+		plan[i] = Vector2(radius * cos(theta), radius * sin(theta))
+	var ground := PackedFloat32Array()
+	ground.resize(n)
+	ground.fill(0.0)
+	var alignment := Pasture3DRoadAlignmentSolver.solve_with_plan(plan, ground, 0.5, 0.08, 25.0, 0.2)
+
+	# A flat heightfield around the start of the arc, which is at (radius, 0) heading +Z.
+	var gw := 61
+	var gh := 61
+	var vs := 1.0
+	var min_x := radius - 30.0
+	var min_z := -30.0
+	var height := PackedFloat32Array()
+	height.resize(gw * gh)
+	height.fill(0.0)
+	var half := PackedFloat32Array(); half.resize(n); half.fill(6.0)
+	var shoulder := PackedFloat32Array(); shoulder.resize(n); shoulder.fill(0.5)
+	var verge := PackedFloat32Array(); verge.resize(n); verge.fill(4.0)
+	var suppress := PackedByteArray(); suppress.resize(n); suppress.fill(0)
+	var res := Pasture3DRoadGrader.grade(height, gw, gh, min_x, min_z, vs, plan, alignment,
+			half, shoulder, verge, suppress, {"crown": 0.05, "cut_batter": 1.0, "fill_batter": 0.6})
+	var graded: PackedFloat32Array = res["height"]
+
+	# Two cells the same distance either side of the centreline at z = 0, where the road runs through
+	# (radius, 0). The one nearer the origin is the INSIDE of the corner.
+	var probe := 4.0
+	var iz := int(round((0.0 - min_z) / vs))
+	var inner_ix := int(round((radius - probe - min_x) / vs))
+	var outer_ix := int(round((radius + probe - min_x) / vs))
+	var h_in: float = graded[iz * gw + inner_ix]
+	var h_out: float = graded[iz * gw + outer_ix]
+	var mid := int(n / 2)
+	print("    arc R=%.0f about the origin; at %.1f m either side of the centreline: inside %.4f, outside %.4f (bank %.4f)"
+			% [radius, probe, h_in, h_out, alignment.bank[mid]])
+
+	# CONTROL: a STRAIGHT road on the same ground is symmetric about its centreline, so the comparison
+	# is measuring banking rather than any left/right asymmetry the grader might have anyway.
+	var s_plan := PackedVector2Array()
+	s_plan.resize(n)
+	for i in n:
+		s_plan[i] = Vector2(radius, -50.0 + float(i) * 0.5)
+	var s_align := Pasture3DRoadAlignmentSolver.solve_with_plan(s_plan, ground, 0.5, 0.08, 25.0, 0.2)
+	var s_height := PackedFloat32Array()
+	s_height.resize(gw * gh)
+	s_height.fill(0.0)
+	var s_res := Pasture3DRoadGrader.grade(s_height, gw, gh, min_x, min_z, vs, s_plan, s_align,
+			half, shoulder, verge, suppress, {"crown": 0.05, "cut_batter": 1.0, "fill_batter": 0.6})
+	var s_graded: PackedFloat32Array = s_res["height"]
+	var s_in: float = s_graded[iz * gw + inner_ix]
+	var s_out: float = s_graded[iz * gw + outer_ix]
+	print("    control: a straight road at the same place -> %.4f / %.4f (must be equal)" % [s_in, s_out])
+
+	if h_out <= h_in:
+		_fail += 1
+		print("    !! the corner is banked INTO its centre — a vehicle is tipped toward the inside")
+	if absf(s_in - s_out) > 1e-4:
+		_fail += 1
+		print("    !! a straight road is not symmetric, so the corner comparison proves nothing")

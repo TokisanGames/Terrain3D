@@ -174,11 +174,11 @@ static func _connector(p_from: Dictionary, p_to: Dictionary, p_by_id: Dictionary
 	return c
 
 
-## Signed angle from `p_from` to `p_to`, radians, POSITIVE TURNING LEFT.
+## Signed angle from `p_from` to `p_to`, radians, POSITIVE TURNING RIGHT.
 ##
-## Left is the same left the lane offsets use: the left normal of (x, y) is (−y, x), so a heading that
-## rotates toward its own left normal has a positive 2D cross product. Sharing the convention is what
-## lets a left turn be identified without knowing which way the world's Y axis points.
+## Right is the same right the lane offsets use: in the (x, z) plane the vector (−y, x) is the driver's
+## right, so a heading that rotates toward it has a positive 2D cross product. Sharing the one
+## convention is what makes a right turn identifiable without re-deriving the world's handedness here.
 static func signed_angle(p_from: Vector2, p_to: Vector2) -> float:
 	var a := p_from.normalized()
 	var b := p_to.normalized()
@@ -192,7 +192,7 @@ static func classify(p_angle: float) -> int:
 		return Connector.Turn.U_TURN
 	if m < STRAIGHT_ARC:
 		return Connector.Turn.STRAIGHT
-	return Connector.Turn.LEFT if p_angle > 0.0 else Connector.Turn.RIGHT
+	return Connector.Turn.RIGHT if p_angle > 0.0 else Connector.Turn.LEFT
 
 
 ## The path between two lane endpoints, as a cubic with its handles ALONG THE TWO HEADINGS.

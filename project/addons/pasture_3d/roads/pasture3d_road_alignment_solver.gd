@@ -148,7 +148,10 @@ static func solve_with_plan(p_plan: PackedVector2Array, p_ground: PackedFloat32A
 	return out
 
 
-## Signed plan curvature at each point, 1/metres, positive turning LEFT. Menger curvature of each
+## Signed plan curvature at each point, 1/metres, POSITIVE TURNING RIGHT — toward +u, the same side the
+## grader's `side` and the lane offsets call positive. (The comment here said LEFT until an inverted
+## stop line in the editor made someone derive it: in the (x, z) plane the cross below is positive when
+## the road turns toward +Z, and right of a +X heading is +Z.) Menger curvature of each
 ## consecutive triple — the circumscribed circle's reciprocal radius — which is exact for a circular arc
 ## and stable on a nearly straight run where a finite-difference second derivative is all noise.
 ##
@@ -183,7 +186,7 @@ static func plan_curvature(p_plan: PackedVector2Array) -> PackedFloat32Array:
 	return out
 
 
-## Superelevation from curvature: bank = clamp(v²·κ/g, ±max), then smoothed over `p_transition_length`
+## Superelevation from curvature: bank = clamp(-v²·κ/g, ±max), then smoothed over `p_transition_length`
 ## metres so the road rolls into a corner instead of snapping. Physics, not styling — and the same
 ## number a racing track wants, which is why one formula serves the environment artist and the driver.
 static func superelevation(p_curvature: PackedFloat32Array, p_design_speed: float,
@@ -195,7 +198,12 @@ static func superelevation(p_curvature: PackedFloat32Array, p_design_speed: floa
 	var v2 := p_design_speed * p_design_speed
 	var cap := maxf(p_max_superelevation, 0.0)
 	for i in n:
-		out[i] = clampf(v2 * p_curvature[i] / 9.81, -cap, cap)
+		# NEGATIVE of v²κ/g, and the sign is the whole physics. `bank` is a rise per metre toward +u, and
+		# κ > 0 is a turn TOWARD +u — so the centre of that turn is on the +u side and the OUTSIDE of the
+		# corner is on -u. Raising the outside therefore means banking negative. The magnitude is v²κ/g
+		# either way, which is why this read as correct for so long: the formula was right and the road
+		# was tilted into the corner instead of out of it.
+		out[i] = clampf(-v2 * p_curvature[i] / 9.81, -cap, cap)
 	var half := int(round(maxf(p_transition_length, 0.0) / maxf(p_ds, 1e-4) * 0.5))
 	if half <= 0:
 		return out

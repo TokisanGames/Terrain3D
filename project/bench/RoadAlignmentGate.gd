@@ -185,7 +185,8 @@ func _d_banking_matches_physics() -> void:
 	plan.resize(n)
 	for i in n:
 		var theta := float(i) * DS / radius # arc length -> angle, so samples are DS apart
-		plan[i] = Vector2(radius * cos(theta), radius * sin(theta)) # counter-clockwise = turning LEFT
+		# Counter-clockwise on paper, which in the (x, z) plane is a turn toward +u — the driver's RIGHT.
+		plan[i] = Vector2(radius * cos(theta), radius * sin(theta))
 	var ground := PackedFloat32Array()
 	ground.resize(n)
 	ground.fill(0.0)
@@ -194,7 +195,10 @@ func _d_banking_matches_physics() -> void:
 	var a := Pasture3DRoadAlignmentSolver.solve_with_plan(plan, ground, DS, 0.08, speed, 1.0)
 	var mid := n / 2
 	var want_k := 1.0 / radius
-	var want_bank := speed * speed * want_k / 9.81
+	# NEGATIVE: the corner turns toward +u, so its outside is on -u, and raising the outside is a
+	# negative rise per metre toward +u. See Pasture3DRoadAlignmentSolver.superelevation — the magnitude
+	# alone passed this criterion while the road was banked into the corner instead of out of it.
+	var want_bank := -speed * speed * want_k / 9.81
 	print("    curvature %.6f (want %.6f), bank %.5f (want %.5f)"
 			% [a.curvature[mid], want_k, a.bank[mid], want_bank])
 	# Menger curvature is EXACT for three points on a circle, so the residual here is pure float32:
@@ -203,15 +207,17 @@ func _d_banking_matches_physics() -> void:
 	# a real limit worth carrying forward — see the note in Pasture3DRoadAlignmentSolver.plan_curvature.
 	if absf(a.curvature[mid] - want_k) > want_k * 0.01:
 		_fail += 1; print("    !! plan curvature does not match 1/R")
-	if absf(a.bank[mid] - want_bank) > want_bank * 0.01:
-		_fail += 1; print("    !! banking does not match v²·κ/g")
+	if absf(a.bank[mid] - want_bank) > absf(want_bank) * 0.01:
+		_fail += 1; print("    !! banking does not match -v²·κ/g")
 	if a.curvature[mid] <= 0.0:
-		_fail += 1; print("    !! a left-hand turn did not produce positive curvature")
+		_fail += 1; print("    !! a turn toward +u did not produce positive curvature")
+	if signf(a.bank[mid]) == signf(a.curvature[mid]):
+		_fail += 1; print("    !! the road is banked INTO the corner — the outside must be the high side")
 
 	# CONTROL 1: the cap binds. Same corner, a road-legal max_superelevation.
 	var capped := Pasture3DRoadAlignmentSolver.solve_with_plan(plan, ground, DS, 0.08, speed, 0.06)
-	print("    control: max_superelevation 0.06 -> bank %.5f (clamped)" % capped.bank[mid])
-	if absf(capped.bank[mid] - 0.06) > 1e-4:
+	print("    control: max_superelevation 0.06 -> bank %.5f (clamped, want -0.06000)" % capped.bank[mid])
+	if absf(capped.bank[mid] + 0.06) > 1e-4:
 		_fail += 1; print("    !! max_superelevation did not clamp the bank")
 
 	# CONTROL 2: a straight road banks at zero, so [D] is measuring curvature and not a constant.
