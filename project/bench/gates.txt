@@ -307,5 +307,7 @@ bench/RoadPaintGate.tscn
 # camber dropped before shoulder as §10 orders. The ribbon height is checked against the GRADER rather
 # than against a formula written out here, because drifting from the grader is the only way it can go
 # wrong and a copy of the formula would drift with it. UVs run in metres, so a chunk boundary does not
-# rescale the road markings.
+# rescale the road markings. [H] covers the host's one piece of arithmetic - the distance-to-tier
+# mapping - because an off-by-one band still draws the road, at the wrong tier, and reads as the meshes
+# being wrong rather than the thresholds being read wrong.
 bench/RoadMeshGate.tscn

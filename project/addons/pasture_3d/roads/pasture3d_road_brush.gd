@@ -777,6 +777,52 @@ func build_run() -> Dictionary:
 	}
 
 
+## This road's chunk host, created on first use.
+##
+## A child of the BRUSH rather than of the network, so a road that is deleted, hidden or moved to another
+## scene takes its meshes with it — the alternative is a network holding chunks for roads that no longer
+## exist and no obvious moment to notice.
+func ensure_chunk_host() -> Pasture3DRoadChunkHost:
+	for child in get_children():
+		if child is Pasture3DRoadChunkHost:
+			return child
+	var host := Pasture3DRoadChunkHost.new()
+	host.name = "Chunks"
+	add_child(host)
+	# Not owned by the edited scene: chunks are BUILT output, rebuilt from the spline and the alignment at
+	# every bake. Saving them would put a few thousand vertices per road into the .tscn and reload them
+	# stale on the next open.
+	return host
+
+
+## Rebuild this road's tier-MID ribbon. Returns the chunk count.
+func rebuild_chunks() -> int:
+	var host := ensure_chunk_host()
+	return host.rebuild(self) if host != null else 0
+
+
+## The arc-length ranges this road must NOT be meshed over: one per junction it takes part in, spanning
+## the footprint the approach was trimmed back to.
+##
+## The same trim-back the grader already skips (§6), read back out as `[from, to]` pairs, because the
+## junction owns the surface inside its footprint and a ribbon running through it would be a second road
+## surface fighting the first. Derived from the junction rather than re-measured: the trim-back is the
+## junction's answer, and a mesher recomputing it would be free to disagree with the ground.
+func junction_skips() -> Array:
+	var net := road_network()
+	if net == null:
+		return []
+	var key := road_key()
+	var out: Array = []
+	for j in net.junctions_for(key):
+		var s: float = j.arc_length_for(key)
+		var trim: float = j.trim_back_for(key)
+		if not is_finite(s) or not is_finite(trim) or trim <= 0.0:
+			continue
+		out.append([s - trim, s + trim])
+	return out
+
+
 ## This road's resolved priority (§5.2), or 0 when it has no road type yet. Higher wins a junction, gets
 ## the longer green, and holds right of way over the roads it crosses.
 func road_priority() -> int:

@@ -32,6 +32,7 @@ func _ready() -> void:
 	_e_the_ribbon_sits_on_the_ground_the_grader_carved()
 	_f_the_surface_faces_up_and_is_wound_one_way()
 	_g_uvs_run_in_metres_so_a_chunk_does_not_rescale_the_road()
+	_h_distance_picks_the_tier_the_thresholds_name()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD MESH PASS" if _fail == 0 else "ROAD MESH FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -403,3 +404,51 @@ func _g_uvs_run_in_metres_so_a_chunk_does_not_rescale_the_road() -> void:
 			% [u_lo, u_hi])
 	if u_lo > -0.05 or u_hi < 1.05:
 		_fail += 1; print("    !! U is not normalised on the carriageway")
+
+
+# ---- H ------------------------------------------------------------------------------------------
+
+## [H] A distance picks the tier its thresholds name, and never one past the meshes that exist.
+##
+## The only arithmetic in the host; everything else there is scene-tree work that needs a viewport. An
+## off-by-one band is invisible in the worst way — the road still draws, at the wrong tier, and reads as
+## the MESHES being wrong rather than as the thresholds being read wrong. The clamp matters as much: more
+## thresholds than LOD levels is an ordinary authoring mistake, and indexing past the meshes would crash
+## on the frame the camera got far enough away.
+func _h_distance_picks_the_tier_the_thresholds_name() -> void:
+	print("[H] distance picks the tier the thresholds name")
+	var host := Pasture3DRoadChunkHost.new()
+	add_child(host)
+	host.lod_distances = PackedFloat32Array([60.0, 140.0, 300.0])
+	var probes := PackedFloat32Array([0.0, 59.9, 60.0, 139.9, 140.0, 299.9, 300.0, 5000.0])
+	var got := PackedInt32Array()
+	var shown := PackedStringArray()
+	for d in probes:
+		var l := host.lod_for(d)
+		got.append(l)
+		shown.append("%.1f m -> L%d" % [d, l])
+	print("    %s" % " | ".join(shown))
+	var want := PackedInt32Array([0, 0, 1, 1, 2, 2, 3, 3])
+	var ok := true
+	for i in want.size():
+		ok = ok and got[i] == want[i]
+	_check("H", ok, "%s (want L0 L0 L1 L1 L2 L2 L3 L3 — a threshold is where the NEXT tier starts)"
+			% " ".join(shown))
+
+	# CONTROL: more thresholds than there are LOD levels must clamp, not index past the meshes. This is
+	# an ordinary authoring mistake and it would crash on the frame the camera got far enough away.
+	host.lod_distances = PackedFloat32Array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+	var clamped := host.lod_for(55.0)
+	print("    control: 6 thresholds, 4 LOD levels -> 55 m gives L%d (want L%d, the coarsest that exists)"
+			% [clamped, Pasture3DRoadMesher.LOD_LEVELS - 1])
+	if clamped > Pasture3DRoadMesher.LOD_LEVELS - 1:
+		_fail += 1; print("    !! the tier index runs past the meshes that were built")
+
+	# CONTROL: moving the thresholds must move the answer, or [H] passes on a host that returns a
+	# constant.
+	host.lod_distances = PackedFloat32Array([500.0])
+	var near := host.lod_for(100.0)
+	print("    control: a single 500 m threshold -> 100 m gives L%d (want L0)" % near)
+	if near != 0:
+		_fail += 1; print("    !! the thresholds are not being read")
+	host.queue_free()

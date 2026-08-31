@@ -543,7 +543,7 @@ Writing it found three gaps, all closed in the DATA rather than worked around in
 
 The gate also caught a defect in the follower itself, which is the other half of its value: it decided its movement a stopping distance short of the line and then entered the connector from there, teleporting the vehicle that margin — because a connector begins at the stop line. Criterion [F] asks the *position* whether anything moved further than it could have driven, so no bookkeeping error can hide inside it.
 | **P5a** ✅ | **Tier FAR (§10)** — the carriageway painted into the group's reserved control layer: a `surface` coverage mask out of the grader, a pure control-word kernel (`Pasture3DRoadPaint`), and a network paint pass in ascending priority. GDScript; native/GPU later with this as the A/B oracle. | `RoadPaintGate` — coverage is solid to the edge of formation and smoothsteps out over the shoulder (control: zero fade gives a hard edge); control words pack where the engine reads them, asserted against literal shifts (control: a texture id of 31 must not bleed into the next field); the base texture and the hole bit survive a paint (control: `preserve_base` off replaces the base); coverage becomes blend and a bare cell is not written at all (control: full coverage writes every cell); paint order is ascending priority (control: swapping the priorities reverses it); a cell lands where the bake grid says it does (control: a different vertex spacing scales it). |
-| **P5b** | Tier MID — ribbon mesh, region-aligned chunking, LOD tiers, shared-vertex seams. | `RoadMeshGate` — no cracks at seams (shared-vertex identity), LOD vertex budgets, chunk↔region alignment; control: LOD 0 and LOD 3 differ. |
+| **P5b** ✅ | **Tier MID (§10)** — the chunked ribbon: `Pasture3DRoadMesher` (a pure kernel) plus `Pasture3DRoadChunkHost` (LOD swap by distance, hidden beyond tier FAR). Cuts snap to region boundaries and never cross a junction footprint. | `RoadMeshGate` — cuts land on region boundaries (controls: a different region size moves them; a 45° road is cut on both axes); seam vertices are compared for EXACT equality, at LOD 0 and at LOD 2; nothing chunks across a footprint (controls: something did cover it without one, and the road either side survives); LOD coarsens monotonically, never narrows the carriageway, and drops camber before shoulder; ribbon height is checked against the GRADER, not against a copy of its formula; the surface is wound face-up with recomputed normals; UVs run in metres; distance picks the tier its thresholds name (control: more thresholds than LOD levels must clamp, not index past the meshes). |
 | **P5c** | Tier NEAR — collision, lane markings from `divider_type`, roadside props via `Pasture3DInstancer`. | `RoadNearGate` — a marking follows the divider it is drawn from; collision matches the graded surface; control: changing `divider_type` changes the markings. |
 | **P6** | **Runtime layer** — `Pasture3DRoadRoute` (hand-picked entries + validator), checkpoints, corridor test, `locate()` / `progress()`, `sample_surface()`, pace notes, route-driven streaming lookahead, and the corridor-clearing hook for traffic. Loads with no editor and no terrain. | `RoadRouteGate` — `locate()` round-trips against sampled points; up vectors match the solved banking; a reversed route flips boundaries and travel direction; checkpoints follow a moved road; the corridor test separates verge from off-course; a surface transition blends rather than steps; the validator rejects a disconnected pair and names the gap; pace notes find a known corner, a known crest and a known surface change (control: flatten the profile and the crest call disappears). |
 | **P7** | Graph nodes (`PATH` port, Road Source / Road Grade / Path Distance / Path Mask). | `RoadGraphGate` — analytic distance vs a brute-force oracle; the two §8 wirings differ as predicted. |
@@ -566,6 +566,28 @@ The write itself is not gated: `set_control_on_layer` needs regions, a layer sta
 which no headless gate can assemble honestly — the same boundary `RoadNetworkGate` draws, and the
 editor is what covers it. What IS gated out of the wiring is the paint ORDER, because a paint in the
 wrong order still produces a fully painted road — just the other road's.
+
+**P5b landed 2026-08-31.** Three things settled here that the rest of tier MID hangs off:
+
+* **A ring is a pure function of arc length.** Not of the chunk, the vertex index, or an accumulated
+  walk. That is what makes two chunks meeting at `s` produce *bit-identical* vertices rather than
+  nearby ones, and it is why the gate compares seams with `==`. A mesher accumulating `s += step` per
+  chunk agrees to six decimal places, passes any tolerance you would think to write, and cracks. The
+  other half is that both chunks are ASKED about the same `s`, so a span's final ring is `to` itself
+  rather than wherever the walk stopped.
+* **The road profile lives in the grader**, as `surface_height`, and the mesher calls it. The ribbon
+  and the ground it sits on are the same function of the same arc length; a millimetre of drift would
+  z-fight along the whole road and read as a rendering bug rather than as arithmetic. `plan_point_at`
+  and `plan_tangent_at` moved there too, and the brush delegates rather than keeping a copy.
+* **Chunks are built by the NETWORK, after the resolve** — not at the end of each brush's bake. A
+  road's chunks are cut around its junction footprints, and a junction is not resolved until every
+  road meeting at it has baked, so a brush chunking itself would cut around the footprints as they
+  stood before the road it crosses existed.
+
+Hiding is the interesting end of the LOD chain. Beyond `far_distance` the host simply stops drawing,
+because P5a already painted the carriageway into the terrain — the road is still there, still the
+right shape, still the right surface. Nothing to fade, nothing to pop, and it only works in that
+direction: a system whose farthest tier were "a coarser mesh" would have to cross-fade.
 
 **There is no P3.** The reorder moved the ribbon mesh from P3 to P5 and the junction split kept the
 P4a/P4b names it already had, which briefly left the mesh listed twice. The gap is deliberate rather

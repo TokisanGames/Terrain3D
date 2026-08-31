@@ -197,6 +197,7 @@ func resolve_junctions() -> void:
 		if b.junction_digest() != b.last_junction_digest:
 			b.schedule_junction_rebake()
 	paint_roads(brushes)
+	build_chunks(brushes)
 	# The junction gizmo draws from these records, and nothing else tells the editor they moved.
 	update_gizmos()
 
@@ -463,6 +464,20 @@ func paint_layer_owner() -> String:
 
 
 # ---- TIER FAR: painting the roads (P5, §10) -----------------------------------------------------------
+
+
+## Rebuild every road's tier-MID ribbon (§10, P5b). Returns the total chunk count.
+##
+## Driven from here rather than from each brush's own bake for a plainer reason than the paint's: a road's
+## chunks are cut around its JUNCTION footprints, and a junction is not resolved until every road that
+## meets at it has baked. A brush chunking at the end of its own bake would cut around the footprints as
+## they stood before the road it crosses had been placed.
+func build_chunks(p_brushes: Array = []) -> int:
+	var brushes: Array = p_brushes if not p_brushes.is_empty() else road_brushes()
+	var total := 0
+	for b in brushes:
+		total += b.rebuild_chunks()
+	return total
 
 
 ## The order roads must be painted in: LOWEST PRIORITY FIRST, so the most important road writes last
