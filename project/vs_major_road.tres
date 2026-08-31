@@ -2,8 +2,11 @@
 
 [sub_resource type="VisualShaderNodeColorParameter" id="VisualShaderNodeColorParameter_g51ho"]
 parameter_name = "ColorParameter"
+default_value_enabled = true
+default_value = Color(0.19921875, 0.12430999, 0.12133669, 1)
 
 [resource]
-nodes/vertex/2/node = SubResource("VisualShaderNodeColorParameter_g51ho")
-nodes/vertex/2/position = Vector2(-240, 240)
-nodes/vertex/connections = PackedInt32Array(2, 0, 0, 6)
+nodes/vertex/0/position = Vector2(440, 220)
+nodes/fragment/2/node = SubResource("VisualShaderNodeColorParameter_g51ho")
+nodes/fragment/2/position = Vector2(-160, 300)
+nodes/fragment/connections = PackedInt32Array(2, 0, 0, 0)

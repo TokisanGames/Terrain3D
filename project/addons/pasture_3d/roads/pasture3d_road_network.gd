@@ -50,6 +50,19 @@ const PAINT_LAYER_MAPTYPE: int = 1 # Pasture3DData.MapType.TYPE_CONTROL
 		_bump()
 
 @export_group("Terrain")
+## Name of the reserved CONTROL layer the carriageway paints into (P5a, §10).
+##
+## SEPARATE FROM `layer_name`, which names the HEIGHT layer the grading goes into, and it has to be:
+## the two are different map types doing unrelated jobs, and when both were called "Roads" the layers
+## dock showed two identically named rows. Deleting the wrong one silently moved every road's surface
+## paint onto a height layer, or the grading onto a control layer, with nothing to say which row was
+## which.
+@export var paint_layer_name: String = "Road Surface":
+	set(v):
+		paint_layer_name = v
+		_bump()
+
+
 ## Display name of the terrain layer roads with NO GROUP paint into. A group of its own overrides this
 ## for its children; this is the fallback for a brush parented straight under the network, which §5.1
 ## allows and which would otherwise have nowhere to paint.
@@ -452,7 +465,7 @@ func ensure_paint_layer(p_terrain: Node) -> int:
 	var data = p_terrain.data
 	if not data.has_method("create_owned_layer_typed"):
 		return -1
-	return int(data.create_owned_layer_typed(paint_layer_owner(), layer_name,
+	return int(data.create_owned_layer_typed(paint_layer_owner(), paint_layer_name,
 			PAINT_LAYER_BLEND, PAINT_LAYER_MAPTYPE))
 
 

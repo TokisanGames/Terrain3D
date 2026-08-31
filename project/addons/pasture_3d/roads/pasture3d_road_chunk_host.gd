@@ -48,6 +48,9 @@ extends Node3D
 ## Chunks, each `{node: MeshInstance3D, centre: Vector3, meshes: Array[ArrayMesh], lod: int}`.
 var _chunks: Array = []
 var _dirty_lod: bool = true
+var _report: bool = false
+var _hidden: int = 0
+var _nearest: float = INF
 
 
 func _ready() -> void:
@@ -120,6 +123,7 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 			"lod": 0,
 		})
 	_dirty_lod = true
+	_report = true
 	if _chunks.is_empty():
 		_why(p_brush, "%d span(s) were found but every one failed to mesh" % rejected)
 	return _chunks.size()
@@ -152,6 +156,9 @@ func _process(_delta: float) -> void:
 		return
 	var cam := _camera()
 	if cam == null:
+		# No camera to measure from. Everything stays at whatever it was, which for a fresh rebuild is
+		# LOD 0 and visible — the right default, because a chunk nobody can measure should be SEEN rather
+		# than culled by a distance that was never computed.
 		return
 	var eye := cam.global_position
 	for c in _chunks:
@@ -159,7 +166,9 @@ func _process(_delta: float) -> void:
 		if not is_instance_valid(mi):
 			continue
 		var d := eye.distance_to(c["centre"])
+		_nearest = minf(_nearest, d)
 		if far_distance > 0.0 and d > far_distance:
+			_hidden += 1
 			# Nothing to fade into: the carriageway is already painted into the terrain, so stopping is
 			# the whole transition (§10).
 			mi.visible = false
@@ -169,6 +178,16 @@ func _process(_delta: float) -> void:
 		if want != int(c["lod"]) or _dirty_lod:
 			c["lod"] = want
 			mi.mesh = c["meshes"][want]
+	# Report ONCE per rebuild, on the first frame that had a camera. A ribbon that is built, parented and
+	# hidden looks exactly like a ribbon that was never built, and the two were confused for a whole
+	# debugging session — so the host says which it is, with the distance that decided it.
+	if _report and Engine.is_editor_hint():
+		_report = false
+		print("[Pasture3D] %s: %d chunk(s), %d hidden beyond %.0f m; nearest is %.0f m from the camera"
+				% [get_parent().name if get_parent() != null else name, _chunks.size(), _hidden,
+					far_distance, _nearest])
+	_hidden = 0
+	_nearest = INF
 	_dirty_lod = false
 
 
