@@ -14,9 +14,11 @@
 [ext_resource type="Script" uid="uid://cavpljhh2m0bk" path="res://addons/pasture_3d/roads/pasture3d_road_type.gd" id="11_wv1iv"]
 [ext_resource type="Script" uid="uid://co0q8plo6atk7" path="res://addons/pasture_3d/roads/pasture3d_road_brush.gd" id="13_6pcwc"]
 [ext_resource type="Script" uid="uid://bbsmkxfch2tut" path="res://addons/pasture_3d/roads/pasture3d_road_junction.gd" id="13_wv1iv"]
+[ext_resource type="Script" uid="uid://bq8urmv6fcmx5" path="res://addons/pasture_3d/roads/pasture3d_road_conflict.gd" id="14_5q6a7"]
 [ext_resource type="Script" uid="uid://dp5u7ihxa3lxw" path="res://addons/pasture_3d/roads/pasture3d_road_lane_connector.gd" id="14_cad7k"]
 [ext_resource type="Script" uid="uid://d1q35xltb5ltv" path="res://addons/pasture_3d/roads/pasture3d_mod_road.gd" id="14_ii4qc"]
 [ext_resource type="Script" uid="uid://bhjc8itgx7eoa" path="res://addons/pasture_3d/roads/pasture3d_road_stop_line.gd" id="15_r5vgm"]
+[ext_resource type="Script" uid="uid://bn3emc7xvtf1f" path="res://addons/pasture_3d/roads/pasture3d_road_phase.gd" id="16_ft08i"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_g143p"]
 _shader_parameters = {
@@ -113,7 +115,209 @@ script = ExtResource("11_ii4qc")
 road_type = SubResource("Resource_kheh1")
 speed_limit = nan
 
-[sub_resource type="Curve3D" id="Curve3D_r5vgm"]
+[sub_resource type="Resource" id="Resource_cyndd"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:1:1>Road2:0:1"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-103.11149, 1.4062583, -103.04615)
+reason = 1
+
+[sub_resource type="Resource" id="Resource_umoq4"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:0:1"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-102.28215, 1.6195811, -98.50539)
+merge = true
+
+[sub_resource type="Resource" id="Resource_fdeh7"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-103.26632, 1.3472426, -103.893875)
+
+[sub_resource type="Resource" id="Resource_6fins"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:1:0"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-102.633835, 1.5784216, -100.43092)
+
+[sub_resource type="Resource" id="Resource_xk4pu"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:0:1"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-102.28215, 1.6195811, -98.50539)
+merge = true
+
+[sub_resource type="Resource" id="Resource_jc6ve"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-102.60369, 1.5853475, -100.26589)
+
+[sub_resource type="Resource" id="Resource_x65ay"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:0:0>Road2:1:0"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-99.524765, 1.1094961, -102.88833)
+reason = 1
+
+[sub_resource type="Resource" id="Resource_h4fvm"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:0:0>Road2:1:0"
+priority_id = &"Road:1:1>Road2:1:0"
+point = Vector3(-96.78067, 1.0668411, -103.45705)
+merge = true
+reason = 1
+
+[sub_resource type="Resource" id="Resource_qe7gh"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:0:1"
+priority_id = &"Road:0:0>Road2:1:0"
+point = Vector3(-101.64433, 1.1788343, -103.61279)
+
+[sub_resource type="Resource" id="Resource_eudfm"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:0:0>Road2:1:0"
+point = Vector3(-102.50856, 1.2116717, -104.30914)
+
+[sub_resource type="Resource" id="Resource_vugto"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:1:0"
+priority_id = &"Road:0:0>Road2:1:0"
+point = Vector3(-100.61297, 1.1424749, -103.12112)
+
+[sub_resource type="Resource" id="Resource_7f7fp"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:0:0>Road2:1:0"
+point = Vector3(-96.78067, 1.0668411, -103.45705)
+merge = true
+
+[sub_resource type="Resource" id="Resource_ayy5u"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:1:1>Road2:0:1"
+priority_id = &"Road:0:0>Road2:0:1"
+point = Vector3(-105.85515, 1.1325552, -102.47513)
+merge = true
+reason = 1
+
+[sub_resource type="Resource" id="Resource_ah624"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:0:0>Road2:0:1"
+point = Vector3(-105.85515, 1.1325552, -102.47513)
+merge = true
+
+[sub_resource type="Resource" id="Resource_c2a6q"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:1:0"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-100.35368, 1.2541918, -107.42679)
+merge = true
+
+[sub_resource type="Resource" id="Resource_kou8i"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:0:1"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-100.002174, 1.2953091, -105.50221)
+
+[sub_resource type="Resource" id="Resource_8q01q"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-100.03214, 1.2884252, -105.66628)
+
+[sub_resource type="Resource" id="Resource_jdtgh"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:1:0"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-100.35368, 1.2541918, -107.42679)
+merge = true
+
+[sub_resource type="Resource" id="Resource_di0j4"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-99.369514, 1.5265309, -102.0383)
+
+[sub_resource type="Resource" id="Resource_kbnun"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:1:1>Road2:1:0"
+point = Vector3(-96.78067, 1.0668411, -103.45705)
+merge = true
+
+[sub_resource type="Resource" id="Resource_g8xwh"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:0:1"
+priority_id = &"Road:1:1>Road2:0:1"
+point = Vector3(-102.0245, 1.3305197, -102.81478)
+
+[sub_resource type="Resource" id="Resource_vum54"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:1:1>Road2:0:1"
+point = Vector3(-105.85515, 1.1325552, -102.47513)
+merge = true
+
+[sub_resource type="Resource" id="Resource_yr4lm"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:1:0"
+priority_id = &"Road:1:1>Road2:0:1"
+point = Vector3(-100.992424, 1.4245826, -102.32391)
+
+[sub_resource type="Resource" id="Resource_gmhxr"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:1:1>Road2:0:1"
+point = Vector3(-100.12521, 1.5096664, -101.62416)
+
+[sub_resource type="Resource" id="Resource_sirnw"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:1:0"
+priority_id = &"Road2:0:0>Road:1:0"
+point = Vector3(-100.35368, 1.2541918, -107.42679)
+merge = true
+reason = 1
+
+[sub_resource type="Resource" id="Resource_8odna"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:0:1"
+priority_id = &"Road2:1:1>Road:1:0"
+point = Vector3(-100.18324, 1.124371, -105.35043)
+reason = 3
+
+[sub_resource type="Resource" id="Resource_7rah1"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:1:0"
+priority_id = &"Road2:0:0>Road:0:1"
+point = Vector3(-100.18324, 1.124371, -105.35043)
+reason = 3
+
+[sub_resource type="Resource" id="Resource_rh2s1"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:0:1"
+priority_id = &"Road2:1:1>Road:0:1"
+point = Vector3(-102.28215, 1.6195811, -98.50539)
+merge = true
+reason = 1
+
+[sub_resource type="Resource" id="Resource_e7mvu"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:0:1"
+priority_id = &"Road2:1:1>Road2:1:0"
+point = Vector3(-102.45743, 1.5728441, -100.34605)
+reason = 1
+
+[sub_resource type="Resource" id="Resource_eiwf1"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:1:0"
+priority_id = &"Road2:0:0>Road2:0:1"
+point = Vector3(-100.17925, 1.074141, -105.58566)
+reason = 1
+
+[sub_resource type="Curve3D" id="Curve3D_4up8b"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 0.6367237, 0, 3.4861367, -103.79672, 1.2541918, -106.79793, -0.63672847, 0, -3.4861357, 0, 0, 0, -102.28215, 1.6195811, -98.50539),
 "tilts": PackedFloat32Array(0, 0)
@@ -125,12 +329,12 @@ script = ExtResource("14_cad7k")
 id = &"Road:0:0>Road:0:1"
 from_key = "Road"
 to_key = "Road"
-curve = SubResource("Curve3D_r5vgm")
+curve = SubResource("Curve3D_4up8b")
 turn_angle = -1.3621171667732846e-06
 
-[sub_resource type="Curve3D" id="Curve3D_cyndd"]
+[sub_resource type="Curve3D" id="Curve3D_wnovj"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0.5864088, 0, 3.2106566, -103.79672, 1.2541918, -106.79793, -2.8621466, 0, 1.5685369, 0, 0, 0, -96.78067, 1.2637625, -103.45705),
+"points": PackedVector3Array(0, 0, 0, 0.5865788, 0, 3.2115872, -103.79672, 1.2541918, -106.79793, -2.862976, 0, 1.5689915, 0, 0, 0, -96.78067, 1.0668411, -103.45705),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -142,14 +346,14 @@ from_key = "Road"
 to_key = "Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_cyndd")
+curve = SubResource("Curve3D_wnovj")
 turn = 1
 turn_angle = -1.8914710910077572
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_umoq4"]
+[sub_resource type="Curve3D" id="Curve3D_vtbgk"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0.36177567, 0, 1.9807639, -103.79672, 1.2541918, -106.79793, 1.7657591, 0, -0.9676787, 0, 0, 0, -105.85515, 1.0094764, -102.47513),
+"points": PackedVector3Array(0, 0, 0, 0.36142063, 0, 1.9788201, -103.79672, 1.2541918, -106.79793, 1.7640262, 0, -0.9667291, 0, 0, 0, -105.85515, 1.1325552, -102.47513),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -159,11 +363,11 @@ script = ExtResource("14_cad7k")
 id = &"Road:0:0>Road2:0:1"
 from_key = "Road"
 to_key = "Road2"
-curve = SubResource("Curve3D_umoq4")
+curve = SubResource("Curve3D_vtbgk")
 turn = 2
 turn_angle = 1.2501245629981876
 
-[sub_resource type="Curve3D" id="Curve3D_fdeh7"]
+[sub_resource type="Curve3D" id="Curve3D_enavu"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -0.63672847, 0, -3.4861357, -98.83911, 1.6195811, -99.13425, 0.6367237, 0, 3.4861367, 0, 0, 0, -100.35368, 1.2541918, -107.42679),
 "tilts": PackedFloat32Array(0, 0)
@@ -179,12 +383,12 @@ from_end = 1
 to_key = "Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_fdeh7")
+curve = SubResource("Curve3D_enavu")
 turn_angle = 1.3621171667732846e-06
 
-[sub_resource type="Curve3D" id="Curve3D_6fins"]
+[sub_resource type="Curve3D" id="Curve3D_ilag5"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -0.36230358, 0, -1.9836391, -98.83911, 1.6195811, -99.13425, -1.7683196, 0, 0.9690889, 0, 0, 0, -96.78067, 1.2637625, -103.45705),
+"points": PackedVector3Array(0, 0, 0, -0.36370695, 0, -1.9913226, -98.83911, 1.6195811, -99.13425, -1.775169, 0, 0.97284263, 0, 0, 0, -96.78067, 1.0668411, -103.45705),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -198,13 +402,13 @@ from_end = 1
 to_key = "Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_6fins")
+curve = SubResource("Curve3D_ilag5")
 turn = 2
 turn_angle = 1.2501228877261004
 
-[sub_resource type="Curve3D" id="Curve3D_xk4pu"]
+[sub_resource type="Curve3D" id="Curve3D_8xder"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -0.58821625, 0, -3.220528, -98.83911, 1.6195811, -99.13425, 2.8709517, 0, -1.5733511, 0, 0, 0, -105.85515, 1.0094764, -102.47513),
+"points": PackedVector3Array(0, 0, 0, -0.58756226, 0, -3.216947, -98.83911, 1.6195811, -99.13425, 2.8677597, 0, -1.5716017, 0, 0, 0, -105.85515, 1.1325552, -102.47513),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -216,14 +420,14 @@ from_key = "Road"
 from_lane = 1
 from_end = 1
 to_key = "Road2"
-curve = SubResource("Curve3D_xk4pu")
+curve = SubResource("Curve3D_8xder")
 turn = 1
 turn_angle = -1.89146673716576
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_jc6ve"]
+[sub_resource type="Curve3D" id="Curve3D_pawj2"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -0.7714066, 0, 0.4227525, -98.46274, 1.2637625, -106.52635, 0.15804908, 0, 0.86533713, 0, 0, 0, -100.35368, 1.2541918, -107.42679),
+"points": PackedVector3Array(0, 0, 0, -0.7744786, 0, 0.4244361, -98.46274, 1.0668411, -106.52635, 0.15867849, 0, 0.86878324, 0, 0, 0, -100.35368, 1.2541918, -107.42679),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -235,13 +439,13 @@ from_key = "Road2"
 to_key = "Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_jc6ve")
+curve = SubResource("Curve3D_pawj2")
 turn = 2
 turn_angle = 1.8914710910077572
 
-[sub_resource type="Curve3D" id="Curve3D_x65ay"]
+[sub_resource type="Curve3D" id="Curve3D_4h40e"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -3.2747169, 0, 1.794637, -98.46274, 1.2637625, -106.52635, -0.67094296, 0, -3.6734626, 0, 0, 0, -102.28215, 1.6195811, -98.50539),
+"points": PackedVector3Array(0, 0, 0, -3.2784207, 0, 1.7966667, -98.46274, 1.0668411, -106.52635, -0.67170185, 0, -3.6776175, 0, 0, 0, -102.28215, 1.6195811, -98.50539),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -251,14 +455,14 @@ script = ExtResource("14_cad7k")
 id = &"Road2:0:0>Road:0:1"
 from_key = "Road2"
 to_key = "Road"
-curve = SubResource("Curve3D_x65ay")
+curve = SubResource("Curve3D_4h40e")
 turn = 1
 turn_angle = -1.2501228877261004
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_h4fvm"]
+[sub_resource type="Curve3D" id="Curve3D_hg8ye"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -3.10622, 0, 1.702296, -98.46274, 1.2637625, -106.52635, 3.1062253, 0, -1.7022867, 0, 0, 0, -105.85515, 1.0094764, -102.47513),
+"points": PackedVector3Array(0, 0, 0, -3.104902, 0, 1.7015736, -98.46274, 1.0668411, -106.52635, 3.1049073, 0, -1.7015644, 0, 0, 0, -105.85515, 1.1325552, -102.47513),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -268,12 +472,12 @@ script = ExtResource("14_cad7k")
 id = &"Road2:0:0>Road2:0:1"
 from_key = "Road2"
 to_key = "Road2"
-curve = SubResource("Curve3D_h4fvm")
+curve = SubResource("Curve3D_hg8ye")
 turn_angle = 3.016015767789163e-06
 
-[sub_resource type="Curve3D" id="Curve3D_qe7gh"]
+[sub_resource type="Curve3D" id="Curve3D_bg7w4"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 3.27334, 0, -1.7938696, -104.173096, 1.0094764, -99.40582, 0.6706548, 0, 3.6719131, 0, 0, 0, -100.35368, 1.2541918, -107.42679),
+"points": PackedVector3Array(0, 0, 0, 3.2724056, 0, -1.7933576, -104.173096, 1.1325552, -99.40582, 0.6704633, 0, 3.6708648, 0, 0, 0, -100.35368, 1.2541918, -107.42679),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -287,14 +491,14 @@ from_end = 1
 to_key = "Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_qe7gh")
+curve = SubResource("Curve3D_bg7w4")
 turn = 1
 turn_angle = -1.2501245629981876
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_eudfm"]
+[sub_resource type="Curve3D" id="Curve3D_ue3bv"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0.8034633, 0, -0.44031733, -104.173096, 1.0094764, -99.40582, -0.16461794, 0, -0.9012955, 0, 0, 0, -102.28215, 1.6195811, -98.50539),
+"points": PackedVector3Array(0, 0, 0, 0.79198164, 0, -0.4340251, -104.173096, 1.1325552, -99.40582, -0.16226552, 0, -0.8884158, 0, 0, 0, -102.28215, 1.6195811, -98.50539),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -306,13 +510,13 @@ from_key = "Road2"
 from_lane = 1
 from_end = 1
 to_key = "Road"
-curve = SubResource("Curve3D_eudfm")
+curve = SubResource("Curve3D_ue3bv")
 turn = 2
 turn_angle = 1.89146673716576
 
-[sub_resource type="Curve3D" id="Curve3D_vugto"]
+[sub_resource type="Curve3D" id="Curve3D_8c57d"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 3.1062305, 0, -1.7022896, -104.173096, 1.0094764, -99.40582, -3.1062253, 0, 1.7022989, 0, 0, 0, -96.78067, 1.2637625, -103.45705),
+"points": PackedVector3Array(0, 0, 0, 3.1049125, 0, -1.7015673, -104.173096, 1.1325552, -99.40582, -3.1049073, 0, 1.7015765, 0, 0, 0, -96.78067, 1.0668411, -103.45705),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -326,16 +530,26 @@ from_end = 1
 to_key = "Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_vugto")
+curve = SubResource("Curve3D_8c57d")
 turn_angle = -3.016015767789163e-06
 
-[sub_resource type="Resource" id="Resource_7f7fp"]
+[sub_resource type="Resource" id="Resource_p8a78"]
+script = ExtResource("16_ft08i")
+road_keys = PackedStringArray("Road")
+green_time = 49.5
+
+[sub_resource type="Resource" id="Resource_psm5m"]
+script = ExtResource("16_ft08i")
+road_keys = PackedStringArray("Road2")
+green_time = 6.0
+
+[sub_resource type="Resource" id="Resource_llyc4"]
 script = ExtResource("15_r5vgm")
 road_key = "Road"
 point = Vector3(-103.79672, 1.2541918, -106.79793)
 heading = Vector2(0.17967226, 0.98372656)
 
-[sub_resource type="Resource" id="Resource_ayy5u"]
+[sub_resource type="Resource" id="Resource_pmwfd"]
 script = ExtResource("15_r5vgm")
 road_key = "Road"
 lane = 1
@@ -343,18 +557,18 @@ end = 1
 point = Vector3(-98.83911, 1.6195811, -99.13425)
 heading = Vector2(-0.1796736, -0.9837263)
 
-[sub_resource type="Resource" id="Resource_ah624"]
+[sub_resource type="Resource" id="Resource_m5233"]
 script = ExtResource("15_r5vgm")
 road_key = "Road2"
-point = Vector3(-98.46274, 1.2637625, -106.52635)
+point = Vector3(-98.46274, 1.0668411, -106.52635)
 heading = Vector2(-0.8769451, 0.48059058)
 
-[sub_resource type="Resource" id="Resource_c2a6q"]
+[sub_resource type="Resource" id="Resource_ln5j0"]
 script = ExtResource("15_r5vgm")
 road_key = "Road2"
 lane = 1
 end = 1
-point = Vector3(-104.173096, 1.0094764, -99.40582)
+point = Vector3(-104.173096, 1.1325552, -99.40582)
 heading = Vector2(0.87694657, -0.48058796)
 
 [sub_resource type="Resource" id="Resource_6pcwc"]
@@ -367,11 +581,230 @@ trim_backs = PackedFloat32Array(4.21486, 4.21486)
 radius = 4.21486
 elevation = 1.4368871332926574
 connectors = Array[ExtResource("14_cad7k")]([SubResource("Resource_vfv27"), SubResource("Resource_1s022"), SubResource("Resource_2wp0u"), SubResource("Resource_201xj"), SubResource("Resource_3ucqc"), SubResource("Resource_nnq34"), SubResource("Resource_xq5ji"), SubResource("Resource_mayxm"), SubResource("Resource_nync1"), SubResource("Resource_rup21"), SubResource("Resource_lbwnp"), SubResource("Resource_ba6c1")])
-stop_lines = Array[ExtResource("15_r5vgm")]([SubResource("Resource_7f7fp"), SubResource("Resource_ayy5u"), SubResource("Resource_ah624"), SubResource("Resource_c2a6q")])
+stop_lines = Array[ExtResource("15_r5vgm")]([SubResource("Resource_llyc4"), SubResource("Resource_pmwfd"), SubResource("Resource_m5233"), SubResource("Resource_ln5j0")])
+priorities = PackedInt32Array(10, 0)
+conflicts = Array[ExtResource("14_5q6a7")]([SubResource("Resource_cyndd"), SubResource("Resource_umoq4"), SubResource("Resource_fdeh7"), SubResource("Resource_6fins"), SubResource("Resource_xk4pu"), SubResource("Resource_jc6ve"), SubResource("Resource_x65ay"), SubResource("Resource_h4fvm"), SubResource("Resource_qe7gh"), SubResource("Resource_eudfm"), SubResource("Resource_vugto"), SubResource("Resource_7f7fp"), SubResource("Resource_ayy5u"), SubResource("Resource_ah624"), SubResource("Resource_c2a6q"), SubResource("Resource_kou8i"), SubResource("Resource_8q01q"), SubResource("Resource_jdtgh"), SubResource("Resource_di0j4"), SubResource("Resource_kbnun"), SubResource("Resource_g8xwh"), SubResource("Resource_vum54"), SubResource("Resource_yr4lm"), SubResource("Resource_gmhxr"), SubResource("Resource_sirnw"), SubResource("Resource_8odna"), SubResource("Resource_7rah1"), SubResource("Resource_rh2s1"), SubResource("Resource_e7mvu"), SubResource("Resource_eiwf1")])
+phases = Array[ExtResource("16_ft08i")]([SubResource("Resource_p8a78"), SubResource("Resource_psm5m")])
 
-[sub_resource type="Curve3D" id="Curve3D_kou8i"]
+[sub_resource type="Resource" id="Resource_lrpqy"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:1:1>Road2:1:0"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-80.06094, 1.92643, 107.79059)
+reason = 1
+
+[sub_resource type="Resource" id="Resource_58ibl"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:1:0"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-81.835556, 1.7375014, 109.8591)
+
+[sub_resource type="Resource" id="Resource_jt0j5"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:0:1"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-83.53976, 1.659161, 111.845535)
+merge = true
+
+[sub_resource type="Resource" id="Resource_iuov5"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-82.08284, 1.7162714, 110.14734)
+
+[sub_resource type="Resource" id="Resource_n1wg4"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:0:1"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-83.53976, 1.659161, 111.845535)
+merge = true
+
+[sub_resource type="Resource" id="Resource_6fny5"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:0:0>Road:0:1"
+point = Vector3(-79.803825, 1.9484512, 107.49089)
+
+[sub_resource type="Resource" id="Resource_2w51q"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:1:1>Road2:1:0"
+priority_id = &"Road:0:0>Road2:1:0"
+point = Vector3(-81.53155, 1.4719547, 106.02999)
+merge = true
+reason = 1
+
+[sub_resource type="Resource" id="Resource_rjw5j"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:0:0>Road2:1:0"
+point = Vector3(-81.53155, 1.4719547, 106.02999)
+merge = true
+
+[sub_resource type="Resource" id="Resource_uxjcg"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:0:0>Road2:0:1"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-79.15438, 1.5177238, 112.10916)
+reason = 1
+
+[sub_resource type="Resource" id="Resource_6bruf"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:0:0>Road2:0:1"
+priority_id = &"Road:1:1>Road2:1:0"
+point = Vector3(-79.72304, 1.8595235, 108.52019)
+reason = 3
+
+[sub_resource type="Resource" id="Resource_nuug6"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:1:1>Road2:1:0"
+priority_id = &"Road:0:0>Road2:0:1"
+point = Vector3(-79.72304, 1.8595235, 108.52019)
+reason = 3
+
+[sub_resource type="Resource" id="Resource_g4861"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road:0:0>Road2:0:1"
+priority_id = &"Road:1:1>Road2:0:1"
+point = Vector3(-77.682396, 1.431481, 113.868195)
+merge = true
+reason = 1
+
+[sub_resource type="Resource" id="Resource_5wn6h"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:1:0"
+priority_id = &"Road:0:0>Road2:0:1"
+point = Vector3(-79.79067, 1.699258, 110.18851)
+
+[sub_resource type="Resource" id="Resource_2s1w0"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:0:0>Road2:0:1"
+point = Vector3(-77.682396, 1.431481, 113.868195)
+merge = true
+
+[sub_resource type="Resource" id="Resource_xwm7h"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:0:1"
+priority_id = &"Road:0:0>Road2:0:1"
+point = Vector3(-79.82635, 1.7435626, 109.74512)
+
+[sub_resource type="Resource" id="Resource_t8h56"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:0:0>Road2:0:1"
+point = Vector3(-79.503876, 1.9224944, 107.744514)
+
+[sub_resource type="Resource" id="Resource_mq0c8"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:1:0"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-75.6742, 2.005929, 108.05262)
+merge = true
+
+[sub_resource type="Resource" id="Resource_2s3s4"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-79.41014, 1.716639, 112.40728)
+
+[sub_resource type="Resource" id="Resource_bul4p"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:1:0"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-75.6742, 2.005929, 108.05262)
+merge = true
+
+[sub_resource type="Resource" id="Resource_yfp2r"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:0:1"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-77.37946, 1.9274929, 110.04029)
+
+[sub_resource type="Resource" id="Resource_ba6fr"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:1:1>Road:1:0"
+point = Vector3(-77.13113, 1.9488184, 109.750824)
+
+[sub_resource type="Resource" id="Resource_veqvn"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:1:0"
+priority_id = &"Road:1:1>Road2:1:0"
+point = Vector3(-79.39152, 1.5729929, 110.15676)
+
+[sub_resource type="Resource" id="Resource_uvkla"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:1:1>Road2:1:0"
+point = Vector3(-79.71166, 1.6317745, 112.15232)
+
+[sub_resource type="Resource" id="Resource_ikitl"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:0:1"
+priority_id = &"Road:1:1>Road2:1:0"
+point = Vector3(-79.426895, 1.5584248, 109.71291)
+
+[sub_resource type="Resource" id="Resource_e06w7"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road2:1:0"
+priority_id = &"Road:1:1>Road2:1:0"
+point = Vector3(-81.53155, 1.4719547, 106.02999)
+merge = true
+
+[sub_resource type="Resource" id="Resource_e42fe"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road2:0:1"
+priority_id = &"Road:1:1>Road2:0:1"
+point = Vector3(-77.682396, 1.431481, 113.868195)
+merge = true
+
+[sub_resource type="Resource" id="Resource_s7ihv"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:1:0"
+priority_id = &"Road2:1:1>Road:1:0"
+point = Vector3(-75.6742, 2.005929, 108.05262)
+merge = true
+reason = 1
+
+[sub_resource type="Resource" id="Resource_j4gce"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:1:0"
+priority_id = &"Road2:1:1>Road:0:1"
+point = Vector3(-81.11781, 1.6014909, 110.07132)
+reason = 3
+
+[sub_resource type="Resource" id="Resource_v8s1n"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:0:1"
+priority_id = &"Road2:0:0>Road:1:0"
+point = Vector3(-81.11781, 1.6014909, 110.07132)
+reason = 3
+
+[sub_resource type="Resource" id="Resource_oed8i"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:0:0>Road:1:0"
+priority_id = &"Road2:1:1>Road2:1:0"
+point = Vector3(-77.42113, 1.9277691, 109.50561)
+reason = 1
+
+[sub_resource type="Resource" id="Resource_mgqbv"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:0:1"
+priority_id = &"Road2:0:0>Road:0:1"
+point = Vector3(-83.53976, 1.659161, 111.845535)
+merge = true
+reason = 1
+
+[sub_resource type="Resource" id="Resource_t3334"]
+script = ExtResource("14_5q6a7")
+yielding_id = &"Road2:1:1>Road:0:1"
+priority_id = &"Road2:0:0>Road2:0:1"
+point = Vector3(-81.7916, 1.462905, 110.3936)
+reason = 1
+
+[sub_resource type="Curve3D" id="Curve3D_0n3cj"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -2.1916783, 0, 2.5546722, -79.24209, 1.9452517, 106.83613, 2.1917057, 0, -2.5546489, 0, 0, 0, -84.455505, 1.5982006, 112.91295),
+"points": PackedVector3Array(0, 0, 0, -2.1898906, 0, 2.5525885, -78.33059, 2.005929, 105.773674, 2.1899202, 0, -2.5525634, 0, 0, 0, -83.53976, 1.659161, 111.845535),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -381,12 +814,12 @@ script = ExtResource("14_cad7k")
 id = &"Road:0:0>Road:0:1"
 from_key = "Road"
 to_key = "Road"
-curve = SubResource("Curve3D_kou8i")
-turn_angle = 1.0738406621025418e-05
+curve = SubResource("Curve3D_0n3cj")
+turn_angle = 1.158531700836595e-05
 
-[sub_resource type="Curve3D" id="Curve3D_8q01q"]
+[sub_resource type="Curve3D" id="Curve3D_46yg7"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -0.835532, 0, 0.97391593, -79.24209, 1.9452517, 106.83613, 0.9388336, 0, 0.87476707, 0, 0, 0, -82.25661, 1.4773517, 107.00453),
+"points": PackedVector3Array(0, 0, 0, -0.89023685, 0, 1.0376812, -78.33059, 2.005929, 105.773674, 1.0440191, 0, 0.8827957, 0, 0, 0, -81.53155, 1.4719547, 106.02999),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -398,13 +831,13 @@ from_key = "Road"
 to_key = "Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_8q01q")
+curve = SubResource("Curve3D_46yg7")
 turn = 2
-turn_angle = 1.611815404260149
+turn_angle = 1.5636472253701792
 
-[sub_resource type="Curve3D" id="Curve3D_jdtgh"]
+[sub_resource type="Curve3D" id="Curve3D_xqesy"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -2.2468805, 0, 2.6190174, -79.24209, 1.9452517, 106.83613, -2.5246623, 0, -2.352404, 0, 0, 0, -78.78464, 1.4330792, 115.02347),
+"points": PackedVector3Array(0, 0, 0, -2.226271, 0, 2.5949943, -78.33059, 2.005929, 105.773674, -2.6108673, 0, -2.2076342, 0, 0, 0, -77.682396, 1.431481, 113.868195),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -414,14 +847,14 @@ script = ExtResource("14_cad7k")
 id = &"Road:0:0>Road2:0:1"
 from_key = "Road"
 to_key = "Road2"
-curve = SubResource("Curve3D_jdtgh")
+curve = SubResource("Curve3D_xqesy")
 turn = 1
-turn_angle = -1.5297717300340659
+turn_angle = -1.5779561274755978
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_di0j4"]
+[sub_resource type="Curve3D" id="Curve3D_irp76"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 2.1917148, 0, -2.5546594, -81.79913, 1.5982006, 115.191925, -2.1916873, 0, 2.554683, 0, 0, 0, -76.5857, 1.9452517, 109.115074),
+"points": PackedVector3Array(0, 0, 0, 2.1899292, 0, -2.5525737, -80.883385, 1.659161, 114.12451, -2.1898994, 0, 2.552599, 0, 0, 0, -75.6742, 2.005929, 108.05262),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -435,12 +868,12 @@ from_end = 1
 to_key = "Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_di0j4")
-turn_angle = -1.0738406621025418e-05
+curve = SubResource("Curve3D_irp76")
+turn_angle = -1.158531700836595e-05
 
-[sub_resource type="Curve3D" id="Curve3D_kbnun"]
+[sub_resource type="Curve3D" id="Curve3D_c8sn7"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 2.2427974, 0, -2.6142013, -81.79913, 1.5982006, 115.191925, 2.5200558, 0, 2.3480859, 0, 0, 0, -82.25661, 1.4773517, 107.00453),
+"points": PackedVector3Array(0, 0, 0, 2.2213407, 0, -2.589187, -80.883385, 1.659161, 114.12451, 2.6050265, 0, 2.2027433, 0, 0, 0, -81.53155, 1.4719547, 106.02999),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -454,14 +887,14 @@ from_end = 1
 to_key = "Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_kbnun")
+curve = SubResource("Curve3D_c8sn7")
 turn = 1
-turn_angle = -1.529788017964292
+turn_angle = -1.57795702130418
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_g8xwh"]
+[sub_resource type="Curve3D" id="Curve3D_yo0dg"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0.8269145, 0, -0.9638502, -81.79913, 1.5982006, 115.191925, -0.9291342, 0, -0.86573917, 0, 0, 0, -78.78464, 1.4330792, 115.02347),
+"points": PackedVector3Array(0, 0, 0, 0.88040334, 0, -1.026195, -80.883385, 1.659161, 114.12451, -1.0324823, 0, -0.8730215, 0, 0, 0, -77.682396, 1.431481, 113.868195),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -473,13 +906,13 @@ from_key = "Road"
 from_lane = 1
 from_end = 1
 to_key = "Road2"
-curve = SubResource("Curve3D_g8xwh")
+curve = SubResource("Curve3D_yo0dg")
 turn = 2
-turn_angle = 1.611810184695442
+turn_angle = 1.5636249330292962
 
-[sub_resource type="Curve3D" id="Curve3D_vum54"]
+[sub_resource type="Curve3D" id="Curve3D_i5lnu"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 2.483774, 0, 2.3142798, -84.64256, 1.4773517, 109.56523, -2.2104795, 0, 2.5765877, 0, 0, 0, -76.5857, 1.9452517, 109.115074),
+"points": PackedVector3Array(0, 0, 0, 2.617251, 0, 2.21308, -83.791435, 1.4719547, 108.702614, -2.2317343, 0, 2.6013627, 0, 0, 0, -75.6742, 2.005929, 108.05262),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -491,14 +924,14 @@ from_key = "Road2"
 to_key = "Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_vum54")
+curve = SubResource("Curve3D_i5lnu")
 turn = 1
-turn_angle = -1.611815404260149
+turn_angle = -1.5636472253701792
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_yr4lm"]
+[sub_resource type="Curve3D" id="Curve3D_6kpox"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 1.0309749, 0, 0.9606205, -84.64256, 1.4773517, 109.56523, 0.9175462, 0, -1.0694904, 0, 0, 0, -84.455505, 1.5982006, 112.91295),
+"points": PackedVector3Array(0, 0, 0, 1.012986, 0, 0.8565549, -83.791435, 1.4719547, 108.702614, 0.86378664, 0, -1.0068266, 0, 0, 0, -83.53976, 1.659161, 111.845535),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -508,13 +941,13 @@ script = ExtResource("14_cad7k")
 id = &"Road2:0:0>Road:0:1"
 from_key = "Road2"
 to_key = "Road"
-curve = SubResource("Curve3D_yr4lm")
+curve = SubResource("Curve3D_6kpox")
 turn = 2
-turn_angle = 1.529788017964292
+turn_angle = 1.57795702130418
 
-[sub_resource type="Curve3D" id="Curve3D_gmhxr"]
+[sub_resource type="Curve3D" id="Curve3D_dganp"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 2.4603786, 0, 2.292481, -84.64256, 1.4773517, 109.56523, -2.4603658, 0, -2.2924945, 0, 0, 0, -78.78464, 1.4330792, 115.02347),
+"points": PackedVector3Array(0, 0, 0, 2.5658157, 0, 2.1695876, -83.791435, 1.4719547, 108.702614, -2.5658388, 0, -2.1695602, 0, 0, 0, -77.682396, 1.431481, 113.868195),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -524,12 +957,12 @@ script = ExtResource("14_cad7k")
 id = &"Road2:0:0>Road2:0:1"
 from_key = "Road2"
 to_key = "Road2"
-curve = SubResource("Curve3D_gmhxr")
-turn_angle = 5.565867937149784e-06
+curve = SubResource("Curve3D_dganp")
+turn_angle = -1.0699819941653267e-05
 
-[sub_resource type="Curve3D" id="Curve3D_sirnw"]
+[sub_resource type="Curve3D" id="Curve3D_7korv"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -1.0422486, 0, -0.97113585, -76.39867, 1.4330792, 112.46278, -0.9275729, 0, 1.0812011, 0, 0, 0, -76.5857, 1.9452517, 109.115074),
+"points": PackedVector3Array(0, 0, 0, -1.0278652, 0, -0.86911744, -75.42252, 1.431481, 111.19556, -0.8764545, 0, 1.0216161, 0, 0, 0, -75.6742, 2.005929, 108.05262),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -543,13 +976,13 @@ from_end = 1
 to_key = "Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_sirnw")
+curve = SubResource("Curve3D_7korv")
 turn = 2
-turn_angle = 1.5297717300340659
+turn_angle = 1.5779561274755978
 
-[sub_resource type="Curve3D" id="Curve3D_8odna"]
+[sub_resource type="Curve3D" id="Curve3D_hla5u"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -2.4801083, 0, -2.31089, -76.39867, 1.4330792, 112.46278, 2.2072563, 0, -2.5727746, 0, 0, 0, -84.455505, 1.5982006, 112.91295),
+"points": PackedVector3Array(0, 0, 0, -2.6126862, 0, -2.2091722, -75.42252, 1.431481, 111.19556, 2.227852, 0, -2.5967765, 0, 0, 0, -83.53976, 1.659161, 111.845535),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -561,14 +994,14 @@ from_key = "Road2"
 from_lane = 1
 from_end = 1
 to_key = "Road"
-curve = SubResource("Curve3D_8odna")
+curve = SubResource("Curve3D_hla5u")
 turn = 1
-turn_angle = -1.611810184695442
+turn_angle = -1.5636249330292962
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_7rah1"]
+[sub_resource type="Curve3D" id="Curve3D_ko28e"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, -2.4603727, 0, -2.292501, -76.39867, 1.4330792, 112.46278, 2.4603856, 0, 2.2924874, 0, 0, 0, -82.25661, 1.4773517, 107.00453),
+"points": PackedVector3Array(0, 0, 0, -2.5658321, 0, -2.1695545, -75.42252, 1.431481, 111.19556, 2.5658088, 0, 2.169582, 0, 0, 0, -81.53155, 1.4719547, 106.02999),
 "tilts": PackedFloat32Array(0, 0)
 }
 point_count = 2
@@ -582,48 +1015,61 @@ from_end = 1
 to_key = "Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_7rah1")
-turn_angle = -5.565867937149784e-06
+curve = SubResource("Curve3D_ko28e")
+turn_angle = 1.0699819941653267e-05
 
-[sub_resource type="Resource" id="Resource_rh2s1"]
+[sub_resource type="Resource" id="Resource_pslno"]
+script = ExtResource("16_ft08i")
+road_keys = PackedStringArray("Road")
+green_time = 49.5
+
+[sub_resource type="Resource" id="Resource_alsej"]
+script = ExtResource("16_ft08i")
+road_keys = PackedStringArray("Road2")
+green_time = 6.0
+
+[sub_resource type="Resource" id="Resource_gexfl"]
 script = ExtResource("15_r5vgm")
 road_key = "Road"
-point = Vector3(-79.24209, 1.9452517, 106.83613)
+point = Vector3(-78.33059, 2.005929, 105.773674)
 heading = Vector2(-0.65112686, 0.75896895)
 
-[sub_resource type="Resource" id="Resource_e7mvu"]
+[sub_resource type="Resource" id="Resource_tvqka"]
 script = ExtResource("15_r5vgm")
 road_key = "Road"
 lane = 1
 end = 1
-point = Vector3(-81.79913, 1.5982006, 115.191925)
-heading = Vector2(0.651135, -0.758962)
+point = Vector3(-80.883385, 1.659161, 114.12451)
+heading = Vector2(0.6511357, -0.75896144)
 
-[sub_resource type="Resource" id="Resource_eiwf1"]
+[sub_resource type="Resource" id="Resource_58ld7"]
 script = ExtResource("15_r5vgm")
 road_key = "Road2"
-point = Vector3(-84.64256, 1.4773517, 109.56523)
-heading = Vector2(0.73162943, 0.6817026)
+point = Vector3(-83.791435, 1.4719547, 108.702614)
+heading = Vector2(0.76360446, 0.6456843)
 
-[sub_resource type="Resource" id="Resource_4up8b"]
+[sub_resource type="Resource" id="Resource_v2ff1"]
 script = ExtResource("15_r5vgm")
 road_key = "Road2"
 lane = 1
 end = 1
-point = Vector3(-76.39867, 1.4330792, 112.46278)
-heading = Vector2(-0.7316256, -0.68170667)
+point = Vector3(-75.42252, 1.431481, 111.19556)
+heading = Vector2(-0.7636114, -0.64567614)
 
 [sub_resource type="Resource" id="Resource_67nn0"]
 script = ExtResource("13_wv1iv")
 id = &"Road+Road2@-80,110"
-center = Vector2(-80.52061, 111.014015)
+center = Vector2(-79.60698, 109.94908)
 road_keys = PackedStringArray("Road", "Road2")
-arc_lengths = PackedFloat32Array(288.27017, 347.2767)
-trim_backs = PackedFloat32Array(4.0033674, 4.0033674)
-radius = 4.0033674
-elevation = 1.7717262037949695
+arc_lengths = PackedFloat32Array(286.86703, 347.25296)
+trim_backs = PackedFloat32Array(4.0001025, 4.0001025)
+radius = 4.0001025
+elevation = 1.8325450863703736
 connectors = Array[ExtResource("14_cad7k")]([SubResource("Resource_lsmas"), SubResource("Resource_j0tvn"), SubResource("Resource_ju5qj"), SubResource("Resource_pakvy"), SubResource("Resource_ssc7m"), SubResource("Resource_dt286"), SubResource("Resource_ow0y2"), SubResource("Resource_s856v"), SubResource("Resource_d3r78"), SubResource("Resource_fkyag"), SubResource("Resource_r045v"), SubResource("Resource_xoefv")])
-stop_lines = Array[ExtResource("15_r5vgm")]([SubResource("Resource_rh2s1"), SubResource("Resource_e7mvu"), SubResource("Resource_eiwf1"), SubResource("Resource_4up8b")])
+stop_lines = Array[ExtResource("15_r5vgm")]([SubResource("Resource_gexfl"), SubResource("Resource_tvqka"), SubResource("Resource_58ld7"), SubResource("Resource_v2ff1")])
+priorities = PackedInt32Array(10, 0)
+conflicts = Array[ExtResource("14_5q6a7")]([SubResource("Resource_lrpqy"), SubResource("Resource_58ibl"), SubResource("Resource_jt0j5"), SubResource("Resource_iuov5"), SubResource("Resource_n1wg4"), SubResource("Resource_6fny5"), SubResource("Resource_2w51q"), SubResource("Resource_rjw5j"), SubResource("Resource_uxjcg"), SubResource("Resource_6bruf"), SubResource("Resource_nuug6"), SubResource("Resource_g4861"), SubResource("Resource_5wn6h"), SubResource("Resource_2s1w0"), SubResource("Resource_xwm7h"), SubResource("Resource_t8h56"), SubResource("Resource_mq0c8"), SubResource("Resource_2s3s4"), SubResource("Resource_bul4p"), SubResource("Resource_yfp2r"), SubResource("Resource_ba6fr"), SubResource("Resource_veqvn"), SubResource("Resource_uvkla"), SubResource("Resource_ikitl"), SubResource("Resource_e06w7"), SubResource("Resource_e42fe"), SubResource("Resource_s7ihv"), SubResource("Resource_j4gce"), SubResource("Resource_v8s1n"), SubResource("Resource_oed8i"), SubResource("Resource_mgqbv"), SubResource("Resource_t3334")])
+phases = Array[ExtResource("16_ft08i")]([SubResource("Resource_pslno"), SubResource("Resource_alsej")])
 
 [sub_resource type="Resource" id="Resource_wv1iv"]
 script = ExtResource("11_ii4qc")
@@ -654,7 +1100,7 @@ metadata/_custom_type_script = "uid://d1q35xltb5ltv"
 
 [sub_resource type="Curve3D" id="Curve3D_vfv27"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 12.0757885, 0.9999928, -250.55266, 0, 0, 0, 0, 0, 0, -30.185253, 0.9999928, -248.02394, 0, 0, 0, 0, 0, 0, -103.02675, 0.9999928, -208.10507, 0, 0, 0, 0, 0, 0, -109.782364, 0.9999928, -157.92018, 0, 0, 0, 0, 0, 0, -111.969376, 0.9999928, -77.91623, 0, 0, 0, 0, 0, 0, -69.50987, 0.9999928, -32.636948, 0, 0, 0, 0, 0, 0, -37.04604, 0.9999928, -2.3881378, 0, 0, 0, 0, 0, 0, 42.512093, 0.9999996, -4.2038803),
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 12.0757885, 0.9999928, -250.55266, 0, 0, 0, 0, 0, 0, -30.185253, 0.9999928, -248.02394, 0, 0, 0, 0, 0, 0, -103.02675, 0.9999928, -208.10507, 0, 0, 0, 0, 0, 0, -109.782364, 0.9999928, -157.92018, 0, 0, 0, 0, 0, 0, -111.969376, 0.9999928, -77.91623, 0, 0, 0, 0, 0, 0, -69.50987, 0.9999928, -32.636948, 0, 0, 0, 0, 0, 0, -33.736317, 0.9999928, -2.3881378, 0, 0, 0, 0, 0, 0, 42.512093, 0.9999996, -4.2038803),
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0)
 }
 point_count = 8

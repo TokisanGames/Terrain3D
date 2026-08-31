@@ -742,6 +742,18 @@ func schedule_junction_rebake() -> void:
 
 ## The world XZ point `p_s` metres along this road's plan. The junction gizmo's way of asking where an
 ## approach actually is, without reaching into the brush's private plan arrays.
+## How long this road is, metres — the solved alignment's length, or NAN before the first bake.
+##
+## Published because a consumer following a lane has to know where the road ENDS: without it a vehicle
+## walks off the last point and the only alternatives are to reach into the modifier's alignment or to
+## re-measure the spline, both of which are the consumer doing the road system's job.
+func road_length() -> float:
+	var mod := road_modifier()
+	if mod == null or mod.last_alignment == null or mod.last_alignment.count() == 0:
+		return NAN
+	return float(mod.last_alignment.count() - 1) * mod.last_alignment.ds
+
+
 func point_at_arc(p_s: float) -> Vector2:
 	var plan := _plan_points()
 	if plan.size() < 2:

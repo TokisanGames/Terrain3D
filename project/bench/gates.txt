@@ -269,3 +269,16 @@ bench/RoadNetworkGate.tscn
 # crosses oncoming traffic; and every incoming lane has a stop line on the footprint boundary that
 # moves when the trim-back does.
 bench/RoadLaneGraphGate.tscn
+
+# P4b - the COMPLETENESS bar, not the correctness one. Every other road gate is written in the road
+# system's own vocabulary, so it can only ask questions the road system already knows how to answer;
+# sufficiency is the opposite question - what does a consumer need that nobody thought to publish? The
+# only way to find out is to write the consumer, so this drives bench/reference/road_lane_follower.gd,
+# a vehicle that follows lanes, holds at junctions and yields using nothing but the four published
+# queries. It asserts that the follower never names a solver (read from its source, because a consumer
+# that quietly compensates still works), never needs data it cannot get, actually arrives, holds for
+# priority traffic but not for traffic without it, obeys a signal without reading the ABSENCE of one as
+# either colour, and never teleports across the road-to-connector handoff. Writing the follower found
+# three gaps, all closed in the data: a stop line with no arc length, a lane_stop that answered with
+# the first junction rather than the next, and a road that would not say how long it was.
+bench/RoadSufficiencyGate.tscn

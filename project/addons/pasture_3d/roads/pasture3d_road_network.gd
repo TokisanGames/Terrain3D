@@ -249,6 +249,7 @@ func _arms_for(p_junction: Pasture3DRoadJunction, p_by_key: Dictionary) -> Array
 				"end": end,
 				"point": brush.point_at_arc(at),
 				"y": y,
+				"distance": at,
 				"tangent": brush.tangent_at_arc(at),
 				"lanes": lanes,
 			})
@@ -378,12 +379,30 @@ func lane_connectors(p_key: String, p_lane: int, p_end: int) -> Array:
 
 ## Where a vehicle in that lane holds, and at which junction. Query two. Returns
 ## `{junction, stop_line}`, or {} when that lane holds for nothing.
-func lane_stop(p_key: String, p_lane: int, p_end: int) -> Dictionary:
+##
+## `p_from_distance` is where the vehicle is now, as an arc length along its road; give it and the
+## answer is the NEXT hold in the direction it is travelling rather than the first one in the junction
+## list. A road that crosses two others has two stop lines for the same lane, so without this a vehicle
+## halfway along it would be told to stop at the junction it has already passed — which is not a
+## consumer error to guard against, it is a query that answered the wrong question.
+func lane_stop(p_key: String, p_lane: int, p_end: int, p_from_distance: float = NAN) -> Dictionary:
+	var best := {}
+	var best_gap := INF
 	for j in junctions_for(p_key):
 		var sl := j.stop_line_for(p_key, p_lane, p_end)
-		if sl != null:
+		if sl == null:
+			continue
+		if not is_finite(p_from_distance) or not is_finite(sl.distance):
 			return {"junction": j, "stop_line": sl}
-	return {}
+		# A vehicle arriving at the BEFORE end is travelling with increasing arc length, so its next
+		# hold is ahead of it; at the AFTER end it is travelling the other way.
+		var gap: float = sl.distance - p_from_distance
+		if p_end == Pasture3DRoadLaneConnector.End.AFTER:
+			gap = -gap
+		if gap >= 0.0 and gap < best_gap:
+			best_gap = gap
+			best = {"junction": j, "stop_line": sl}
+	return best
 
 
 ## The signal a vehicle approaching `p_junction` on `p_key` sees. Query three. NONE means the junction

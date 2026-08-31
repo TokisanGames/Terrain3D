@@ -28,6 +28,14 @@ extends Resource
 ## Direction of travel there, world XZ, normalised and pointing INTO the junction. A vehicle has
 ## stopped correctly when its progress along this direction reaches the point.
 @export var heading: Vector2 = Vector2.RIGHT
+## Arc length along `road_key` at which the line sits, metres.
+##
+## Added because the reference agent could not do without it: a vehicle tracks its own position as an
+## arc length, and turning the world-space `point` back into one means projecting onto the road's plan
+## and solving — re-deriving geometry, which §6.4 says is the sign the published data is incomplete.
+## It costs nothing here: the solver already knows the arc length, because the trim-back is what put
+## the line where it is.
+@export var distance: float = NAN
 ## Width of the lane the line spans, metres — enough to draw the line, or to test whether a vehicle is
 ## within its own lane at the hold.
 @export var width: float = 3.5

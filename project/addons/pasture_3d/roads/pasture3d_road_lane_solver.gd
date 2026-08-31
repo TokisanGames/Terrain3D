@@ -48,6 +48,8 @@ const U_TURN_ARC: float = PI * 0.75
 ##   end       — Pasture3DRoadLaneConnector.End, which end of that road this arm is
 ##   point     — world XZ of the CENTRELINE at the footprint boundary
 ##   y         — the road's solved height there, metres
+##   distance  — the arc length along that road the arm sits at, metres. Optional; without it the stop
+##               lines come back with no `distance` and a consumer has to project to find one.
 ##   tangent   — the road's plan direction at that point, world XZ, in the direction of INCREASING arc
 ##               length. Not the direction of travel: a BACKWARD lane travels against it.
 ##   lanes     — that road's cross-section (Pasture3DRoadLanes.cross_section)
@@ -99,6 +101,7 @@ static func solve(p_arms: Array, p_existing: Array = [], p_opts: Dictionary = {}
 		sl.point = Vector3(ep["pos"].x, ep["y"], ep["pos"].y)
 		sl.heading = ep["heading"]
 		sl.width = float(ep["width"])
+		sl.distance = float(ep.get("distance", NAN))
 		stop_lines.append(sl)
 
 	return {"connectors": connectors, "stop_lines": stop_lines}
@@ -131,6 +134,7 @@ static func _endpoint(p_arm_index: int, p_arm: Dictionary, p_lane: Dictionary) -
 		"width": float(p_lane["width"]),
 		"pos": pos,
 		"y": float(p_arm.get("y", 0.0)),
+		"distance": float(p_arm.get("distance", NAN)),
 		"heading": heading,
 	}
 
