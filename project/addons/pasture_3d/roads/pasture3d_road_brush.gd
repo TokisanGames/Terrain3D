@@ -231,6 +231,27 @@ func resolved_follow_terrain(p_distance: float = NAN) -> bool:
 	return int(v) == int(Pasture3DRoadOverrides.Tri.ON) if v != null else false
 
 
+## True when this road carries traffic in one direction only. TWO_WAY where nothing has an opinion:
+## a road that nobody declared one-way is a normal road, and defaulting the other way would silently
+## delete every oncoming lane in a world that never mentioned traffic flow.
+func resolved_one_way(p_distance: float = NAN) -> bool:
+	var v: Variant = resolved(&"traffic_flow", p_distance)
+	return int(v) == int(Pasture3DRoadOverrides.TrafficFlow.ONE_WAY) if v != null else false
+
+
+## This road's lane cross-section at `p_distance`, resolved against the hierarchy and the world's
+## traffic side. The one place the lane kernel is fed, so a road's lanes mean the same thing to the
+## junction solver, the gizmo and every query.
+func resolved_lanes(p_distance: float = NAN) -> Array:
+	var t := resolved_road_type(p_distance)
+	if t == null:
+		return []
+	var net := road_network()
+	var left_hand: bool = net != null and net.traffic_side == Pasture3DRoadNetwork.TrafficSide.LEFT
+	return Pasture3DRoadLanes.cross_section(resolved_lane_count(p_distance), t.lane_width,
+			resolved_one_way(p_distance), left_hand)
+
+
 # ---- Segments -----------------------------------------------------------------------------------
 
 ## The segment covering `p_distance`, or null. LAST match wins, so a short bridge declared after a long
@@ -719,3 +740,29 @@ func point_at_arc(p_s: float) -> Vector2:
 	if plan.size() < 2:
 		return Vector2.ZERO
 	return _plan_point_at(plan, Pasture3DRoadGrader.cumulative_length(plan), p_s)
+
+
+## Plan direction at `p_s`, normalised, in the direction of INCREASING arc length.
+##
+## A central difference rather than the segment direction: an arc length that lands exactly on a plan
+## vertex would otherwise pick one of two different answers depending on rounding, and a junction arm
+## frequently lands near one. Straddling the point averages the two, which is also the right answer on
+## the curve the tessellation is approximating.
+func tangent_at_arc(p_s: float, p_h: float = 0.5) -> Vector2:
+	var plan := _plan_points()
+	if plan.size() < 2:
+		return Vector2.RIGHT
+	var cum := Pasture3DRoadGrader.cumulative_length(plan)
+	var total: float = cum[cum.size() - 1]
+	var a := _plan_point_at(plan, cum, clampf(p_s - p_h, 0.0, total))
+	var b := _plan_point_at(plan, cum, clampf(p_s + p_h, 0.0, total))
+	var d := b - a
+	return d.normalized() if d.length() > 1e-6 else Vector2.RIGHT
+
+
+## The road's solved height at `p_s`, or NAN when it has not been baked. World metres.
+func height_at_arc(p_s: float) -> float:
+	var mod := road_modifier()
+	if mod == null or mod.last_alignment == null or mod.last_alignment.count() == 0:
+		return NAN
+	return mod.last_alignment.height_at(p_s)

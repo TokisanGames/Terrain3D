@@ -56,6 +56,15 @@ enum ControlType { INHERIT = -1, UNCONTROLLED = 0, PRIORITY = 1, STOP = 2, SIGNA
 ## being detected is kept (its overrides may be wanted again) but marked, rather than deleted outright.
 @export var detected: bool = true
 
+@export_group("Lane graph")
+## The legal paths through this junction, one per (incoming lane, outgoing lane) pair the generator
+## allowed. Solver output EXCEPT each connector's own `allowed_override`, which is reconciled by id and
+## never rewritten — see Pasture3DRoadLaneConnector.
+@export var connectors: Array[Pasture3DRoadLaneConnector] = []
+## Where a vehicle holds, one per incoming lane. Purely derived: unlike the connectors there is nothing
+## on a stop line for a user to author, so these are rebuilt outright on every resolve.
+@export var stop_lines: Array[Pasture3DRoadStopLine] = []
+
 @export_group("Overrides")
 ## The user's choices. Never written by the solver.
 @export var control: ControlType = ControlType.INHERIT
@@ -129,6 +138,28 @@ func is_major(p_key: String) -> bool:
 ## already reports an impossible pair as an infeasible gradient breach. A junction that cannot be built
 ## at the grade it demands therefore surfaces through machinery that exists and is gated, instead of
 ## through a new failure mode of its own.
+## The legal connectors leaving one lane of one road at one end — the answer to "what are my legal next
+## lanes". Forbidden connectors are filtered here rather than by the caller, so a consumer that ignores
+## `allowed()` cannot accidentally drive a banned turn.
+func connectors_from(p_key: String, p_lane: int, p_end: int) -> Array:
+	var out: Array = []
+	if disabled:
+		return out
+	for c in connectors:
+		if c != null and c.from_key == p_key and c.from_lane == p_lane and c.from_end == p_end \
+				and c.allowed():
+			out.append(c)
+	return out
+
+
+## Where a vehicle in one lane holds at this junction, or null when that lane is not an incoming one.
+func stop_line_for(p_key: String, p_lane: int, p_end: int) -> Pasture3DRoadStopLine:
+	for sl in stop_lines:
+		if sl != null and sl.road_key == p_key and sl.lane == p_lane and sl.end == p_end:
+			return sl
+	return null
+
+
 func pin_for(p_key: String) -> float:
 	if disabled:
 		return NAN

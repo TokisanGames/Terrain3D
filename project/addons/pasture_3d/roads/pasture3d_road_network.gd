@@ -148,11 +148,91 @@ func resolve_junctions() -> void:
 	# A road with no solved alignment yet contributes nothing, so a resolve that runs before the first
 	# bake finds nothing rather than finding wrong things.
 	junctions = _typed(Pasture3DRoadJunctionSolver.resolve(runs, junctions))
+	# The lane graph is built from the RESOLVED junctions, so it runs after them and reads the trim-back
+	# they just decided: an arm sits exactly where the approach's grading stops.
+	_resolve_lane_graphs(brushes)
 	for b in brushes:
 		if b.junction_digest() != b.last_junction_digest:
 			b.schedule_junction_rebake()
 	# The junction gizmo draws from these records, and nothing else tells the editor they moved.
 	update_gizmos()
+
+
+## Build every detected junction's lane graph from its participants' arms.
+##
+## A junction that is disabled or no longer detected keeps whatever it had: the connectors carry the
+## user's turn permissions, and rebuilding them from arms that are not there any more would throw those
+## away for the same reason the junction records themselves are kept rather than deleted (§6).
+##
+## THE FIRST BUILD IS ONE PASS BEHIND, inherently. Arm heights come from each road's solved alignment,
+## and on the resolve that FIRST detects a junction those alignments predate its pins — so the minor
+## road's arms sit at the height it wanted before it was asked to meet the major road. The re-bake the
+## pins trigger requests another resolve, and that one sees the profiles the junction asked for. Nothing
+## needs to force it; it is the same fixed point the digest already converges on.
+func _resolve_lane_graphs(p_brushes: Array) -> void:
+	var by_key := {}
+	for b in p_brushes:
+		by_key[b.road_key()] = b
+	var left_hand := traffic_side == TrafficSide.LEFT
+	for j in junctions:
+		if j == null or not j.detected or j.disabled:
+			continue
+		var arms := _arms_for(j, by_key)
+		if arms.size() < 2:
+			continue
+		var res := Pasture3DRoadLaneSolver.solve(arms, j.connectors, {"left_hand": left_hand})
+		j.connectors = _typed_connectors(res["connectors"])
+		j.stop_lines = _typed_stop_lines(res["stop_lines"])
+
+
+## The arms of one junction: two per participant — the approach BEFORE the footprint and the
+## continuation AFTER it — at the arc lengths the trim-back put them.
+##
+## A road whose alignment has not been solved yet contributes nothing, the same rule `build_run` uses:
+## an arm with no height is an arm whose connectors would be drawn at y = 0, running through the ground.
+func _arms_for(p_junction: Pasture3DRoadJunction, p_by_key: Dictionary) -> Array:
+	var out: Array = []
+	for key in p_junction.road_keys:
+		var brush = p_by_key.get(String(key), null)
+		if brush == null:
+			continue
+		var lanes: Array = brush.resolved_lanes()
+		if lanes.is_empty():
+			continue
+		var s: float = p_junction.arc_length_for(String(key))
+		var trim: float = p_junction.trim_back_for(String(key))
+		if not is_finite(s):
+			continue
+		for end in [Pasture3DRoadLaneConnector.End.BEFORE, Pasture3DRoadLaneConnector.End.AFTER]:
+			var at: float = s - trim if end == Pasture3DRoadLaneConnector.End.BEFORE else s + trim
+			var y: float = brush.height_at_arc(at)
+			if not is_finite(y):
+				continue
+			out.append({
+				"key": String(key),
+				"end": end,
+				"point": brush.point_at_arc(at),
+				"y": y,
+				"tangent": brush.tangent_at_arc(at),
+				"lanes": lanes,
+			})
+	return out
+
+
+func _typed_connectors(p_in: Array) -> Array[Pasture3DRoadLaneConnector]:
+	var out: Array[Pasture3DRoadLaneConnector] = []
+	for c in p_in:
+		if c is Pasture3DRoadLaneConnector:
+			out.append(c)
+	return out
+
+
+func _typed_stop_lines(p_in: Array) -> Array[Pasture3DRoadStopLine]:
+	var out: Array[Pasture3DRoadStopLine] = []
+	for sl in p_in:
+		if sl is Pasture3DRoadStopLine:
+			out.append(sl)
+	return out
 
 
 ## Every road brush under this network, in scene order.

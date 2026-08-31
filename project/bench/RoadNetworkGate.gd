@@ -31,6 +31,8 @@ func _ready() -> void:
 	_b_the_pin_reaches_the_minor_roads_profile()
 	_c_the_trim_back_stops_the_minor_road_grading_the_junction()
 	_d_the_resolve_loop_settles()
+	_e_the_lane_graph_is_built_from_the_real_brushes()
+	_f_the_networks_traffic_side_reaches_the_connectors()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD NETWORK PASS" if _fail == 0 else "ROAD NETWORK FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -93,6 +95,29 @@ func _valley(p_slope: float) -> PackedFloat32Array:
 func _bake(p_brush: Pasture3DRoadBrush, p_ground: PackedFloat32Array) -> Dictionary:
 	var mod: Pasture3DNodeRoad = p_brush.road_modifier()
 	return p_brush.grade_surface(mod, p_ground, GW, GH, MIN_X, MIN_Z, VS)
+
+
+## Bake and resolve until the junctions stop asking for anything new — what the editor does across a
+## few refreshes, driven explicitly because a gate has no refresh timer.
+##
+## Two passes are needed and that is inherent: the FIRST resolve builds the lane graph from alignments
+## solved before the pins existed, so its arm heights are the unpinned ones. The re-bake those pins
+## trigger requests another resolve, and that one sees the profiles the junction asked for.
+func _settle(p_net: Pasture3DRoadNetwork, p_brushes: Array, p_ground: PackedFloat32Array,
+		p_max: int = 6) -> int:
+	var passes := 0
+	while passes < p_max:
+		for b in p_brushes:
+			_bake(b, p_ground)
+		p_net.resolve_junctions()
+		passes += 1
+		var dirty := 0
+		for b in p_brushes:
+			if b.junction_digest() != b.last_junction_digest:
+				dirty += 1
+		if dirty == 0 and passes >= 2:
+			break
+	return passes
 
 
 func _at(p_z: PackedFloat32Array, p_x: float, p_zw: float) -> float:
@@ -266,3 +291,121 @@ func _d_the_resolve_loop_settles() -> void:
 	_check("D", dirty == 0 and passes <= 3 and said,
 			"settled after %d pass(es), %d brush(es) still dirty; minor digest %s" % [
 				passes, dirty, "non-empty" if said else "EMPTY (nothing was wired)"])
+
+
+## [E] The lane graph is built from the brushes the network actually holds, and lands where their
+## geometry says. The kernel is gated on literal arms in RoadLaneGraphGate; this is the seam — that the
+## network builds those arms from real splines, real trim-backs and real solved heights.
+##
+## The assertion that catches a wiring error is the POSITION: every connector must start at a trimmed
+## end, which is `trim_back` metres from the centre. A graph built from arms at the wrong arc length
+## still has twelve connectors and still passes every count, and would be visibly wrong in the viewport.
+func _e_the_lane_graph_is_built_from_the_real_brushes() -> void:
+	print("[E] the lane graph is built from the real brushes")
+	var ground := _valley(0.10)
+	var w := _crossroads()
+	var net: Pasture3DRoadNetwork = w["net"]
+	var brushes: Array[Pasture3DRoadBrush] = [w["ew"], w["ns"]]
+	_settle(net, brushes, ground)
+	var j: Pasture3DRoadJunction = net.junctions[0] if net.junctions.size() == 1 else null
+	if j == null:
+		net.queue_free()
+		_check("E", false, "no junction to build a lane graph on")
+		return
+	var n_conn: int = j.connectors.size()
+	var n_stop: int = j.stop_lines.size()
+
+	# Every connector endpoint sits on some arm — `trim_back` along the road from the centre, offset to
+	# a lane centre — so its distance from the junction centre is hypot(trim, |lane offset|) for one of
+	# the participating roads. The major road here is four lanes and the minor two, so there are three
+	# distinct radii and an endpoint must land on one of them.
+	var want_radii := PackedFloat32Array()
+	for b in brushes:
+		var trim: float = j.trim_back_for(b.road_key())
+		for lane: Dictionary in b.resolved_lanes():
+			want_radii.append(sqrt(trim * trim + pow(float(lane["offset"]), 2.0)))
+	var worst := 0.0
+	for c: Pasture3DRoadLaneConnector in j.connectors:
+		for p in [c.entry_point(), c.exit_point()]:
+			var r := Vector2(p.x - j.center.x, p.z - j.center.y).length()
+			var best := INF
+			for want in want_radii:
+				best = minf(best, absf(r - want))
+			worst = maxf(worst, best)
+	var trim_ew: float = j.trim_back_for((w["ew"] as Pasture3DRoadBrush).road_key())
+	var trim_ns: float = j.trim_back_for((w["ns"] as Pasture3DRoadBrush).road_key())
+	# The heights come from the solved alignments, not from y = 0 — on this valley the junction sits
+	# above the floor, so a connector at zero would be metres under the road.
+	var lifted := 0
+	for c: Pasture3DRoadLaneConnector in j.connectors:
+		if absf(c.entry_point().y) > 0.01:
+			lifted += 1
+	net.queue_free()
+
+	# CONTROL: roads that never meet build no lane graph, so [E] is measuring a junction rather than
+	# reporting connectors wherever two brushes exist.
+	var far := _crossroads(200.0)
+	var far_net: Pasture3DRoadNetwork = far["net"]
+	_settle(far_net, [far["ew"], far["ns"]], ground)
+	var far_conn := 0
+	for k: Pasture3DRoadJunction in far_net.junctions:
+		far_conn += k.connectors.size()
+	far_net.queue_free()
+
+	print("    %d connectors, %d stop lines; trim-backs %.2f/%.2f m; worst endpoint %.3f m off an arm; %d connectors above y=0"
+			% [n_conn, n_stop, trim_ew, trim_ns, worst, lifted])
+	print("    control: roads 200 m apart -> %d connectors" % far_conn)
+	# Six incoming lanes — two per end of the four-lane major road, one per end of the two-lane minor —
+	# each reaching the three other arms.
+	_check("E", n_conn == 18 and n_stop == 6 and worst < 0.05 and lifted == n_conn and far_conn == 0,
+			"%d connectors / %d stop lines (want 18/6); endpoints %s; %d/%d at a solved height; control %d" % [
+				n_conn, n_stop, "on the arms" if worst < 0.05 else "OFF BY %.3f m" % worst,
+				lifted, n_conn, far_conn])
+
+
+## [F] The network's `traffic_side` reaches the connectors. It is a world constant with no per-brush
+## override, so the only way it can be wrong is by not being passed down — which is invisible in a
+## right-hand world, because right-hand is the default the kernel would fall back to.
+func _f_the_networks_traffic_side_reaches_the_connectors() -> void:
+	print("[F] the network's traffic side reaches the connectors")
+	var ground := _valley(0.10)
+	var w := _crossroads()
+	var net: Pasture3DRoadNetwork = w["net"]
+	net.traffic_side = Pasture3DRoadNetwork.TrafficSide.LEFT
+	_settle(net, [w["ew"], w["ns"]], ground)
+	var j: Pasture3DRoadJunction = net.junctions[0] if net.junctions.size() == 1 else null
+	var left_conflicts := 0
+	var right_conflicts := 0
+	if j != null:
+		for c: Pasture3DRoadLaneConnector in j.connectors:
+			if not c.crosses_oncoming:
+				continue
+			if c.turn == Pasture3DRoadLaneConnector.Turn.LEFT:
+				left_conflicts += 1
+			elif c.turn == Pasture3DRoadLaneConnector.Turn.RIGHT:
+				right_conflicts += 1
+	net.queue_free()
+
+	# CONTROL: the default right-hand world marks the LEFT turns instead. Without it this would pass on
+	# a network that never passed the flag at all and a kernel that happened to mark right turns.
+	var w2 := _crossroads()
+	var net2: Pasture3DRoadNetwork = w2["net"]
+	_settle(net2, [w2["ew"], w2["ns"]], ground)
+	var j2: Pasture3DRoadJunction = net2.junctions[0] if net2.junctions.size() == 1 else null
+	var rht_left := 0
+	var rht_right := 0
+	if j2 != null:
+		for c: Pasture3DRoadLaneConnector in j2.connectors:
+			if not c.crosses_oncoming:
+				continue
+			if c.turn == Pasture3DRoadLaneConnector.Turn.LEFT:
+				rht_left += 1
+			elif c.turn == Pasture3DRoadLaneConnector.Turn.RIGHT:
+				rht_right += 1
+	net2.queue_free()
+
+	print("    left-hand world: %d left / %d right turns marked as crossing traffic (want 0/6)"
+			% [left_conflicts, right_conflicts])
+	print("    control: right-hand world: %d left / %d right (want 6/0)" % [rht_left, rht_right])
+	_check("F", left_conflicts == 0 and right_conflicts == 6 and rht_left == 6 and rht_right == 0,
+			"left-hand %d/%d, right-hand %d/%d" % [left_conflicts, right_conflicts, rht_left, rht_right])

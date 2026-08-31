@@ -38,6 +38,21 @@ const DISABLED := Color(0.55, 0.55, 0.55)
 ## A record kept for its overrides after the roads stopped crossing. Drawn where it last was.
 const UNDETECTED := Color(0.9, 0.35, 0.3)
 
+## Lane connectors. Green for a path that goes straight through or turns without conflict.
+const CONNECTOR := Color(0.35, 0.95, 0.45)
+## A turn that crosses the oncoming carriageway. Amber, because it is the one a consumer has to yield
+## on, and because seeing at a glance which turns are conflicted is how you check `traffic_side` is set
+## the way the world actually drives.
+const CONFLICT := Color(1.0, 0.7, 0.15)
+## A turn the author forbade. Drawn, unlike the connectors that were never generated: a banned turn is a
+## decision, and one you cannot see is one you cannot find again.
+const FORBIDDEN := Color(0.5, 0.3, 0.3)
+## Stop lines.
+const STOP := Color(1.0, 0.25, 0.25)
+
+## Points sampled along each connector curve when drawing it.
+const CONNECTOR_STEPS: int = 12
+
 var _mat: Dictionary = {}
 
 
@@ -107,6 +122,27 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 				line.append_array(_cross(end))
 				p_gizmo.add_lines(line, mat)
 
+		if not j.detected or j.disabled:
+			continue
+		# The lane graph. Drawn after the arms so it reads on top of them, and only for a live junction:
+		# the connectors of a disabled junction are kept but are not paths anything may take.
+		for c in j.connectors:
+			if c == null or c.curve == null or c.curve.point_count < 2:
+				continue
+			var c_colour := CONNECTOR
+			if not c.allowed():
+				c_colour = FORBIDDEN
+			elif c.crosses_oncoming:
+				c_colour = CONFLICT
+			p_gizmo.add_lines(_curve_lines(c.curve, to_local), _material_for(c_colour))
+		for sl in j.stop_lines:
+			if sl == null:
+				continue
+			var ends: Array = sl.endpoints()
+			p_gizmo.add_lines(PackedVector3Array([
+					to_local * (ends[0] + Vector3(0.0, LIFT, 0.0)),
+					to_local * (ends[1] + Vector3(0.0, LIFT, 0.0))]), _material_for(STOP))
+
 
 ## A horizontal circle of `p_r` metres about `p_centre`, as line pairs.
 func _circle(p_centre: Vector3, p_r: float) -> PackedVector3Array:
@@ -116,6 +152,20 @@ func _circle(p_centre: Vector3, p_r: float) -> PackedVector3Array:
 	for i in range(1, CIRCLE_SEGMENTS + 1):
 		var a := TAU * float(i) / float(CIRCLE_SEGMENTS)
 		var p := p_centre + Vector3(cos(a) * r, 0.0, sin(a) * r)
+		out.append(prev)
+		out.append(p)
+		prev = p
+	return out
+
+
+## A curve as a polyline in the network's local space, lifted clear of the road surface.
+func _curve_lines(p_curve: Curve3D, p_to_local: Transform3D) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	var length := p_curve.get_baked_length()
+	var lift := Vector3(0.0, LIFT, 0.0)
+	var prev: Vector3 = p_to_local * (p_curve.sample_baked(0.0) + lift)
+	for i in range(1, CONNECTOR_STEPS + 1):
+		var p: Vector3 = p_to_local * (p_curve.sample_baked(length * float(i) / float(CONNECTOR_STEPS)) + lift)
 		out.append(prev)
 		out.append(p)
 		prev = p
