@@ -66,6 +66,57 @@ extends Resource
 ## Where this path came from, for warnings and for the editor. No query reads it.
 @export var source_label: String = ""
 
+@export_group("Grading")
+# ---- WHY THERE ARE WIDTHS IN TWO PLACES ------------------------------------------------------------
+#
+# `half_widths` above is per VERTEX and answers `t`. The arrays below are per ALIGNMENT SAMPLE, which is
+# the space Pasture3DRoadGrader works in, and they are handed over verbatim from the same
+# Pasture3DRoadBrush.grading_profile call the brush's own grading step uses. Resampling one into the
+# other would put an extra interpolation between the brush's road and the graph's, so the same road cut
+# by a Road Grade node and by the brush step would differ by centimetres in the corners. Two samplings of
+# one source is a smaller problem than two sources.
+#
+# All of this is OPTIONAL. A hand-built path — a gate fixture, a spline someone wants to mask against —
+# carries points and widths and nothing here, and answers every query in this file. `can_grade` is the
+# question a consumer asks before assuming otherwise.
+
+## The solved vertical profile: how high the road is at every sample, and what the ground under it was.
+## Null means this path describes where a road GOES but not what height it sits at, so it can be masked
+## against and measured but not graded to.
+@export var alignment: Pasture3DRoadAlignment = null:
+	set(v):
+		alignment = v
+		emit_changed()
+
+## Carriageway half-width, shoulder and verge at each alignment sample, metres.
+@export var sample_half_widths: PackedFloat32Array = PackedFloat32Array()
+@export var sample_shoulders: PackedFloat32Array = PackedFloat32Array()
+@export var sample_verges: PackedFloat32Array = PackedFloat32Array()
+
+## 1 where a structure carries the road: the grader reports the interval and does not touch the ground.
+@export var sample_suppress: PackedByteArray = PackedByteArray()
+
+## 1 where this arc length belongs to something else — a junction footprint the approach was trimmed
+## back from. NOT the same as `sample_suppress`: skipped ground is left alone AND unreported, because
+## marking a crossroads as a bridge deck would tell every later phase to build a viaduct there.
+@export var sample_skip: PackedByteArray = PackedByteArray()
+
+## Cross-section constants: crown sheds water to both edges, the batters are rise/run of the cut and fill
+## slopes. Carried on the path because they are the road's, and a graph cannot reach the road type.
+@export var crown: float = 0.05
+@export var cut_batter: float = 1.0
+@export var fill_batter: float = 0.6
+
+
+## True when this path carries enough to be graded, not merely measured.
+##
+## The one question a Road Grade node has to ask. Answering it with a null check on the alignment alone
+## would let a path with a solved profile and no widths through, and the grader would fall back to its
+## own 3.5 m default — a road that silently becomes a different road.
+func can_grade() -> bool:
+	return alignment != null and alignment.count() > 0 \
+			and sample_half_widths.size() >= alignment.count()
+
 # Cumulative arc length at each vertex: _cum[i] is the distance from the start to points[i].
 var _cum: PackedFloat32Array = PackedFloat32Array()
 # Uniform bucket index, Vector2i cell -> segment indices. Built on first query, dropped when points move.

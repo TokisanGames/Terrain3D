@@ -434,6 +434,51 @@ catastrophic: 0 means every cell is on the road, so a downstream `Road Grade` fl
 to it; INF turns every downstream arithmetic node into NAN and never recovers. `unreachable_distance`
 defaults to 10 km.
 
+### P7b implementation notes (done 2026-08-31)
+
+**Road Grade is an adapter, and [K] is what keeps it one.** Every number comes from
+`Pasture3DRoadGrader.grade`, the same call the brush's own grading step makes, with the same profile
+arrays out of the same `Pasture3DRoadBrush.grading_profile`. The node converts a graph rect into the
+grader's origin-and-spacing and hands the channels back as ports, and that is all it does. A second
+grading implementation would not fail loudly: it would produce a road that looks entirely correct on its
+own and differs from the brush's by centimetres, so a scene using both would have a seam nobody could
+account for. [K] grades one fixture road both ways and requires 0.0000 m between them.
+
+**The profile arrays travel in the GRADER'S space, verbatim.** A `Pasture3DGraphPath` now carries two
+samplings of the same widths: `half_widths` per VERTEX, which answers `t`, and `sample_half_widths` and
+friends per ALIGNMENT SAMPLE, which is the space the grader works in. That looks like duplication and the
+alternative is worse: resampling one into the other puts an extra interpolation between the brush's road
+and the graph's, so the same road cut both ways would differ in the corners by exactly the amount
+`graph_path` already refuses to introduce by sampling the plan at its own vertices. Two samplings of one
+source is a smaller problem than two sources, and `grading_profile` is that one source — one function,
+called by the brush's grading step and by `graph_path`, so an override added to one reaches the other.
+
+**What the two wirings actually differ by, which is not what §8 predicted.** [L] was written expecting
+them to differ ON THE CARRIAGEWAY. They do not, and cannot: the road's surface height comes from the
+SOLVED ALIGNMENT, which is a property of the road rather than of the surface being cut into, so both
+wirings write the same absolute z there to the metre the solver decided. That is a good property and
+worth having found out — **the ordering cannot move the road, only the ground around it.** The
+difference lives in the batters and the verge, measured at 7.3 m on the fixture, and [L] now checks both
+directions: the batters must differ (or the ordering does nothing) and the roadbed must not (or something
+with no business deciding where the road goes is moving it).
+
+What the `roadbed` mask buys is measured rather than asserted: with the same wiring and no mask, erosion
+moves the carriageway by up to 3.47 m. That is the failure Terrain3D's after-the-fact flatten has, and
+the one §8 exists to avoid, so it is a number in the gate output rather than a claim in a comment.
+
+**`Blend` gained a MIX mode, and it blocks native.** §8's second wiring is `lerp(a, b, mask)` and could
+not be built out of ADD/SUB/MUL/MAX/MIN — a masked ADD keeps the base underneath, which is not "use the
+eroded hillside off the road". The enum value is appended rather than inserted, because that value is
+what gets serialised and reordering would silently turn every saved Blend into a different operation.
+MIX has no native or GPU counterpart and the native BLEND op falls through to `a` on a mode it does not
+know, which is a silently wrong answer rather than a refusal — so a MIX Blend takes the whole graph to
+GDScript, where every graph containing a road already runs.
+
+**Path Mask thresholds `t`, not `distance`, and [J] is on a road that widens.** A mask built by comparing
+`distance` against a constant has two different answers about where the edge is on a road that goes from
+4 m to 8 m; `t` is that comparison already made against the half-width there. The fixture widens by 2x
+precisely so a distance threshold and a `t` threshold disagree on it rather than happening to agree.
+
 **A road did not survive being saved.** Reported as "the ribbons and assets have to be regenerated
 every time I launch the editor", and the diagnosis is worth keeping because the missing piece was not
 where the symptom was.
@@ -751,7 +796,7 @@ The gate also caught a defect in the follower itself, which is the other half of
 | **P6a** ✅ | **Runtime layer, part one** — `Pasture3DRoadRun` / `Pasture3DRoadRuntime` (baked copies, no node references), `Pasture3DRoadRoute` with reversible entries by stable id, derived checkpoint gates, the corridor test, `locate()` and `progress()`, and the validator that names the gap. Loads with no editor and no terrain. | `RoadRouteGate` — the runtime answers with no brush, node or terrain anywhere in the gate (control: surfaces come back as NAMES, not texture indices); reversing flips arc length, tangent, curvature sign and bank sign but NOT height (controls: the fixture must actually turn and bank; the world-space up must be identical both ways because the tarmac does not re-cant); `locate()` round-trips against sampled points (controls: a signed lateral in the driver's frame; the corridor separates verge from off-course); route arc length is not run arc length (controls: the two must differ on the fixture; progress is route-relative); a moved road moves its gates (control: the gate is a plane across the corridor, not a point); the validator names the missing hop (controls: a deleted run is not reported as a missing junction; an unreachable run gets no invented connection). A criterion that crashes before reporting counts as a failure. |
 | **P6b** ✅ | **Runtime layer, part two** — `sample_surface()` with blended transitions, `Pasture3DRoadPaceNotes` (§9.4) plus `Route.generate_pace_notes()`, route-driven streaming `lookahead()`, and `corridor_ahead()`, the reporting hook a project's own traffic system uses. | `RoadRouteGate` [G]–[I] — a transition blends and is exactly half and half at the line (controls: no blend away from a boundary; the blend is MONOTONIC across the band; the road's own ends do not fade); pace notes find a known corner at the right severity and side, a known crest and a known surface change (controls: flatten the profile and the crest calls disappear while the corner survives; reversed, the right-hander is called left); lookahead follows the route (controls: an off-route run is absent at a 100 km window; speed widens it; the traffic hook describes the corridor and clears nothing). |
 | **P7a** ✅ | **The PATH port and the analytic query** — `PortType.PATH`, `Pasture3DGraphPath`, `Road Source`, `Path Distance` (distance / s / t). | `RoadGraphGate` [A]–[G] — the index agrees with the brute-force oracle over a hairpin (controls: the index must actually narrow the search; the unindexed fallback must agree too); distance clamps at the ends; s is absolute, not per-segment and not normalised (control: lengthening the road must not move it); t is normalised by half-width and positive is the driver’s right (control: the same point on a road driven the other way is on the other side); an unresolved path reads far away, not 0 and not INF; the path travels down the WIRE (control: cut it and the same node falls back); a moved path invalidates the cache (control: an unchanged re-evaluation must be identical). |
-| **P7b** | `Road Grade` and `Path Mask`, and the two §8 wirings. | `RoadGraphGate` extensions — the two wirings differ as predicted: erosion before the cut leaves a graded road, erosion masked by `roadbed` leaves the hillside weathered around it. |
+| **P7b** ✅ | `Road Grade` and `Path Mask`, and the two §8 wirings. | `RoadGraphGate` [J]–[L]: the graph cuts the brush's road to 0.0000 m; the mask tracks a widening road; the two wirings agree on the carriageway (the alignment decides that) and differ by 7.3 m on the batters, and unmasked erosion eats 3.47 m of road. |
 | **P8** | Auto-routing: anisotropic A* over graph-produced cost fields (slope, `water_mask`), emitting an editable brush. | `RoadRoutingGate` — found cost ≤ a straight line's; control: a wall in the cost field reroutes it. |
 
 **P5a landed 2026-08-31.** Tier FAR is the tier that is always on, and it is cheap only because P1/P2

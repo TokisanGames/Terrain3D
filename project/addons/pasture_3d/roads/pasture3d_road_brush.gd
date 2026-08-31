@@ -441,6 +441,82 @@ func _paint_flat_footprint(path: Path3D) -> void:
 
 # ---- Grading (P2) -------------------------------------------------------------------------------
 
+## The road's cross-section and the junctions' demands at every alignment sample: widths, batters,
+## bridging and trim-back. Everything `Pasture3DRoadGrader.grade` needs about this road except the solved
+## profile itself.
+##
+## ---- WHY THIS IS ITS OWN FUNCTION ----
+##
+## Two callers: the brush's own grading step, and `graph_path`, which hands the same numbers to the graph
+## so a Road Grade node can cut the same road. Written twice they would agree at first and drift at the
+## first override anyone added, and the symptom would be a road graded one shape by the brush and another
+## by the graph — two correct-looking roads, differing by centimetres, in the same scene.
+##
+## Sampled per ALIGNMENT SAMPLE rather than per plan vertex: that is the grader's space, and it is what
+## lets a segment covering 800–1040 m simply produce different numbers at those indices while the grader
+## never learns that segments exist.
+##
+## Returns `pins` alongside, because the junctions are walked once to produce both and they are the same
+## walk — but they go to different places: the pin into the alignment SOLVE, the trim into the GRADING.
+func grading_profile(p_mod: Pasture3DNodeRoad, p_ds: float, p_n_s: int) -> Dictionary:
+	var t := resolved_road_type()
+	var half := PackedFloat32Array()
+	var shoulder := PackedFloat32Array()
+	var verge := PackedFloat32Array()
+	var suppress := PackedByteArray()
+	half.resize(p_n_s); shoulder.resize(p_n_s); verge.resize(p_n_s); suppress.resize(p_n_s)
+	for i in p_n_s:
+		var s := float(i) * p_ds
+		var ti := resolved_road_type(s)
+		var tt: Pasture3DRoadType = ti if ti != null else t
+		half[i] = tt.half_width(resolved_lane_count(s)) if tt != null else 3.5
+		shoulder[i] = tt.shoulder_width if tt != null else 0.5
+		if p_mod != null and p_mod.verge_override >= 0.0:
+			verge[i] = p_mod.verge_override
+		else:
+			verge[i] = tt.verge_width if tt != null else 4.0
+		suppress[i] = 1 if is_bridge_at(s) else 0
+
+	# ---- WHAT THE JUNCTIONS ASK OF THIS ROAD (§6) ---------------------------------------------------
+	#
+	# Two things, and they go to two different places. The PIN goes into the alignment solve, because a
+	# minor road has to arrive at the major road's height and P1 already honours pins exactly — and
+	# already reports a pin it cannot reach as an infeasible gradient breach, so an impossible junction
+	# surfaces through gated machinery instead of a new failure mode. The TRIM goes into the grading,
+	# because two roads writing the same cells is how a crossroads turns into a lumpy scar: the minor
+	# approach stops at the footprint and the major road, which keeps its own profile, paves through.
+	var pins := {}
+	var skip := PackedByteArray()
+	skip.resize(p_n_s)
+	var jnet := road_network()
+	if jnet != null:
+		var jkey := road_key()
+		for j in jnet.junctions_for(jkey):
+			var js: float = j.arc_length_for(jkey)
+			if not is_finite(js):
+				continue
+			var jpin: float = j.pin_for(jkey)
+			var ji := clampi(int(round(js / p_ds)), 0, p_n_s - 1)
+			if is_finite(jpin):
+				pins[ji] = jpin
+			if not j.is_major(jkey):
+				var trim: float = j.trim_back_for(jkey)
+				var lo := clampi(int(floor((js - trim) / p_ds)), 0, p_n_s - 1)
+				var hi := clampi(int(ceil((js + trim) / p_ds)), 0, p_n_s - 1)
+				for i in range(lo, hi + 1):
+					skip[i] = 1
+	return {
+		"half": half, "shoulder": shoulder, "verge": verge, "suppress": suppress,
+		"pins": pins, "skip": skip,
+		"crown": p_mod.resolved_number(p_mod.crown_override, t.crown) if p_mod != null and t != null \
+				else 0.05,
+		"cut_batter": p_mod.resolved_number(p_mod.cut_batter_override, t.cut_batter) \
+				if p_mod != null and t != null else 1.0,
+		"fill_batter": p_mod.resolved_number(p_mod.fill_batter_override, t.fill_batter) \
+				if p_mod != null and t != null else 0.6,
+	}
+
+
 ## Grade `p_z` (an ABSOLUTE surface, row-major gw × gh) into this road's corridor, for one
 ## Pasture3DNodeRoad step. Returns the grader's `{height, roadbed, cut, fill, verge, structure}`, or an
 ## empty Dictionary when there is nothing to grade.
@@ -470,48 +546,18 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 	var t := resolved_road_type()
 	if t == null:
 		return {}
-	var half := PackedFloat32Array()
-	var shoulder := PackedFloat32Array()
-	var verge := PackedFloat32Array()
-	var suppress := PackedByteArray()
-	half.resize(n_s); shoulder.resize(n_s); verge.resize(n_s); suppress.resize(n_s)
-	for i in n_s:
-		var s := float(i) * ds
-		var ti := resolved_road_type(s)
-		var tt: Pasture3DRoadType = ti if ti != null else t
-		half[i] = tt.half_width(resolved_lane_count(s))
-		shoulder[i] = tt.shoulder_width
-		verge[i] = p_mod.verge_override if p_mod.verge_override >= 0.0 else tt.verge_width
-		suppress[i] = 1 if is_bridge_at(s) else 0
-
-	# ---- WHAT THE JUNCTIONS ASK OF THIS ROAD (§6) ---------------------------------------------------
-	#
-	# Two things, and they go to two different places. The PIN goes into the alignment solve, because a
-	# minor road has to arrive at the major road's height and P1 already honours pins exactly — and
-	# already reports a pin it cannot reach as an infeasible gradient breach, so an impossible junction
-	# surfaces through gated machinery instead of a new failure mode. The TRIM goes into the grading,
-	# because two roads writing the same cells is how a crossroads turns into a lumpy scar: the minor
-	# approach stops at the footprint and the major road, which keeps its own profile, paves through.
-	var pins := {}
-	var skip := PackedByteArray()
-	skip.resize(n_s)
+	var prof := grading_profile(p_mod, ds, n_s)
+	var half: PackedFloat32Array = prof["half"]
+	var shoulder: PackedFloat32Array = prof["shoulder"]
+	var verge: PackedFloat32Array = prof["verge"]
+	var suppress: PackedByteArray = prof["suppress"]
+	var pins: Dictionary = prof["pins"]
+	var skip: PackedByteArray = prof["skip"]
+	# Recorded HERE and not in `grading_profile`, because it is a statement about a bake: "the pins this
+	# road last built itself with". `graph_path` asks for the same profile without baking anything, and
+	# crediting it with a rebake it did not do would stop the resolve loop asking for the one it needs.
 	var jnet := road_network()
 	if jnet != null:
-		var jkey := road_key()
-		for j in jnet.junctions_for(jkey):
-			var js: float = j.arc_length_for(jkey)
-			if not is_finite(js):
-				continue
-			var jpin: float = j.pin_for(jkey)
-			var ji := clampi(int(round(js / ds)), 0, n_s - 1)
-			if is_finite(jpin):
-				pins[ji] = jpin
-			if not j.is_major(jkey):
-				var trim: float = j.trim_back_for(jkey)
-				var lo := clampi(int(floor((js - trim) / ds)), 0, n_s - 1)
-				var hi := clampi(int(ceil((js + trim) / ds)), 0, n_s - 1)
-				for i in range(lo, hi + 1):
-					skip[i] = 1
 		last_junction_digest = junction_digest()
 
 	var alignment: Pasture3DRoadAlignment
@@ -548,9 +594,9 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 
 	var res := Pasture3DRoadGrader.grade(p_z, p_gw, p_gh, p_min_x, p_min_z, p_vs, plan, alignment,
 			half, shoulder, verge, suppress, {
-				"crown": p_mod.resolved_number(p_mod.crown_override, t.crown),
-				"cut_batter": p_mod.resolved_number(p_mod.cut_batter_override, t.cut_batter),
-				"fill_batter": p_mod.resolved_number(p_mod.fill_batter_override, t.fill_batter),
+				"crown": prof["crown"],
+				"cut_batter": prof["cut_batter"],
+				"fill_batter": prof["fill_batter"],
 				"skip": skip,
 			})
 	# The alignment this bake solved is what makes this road detectable, so the resolve is asked for
@@ -858,6 +904,27 @@ func graph_path() -> Pasture3DGraphPath:
 	path.points = plan
 	path.half_widths = halves
 	path.heights = heights
+
+	# ---- THE GRADING BLOCK, VERBATIM ---------------------------------------------------------------
+	#
+	# Handed over in the grader's own ALIGNMENT-SAMPLE space rather than resampled onto the vertices the
+	# query half uses. Resampling here would put one extra interpolation between the brush's road and the
+	# graph's, so the same road graded through Road Grade and through the brush step would differ by
+	# centimetres in the corners — which is the whole reason this function samples the plan at its own
+	# vertices in the first place. Two spaces, one source: both come out of `grading_profile`.
+	var mod := road_modifier()
+	if mod != null:
+		var ds: float = maxf(mod.alignment_step, 0.05)
+		var prof := grading_profile(mod, ds, alignment.count())
+		path.alignment = alignment
+		path.sample_half_widths = prof["half"]
+		path.sample_shoulders = prof["shoulder"]
+		path.sample_verges = prof["verge"]
+		path.sample_suppress = prof["suppress"]
+		path.sample_skip = prof["skip"]
+		path.crown = prof["crown"]
+		path.cut_batter = prof["cut_batter"]
+		path.fill_batter = prof["fill_batter"]
 	return path
 
 

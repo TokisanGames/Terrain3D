@@ -1,6 +1,7 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# RoadGraphGate — P7a: the PATH port type, Road Source, and the analytic Path Distance (§8).
+# RoadGraphGate — §8: the PATH port type, Road Source, Path Distance (P7a), and Road Grade / Path
+# Mask with the two orderings against erosion (P7b).
 #
 # ---- WHAT IS ACTUALLY AT RISK HERE ----
 #
@@ -16,14 +17,14 @@
 @tool
 extends Node
 
-const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
+const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 
 var _fail: int = 0
 var _reported: Dictionary = {}
 
 
 func _ready() -> void:
-	print("=== RoadGraphGate: the PATH port, Road Source and Path Distance (P7a) ===\n")
+	print("=== RoadGraphGate: the PATH port, Road Source, Path Distance, Road Grade (§8) ===\n")
 	_a_the_index_agrees_with_brute_force()
 	_b_distance_is_to_the_polyline_not_to_its_infinite_line()
 	_c_s_is_absolute_arc_length()
@@ -33,6 +34,9 @@ func _ready() -> void:
 	_g_a_moved_path_invalidates_the_cache()
 	_h_a_real_road_resolves_into_a_graph()
 	_i_every_registered_node_reaches_the_palette()
+	_j_the_mask_follows_the_road_not_a_distance()
+	_k_the_graph_cuts_the_same_road_the_brush_does()
+	_l_the_two_wirings_differ_as_predicted()
 	_account_for_silent_criteria()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD GRAPH PASS" if _fail == 0 else "ROAD GRAPH FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
@@ -570,3 +574,324 @@ func _i_every_registered_node_reaches_the_palette() -> void:
 			or not (b is Pasture3DGraphNodePathDistance):
 		_fail += 1
 		print("    !! a palette entry does not instance the node it names")
+
+
+# ---- P7b fixtures -------------------------------------------------------------------------------
+
+const G_N: int = 121
+const G_MIN: float = -60.0
+const G_VS: float = 1.0
+
+
+## A ridge running north-south across the middle, so an east-west road has to cut through something.
+## Erosion on a flat plane does nothing, and a criterion about ordering against erosion on a fixture
+## erosion cannot change would pass whatever the wiring did.
+func _ridge() -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	out.resize(G_N * G_N)
+	for iz in G_N:
+		for ix in G_N:
+			var wx := G_MIN + float(ix) * G_VS
+			var wz := G_MIN + float(iz) * G_VS
+			out[iz * G_N + ix] = 24.0 * exp(-(wx * wx) / 600.0) + 0.6 * sin(wz * 0.35)
+	return out
+
+
+## A baked road across that ridge, returned as the network, the brush and its graph path.
+func _road_over_the_ridge() -> Dictionary:
+	var net := Pasture3DRoadNetwork.new()
+	add_child(net)
+	var t := Pasture3DRoadType.new()
+	t.type_name = "major"
+	t.lane_count = 2
+	t.lane_width = 3.5
+	t.shoulder_width = 0.5
+	net.road_types = [t]
+	var brush := Pasture3DRoadBrush.new()
+	brush.name = "Over"
+	net.add_child(brush)
+	var path3d := Path3D.new()
+	var curve := Curve3D.new()
+	curve.add_point(Vector3(-50.0, 0.0, 0.0))
+	curve.add_point(Vector3(50.0, 0.0, 0.0))
+	path3d.curve = curve
+	brush.add_child(path3d)
+	brush.road_road_type = t
+	var road_mod := Pasture3DNodeRoad.new()
+	road_mod.alignment_step = 1.0
+	brush.modifiers = [road_mod]
+	var ground := _ridge()
+	var graded: Dictionary = brush.grade_surface(road_mod, ground, G_N, G_N, G_MIN, G_MIN, G_VS)
+	return {"net": net, "brush": brush, "mod": road_mod, "ground": ground, "graded": graded,
+			"path": brush.graph_path()}
+
+
+## The graph rect matching the fixture grid. Road Grade and Path Mask sample cell CENTRES, so the rect
+## starts half a cell BEFORE the first sample point: get this wrong and every criterion below is off by
+## half a metre in a way that still looks like a road.
+func _rect() -> Rect2:
+	return Rect2(G_MIN - 0.5 * G_VS, G_MIN - 0.5 * G_VS, float(G_N) * G_VS, float(G_N) * G_VS)
+
+
+func _idx(p_wx: float, p_wz: float) -> int:
+	var ix := clampi(int(round((p_wx - G_MIN) / G_VS)), 0, G_N - 1)
+	var iz := clampi(int(round((p_wz - G_MIN) / G_VS)), 0, G_N - 1)
+	return iz * G_N + ix
+
+
+# ---- J ------------------------------------------------------------------------------------------
+
+## [J] Path Mask follows the ROAD, not a distance.
+##
+## The reason this node is not just a threshold on Path Distance. A road that widens from 4 m to 8 m has
+## one edge, and a mask built by comparing `distance` against a constant has two different answers about
+## where it is. Thresholding `t` — the across-position already divided by the half-width there — has one.
+##
+## Checked on `_straight(4, 8)`, whose half-width doubles along its length, so a distance threshold and a
+## `t` threshold DISAGREE on the fixture rather than happening to agree on it.
+func _j_the_mask_follows_the_road_not_a_distance() -> void:
+	print("[J] Path Mask follows the road, not a distance")
+	var path := _straight(4.0, 8.0)
+	var node := Pasture3DGraphNodePathMask.new()
+	node.feather = 0.0
+	node.set_path_inputs([path])
+	var rect := Rect2(-10.0, -20.0, 130.0, 40.0)
+	var gw := 130
+	var gh := 40
+	var m := node.eval_grid([], gw, gh, null, rect)
+
+	# Walk out from the centreline at the narrow end and at the wide end, and find where each stops
+	# being masked. Those two numbers must differ by the same factor the road widens by.
+	var edge_at := func(p_wx: float) -> float:
+		var last := 0.0
+		for step in range(0, 200):
+			var d := float(step) * 0.25
+			if node._path.nearest(Vector2(p_wx, d))["distance"] > 40.0:
+				break
+			var q := node._path.nearest(Vector2(p_wx, d))
+			var half: float = node._path.half_width_at(q["s"])
+			if float(q["distance"]) <= half:
+				last = d
+		return last
+	var narrow: float = edge_at.call(2.0)
+	var wide: float = edge_at.call(98.0)
+	# And the same question asked of the grid the node actually produced, which is what ships.
+	var on_road := 0
+	var off_road := 0
+	for iz in gh:
+		for ix in gw:
+			var wz: float = rect.position.y + (float(iz) + 0.5) * rect.size.y / float(gh)
+			var v: float = m[iz * gw + ix]
+			if absf(wz) < 3.0:
+				on_road += 1 if v > 0.99 else 0
+			elif absf(wz) > 12.0:
+				off_road += 1 if v < 0.01 else 0
+	print("    the edge is %.2f m out at the narrow end and %.2f m at the wide end (ratio %.2f, want ~2)"
+			% [narrow, wide, wide / maxf(narrow, 1e-6)])
+	_check("J", absf(wide / maxf(narrow, 1e-6) - 2.0) < 0.15 and on_road > 0 and off_road > 0,
+			"width ratio %.2f; %d cell(s) masked on the road, %d clear well off it"
+					% [wide / maxf(narrow, 1e-6), on_road, off_road])
+
+	# CONTROL: an empty path must mask NOTHING, and inverting must mask EVERYTHING. An unresolved Road
+	# Source is a normal state; the inverted mask protecting nothing would erase what it was guarding.
+	var empty := Pasture3DGraphNodePathMask.new()
+	empty.set_path_inputs([Pasture3DGraphPath.new()])
+	var e0 := empty.eval_grid([], 8, 8, null, rect)
+	empty.invert = true
+	var e1 := empty.eval_grid([], 8, 8, null, rect)
+	print("    control: an empty path masks %.1f, inverted %.1f (want 0.0 then 1.0)" % [e0[0], e1[0]])
+	if e0[0] != 0.0 or e1[0] != 1.0:
+		_fail += 1
+		print("    !! an unresolved road does not read as \'no road here\'")
+
+	# CONTROL: the feather must actually soften. Without this, `feather` could be ignored entirely and
+	# every assertion above still holds, since both are measured on the hard part of the mask.
+	node.feather = 6.0
+	var soft := node.eval_grid([], gw, gh, null, rect)
+	var partial := 0
+	for v in soft:
+		if v > 0.02 and v < 0.98:
+			partial += 1
+	print("    control: with a 6 m feather, %d cell(s) are partly masked (want more than 0)" % partial)
+	if partial == 0:
+		_fail += 1
+		print("    !! the feather does nothing, so the mask is a hard edge whatever it is set to")
+
+
+# ---- K ------------------------------------------------------------------------------------------
+
+## [K] The graph cuts the SAME road the brush does.
+##
+## Road Grade is an adapter over Pasture3DRoadGrader, deliberately, and this is the criterion that keeps
+## it one. A second grading implementation would not fail loudly: it would produce a road that looks
+## entirely correct on its own and differs from the brush\'s by centimetres, so a scene using both would
+## have a seam nobody could account for.
+##
+## Two things have to be right for this to pass and both are easy to get wrong: the rect-to-metres
+## conversion (cell centres, not corners) and the profile arrays, which are handed over verbatim in the
+## grader\'s alignment-sample space rather than resampled onto the path\'s vertices.
+func _k_the_graph_cuts_the_same_road_the_brush_does() -> void:
+	print("[K] the graph cuts the same road the brush does")
+	var f := _road_over_the_ridge()
+	var brush_h: PackedFloat32Array = f["graded"]["height"]
+	var brush_bed: PackedFloat32Array = f["graded"]["roadbed"]
+	var path: Pasture3DGraphPath = f["path"]
+
+	var node := Pasture3DGraphNodeRoadGrade.new()
+	node.set_path_inputs([null, path])
+	var ch := node.eval_grid_channels([f["ground"]], G_N, G_N, null, _rect())
+	var graph_h: PackedFloat32Array = ch[0]
+	var graph_bed: PackedFloat32Array = ch[1]
+
+	var worst := 0.0
+	var bed_diff := 0
+	var cut_cells := 0
+	for i in G_N * G_N:
+		worst = maxf(worst, absf(graph_h[i] - brush_h[i]))
+		if absf(graph_bed[i] - brush_bed[i]) > 0.01:
+			bed_diff += 1
+		if brush_bed[i] > 0.5:
+			cut_cells += 1
+	print("    %d roadbed cell(s) in the brush\'s cut; worst height difference %.4f m, %d roadbed cell(s) differ"
+			% [cut_cells, worst, bed_diff])
+	_check("K", worst < 1e-3 and bed_diff == 0 and cut_cells > 100,
+			"worst %.4f m, %d bed cell(s) differ, %d cell(s) cut" % [worst, bed_diff, cut_cells])
+
+	# CONTROL: the cut has to be a real change to the ground, or \'they agree\' is two no-ops agreeing.
+	var moved := 0.0
+	for i in G_N * G_N:
+		moved = maxf(moved, absf(brush_h[i] - (f["ground"] as PackedFloat32Array)[i]))
+	print("    control: the road moved the ground by up to %.2f m (want a real cut)" % moved)
+	if moved < 1.0:
+		_fail += 1
+		print("    !! the fixture road barely touches the terrain, so agreeing about it proves nothing")
+
+	# CONTROL: a path with no solved profile must PASS THE SURFACE THROUGH, not flatten it. A graph mid
+	# edit passes through this state constantly, and a node that returned zeros would read as the
+	# terrain having been destroyed rather than as a road not being resolved yet.
+	var bare := Pasture3DGraphNodeRoadGrade.new()
+	bare.set_path_inputs([null, _straight()])
+	var through := bare.eval_grid_channels([f["ground"]], G_N, G_N, null, _rect())
+	var passed: bool = (through[0] as PackedFloat32Array) == (f["ground"] as PackedFloat32Array)
+	print("    control: a path with no solved profile passed the surface through: %s" % str(passed))
+	if not passed:
+		_fail += 1
+		print("    !! an ungradeable path changes the terrain anyway")
+	(f["net"] as Node).queue_free()
+
+
+# ---- L ------------------------------------------------------------------------------------------
+
+## [L] The two §8 wirings differ, and they differ where §8 is about.
+##
+## THE POINT OF THE WHOLE GRAPH SIDE OF §8. The brush can only ever cut the road last. Terrain3D\'s
+## connector flattens the heightmap after the fact and erosion never learns it happened. Here the order
+## is a wire:
+##
+##   1. Input → Erosion → Road Grade → Output          the road cuts the weathered mountain
+##   2. Input → Road Grade → Blend(MIX) ← Erosion       the hillside weathers AROUND the cut
+##                └─ roadbed (inverted) → Blend.mask
+##
+## ---- WHAT THIS CRITERION EXPECTED, AND WHAT IS ACTUALLY TRUE ----
+##
+## It was written expecting the two to differ ON THE CARRIAGEWAY. They do not, and cannot: the road\'s
+## surface height comes from the SOLVED ALIGNMENT, and the alignment is a property of the road rather
+## than of the surface it is being cut into. Both wirings write the same absolute z there, to the metre
+## the solver decided. That is a good property and it is worth having found out: the ordering cannot move
+## the road, only the ground around it.
+##
+## So the difference lives in the BATTERS and the verge, and that is checked here in both directions:
+## they must differ (or the ordering is doing nothing), and the roadbed must NOT (or the road is being
+## moved by something that has no business deciding where it goes).
+##
+## The third surface is what the mask actually buys. Erode after grading with no mask and the road is
+## eaten — that is the failure Terrain3D\'s ordering has and the one §8 exists to avoid — so [L] measures
+## it rather than asserting it.
+func _l_the_two_wirings_differ_as_predicted() -> void:
+	print("[L] the two §8 wirings differ as predicted")
+	var f := _road_over_the_ridge()
+	var path: Pasture3DGraphPath = f["path"]
+	var ground: PackedFloat32Array = f["ground"]
+	var rect := _rect()
+
+	# ---- wiring 1: erode, then cut
+	var er := Pasture3DGraphNodeErosion.new()
+	er.iterations = 30
+	var eroded: PackedFloat32Array = er.eval_grid_channels([ground], G_N, G_N, null, rect)[0]
+	var cut_after := Pasture3DGraphNodeRoadGrade.new()
+	cut_after.set_path_inputs([null, path])
+	var w1: PackedFloat32Array = cut_after.eval_grid_channels([eroded], G_N, G_N, null, rect)[0]
+
+	# ---- wiring 2: cut, then let the hillside weather around it
+	var cut_first := Pasture3DGraphNodeRoadGrade.new()
+	cut_first.set_path_inputs([null, path])
+	var ch := cut_first.eval_grid_channels([ground], G_N, G_N, null, rect)
+	var cut_h: PackedFloat32Array = ch[0]
+	var bed: PackedFloat32Array = ch[1]
+	var cutm: PackedFloat32Array = ch[2]
+	var fillm: PackedFloat32Array = ch[3]
+	var er2 := Pasture3DGraphNodeErosion.new()
+	er2.iterations = 30
+	var unmasked: PackedFloat32Array = er2.eval_grid_channels([cut_h], G_N, G_N, null, rect)[0]
+	var blend := Pasture3DGraphNodeBlend.new()
+	blend.mode = Pasture3DGraphNodeBlend.Mode.MIX
+	var w2 := PackedFloat32Array()
+	w2.resize(G_N * G_N)
+	for i in G_N * G_N:
+		# a = the cut, b = the weathered version of it, mask = NOT the roadbed. So the carriageway keeps
+		# its solved profile and everything else is whatever erosion made of it.
+		w2[i] = blend.eval_cell(0.0, 0.0, PackedFloat32Array([cut_h[i], unmasked[i], 1.0 - bed[i]]))
+
+	var on_bed := 0.0
+	var on_batter := 0.0
+	var bed_cells := 0
+	var batter_cells := 0
+	for i in G_N * G_N:
+		var d := absf(w1[i] - w2[i])
+		if bed[i] > 0.5:
+			bed_cells += 1
+			on_bed = maxf(on_bed, d)
+		elif cutm[i] > 0.5 or fillm[i] > 0.5:
+			batter_cells += 1
+			on_batter = maxf(on_batter, d)
+	print("    roadbed (%d cell(s)): the wirings differ by %.4f m — the alignment decides the road\'s height"
+			% [bed_cells, on_bed])
+	print("    batters (%d cell(s)): they differ by up to %.3f m — this is what the ordering changes"
+			% [batter_cells, on_batter])
+	_check("L", bed_cells > 100 and batter_cells > 100 and on_bed < 1e-3 and on_batter > 0.05,
+			"roadbed %.4f m (want none), batters %.3f m (want a real difference)" % [on_bed, on_batter])
+
+	# WHAT THE MASK BUYS. Wiring 2 without it is erosion running straight over the carriageway, which is
+	# the failure mode §8 exists to avoid. Measured, not asserted: if the mask were being ignored, every
+	# number above would still look reasonable and the road would be quietly washing away.
+	var eaten := 0.0
+	for i in G_N * G_N:
+		if bed[i] > 0.5:
+			eaten = maxf(eaten, absf(unmasked[i] - cut_h[i]))
+	print("    without the roadbed mask, erosion moves the carriageway by up to %.2f m (the mask holds it at 0)"
+			% eaten)
+	if eaten < 0.05:
+		_fail += 1
+		print("    !! erosion does not touch the road even unmasked, so the mask is not being tested")
+
+	# CONTROL: erosion must actually have changed the hillside. On a fixture it cannot move, both
+	# wirings are the same arithmetic and [L] would pass by describing nothing.
+	var eroded_by := 0.0
+	for i in G_N * G_N:
+		eroded_by = maxf(eroded_by, absf(eroded[i] - ground[i]))
+	print("    control: erosion moved the ground by up to %.2f m (want a real change)" % eroded_by)
+	if eroded_by < 0.05:
+		_fail += 1
+		print("    !! erosion did nothing on this fixture, so the two wirings are trivially equal")
+
+	# CONTROL: Blend MIX must actually be a mix. A mode that fell through to `a` — which is exactly what
+	# the native op does for a mode it does not know — would make wiring 2 the bare cut everywhere, and
+	# the batter half of [L] would still pass while measuring the wrong thing.
+	var mixed: float = blend.eval_cell(0.0, 0.0, PackedFloat32Array([10.0, 20.0, 1.0]))
+	var held: float = blend.eval_cell(0.0, 0.0, PackedFloat32Array([10.0, 20.0, 0.0]))
+	print("    control: Blend MIX at mask 1 gives %.1f and at mask 0 gives %.1f (want 20 then 10)"
+			% [mixed, held])
+	if not (is_equal_approx(mixed, 20.0) and is_equal_approx(held, 10.0)):
+		_fail += 1
+		print("    !! Blend MIX is not a mix, so wiring 2 is not the wiring §8 describes")
+	(f["net"] as Node).queue_free()
