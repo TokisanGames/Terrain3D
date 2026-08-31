@@ -21,6 +21,7 @@ func _ready() -> void:
 	_d_an_override_survives_an_unrelated_edit()
 	_e_the_trim_back_leaves_no_gap_and_no_overlap()
 	_f_an_acute_crossing_trims_back_further()
+	_g_a_junction_that_drifts_is_still_the_same_junction()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD JUNCTION PASS" if _fail == 0 else "ROAD JUNCTION FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -319,3 +320,58 @@ func _f_an_acute_crossing_trims_back_further() -> void:
 	print("    control: a 2° crossing -> %d junction(s) (want 0, it is running alongside)" % near.size())
 	if near.size() != 0:
 		_fail += 1; print("    !! a near-parallel road produced a junction with a runaway footprint")
+
+
+# ---- G ------------------------------------------------------------------------------------------
+
+## [G] A junction whose centre MOVES A LITTLE is the same junction. This is the reconcile's real test:
+## an id is minted from the centre rounded to a metre, so a crossing that drifts from x=0.4 to x=1.1
+## crosses a rounding boundary and mints a different id from identical geometry. Matching on that id
+## produced a duplicate — a second record with the user's overrides missing, and the original left beside
+## it marked undetected. Two junctions where the author drew one crossing.
+##
+## The fixture is chosen for that boundary specifically: any nudge would test "the solver still finds a
+## crossing", and only one that changes the rounded centre tests the matching.
+func _g_a_junction_that_drifts_is_still_the_same_junction() -> void:
+	print("[G] a junction whose centre drifts by under a metre is still the same junction")
+	var at_0_4 := _run("ns", PackedVector2Array([Vector2(0.4, -100.0), Vector2(0.4, 100.0)]), 5, 4.0)
+	var first := Pasture3DRoadJunctionSolver.resolve([_east_west("ew", 10, 4.0), at_0_4])
+	if first.size() != 1:
+		_fail += 1; print("    !! the fixture did not produce one junction"); return
+	var j: Pasture3DRoadJunction = first[0]
+	var id_before := j.id
+	j.control = Pasture3DRoadJunction.ControlType.STOP
+
+	var at_1_1 := _run("ns", PackedVector2Array([Vector2(1.1, -100.0), Vector2(1.1, 100.0)]), 5, 4.0)
+	var minted := Pasture3DRoadJunction.make_id(j.road_keys, Vector2(1.1, 0.0))
+	var second := Pasture3DRoadJunctionSolver.resolve([_east_west("ew", 10, 4.0), at_1_1], first)
+	var detected := 0
+	for k: Pasture3DRoadJunction in second:
+		if k.detected:
+			detected += 1
+	var same: bool = second.size() == 1 and second[0].id == id_before 			and second[0].control == Pasture3DRoadJunction.ControlType.STOP
+	print("    drifted 0.7 m across the rounding boundary (a fresh id would be '%s', was '%s')"
+			% [minted, id_before])
+	print("    -> %d junction(s), %d detected, id %s, override %s"
+			% [second.size(), detected, "kept" if second[0].id == id_before else "CHANGED",
+			"kept" if second[0].control == Pasture3DRoadJunction.ControlType.STOP else "LOST"])
+	if minted == id_before:
+		_fail += 1; print("    !! the fixture does not cross a rounding boundary, so it tests nothing")
+	if not same:
+		_fail += 1; print("    !! the drifted junction was duplicated rather than reconciled")
+	if second[0].center.distance_to(Vector2(1.1, 0.0)) > 0.5:
+		_fail += 1; print("    !! the resolved centre was not refreshed to where the roads now cross")
+
+	# CONTROL: a crossing that moves FAR is a different junction, not the same one dragged. Without this,
+	# [G] would pass on a reconcile that matched any two junctions sharing participants — which would
+	# silently merge a road that genuinely crosses another twice.
+	var far := _run("ns", PackedVector2Array([Vector2(80.0, -100.0), Vector2(80.0, 100.0)]), 5, 4.0)
+	var moved := Pasture3DRoadJunctionSolver.resolve([_east_west("ew", 10, 4.0), far], second)
+	var live := 0
+	for k: Pasture3DRoadJunction in moved:
+		if k.detected:
+			live += 1
+	print("    control: the crossing moved 79 m -> %d record(s), %d detected (want 2, 1)"
+			% [moved.size(), live])
+	if moved.size() != 2 or live != 1:
+		_fail += 1; print("    !! a crossing 79 m away was treated as the same junction")

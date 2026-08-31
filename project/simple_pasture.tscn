@@ -13,6 +13,7 @@
 [ext_resource type="Script" uid="uid://vued5d3n845o" path="res://addons/pasture_3d/roads/pasture3d_road_overrides.gd" id="11_ii4qc"]
 [ext_resource type="Script" uid="uid://cavpljhh2m0bk" path="res://addons/pasture_3d/roads/pasture3d_road_type.gd" id="11_wv1iv"]
 [ext_resource type="Script" uid="uid://co0q8plo6atk7" path="res://addons/pasture_3d/roads/pasture3d_road_brush.gd" id="13_6pcwc"]
+[ext_resource type="Script" uid="uid://bbsmkxfch2tut" path="res://addons/pasture_3d/roads/pasture3d_road_junction.gd" id="13_wv1iv"]
 [ext_resource type="Script" uid="uid://d1q35xltb5ltv" path="res://addons/pasture_3d/roads/pasture3d_mod_road.gd" id="14_ii4qc"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_g143p"]
@@ -102,9 +103,29 @@ metadata/_custom_type_script = "uid://cavpljhh2m0bk"
 script = ExtResource("11_ii4qc")
 speed_limit = nan
 
+[sub_resource type="Resource" id="Resource_6pcwc"]
+script = ExtResource("13_wv1iv")
+id = &"Road+Road2@-101,-103"
+center = Vector2(-100.72952, -103.28854)
+road_keys = PackedStringArray("Road", "Road2")
+arc_lengths = PackedFloat32Array(28.410728, 85.918335)
+trim_backs = PackedFloat32Array(4.367243, 4.367243)
+radius = 4.367243
+elevation = -0.00020861837389773985
+
+[sub_resource type="Resource" id="Resource_67nn0"]
+script = ExtResource("13_wv1iv")
+id = &"Road+Road2@-80,110"
+center = Vector2(-79.75809, 110.12521)
+road_keys = PackedStringArray("Road", "Road2")
+arc_lengths = PackedFloat32Array(283.14832, 347.1713)
+trim_backs = PackedFloat32Array(4.027731, 4.027731)
+radius = 4.027731
+elevation = -0.0006226964596010021
+
 [sub_resource type="Resource" id="Resource_8t6nj"]
 script = ExtResource("11_wv1iv")
-max_grade = 0.23500000000000001
+max_grade = 0.235
 design_speed = 45.0
 metadata/_custom_type_script = "uid://cavpljhh2m0bk"
 
@@ -124,6 +145,27 @@ _data = {
 "tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 }
 point_count = 11
+
+[sub_resource type="Resource" id="Resource_47n31"]
+script = ExtResource("11_wv1iv")
+metadata/_custom_type_script = "uid://cavpljhh2m0bk"
+
+[sub_resource type="Resource" id="Resource_ddf1r"]
+script = ExtResource("11_ii4qc")
+road_type = SubResource("Resource_47n31")
+speed_limit = nan
+
+[sub_resource type="Resource" id="Resource_str7x"]
+resource_name = "Road"
+script = ExtResource("14_ii4qc")
+metadata/_custom_type_script = "uid://d1q35xltb5ltv"
+
+[sub_resource type="Curve3D" id="Curve3D_vfv27"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 12.0757885, 0.9999928, -250.55266, 0, 0, 0, 0, 0, 0, -30.185253, 0.9999928, -248.02394, 0, 0, 0, 0, 0, 0, -103.02675, 0.9999928, -208.10507, 0, 0, 0, 0, 0, 0, -109.782364, 0.9999928, -157.92018, 0, 0, 0, 0, 0, 0, -111.969376, 0.9999928, -77.91623, 0, 0, 0, 0, 0, 0, -64.9413, 0.9999928, -32.675323, 0, 0, 0, 0, 0, 0, -37.04604, 0.9999928, -2.3881378, 0, 0, 0, 0, 0, 0, 42.512093, 0.9999996, -4.2038803),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0)
+}
+point_count = 8
 
 [node name="SimplePasture" type="Node3D" unique_id=3132789]
 
@@ -166,7 +208,7 @@ shadow_enabled = true
 script = ExtResource("10_wej47")
 road_types = Array[ExtResource("11_wv1iv")]([SubResource("Resource_kheh1")])
 road_defaults = SubResource("Resource_ii4qc")
-junctions = null
+junctions = Array[ExtResource("13_wv1iv")]([SubResource("Resource_6pcwc"), SubResource("Resource_67nn0")])
 metadata/_custom_type_script = "uid://cft8dk3ton2yu"
 
 [node name="Road" type="Node3D" parent="Pasture3DRoadNetwork" unique_id=1896522691 node_paths=PackedStringArray("terrain")]
@@ -182,3 +224,17 @@ modifiers = Array[ExtResource("2_n4cpt")]([SubResource("Resource_dtfre")])
 
 [node name="Road1" type="Path3D" parent="Pasture3DRoadNetwork/Road" unique_id=77019117]
 curve = SubResource("Curve3D_cad7k")
+
+[node name="Road2" type="Node3D" parent="Pasture3DRoadNetwork" unique_id=1326379361 node_paths=PackedStringArray("terrain")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -32.325436, 7.1897925e-06, 123.79057)
+script = ExtResource("13_6pcwc")
+road_defaults = SubResource("Resource_ddf1r")
+road_road_type = SubResource("Resource_47n31")
+road_speed_limit = nan
+terrain = NodePath("../../Pasture3D")
+_layer_owner = "pasture3d_brush:Roads"
+modifier_margin = 0.0
+modifiers = Array[ExtResource("2_n4cpt")]([SubResource("Resource_str7x")])
+
+[node name="Road1" type="Path3D" parent="Pasture3DRoadNetwork/Road2" unique_id=2090461388]
+curve = SubResource("Curve3D_vfv27")

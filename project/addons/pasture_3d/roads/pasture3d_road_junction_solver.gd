@@ -103,21 +103,31 @@ static func resolve(p_runs: Array, p_existing: Array = [], p_opts: Dictionary = 
 	var crossings := find_crossings(p_runs, p_opts)
 	var groups := _cluster(crossings, cluster_r)
 
-	var by_id := {}
+	# MATCHING IS POSITIONAL, NOT BY ID. An id embeds the centre rounded to a metre, so a junction whose
+	# centre drifts across a rounding boundary — which a re-solve can do for free — would fail to match its
+	# own prior record: the resolve would emit a NEW junction with the user's overrides missing and keep the
+	# old one beside it, marked undetected. Two records where the author drew one crossing.
+	#
+	# So a prior is matched by WHO MEETS THERE and HOW NEAR, and the matched record keeps its original id.
+	# The id stays an identity token, which is all it was ever meant to be; the centre it was minted from is
+	# a naming detail and is allowed to move.
+	var match_r: float = float(p_opts.get("match_radius", cluster_r))
+	var priors: Array = []
 	for j in p_existing:
 		if j is Pasture3DRoadJunction:
-			by_id[String(j.id)] = j
+			priors.append(j)
+	var taken := {}
 
 	var out: Array = []
 	for g: Array in groups:
 		var j := _resolve_group(p_runs, crossings, g)
 		if j == null:
 			continue
-		var prior: Pasture3DRoadJunction = by_id.get(String(j.id), null)
+		var prior := _match_prior(j, priors, taken, match_r)
 		if prior != null:
 			# RECONCILE, do not rebuild: the resolved fields are replaced wholesale and the user's
 			# overrides are the ones already on `prior`, so an unrelated spline edit cannot silently
-			# discard a choice made here.
+			# discard a choice made here. `id` is deliberately NOT among them.
 			prior.center = j.center
 			prior.road_keys = j.road_keys
 			prior.arc_lengths = j.arc_lengths
@@ -132,15 +142,43 @@ static func resolve(p_runs: Array, p_existing: Array = [], p_opts: Dictionary = 
 
 	# A junction that is no longer detected is KEPT and marked, not deleted. The roads may be dragged
 	# back together in a moment, and throwing away the overrides in between would be a silent loss.
-	var live := {}
-	for j: Pasture3DRoadJunction in out:
-		live[String(j.id)] = true
-	for k in by_id:
-		if not live.has(k):
-			var stale: Pasture3DRoadJunction = by_id[k]
+	for i in priors.size():
+		if not taken.has(i):
+			var stale: Pasture3DRoadJunction = priors[i]
 			stale.detected = false
 			out.append(stale)
 	return out
+
+
+## The prior record `p_j` is a re-detection of, or null. Same participants, nearest centre, within
+## `p_radius`, and not already claimed by another group this resolve.
+static func _match_prior(p_j: Pasture3DRoadJunction, p_priors: Array, p_taken: Dictionary,
+		p_radius: float) -> Pasture3DRoadJunction:
+	var want := _participant_set(p_j.road_keys)
+	var best := -1
+	var best_d := p_radius
+	for i in p_priors.size():
+		if p_taken.has(i):
+			continue
+		var prior: Pasture3DRoadJunction = p_priors[i]
+		if _participant_set(prior.road_keys) != want:
+			continue
+		var d := prior.center.distance_to(p_j.center)
+		if d <= best_d:
+			best_d = d
+			best = i
+	if best < 0:
+		return null
+	p_taken[best] = true
+	return p_priors[best]
+
+
+## The participants as an order-independent string, so the same pair matches whichever road the solver
+## walked first.
+static func _participant_set(p_keys: PackedStringArray) -> String:
+	var k := Array(p_keys)
+	k.sort()
+	return "+".join(k)
 
 
 ## Resolve one cluster of crossings into a junction.
