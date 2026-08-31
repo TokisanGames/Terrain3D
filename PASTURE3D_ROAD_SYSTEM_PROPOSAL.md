@@ -377,6 +377,68 @@ line segments*: the distance is closed-form over a small candidate set from a un
 embarrassingly parallel, bit-comparable on both backends by construction — and it yields the `s` and `t`
 parameters JFA cannot.
 
+### P7a implementation notes (done 2026-08-31)
+
+**A PATH is the one port that does not carry a grid.** Everything else in the graph travels as a
+`PackedFloat32Array` because everything else *is* a field. A road is not: it is a centreline and a width.
+Rasterising it into a grid to send it down a wire would fix its resolution at the wire rather than at the
+consumer, throw away the arc length that makes it a road rather than a shape, and make `Road Grade`
+re-extract from pixels what the brush already knew exactly. So the resource travels **beside** the grids,
+in the same place a multi-output solver's channels already travel (`aux`), and each consumer rasterises
+at its own resolution from the real geometry.
+
+A PATH producer still occupies a grid slot, filled with zeros. That is deliberate: the alternative is a
+special case in every loop that indexes `grids` by node, bought for one saved array on one node.
+
+**Cache invalidation needed nothing new, and that is worth stating because it looks like it should.** A
+PATH produces no input grid, so the geometry never reaches a consumer's input hash by the normal route —
+the source's grid slot is zeros before and after a road moves. What saves it is that
+`_append_input_signature` already folds the *source node's* revision, and `Road Source` re-emits `changed`
+when its path resource does. Two links, both easy to omit, and if either is missing the graph serves the
+old distance field forever: the road moves in the viewport and the terrain keeps the old cut. [G] breaks
+exactly that.
+
+**The query is analytic, and §8's argument holds up.** Point-to-segment is closed form, the candidate set
+comes from a uniform bucket index, and every cell is independent — exact and bit-comparable on both
+backends by construction rather than by tolerance, which is precisely what the JFA distance transform
+cannot be. `nearest_brute` lives in **production**, not in the gate: it is the definition the indexed path
+must match, and a definition that lives only in a test drifts from the thing it defines. It is also what
+`nearest` itself falls back to below five segments, where building buckets costs more than checking all
+of them.
+
+The index's correctness is one stopping rule — a segment in a bucket *k* rings out is at least
+`(k-1) * cell` away, so the search may stop once the best answer beats that. Off by one there returns a
+*wrong nearest segment*, which is silent: the distance stays plausible and only `s` is absurd. That is why
+[A] compares `segment` and `s` and not only `distance`, over a **hairpin** rather than a straight road —
+on a straight road every wrong nearest segment is also nearly the right distance.
+
+[A] also had to learn the difference between a wrong answer and a **tie**. A query level with a vertex is
+exactly equidistant from the two segments meeting there, and both answers name the same point; 286 of
+1700 probes were that. Counting them as failures would have made the criterion demand that two searches
+visiting segments in different orders break ties identically — a claim about iteration order, not about
+the answer. A tie is a tie only when the distance *and* the arc length agree.
+
+**`s` and `t` are the two things a flood cannot give you**, and each has a way of being wrong that no
+preview shows. `s` is absolute metres: restarting it per segment gives a sawtooth that reads as a
+repeating pattern, and normalising it to [0,1] moves every arc-length-placed thing in the graph the moment
+the road gets longer. `t` is the across-position **normalised by the half-width there**, so |t| <= 1 is
+"on the road" whatever the width does along its length — unnormalised it would just be a signed copy of
+`distance` and a corridor mask would be constant-width down a road that is not. Its sign follows the road
+system's existing convention (positive is the driver's right), and a fixture sharing the code's own
+convention cannot catch that being inverted, so [D]'s control is a road driven the *other way* past the
+same world point.
+
+**An unresolved path reads far away.** A Road Source with no host produces nothing, and that is a normal
+state — a graph opened on its own, a road not yet baked, a brush just deleted. Both obvious fills are
+catastrophic: 0 means every cell is on the road, so a downstream `Road Grade` flattens the whole terrain
+to it; INF turns every downstream arithmetic node into NAN and never recovers. `unreachable_distance`
+defaults to 10 km.
+
+**Road Source blocks native, and the bail is graph-wide.** Native cannot carry a resource down a wire, so
+one Road Source drops the *whole* graph to the GDScript path. Said out loud in the node rather than
+discovered as a slowdown: it is a real cost, and it is the reason §8 frames the graph route as the case
+that needs control, not as the route a plain road should take.
+
 ---
 
 ## 9. Game output — the Route
@@ -616,7 +678,8 @@ The gate also caught a defect in the follower itself, which is the other half of
 | **P5c** ✅ | **Tier NEAR (§10)** — lane markings (`Pasture3DRoadMarkings`, a pure kernel split into a stripe *plan* and a *builder*), per-chunk collision at lift zero, and verge props (`Pasture3DRoadProps`) handed to `Pasture3DInstancer` so they stream with terrain regions. | `RoadNearGate` — a one-way road has no centre line whatever its type says (control: the same road two-way must draw one); each divider type draws the stripes it names, with DASHED_SOLID's no-crossing side asserted (control: NONE removes the divider and nothing else); the divider sits where the DIRECTION changes, checked on a 2+1 where that differs from the middle of the road (controls: the two rules must disagree on the fixture; traffic side mirrors it); dashes are placed in absolute arc length and a dash across a cut is split, not dropped (control: a solid stripe stays one run); markings sit on the graded surface and strictly above the ribbon, wound Godot's way; collision matches the GRADED surface, not the lifted ribbon (control: the drawn ribbon must be higher by exactly DEPTH_LIFT); props stand on the side asked for, absolute spacing, and the far verge is TURNED not copied (control: splitting on an exact multiple of the spacing must not double a prop). A criterion that crashes before reporting is counted as a failure. |
 | **P6a** ✅ | **Runtime layer, part one** — `Pasture3DRoadRun` / `Pasture3DRoadRuntime` (baked copies, no node references), `Pasture3DRoadRoute` with reversible entries by stable id, derived checkpoint gates, the corridor test, `locate()` and `progress()`, and the validator that names the gap. Loads with no editor and no terrain. | `RoadRouteGate` — the runtime answers with no brush, node or terrain anywhere in the gate (control: surfaces come back as NAMES, not texture indices); reversing flips arc length, tangent, curvature sign and bank sign but NOT height (controls: the fixture must actually turn and bank; the world-space up must be identical both ways because the tarmac does not re-cant); `locate()` round-trips against sampled points (controls: a signed lateral in the driver's frame; the corridor separates verge from off-course); route arc length is not run arc length (controls: the two must differ on the fixture; progress is route-relative); a moved road moves its gates (control: the gate is a plane across the corridor, not a point); the validator names the missing hop (controls: a deleted run is not reported as a missing junction; an unreachable run gets no invented connection). A criterion that crashes before reporting counts as a failure. |
 | **P6b** ✅ | **Runtime layer, part two** — `sample_surface()` with blended transitions, `Pasture3DRoadPaceNotes` (§9.4) plus `Route.generate_pace_notes()`, route-driven streaming `lookahead()`, and `corridor_ahead()`, the reporting hook a project's own traffic system uses. | `RoadRouteGate` [G]–[I] — a transition blends and is exactly half and half at the line (controls: no blend away from a boundary; the blend is MONOTONIC across the band; the road's own ends do not fade); pace notes find a known corner at the right severity and side, a known crest and a known surface change (controls: flatten the profile and the crest calls disappear while the corner survives; reversed, the right-hander is called left); lookahead follows the route (controls: an off-route run is absent at a 100 km window; speed widens it; the traffic hook describes the corridor and clears nothing). |
-| **P7** | Graph nodes (`PATH` port, Road Source / Road Grade / Path Distance / Path Mask). | `RoadGraphGate` — analytic distance vs a brute-force oracle; the two §8 wirings differ as predicted. |
+| **P7a** ✅ | **The PATH port and the analytic query** — `PortType.PATH`, `Pasture3DGraphPath`, `Road Source`, `Path Distance` (distance / s / t). | `RoadGraphGate` [A]–[G] — the index agrees with the brute-force oracle over a hairpin (controls: the index must actually narrow the search; the unindexed fallback must agree too); distance clamps at the ends; s is absolute, not per-segment and not normalised (control: lengthening the road must not move it); t is normalised by half-width and positive is the driver’s right (control: the same point on a road driven the other way is on the other side); an unresolved path reads far away, not 0 and not INF; the path travels down the WIRE (control: cut it and the same node falls back); a moved path invalidates the cache (control: an unchanged re-evaluation must be identical). |
+| **P7b** | `Road Grade` and `Path Mask`, and the two §8 wirings. | `RoadGraphGate` extensions — the two wirings differ as predicted: erosion before the cut leaves a graded road, erosion masked by `roadbed` leaves the hillside weathered around it. |
 | **P8** | Auto-routing: anisotropic A* over graph-produced cost fields (slope, `water_mask`), emitting an editable brush. | `RoadRoutingGate` — found cost ≤ a straight line's; control: a wall in the cost field reroutes it. |
 
 **P5a landed 2026-08-31.** Tier FAR is the tier that is always on, and it is cheap only because P1/P2

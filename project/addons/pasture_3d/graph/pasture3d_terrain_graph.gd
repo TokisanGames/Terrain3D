@@ -596,6 +596,8 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask, p_rect)
 		elif node.needs_grid():
 			var in_grids := _input_grids(ni, grids, aux, n)
+			if node.reads_paths():
+				node.set_path_inputs(_path_inputs(ni, inputs_of))
 			if node.output_count() > 1:
 				var chans: Array = node.eval_grid_channels(in_grids, p_gw, p_gh, p_mask, p_rect)
 				grids[ni] = chans[0]
@@ -680,6 +682,30 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 			_evict_cache_if_needed()
 
 	return grids[out]
+
+
+## The PATH resources wired into `p_ni`, in input port order, with null for a port that is unwired or
+## wired to a node that produces no path.
+##
+## The PATH SIDEBAND. Every other port carries a grid, because every other port is a field; a road is a
+## centreline and a width, and rasterising it into a grid to send it down a wire would fix its resolution
+## at the wire rather than at the consumer and throw away the arc length. So the resource travels beside
+## the grids, the same way a multi-output solver's channels already travel beside them in `aux`.
+##
+## Read from the SOURCE NODE rather than from a value the source produced, which is the one thing worth
+## being careful about: it means a path is identified by the node that made it, and a stale path can only
+## come from a stale node. Cache invalidation then needs nothing new — `_append_input_signature`
+## already folds a source's `_dirty_revision` into its consumer's hash, and a Road Source re-emits
+## `changed` when its path resource does.
+func _path_inputs(p_ni: int, p_inputs_of: Dictionary) -> Array:
+	var out: Array = []
+	for s_i in p_inputs_of.get(p_ni, []):
+		var src: int = s_i
+		if src < 0 or src >= nodes.size() or nodes[src] == null:
+			out.append(null)
+		else:
+			out.append(nodes[src].path_output())
+	return out
 
 
 ## A content signature for one of the arrays handed to `evaluate`: its hash, or 0 when it is not a

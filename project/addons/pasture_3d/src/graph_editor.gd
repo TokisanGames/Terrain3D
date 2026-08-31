@@ -22,6 +22,7 @@ const PORT_COLORS: Array[Color] = [
 	Color(1.00, 0.42, 0.51), # 6: COLOR (#ff6b81) - Magenta/Pink
 	Color(0.66, 0.90, 0.81), # 7: BOOL (#a8e6cf) - Lime Yellow
 	Color(0.95, 0.77, 0.06), # 8: TERRAIN_BUS (#f1c40f) - Warm Gold
+	Color(0.58, 0.65, 0.71), # 9: PATH (#95a5a6) - Slate: road-coloured, and the only non-field port
 ]
 
 var plugin: EditorPlugin
@@ -513,11 +514,16 @@ func _build_ui() -> void:
 	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.MASK, Pasture3DGraphNode.PortType.HEIGHT)
 	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.VECTOR, Pasture3DGraphNode.PortType.VECTOR)
 	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.CURVE, Pasture3DGraphNode.PortType.CURVE)
+	# PATH connects ONLY to PATH. Every other type pair here is float-to-float underneath and a mismatch is
+	# merely wrong-looking; a PATH wire carries a resource, so a HEIGHT plugged into it would be a null the
+	# consumer has to defend against on every cell.
+	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.PATH, Pasture3DGraphNode.PortType.PATH)
 
 	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.HEIGHT)
 	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.MASK)
 	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.VECTOR)
 	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.CURVE)
+	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.PATH)
 
 	_graphedit.connection_request.connect(_on_connection_request)
 	_graphedit.disconnection_request.connect(_on_disconnection_request)
