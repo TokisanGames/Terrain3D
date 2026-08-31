@@ -511,6 +511,28 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 	_check("H", filled == 2 and by_key > 0 and by_key == by_default and built.length() > 90.0,
 			"%d resolved, %d / %d segment(s), path %.1f m" % [filled, by_key, by_default, built.length()])
 
+	# THE DROPDOWN. `road_key` is a node path relative to the network, derived and never stored, so there
+	# was no way to find out what to type. Resolving is the one moment the graph and the scene are both in
+	# hand, so the candidate list is handed over there — alongside the path, for the same reason.
+	#
+	# Checked on the EMPTY-key node too: a list gathered only for nodes that already name a road would
+	# arrive exactly when it is no longer needed, and this criterion would not notice.
+	var offered := Array(defaulted.editor_road_keys)
+	print("    the inspector was offered %d road key(s): %s" % [offered.size(), str(offered)])
+	if not offered.has(brush.road_key()) or not Array(named.editor_road_keys).has(brush.road_key()):
+		_fail += 1
+		print("    !! the dropdown does not list the road that is actually there")
+
+	# CONTROL: an unresolved node must offer NOTHING. This is why the hint is ENUM_SUGGESTION and not a
+	# hard ENUM: a graph opened without its network shows an empty list, and a hard enum would render the
+	# key it already holds as invalid and rewrite it to another road on the first click.
+	var lone := Pasture3DGraphNodeRoadSource.new()
+	print("    control: a source that was never resolved offers %d key(s) (want 0, hence a suggestion)"
+			% lone.editor_road_keys.size())
+	if not lone.editor_road_keys.is_empty():
+		_fail += 1
+		print("    !! an unresolved source claims to know the network\'s roads")
+
 	# CONTROL: a key naming NO road must leave the node alone rather than clearing it. Clearing would make
 	# a road mid-rename flatten every terrain reading it for one bake, which reads as a solver bug.
 	var missing := Pasture3DGraphNodeRoadSource.new()

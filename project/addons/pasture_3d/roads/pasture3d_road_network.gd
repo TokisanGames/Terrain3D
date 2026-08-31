@@ -685,21 +685,29 @@ func resolve_graph_paths(p_graph: Pasture3DTerrainGraph, p_default: Node = null)
 	if p_graph == null:
 		return 0
 	var by_key := {}
+	var keys := PackedStringArray()
 	var collected := false
 	var filled := 0
 	for node in p_graph.nodes:
 		if node == null or node.op() != &"road_source":
 			continue
 		var src: Pasture3DGraphNodeRoadSource = node
+		# Collected for EVERY road source, including the ones with an empty key: the dropdown's whole job
+		# is to be there before you have chosen anything, and a list gathered only for nodes that already
+		# name a road would appear exactly when it is no longer needed.
+		if not collected:
+			collected = true
+			for b in road_brushes():
+				var k := b.road_key()
+				by_key[k] = b
+				keys.append(k)
+			keys.sort()
+		src.editor_road_keys = keys
 		if src.road_key.is_empty():
 			if p_default != null and p_default.has_method("graph_path"):
 				_assign(src, p_default.call("graph_path"))
 				filled += 1
 			continue
-		if not collected:
-			collected = true
-			for b in road_brushes():
-				by_key[b.road_key()] = b
 		if by_key.has(src.road_key):
 			_assign(src, by_key[src.road_key].graph_path())
 			filled += 1

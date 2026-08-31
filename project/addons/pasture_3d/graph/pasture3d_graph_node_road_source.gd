@@ -44,6 +44,28 @@ extends Pasture3DGraphNode
 		emit_changed()
 
 
+## The road keys the HOST last offered, for the inspector dropdown. Never saved and never read by the
+## solve — `road_key` remains the only thing that decides which road this node names.
+##
+## Stamped by Pasture3DRoadNetwork.resolve_graph_paths, which is the one place that already walks the
+## graph looking for these nodes and already has the network in hand. A graph is a Resource and cannot
+## reach the scene, so the list has to arrive from outside for the same reason the PATH does.
+var editor_road_keys: PackedStringArray = PackedStringArray()
+
+
+## Offer the network's roads as suggestions, and keep the field typeable.
+##
+## ENUM_SUGGESTION rather than ENUM, deliberately. A hard enum can only hold values that exist RIGHT NOW,
+## so a graph opened with its network absent — a scene mid-load, a graph edited on its own, a road being
+## renamed — would show its key as invalid and the first click would silently rewrite it to a different
+## road. A suggestion list makes the common case a dropdown without making the uncommon case destructive.
+func _validate_property(property: Dictionary) -> void:
+	if property["name"] != &"road_key" or editor_road_keys.is_empty():
+		return
+	property["hint"] = PROPERTY_HINT_ENUM_SUGGESTION
+	property["hint_string"] = ",".join(editor_road_keys)
+
+
 func op() -> StringName:
 	return &"road_source"
 

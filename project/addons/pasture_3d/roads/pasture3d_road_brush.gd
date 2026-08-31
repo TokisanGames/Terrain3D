@@ -1117,6 +1117,34 @@ func tangent_at_arc(p_s: float, p_h: float = 0.5) -> Vector2:
 	return d.normalized() if d.length() > 1e-6 else Vector2.RIGHT
 
 
+# ---- INSPECTOR: the key, shown ----------------------------------------------------------------------
+
+## Show `road_key()` in the inspector, read-only.
+##
+## It is derived (the node path relative to the network) and must stay derived, so it is not an @export
+## and cannot be edited here. But it is the string you type into a graph's Road Source and into a junction
+## override, and until this existed there was no way to find out what it was short of reading the source.
+## A value the user is expected to quote and has no way to read is a design gap, not a minor one.
+##
+## Deliberately NOT stored: writing it would make the key a second, drifting copy of the node path.
+func _get_property_list() -> Array[Dictionary]:
+	var props := super()
+	props.append({"name": "Road Key", "type": TYPE_NIL, "usage": PROPERTY_USAGE_GROUP,
+			"hint_string": "road_key"})
+	props.append({
+		"name": "road_key_display",
+		"type": TYPE_STRING,
+		"usage": PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY,
+	})
+	return props
+
+
+func _get(property: StringName) -> Variant:
+	if property == &"road_key_display":
+		return road_key()
+	return super(property)
+
+
 ## The road's solved height at `p_s`, or NAN when it has not been baked. World metres.
 func height_at_arc(p_s: float) -> float:
 	var mod := road_modifier()
