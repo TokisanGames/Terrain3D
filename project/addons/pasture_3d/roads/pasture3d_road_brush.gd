@@ -56,6 +56,63 @@ extends Pasture3DTerrainBrush
 		closed = v
 		_schedule_refresh()
 
+# ---- Inspector proxies (§5.3) -------------------------------------------------------------------
+#
+# `road_defaults` is a sub-resource, so the fields a road is actually authored with sit one fold-out
+# click away in the inspector. These forward straight into it — no second storage, no shadow state, and
+# no semantic change: every one of them still means "override this level", and INHERIT / -1 / "" still
+# means "ask the level above". Reading one when `road_defaults` is missing answers with the sentinel
+# rather than creating the resource, so merely inspecting a brush never gives it an opinion.
+
+@export_group("Road Overrides", "road_")
+
+
+## The road type this brush uses. INHERIT (null) takes the group's, then the network's.
+@export var road_road_type: Pasture3DRoadType:
+	set(v): _set_override(&"road_type", v)
+	get: return _get_override(&"road_type", null)
+
+## Lanes across the carriageway. -1 inherits, and the road type is the last word.
+@export_range(-1, 8) var road_lane_count: int = -1:
+	set(v): _set_override(&"lane_count", v)
+	get: return int(_get_override(&"lane_count", -1))
+
+## One-way or two-way. Which SIDE traffic drives on is the network's call, not this one.
+@export var road_traffic_flow: Pasture3DRoadOverrides.TrafficFlow = Pasture3DRoadOverrides.TrafficFlow.INHERIT:
+	set(v): _set_override(&"traffic_flow", v)
+	get: return _get_override(&"traffic_flow", Pasture3DRoadOverrides.TrafficFlow.INHERIT)
+
+## Physics surface. A mid-run change is a SEGMENT override, not this one (§4.4).
+@export var road_surface_id: StringName = &"":
+	set(v): _set_override(&"surface_id", v)
+	get: return StringName(_get_override(&"surface_id", &""))
+
+## Posted speed, m/s. NAN inherits.
+@export var road_speed_limit: float = NAN:
+	set(v): _set_override(&"speed_limit", v)
+	get: return float(_get_override(&"speed_limit", NAN))
+
+## Drape on the terrain instead of solving a grade-limited alignment. INHERIT, and then FALSE — a draped
+## road is the failure the P1 solver exists to avoid, so it has to be asked for.
+@export var road_follow_terrain: Pasture3DRoadOverrides.Tri = Pasture3DRoadOverrides.Tri.INHERIT:
+	set(v): _set_override(&"follow_terrain", v)
+	get: return _get_override(&"follow_terrain", Pasture3DRoadOverrides.Tri.INHERIT)
+
+
+## Write through to `road_defaults`, creating it only when something is actually being set. A proxy that
+## created the resource on every read would hand a brush an override just for being looked at.
+func _set_override(p_field: StringName, p_value: Variant) -> void:
+	if road_defaults == null:
+		if Pasture3DRoadOverrides.is_unset(p_value):
+			return
+		road_defaults = Pasture3DRoadOverrides.new()
+	road_defaults.set(p_field, p_value)
+
+
+func _get_override(p_field: StringName, p_unset: Variant) -> Variant:
+	return road_defaults.get(p_field) if road_defaults != null else p_unset
+
+
 ## Bumped whenever a resolved value could have changed. The staleness key P2's grading modifier and P4's
 ## intersection resolver will fold into their caches.
 var content_key: int = 0

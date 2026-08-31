@@ -38,6 +38,11 @@ const PLACEABLE_BRUSHES: Array[Dictionary] = [
 	{ "label":"Splat",  "script":"res://addons/pasture_3d/connectors/pasture3d_splat.gd",  "icon":"res://addons/pasture_3d/icons/brush_splat.svg",  "offset":0.0 },
 	# Sim only ever erodes the ground it is dropped on, so like Pond it wants no placement lift.
 	{ "label":"Sim",    "script":"res://addons/pasture_3d/connectors/pasture3d_sim.gd",    "icon":"res://addons/pasture_3d/icons/brush_sim.svg",    "offset":0.0 },
+	# Offset 0: a road's plan alignment is authored ON the ground and the P1 alignment solver decides the
+	# road's own height from there, so a placement lift would only be something to undo. Being in this
+	# list is also what gives a road its first Path3D — without it a hand-added brush has no spline, and
+	# Ctrl-click add / right-click remove have nothing to anchor to and silently do nothing.
+	{ "label":"Road",   "script":"res://addons/pasture_3d/roads/pasture3d_road_brush.gd",  "icon":"res://addons/pasture_3d/icons/brush_terrain.svg", "offset":0.0 },
 ]
 
 var add_tool_group: ButtonGroup = ButtonGroup.new()

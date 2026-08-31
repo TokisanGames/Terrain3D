@@ -33,6 +33,7 @@ func _ready() -> void:
 	_d_inserting_a_point_does_not_move_an_override()
 	_e_exclusion_survives_a_reorder()
 	_f_group_edit_moves_only_the_undisagreeing()
+	_g_inspector_proxies_are_the_same_override()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD MODEL PASS" if _fail == 0 else "ROAD MODEL FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -332,3 +333,53 @@ func _names(p_types: Array[Pasture3DRoadType]) -> Array:
 	for t: Pasture3DRoadType in p_types:
 		out.append(t.type_name)
 	return out
+
+
+# ---- G ------------------------------------------------------------------------------------------
+
+func _g_inspector_proxies_are_the_same_override() -> void:
+	print("[G] the brush's inspector proxies ARE the override, not a second copy of it")
+	var fx := _build(2)
+	var grp: Pasture3DRoadGroup = fx["group"]
+	var brush: Pasture3DRoadBrush = fx["brush"]
+	grp.road_defaults.lane_count = 4
+
+	# A proxy write must land in the same place a direct write does — same resolved answer, same storage.
+	brush.road_lane_count = 6
+	var via_proxy := brush.resolved_lane_count()
+	var in_resource := brush.road_defaults.lane_count
+	print("    set road_lane_count=6 -> resolved %d, road_defaults.lane_count %d (group says 4)"
+			% [via_proxy, in_resource])
+	if via_proxy != 6 or in_resource != 6:
+		_fail += 1; print("    !! a proxy write did not reach the override resource")
+
+	# And clearing through the proxy has to hand the field back to the group rather than pinning a -1.
+	brush.road_lane_count = -1
+	var after_clear := brush.resolved_lane_count()
+	print("    set road_lane_count=-1 (inherit) -> resolved %d (want the group's 4)" % after_clear)
+	if after_clear != 4:
+		_fail += 1; print("    !! clearing a proxy did not restore inheritance")
+
+	# The claim worth a control: READING a proxy must not give a brush an opinion. A proxy that created
+	# road_defaults on read would silently convert every inspected brush into an overriding one, and
+	# every symptom of that shows up later, on some other brush, as a group edit that stopped
+	# propagating.
+	var bare := Pasture3DRoadBrush.new()
+	bare.road_defaults = null
+	var read_back := bare.road_lane_count
+	var _t: Variant = bare.road_road_type
+	var _s: StringName = bare.road_surface_id
+	print("    a brush with no road_defaults reads lane_count %d; road_defaults still %s"
+			% [read_back, "null" if bare.road_defaults == null else "CREATED"])
+	if read_back != -1 or bare.road_defaults != null:
+		_fail += 1; print("    !! reading a proxy created an override resource")
+
+	# CONTROL: writing a real value to that same bare brush DOES create it — so the check above is
+	# measuring read-vs-write, not a proxy that never stores anything at all.
+	bare.road_lane_count = 3
+	print("    control: writing 3 to the same brush -> road_defaults %s, lane_count %d"
+			% ["created" if bare.road_defaults != null else "STILL NULL",
+			bare.road_defaults.lane_count if bare.road_defaults != null else -99])
+	if bare.road_defaults == null or bare.road_defaults.lane_count != 3:
+		_fail += 1; print("    !! a proxy write to a bare brush stored nothing")
+	bare.free()

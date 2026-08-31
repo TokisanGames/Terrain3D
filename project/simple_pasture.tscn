@@ -9,6 +9,10 @@
 [ext_resource type="Script" uid="uid://dr7vsokvx1xjs" path="res://addons/pasture_3d/graph/pasture3d_terrain_graph.gd" id="7_ii4qc"]
 [ext_resource type="Script" uid="uid://drtu4ikvofrcj" path="res://addons/pasture_3d/graph/pasture3d_graph_node_contrast.gd" id="7_n4cpt"]
 [ext_resource type="Script" uid="uid://717mgmmlrimi" path="res://addons/pasture_3d/connectors/pasture3d_mod_graph.gd" id="8_wv1iv"]
+[ext_resource type="Script" uid="uid://cft8dk3ton2yu" path="res://addons/pasture_3d/roads/pasture3d_road_network.gd" id="10_wej47"]
+[ext_resource type="Script" uid="uid://vued5d3n845o" path="res://addons/pasture_3d/roads/pasture3d_road_overrides.gd" id="11_ii4qc"]
+[ext_resource type="Script" uid="uid://bm62pke4asne6" path="res://addons/pasture_3d/roads/pasture3d_road_group.gd" id="12_wv1iv"]
+[ext_resource type="Script" uid="uid://co0q8plo6atk7" path="res://addons/pasture_3d/roads/pasture3d_road_brush.gd" id="13_6pcwc"]
 
 [sub_resource type="Pasture3DMaterial" id="Pasture3DMaterial_g143p"]
 _shader_parameters = {
@@ -64,6 +68,8 @@ graph_position = Vector2(140, -20)
 
 [sub_resource type="Resource" id="Resource_ugt7v"]
 script = ExtResource("7_n4cpt")
+amount = 10.64
+range_max = 15.0
 graph_position = Vector2(-340, 100)
 preview_on = true
 
@@ -85,6 +91,25 @@ _data = {
 "tilts": PackedFloat32Array(0, 0, 0, 0)
 }
 point_count = 4
+
+[sub_resource type="Resource" id="Resource_67nn0"]
+script = ExtResource("11_ii4qc")
+speed_limit = nan
+
+[sub_resource type="Resource" id="Resource_ddf1r"]
+script = ExtResource("11_ii4qc")
+speed_limit = nan
+
+[sub_resource type="Resource" id="Resource_vfv27"]
+script = ExtResource("11_ii4qc")
+speed_limit = nan
+
+[sub_resource type="Curve3D" id="Curve3D_cyndd"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 0, 1, -50, 0, 0, 0, 0, 0, 0, 0, 0, 50),
+"tilts": PackedFloat32Array(0, 0)
+}
+point_count = 2
 
 [node name="SimplePasture" type="Node3D" unique_id=3132789]
 
@@ -122,3 +147,23 @@ curve = SubResource("Curve3D_67nn0")
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=731588468]
 transform = Transform3D(0.6929679, 0.41302508, -0.59093636, -0.07694167, 0.8573278, 0.50898826, 0.7168511, -0.30724502, 0.6258795, -0.20508376, 0.9387417, 1.5733215)
 shadow_enabled = true
+
+[node name="Pasture3DRoadNetwork" type="Node3D" parent="." unique_id=1153925029]
+script = ExtResource("10_wej47")
+road_defaults = SubResource("Resource_67nn0")
+metadata/_custom_type_script = "uid://cft8dk3ton2yu"
+
+[node name="Pasture3DRoadGroup" type="Node3D" parent="Pasture3DRoadNetwork" unique_id=2046008879]
+script = ExtResource("12_wv1iv")
+road_defaults = SubResource("Resource_ddf1r")
+metadata/_custom_type_script = "uid://bm62pke4asne6"
+
+[node name="Pasture3DRoadBrush" type="Node3D" parent="Pasture3DRoadNetwork/Pasture3DRoadGroup" unique_id=881885673]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31.819412, 0, 0)
+script = ExtResource("13_6pcwc")
+road_defaults = SubResource("Resource_vfv27")
+_layer_owner = "pasture3d_brush:Roads"
+metadata/_custom_type_script = "uid://co0q8plo6atk7"
+
+[node name="Road1" type="Path3D" parent="Pasture3DRoadNetwork/Pasture3DRoadGroup/Pasture3DRoadBrush" unique_id=1514446994]
+curve = SubResource("Curve3D_cyndd")
