@@ -279,6 +279,69 @@ static func build_chunk(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
 	return out
 
 
+## The junction apron: the disc of surface inside a junction footprint, as a triangle fan.
+##
+## ---- WHY IT FOLLOWS THE MAJOR ROAD RATHER THAN BEING FLAT ----
+##
+## The ground inside a footprint is not flat and is not at the junction's `elevation`. The grader lets
+## the MAJOR road pave straight through (only minor approaches are skipped), so the ground in there is
+## the major road's own surface — crowned, banked, climbing. An apron laid flat at `elevation` would sit
+## up to a crown above the carriageway edges and cut into the middle: a visible saucer at every
+## crossroads.
+##
+## So every fan vertex is projected onto the major road's plan and given exactly the height the grader
+## gave that cell, through the same `surface_height`. The apron and the ground are the same surface for
+## the same reason the ribbon and the ground are.
+##
+## Returns a surface array, or an empty Array when there is nothing to build.
+static func build_apron(p_center: Vector2, p_radius: float, p_plan: PackedVector2Array,
+		p_cum: PackedFloat32Array, p_alignment: Pasture3DRoadAlignment, p_crown: float,
+		p_segments: int = 24, p_lift: float = DEPTH_LIFT) -> Array:
+	if p_alignment == null or p_plan.size() < 2 or p_radius <= 0.01:
+		return []
+	var segments := maxi(p_segments, 3)
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+
+	verts.append(_apron_point(p_center, p_plan, p_cum, p_alignment, p_crown, p_lift))
+	uvs.append(Vector2(0.5, 0.5))
+	normals.append(Vector3.UP)
+	for i in segments:
+		var a := TAU * float(i) / float(segments)
+		var at := p_center + Vector2(cos(a), sin(a)) * p_radius
+		verts.append(_apron_point(at, p_plan, p_cum, p_alignment, p_crown, p_lift))
+		uvs.append(Vector2(0.5 + cos(a) * 0.5, 0.5 + sin(a) * 0.5))
+		normals.append(Vector3.UP)
+	for i in segments:
+		# (centre, ring i, ring i+1) with the angle INCREASING is clockwise seen from above, which is
+		# Godot's front face — the same convention as the ribbon, and wrong the same way if reversed.
+		indices.append_array(PackedInt32Array([0, 1 + i, 1 + (i + 1) % segments]))
+
+	_recompute_normals(verts, indices, normals)
+	var out := []
+	out.resize(Mesh.ARRAY_MAX)
+	out[Mesh.ARRAY_VERTEX] = verts
+	out[Mesh.ARRAY_NORMAL] = normals
+	out[Mesh.ARRAY_TEX_UV] = uvs
+	out[Mesh.ARRAY_INDEX] = indices
+	return out
+
+
+## One apron vertex: world XZ `p_at`, lifted onto the major road's graded surface.
+static func _apron_point(p_at: Vector2, p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
+		p_alignment: Pasture3DRoadAlignment, p_crown: float, p_lift: float) -> Vector3:
+	var hit := Pasture3DRoadGrader.nearest_on_plan(p_plan, p_cum, p_at)
+	var d: float = hit[0]
+	var s: float = hit[1]
+	var side: float = hit[2]
+	var si := p_alignment.index_at(s)
+	var bank: float = p_alignment.bank[si] if si < p_alignment.bank.size() else 0.0
+	var y := Pasture3DRoadGrader.surface_height(p_alignment.height_at(s), bank, p_crown, d * side)
+	return Vector3(p_at.x, y + p_lift, p_at.y)
+
+
 ## Area-weighted vertex normals.
 ##
 ## Computed rather than assumed UP: a banked corner and a steep climb are both real surface tilts the

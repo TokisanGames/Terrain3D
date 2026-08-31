@@ -129,6 +129,50 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 	return _chunks.size()
 
 
+## Build one apron per junction. `p_aprons` is prepared by the network, each entry
+## `{center, radius, plan, cum, alignment, crown, material}` — the host does no lookups of its own.
+##
+## Hosted here rather than on a road's own host because a junction belongs to no single road: it is where
+## several stop being separate. Put on the network's host, it is rebuilt once per resolve instead of once
+## per participant, and there is no question of which road owns it.
+##
+## Each apron carries one mesh repeated across the LOD slots. A disc of two dozen triangles has nothing
+## worth decimating, and sharing the resource costs nothing — what it buys is that aprons go through the
+## same distance culling and the same far-hide as everything else, with no second code path.
+func rebuild_aprons(p_aprons: Array, p_lift: float = Pasture3DRoadMesher.DEPTH_LIFT) -> int:
+	_clear()
+	depth_lift = p_lift
+	for a: Dictionary in p_aprons:
+		var arrays := Pasture3DRoadMesher.build_apron(a["center"], float(a["radius"]), a["plan"],
+				a["cum"], a["alignment"], float(a["crown"]), 24, p_lift)
+		if arrays.is_empty():
+			continue
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		var mat: Material = a.get("material")
+		if mat != null:
+			mesh.surface_set_material(0, mat)
+		var mi := MeshInstance3D.new()
+		mi.name = "Junction_%s" % str(a.get("id", "?"))
+		mi.mesh = mesh
+		mi.top_level = true
+		add_child(mi)
+		var meshes: Array = []
+		for _lod in Pasture3DRoadMesher.LOD_LEVELS:
+			meshes.append(mesh)
+		var c: Vector2 = a["center"]
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		_chunks.append({
+			"node": mi,
+			"centre": Vector3(c.x, verts[0].y, c.y),
+			"meshes": meshes,
+			"lod": 0,
+		})
+	_dirty_lod = true
+	_report = true
+	return _chunks.size()
+
+
 ## World metres across one terrain region — the unit chunk cuts snap to, so a chunk's lifetime matches
 ## the region it sits in.
 func _region_metres(p_brush: Pasture3DRoadBrush) -> float:

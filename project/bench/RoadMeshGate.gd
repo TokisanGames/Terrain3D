@@ -33,6 +33,8 @@ func _ready() -> void:
 	_f_the_surface_faces_up_and_is_wound_one_way()
 	_g_uvs_run_in_metres_so_a_chunk_does_not_rescale_the_road()
 	_h_distance_picks_the_tier_the_thresholds_name()
+	_i_the_apron_is_the_same_surface_as_the_ground_it_covers()
+	_j_only_the_minor_road_stops_at_a_junction()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD MESH PASS" if _fail == 0 else "ROAD MESH FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -497,3 +499,99 @@ func _h_distance_picks_the_tier_the_thresholds_name() -> void:
 	if near != 0:
 		_fail += 1; print("    !! the thresholds are not being read")
 	host.queue_free()
+
+
+# ---- I ------------------------------------------------------------------------------------------
+
+## [I] The junction apron is the same surface as the ground inside the footprint.
+##
+## The ground in there is not flat and is not at the junction's `elevation`: the grader lets the MAJOR
+## road pave straight through, so the footprint holds that road's own crowned, banked, climbing surface.
+## An apron laid flat at `elevation` would sit a crown above the carriageway edges and cut into the
+## middle — a saucer at every crossroads, and one that would look like a junction-height bug rather than
+## a meshing one.
+##
+## Checked against the grader, like [E], and for the same reason: a formula written out here would agree
+## with an apron that had drifted from the ground.
+func _i_the_apron_is_the_same_surface_as_the_ground_it_covers() -> void:
+	print("[I] the apron is the same surface as the ground it covers")
+	var run := _run(0.06)
+	var a: Pasture3DRoadAlignment = run["alignment"]
+	var lift := Pasture3DRoadMesher.DEPTH_LIFT
+	var centre := Vector2(50.0, 8.0)  # on the road, which runs along z = 8
+	var arrays := Pasture3DRoadMesher.build_apron(centre, 6.0, run["plan"], run["cum"], a, 0.05, 24, lift)
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var worst := 0.0
+	for v in verts:
+		var hit := Pasture3DRoadGrader.nearest_on_plan(run["plan"], run["cum"], Vector2(v.x, v.z))
+		var si := a.index_at(hit[1])
+		var bank: float = a.bank[si]
+		var want := Pasture3DRoadGrader.surface_height(a.height_at(hit[1]), bank, 0.05,
+				float(hit[0]) * float(hit[2])) + lift
+		worst = maxf(worst, absf(v.y - want))
+	print("    %d vertices, largest disagreement with the graded ground %.9f m" % [verts.size(), worst])
+	_check("I", worst < 1e-4, "worst vertex is %.9f m off the ground (want 0)" % worst)
+
+	# CONTROL: a flat apron must FAIL this. Without it the criterion passes on a disc that happens to be
+	# level because the fixture was, and the saucer would appear only on a banked or crowned junction —
+	# which is most of them.
+	var flat_worst := 0.0
+	var level: float = verts[0].y
+	for v in verts:
+		flat_worst = maxf(flat_worst, absf(level - v.y))
+	print("    control: a flat disc at the centre height would be %.3f m out at the rim (want > 0.05)"
+			% flat_worst)
+	if flat_worst <= 0.05:
+		_fail += 1; print("    !! the fixture is too level to tell a fitted apron from a flat one")
+
+	# CONTROL: the apron must be wound Godot's way too, or it is a hole with a lid nobody can see.
+	var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var facing_away := 0
+	var i := 0
+	while i + 2 < idx.size():
+		var n := (verts[idx[i + 1]] - verts[idx[i]]).cross(verts[idx[i + 2]] - verts[idx[i]])
+		if n.y >= 0.0:
+			facing_away += 1
+		i += 3
+	print("    control: %d of %d apron triangles wound away from above (want 0)"
+			% [facing_away, idx.size() / 3])
+	if facing_away > 0:
+		_fail += 1; print("    !! the apron is wound the way the ribbon was when it was invisible")
+
+
+# ---- J ------------------------------------------------------------------------------------------
+
+## [J] Only the MINOR road stops at a junction; the major road paves through.
+##
+## This mirrors `grade_surface`, and the mirroring is the whole criterion. The grader skips a junction
+## range only when the road is not the major one, so a mesher that skipped for BOTH leaves the major
+## road's ribbon stopping where its ground does not — a hole at every crossroads with real graded road
+## surface visible through it. That is what shipped, and it looked like a missing junction mesh rather
+## than like the approach rule being applied to a road it does not apply to.
+func _j_only_the_minor_road_stops_at_a_junction() -> void:
+	print("[J] only the minor road stops at a junction")
+	var j := Pasture3DRoadJunction.new()
+	j.road_keys = PackedStringArray(["Major", "Minor"])
+	j.arc_lengths = PackedFloat32Array([50.0, 50.0])
+	j.trim_backs = PackedFloat32Array([8.0, 8.0])
+	j.major_index = 0
+	j.radius = 6.0
+	j.detected = true
+	print("    keys %s, major_index %d -> major_key %s, widest trim-back %.1f m"
+			% [str(Array(j.road_keys)), j.major_index, j.major_key(), j.widest_trim_back()])
+	_check("J", j.major_key() == "Major" and not j.is_major("Minor") and j.is_major("Major"),
+			"major_key %s; is_major(Major) %s; is_major(Minor) %s (want Major, true, false)"
+					% [j.major_key(), str(j.is_major("Major")), str(j.is_major("Minor"))])
+
+	# CONTROL: the override must move it, or "the major road" is just whichever came first.
+	j.major_override = 1
+	print("    control: major_override 1 -> major_key %s (want Minor)" % j.major_key())
+	if j.major_key() != "Minor":
+		_fail += 1; print("    !! major_override does not decide who paves through")
+
+	# CONTROL: the apron must reach at least as far as the approaches were trimmed back, or it is
+	# smaller than the hole it exists to fill and leaves a ring of bare ground around itself.
+	print("    control: radius %.1f m vs widest trim-back %.1f m -> apron must use %.1f m"
+			% [j.radius, j.widest_trim_back(), maxf(j.radius, j.widest_trim_back())])
+	if maxf(j.radius, j.widest_trim_back()) < j.widest_trim_back():
+		_fail += 1; print("    !! the apron would be smaller than the trim-back")

@@ -295,3 +295,18 @@ func connector_by_id(p_id: StringName) -> Pasture3DRoadLaneConnector:
 		if c != null and c.id == p_id:
 			return c
 	return null
+
+
+## Content key of the road that won priority here — the one whose profile the junction is built on.
+func major_key() -> String:
+	var i := major_override if major_override >= 0 and major_override < road_keys.size() else major_index
+	return road_keys[i] if i >= 0 and i < road_keys.size() else ""
+
+
+## The largest trim-back any approach was given, metres. The apron must reach at least this far or it is
+## smaller than the hole the trim-backs opened.
+func widest_trim_back() -> float:
+	var out := 0.0
+	for t in trim_backs:
+		out = maxf(out, t)
+	return out

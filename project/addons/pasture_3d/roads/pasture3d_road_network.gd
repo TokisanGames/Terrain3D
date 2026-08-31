@@ -494,6 +494,60 @@ func paint_layer_owner() -> String:
 # ---- TIER FAR: painting the roads (P5, §10) -----------------------------------------------------------
 
 
+## Build the apron inside every detected junction footprint (§6, §10).
+##
+## THE HOLE THIS FILLS IS ONE THE MESHER CREATES ON PURPOSE. Approaches stop at the footprint so two
+## roads never mesh the same cells, which leaves the footprint itself belonging to nobody — and the
+## ground in there is real, graded road surface, so without this you see terrain through a hole at every
+## crossroads.
+##
+## The apron follows the MAJOR road, because the major road is what graded that ground: the grader skips
+## only the minor approaches. So the participant whose alignment the disc is built from is the same one
+## that paved it, and the two agree by construction rather than by tuning.
+func build_junction_surfaces(p_brushes: Array = []) -> int:
+	var brushes: Array = p_brushes if not p_brushes.is_empty() else road_brushes()
+	var by_key := {}
+	for b in brushes:
+		by_key[b.road_key()] = b
+	var aprons: Array = []
+	for j in junctions:
+		if not j.detected or j.radius <= 0.01:
+			continue
+		var major_key: String = j.major_key()
+		if not by_key.has(major_key):
+			continue
+		var b = by_key[major_key]
+		var run: Dictionary = b.build_run()
+		if run.is_empty():
+			continue
+		var t: Pasture3DRoadType = b.resolved_road_type()
+		aprons.append({
+			"id": j.id,
+			"center": j.center,
+			# The disc has to reach at least the trim-back the approaches stopped at, or the apron is
+			# smaller than the hole it exists to fill and leaves a ring of bare ground round itself.
+			"radius": maxf(j.radius, j.widest_trim_back()),
+			"plan": run["plan"],
+			"cum": run["cum"],
+			"alignment": run["alignment"],
+			"crown": t.crown if t != null else 0.05,
+			"material": t.surface_material if t != null else null,
+		})
+	var host := ensure_junction_host()
+	return host.rebuild_aprons(aprons, ribbon_lift) if host != null else 0
+
+
+## The node the junction aprons hang from. On the NETWORK, because a junction belongs to no single road.
+func ensure_junction_host() -> Pasture3DRoadChunkHost:
+	for child in get_children():
+		if child is Pasture3DRoadChunkHost:
+			return child
+	var host := Pasture3DRoadChunkHost.new()
+	host.name = "JunctionSurfaces"
+	add_child(host)
+	return host
+
+
 ## Clear the reserved paint layer under every road about to be repainted, one box per layer.
 ##
 ## Grouped by layer AND by terrain: two groups paint into two different layers, and clearing one over the
@@ -540,6 +594,7 @@ func build_chunks(p_brushes: Array = []) -> int:
 	# Said out loud in the editor, because every way this returns zero is a SILENT one: no alignment yet,
 	# no road type, no spans left after the footprints. The road looks exactly the same in all of them and
 	# exactly the same as when the pass never ran at all, which is the state that wastes the most time.
+	total += build_junction_surfaces(brushes)
 	if Engine.is_editor_hint() and not brushes.is_empty():
 		print("[Pasture3D] road ribbons: %d chunk(s) across %d road(s); %d road(s) built nothing"
 				% [total, brushes.size(), silent])

@@ -840,6 +840,15 @@ func junction_skips() -> Array:
 	var key := road_key()
 	var out: Array = []
 	for j in net.junctions_for(key):
+		# MIRRORS THE GRADER EXACTLY (see grade_surface): only a road that is NOT the major one stops at
+		# the footprint. The major road keeps its own profile and paves straight through, which is what
+		# makes a crossroads look like one road crossing another rather than two roads meeting a patch.
+		#
+		# Getting this wrong is not a cosmetic difference. A ribbon that stops where the GROUND does not
+		# leaves a hole at every junction with graded road surface visible through it — the mesh and the
+		# terrain disagreeing about where the road is.
+		if j.is_major(key):
+			continue
 		var s: float = j.arc_length_for(key)
 		var trim: float = j.trim_back_for(key)
 		if not is_finite(s) or not is_finite(trim) or trim <= 0.0:

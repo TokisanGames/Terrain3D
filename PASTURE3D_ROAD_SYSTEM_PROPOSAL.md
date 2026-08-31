@@ -589,6 +589,27 @@ because P5a already painted the carriageway into the terrain — the road is sti
 right shape, still the right surface. Nothing to fade, nothing to pop, and it only works in that
 direction: a system whose farthest tier were "a coarser mesh" would have to cross-fade.
 
+**The junction surface (2026-08-31).** A ribbon that stops at every footprint leaves a hole there. Two
+things fill it, and only one of them is a mesh:
+
+* **The major road is not skipped.** `junction_skips()` originally returned a range for *every*
+  participant, but `grade_surface` skips only for `not is_major` — the major road paves straight through.
+  So the major ribbon stopped where its ground did not, and the graded carriageway showed through the
+  gap. This reads as a missing junction mesh rather than as the approach rule being applied to a road it
+  does not apply to, which is why `RoadMeshGate` [J] now mirrors the grader's condition rather than
+  restating it.
+* **The apron follows the major road.** The ground inside a footprint is that road's own crowned,
+  banked, climbing surface, so `build_apron` projects every fan vertex onto its plan and heights it
+  through the same `surface_height`. A flat disc at the junction's `elevation` would sit a crown above
+  the carriageway edges and cut into the middle — a saucer at every crossroads. Gate [I] measures against
+  the grader, with a control requiring the flat disc to be visibly wrong on the fixture, and a second
+  control on the fan's winding: reversed, an apron is a hole with a lid nobody can see. Its radius is
+  `max(radius, widest_trim_back)`, because an apron smaller than the hole leaves a ring of bare ground.
+
+Aprons are hosted on the NETWORK's own chunk host, not on any road's: a junction belongs to no single
+road. Each carries one mesh repeated across the LOD slots — two dozen triangles have nothing worth
+decimating, and sharing the resource buys them the existing distance culling with no second code path.
+
 **There is no P3.** The reorder moved the ribbon mesh from P3 to P5 and the junction split kept the
 P4a/P4b names it already had, which briefly left the mesh listed twice. The gap is deliberate rather
 than a missing row: renumbering the junction phases would break every reference to them in §6 and
