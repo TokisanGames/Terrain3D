@@ -466,6 +466,34 @@ func paint_layer_owner() -> String:
 # ---- TIER FAR: painting the roads (P5, §10) -----------------------------------------------------------
 
 
+## Clear the reserved paint layer under every road about to be repainted, one box per layer.
+##
+## Grouped by layer AND by terrain: two groups paint into two different layers, and clearing one over the
+## other's roads would erase a surface nobody was asking to repaint.
+func _clear_paint_layers(p_brushes: Array) -> void:
+	var boxes := {}
+	for b in p_brushes:
+		if b.terrain == null or b.terrain.data == null:
+			continue
+		if not b.terrain.data.has_method("clear_layer_in_area"):
+			continue
+		var layer_id: int = b.paint_layer_id()
+		if layer_id < 0:
+			continue
+		var box: AABB = b.paint_bounds()
+		if box.size == Vector3.ZERO:
+			continue
+		var key := "%d:%d" % [b.terrain.get_instance_id(), layer_id]
+		if boxes.has(key):
+			boxes[key]["box"] = (boxes[key]["box"] as AABB).merge(box)
+		else:
+			boxes[key] = {"terrain": b.terrain, "layer": layer_id, "box": box}
+	for entry in boxes.values():
+		# Composite deferred: the paint pass composites once at the end, so a clear that composited here
+		# would push every touched region twice.
+		entry["terrain"].data.clear_layer_in_area(int(entry["layer"]), entry["box"], false)
+
+
 ## Rebuild every road's tier-MID ribbon (§10, P5b). Returns the total chunk count.
 ##
 ## Driven from here rather than from each brush's own bake for a plainer reason than the paint's: a road's
@@ -475,8 +503,18 @@ func paint_layer_owner() -> String:
 func build_chunks(p_brushes: Array = []) -> int:
 	var brushes: Array = p_brushes if not p_brushes.is_empty() else road_brushes()
 	var total := 0
+	var silent := 0
 	for b in brushes:
-		total += b.rebuild_chunks()
+		var made: int = b.rebuild_chunks()
+		total += made
+		if made == 0:
+			silent += 1
+	# Said out loud in the editor, because every way this returns zero is a SILENT one: no alignment yet,
+	# no road type, no spans left after the footprints. The road looks exactly the same in all of them and
+	# exactly the same as when the pass never ran at all, which is the state that wastes the most time.
+	if Engine.is_editor_hint() and not brushes.is_empty():
+		print("[Pasture3D] road ribbons: %d chunk(s) across %d road(s); %d road(s) built nothing"
+				% [total, brushes.size(), silent])
 	return total
 
 
@@ -507,6 +545,14 @@ func paint_roads(p_brushes: Array = []) -> int:
 	var ordered := paint_order(brushes)
 	var written := 0
 	var terrains := {}
+	# CLEAR BEFORE PAINTING. Nothing else does it: the height layer is reconciled by the terrain brush on
+	# every bake, but the paint layer is written here and would otherwise keep every cell any road has ever
+	# covered — so moving a road left its old carriageway painted across the landscape behind it, with the
+	# new one painted beside it. Cleared as one box per layer over the union of the roads that share it,
+	# because the whole pass repaints all of them: clearing per road would drop a neighbour's cells at a
+	# shared tile boundary (clear_layer_in_area drops WHOLE tiles) and only the road painted afterwards
+	# would put them back.
+	_clear_paint_layers(ordered)
 	for b in ordered:
 		written += b.paint_surface()
 		if b.terrain != null:

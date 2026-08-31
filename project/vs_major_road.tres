@@ -1,0 +1,9 @@
+[gd_resource type="VisualShader" format=3 uid="uid://b1xnepc4s8dn7"]
+
+[sub_resource type="VisualShaderNodeColorParameter" id="VisualShaderNodeColorParameter_g51ho"]
+parameter_name = "ColorParameter"
+
+[resource]
+nodes/vertex/2/node = SubResource("VisualShaderNodeColorParameter_g51ho")
+nodes/vertex/2/position = Vector2(-240, 240)
+nodes/vertex/connections = PackedInt32Array(2, 0, 0, 6)

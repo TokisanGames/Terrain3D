@@ -777,6 +777,28 @@ func build_run() -> Dictionary:
 	}
 
 
+## The world box this road's surface paint can reach: its plan, padded by the whole corridor.
+##
+## Padded by `corridor_half_width` rather than by the carriageway, because the paint fades out over the
+## shoulder and the corridor is the brush's own statement of how far it reaches. Y is a wide nominal span
+## — `clear_layer_in_area` uses XZ only, the same convention as the terrain brush's footprints.
+func paint_bounds() -> AABB:
+	var plan := _plan_points()
+	if plan.size() < 2:
+		return AABB()
+	var mn := plan[0]
+	var mx := plan[0]
+	for p in plan:
+		mn.x = minf(mn.x, p.x)
+		mn.y = minf(mn.y, p.y)
+		mx.x = maxf(mx.x, p.x)
+		mx.y = maxf(mx.y, p.y)
+	var pad := corridor_half_width()
+	mn -= Vector2(pad, pad)
+	mx += Vector2(pad, pad)
+	return AABB(Vector3(mn.x, -10000.0, mn.y), Vector3(mx.x - mn.x, 20000.0, mx.y - mn.y))
+
+
 ## This road's chunk host, created on first use.
 ##
 ## A child of the BRUSH rather than of the network, so a road that is deleted, hidden or moved to another
