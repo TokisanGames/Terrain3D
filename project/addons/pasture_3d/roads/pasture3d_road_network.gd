@@ -151,6 +151,8 @@ func resolve_junctions() -> void:
 	for b in brushes:
 		if b.junction_digest() != b.last_junction_digest:
 			b.schedule_junction_rebake()
+	# The junction gizmo draws from these records, and nothing else tells the editor they moved.
+	update_gizmos()
 
 
 ## Every road brush under this network, in scene order.

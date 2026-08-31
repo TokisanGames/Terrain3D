@@ -710,3 +710,12 @@ func junction_digest() -> String:
 func schedule_junction_rebake() -> void:
 	last_junction_digest = junction_digest()
 	_schedule_refresh()
+
+
+## The world XZ point `p_s` metres along this road's plan. The junction gizmo's way of asking where an
+## approach actually is, without reaching into the brush's private plan arrays.
+func point_at_arc(p_s: float) -> Vector2:
+	var plan := _plan_points()
+	if plan.size() < 2:
+		return Vector2.ZERO
+	return _plan_point_at(plan, Pasture3DRoadGrader.cumulative_length(plan), p_s)
