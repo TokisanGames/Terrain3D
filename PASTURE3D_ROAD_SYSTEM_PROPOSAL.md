@@ -436,6 +436,20 @@ defaults to 10 km.
 
 ### P7b implementation notes (done 2026-08-31)
 
+**The four road nodes are visible without a native kernel, and that is a listed debt.** The house rule is
+that a node whose mathematics runs in GDScript is a `[Dev/GD]` node hidden behind
+`pasture_3d/developer/enable_gdscript_reference_nodes` (`PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md`
+§3.0, restated as Step 0 of the acceleration playbook). `road_source`, `path_distance`, `path_mask` and
+`road_grade` are all GDScript and all in `entries()`, because the road system is GDScript end to end and
+there is no `GRAPH_OP_PATH_*` — nor a PATH wire type — on the native side to call. Hiding them would hide
+the road feature rather than hide an unaccelerated implementation of it.
+
+They are therefore entered in the exceptions table in the playbook's Step 0, with P2 as the work that
+clears them: native `BrushModStep::ROAD`, then the graph ops, with the current GDScript demoted to the
+`[Dev/GD]` oracle the parity gate compares against. Until then note the cost honestly: `blocks_native()`
+is graph-wide, so one Road Source drops the WHOLE graph to the CPU evaluator, erosion and noise included.
+
+
 **Road Grade is an adapter, and [K] is what keeps it one.** Every number comes from
 `Pasture3DRoadGrader.grade`, the same call the brush's own grading step makes, with the same profile
 arrays out of the same `Pasture3DRoadBrush.grading_profile`. The node converts a graph rect into the

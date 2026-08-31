@@ -49,6 +49,69 @@ When introducing a new procedural generator, filter, modifier, or iterative simu
 
 ---
 
+### Step 0: Decide whether the node is allowed to be visible AT ALL
+
+**Read this before writing a line. It decides which of the steps below apply to you.**
+
+Pasture3D has one rule about who gets to see a node, and it is not a style preference:
+
+> **A node whose mathematics runs in GDScript is a `[Dev/GD]` reference node, and it is hidden from the
+> palette unless `pasture_3d/developer/enable_gdscript_reference_nodes` is `true`.**
+> **A node visible to a user by default calls a C++ kernel and fails fast when that kernel is missing.**
+
+Full statement and rationale: `PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md` §1 and §3.
+
+So there are exactly two things you can be building, and they are built differently:
+
+| | **Production node** | **`[Dev/GD]` reference node** |
+| :--- | :--- | :--- |
+| file | `pasture3d_graph_node_<name>.gd` | `pasture3d_graph_node_dev_<name>.gd` |
+| class | `Pasture3DGraphNode<Name>` | `Pasture3DGraphNodeDev<Name>` |
+| `op()` | `&"<name>"` | `&"dev_<name>"` |
+| title | `"<Name>"` | `"[Dev/GD] <Name>"` |
+| registry | `entries()` | `_dev_entries()` |
+| category | a production category | `"Dev / Reference"` |
+| the maths | a `Pasture3DUtil.*` call, fail-fast | pure GDScript, the oracle |
+| visible by default | yes | **no** |
+| steps below | 1–7 | 1, 2 (into `_dev_entries()`), 6 |
+
+**The failure this rule exists to prevent is not slowness, it is a slowness nobody chose.** A GDScript
+solver on a 1024² grid is 50×–250× the native kernel, and it looks exactly like a production node while it
+locks the editor up. Shipping one visible is shipping the fallback the whole 3-tier architecture was
+rewritten to delete.
+
+#### The order this forces on the work
+
+A production node **cannot be written first in GDScript and hidden behind a TODO**. The GDScript version
+IS the `[Dev/GD]` node — write it as one, under `dev_`, and it is legal to ship from the first commit
+because it is invisible. Then write Steps 3–5, and the production node that calls them. You end with two
+files and a parity gate, which is the arrangement Step 6 tests. You do not end with one file that changed
+its mind.
+
+#### Blocking the native route is not the same as being hidden
+
+`blocks_native()` and this rule answer different questions. `blocks_native()` says *this node cannot be
+lowered into the whole-graph C++ pipeline*; the dev flag says *this node should not be in front of a
+user*. A node that returns `true` from `blocks_native()` is very often one that has no kernel yet, and is
+therefore also one that belongs behind the flag — but check the reason rather than assuming, because
+`blocks_native()` is **graph-wide**: one blocking node drops the ENTIRE graph to the CPU evaluator,
+including the accelerated nodes around it (§3.4, item 4). A hidden node that blocks costs nothing. A
+**visible** node that blocks silently un-accelerates every graph anybody puts it in.
+
+#### Known exceptions, and they are debts rather than precedents
+
+Any production-visible node with no native kernel is a **listed** exception, not a judgement call made at
+the keyboard. Add it here when you ship one, with the work that clears it:
+
+| node(s) | why visible without a kernel | debt |
+| :--- | :--- | :--- |
+| `road_source`, `path_distance`, `path_mask`, `road_grade` | The road system is GDScript end to end (`Pasture3DRoadGrader`, the alignment solver, the PATH port). There is no `GRAPH_OP_PATH_*` and no PATH wire type on the native side, so there is no kernel to call and hiding them would hide the road feature itself. | `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md` P2: native `BrushModStep::ROAD`, then the graph ops, with the current GDScript kept as the `[Dev/GD]` oracle. |
+| `blend` in `MIX` mode | The other five modes lower natively; MIX has no `GRAPH_BLEND_MIX` opcode yet, and the native `default:` returns `a`, which is a *wrong answer* rather than a refusal — so the node blocks instead. | Add `GRAPH_BLEND_MIX` to `pasture_3d_graph_ops.h/.cpp` and the GPU shader, then delete the `blocks_native()` override. |
+
+An entry in that table is a promise to someone. Do not add one to avoid writing Steps 3–5.
+
+---
+
 ### Step 1: Create the GDScript Node Class
 Create `project/addons/pasture_3d/graph/pasture3d_graph_node_<name>.gd`:
 - Inherit from `Pasture3DGraphNode`.
@@ -107,10 +170,21 @@ In [`project/addons/pasture_3d/graph/pasture3d_graph_node_registry.gd`](file:///
    ```gdscript
    const ExampleFilterScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_example_filter.gd")
    ```
-2. Add an entry to `entries()`:
+2. Add an entry to **the list Step 0 sent you to** — `entries()` for a production node,
+   `_dev_entries()` for a `[Dev/GD]` node. Putting a GDScript node in `entries()` is how the rule gets
+   broken, and it is a one-line mistake that no gate downstream of it can catch:
    ```gdscript
-   {"op": &"example_filter", "title": "Example Filter", "role": "Filter", "script": ExampleFilterScript, "tags": ["example", "filter", "detail"], "description": "Applies custom filtering to terrain elevation."}
+   # production — entries()
+   {"op": &"example_filter", "title": "Example Filter", "category": "Filters", "role": "Filter", "script": ExampleFilterScript, "tags": ["example", "filter", "detail"], "description": "Applies custom filtering to terrain elevation."}
+
+   # reference oracle — _dev_entries(), hidden unless the developer flag is on
+   {"op": &"dev_example_filter", "title": "[Dev/GD] Example Filter", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevExampleFilterScript, "tags": ["dev", "gdscript", "oracle", "example", "filter"], "description": "Pure GDScript reference oracle for the example filter."}
    ```
+3. Give the entry a **`category`**, and make sure it is one the palette orders. A category the palette
+   does not know is appended rather than dropped (see `categories()`), but an entry with no category at
+   all lands in `"Generators"` and a filter turns up among the noise. Road Source and Path Distance
+   shipped once with a category nothing listed, and were registered, instantiable, and absent from the
+   Add menu — which is indistinguishable from not existing. `GraphPaletteAndConstantsGate` covers this.
 
 ---
 
