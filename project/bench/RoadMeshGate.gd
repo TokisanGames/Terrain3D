@@ -293,19 +293,35 @@ func _e_the_ribbon_sits_on_the_ground_the_grader_carved() -> void:
 	var a: Pasture3DRoadAlignment = run["alignment"]
 	var s := 30.0
 	var offsets := PackedFloat32Array([-4.0, 0.0, 4.0])
-	var line := Pasture3DRoadMesher.ring(run["plan"], run["cum"], a, s, offsets, 0.05)
+	var lift := Pasture3DRoadMesher.DEPTH_LIFT
+	var line := Pasture3DRoadMesher.ring(run["plan"], run["cum"], a, s, offsets, 0.05, lift)
 	var centre: float = a.height_at(s)
 	var bank: float = a.bank[a.index_at(s)]
 	var worst := 0.0
 	for i in offsets.size():
-		var want := Pasture3DRoadGrader.surface_height(centre, bank, 0.05, offsets[i])
+		var want := Pasture3DRoadGrader.surface_height(centre, bank, 0.05, offsets[i]) + lift
 		worst = maxf(worst, absf(line[i].y - want))
-	print("    at s = 30, u = -4/0/+4 -> y %.4f %.4f %.4f (grader says %.4f %.4f %.4f)"
-			% [line[0].y, line[1].y, line[2].y,
-				Pasture3DRoadGrader.surface_height(centre, bank, 0.05, -4.0),
-				Pasture3DRoadGrader.surface_height(centre, bank, 0.05, 0.0),
-				Pasture3DRoadGrader.surface_height(centre, bank, 0.05, 4.0)])
-	_check("E", worst < 1e-5, "largest disagreement with the grader %.9f m (want 0)" % worst)
+	print("    at s = 30, u = -4/0/+4 -> y %.4f %.4f %.4f (grader + %.3f m lift says %.4f %.4f %.4f)"
+			% [line[0].y, line[1].y, line[2].y, lift,
+				Pasture3DRoadGrader.surface_height(centre, bank, 0.05, -4.0) + lift,
+				Pasture3DRoadGrader.surface_height(centre, bank, 0.05, 0.0) + lift,
+				Pasture3DRoadGrader.surface_height(centre, bank, 0.05, 4.0) + lift])
+	_check("E", worst < 1e-5, "largest disagreement with the grader's shape %.9f m (want 0)" % worst)
+
+	# CONTROL: the lift must be a real, positive, CONSTANT offset. Coplanar is the one thing the ribbon
+	# must never be — the ground under it was graded to the road's own profile, so a ribbon at exactly
+	# that height has its depth test decided by float precision, and disappears wherever the terrain's
+	# clipmap rounds upward. Constant and not scaled, or the camber would drift from the ground it sits
+	# on.
+	var flat_on_ground := Pasture3DRoadMesher.ring(run["plan"], run["cum"], a, s, offsets, 0.05, 0.0)
+	var lifts := PackedFloat32Array()
+	for i in offsets.size():
+		lifts.append(line[i].y - flat_on_ground[i].y)
+	var uniform := absf(lifts[0] - lifts[1]) < 1e-6 and absf(lifts[1] - lifts[2]) < 1e-6
+	print("    control: lift at u = -4/0/+4 is %.4f %.4f %.4f m (want %.4f, the same at every offset)"
+			% [lifts[0], lifts[1], lifts[2], lift])
+	if lift <= 0.0 or not uniform:
+		_fail += 1; print("    !! the ribbon is coplanar with the ground, or the lift varies across it")
 
 	# CONTROL: with a positive bank the RIGHT edge must be higher than the left, and by the full
 	# 2 * bank * half. Without this [E] passes on a ribbon that is flat, since a flat ribbon agrees with
@@ -316,8 +332,8 @@ func _e_the_ribbon_sits_on_the_ground_the_grader_carved() -> void:
 		_fail += 1; print("    !! the ribbon is not banked, or is banked the wrong way")
 
 	# CONTROL: the crown must drop both edges relative to the centre, so water sheds off each side.
-	var flat := Pasture3DRoadMesher.ring(run["plan"], run["cum"], a, s, offsets, 0.05)
-	var no_crown := Pasture3DRoadMesher.ring(run["plan"], run["cum"], a, s, offsets, 0.0)
+	var flat := Pasture3DRoadMesher.ring(run["plan"], run["cum"], a, s, offsets, 0.05, lift)
+	var no_crown := Pasture3DRoadMesher.ring(run["plan"], run["cum"], a, s, offsets, 0.0, lift)
 	var shed := (no_crown[0].y - flat[0].y) + (no_crown[2].y - flat[2].y)
 	print("    control: removing the crown raises both edges by %.3f m total (want 0.400)" % shed)
 	if absf(shed - 0.4) > 0.001:

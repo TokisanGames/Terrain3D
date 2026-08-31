@@ -47,6 +47,17 @@ enum Cross {
 ## Longitudinal spacing doubles per LOD level, so level `n` samples every `ds * 2^n` metres.
 const LOD_LEVELS: int = 4
 
+## How far the ribbon is lifted above the surface the grader carved, metres.
+##
+## NOT a fudge, and not tunable away to zero. The ground under the road was graded to the road's own
+## profile (P1/P2), so the ribbon and the terrain are the SAME surface — which means the depth test
+## between them is decided by float precision, and at distance the terrain's own clipmap moves its
+## vertices anyway. Coplanar is the one thing this ribbon must never be: it z-fights up close and
+## disappears entirely wherever the terrain rounds upward.
+##
+## 2 cm: below what a camera can see at any driving distance, above what depth precision loses.
+const DEPTH_LIFT: float = 0.02
+
 ## Arc lengths closer together than this are the same cut. Region boundaries and junction footprints
 ## land near each other constantly — a road entering a junction just inside a region edge would
 ## otherwise produce a chunk a few centimetres long, which costs a draw call to draw nothing.
@@ -92,7 +103,7 @@ static func cross_offsets(p_half: float, p_shoulder: float, p_cross: Cross) -> P
 ## produce the same vertex.
 static func ring(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
 		p_alignment: Pasture3DRoadAlignment, p_s: float, p_offsets: PackedFloat32Array,
-		p_crown: float) -> PackedVector3Array:
+		p_crown: float, p_lift: float = 0.0) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	if p_alignment == null or p_plan.size() < 2:
 		return out
@@ -106,7 +117,11 @@ static func ring(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
 	var bank: float = p_alignment.bank[si] if si < p_alignment.bank.size() else 0.0
 	for u in p_offsets:
 		var xz := at + across * u
-		out.append(Vector3(xz.x, Pasture3DRoadGrader.surface_height(centre, bank, p_crown, u), xz.y))
+		# The lift is a CONSTANT added to the profile, never a scale on it: the ribbon must be the same
+		# shape as the ground, sitting above it, or the camber and the banking would drift apart from the
+		# terrain they were graded into.
+		out.append(Vector3(xz.x,
+				Pasture3DRoadGrader.surface_height(centre, bank, p_crown, u) + p_lift, xz.y))
 	return out
 
 
@@ -209,7 +224,8 @@ static func chunk_spans(p_plan: PackedVector2Array, p_cum: PackedFloat32Array, p
 ## chunks are asked about the same `s`.
 static func build_chunk(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
 		p_alignment: Pasture3DRoadAlignment, p_from: float, p_to: float, p_half: float,
-		p_shoulder: float, p_crown: float, p_lod: int = 0) -> Array:
+		p_shoulder: float, p_crown: float, p_lod: int = 0,
+		p_lift: float = DEPTH_LIFT) -> Array:
 	if p_alignment == null or p_plan.size() < 2 or p_to - p_from <= 1e-4:
 		return []
 	var offsets := cross_offsets(p_half, p_shoulder, cross_for_lod(p_lod))
@@ -229,7 +245,7 @@ static func build_chunk(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
 		# The last row is `p_to` itself, not `p_from + r * step`. Rounding the final ring to the nearest
 		# sample is exactly how a seam opens.
 		var s: float = p_to if r == rows - 1 else minf(p_from + float(r) * step, p_to)
-		var line := ring(p_plan, p_cum, p_alignment, s, offsets, p_crown)
+		var line := ring(p_plan, p_cum, p_alignment, s, offsets, p_crown, p_lift)
 		if line.size() != across_count:
 			return []
 		for c in across_count:

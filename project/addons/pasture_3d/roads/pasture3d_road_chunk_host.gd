@@ -41,6 +41,10 @@ extends Node3D
 		far_distance = v
 		_dirty_lod = true
 
+## Metres the ribbon rides above the graded ground. Exposed for tuning on unusual terrain scales, not
+## for turning off — see Pasture3DRoadMesher.DEPTH_LIFT for why coplanar is not an option.
+@export var depth_lift: float = Pasture3DRoadMesher.DEPTH_LIFT
+
 ## Chunks, each `{node: MeshInstance3D, centre: Vector3, meshes: Array[ArrayMesh], lod: int}`.
 var _chunks: Array = []
 var _dirty_lod: bool = true
@@ -87,7 +91,7 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 		var empty := false
 		for lod in Pasture3DRoadMesher.LOD_LEVELS:
 			var arrays := Pasture3DRoadMesher.build_chunk(plan, cum, alignment, float(span[0]),
-					float(span[1]), half, shoulder, crown, lod)
+					float(span[1]), half, shoulder, crown, lod, depth_lift)
 			if arrays.is_empty():
 				empty = true
 				break
