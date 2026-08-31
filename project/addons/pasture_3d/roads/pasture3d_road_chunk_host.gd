@@ -61,9 +61,11 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 		return 0
 	var run := p_brush.build_run()
 	if run.is_empty():
+		_why(p_brush, "the road has no solved alignment yet (build_run is empty)")
 		return 0
 	var t: Pasture3DRoadType = p_brush.resolved_road_type()
 	if t == null:
+		_why(p_brush, "the road has no road type")
 		return 0
 	var plan: PackedVector2Array = run["plan"]
 	var cum: PackedFloat32Array = run["cum"]
@@ -72,8 +74,14 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 	var shoulder: float = t.shoulder_width
 	var crown: float = t.crown
 
-	var spans := Pasture3DRoadMesher.chunk_spans(plan, cum, _region_metres(p_brush),
-			p_brush.junction_skips())
+	var region := _region_metres(p_brush)
+	var skips := p_brush.junction_skips()
+	var spans := Pasture3DRoadMesher.chunk_spans(plan, cum, region, skips)
+	if spans.is_empty():
+		_why(p_brush, "no spans left: %.1f m of road, %.0f m regions, %d junction footprint(s)"
+				% [cum[cum.size() - 1] if cum.size() > 0 else 0.0, region, skips.size()])
+		return 0
+	var rejected := 0
 	for span in spans:
 		var meshes: Array = []
 		var empty := false
@@ -89,6 +97,7 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 				mesh.surface_set_material(0, t.surface_material)
 			meshes.append(mesh)
 		if empty:
+			rejected += 1
 			continue
 		var mi := MeshInstance3D.new()
 		mi.name = "Chunk_%.0f" % float(span[0])
@@ -107,6 +116,8 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 			"lod": 0,
 		})
 	_dirty_lod = true
+	if _chunks.is_empty():
+		_why(p_brush, "%d span(s) were found but every one failed to mesh" % rejected)
 	return _chunks.size()
 
 
@@ -184,3 +195,10 @@ func _camera() -> Camera3D:
 			return vp.get_camera_3d()
 	var world := get_viewport()
 	return world.get_camera_3d() if world != null else null
+
+
+## Say why a road built nothing. Every reason is otherwise silent and they all look identical: a road
+## with no ribbon and a road whose ribbon was never asked for are the same picture.
+func _why(p_brush: Pasture3DRoadBrush, p_reason: String) -> void:
+	if Engine.is_editor_hint():
+		print("[Pasture3D] %s: no ribbon — %s" % [p_brush.name, p_reason])
