@@ -44,6 +44,9 @@ const CONNECTOR := Color(0.35, 0.95, 0.45)
 ## on, and because seeing at a glance which turns are conflicted is how you check `traffic_side` is set
 ## the way the world actually drives.
 const CONFLICT := Color(1.0, 0.7, 0.15)
+## Conflict points closer together than this share one cross, metres. About half a lane: two movements
+## that meet within that distance are meeting at the same place as far as a reader is concerned.
+const MARK_MERGE: float = 1.5
 ## A turn the author forbade. Drawn, unlike the connectors that were never generated: a banned turn is a
 ## decision, and one you cannot see is one you cannot find again.
 const FORBIDDEN := Color(0.5, 0.3, 0.3)
@@ -138,13 +141,28 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 		# Where two movements actually meet. Small crosses in the conflict colour: a junction whose
 		# conflict points are not in its footprint, or which has none at all, is the right-of-way solver
 		# failing in a way no amount of staring at the connectors would show.
-		var conflict_mat := _material_for(CONFLICT)
+		#
+		# DEDUPLICATED BY POSITION, and that is a drawing decision rather than a data one. The records
+		# are per ORDERED PAIR of movements, so an ordinary crossroads produces dozens, many of them
+		# within centimetres of each other — every pair crossing the middle meets in roughly the same
+		# place. Drawn one for one they overlap into a solid blob that shows neither where the conflicts
+		# are nor how many there are. One cross per distinct place answers the question the gizmo is
+		# actually asked: is the right-of-way solver finding meetings inside the footprint.
 		var marks := PackedVector3Array()
+		var placed := {}
 		for r in j.conflicts:
-			if r != null:
-				marks.append_array(_cross(to_local * (r.point + Vector3(0.0, LIFT, 0.0))))
+			if r == null:
+				continue
+			# Snapped to a grid rather than compared pairwise: the count is quadratic in the connectors
+			# and this runs on every gizmo redraw.
+			var cell := Vector3i(roundi(r.point.x / MARK_MERGE), roundi(r.point.y / MARK_MERGE),
+					roundi(r.point.z / MARK_MERGE))
+			if placed.has(cell):
+				continue
+			placed[cell] = true
+			marks.append_array(_cross(to_local * (r.point + Vector3(0.0, LIFT, 0.0))))
 		if not marks.is_empty():
-			p_gizmo.add_lines(marks, conflict_mat)
+			p_gizmo.add_lines(marks, _material_for(CONFLICT))
 		for sl in j.stop_lines:
 			if sl == null:
 				continue
