@@ -816,6 +816,21 @@ These four were confirmed and are now binding for the implementation:
    reserved control layer (non-destructive/idempotent), falling back to `set_control_hole` only when the
    typed-layers feature is absent.
 
+### The map-type badge (2026-08-31)
+
+Each row in the dock now names what the layer stores: **Height**, **Control** or **Color**.
+
+The type was invisible and nothing else on the row implied it. Two layers named for the same feature can
+be different types — the road system creates exactly that pair, a height layer for the grading and a
+control layer for the surface paint — and the dock drew them as identical rows. So "delete the wrong one"
+and "paint colour into the heightmap" were both one click away, and neither looked like a mistake until
+the terrain moved.
+
+The badge is read-only, and deliberately: a layer's type is fixed at creation because the tiles beneath it
+are a different image format per type (§4.1), so a control that changed it here would be a control that
+threw the layer's contents away. An unrecognised type renders as a red `Type N` rather than as the nearest
+known name — the failure mode this exists to prevent is a layer labelled confidently and wrongly.
+
 ---
 
 ## Sources
