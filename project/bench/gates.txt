@@ -20,8 +20,15 @@
 # which a CI runner cannot give. The various *Probe scenes are investigation tools, not criteria.
 #
 # Not yet included, and not because they fail — they have simply never been run to a verdict here:
-# WaterBodiesPhase4Gate, PoolClipmapWarningProbe, StreamBankSurfaceCheck, StreamCustom0Probe,
-# WaterGeometryParamsCheck. Add them once someone has watched one go green.
+# PoolClipmapWarningProbe, StreamBankSurfaceCheck, StreamCustom0Probe, WaterGeometryParamsCheck.
+# Add them once someone has watched one go green.
+#
+# WaterBodiesPhase4Gate WAS on that list, recorded as hanging. It was not hanging: its _settle()
+# awaited RenderingServer.frame_post_draw, which never emits without a display server, so every
+# headless run stopped inside section A having printed only its heading. _settle now waits on
+# process_frame when there is no renderer, and the headless output is identical to the windowed
+# output line for line — same vertex counts, same wave deltas, every control still firing. It is in
+# the list below.
 
 # --- The erosion sim, phases 1-6.5 (PASTURE3D_SIM_NODE_SPEC.md §14) ---
 bench/SimPhase1Gate.tscn
@@ -58,6 +65,8 @@ bench/GizmoMarkerGate.tscn
 
 # --- Water bodies: the two that load connectors BY PATH, so a rename breaks them loudly ---
 bench/WaterBodySplitCheck.tscn
+# The Add Water button end to end (PASTURE3D_WATER_BODIES_SPEC.md §11, phase 4).
+bench/WaterBodiesPhase4Gate.tscn
 bench/StreamRippleCheck.tscn
 
 # --- Terrain graph, increment 1: the headless evaluator (PASTURE3D_TERRAIN_GRAPH_SPEC.md §5) ---

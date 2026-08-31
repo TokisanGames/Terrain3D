@@ -33,7 +33,12 @@
 # Every criterion carries a control that must fail; criteria that ran to completion are counted,
 # so a criterion that throws part-way cannot read as a pass.
 #
-# Run: Godot_v4.7-stable_win64_console.exe --path project bench/WaterBodiesPhase4Gate.tscn
+# Run: Godot_v4.7-stable_win64_console.exe [--headless] --path project bench/WaterBodiesPhase4Gate.tscn
+#
+# Runs either way, and headless is the one CI takes. It did NOT run headless until 2026-08-30 —
+# `_settle` waited on a draw signal that never fires without a display server, so a headless run
+# stopped inside criterion A having printed only its heading and looked exactly like a hang. The
+# two modes now produce identical output, down to the vertex counts and the wave deltas.
 extends Node
 
 const WATER_DIR := "res://addons/pasture_3d/extras/shaders/water/"
@@ -866,8 +871,25 @@ func _all_nodes(p_root: Node) -> Array:
 	return out
 
 
+## Four physics frames, then four full frames.
+##
+## The second loop used to await `RenderingServer.frame_post_draw` unconditionally, and that is the
+## whole reason this gate could never be run headless: with no display server nothing draws, the signal
+## never emits, and the gate stops dead inside section A having printed only its heading. That reads
+## exactly like a hang, which is how it got recorded as one in gates.txt — the gate was fine, the way it
+## was being run was not. `process_frame` is the same "let a frame complete" wait and fires in both
+## modes; the draw wait is kept where there IS a renderer, because a pool builds its mesh on the
+## rendering server and waiting on the frame that submits it is the more exact wait of the two.
+##
+## This is the same fix, spelled the same way, as `WaterBodiesPhase6Gate._settle` — that gate had
+## already diagnosed the problem for itself. The rest of the Water*/WaterBodies* family still awaits
+## the draw signal unconditionally and is still windowed-only.
 func _settle() -> void:
+	var headless := DisplayServer.get_name() == "headless"
 	for i in 4:
 		await get_tree().physics_frame
 	for i in 4:
-		await RenderingServer.frame_post_draw
+		if headless:
+			await get_tree().process_frame
+		else:
+			await RenderingServer.frame_post_draw
