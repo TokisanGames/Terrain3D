@@ -198,6 +198,12 @@ func _auto_fit_node_range(p_index: int) -> void:
 		
 	var field: PackedFloat32Array
 	if src_node >= 0:
+		# Previews resolve their Road Sources too, or a road in a graph previews as the unreachable fill and
+		# reads as a broken node rather than as an unresolved one.
+		if host_brush != null:
+			var road_net := Pasture3DRoadNetwork.find_for(host_brush)
+			if road_net != null:
+				road_net.resolve_graph_paths(graph, host_brush)
 		field = graph.evaluate(128, 128, in_rect, null, sample_input, src_node)
 	else:
 		field = sample_input

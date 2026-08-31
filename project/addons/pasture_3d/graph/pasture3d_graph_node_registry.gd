@@ -112,17 +112,34 @@ static func is_dev_nodes_enabled() -> bool:
 	return false
 
 
-## The standard ordered category names for the palette.
-static func categories() -> Array[String]:
-	return [
+## The ordered category names for the palette.
+##
+## ---- AN UNLISTED CATEGORY USED TO MEAN AN INVISIBLE NODE ----
+##
+## The palette walks THIS list and pulls the entries matching each name, so an entry whose category was
+## not in it was dropped without a word: registered, instantiable, searchable by nothing, and absent from
+## the Add menu. Road Source and Path Distance shipped exactly that way — the registry entry looked
+## complete and the nodes did not exist as far as anyone using the editor could tell.
+##
+## So the list is now the ORDER, not the membership. Any category an entry names and this list does not
+## is appended before Dev rather than discarded, which makes the failure at worst a category in the wrong
+## place instead of a node nobody can add. Gated by GraphPaletteAndConstantsGate.
+static func categories(p_include_dev: bool = false) -> Array[String]:
+	var ordered: Array[String] = [
 		"Generators",
 		"Filters & Modifiers",
 		"Solvers & Realism",
+		"Roads",
 		"Math & Combiners",
 		"Constants",
 		"Routing & Structural",
-		"Dev / Reference",
 	]
+	for e in entries(p_include_dev):
+		var c: String = e.get("category", "")
+		if not c.is_empty() and c != "Dev / Reference" and not ordered.has(c):
+			ordered.append(c)
+	ordered.append("Dev / Reference")
+	return ordered
 
 
 ## Palette entries, in menu order. `title` is the menu/label text; `role` / `category` groups them;
@@ -242,7 +259,7 @@ static func _dev_entries() -> Array[Dictionary]:
 ## Returns a Dictionary mapping category name (String) to Array[Dictionary] of entries.
 static func entries_by_category(p_include_dev: bool = false) -> Dictionary:
 	var result: Dictionary = {}
-	for cat in categories():
+	for cat in categories(p_include_dev):
 		result[cat] = []
 	for e in entries(p_include_dev):
 		var cat: String = e.get("category", "Generators")

@@ -777,6 +777,42 @@ func build_run() -> Dictionary:
 	}
 
 
+## This road as a Pasture3DGraphPath, for a PATH port (§8). Empty until the road has a solved alignment.
+##
+## Built from the SAME plan polyline the mesher and the grader use, sampled at its own vertices, so the
+## graph and the brush cannot disagree about where the road is. Resampling it onto a tidier spacing here
+## would make a graph-graded road and a brush-graded road differ by a fraction of a metre in the corners
+## — exactly the size of difference nobody sees and everybody has to debug later.
+##
+## Carries `heights` from the solved alignment, so a consumer can grade TO the road rather than only mask
+## against it. A road whose alignment has not been solved yet returns an empty path, which every query
+## answers as unreachable — see Pasture3DGraphNodePathDistance.
+func graph_path() -> Pasture3DGraphPath:
+	var path := Pasture3DGraphPath.new()
+	path.source_label = road_key()
+	var run := build_run()
+	if run.is_empty():
+		return path
+	var plan: PackedVector2Array = run["plan"]
+	var cum: PackedFloat32Array = run["cum"]
+	var alignment: Pasture3DRoadAlignment = run["alignment"]
+	var t: Pasture3DRoadType = resolved_road_type()
+	var halves := PackedFloat32Array()
+	var heights := PackedFloat32Array()
+	halves.resize(plan.size())
+	heights.resize(plan.size())
+	for i in plan.size():
+		var s: float = cum[i]
+		var ti := resolved_road_type(s)
+		var tt: Pasture3DRoadType = ti if ti != null else t
+		halves[i] = tt.half_width(resolved_lane_count(s)) if tt != null else 1.0
+		heights[i] = alignment.height_at(s)
+	path.points = plan
+	path.half_widths = halves
+	path.heights = heights
+	return path
+
+
 ## Surface as DATA, along the whole road: `[[from_s, to_s, surface_id], ...]`, ascending and adjacent.
 ##
 ## Rally physics reads this rather than sampling the control map (§9.1). The control map is a rendering

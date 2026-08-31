@@ -4179,6 +4179,13 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	var g: Pasture3DTerrainGraph = m.graph
 	if g == null:
 		return p_vals
+	# A Road Source names a road; the HOST resolves it, because a graph is a Resource and cannot reach the
+	# scene (see Pasture3DRoadNetwork.resolve_graph_paths). Done HERE rather than inside `evaluate` so the
+	# deferred worker path gets a resolved graph too: that solve runs off the main thread and must not be
+	# walking the scene tree looking for road brushes while it does.
+	var net := Pasture3DRoadNetwork.find_for(self)
+	if net != null:
+		net.resolve_graph_paths(g, self)
 	var gw: int = p_ctx["gw"]
 	var gh: int = p_ctx["gh"]
 	var n := gw * gh

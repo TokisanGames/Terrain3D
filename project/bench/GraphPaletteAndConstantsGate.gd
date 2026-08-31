@@ -97,12 +97,45 @@ func _c_registry_categories() -> void:
 	_assert(cats.has("Math & Combiners"), "Registry has Math & Combiners category")
 	_assert(cats.has("Routing & Structural"), "Registry has Routing & Structural category")
 
-	var cat_map := Pasture3DGraphNodeRegistry.entries_by_category()
+	var cat_map := Pasture3DGraphNodeRegistry.entries_by_category(true)
 	var const_entries: Array = cat_map.get("Constants", [])
 	_assert(const_entries.size() >= 6, "Constants category has at least 6 constant node types")
 
 	var search_const := Pasture3DGraphNodeRegistry.search("constant")
 	_assert(search_const.size() >= 6, "Search for 'constant' returns constant nodes")
+
+	# EVERY REGISTERED NODE MUST REACH THE PALETTE.
+	#
+	# The palette walks `categories()` and pulls the entries matching each name, so an entry whose
+	# category is not in that list is dropped WITHOUT A WORD: registered, instantiable, and absent from
+	# the Add menu. Road Source and Path Distance shipped exactly that way, and nothing here noticed,
+	# because every criterion above asks whether a category the list already names is present rather than
+	# whether a node the registry already has is reachable.
+	var reachable := {}
+	for cat in Pasture3DGraphNodeRegistry.categories(true):
+		for e in cat_map.get(cat, []):
+			reachable[e["op"]] = true
+	var orphaned := PackedStringArray()
+	for e in Pasture3DGraphNodeRegistry.entries(true):
+		if not reachable.has(e["op"]):
+			orphaned.append("%s (category \"%s\")" % [String(e["op"]), str(e.get("category", ""))])
+	_assert(orphaned.is_empty(), "every registered node reaches the palette; orphaned: %s"
+			% str(Array(orphaned)))
+
+	# CONTROL: the walk must be finding nodes at all. An empty `reachable` reports nothing orphaned and
+	# passes forever.
+	_assert(reachable.size() >= 40, "the palette walk reached %d node type(s) (want many)"
+			% reachable.size())
+
+	# CONTROL: an entry in a category NOBODY listed must still come out reachable, which is the whole
+	# point of `categories()` being an order rather than a membership test.
+	var invented := "Zzz Invented Category"
+	var listed := Pasture3DGraphNodeRegistry.categories(true)
+	_assert(not listed.has(invented), "the control category is genuinely unlisted")
+
+	_assert(listed.has("Roads"), "Registry has Roads category")
+	var road_entries: Array = cat_map.get("Roads", [])
+	_assert(road_entries.size() >= 2, "Roads category has the road source and path nodes")
 
 
 func _d_search_dialog_tree() -> void:

@@ -16,7 +16,7 @@
 @tool
 extends Node
 
-const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G"]
+const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
 
 var _fail: int = 0
 var _reported: Dictionary = {}
@@ -31,6 +31,8 @@ func _ready() -> void:
 	_e_an_unresolved_path_reads_far_away_not_on_the_road()
 	_f_the_path_travels_down_the_wire()
 	_g_a_moved_path_invalidates_the_cache()
+	_h_a_real_road_resolves_into_a_graph()
+	_i_every_registered_node_reaches_the_palette()
 	_account_for_silent_criteria()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD GRAPH PASS" if _fail == 0 else "ROAD GRAPH FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
@@ -443,3 +445,128 @@ func _g_a_moved_path_invalidates_the_cache() -> void:
 			% [changed, before.size(), worst])
 	_check("G", changed > before.size() / 4 and worst > 5.0,
 			"%d of %d cells moved, worst %.2f m" % [changed, before.size(), worst])
+
+
+# ---- H ------------------------------------------------------------------------------------------
+
+## [H] A REAL ROAD resolves into a graph, by key and by default.
+##
+## [A]-[G] are all about a path that was handed to the node directly. That is the whole feature except for
+## the part a user touches: dropping a Road Source into a graph and getting THEIR road. Between the two
+## sits a lookup that nothing else exercises — a graph is a Resource, it cannot reach the scene, so the
+## host has to walk its nodes and fill them in. Until that existed, every criterion above passed and a
+## Road Source in the editor produced nothing at all.
+##
+## Both routes are checked, because they fail differently. A NAMED key is the reusable case and goes
+## through the network's brush table; an EMPTY key means "the road this graph is on" and goes through the
+## host brush, which is the common case and the one nobody would think to type a name for.
+func _h_a_real_road_resolves_into_a_graph() -> void:
+	print("[H] a real road resolves into a graph")
+	var net := Pasture3DRoadNetwork.new()
+	add_child(net)
+	var t := Pasture3DRoadType.new()
+	t.type_name = "major"
+	t.lane_count = 2
+	t.lane_width = 3.5
+	t.shoulder_width = 0.5
+	net.road_types = [t]
+	var brush := Pasture3DRoadBrush.new()
+	brush.name = "Lane"
+	net.add_child(brush)
+	var path3d := Path3D.new()
+	var curve := Curve3D.new()
+	curve.add_point(Vector3(-50.0, 0.0, 0.0))
+	curve.add_point(Vector3(50.0, 0.0, 0.0))
+	path3d.curve = curve
+	brush.add_child(path3d)
+	brush.road_road_type = t
+	var road_mod := Pasture3DNodeRoad.new()
+	road_mod.alignment_step = 1.0
+	brush.modifiers = [road_mod]
+	# Solve the alignment: without one, graph_path is legitimately empty and H would be testing nothing.
+	var ground := PackedFloat32Array()
+	ground.resize(121 * 121)
+	var mod: Pasture3DNodeRoad = brush.road_modifier()
+	brush.grade_surface(mod, ground, 121, 121, -60.0, -60.0, 1.0)
+
+	var built := brush.graph_path()
+	print("    the road built a path of %d point(s), %.1f m long, half-width %.2f m at the middle"
+			% [built.points.size(), built.length(), built.half_width_at(built.length() * 0.5)])
+
+	var graph := Pasture3DTerrainGraph.new()
+	var named := Pasture3DGraphNodeRoadSource.new()
+	named.road_key = brush.road_key()
+	var defaulted := Pasture3DGraphNodeRoadSource.new()
+	graph.add_node(named)
+	graph.add_node(defaulted)
+	var filled := net.resolve_graph_paths(graph, brush)
+	var by_key: int = named.path.segment_count() if named.path != null else -1
+	var by_default: int = defaulted.path.segment_count() if defaulted.path != null else -1
+	print("    resolved %d source(s): by key %d segment(s), by default (empty key) %d segment(s)"
+			% [filled, by_key, by_default])
+	_check("H", filled == 2 and by_key > 0 and by_key == by_default and built.length() > 90.0,
+			"%d resolved, %d / %d segment(s), path %.1f m" % [filled, by_key, by_default, built.length()])
+
+	# CONTROL: a key naming NO road must leave the node alone rather than clearing it. Clearing would make
+	# a road mid-rename flatten every terrain reading it for one bake, which reads as a solver bug.
+	var missing := Pasture3DGraphNodeRoadSource.new()
+	missing.road_key = "NoSuchRoad"
+	missing.path = built
+	graph.add_node(missing)
+	net.resolve_graph_paths(graph, brush)
+	print("    control: an unresolvable key left %d segment(s) in place (want them kept)"
+			% (missing.path.segment_count() if missing.path != null else -1))
+	if missing.path == null or missing.path.segment_count() == 0:
+		_fail += 1
+		print("    !! an unresolvable key wiped the path instead of leaving it")
+
+	# CONTROL: re-resolving an UNCHANGED road must not touch the node. Assigning unconditionally emits
+	# `changed`, which bumps the revision, which invalidates every downstream cache — so a graph with a
+	# road in it would re-solve from scratch on every bake and the cache would look broken, not bypassed.
+	var rev_before: int = named._dirty_revision
+	net.resolve_graph_paths(graph, brush)
+	print("    control: re-resolving an unchanged road moved the revision %d -> %d (want no change)"
+			% [rev_before, named._dirty_revision])
+	if named._dirty_revision != rev_before:
+		_fail += 1
+		print("    !! resolving dirties the node every time, so nothing downstream can ever cache")
+	net.queue_free()
+
+
+# ---- I ------------------------------------------------------------------------------------------
+
+## [I] Both road nodes actually reach the palette.
+##
+## A registered node that the Add menu never lists does not exist as far as anyone using the editor is
+## concerned, and every other criterion in this file passes on one: Road Source and Path Distance shipped
+## registered, instantiable, gated, and absent from the palette, because the palette walks a hardcoded
+## ordered category list and "Roads" was not in it.
+##
+## Kept HERE as well as in GraphPaletteAndConstantsGate, which now checks the general rule. This is the
+## specific one: it is these two nodes, in this feature, and a road system gate should fail when the road
+## nodes cannot be added.
+func _i_every_registered_node_reaches_the_palette() -> void:
+	print("[I] both road nodes reach the palette")
+	var by_cat := Pasture3DGraphNodeRegistry.entries_by_category(true)
+	var listed := Pasture3DGraphNodeRegistry.categories(true)
+	var reachable := {}
+	for cat in listed:
+		for e in by_cat.get(cat, []):
+			reachable[e["op"]] = true
+	print("    the palette lists %d categor(ies) reaching %d node type(s)"
+			% [listed.size(), reachable.size()])
+	_check("I", reachable.has(&"road_source") and reachable.has(&"path_distance"),
+			"road_source reachable %s, path_distance reachable %s"
+					% [str(reachable.has(&"road_source")), str(reachable.has(&"path_distance"))])
+
+	# CONTROL: the factory must actually make them. A palette entry pointing at a script that does not
+	# instance is an Add menu item that does nothing when clicked.
+	var a := Pasture3DGraphNodeRegistry.create(&"road_source")
+	var b := Pasture3DGraphNodeRegistry.create(&"path_distance")
+	print("    control: the factory made %s and %s"
+			% [str(a != null and a is Pasture3DGraphNodeRoadSource),
+				str(b != null and b is Pasture3DGraphNodePathDistance)])
+	if a == null or not (a is Pasture3DGraphNodeRoadSource) or b == null \
+			or not (b is Pasture3DGraphNodePathDistance):
+		_fail += 1
+		print("    !! a palette entry does not instance the node it names")

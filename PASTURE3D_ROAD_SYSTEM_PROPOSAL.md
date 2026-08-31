@@ -434,6 +434,43 @@ catastrophic: 0 means every cell is on the road, so a downstream `Road Grade` fl
 to it; INF turns every downstream arithmetic node into NAN and never recovers. `unreachable_distance`
 defaults to 10 km.
 
+**P7a shipped twice, and the first time it was unreachable.** Both halves are worth recording because
+neither is a kernel bug and no criterion in `RoadGraphGate` [A]–[G] could have failed on either.
+
+*The palette dropped both nodes.* `Pasture3DGraphNodeRegistry.categories()` was a hardcoded ordered list,
+and the Add menu walks it and pulls the entries matching each name — so an entry whose category is not in
+that list is discarded without a word. Road Source and Path Distance were registered, instantiable,
+searchable, gated, and absent from the editor. The list is now the ORDER and not the membership: any
+category an entry names and the list does not is appended rather than dropped, so the worst outcome is a
+category in the wrong place instead of a node nobody can add. `GraphPaletteAndConstantsGate` now asserts
+that *every registered node reaches the palette*, which is the general form of the rule; `RoadGraphGate`
+[I] asserts the specific one, because a road system gate should fail when the road nodes cannot be added.
+
+*Nothing resolved a Road Source.* The node holds a road key and the host was supposed to fill it in — and
+the host side was never built, so a Road Source dropped into a real graph produced an empty path forever.
+`Pasture3DRoadNetwork.resolve_graph_paths` now walks a graph's nodes before it is evaluated, from the
+terrain brush (which covers the deferred worker path too — that solve runs off the main thread and must
+not be walking the scene tree) and from the graph editor's preview (or a road previews as the unreachable
+fill and reads as a broken node rather than an unresolved one).
+
+Three decisions inside it, each of which has a plausible opposite:
+
+* **An empty key means "the road this graph is on."** It is the common case by a wide margin, and
+  requiring the key to be typed out would make the simplest use of the feature the one that needs a name
+  nobody has looked up.
+* **A key naming no road leaves the path alone** rather than clearing it. Clearing would make a road
+  mid-rename, or one whose brush is being reparented, flatten every terrain reading it for one bake — in
+  a way that reads as a solver bug rather than as a failed lookup.
+* **An unchanged road must not be re-assigned.** Assigning emits `changed`, which bumps the node's
+  revision, which invalidates every downstream cache; a graph containing a road would then re-solve its
+  erosion from scratch whenever anything in the scene was baked, and the cache would look broken rather
+  than bypassed. The comparison is by CONTENT, since the path is rebuilt from the road each time and is a
+  different object even when nothing moved.
+
+`graph_path()` samples the road's own plan polyline at its own vertices rather than resampling onto a
+tidier spacing, so a graph-graded road and a brush-graded road cannot differ by a fraction of a metre in
+the corners — exactly the size of difference nobody sees and everybody debugs later.
+
 **Road Source blocks native, and the bail is graph-wide.** Native cannot carry a resource down a wire, so
 one Road Source drops the *whole* graph to the GDScript path. Said out loud in the node rather than
 discovered as a slowdown: it is a real cost, and it is the reason §8 frames the graph route as the case

@@ -659,6 +659,65 @@ func build_junction_surfaces(p_brushes: Array = []) -> int:
 	return host.rebuild_aprons(aprons, ribbon_lift)
 
 
+## Fill in every Road Source node in `p_graph` with the geometry of the road it names. Returns how many
+## were resolved.
+##
+## ---- WHY THE HOST HAS TO DO THIS ----
+##
+## A Pasture3DTerrainGraph is a Resource. It has no position in the scene, no parent, and no way to find a
+## road brush — which is the property that makes a graph reusable across brushes and worth keeping. So
+## a Road Source holds a road KEY, and whoever runs the graph resolves it, exactly as the input surface is
+## handed in rather than fetched.
+##
+## An EMPTY key resolves to `p_default`, the brush hosting the graph. That is the common case by a wide
+## margin: a graph on a road, talking about that road. Requiring the key to be typed out would make the
+## first and simplest use of this feature the one that needs a name nobody has looked up yet.
+##
+## A key that names no road leaves the node's path ALONE rather than clearing it. Clearing would make a
+## momentarily unresolvable road — one mid-rename, one whose brush is being reparented — flatten
+## every terrain that reads it for one bake, in a way that looks like a solver bug rather than a lookup.
+func resolve_graph_paths(p_graph: Pasture3DTerrainGraph, p_default: Node = null) -> int:
+	if p_graph == null:
+		return 0
+	var by_key := {}
+	var collected := false
+	var filled := 0
+	for node in p_graph.nodes:
+		if node == null or node.op() != &"road_source":
+			continue
+		var src: Pasture3DGraphNodeRoadSource = node
+		if src.road_key.is_empty():
+			if p_default != null and p_default.has_method("graph_path"):
+				_assign(src, p_default.call("graph_path"))
+				filled += 1
+			continue
+		if not collected:
+			collected = true
+			for b in road_brushes():
+				by_key[b.road_key()] = b
+		if by_key.has(src.road_key):
+			_assign(src, by_key[src.road_key].graph_path())
+			filled += 1
+	return filled
+
+
+## Put a freshly built path onto a Road Source, but only when it actually differs.
+##
+## Assigning unconditionally would emit `changed` on every bake, which bumps the node's revision, which
+## invalidates every downstream cache — so a graph containing a road would re-solve its erosion from
+## scratch whenever anything in the scene was baked, and the cache would look broken rather than bypassed.
+## Compared by CONTENT, because the path is rebuilt from the road each time and is a different object even
+## when the road has not moved.
+func _assign(p_src: Pasture3DGraphNodeRoadSource, p_path: Pasture3DGraphPath) -> void:
+	if p_path == null:
+		return
+	var old := p_src.path
+	if old != null and old.points == p_path.points and old.half_widths == p_path.half_widths:
+		if old.heights == p_path.heights:
+			return
+	p_src.path = p_path
+
+
 ## The node the junction aprons hang from. On the NETWORK, because a junction belongs to no single road.
 func ensure_junction_host() -> Pasture3DRoadChunkHost:
 	for child in get_children():
