@@ -282,3 +282,15 @@ bench/RoadLaneGraphGate.tscn
 # three gaps, all closed in the data: a stop line with no arc length, a lane_stop that answered with
 # the first junction rather than the next, and a road that would not say how long it was.
 bench/RoadSufficiencyGate.tscn
+
+# P5a - TIER FAR (§10): the road as terrain. Because P1/P2 put the road INTO the heightmap, a distant
+# road needs no mesh at all - only a statement of what the surface is made of, painted into the
+# terrain control map, where it LODs with the terrain and has nothing to pop. This gates the two halves
+# that are decidable from numbers: the coverage the grader computes (solid to the edge of formation,
+# smoothstepping out over the shoulder) and the control words the paint kernel packs from it, asserted
+# against literal bit shifts rather than the kernel constants. It also checks that a paint preserves
+# the base texture and the hole bit, that a bare cell is not written at all (writing weight-zero still
+# claims the cell for the layer, which would surround every road with dead ground), and that roads
+# paint in ASCENDING priority - the one part of the wiring that is checkable without a terrain, and the
+# one that is silently wrong, since the wrong order still paints a complete road, just the other one.
+bench/RoadPaintGate.tscn

@@ -559,9 +559,83 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 
 	p_mod.last_masks = {} if not p_mod.publish_masks else {
 		"roadbed": res["roadbed"], "cut": res["cut"], "fill": res["fill"],
-		"verge": res["verge"], "structure": res["structure"], "gw": p_gw, "gh": p_gh,
+		"verge": res["verge"], "structure": res["structure"], "surface": res["surface"],
+		# The grid ORIGIN travels with the masks. Without it a mask is a rectangle of numbers with no
+		# place in the world, and every consumer has to be told separately where the bake happened —
+		# which is how a road ends up painted half a region from the road.
+		"gw": p_gw, "gh": p_gh, "min_x": p_min_x, "min_z": p_min_z, "vs": p_vs,
 	}
 	return res
+
+
+# ---- TIER FAR: the carriageway paints itself (P5, §10) -----------------------------------------------
+
+
+## Paint this road's surface into the group's reserved control layer.
+##
+## Driven by the NETWORK rather than called at the end of the bake, and that is not incidental: where two
+## roads overlap the higher-priority surface must win (§5.2), and a brush painting itself at bake time
+## lands in scene order, which has nothing to do with priority. The network sorts and calls.
+##
+## Returns the number of cells written; 0 when there is nothing to paint or no layer to paint into,
+## which is the normal answer on a terrain without the layers API rather than an error.
+func paint_surface() -> int:
+	var mod := road_modifier()
+	if mod == null or mod.last_masks.is_empty() or terrain == null or terrain.data == null:
+		return 0
+	var masks: Dictionary = mod.last_masks
+	var cover: PackedFloat32Array = masks.get("surface", PackedFloat32Array())
+	if cover.is_empty():
+		return 0
+	var layer_id := paint_layer_id()
+	if layer_id < 0:
+		return 0
+	var t := resolved_road_type()
+	if t == null:
+		return 0
+
+	var gw := int(masks.get("gw", 0))
+	var min_x := float(masks.get("min_x", 0.0))
+	var min_z := float(masks.get("min_z", 0.0))
+	var vs := float(masks.get("vs", 1.0))
+	# Read back what is already there so the paint keeps the base texture and any hole somebody carved.
+	# One read per covered cell: the corridor is a thin strip of the bake grid, not the whole of it.
+	var existing := PackedInt32Array()
+	existing.resize(cover.size())
+	for i in cover.size():
+		if cover[i] < Pasture3DRoadPaint.MIN_COVERAGE:
+			continue
+		var at := Pasture3DRoadPaint.cell_position(i, gw, min_x, min_z, vs)
+		var c: int = terrain.data.get_control(at)
+		existing[i] = 0 if c == -1 else c
+
+	var plan := Pasture3DRoadPaint.surface_control(cover, existing, {
+		"texture_id": t.surface_layer_id,
+		"preserve_base": true,
+	})
+	var cells: PackedInt32Array = plan["cells"]
+	var control: PackedInt32Array = plan["control"]
+	var weight: PackedFloat32Array = plan["weight"]
+	for k in cells.size():
+		var at := Pasture3DRoadPaint.cell_position(cells[k], gw, min_x, min_z, vs)
+		# Composite deferred: the network composites once when every road has painted, rather than each
+		# road compositing its own cells and the overlaps being composited as many times as they overlap.
+		terrain.data.set_control_on_layer(layer_id, at, control[k], weight[k], false)
+	return cells.size()
+
+
+## The reserved control layer this road paints into: its group's, or the network's own when the road has
+## no group. Negative when there is nowhere to paint.
+##
+## Owned by the GROUP and not by the brush, unlike the height layer every terrain brush owns. A group is
+## the level at which "these roads are one surface" is true, so twenty brushes in one group share one
+## layer and cost one composite — and the group is also where the user named it.
+func paint_layer_id() -> int:
+	var group := road_group()
+	if group != null:
+		return group.ensure_paint_layer(terrain)
+	var net := road_network()
+	return net.ensure_paint_layer(terrain) if net != null else -1
 
 
 ## This road's splines as ONE world-space XZ polyline. Multiple splines under one road brush are

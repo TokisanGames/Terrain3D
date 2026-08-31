@@ -25,6 +25,12 @@ const NETWORK_GROUP: StringName = &"pasture3d_road_network"
 ## Which side of the road traffic drives on.
 enum TrafficSide { RIGHT = 0, LEFT = 1 }
 
+## Blend and map type of the reserved surface layer. REPLACE, because the topmost covered layer wins and
+## a road is opaque where it covers: two roads in one network that overlap should show the one that
+## painted last, which the network orders by priority.
+const PAINT_LAYER_BLEND: int = 0 # Pasture3DLayer.BLEND_REPLACE
+const PAINT_LAYER_MAPTYPE: int = 1 # Pasture3DData.MapType.TYPE_CONTROL
+
 @export_group("Catalogue")
 ## Every road type available in this world. Groups add their own on top and may hide any of these from
 ## their children; see Pasture3DRoadGroup.available_road_types.
@@ -41,6 +47,15 @@ enum TrafficSide { RIGHT = 0, LEFT = 1 }
 @export var traffic_side: TrafficSide = TrafficSide.RIGHT:
 	set(v):
 		traffic_side = v
+		_bump()
+
+@export_group("Terrain")
+## Display name of the terrain layer roads with NO GROUP paint into. A group of its own overrides this
+## for its children; this is the fallback for a brush parented straight under the network, which §5.1
+## allows and which would otherwise have nowhere to paint.
+@export var layer_name: String = "Roads":
+	set(v):
+		layer_name = v
 		_bump()
 
 @export_group("Defaults")
@@ -181,6 +196,7 @@ func resolve_junctions() -> void:
 	for b in brushes:
 		if b.junction_digest() != b.last_junction_digest:
 			b.schedule_junction_rebake()
+	paint_roads(brushes)
 	# The junction gizmo draws from these records, and nothing else tells the editor they moved.
 	update_gizmos()
 
@@ -418,3 +434,72 @@ func connector_yields_to(p_junction: Pasture3DRoadJunction,
 		p_connector_id: StringName) -> Array[Pasture3DRoadConflict]:
 	var empty: Array[Pasture3DRoadConflict] = []
 	return p_junction.yields_to(p_connector_id) if p_junction != null else empty
+
+# ---- The reserved surface layer (P5, §10) ------------------------------------------------------------
+
+
+## The reserved CONTROL layer this network's roads paint their surface into, created on first use.
+##
+## Reserved and owned, which is what stops a user hand-deleting it in the layers dock and leaving every
+## road in the network painting into whatever happened to take its index. Negative on a terrain or a
+## build without the typed-layer API — the paint then does nothing at all, rather than falling back to
+## writing the control map destructively: a road that permanently overwrote hand-painted texturing the
+## first time somebody nudged a spline is worse than a road that is not painted yet.
+func ensure_paint_layer(p_terrain: Node) -> int:
+	if p_terrain == null or p_terrain.get("data") == null:
+		return -1
+	var data = p_terrain.data
+	if not data.has_method("create_owned_layer_typed"):
+		return -1
+	return int(data.create_owned_layer_typed(paint_layer_owner(), layer_name,
+			PAINT_LAYER_BLEND, PAINT_LAYER_MAPTYPE))
+
+
+## Owner id of that layer. Keyed on the network's own path so two networks in one scene own two
+## layers even when the user named them both "Roads" — an owner keyed on the display name would silently
+## merge them, and the first the user knew of it would be one network's edits moving the other's roads.
+func paint_layer_owner() -> String:
+	return "pasture3d_road_network:%s" % str(get_path())
+
+
+# ---- TIER FAR: painting the roads (P5, §10) -----------------------------------------------------------
+
+
+## The order roads must be painted in: LOWEST PRIORITY FIRST, so the most important road writes last
+## and is the one you see where two overlap.
+##
+## Separated from `paint_roads` because it is the only part of the pass that can be checked without a
+## terrain — and it is the part that is silently wrong, since a paint in the wrong order still produces
+## a fully painted road, just the other road's.
+func paint_order(p_brushes: Array) -> Array:
+	var ordered: Array = p_brushes.duplicate()
+	ordered.sort_custom(func(a, b) -> bool: return a.road_priority() < b.road_priority())
+	return ordered
+
+
+## Paint every road's surface into its reserved layer, LOWEST PRIORITY FIRST.
+##
+## The order is the whole point of doing this here rather than in each brush's bake. Where two roads
+## overlap, the layer is REPLACE and the last write wins — so painting in ascending priority makes the
+## more important road the one you see, which is what §5.2 says priority means and what a brush painting
+## itself at the end of its own bake cannot arrange, because bakes happen in scene order.
+##
+## Returns the number of cells written across every road.
+func paint_roads(p_brushes: Array = []) -> int:
+	var brushes: Array = p_brushes if not p_brushes.is_empty() else road_brushes()
+	if brushes.is_empty():
+		return 0
+	var ordered := paint_order(brushes)
+	var written := 0
+	var terrains := {}
+	for b in ordered:
+		written += b.paint_surface()
+		if b.terrain != null:
+			terrains[b.terrain.get_instance_id()] = b.terrain
+	# One composite for the whole pass. Each road painted with `composite` off, so an overlap is
+	# composited once rather than once per road that touched it.
+	if written > 0:
+		for t in terrains.values():
+			if t.data != null and t.data.has_method("composite_regions"):
+				t.data.composite_regions()
+	return written

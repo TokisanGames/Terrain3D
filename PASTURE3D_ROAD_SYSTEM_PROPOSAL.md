@@ -542,10 +542,30 @@ Writing it found three gaps, all closed in the DATA rather than worked around in
 | A road would not say how long it was | A consumer following a lane has to know where the road ends; the alternatives were reaching into the modifier's alignment or re-measuring the spline. |
 
 The gate also caught a defect in the follower itself, which is the other half of its value: it decided its movement a stopping distance short of the line and then entered the connector from there, teleporting the vehicle that margin — because a connector begins at the stop line. Criterion [F] asks the *position* whether anything moved further than it could have driven, so no bookkeeping error can hide inside it.
-| **P5** | Ribbon mesh, region-aligned chunking, LOD tiers, collision, control-map paint into the group's reserved layer. | `RoadMeshGate` — no cracks at seams (shared-vertex identity), LOD vertex budgets, chunk↔region alignment, paint respects `priority`; control: LOD 0 and LOD 3 differ. |
+| **P5a** ✅ | **Tier FAR (§10)** — the carriageway painted into the group's reserved control layer: a `surface` coverage mask out of the grader, a pure control-word kernel (`Pasture3DRoadPaint`), and a network paint pass in ascending priority. GDScript; native/GPU later with this as the A/B oracle. | `RoadPaintGate` — coverage is solid to the edge of formation and smoothsteps out over the shoulder (control: zero fade gives a hard edge); control words pack where the engine reads them, asserted against literal shifts (control: a texture id of 31 must not bleed into the next field); the base texture and the hole bit survive a paint (control: `preserve_base` off replaces the base); coverage becomes blend and a bare cell is not written at all (control: full coverage writes every cell); paint order is ascending priority (control: swapping the priorities reverses it); a cell lands where the bake grid says it does (control: a different vertex spacing scales it). |
+| **P5b** | Tier MID — ribbon mesh, region-aligned chunking, LOD tiers, shared-vertex seams. | `RoadMeshGate` — no cracks at seams (shared-vertex identity), LOD vertex budgets, chunk↔region alignment; control: LOD 0 and LOD 3 differ. |
+| **P5c** | Tier NEAR — collision, lane markings from `divider_type`, roadside props via `Pasture3DInstancer`. | `RoadNearGate` — a marking follows the divider it is drawn from; collision matches the graded surface; control: changing `divider_type` changes the markings. |
 | **P6** | **Runtime layer** — `Pasture3DRoadRoute` (hand-picked entries + validator), checkpoints, corridor test, `locate()` / `progress()`, `sample_surface()`, pace notes, route-driven streaming lookahead, and the corridor-clearing hook for traffic. Loads with no editor and no terrain. | `RoadRouteGate` — `locate()` round-trips against sampled points; up vectors match the solved banking; a reversed route flips boundaries and travel direction; checkpoints follow a moved road; the corridor test separates verge from off-course; a surface transition blends rather than steps; the validator rejects a disconnected pair and names the gap; pace notes find a known corner, a known crest and a known surface change (control: flatten the profile and the crest call disappears). |
 | **P7** | Graph nodes (`PATH` port, Road Source / Road Grade / Path Distance / Path Mask). | `RoadGraphGate` — analytic distance vs a brute-force oracle; the two §8 wirings differ as predicted. |
 | **P8** | Auto-routing: anisotropic A* over graph-produced cost fields (slope, `water_mask`), emitting an editable brush. | `RoadRoutingGate` — found cost ≤ a straight line's; control: a wall in the cost field reroutes it. |
+
+**P5a landed 2026-08-31.** Tier FAR is the tier that is always on, and it is cheap only because P1/P2
+already put the road INTO the heightmap: by the time the paint runs the ground is the right shape, and
+the only thing left to say is what the surface is made of. Two decisions in it are worth keeping:
+
+* **The road goes in the OVERLAY field and the base is preserved**, with coverage as the blend. The
+  shader then feathers base → road, so a half-covered edge cell shows the grass beside the road.
+  Writing the road into both fields and feathering with the LAYER weight instead looks identical on
+  bare terrain and wrong everywhere else, because the layer weight decides how much of the *layer*
+  covers — a half-covered cell would show the layer *below* the road, not what is beside it.
+* **A cell below `MIN_COVERAGE` is not written at all**, rather than written at weight zero. A
+  weight-zero sample still marks the layer as covering that cell, which would grow the road's footprint
+  to the whole corridor and surround every road with a rectangle of dead ground.
+
+The write itself is not gated: `set_control_on_layer` needs regions, a layer stack and a composite,
+which no headless gate can assemble honestly — the same boundary `RoadNetworkGate` draws, and the
+editor is what covers it. What IS gated out of the wiring is the paint ORDER, because a paint in the
+wrong order still produces a fully painted road — just the other road's.
 
 **There is no P3.** The reorder moved the ribbon mesh from P3 to P5 and the junction split kept the
 P4a/P4b names it already had, which briefly left the mesh listed twice. The gap is deliberate rather

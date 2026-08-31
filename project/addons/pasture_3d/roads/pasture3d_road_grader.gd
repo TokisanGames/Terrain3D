@@ -97,7 +97,8 @@ static func nearest_on_plan(p_plan: PackedVector2Array, p_cum: PackedFloat32Arra
 ## terrain alone at that arc length — a bridge deck carries the road, so grading under it would build the
 ## earth dam across the valley that the bridge exists to avoid.
 ##
-## Returns `{height, roadbed, cut, fill, verge, structure}`; every mask is 0..1 over the same grid.
+## Returns `{height, roadbed, cut, fill, verge, structure, surface}`; every mask is 0..1 over the same
+## grid.
 static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: float, p_min_z: float,
 		p_vs: float, p_plan: PackedVector2Array, p_alignment: Pasture3DRoadAlignment,
 		p_half_width: PackedFloat32Array, p_shoulder: PackedFloat32Array,
@@ -107,7 +108,7 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 	var out := {
 		"height": p_height.duplicate(),
 		"roadbed": _zeros(n), "cut": _zeros(n), "fill": _zeros(n),
-		"verge": _zeros(n), "structure": _zeros(n),
+		"verge": _zeros(n), "structure": _zeros(n), "surface": _zeros(n),
 	}
 	if p_alignment == null or p_alignment.count() == 0 or p_plan.size() < 2 or n <= 0:
 		return out
@@ -127,6 +128,11 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 	var m_fill: PackedFloat32Array = out["fill"]
 	var m_verge: PackedFloat32Array = out["verge"]
 	var m_struct: PackedFloat32Array = out["structure"]
+	var m_surface: PackedFloat32Array = out["surface"]
+	# How far past the edge of formation the painted surface fades out, in SHOULDERS rather than metres:
+	# a farm track and a motorway should not share an edge width, and the shoulder is already the road's
+	# own statement of how wide its margin is.
+	var fade: float = maxf(float(p_opts.get("surface_fade", 1.0)), 0.0)
 
 	for iz in range(p_gh):
 		var wz := p_min_z + float(iz) * p_vs
@@ -201,6 +207,20 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 			# Coverage masks. `roadbed` is the carriageway ONLY — the shoulder is not driving surface and
 			# a later phase paints it differently — and `verge` is everything the road disturbed outside
 			# the formation, which is what a prop scatter wants to avoid and a grass blend wants to follow.
+			# COVERAGE FOR PAINTING, as a float, and computed here because this is the only place that
+			# knows `d`. The binary roadbed mask says where the carriageway is; this says how much of the
+			# surface material a cell should receive, which is what a control-map paint needs and what a
+			# consumer cannot recover from a 0/1 mask without re-measuring the road.
+			#
+			# Solid out to the edge of formation, then eased to nothing over `fade` shoulders. Smoothstep
+			# rather than linear, so the painted edge has no visible line where the gradient starts — which
+			# a linear ramp does have, because its derivative jumps.
+			var fade_end := edge_d + shoulder * fade
+			if d <= edge_d:
+				m_surface[idx] = 1.0
+			elif fade_end > edge_d:
+				var u_fade := clampf((fade_end - d) / (fade_end - edge_d), 0.0, 1.0)
+				m_surface[idx] = u_fade * u_fade * (3.0 - 2.0 * u_fade)
 			if d <= half:
 				m_bed[idx] = 1.0
 			elif d > edge_d:
