@@ -89,6 +89,15 @@ var _report: bool = false
 var _hidden: int = 0
 var _nearest: float = INF
 
+## Shapes built by the last rebuild.
+##
+## Counted and REPORTED because a road collider is otherwise invisible: these hosts are not owned by the
+## edited scene, so Godot draws no CollisionShape3D gizmo for them and the viewport looks exactly the
+## same whether the shapes exist or not. Turning the setting on and seeing nothing change is the whole
+## problem — so the host says the number out loud, and Debug > Visible Collision Shapes shows them when
+## the game runs.
+var _colliders: int = 0
+
 
 func _ready() -> void:
 	set_process(true)
@@ -169,8 +178,10 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 			"meshes": meshes,
 			"lod": 0,
 		})
-	if props_enabled:
-		_place_props(p_brush, t, prop_transforms)
+	# Called even when props are OFF, with nothing to place: it clears the instancer by mesh id first, so
+	# switching props off removes the ones already out there. Skipping the call entirely would leave a
+	# verge full of props that no longer has a setting saying they should be there.
+	_place_props(p_brush, t, prop_transforms if props_enabled else [])
 	_dirty_lod = true
 	_report = true
 	if _chunks.is_empty():
@@ -211,6 +222,7 @@ func _collider_from(p_parent: Node3D, p_arrays: Array) -> void:
 	shape.set_faces(faces)
 	var body := StaticBody3D.new()
 	body.name = "Collision"
+	_colliders += 1
 	body.collision_layer = collision_layer
 	body.collision_mask = collision_mask
 	var cs := CollisionShape3D.new()
@@ -342,19 +354,29 @@ func _region_metres(p_brush: Pasture3DRoadBrush) -> float:
 	return maxf(float(terrain.region_size) * terrain.vertex_spacing, 1.0)
 
 
+## Drop the previous build.
+##
+## `remove_child` FIRST and `queue_free` after, rather than `queue_free` alone. A queued node is still a
+## child, still drawn and still colliding until the frame ends, so a rebuild that only queues leaves the
+## old ribbon and the old shapes overlapping the new ones for a frame — visible as z-fighting on a
+## road that just rebuilt, and as a doubled collider to anything raycasting in between. It also means a
+## caller cannot look at the tree and see what it just built, which is how a criterion asserting that
+## turning collision OFF removes the shapes ended up reading the shapes that were on their way out.
 func _clear() -> void:
 	for c in _chunks:
 		var n: Node = c["node"]
 		if is_instance_valid(n):
+			if n.get_parent() != null:
+				n.get_parent().remove_child(n)
 			n.queue_free()
 	_chunks.clear()
+	_colliders = 0
 
 
-## Pick each chunk's tier from its distance to the camera.
+## Pick each chunk's tier from its distance to the camera, and hide it once tier FAR is enough.
 ##
-## Distance to the chunk's CENTRE rather than to its nearest point: a long chunk would otherwise flip
-## tier as the camera slides along beside it without getting any closer, and the whole point of cutting
-## on region boundaries is that a chunk is small enough for its centre to be a fair answer.
+## Distance is to the chunk's NEAREST POINT, not to its centre — see `_distance_to`, which is where the
+## reasoning lives, because measuring to the centre broke tier NEAR and made whole chunks pop.
 func _process(_delta: float) -> void:
 	if _chunks.is_empty():
 		return
@@ -401,9 +423,10 @@ func _process(_delta: float) -> void:
 		tiers.resize(Pasture3DRoadMesher.LOD_LEVELS)
 		for c in _chunks:
 			tiers[int(c["lod"])] += 1
-		print("[Pasture3D] %s: %d chunk(s) at LOD %s, %d hidden beyond %.0f m; nearest is %.0f m"
+		print("[Pasture3D] %s: %d chunk(s) at LOD %s, %d hidden beyond %.0f m; nearest is %.0f m; %s"
 				% [get_parent().name if get_parent() != null else name, _chunks.size(), str(Array(tiers)),
-					_hidden, far_distance, _nearest])
+					_hidden, far_distance, _nearest,
+					("%d collider(s)" % _colliders) if collision_enabled else "no collision"])
 	_hidden = 0
 	_nearest = INF
 	_dirty_lod = false

@@ -749,6 +749,27 @@ collision identity had a hole at every junction. A raycast asking "am I on tarma
 the road and no in the middle of the crossroads, which is where a vehicle most needs it. Aprons now
 build one from the same `_collider_from` the ribbon uses, at lift zero for the same reason.
 
+**A road collider is invisible in the editor, and that is not a bug in the collider.** Ticking Ribbon
+Collision changes nothing you can see: chunk hosts are not owned by the edited scene, so Godot draws no
+`CollisionShape3D` gizmo for them, and the viewport is identical whether the shapes exist or not. Turning
+a setting on and seeing nothing happen is indistinguishable from the setting doing nothing. So the host
+now **counts and reports** its shapes in the build line, and Debug > Visible Collision Shapes shows them
+when the game runs.
+
+`RoadNetworkGate` [H] makes the claim [G] does not: [G] proves the checkbox reaches the host, [H] proves
+the bake turns it into shapes in the tree, on the ribbon *and* on the aprons, on the road physics layer.
+It found two things while being written:
+
+* **`_clear` only queued the old build.** A queued node is still a child, still drawn and still
+  colliding until the frame ends, so a rebuild left the old ribbon and the old shapes overlapping the
+  new ones — z-fighting on a road that just rebuilt, and a doubled collider to anything raycasting in
+  between. It now `remove_child`s first and queues after, which also makes a rebuild's result readable
+  the moment it returns. The control asserting that collision OFF removes the shapes was reading shapes
+  on their way out.
+* **Props were not cleared when props were switched off.** `_place_props` clears the instancer by mesh id
+  and was skipped entirely when disabled, leaving a verge full of props that no setting claimed. It is
+  now always called, with nothing to place.
+
 **There is no P3.** The reorder moved the ribbon mesh from P3 to P5 and the junction split kept the
 P4a/P4b names it already had, which briefly left the mesh listed twice. The gap is deliberate rather
 than a missing row: renumbering the junction phases would break every reference to them in §6 and

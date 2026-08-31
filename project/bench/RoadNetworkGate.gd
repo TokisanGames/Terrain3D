@@ -34,6 +34,7 @@ func _ready() -> void:
 	_e_the_lane_graph_is_built_from_the_real_brushes()
 	_f_the_networks_traffic_side_reaches_the_connectors()
 	_g_every_chunk_host_setting_is_reachable_from_the_inspector()
+	_h_turning_collision_on_actually_builds_colliders()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD NETWORK PASS" if _fail == 0 else "ROAD NETWORK FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -504,3 +505,71 @@ func _g_every_chunk_host_setting_is_reachable_from_the_inspector() -> void:
 	fresh.free()
 	host.free()
 	net.free()
+
+
+## Every StaticBody3D under `p_at`, at any depth.
+func _bodies(p_at: Node) -> Array[StaticBody3D]:
+	var out: Array[StaticBody3D] = []
+	var stack: Array[Node] = [p_at]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is StaticBody3D:
+			out.append(n)
+		for c in n.get_children():
+			stack.append(c)
+	return out
+
+
+# ---- H ------------------------------------------------------------------------------------------
+
+## [H] Turning collision on actually builds colliders, on the ribbon AND on the junction aprons.
+##
+## [G] proves the setting can be reached and is copied into the host. That is not the same claim as this
+## one: a host with `collision_enabled` true still builds nothing if the bake path never rebuilds, if the
+## spans are empty, or if the aprons take a different code path from the chunks — which they did.
+##
+## Driven through `build_chunks`, the real bake entry point, rather than by calling `rebuild` on a host
+## the gate made itself. The host-level route is already covered by RoadMeshGate; what is untested and
+## what has broken is the WIRING from an inspector checkbox to a shape in the tree.
+func _h_turning_collision_on_actually_builds_colliders() -> void:
+	print("[H] turning collision on actually builds colliders")
+	var f := _crossroads()
+	var net: Pasture3DRoadNetwork = f["net"]
+	var brushes: Array = [f["ew"], f["ns"]]
+	_settle(net, brushes, _grid(0.0))
+
+	net.ribbon_collision = true
+	net.ribbon_collision_layer = 2
+	net.build_chunks(brushes)
+	var ribbon := _bodies(f["ew"]).size() + _bodies(f["ns"]).size()
+	var aprons := _bodies(net.ensure_junction_host()).size()
+	var on_layer := 0
+	for b in _bodies(net):
+		if b.collision_layer == 2:
+			on_layer += 1
+	print("    collision on: %d ribbon collider(s), %d apron collider(s), %d on layer 2"
+			% [ribbon, aprons, on_layer])
+	_check("H", ribbon > 0 and aprons > 0 and on_layer == ribbon + aprons,
+			"%d ribbon / %d apron collider(s), %d on the road layer" % [ribbon, aprons, on_layer])
+
+	# CONTROL: off must build NONE. Without this the criterion passes on a host that ignores the flag and
+	# always builds shapes, which is the same bug with the opposite sign and costs every road its shapes.
+	net.ribbon_collision = false
+	net.build_chunks(brushes)
+	var off := _bodies(net).size()
+	print("    control: collision off -> %d collider(s) anywhere under the network (want 0)" % off)
+	if off != 0:
+		_fail += 1
+		print("    !! colliders are built whether the setting is on or not")
+
+	# CONTROL: the apron count must be the JUNCTION count, not zero-because-there-are-no-junctions. An
+	# apron collider criterion on a network with no junctions proves nothing at all.
+	var detected := 0
+	for j in net.junctions:
+		if j.detected and j.radius > 0.01:
+			detected += 1
+	print("    control: %d detected junction(s) to build aprons for (want more than 0)" % detected)
+	if detected == 0:
+		_fail += 1
+		print("    !! the fixture has no junction, so the apron half of this criterion is vacuous")
+	net.queue_free()
