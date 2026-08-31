@@ -232,3 +232,8 @@ bench/GraphFrozenSolverGate.tscn
 # push-down design), arc-length segment overrides surviving a spline point insertion, and exclusion by
 # reference surviving a catalogue reorder.
 bench/RoadModelGate.tscn
+
+# P1 — the vertical alignment solver. The gradient limit is a hard constraint, pins win over it (an
+# impossible pin pair surfaces as a reported breach, never as a moved pin), banking is v²·κ/g, and the
+# solved profile's second derivative is what signs a crest against a dip for P6's pace notes.
+bench/RoadAlignmentGate.tscn
