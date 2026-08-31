@@ -118,6 +118,10 @@ func _get_override(p_field: StringName, p_unset: Variant) -> Variant:
 var _widening: bool = false
 var _last_corridor_half: float = 0.0
 
+## The junction demands the last bake actually used. Compared against a fresh digest after each resolve;
+## see `junction_digest`. Not saved — a reload re-bakes and re-resolves anyway.
+var last_junction_digest: String = ""
+
 ## Bumped whenever a resolved value could have changed. The staleness key P2's grading modifier and P4's
 ## intersection resolver will fold into their caches.
 var content_key: int = 0
@@ -459,6 +463,36 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 		verge[i] = p_mod.verge_override if p_mod.verge_override >= 0.0 else tt.verge_width
 		suppress[i] = 1 if is_bridge_at(s) else 0
 
+	# ---- WHAT THE JUNCTIONS ASK OF THIS ROAD (§6) ---------------------------------------------------
+	#
+	# Two things, and they go to two different places. The PIN goes into the alignment solve, because a
+	# minor road has to arrive at the major road's height and P1 already honours pins exactly — and
+	# already reports a pin it cannot reach as an infeasible gradient breach, so an impossible junction
+	# surfaces through gated machinery instead of a new failure mode. The TRIM goes into the grading,
+	# because two roads writing the same cells is how a crossroads turns into a lumpy scar: the minor
+	# approach stops at the footprint and the major road, which keeps its own profile, paves through.
+	var pins := {}
+	var skip := PackedByteArray()
+	skip.resize(n_s)
+	var jnet := road_network()
+	if jnet != null:
+		var jkey := road_key()
+		for j in jnet.junctions_for(jkey):
+			var js: float = j.arc_length_for(jkey)
+			if not is_finite(js):
+				continue
+			var jpin: float = j.pin_for(jkey)
+			var ji := clampi(int(round(js / ds)), 0, n_s - 1)
+			if is_finite(jpin):
+				pins[ji] = jpin
+			if not j.is_major(jkey):
+				var trim: float = j.trim_back_for(jkey)
+				var lo := clampi(int(floor((js - trim) / ds)), 0, n_s - 1)
+				var hi := clampi(int(ceil((js + trim) / ds)), 0, n_s - 1)
+				for i in range(lo, hi + 1):
+					skip[i] = 1
+		last_junction_digest = junction_digest()
+
 	var alignment: Pasture3DRoadAlignment
 	if resolved_follow_terrain():
 		# A draped road is a deliberate choice, not a fallback: the alignment is the ground, so the
@@ -471,7 +505,7 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 		alignment.curvature = Pasture3DRoadGrader._zeros(n_s)
 	else:
 		alignment = Pasture3DRoadAlignmentSolver.solve_with_plan(_resample_plan(plan, cum, ds, n_s),
-				ground, ds, t.max_grade, t.design_speed, t.max_superelevation)
+				ground, ds, t.max_grade, t.design_speed, t.max_superelevation, {"pins": pins})
 	p_mod.last_alignment = alignment
 
 	# ---- THE CORRIDOR WIDTH DEPENDS ON A RESULT THE BAKE HAS TO PRODUCE FIRST -----------------------
@@ -495,7 +529,13 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 				"crown": p_mod.resolved_number(p_mod.crown_override, t.crown),
 				"cut_batter": p_mod.resolved_number(p_mod.cut_batter_override, t.cut_batter),
 				"fill_batter": p_mod.resolved_number(p_mod.fill_batter_override, t.fill_batter),
+				"skip": skip,
 			})
+	# The alignment this bake solved is what makes this road detectable, so the resolve is asked for
+	# AFTER it exists — and coalesced on the network, so a refresh that bakes six roads resolves once.
+	if jnet != null:
+		jnet.request_resolve()
+
 	p_mod.last_masks = {} if not p_mod.publish_masks else {
 		"roadbed": res["roadbed"], "cut": res["cut"], "fill": res["fill"],
 		"verge": res["verge"], "structure": res["structure"], "gw": p_gw, "gh": p_gh,
@@ -595,3 +635,78 @@ func _spline_length() -> float:
 			total += path.curve.get_baked_length()
 			any = true
 	return total if any else NAN
+
+
+# ---- JUNCTIONS (P4a) --------------------------------------------------------------------------------
+
+## This road's identity in the junction records. The node's path relative to its network, so it survives
+## reparenting inside the network, a scene reload and a re-resolve — unlike `content_key`, which is a
+## change counter and would detach every override the moment anything was edited.
+func road_key() -> String:
+	var net := road_network()
+	if net == null:
+		return str(get_path())
+	return str(net.get_path_to(self))
+
+
+## The first active road modifier, or null. The alignment and the grading options live on it.
+func road_modifier() -> Pasture3DNodeRoad:
+	for m in modifiers:
+		if m is Pasture3DNodeRoad and m.is_active():
+			return m as Pasture3DNodeRoad
+	return null
+
+
+## This road as a run for Pasture3DRoadJunctionSolver, or {} when it has nothing to contribute yet.
+##
+## Empty until the brush has baked once, because the run carries the SOLVED alignment: the solver's
+## clearance test asks how far apart two roads are vertically, and a road with no profile cannot answer.
+## A resolve before the first bake therefore finds no junctions rather than finding them in the wrong
+## places and pinning roads to heights derived from nothing.
+func build_run() -> Dictionary:
+	var mod := road_modifier()
+	if mod == null or mod.last_alignment == null or mod.last_alignment.count() == 0:
+		return {}
+	var plan := _plan_points()
+	if plan.size() < 2:
+		return {}
+	var t := resolved_road_type()
+	if t == null:
+		return {}
+	var alignment: Pasture3DRoadAlignment = mod.last_alignment
+	var bridge := PackedByteArray()
+	bridge.resize(alignment.count())
+	for i in alignment.count():
+		bridge[i] = 1 if is_bridge_at(float(i) * alignment.ds) else 0
+	return {
+		"key": road_key(),
+		"plan": plan,
+		"cum": Pasture3DRoadGrader.cumulative_length(plan),
+		"alignment": alignment,
+		"bridge": bridge,
+		"priority": t.priority,
+		"half_width": t.half_width(resolved_lane_count()),
+	}
+
+
+## What this road's junctions currently ask of it, as a string. The rebake test: if this is unchanged
+## after a resolve, the profile the brush already baked is the one the junctions want, and re-baking would
+## produce the same bytes. That equality is what makes the bake→resolve→bake loop terminate.
+func junction_digest() -> String:
+	var net := road_network()
+	if net == null:
+		return ""
+	var key := road_key()
+	var parts := PackedStringArray()
+	for j in net.junctions_for(key):
+		parts.append("%s|%.3f|%.3f|%.3f" % [j.id, j.arc_length_for(key), j.pin_for(key),
+				j.trim_back_for(key)])
+	parts.sort()
+	return "\n".join(parts)
+
+
+## Bake again because the junctions moved. Records the digest FIRST, so the bake it triggers is credited
+## with the pins it is about to use and the next resolve does not ask for another one.
+func schedule_junction_rebake() -> void:
+	last_junction_digest = junction_digest()
+	_schedule_refresh()

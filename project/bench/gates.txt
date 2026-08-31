@@ -250,3 +250,10 @@ bench/RoadGraderGate.tscn
 # are the mesher's bar, asserted before anything has tried to mesh one: the trim-back lands each approach
 # exactly on the other road's edge (no gap, no overlap) and grows as 1/sin(theta) on an acute crossing.
 bench/RoadJunctionGate.tscn
+
+# P4a - the network integration, which is the seam three green component gates did not cover. Real
+# Pasture3DRoadBrush children of a real Pasture3DRoadNetwork are driven through grade_surface: the
+# network finds the crossing its own brushes make, the junction's pin reaches the minor road's alignment
+# solve, the trim-back keeps that road's carriageway out of the footprint, and the bake -> resolve ->
+# bake loop reaches a fixed point instead of ping-ponging.
+bench/RoadNetworkGate.tscn

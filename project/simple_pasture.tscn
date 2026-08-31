@@ -104,6 +104,8 @@ speed_limit = nan
 
 [sub_resource type="Resource" id="Resource_8t6nj"]
 script = ExtResource("11_wv1iv")
+max_grade = 0.23500000000000001
+design_speed = 45.0
 metadata/_custom_type_script = "uid://cavpljhh2m0bk"
 
 [sub_resource type="Resource" id="Resource_wv1iv"]
@@ -118,10 +120,10 @@ metadata/_custom_type_script = "uid://d1q35xltb5ltv"
 
 [sub_resource type="Curve3D" id="Curve3D_cad7k"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 5.4467545, -27.500347, -99.26427, 0, 0, 0, 0, 0, 0, 37.15191, -26.671837, -50, 0, 0, 0, 0, 0, 0, 16.549412, -7.41704, -15.768723, 0, 0, 0, 0, 0, 0, -2.3323212, -0.35943413, -3.4719665, 0, 0, 0, 0, 0, 0, -9.89959, -12.448376, 22.99307, 0, 0, 0, 0, 0, 0, 0, -23.702545, 50, 0, 0, 0, 0, 0, 0, 4.123665, -27.500347, 100.86225),
-"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0)
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -25.882828, -27.500347, -128.22874, -1.4331666, 0, -8.939553, 1.4331666, 0, 8.939553, -27.60691, -27.500347, -99.26427, -2.9572167, 0, -6.7730737, 2.9572167, 0, 6.7730737, -24.852882, -27.500347, -63.506054, -8.924372, 0, -5.8572135, 8.924372, 0, 5.8572135, -10.859535, -25.764074, -47.365284, -9.539438, 0, -10.691248, 9.539438, 0, 10.691248, 16.779652, -17.959064, -34.452988, 3.507333, -2.3372967, -4.133025, -3.507333, 2.3372967, 4.133025, 10.811188, 2.6167126, -6.0674143, -1.5478451, 0, -11.117734, 1.5478451, 0, 11.117734, -9.89959, -12.448376, 22.99307, -1.3444802, 1.4431084, -7.465711, 1.3444802, -1.4431084, 7.465711, 0, -23.702545, 50, 0, 0, 0, 0, 0, 0, 4.123665, -27.500347, 100.86225, 0, 0, 0, 0, 0, 0, -17.034966, -27.500347, 125.525024, 0, 0, 0, 0, 0, 0, -39.193336, -27.500347, 123.371475),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 }
-point_count = 7
+point_count = 11
 
 [node name="SimplePasture" type="Node3D" unique_id=3132789]
 
@@ -164,6 +166,7 @@ shadow_enabled = true
 script = ExtResource("10_wej47")
 road_types = Array[ExtResource("11_wv1iv")]([SubResource("Resource_kheh1")])
 road_defaults = SubResource("Resource_ii4qc")
+junctions = null
 metadata/_custom_type_script = "uid://cft8dk3ton2yu"
 
 [node name="Road" type="Node3D" parent="Pasture3DRoadNetwork" unique_id=1896522691 node_paths=PackedStringArray("terrain")]

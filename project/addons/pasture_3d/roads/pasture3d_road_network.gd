@@ -103,3 +103,85 @@ func _get_configuration_warnings() -> PackedStringArray:
 	if valid_road_types().is_empty():
 		out.append("No road types in the catalogue. Add a Pasture3DRoadType so brushes have something to build.")
 	return out
+
+
+# ---- JUNCTIONS (P4a) --------------------------------------------------------------------------------
+#
+# The network is where junctions live because a junction belongs to no single road: it is a fact about a
+# PAIR, and either participant moving changes it. Each brush grades itself independently and knows only
+# its own spline, so the crossing has to be found one level up, and the result handed back DOWN as pins
+# (§6) rather than as heights to write.
+#
+# The order is necessarily two-pass, and that is not a wart: a crossing cannot be detected until both
+# roads have a solved profile (the clearance test compares heights), and the profiles cannot honour the
+# junction until it has been detected. So each brush bakes unpinned, asks for a resolve, and re-bakes only
+# if the pins it would now receive differ from the ones it used. That converges after one extra pass and
+# is the same guarded-rebake shape as the corridor widening in the brush.
+
+## Every junction in this world, detected and reconciled. Saved with the scene, because the OVERRIDES on
+## these records are the user's and must survive both a reload and a re-resolve.
+@export var junctions: Array[Pasture3DRoadJunction] = []
+
+var _resolve_queued: bool = false
+
+
+## Ask for a junction resolve at the end of the frame. Coalesced, so ten brushes finishing their bakes in
+## one refresh produce one resolve rather than ten.
+func request_resolve() -> void:
+	if _resolve_queued:
+		return
+	_resolve_queued = true
+	resolve_junctions.call_deferred()
+
+
+## Find every crossing between this network's roads, reconcile it against what is already stored, and ask
+## any brush whose pins changed to bake again. Safe to call directly; `request_resolve` is the coalescing
+## front door.
+func resolve_junctions() -> void:
+	_resolve_queued = false
+	var brushes := road_brushes()
+	var runs: Array = []
+	for b in brushes:
+		var run: Dictionary = b.build_run()
+		if not run.is_empty():
+			runs.append(run)
+	# A road with no solved alignment yet contributes nothing, so a resolve that runs before the first
+	# bake finds nothing rather than finding wrong things.
+	junctions = _typed(Pasture3DRoadJunctionSolver.resolve(runs, junctions))
+	for b in brushes:
+		if b.junction_digest() != b.last_junction_digest:
+			b.schedule_junction_rebake()
+
+
+## Every road brush under this network, in scene order.
+func road_brushes() -> Array[Pasture3DRoadBrush]:
+	var out: Array[Pasture3DRoadBrush] = []
+	_collect_brushes(self, out)
+	return out
+
+
+func _collect_brushes(p_at: Node, p_out: Array[Pasture3DRoadBrush]) -> void:
+	for c in p_at.get_children():
+		if c is Pasture3DRoadBrush:
+			p_out.append(c as Pasture3DRoadBrush)
+		# A nested network owns its own roads; stopping here is what keeps two networks in one scene from
+		# resolving junctions between each other's roads.
+		if not (c is Pasture3DRoadNetwork):
+			_collect_brushes(c, p_out)
+
+
+## Junctions `p_key` takes part in, skipping the disabled and the no-longer-detected.
+func junctions_for(p_key: String) -> Array[Pasture3DRoadJunction]:
+	var out: Array[Pasture3DRoadJunction] = []
+	for j in junctions:
+		if j != null and j.detected and not j.disabled and j.participant_index(p_key) >= 0:
+			out.append(j)
+	return out
+
+
+func _typed(p_in: Array) -> Array[Pasture3DRoadJunction]:
+	var out: Array[Pasture3DRoadJunction] = []
+	for j in p_in:
+		if j is Pasture3DRoadJunction:
+			out.append(j)
+	return out

@@ -114,6 +114,11 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 	var crown: float = float(p_opts.get("crown", 0.05))
 	var cut_batter: float = maxf(float(p_opts.get("cut_batter", 1.0)), 0.01)
 	var fill_batter: float = maxf(float(p_opts.get("fill_batter", 0.6)), 0.01)
+	# `skip` is NOT `p_suppress`. Suppress means "a structure carries the road here", and says so in the
+	# structure mask. Skip means "this arc length belongs to something else" — a junction footprint the
+	# approach was trimmed back from (§6) — and must leave no trace at all: marking it as a bridge deck
+	# would tell every later phase to build a viaduct at every crossroads.
+	var skip: PackedByteArray = p_opts.get("skip", PackedByteArray())
 	var cum := cumulative_length(p_plan)
 	var graded: PackedFloat32Array = out["height"]
 	var m_bed: PackedFloat32Array = out["roadbed"]
@@ -140,6 +145,8 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 			var side: float = hit[2]
 
 			var si := p_alignment.index_at(s)
+			if si < skip.size() and skip[si] != 0:
+				continue
 			var half: float = _at(p_half_width, si, 3.5)
 			var shoulder: float = _at(p_shoulder, si, 0.5)
 			var verge: float = _at(p_verge, si, 4.0)
