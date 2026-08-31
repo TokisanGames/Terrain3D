@@ -509,6 +509,44 @@ that can change without the road changing. Physics asking "am I on gravel" must 
 gravel occupies in this project's asset list — which is also why `surface_intervals()` is built by asking
 the override chain at segment boundaries rather than by reading the control map back.
 
+### P6b implementation notes (done 2026-08-31)
+
+**A transition is half and half at the line.** `sample_surface` returns `{primary, secondary, blend}`,
+and the blend band straddles the boundary so that at the boundary itself the two surfaces are equal.
+Anything else makes the transition asymmetric, and which way it leaned would then depend on the
+direction of travel — the same stage would grip differently on the reverse day. Away from a boundary
+`secondary` is empty and `blend` is 0, so a caller that ignores blending entirely still gets the right
+answer everywhere except inside the transition. The road's own ends are boundaries too and are
+deliberately *not* blended: fading into nothing there would fade grip away at the start line.
+
+The gate's monotonicity control was written with the blend read backwards, which made a correct
+transition look like it doubled back at the line. Worth recording because the mistake is the natural
+one: `blend` runs from *primary* toward *secondary*, and which surface is primary **swaps** as you cross
+the boundary, so a fraction-of-gravel reading has to swap with it.
+
+**Pace notes are a peak detect, not a solver.** Corner severity and side come from plan curvature and its
+sign; crests and dips from the sign of d²z/ds², which is the vertical solver's own smoothness term;
+"tightens" and "opens" from the derivative of curvature *read in the direction of travel*, so reversing
+swaps them. Two conventions are stated rather than assumed, because both have a defensible opposite:
+severity **1 is a hairpin and 6 is nearly straight**, and a crest is where the profile is concave *down*.
+Getting the second backwards calls every brow a dip, which reads as plausible until a driver jumps one.
+
+The control §9.4 asks for is the argument for §7 in executable form: **flatten the profile and the crest
+calls must disappear** while the corner survives. A draped road cannot produce these calls at all —
+d²z/ds² on a drape is terrain noise sampled at the road's position, so it would emit a crest every few
+metres and none of them would mean anything.
+
+**Lookahead is along the route, not around the player.** At stage pace a radius policy loads chunks
+roughly when you arrive at them; an active route is a *known corridor*, so the hint returns what lies
+ahead **along it**. A run passing close by but not on the route is never pulled in, however large the
+window — which is the claim a radius cannot make. The window is biased by speed because time is what
+runs out, not distance: 400 m is generous at 60 km/h and about four seconds at stage pace.
+
+**`corridor_ahead()` clears nothing.** It reports which stretch of which runs is about to be driven.
+Despawning traffic, pulling cars over and suppressing spawns are the project's own logic, deliberately:
+Pasture3D publishes road and lane data and does not implement traffic. What the hook can do is answer the
+question precisely, so a traffic system does not have to re-derive the route's geometry to ask it.
+
 ---
 
 ## 10. LOD and streaming — three tiers
@@ -577,7 +615,7 @@ The gate also caught a defect in the follower itself, which is the other half of
 | **P5b** ✅ | **Tier MID (§10)** — the chunked ribbon: `Pasture3DRoadMesher` (a pure kernel) plus `Pasture3DRoadChunkHost` (LOD swap by distance, hidden beyond tier FAR). Cuts snap to region boundaries and never cross a junction footprint. | `RoadMeshGate` — cuts land on region boundaries (controls: a different region size moves them; a 45° road is cut on both axes); seam vertices are compared for EXACT equality, at LOD 0 and at LOD 2; nothing chunks across a footprint (controls: something did cover it without one, and the road either side survives); LOD coarsens monotonically, never narrows the carriageway, and drops camber before shoulder; ribbon height is checked against the GRADER, not against a copy of its formula; the surface is wound face-up with recomputed normals; UVs run in metres; distance picks the tier its thresholds name (control: more thresholds than LOD levels must clamp, not index past the meshes). |
 | **P5c** ✅ | **Tier NEAR (§10)** — lane markings (`Pasture3DRoadMarkings`, a pure kernel split into a stripe *plan* and a *builder*), per-chunk collision at lift zero, and verge props (`Pasture3DRoadProps`) handed to `Pasture3DInstancer` so they stream with terrain regions. | `RoadNearGate` — a one-way road has no centre line whatever its type says (control: the same road two-way must draw one); each divider type draws the stripes it names, with DASHED_SOLID's no-crossing side asserted (control: NONE removes the divider and nothing else); the divider sits where the DIRECTION changes, checked on a 2+1 where that differs from the middle of the road (controls: the two rules must disagree on the fixture; traffic side mirrors it); dashes are placed in absolute arc length and a dash across a cut is split, not dropped (control: a solid stripe stays one run); markings sit on the graded surface and strictly above the ribbon, wound Godot's way; collision matches the GRADED surface, not the lifted ribbon (control: the drawn ribbon must be higher by exactly DEPTH_LIFT); props stand on the side asked for, absolute spacing, and the far verge is TURNED not copied (control: splitting on an exact multiple of the spacing must not double a prop). A criterion that crashes before reporting is counted as a failure. |
 | **P6a** ✅ | **Runtime layer, part one** — `Pasture3DRoadRun` / `Pasture3DRoadRuntime` (baked copies, no node references), `Pasture3DRoadRoute` with reversible entries by stable id, derived checkpoint gates, the corridor test, `locate()` and `progress()`, and the validator that names the gap. Loads with no editor and no terrain. | `RoadRouteGate` — the runtime answers with no brush, node or terrain anywhere in the gate (control: surfaces come back as NAMES, not texture indices); reversing flips arc length, tangent, curvature sign and bank sign but NOT height (controls: the fixture must actually turn and bank; the world-space up must be identical both ways because the tarmac does not re-cant); `locate()` round-trips against sampled points (controls: a signed lateral in the driver's frame; the corridor separates verge from off-course); route arc length is not run arc length (controls: the two must differ on the fixture; progress is route-relative); a moved road moves its gates (control: the gate is a plane across the corridor, not a point); the validator names the missing hop (controls: a deleted run is not reported as a missing junction; an unreachable run gets no invented connection). A criterion that crashes before reporting counts as a failure. |
-| **P6b** | `sample_surface()` with blended transitions, `generate_pace_notes()` (§9.4), route-driven streaming lookahead, and the corridor-clearing hook for traffic. | `RoadRouteGate` extensions — a surface transition blends rather than steps; pace notes find a known corner, a known crest and a known surface change (control: flatten the profile and the crest call disappears). |
+| **P6b** ✅ | **Runtime layer, part two** — `sample_surface()` with blended transitions, `Pasture3DRoadPaceNotes` (§9.4) plus `Route.generate_pace_notes()`, route-driven streaming `lookahead()`, and `corridor_ahead()`, the reporting hook a project's own traffic system uses. | `RoadRouteGate` [G]–[I] — a transition blends and is exactly half and half at the line (controls: no blend away from a boundary; the blend is MONOTONIC across the band; the road's own ends do not fade); pace notes find a known corner at the right severity and side, a known crest and a known surface change (controls: flatten the profile and the crest calls disappear while the corner survives; reversed, the right-hander is called left); lookahead follows the route (controls: an off-route run is absent at a 100 km window; speed widens it; the traffic hook describes the corridor and clears nothing). |
 | **P7** | Graph nodes (`PATH` port, Road Source / Road Grade / Path Distance / Path Mask). | `RoadGraphGate` — analytic distance vs a brute-force oracle; the two §8 wirings differ as predicted. |
 | **P8** | Auto-routing: anisotropic A* over graph-produced cost fields (slope, `water_mask`), emitting an editable brush. | `RoadRoutingGate` — found cost ≤ a straight line's; control: a wall in the cost field reroutes it. |
 

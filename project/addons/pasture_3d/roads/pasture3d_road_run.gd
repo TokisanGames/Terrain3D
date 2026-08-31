@@ -123,6 +123,52 @@ func surface_at(p_s: float, p_reversed: bool = false) -> StringName:
 	return &""
 
 
+## How far either side of a surface boundary the two blend, metres. A real surface change is not a line
+## — tarmac runs out into loose gravel over a few metres of scatter — and physics that stepped grip at a
+## line would snap the car at a point the driver cannot see.
+const SURFACE_BLEND: float = 6.0
+
+
+## The surface at `p_s` as `{primary, secondary, blend}` (§9.1).
+##
+## `blend` runs 0 to 1 from primary toward secondary. Away from a boundary it is 0 and `secondary` is
+## empty, so the common case is one name and a zero — a caller that ignores blending entirely still gets
+## the right answer everywhere except in the transition.
+##
+## Blending is the requirement, not a nicety: rally physics needs surface as data AND needs the blend so
+## grip does not step-change at a transition. A stepped coefficient at 120 km/h is an unrecoverable snap
+## with no visible cause, which reads as a physics bug rather than as a data one.
+func sample_surface(p_s: float, p_reversed: bool = false) -> Dictionary:
+	var at_s := (length() - p_s) if p_reversed else p_s
+	var here := StringName("")
+	var idx := -1
+	for i in surfaces.size():
+		if at_s >= float(surfaces[i][0]) and at_s < float(surfaces[i][1]):
+			here = StringName(surfaces[i][2])
+			idx = i
+			break
+	if idx < 0:
+		return { "primary": &"", "secondary": &"", "blend": 0.0 }
+	var from_s := float(surfaces[idx][0])
+	var to_s := float(surfaces[idx][1])
+	# Nearest boundary that HAS another surface on the far side. The ends of the road are boundaries too
+	# and blending into nothing there would fade grip away at the start line.
+	if idx > 0 and at_s - from_s < SURFACE_BLEND:
+		var other := StringName(surfaces[idx - 1][2])
+		if other != here:
+			# Half the blend band lies each side of the line, so at the line itself blend is 0.5 and the
+			# two surfaces are equal. Anything else makes the transition asymmetric, and which way it
+			# leans would then depend on the direction of travel.
+			return { "primary": here, "secondary": other,
+					"blend": (1.0 - (at_s - from_s) / SURFACE_BLEND) * 0.5 }
+	if idx < surfaces.size() - 1 and to_s - at_s < SURFACE_BLEND:
+		var other := StringName(surfaces[idx + 1][2])
+		if other != here:
+			return { "primary": here, "secondary": other,
+					"blend": (1.0 - (to_s - at_s) / SURFACE_BLEND) * 0.5 }
+	return { "primary": here, "secondary": &"", "blend": 0.0 }
+
+
 ## Where `p_world` sits relative to this run: `{s, t, distance, on_road, on_corridor}`.
 ##
 ## `t` is signed across-distance, positive to the driver's RIGHT in the direction of travel — the

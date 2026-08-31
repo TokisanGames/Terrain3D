@@ -135,6 +135,95 @@ func gate(p_runtime: Pasture3DRoadRuntime, p_index: int) -> Dictionary:
 			"half_width": corridor_width, "height": gate_height, "up": at["up"] }
 
 
+## The surface under route arc length `p_s`, blended across transitions (§9.1).
+func sample_surface(p_runtime: Pasture3DRoadRuntime, p_s: float) -> Dictionary:
+	var e := entry_at(p_runtime, p_s)
+	if e.is_empty():
+		return { "primary": &"", "secondary": &"", "blend": 0.0 }
+	var r := p_runtime.run_by_id(int(e["run_id"]))
+	if r == null:
+		return { "primary": &"", "secondary": &"", "blend": 0.0 }
+	return r.sample_surface(float(e["local_s"]), bool(e["reversed"]))
+
+
+## The co-driver's calls for the whole stage, in route arc length (§9.4).
+##
+## Generated per entry and shifted into route coordinates, because a run's notes are a property of the
+## run and the direction it is driven — the same run used twice by one route, or used the other way on the
+## reverse stage, produces different calls from the same data.
+func generate_pace_notes(p_runtime: Pasture3DRoadRuntime) -> Array:
+	var out: Array = []
+	if p_runtime == null:
+		return out
+	var walked := 0.0
+	for e: Dictionary in entries:
+		var r := p_runtime.run_by_id(int(e["run_id"]))
+		if r == null:
+			continue
+		for c: Dictionary in Pasture3DRoadPaceNotes.generate(r, bool(e.get("reversed", false))):
+			var call := c.duplicate()
+			call["s"] = walked + float(c["s"])
+			out.append(call)
+		walked += r.length()
+	out.sort_custom(func(a, b): return float(a["s"]) < float(b["s"]))
+	# Distance to the NEXT call, which is what actually gets read out: "200, left 4" is the gap, not the
+	# absolute position. Computed here rather than by the audio system so every consumer agrees.
+	for i in out.size():
+		out[i]["distance_to_next"] = (float(out[i + 1]["s"]) - float(out[i]["s"])) 				if i + 1 < out.size() else INF
+	return out
+
+
+## Run ids the game should have loaded, given where the player is and how fast (§10).
+##
+## ---- WHY A ROUTE IS THE BEST STREAMING HINT IN THE PROJECT ----
+##
+## Rally's hard streaming problem is speed: at stage pace, a radius-around-the-player policy loads chunks
+## roughly when you arrive at them. An active route is a KNOWN CORRIDOR — the game knows the next 800 m of
+## road before the player does — so this returns what lies ahead along the route rather than what is
+## near. It costs nothing to compute, and it turns the worst streaming case in the project into the
+## best-informed one.
+##
+## The lookahead is biased by speed because distance is not what runs out, TIME is: 400 m is generous at
+## 60 km/h and about four seconds at stage pace.
+func lookahead(p_runtime: Pasture3DRoadRuntime, p_distance_from_start: float,
+		p_speed: float = 0.0, p_base: float = 400.0, p_seconds: float = 8.0) -> PackedInt32Array:
+	var out := PackedInt32Array()
+	if p_runtime == null:
+		return out
+	var ahead := maxf(p_base, absf(p_speed) * p_seconds)
+	var walked := 0.0
+	for e: Dictionary in entries:
+		var r := p_runtime.run_by_id(int(e["run_id"]))
+		if r == null:
+			continue
+		var start := walked
+		var end := walked + r.length()
+		walked = end
+		# Overlap with [position, position + ahead]. The run the player is ON is included by the same
+		# test, so there is no special case for it.
+		if end >= p_distance_from_start and start <= p_distance_from_start + ahead:
+			if not out.has(r.id):
+				out.append(r.id)
+	return out
+
+
+## The corridor ahead of the player, as `{from_s, to_s, run_ids}` — the hook a project's traffic system
+## uses to clear the stage.
+##
+## THIS CLEARS NOTHING. It reports which stretch of which runs is about to be driven; despawning traffic,
+## pulling cars over or suppressing spawns is the project's own logic, and deliberately so — Pasture3D
+## publishes road and lane data and does not implement traffic. What it can do is answer the question
+## precisely, so a traffic system does not have to re-derive the route's geometry to ask it.
+func corridor_ahead(p_runtime: Pasture3DRoadRuntime, p_distance_from_start: float,
+		p_ahead: float = 600.0) -> Dictionary:
+	return {
+		"from_s": p_distance_from_start,
+		"to_s": p_distance_from_start + p_ahead,
+		"half_width": corridor_width,
+		"run_ids": lookahead(p_runtime, p_distance_from_start, 0.0, p_ahead, 0.0),
+	}
+
+
 ## Edit-time validation (§9.2). Returns one line per problem, empty when the route is sound.
 ##
 ## ---- THE VALIDATOR REPORTS THE GAP, NOT JUST THE FAILURE ----

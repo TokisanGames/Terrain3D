@@ -16,20 +16,23 @@
 @tool
 extends Node
 
-const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F"]
+const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
 
 var _fail: int = 0
 var _reported: Dictionary = {}
 
 
 func _ready() -> void:
-	print("=== RoadRouteGate: the runtime layer and routes (P6a) ===\n")
+	print("=== RoadRouteGate: the runtime layer, routes and pace notes (P6a/P6b) ===\n")
 	_a_the_runtime_needs_no_editor_and_no_terrain()
 	_b_reversing_flips_four_things_and_not_the_fifth()
 	_c_locate_round_trips_against_sampled_points()
 	_d_route_arc_length_is_not_run_arc_length()
 	_e_checkpoints_follow_a_moved_road()
 	_f_the_validator_names_the_gap()
+	_g_a_surface_transition_blends_rather_than_steps()
+	_h_pace_notes_find_the_features_that_are_there()
+	_i_lookahead_is_along_the_route_not_around_the_player()
 	_account_for_silent_criteria()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD ROUTE PASS" if _fail == 0 else "ROAD ROUTE FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
@@ -354,3 +357,203 @@ func _f_the_validator_names_the_gap() -> void:
 			% (lonely_msgs[0] if lonely_msgs.size() > 0 else "(nothing)"))
 	if lonely_msgs.size() != 1 or not lonely_msgs[0].contains("no single run joins them"):
 		_fail += 1; print("    !! an unreachable run was given a connection that does not exist")
+
+
+# ---- G ------------------------------------------------------------------------------------------
+
+## [G] A surface transition BLENDS rather than steps.
+##
+## Rally physics needs surface as data and needs the blend with it (§9.1). Tarmac does not become gravel
+## at a line — it runs out into scatter over a few metres — and a grip coefficient that stepped at a line
+## would snap the car at a point the driver cannot see. That failure reads as a physics bug, not a data
+## one, which is why it belongs here rather than being left to whatever consumes the surface.
+func _g_a_surface_transition_blends_rather_than_steps() -> void:
+	print("[G] a surface transition blends rather than steps")
+	var r := _run(1, Vector2(0.0, 0.0), Vector2(100.0, 0.0))
+	var boundary := r.length() * 0.5
+	var band := Pasture3DRoadRun.SURFACE_BLEND
+	var before := r.sample_surface(boundary - band * 0.5)
+	var at := r.sample_surface(boundary + 0.01)
+	var after := r.sample_surface(boundary + band * 0.5)
+	print("    %.1f m before: %s/%s blend %.3f" % [band * 0.5, String(before["primary"]),
+			String(before["secondary"]), float(before["blend"])])
+	print("    at the line:   %s/%s blend %.3f" % [String(at["primary"]), String(at["secondary"]),
+			float(at["blend"])])
+	print("    %.1f m after:  %s/%s blend %.3f" % [band * 0.5, String(after["primary"]),
+			String(after["secondary"]), float(after["blend"])])
+	# At the line the two surfaces are equal: blend 0.5. Anything else makes the transition asymmetric,
+	# and which way it leaned would then depend on the direction of travel.
+	_check("G", absf(float(at["blend"]) - 0.5) < 0.02 and StringName(at["secondary"]) != &"",
+			"blend at the line is %.3f with secondary '%s' (want 0.5 and a name)"
+					% [float(at["blend"]), String(at["secondary"])])
+
+	# CONTROL: WELL away from the boundary there must be no blend at all, or every query pays for a
+	# transition and a caller that ignores blending gets a wrong answer everywhere instead of nowhere.
+	var solid := r.sample_surface(boundary * 0.25)
+	print("    control: far from any boundary -> %s/%s blend %.3f (want a single name, blend 0)"
+			% [String(solid["primary"]), String(solid["secondary"]), float(solid["blend"])])
+	if float(solid["blend"]) != 0.0 or StringName(solid["secondary"]) != &"":
+		_fail += 1; print("    !! surfaces are blending where there is nothing to blend with")
+
+	# CONTROL: the blend must be MONOTONIC across the band, not merely non-zero at the line. A step
+	# hidden inside the band would pass a check that only sampled the middle.
+	var last := -1.0
+	var monotonic := true
+	for k in 13:
+		var s := boundary - band * 0.5 + band * float(k) / 12.0
+		var q := r.sample_surface(s)
+		# `blend` runs from PRIMARY toward SECONDARY, so the gravel fraction is the blend itself where
+		# gravel is the secondary and its complement where gravel is the primary. Reading it the other way
+		# round makes a perfectly monotonic transition look like it doubles back at the line.
+		var toward_gravel: float = (1.0 - float(q["blend"])) if StringName(q["primary"]) == &"gravel" \
+				else float(q["blend"])
+		if toward_gravel < last - 1e-4:
+			monotonic = false
+		last = toward_gravel
+	print("    control: the blend rises monotonically across the %.0f m band: %s"
+			% [band, "yes" if monotonic else "NO"])
+	if not monotonic:
+		_fail += 1; print("    !! the transition is not monotonic; grip would move both ways crossing it")
+
+	# CONTROL: the ROAD'S OWN ENDS must not blend into nothing, or grip fades away at the start line.
+	var start := r.sample_surface(0.5)
+	print("    control: half a metre from the start -> %s/%s blend %.3f (want no fade)"
+			% [String(start["primary"]), String(start["secondary"]), float(start["blend"])])
+	if float(start["blend"]) != 0.0:
+		_fail += 1; print("    !! the surface fades out at the start of the road")
+
+
+# ---- H ------------------------------------------------------------------------------------------
+
+## [H] Pace notes find the features that are actually there, and only those.
+##
+## Every quantity here was computed for another reason: corner severity and side from plan curvature and
+## its sign, crests from the sign of d²z/ds², which is the vertical solver's own smoothness term (§9.4).
+## Nothing is solved — it is a peak detect over data that already exists.
+##
+## That is also the argument for §7 restated: **a draped road cannot produce these calls at all.** On a
+## drape, d²z/ds² is terrain noise sampled at the road's position, so it would generate a crest call every
+## few metres and none of them would mean anything. The flattening control below is exactly that test.
+func _h_pace_notes_find_the_features_that_are_there() -> void:
+	print("[H] pace notes find the features that are there")
+	var r := _run(1, Vector2(0.0, 0.0), Vector2(300.0, 0.0), 0.0)
+	var a := r.alignment
+	var n := a.count()
+	# A known road: a 40 m-radius right-hander a third of the way along, and a brow at two thirds.
+	var curv := PackedFloat32Array(); curv.resize(n)
+	var z := PackedFloat32Array(); z.resize(n)
+	for i in n:
+		var s := float(i) * a.ds
+		curv[i] = (1.0 / 40.0) if (s > float(n) * 0.30 and s < float(n) * 0.40) else 0.0
+		var d := s - float(n) * 0.66
+		z[i] = 20.0 - 0.0008 * d * d
+	a.curvature = curv
+	a.z = z
+	a.ground = z.duplicate()
+	var notes := Pasture3DRoadPaceNotes.generate(r)
+	for c: Dictionary in notes:
+		print("    %6.1f m  %s" % [float(c["s"]), String(c["text"])])
+	var kinds: Array = []
+	for c: Dictionary in notes:
+		kinds.append(int(c["kind"]))
+	var has_corner := kinds.has(Pasture3DRoadPaceNotes.Kind.CORNER)
+	var has_crest := kinds.has(Pasture3DRoadPaceNotes.Kind.CREST)
+	var has_surface := kinds.has(Pasture3DRoadPaceNotes.Kind.SURFACE)
+	_check("H", has_corner and has_crest and has_surface,
+			"corner %s, crest %s, surface change %s (want all three)"
+					% [str(has_corner), str(has_crest), str(has_surface)])
+
+	# The corner must be called RIGHT, and its severity must reflect a 40 m radius rather than a constant.
+	for c: Dictionary in notes:
+		if int(c["kind"]) == Pasture3DRoadPaceNotes.Kind.CORNER:
+			print("    the 40 m-radius corner is called '%s' (severity %d, direction %+d)"
+					% [String(c["text"]), int(c["severity"]), int(c["direction"])])
+			if int(c["direction"]) <= 0 or int(c["severity"]) != 3:
+				_fail += 1
+				print("    !! a 40 m right-hander is not being called as a right 3")
+
+	# CONTROL: FLATTEN the profile and the crest call must disappear — the criterion §9.4 names.
+	# Without it, [H] passes on a detector that calls a crest everywhere.
+	var flat := PackedFloat32Array(); flat.resize(n)
+	a.z = flat
+	a.ground = flat.duplicate()
+	var flat_notes := Pasture3DRoadPaceNotes.generate(r)
+	var flat_crests := 0
+	for c: Dictionary in flat_notes:
+		if int(c["kind"]) == Pasture3DRoadPaceNotes.Kind.CREST \
+				or int(c["kind"]) == Pasture3DRoadPaceNotes.Kind.DIP:
+			flat_crests += 1
+	print("    control: with the profile flattened, %d crest/dip calls remain (want 0)" % flat_crests)
+	if flat_crests != 0:
+		_fail += 1; print("    !! crests are being called on a road with no vertical geometry")
+
+	# CONTROL: and the corner must SURVIVE the flattening, or the control above passed by deleting
+	# everything rather than by removing the vertical calls.
+	var flat_corners := 0
+	for c: Dictionary in flat_notes:
+		if int(c["kind"]) == Pasture3DRoadPaceNotes.Kind.CORNER:
+			flat_corners += 1
+	print("    control: the corner survives the flattening: %d corner call(s) (want 1)" % flat_corners)
+	if flat_corners != 1:
+		_fail += 1; print("    !! flattening the profile removed more than the vertical calls")
+
+	# CONTROL: reversed, the right-hander must be called LEFT. This is what P6a's curvature sign flip is
+	# for, and a co-driver calling every corner the wrong way on the reverse stage is the failure.
+	a.z = z
+	a.ground = z.duplicate()
+	var rev := Pasture3DRoadPaceNotes.generate(r, true)
+	var rev_dir := 0
+	for c: Dictionary in rev:
+		if int(c["kind"]) == Pasture3DRoadPaceNotes.Kind.CORNER:
+			rev_dir = int(c["direction"])
+	print("    control: driven the other way the same corner is called direction %+d (want -1, left)"
+			% rev_dir)
+	if rev_dir >= 0:
+		_fail += 1; print("    !! the reverse stage calls every corner the wrong way")
+
+
+# ---- I ------------------------------------------------------------------------------------------
+
+## [I] Streaming lookahead follows the ROUTE, not a radius around the player.
+##
+## This is the point of the hint (§10). At stage pace a radius policy loads chunks roughly when you
+## arrive at them; an active route is a KNOWN CORRIDOR, so what matters is what lies AHEAD along it. A
+## run passing close by but not on the route must not be pulled in, and a run 200 m ahead on the route
+## must be — which is close to the opposite of what a radius returns.
+func _i_lookahead_is_along_the_route_not_around_the_player() -> void:
+	print("[I] lookahead is along the route, not around the player")
+	var rt := _network()
+	var route := _route(rt, [{"run_id": 1, "reversed": false}, {"run_id": 2, "reversed": false},
+			{"run_id": 3, "reversed": false}])
+	# 10 m in, moving fast: the third run starts about 200 m ahead and must already be pulled in.
+	var fast := route.lookahead(rt, 10.0, 60.0)
+	var slow := route.lookahead(rt, 10.0, 0.0, 120.0, 0.0)
+	print("    at 10 m into the stage: at speed -> runs %s; with a 120 m window -> runs %s"
+			% [str(Array(fast)), str(Array(slow))])
+	_check("I", fast.has(3) and not slow.has(3),
+			"the far run is loaded at speed (%s) and not on a short window (%s)"
+					% [str(fast.has(3)), str(slow.has(3))])
+
+	# CONTROL: run 9 sits 900 m away in z and is NOT on the route. It must be absent no matter how large
+	# the lookahead gets, which is the claim a radius policy cannot make.
+	var huge := route.lookahead(rt, 10.0, 0.0, 100000.0, 0.0)
+	print("    control: with a 100 km window the off-route run is %s (want absent)"
+			% ("present" if huge.has(9) else "absent"))
+	if huge.has(9):
+		_fail += 1; print("    !! lookahead is returning runs that are not on the route")
+
+	# CONTROL: speed must MOVE the window, or the bias is decorative. Time is what runs out, not distance.
+	print("    control: %d run(s) at speed vs %d on the short window (speed must widen it)"
+			% [fast.size(), slow.size()])
+	if fast.size() <= slow.size():
+		_fail += 1; print("    !! speed does not widen the lookahead")
+
+	# CONTROL: the traffic hook reports the corridor and CLEARS NOTHING. It is data for a project's own
+	# traffic system, which is where that logic belongs.
+	var ahead := route.corridor_ahead(rt, 10.0, 300.0)
+	print("    control: corridor_ahead -> %.0f-%.0f m, half width %.1f m, runs %s"
+			% [float(ahead["from_s"]), float(ahead["to_s"]), float(ahead["half_width"]),
+					str(Array(ahead["run_ids"]))])
+	if absf(float(ahead["to_s"]) - float(ahead["from_s"]) - 300.0) > 0.01 \
+			or float(ahead["half_width"]) != route.corridor_width:
+		_fail += 1; print("    !! the corridor hook does not describe the corridor it was asked for")
