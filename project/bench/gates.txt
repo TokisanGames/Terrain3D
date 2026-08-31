@@ -257,3 +257,10 @@ bench/RoadJunctionGate.tscn
 # solve, the trim-back keeps that road's carriageway out of the footprint, and the bake -> resolve ->
 # bake loop reaches a fixed point instead of ping-ponging.
 bench/RoadNetworkGate.tscn
+
+# P4b - the lane graph and the four queries a naive consumer needs (SS6.4). Grows with the phase; it
+# starts at the cross-section because a connector joins two lanes and a stop line sits at the head of
+# one, so an error there surfaces everywhere else as something that looks like a junction bug. The
+# lanes tile the carriageway exactly, traffic_side decides which lanes are oncoming and does it the
+# right way round, a one-way road has none, and an offset finds exactly one lane at every boundary.
+bench/RoadLaneGraphGate.tscn
