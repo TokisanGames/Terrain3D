@@ -113,6 +113,11 @@ func _get_override(p_field: StringName, p_unset: Variant) -> Variant:
 	return road_defaults.get(p_field) if road_defaults != null else p_unset
 
 
+## Re-bake guard for the corridor-width feedback in `grade_surface`. Not saved: it is true only for the
+## duration of one widening pass.
+var _widening: bool = false
+var _last_corridor_half: float = 0.0
+
 ## Bumped whenever a resolved value could have changed. The staleness key P2's grading modifier and P4's
 ## intersection resolver will fold into their caches.
 var content_key: int = 0
@@ -268,15 +273,18 @@ func _is_closed() -> bool:
 	return closed
 
 
-## Half the corridor, INCLUDING the batter run.
+## Half the corridor, INCLUDING the batter run — the ONE definition of how wide a road reaches.
 ##
-## The batter reaches (height to make up) / (batter slope) past the formation, so a deep cut needs a much
-## wider footprint than the road's own width suggests. Getting this wrong does not crop the batter neatly
-## — the grid simply ends and leaves a wall at its edge, which is the same artefact a clipped verge
-## produced. The allowance is the worst offset the LAST bake actually produced where that is known, and
-## the modifier's structure threshold before then, because that is the depth past which the user is being
-## told to bridge anyway.
-func _padding() -> float:
+## The batter reaches (height to make up) / (batter slope) past the formation, so a deep cut needs a far
+## wider corridor than the road's own width suggests. This existed in three places at once — the grader's
+## per-cell reach, the footprint padding, and the corridor mask below — and fixing two of them left a
+## sheer wall exactly where the third one stopped. Any of the three being narrow produces the identical
+## artefact, so there is now one answer and three callers.
+##
+## The depth allowance is the worst offset the LAST bake actually produced where that is known, and the
+## modifier's structure threshold before then, because that is the depth past which the user is already
+## being told to bridge.
+func corridor_half_width() -> float:
 	var t := resolved_road_type()
 	if t == null:
 		return 16.0
@@ -291,7 +299,11 @@ func _padding() -> float:
 				batter = minf(batter, road_mod.cut_batter_override)
 			if road_mod.fill_batter_override >= 0.0:
 				batter = minf(batter, road_mod.fill_batter_override)
-	return t.disturbed_width(resolved_lane_count()) * 0.5 + allowance / maxf(batter, 0.05) + 2.0
+	return t.disturbed_width(resolved_lane_count()) * 0.5 + allowance / maxf(batter, 0.05)
+
+
+func _padding() -> float:
+	return corridor_half_width() + 2.0
 
 
 ## Starter shape: a straight run, matching Ridge's.
@@ -338,8 +350,10 @@ func _paint_flat_footprint(path: Path3D) -> void:
 		return
 	var n := gw * gh
 
-	var t := resolved_road_type()
-	var reach: float = (t.disturbed_width(resolved_lane_count()) * 0.5) if t != null else 16.0
+	# The SAME reach the grader and the padding use. When this was narrower than the grader's, every cell
+	# past it was marked NaN before the grader saw it, so the batter had nowhere to land and ended in a
+	# wall — with the grader itself already fixed and looking innocent.
+	var reach := corridor_half_width()
 	var cum := Pasture3DRoadGrader.cumulative_length(plan)
 
 	var extent := _extent_key(min_x, min_z, vs, gw, gh)
@@ -459,6 +473,22 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 		alignment = Pasture3DRoadAlignmentSolver.solve_with_plan(_resample_plan(plan, cum, ds, n_s),
 				ground, ds, t.max_grade, t.design_speed, t.max_superelevation)
 	p_mod.last_alignment = alignment
+
+	# ---- THE CORRIDOR WIDTH DEPENDS ON A RESULT THE BAKE HAS TO PRODUCE FIRST -----------------------
+	#
+	# How far the batter reaches is (how deep the cut is) / (batter slope), and how deep the cut is only
+	# becomes known once the alignment has been solved — which happens here, inside the bake that already
+	# committed to a footprint width. So the FIRST bake of a deep cutting is necessarily too narrow, and
+	# without this it would sit there with a wall down each side until something happened to refresh it
+	# again. One re-bake, guarded so it cannot recurse: the second pass has `_deepest_structure` and gets
+	# the width right.
+	if not _widening:
+		var needed := corridor_half_width()
+		if needed > _last_corridor_half + 0.5:
+			_last_corridor_half = needed
+			_widening = true
+			_schedule_refresh()
+			(func() -> void: _widening = false).call_deferred()
 
 	var res := Pasture3DRoadGrader.grade(p_z, p_gw, p_gh, p_min_x, p_min_z, p_vs, plan, alignment,
 			half, shoulder, verge, suppress, {
