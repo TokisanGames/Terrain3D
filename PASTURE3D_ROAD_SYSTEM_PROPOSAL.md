@@ -704,6 +704,28 @@ Three things settled here:
   that lands on the grid. The gate's first version cut at 13 m and passed; cutting at 20 m, on a prop,
   failed. Half-open costs at most one prop at the very end of a road.
 
+**Tier switching, fixed 2026-08-31.** Two bugs in the host, both of which presented as something else.
+
+**Distance was measured to the chunk's CENTRE.** A chunk is cut to a terrain region, so at the default
+256 m region it is up to 256 m long, and the centre is up to 128 m from either end. Measured that way:
+
+* The chunk you are *standing on* reports ~126 m and is given LOD 1 or 2. Tier NEAR effectively did not
+  exist on a full-length chunk, and the road looked permanently coarse — which reads as the LOD meshes
+  being wrong, not as the distance being taken from the wrong point.
+* Whole chunks popped. A centre crossing `far_distance` took 256 m of road with it in one frame, while
+  the near end of that chunk was still 470 m away.
+
+Distance is now to the chunk's own AABB, which is exact and already computed, so it costs a clamp.
+
+**There was no hysteresis.** The thresholds are hard comparisons over a distance that jitters, so a
+camera hovering on a line crossed it dozens of times a second and each crossing was a mesh swap. The gate
+measures this directly: jittering 1 m either side of the 60 m line for 40 frames produced **40 swaps**
+before, and 0 after. `lod_hysteresis` (12 m) is a dead band on every threshold including the far-hide.
+
+Both are gated by `RoadMeshGate` [K] and [L], and [K] needed a **full 256 m fixture** to catch anything
+— the gate's usual 100 m road puts its centre at 48 m, inside the first LOD band, where both rules agree.
+The control caught that the first time it was written, which is the case for controls in one line.
+
 **There is no P3.** The reorder moved the ribbon mesh from P3 to P5 and the junction split kept the
 P4a/P4b names it already had, which briefly left the mesh listed twice. The gap is deliberate rather
 than a missing row: renumbering the junction phases would break every reference to them in §6 and

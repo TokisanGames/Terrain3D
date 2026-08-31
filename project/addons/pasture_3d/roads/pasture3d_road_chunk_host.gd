@@ -41,6 +41,15 @@ extends Node3D
 		far_distance = v
 		_dirty_lod = true
 
+## Dead band on every threshold, metres. A tier or a hide only changes once the distance is this far
+## PAST the line, so a camera parked on a threshold does not flip the mesh every frame.
+##
+## Needed because the thresholds are hard comparisons over a distance that jitters: an orbiting or
+## hand-held camera crosses a line dozens of times a second, and each crossing is a mesh swap. The
+## symptom is a ribbon that flickers, which reads as the chunks failing to build rather than as the
+## comparison being exact.
+@export var lod_hysteresis: float = 12.0
+
 ## Metres the ribbon rides above the graded ground. Exposed for tuning on unusual terrain scales, not
 ## for turning off — see Pasture3DRoadMesher.DEPTH_LIFT for why coplanar is not an option.
 @export var depth_lift: float = Pasture3DRoadMesher.DEPTH_LIFT
@@ -155,6 +164,8 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 		_chunks.append({
 			"node": mi,
 			"centre": Vector3(at.x, alignment.height_at(mid), at.y),
+			# The chunk's own extent, which is what distance is measured to. See `_distance_to`.
+			"bounds": (meshes[0] as ArrayMesh).get_aabb(),
 			"meshes": meshes,
 			"lod": 0,
 		})
@@ -296,6 +307,7 @@ func rebuild_aprons(p_aprons: Array, p_lift: float = Pasture3DRoadMesher.DEPTH_L
 		_chunks.append({
 			"node": mi,
 			"centre": Vector3(c.x, verts[0].y, c.y),
+			"bounds": mesh.get_aabb(),
 			"meshes": meshes,
 			"lod": 0,
 		})
@@ -340,16 +352,26 @@ func _process(_delta: float) -> void:
 		var mi: MeshInstance3D = c["node"]
 		if not is_instance_valid(mi):
 			continue
-		var d := eye.distance_to(c["centre"])
+		var d := _distance_to(c, eye)
 		_nearest = minf(_nearest, d)
-		if far_distance > 0.0 and d > far_distance:
-			_hidden += 1
-			# Nothing to fade into: the carriageway is already painted into the terrain, so stopping is
-			# the whole transition (§10).
-			mi.visible = false
-			continue
-		mi.visible = true
-		var want := lod_for(d)
+		if far_distance > 0.0:
+			# Hysteresis both ways: hide only past far + band, show again only inside far - band. Without
+			# the gap, a chunk sitting on the line toggles every frame.
+			var shown: bool = mi.visible
+			if shown and d > far_distance + lod_hysteresis:
+				mi.visible = false
+			elif not shown and d < far_distance - lod_hysteresis:
+				mi.visible = true
+			elif _dirty_lod:
+				mi.visible = d <= far_distance
+			if not mi.visible:
+				# Nothing to fade into: the carriageway is already painted into the terrain, so stopping is
+				# the whole transition (§10).
+				_hidden += 1
+				continue
+		else:
+			mi.visible = true
+		var want := lod_for(d, int(c["lod"]))
 		if want != int(c["lod"]) or _dirty_lod:
 			c["lod"] = want
 			mi.mesh = c["meshes"][want]
@@ -358,25 +380,77 @@ func _process(_delta: float) -> void:
 	# debugging session — so the host says which it is, with the distance that decided it.
 	if _report and Engine.is_editor_hint():
 		_report = false
-		print("[Pasture3D] %s: %d chunk(s), %d hidden beyond %.0f m; nearest is %.0f m from the camera"
-				% [get_parent().name if get_parent() != null else name, _chunks.size(), _hidden,
-					far_distance, _nearest])
+		var tiers := PackedInt32Array()
+		tiers.resize(Pasture3DRoadMesher.LOD_LEVELS)
+		for c in _chunks:
+			tiers[int(c["lod"])] += 1
+		print("[Pasture3D] %s: %d chunk(s) at LOD %s, %d hidden beyond %.0f m; nearest is %.0f m"
+				% [get_parent().name if get_parent() != null else name, _chunks.size(), str(Array(tiers)),
+					_hidden, far_distance, _nearest])
 	_hidden = 0
 	_nearest = INF
 	_dirty_lod = false
 
 
+## Distance from `p_eye` to the NEAREST POINT of a chunk, not to its centre.
+##
+## ---- WHY THE CENTRE IS THE WRONG POINT ----
+##
+## A chunk is cut to a terrain region, so at the default 256 m region it is up to 256 m LONG. Measuring
+## to its centre means a chunk you are STANDING ON reports up to 128 m, and two things follow, both of
+## which look like other bugs:
+##
+##   The chunk under your wheels is given a distant tier. With the default thresholds it never reaches
+##   LOD 0 at all on a full-length chunk, so tier NEAR effectively does not exist and the road looks
+##   permanently coarse — which reads as the LOD meshes being wrong rather than as the distance being
+##   measured to the wrong place.
+##
+##   Whole chunks pop. As the camera moves, a centre crosses `far_distance` and 256 m of road appears or
+##   vanishes in one frame, while the near end of that chunk was only 470 m away. That is the snapping.
+##
+## The mesh's own AABB is exact and already computed, so this costs a clamp.
+func _distance_to(p_chunk: Dictionary, p_eye: Vector3) -> float:
+	var box: Variant = p_chunk.get("bounds")
+	if box == null:
+		return p_eye.distance_to(p_chunk["centre"])
+	var aabb: AABB = box
+	var near := Vector3(
+			clampf(p_eye.x, aabb.position.x, aabb.end.x),
+			clampf(p_eye.y, aabb.position.y, aabb.end.y),
+			clampf(p_eye.z, aabb.position.z, aabb.end.z))
+	return p_eye.distance_to(near)
+
+
 ## The tier for a distance: the first band it falls inside, clamped to the coarsest mesh that exists.
+##
+## `p_current` is the tier the chunk is already showing. Passing it applies HYSTERESIS: the chunk keeps
+## what it has until the distance clears the threshold by `lod_hysteresis`, so a camera hovering on a
+## line does not swap the mesh every frame. Pass -1 for the raw answer.
 ##
 ## Public because it is the one part of the host that is arithmetic rather than scene-tree work, and an
 ## off-by-one band is invisible — the road still draws, at the wrong tier, and looks like the meshes
 ## being wrong rather than like the thresholds being read wrong.
-func lod_for(p_distance: float) -> int:
+func lod_for(p_distance: float, p_current: int = -1) -> int:
 	var meshes_max := Pasture3DRoadMesher.LOD_LEVELS - 1
+	var want := meshes_max
 	for i in lod_distances.size():
 		if p_distance < lod_distances[i]:
-			return mini(i, meshes_max)
-	return meshes_max
+			want = mini(i, meshes_max)
+			break
+	if p_current < 0 or want == p_current or lod_hysteresis <= 0.0:
+		return want
+	# Moving to a COARSER tier needs the distance to be past that tier's own lower edge by the band;
+	# moving FINER needs it to be inside the current tier's lower edge by the band. Asymmetric on purpose:
+	# the band is measured against the line being crossed, not against where the chunk happens to be.
+	var edge := p_current - 1 if want < p_current else p_current
+	if edge < 0 or edge >= lod_distances.size():
+		return want
+	var line := lod_distances[edge]
+	if want > p_current and p_distance < line + lod_hysteresis:
+		return p_current
+	if want < p_current and p_distance > line - lod_hysteresis:
+		return p_current
+	return want
 
 
 ## The camera to measure from: the editor's viewport camera when there is one, the game's otherwise.

@@ -35,6 +35,8 @@ func _ready() -> void:
 	_h_distance_picks_the_tier_the_thresholds_name()
 	_i_the_apron_is_the_same_surface_as_the_ground_it_covers()
 	_j_only_the_minor_road_stops_at_a_junction()
+	_k_distance_is_measured_to_the_chunk_not_to_its_centre()
+	_l_a_tier_does_not_chatter_on_its_own_threshold()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD MESH PASS" if _fail == 0 else "ROAD MESH FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -595,3 +597,128 @@ func _j_only_the_minor_road_stops_at_a_junction() -> void:
 			% [j.radius, j.widest_trim_back(), maxf(j.radius, j.widest_trim_back())])
 	if maxf(j.radius, j.widest_trim_back()) < j.widest_trim_back():
 		_fail += 1; print("    !! the apron would be smaller than the trim-back")
+
+
+# ---- K ------------------------------------------------------------------------------------------
+
+## [K] Distance is measured to the CHUNK, not to its centre.
+##
+## A chunk is cut to a terrain region, so at the default 256 m region it is up to 256 m long. Measuring
+## to its centre means the chunk you are STANDING ON reports up to 128 m, and two separate symptoms
+## follow, neither of which looks like a distance problem:
+##
+##   Tier NEAR stops existing. With the default thresholds a full-length chunk under the camera is given
+##   LOD 2, so the road is permanently coarse and it reads as the LOD meshes being wrong.
+##
+##   Whole chunks pop. A centre crossing `far_distance` takes 256 m of road with it in one frame, while
+##   the near end of that chunk was still 470 m away.
+##
+## Both shipped. This criterion is the arithmetic that would have caught them, and it needs a LONG chunk
+## to catch anything — which is why the fixture is a full region rather than a convenient 30 m.
+func _k_distance_is_measured_to_the_chunk_not_to_its_centre() -> void:
+	print("[K] distance is measured to the chunk, not to its centre")
+	var host := Pasture3DRoadChunkHost.new()
+	# A FULL REGION of road: 256 m, the default region size, because that is how long a real chunk is and
+	# a short fixture cannot tell the two measurements apart. The 100 m fixture the rest of this gate uses
+	# put its centre at 48 m, inside the first LOD band, so both rules agreed and the criterion proved
+	# nothing — the control below is what said so.
+	var plan := PackedVector2Array([Vector2(0.0, 8.0), Vector2(256.0, 8.0)])
+	var cum := Pasture3DRoadGrader.cumulative_length(plan)
+	var a := Pasture3DRoadAlignment.new()
+	a.ds = DS
+	var z := PackedFloat32Array(); var bank := PackedFloat32Array(); var curv := PackedFloat32Array()
+	z.resize(257); bank.resize(257); curv.resize(257)
+	for i in 257:
+		z[i] = float(i) * 0.02
+	a.z = z; a.ground = z.duplicate(); a.bank = bank; a.curvature = curv
+	var arrays := Pasture3DRoadMesher.build_chunk(plan, cum, a, 0.0, 256.0, 4.0, 1.0, 0.05, 0)
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var box := mesh.get_aabb()
+	var chunk := { "bounds": box, "centre": box.get_center() }
+	var eye := Vector3(2.0, 2.0, 8.0)  # on the road, a couple of metres in
+	var to_chunk := host._distance_to(chunk, eye)
+	var to_centre := eye.distance_to(chunk["centre"])
+	print("    a %.0f m chunk; from its near end: %.1f m to the chunk, %.1f m to its centre"
+			% [box.size.x, to_chunk, to_centre])
+	print("    that is LOD %d against LOD %d" % [host.lod_for(to_chunk), host.lod_for(to_centre)])
+	_check("K", to_chunk < 5.0 and host.lod_for(to_chunk) == 0,
+			"standing on the chunk reads %.1f m and LOD %d (want ~0 m and LOD 0)"
+					% [to_chunk, host.lod_for(to_chunk)])
+
+	# CONTROL: the centre must give a DIFFERENT and worse answer on this fixture, or the criterion cannot
+	# tell the two rules apart and would pass on either.
+	print("    control: the centre disagrees by %.1f m and by %d tier(s) (both must be non-zero)"
+			% [to_centre - to_chunk, host.lod_for(to_centre) - host.lod_for(to_chunk)])
+	if to_centre - to_chunk < 10.0 or host.lod_for(to_centre) == host.lod_for(to_chunk):
+		_fail += 1
+		print("    !! the fixture chunk is too short to distinguish the two measurements")
+
+	# CONTROL: the far-hide must use the same measurement. A chunk whose NEAR end is inside far_distance
+	# must not be hidden because its centre is outside it — that is the popping, stated as arithmetic.
+	var far_eye := Vector3(-590.0, 2.0, 8.0)
+	var near_end := host._distance_to(chunk, far_eye)
+	var centre_end := far_eye.distance_to(chunk["centre"])
+	print("    control: from %.0f m away, near end %.0f m vs centre %.0f m against a %.0f m cutoff"
+			% [590.0, near_end, centre_end, host.far_distance])
+	if not (near_end < host.far_distance and centre_end > host.far_distance):
+		_fail += 1
+		print("    !! the fixture does not straddle the cutoff, so it cannot catch the pop")
+	host.free()
+
+
+# ---- L ------------------------------------------------------------------------------------------
+
+## [L] A tier does not chatter on its own threshold.
+##
+## The thresholds are hard comparisons over a distance that jitters. A camera hovering on a line crosses
+## it dozens of times a second and each crossing is a mesh swap, so the ribbon flickers — which reads as
+## the chunks failing to build rather than as the comparison being exact.
+##
+## Hysteresis means the answer depends on what the chunk is ALREADY showing, so this is checked by
+## walking the camera across a line and back rather than by asking for a single distance.
+func _l_a_tier_does_not_chatter_on_its_own_threshold() -> void:
+	print("[L] a tier does not chatter on its own threshold")
+	var host := Pasture3DRoadChunkHost.new()
+	var line: float = host.lod_distances[0]
+	var band: float = host.lod_hysteresis
+	# Sit exactly on the line and jitter by a metre, which is less than the band.
+	var lod := 0
+	var swaps := 0
+	for k in 40:
+		var d := line + (1.0 if k % 2 == 0 else -1.0)
+		var want := host.lod_for(d, lod)
+		if want != lod:
+			swaps += 1
+		lod = want
+	print("    jittering 1 m either side of the %.0f m line for 40 frames: %d mesh swap(s)"
+			% [line, swaps])
+	_check("L", swaps <= 1, "%d swaps while jittering inside the %.0f m band (want at most 1)"
+			% [swaps, band])
+
+	# CONTROL: without hysteresis the SAME walk must chatter, or the criterion passes on a host whose
+	# thresholds never move at all.
+	host.lod_hysteresis = 0.0
+	var raw_lod := 0
+	var raw_swaps := 0
+	for k in 40:
+		var d := line + (1.0 if k % 2 == 0 else -1.0)
+		var want := host.lod_for(d, raw_lod)
+		if want != raw_lod:
+			raw_swaps += 1
+		raw_lod = want
+	print("    control: with the band set to 0 the same walk swaps %d time(s) (want many)" % raw_swaps)
+	if raw_swaps < 10:
+		_fail += 1
+		print("    !! the fixture does not actually cross the threshold, so the band proves nothing")
+
+	# CONTROL: a REAL move must still change tier. Hysteresis that never lets go is a road stuck at
+	# whatever tier it was first given.
+	host.lod_hysteresis = band
+	var moved := host.lod_for(line + band * 3.0, 0)
+	var back := host.lod_for(0.0, moved)
+	print("    control: %.0f m past the line -> LOD %d; back at the camera -> LOD %d (want 1 then 0)"
+			% [band * 3.0, moved, back])
+	if moved == 0 or back != 0:
+		_fail += 1; print("    !! hysteresis is preventing a genuine tier change")
+	host.free()
