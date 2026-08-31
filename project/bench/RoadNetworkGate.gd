@@ -33,6 +33,7 @@ func _ready() -> void:
 	_d_the_resolve_loop_settles()
 	_e_the_lane_graph_is_built_from_the_real_brushes()
 	_f_the_networks_traffic_side_reaches_the_connectors()
+	_g_every_chunk_host_setting_is_reachable_from_the_inspector()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD NETWORK PASS" if _fail == 0 else "ROAD NETWORK FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -409,3 +410,97 @@ func _f_the_networks_traffic_side_reaches_the_connectors() -> void:
 	print("    control: right-hand world: %d left / %d right (want 6/0)" % [rht_left, rht_right])
 	_check("F", left_conflicts == 0 and right_conflicts == 6 and rht_left == 6 and rht_right == 0,
 			"left-hand %d/%d, right-hand %d/%d" % [left_conflicts, right_conflicts, rht_left, rht_right])
+
+
+# ---- G ------------------------------------------------------------------------------------------
+
+## [G] Every chunk host setting is reachable from the inspector, and the network actually pushes it.
+##
+## ---- WHY A SETTING CAN EXIST AND STILL NOT EXIST ----
+##
+## Chunk hosts are BUILT output. They are created on first bake, replaced on the next one, and
+## deliberately not owned by the edited scene — so they never appear in the scene dock, cannot be
+## selected, and every `@export` on them is an export with no way in. `collision_enabled` shipped like
+## that: declared, defaulted, documented at length, and unreachable. It was found by someone going to
+## turn it on and not finding it.
+##
+## Two halves, because either alone passes on a broken system: the network must EXPOSE a counterpart for
+## every host setting, and `_configure_host` must actually COPY it. A network with the exports and no
+## copy looks identical in the inspector and does nothing.
+func _g_every_chunk_host_setting_is_reachable_from_the_inspector() -> void:
+	print("[G] every chunk host setting is reachable from the inspector")
+	var net := Pasture3DRoadNetwork.new()
+	add_child(net)
+	var host := Pasture3DRoadChunkHost.new()
+
+	# Distinctive values, none of them a host default, so a field that is never written stays visibly at
+	# its default rather than accidentally matching.
+	net.ribbon_lod_distances = PackedFloat32Array([11.0, 22.0, 33.0])
+	net.ribbon_far_distance = 444.0
+	net.ribbon_hysteresis = 5.5
+	net.ribbon_lift = 0.077
+	net.ribbon_collision = true
+	net.ribbon_collision_layer = 8
+	net.ribbon_collision_mask = 4
+	net.ribbon_markings = false
+	net.ribbon_props = false
+	net._configure_host(host)
+
+	var want := {
+		"lod_distances": PackedFloat32Array([11.0, 22.0, 33.0]),
+		"far_distance": 444.0,
+		"lod_hysteresis": 5.5,
+		"depth_lift": 0.077,
+		"collision_enabled": true,
+		"collision_layer": 8,
+		"collision_mask": 4,
+		"markings_enabled": false,
+		"props_enabled": false,
+	}
+	var unpushed := PackedStringArray()
+	for k: String in want:
+		if host.get(k) != want[k]:
+			unpushed.append("%s (%s, want %s)" % [k, str(host.get(k)), str(want[k])])
+	print("    %d host setting(s) checked; not pushed: %s" % [want.size(), str(Array(unpushed))])
+
+	# The COVERAGE half: walk the host's own script exports and require each to be in the pushed set. This
+	# is what catches the NEXT one — a setting added to the host later is unreachable the day it is
+	# added, and nothing else in the suite would notice.
+	var exempt := PackedStringArray(["markings_material"])  # a Material, set from the road type
+	var uncovered := PackedStringArray()
+	for prop in host.get_property_list():
+		if int(prop["usage"]) & PROPERTY_USAGE_SCRIPT_VARIABLE == 0:
+			continue
+		if int(prop["usage"]) & PROPERTY_USAGE_EDITOR == 0:
+			continue
+		var n: String = prop["name"]
+		if n.begins_with("_") or want.has(n) or exempt.has(n):
+			continue
+		uncovered.append(n)
+	print("    host exports with no network counterpart: %s" % str(Array(uncovered)))
+	_check("G", unpushed.is_empty() and uncovered.is_empty(),
+			"%d setting(s) not pushed, %d with no way in" % [unpushed.size(), uncovered.size()])
+
+	# CONTROL: the check must be able to SEE a host that was not configured, or it is comparing a value
+	# against itself and would pass on a `_configure_host` that returned immediately.
+	var fresh := Pasture3DRoadChunkHost.new()
+	var differing := 0
+	for k: String in want:
+		if fresh.get(k) != want[k]:
+			differing += 1
+	print("    control: an unconfigured host differs on %d of %d setting(s) (want all)"
+			% [differing, want.size()])
+	if differing != want.size():
+		_fail += 1
+		print("    !! some fixture values match the host defaults, so those fields prove nothing")
+
+	# CONTROL: the coverage walk must actually be finding properties. An empty walk reports zero uncovered
+	# and passes forever.
+	print("    control: the walk saw %d host export(s) (want more than the %d it checks)"
+			% [want.size() + uncovered.size() + exempt.size(), want.size()])
+	if want.size() + uncovered.size() + exempt.size() <= want.size():
+		_fail += 1
+		print("    !! the property walk found nothing, so coverage is not being checked")
+	fresh.free()
+	host.free()
+	net.free()

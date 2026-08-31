@@ -195,9 +195,17 @@ func _add_collider(p_parent: Node3D, p_plan: PackedVector2Array, p_cum: PackedFl
 			p_shoulder, p_crown, 0, 0.0)
 	if arrays.is_empty():
 		return
+	_collider_from(p_parent, arrays)
+
+
+## A trimesh body over one surface's triangles, on the road physics layer.
+##
+## Takes ARRAYS rather than building its own, so the apron and the ribbon get colliders from the same
+## code and cannot disagree about the layer, the shape type or the winding.
+func _collider_from(p_parent: Node3D, p_arrays: Array) -> void:
 	var faces := PackedVector3Array()
-	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	for i: int in arrays[Mesh.ARRAY_INDEX]:
+	var verts: PackedVector3Array = p_arrays[Mesh.ARRAY_VERTEX]
+	for i: int in p_arrays[Mesh.ARRAY_INDEX]:
 		faces.append(verts[i])
 	var shape := ConcavePolygonShape3D.new()
 	shape.set_faces(faces)
@@ -299,6 +307,15 @@ func rebuild_aprons(p_aprons: Array, p_lift: float = Pasture3DRoadMesher.DEPTH_L
 		mi.mesh = mesh
 		mi.top_level = true
 		add_child(mi)
+		if collision_enabled:
+			# Rebuilt at lift ZERO, like the ribbon's (see `_add_collider`), and NOT reused from the mesh
+			# above — that one carries the render lift. Without this the road has a hole in its collision
+			# at every junction: a raycast asking "am I on tarmac" answers yes along the road and no in the
+			# middle of the crossroads, which is exactly where a vehicle most needs the answer.
+			var solid := Pasture3DRoadMesher.build_apron(a["center"], float(a["radius"]), a["plan"],
+					a["cum"], a["alignment"], float(a["crown"]), 24, 0.0)
+			if not solid.is_empty():
+				_collider_from(mi, solid)
 		var meshes: Array = []
 		for _lod in Pasture3DRoadMesher.LOD_LEVELS:
 			meshes.append(mesh)

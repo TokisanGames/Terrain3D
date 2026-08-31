@@ -726,6 +726,29 @@ Both are gated by `RoadMeshGate` [K] and [L], and [K] needed a **full 256 m fixt
 — the gate's usual 100 m road puts its centre at 48 m, inside the first LOD band, where both rules agree.
 The control caught that the first time it was written, which is the case for controls in one line.
 
+**A setting on a chunk host is a setting nobody can reach.** Found straight after the two above, by
+going to turn collision on and not finding it. Chunk hosts are built output: created on first bake,
+replaced on the next, and deliberately not owned by the edited scene, so they never appear in the scene
+dock and cannot be selected. Every `@export` on one is therefore unreachable — `collision_enabled` was
+declared, defaulted and documented at length, and had no way in. So was the whole LOD group, which is
+why the tier bugs above had to be found by reading rather than by turning a knob.
+
+`ribbon_lift` already lived on the **network** for exactly this reason and said so in its own comment;
+the rest simply had not followed it. They do now, as an inspector group `Ribbon`, pushed into every host
+by `_configure_host` at bake. The three THRESHOLD settings are also pushed live, without a rebake:
+choosing a tier is a mesh swap over meshes that already exist, so a slider can move and the road can
+answer next frame. The rest change geometry made at bake and cannot honestly be applied without one.
+
+`RoadNetworkGate` [G] is in two halves, because either alone passes on a broken system: the network must
+expose a counterpart for every host setting, *and* `_configure_host` must actually copy it — a network
+with the exports and no copy looks identical in the inspector and does nothing. The coverage half walks
+the host's own exports, so the next setting added to a host is caught the day it is added.
+
+Turning collision on also exposed a second gap: **junction aprons had no colliders**, so the road's
+collision identity had a hole at every junction. A raycast asking "am I on tarmac" answered yes along
+the road and no in the middle of the crossroads, which is where a vehicle most needs it. Aprons now
+build one from the same `_collider_from` the ribbon uses, at lift zero for the same reason.
+
 **There is no P3.** The reorder moved the ribbon mesh from P3 to P5 and the junction split kept the
 P4a/P4b names it already had, which briefly left the mesh listed twice. The gap is deliberate rather
 than a missing row: renumbering the junction phases would break every reference to them in §6 and

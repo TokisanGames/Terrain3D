@@ -86,6 +86,124 @@ const PAINT_LAYER_MAPTYPE: int = 1 # Pasture3DData.MapType.TYPE_CONTROL
 		layer_name = v
 		_bump()
 
+@export_group("Ribbon")
+## Distance in metres at which each tier takes over: NEAR, then the coarser mesh tiers. Beyond the last,
+## `ribbon_far_distance` decides whether the chunk is drawn at all.
+##
+## Here for the same reason `ribbon_lift` is (see above): the chunk hosts are BUILT output, not owned by
+## the edited scene, so there is no node in the dock to select and an export on the host is an export
+## nobody can reach. Every one of these was unreachable until it was noticed that the collision toggle
+## could not be found — the setting existed, was documented, and had no way in.
+@export var ribbon_lod_distances: PackedFloat32Array = PackedFloat32Array([60.0, 140.0, 300.0]):
+	set(v):
+		ribbon_lod_distances = v
+		_bump()
+		_push_lod_live()
+
+## Beyond this, no ribbon at all: tier FAR carries the road, because the carriageway is painted into the
+## terrain already (P5a) and there is nothing left to draw. 0 disables hiding, which is for looking at
+## the mesh rather than for shipping.
+@export var ribbon_far_distance: float = 600.0:
+	set(v):
+		ribbon_far_distance = v
+		_bump()
+		_push_lod_live()
+
+## Dead band on every threshold above, metres. A tier only changes once the distance is this far past
+## the line, so a camera parked on a threshold does not swap the mesh every frame.
+@export var ribbon_hysteresis: float = 12.0:
+	set(v):
+		ribbon_hysteresis = v
+		_bump()
+		_push_lod_live()
+
+## Give every chunk and every junction apron a collider on the carriageway.
+##
+## ---- NOT THE DRIVING SURFACE ----
+##
+## The road went through the HEIGHTMAP (P2), so the terrain's own collision already IS the road: a
+## vehicle is held up by the graded ground whether this is on or off. What it adds is IDENTITY — a
+## raycast that answers "am I on tarmac or on grass", on its own physics layer, without sampling the
+## control map and decoding a texture id. Off by default, because a road nobody asks that question about
+## should not pay for the shapes.
+@export var ribbon_collision: bool = false:
+	set(v):
+		ribbon_collision = v
+		_bump()
+
+## Physics layer and mask for those colliders. Layer 2 by default so a road query cannot be confused with
+## a terrain query, and mask 0 because these shapes answer questions — nothing collides WITH them.
+@export_flags_3d_physics var ribbon_collision_layer: int = 2:
+	set(v):
+		ribbon_collision_layer = v
+		_bump()
+
+@export_flags_3d_physics var ribbon_collision_mask: int = 0:
+	set(v):
+		ribbon_collision_mask = v
+		_bump()
+
+## Draw lane markings on the carriageway (P5c). Junction aprons never take markings: the lane paths
+## through a junction are the connectors' business, not a stripe's.
+@export var ribbon_markings: bool = true:
+	set(v):
+		ribbon_markings = v
+		_bump()
+
+## Place the road type's verge props along the shoulders (P5c). Off makes a road with a prop mesh set
+## build nothing rather than fail, which is the difference between "no props here" and "props broken".
+@export var ribbon_props: bool = true:
+	set(v):
+		ribbon_props = v
+		_bump()
+
+
+## Push the three THRESHOLD settings into every live host, without a rebake.
+##
+## Separate from `_configure_host` because these three change nothing that was built: choosing a tier is
+## a mesh swap over meshes that already exist, so a slider can move and the road can answer on the next
+## frame. Everything else in the Ribbon group changes the GEOMETRY — colliders, stripes, props are
+## made at bake — and cannot honestly be applied without one.
+func _push_lod_live() -> void:
+	for host in _all_hosts():
+		host.lod_distances = ribbon_lod_distances
+		host.far_distance = ribbon_far_distance
+		host.lod_hysteresis = ribbon_hysteresis
+
+
+## Every chunk host under this network: the junction aprons' own, and one per road brush that has built.
+## Does NOT create them, so moving a slider before the first bake is a no-op rather than a bake.
+func _all_hosts() -> Array[Pasture3DRoadChunkHost]:
+	var out: Array[Pasture3DRoadChunkHost] = []
+	for child in get_children():
+		if child is Pasture3DRoadChunkHost:
+			out.append(child)
+	for b in road_brushes():
+		for child in b.get_children():
+			if child is Pasture3DRoadChunkHost:
+				out.append(child)
+	return out
+
+
+## Push the network's ribbon settings into one host.
+##
+## Applied at BUILD rather than bound once, because a host is created on first use and replaced whenever
+## its road is rebuilt — a setting written to the host at the moment it was made would be lost by the
+## next bake, and would come back as a default that looks like the export having no effect.
+func _configure_host(p_host: Pasture3DRoadChunkHost) -> void:
+	if p_host == null:
+		return
+	p_host.lod_distances = ribbon_lod_distances
+	p_host.far_distance = ribbon_far_distance
+	p_host.lod_hysteresis = ribbon_hysteresis
+	p_host.depth_lift = ribbon_lift
+	p_host.collision_enabled = ribbon_collision
+	p_host.collision_layer = ribbon_collision_layer
+	p_host.collision_mask = ribbon_collision_mask
+	p_host.markings_enabled = ribbon_markings
+	p_host.props_enabled = ribbon_props
+
+
 @export_group("Defaults")
 ## The bottom of the resolve chain (§5.3): what every road in the world uses where no group, brush or
 ## segment has an opinion. Values left unset here fall through to the resolved Pasture3DRoadType.
@@ -535,7 +653,10 @@ func build_junction_surfaces(p_brushes: Array = []) -> int:
 			"material": t.surface_material if t != null else null,
 		})
 	var host := ensure_junction_host()
-	return host.rebuild_aprons(aprons, ribbon_lift) if host != null else 0
+	if host == null:
+		return 0
+	_configure_host(host)
+	return host.rebuild_aprons(aprons, ribbon_lift)
 
 
 ## The node the junction aprons hang from. On the NETWORK, because a junction belongs to no single road.
@@ -659,6 +780,7 @@ func build_chunks(p_brushes: Array = []) -> int:
 	var total := 0
 	var silent := 0
 	for b in brushes:
+		_configure_host(b.ensure_chunk_host())
 		var made: int = b.rebuild_chunks(ribbon_lift)
 		total += made
 		if made == 0:
