@@ -9,6 +9,7 @@ extends RefCounted
 
 # --- Production Node Scripts ---
 const InputScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_input.gd")
+const PathDistanceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_path_distance.gd")
 const DevRoadSourceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_road_source.gd")
 const DevPathDistanceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_path_distance.gd")
 const DevPathMaskScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_path_mask.gd")
@@ -131,6 +132,7 @@ static func categories(p_include_dev: bool = false) -> Array[String]:
 		"Generators",
 		"Filters & Modifiers",
 		"Solvers & Realism",
+		"Roads",
 		"Math & Combiners",
 		"Constants",
 		"Routing & Structural",
@@ -210,6 +212,7 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 		{"op": &"erosion_thermal", "title": "Thermal Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionThermalScript, "tags": ["thermal", "erosion", "talus", "scree", "weathering", "cliff", "repose", "slippage", "rock"], "description": "Simulates rock weathering and gravitational talus scree accumulation along steep slopes."},
 		{"op": &"scree", "title": "Scree", "category": "Solvers & Realism", "role": "Solver", "script": ScreeScript, "tags": ["talus", "rubble", "rock", "slope", "erosion", "deposition"], "description": "Sheds loose rock off steep ground; outputs height + a shed mask."},
 		{"op": &"erosion", "title": "Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionScript, "tags": ["river", "fluvial", "stream", "hydraulic", "water", "valley", "channel", "sediment"], "description": "Stream-power fluvial erosion; outputs eroded height + flow / erosion / deposition / wetness channels."},
+		{"op": &"path_distance", "title": "Path Distance", "category": "Roads", "role": "Filter", "script": PathDistanceScript, "tags": ["road", "path", "distance", "corridor", "arc", "offset", "falloff", "verge"], "description": "Analytic distance to a PATH, plus arc length s and the signed across-position t. Exact, not jump-flooded."},
 		{"op": &"dla", "title": "DLA", "category": "Solvers & Realism", "role": "Solver", "script": DLAScript, "tags": ["mountain", "ridge", "massif", "aggregation", "diffusion", "branch", "peak", "range"], "description": "Diffusion-limited-aggregation mountain; grows a branching ridge massif, outputs height + a footprint mask."},
 	]
 

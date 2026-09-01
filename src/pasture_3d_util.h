@@ -259,6 +259,18 @@ public:
 			const int p_gw, const int p_gh, const double p_macro_gain, const double p_meso_gain,
 			const double p_micro_gain, const int p_macro_passes, const int p_meso_passes, const double p_amount);
 
+	// Analytic nearest-point query against a PATH, rasterised over a grid
+	// (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §5.2). `p_points` is the world-space XZ centreline and
+	// `p_widths` the half-width at each vertex (empty = 1.0 everywhere, which makes `t` signed metres).
+	// Returns { ok, distance, s, t }, each a p_gw*p_gh row-major grid sampled at cell CENTRES over p_rect:
+	// unsigned metres to the polyline (clamped at the ends), absolute arc length, and the across-position
+	// normalised by the local half-width with POSITIVE = the driver's right. An empty path fills `distance`
+	// with p_unreachable and s/t with 0 — never 0 distance, which would read as "every cell is on the road".
+	// p_max_distance > 0 clamps `distance` only.
+	static Dictionary path_query_grid(const PackedVector2Array &p_points, const PackedFloat32Array &p_widths,
+			const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_unreachable,
+			const double p_max_distance);
+
 	// Native Curvature Discrete Laplacian filter.
 	static PackedFloat32Array curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 			const int p_mode, const int p_radius, const double p_contrast);

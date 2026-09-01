@@ -150,7 +150,17 @@ func _c_registry_categories() -> void:
 			found += 1
 	_assert(found == road_ops.size(), "all %d road nodes are in Dev / Reference (found %d)"
 			% [road_ops.size(), found])
-	_assert(not listed.has("Roads"), "no empty Roads category is left in the palette order")
+	# Roads returned at P2a with a production, C++-backed Path Distance in it. The general rule is what is
+	# checked, not that one name: an ordered category with no entries is a menu that opens onto nothing,
+	# which is how "Roads" was left when the four road nodes moved behind the developer flag.
+	var empty_cats := PackedStringArray()
+	for cat in listed:
+		if cat != "Dev / Reference" and (cat_map.get(cat, []) as Array).is_empty():
+			empty_cats.append(cat)
+	_assert(empty_cats.is_empty(), "no empty category is left in the palette order (found %s)"
+			% str(empty_cats))
+	_assert((cat_map.get("Roads", []) as Array).size() >= 1,
+			"Roads carries the production path node(s) again")
 
 
 func _d_search_dialog_tree() -> void:

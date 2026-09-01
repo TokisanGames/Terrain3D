@@ -1,7 +1,7 @@
 # Pasture3D Graph Geometry Ports Specification
 
 **Document:** `PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md`
-**Status:** Design specification — not yet implemented
+**Status:** Specification — P2a in progress (the path query kernel is built; see §7)
 **Target:** Pasture3D Terrain Graph (Godot 4.7 GDExtension, C++20, GDScript)
 **Supersedes:** the "P2 native tier" line in `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md` §P2, which described a
 `BrushModStep::ROAD` that does not exist (see §2.4)
@@ -342,7 +342,7 @@ For `ROAD_GRADE` specifically: a road crossing a hole must not fill it.
 
 | Phase | Scope | Gate |
 | :--- | :--- | :--- |
-| **P2a** | Tier-2 kernels + bindings: `path_query_grid`, `path_mask_grid`, `road_grade_grid` on `Pasture3DUtil`. Production `road_source` / `path_distance` / `path_mask` / `road_grade` nodes that call them and fail fast. `grade_surface` refactored onto the same kernel (§6.2). The `Roads` palette category returns. | `RoadNativeParityGate` — native vs the four `dev_*` oracles on the `RoadGraphGate` fixtures, to the gate's existing thresholds; the brush's cut and the graph's still agree to 0.0000 m; a control that the kernels are actually being called (a missing binding must fail, not fall back). |
+| **P2a** ◐ | Tier-2 kernels + bindings: `path_query_grid` ✅ (2026-08-31, `src/pasture_3d_path_query.cpp`, gated by `RoadNativeParityGate` [A]–[C]), `path_mask_grid`, `road_grade_grid` on `Pasture3DUtil`. Production `road_source` / `path_distance` / `path_mask` / `road_grade` nodes that call them and fail fast. `grade_surface` refactored onto the same kernel (§6.2). The `Roads` palette category returns. | `RoadNativeParityGate` — native vs the four `dev_*` oracles on the `RoadGraphGate` fixtures, to the gate's existing thresholds; the brush's cut and the graph's still agree to 0.0000 m; a control that the kernels are actually being called (a missing binding must fail, not fall back). |
 | **P2b** | Multi-output channels in the program (§5.3) — `out_count`, per-operand source ports, the narrowed bail. Independently valuable for Erosion / DLA / Lake Flooding / Water Mask. | `GraphChannelLoweringGate` — a graph wiring a solver's secondary channel lowers natively and matches the GDScript evaluator; control: a port-1 wire out of a single-output op still refuses. |
 | **P2c** | The geometry table and the three ops in `graph_eval_grid` (§4). `GRAPH_BLEND_MIX` (§6.1). `blocks_native()` deleted from all four road nodes and from Blend. | Extend `GraphCppParityGate`; the §8 wiring 2 must lower end-to-end and match the GDScript result — the criterion is that gate [L]'s graph runs natively at all. |
 | **P2d** | GPU: geometry SSBO, the query in the compute shader. | `RoadGpuParityGate` (non-headless), GPU vs the CPU op. |
@@ -354,13 +354,68 @@ makes `blocks_native()` a lie worth deleting.
 
 ---
 
-## 8. Open decisions
+## 8. Decisions
 
-1. **`closed` paths** — reserved in the table; nothing consumes one yet. `Path Mask` on a closed path is
-   the region-mask node and is nearly free once the flag is honoured. Ship the flag, defer the node.
-2. **Where the geometry table is *built*.** `Pasture3DRoadNetwork.resolve_graph_paths` already injects
+### 8.1 Closed paths are region masks, and the customer is the brush shapes — DECIDED, in scope
+
+`closed` is honoured, and `Path Mask` on a closed path fills the interior. The reason is not roads at all:
+**it lets a Mound, Plow or Pond brush's own outline be reused as a graph mask.** Today the same region has
+to be drawn twice — once as the brush that shapes it, again as a Plow that masks it — and the second copy
+is scene clutter that silently drifts from the first the moment either is edited.
+
+That means the geometry table has a second producer besides `Road Source`: a **Shape Source** node naming a
+brush the way `Road Source` names a road, resolved by the host the same way (§8.2), handing over that
+brush's outline as a closed PATH. The host-side resolution already exists and is not brush-specific.
+
+Two consequences to design for rather than discover:
+
+* **Inside/outside needs a winding test, not a distance threshold.** `Path Mask`'s `t` thresholding is a
+  corridor — correct for a road, wrong for a region, where a wide shape would read as two ribbons along its
+  edges and a hole down the middle. A closed path uses a crossing-count test, with the existing feather
+  applied to the distance at the boundary. This is a different kernel branch, not a parameter.
+* **A brush outline is not guaranteed simple.** Self-intersecting or doubled-back outlines must produce
+  *something* defined rather than garbage; even-odd winding is the rule, and it is stated here so the CPU
+  and GPU paths cannot each pick their own.
+
+Scheduled with `path_mask` in P2a/P2c rather than deferred: the flag costs nothing to carry, and the mask
+kernel is being written once either way.
+
+### 8.2 Rivers take per-vertex widths and NO profile — DECIDED
+
+Surveyed HighMap/Hesiod, which is the closest system with both roads and rivers:
+
+* `dig_path(z, path, width, decay, flattening_radius, force_downhill, bbox, depth)` — a **scalar** width.
+* `dig_river(z, path_list, riverbank_talus, river_width, merging_width, depth, riverbed_talus, ...)` —
+  also a scalar width, with the *variation* coming from bank talus (angle of repose) and noise, and with a
+  **list** of paths plus a `merging_width` for confluences.
+
+We should not copy the scalar. Our table already carries `values` per vertex for roads, a river that widens
+downstream is the normal case, and we can drive that width from something they cannot: the Erosion node
+publishes `flow`, so a river's width can be sampled from its own catchment. A scalar is the degenerate case
+of a per-vertex array (fill it), so per-vertex costs nothing and buys the case that matters.
+
+We should **not** give rivers the `profile` block, and the reason is the principle that separates the two:
+
+> A road carries a solved vertical alignment because **a road's height is a design decision** — an engineer
+> chose a gradient and the terrain is cut to it. A river's height is a **consequence**: water goes where the
+> ground already sends it. A river reads the surface and carves down from it; it must not be handed a
+> pre-solved elevation, because a river that ignores the terrain it is in is the exact failure people notice
+> immediately.
+
+So `profile` stays optional and road-only, which is what §4.1 already permits. Rivers need `points`,
+`values`, and the surface — plus bank talus as a node parameter, not as geometry.
+
+**Deferred, and recorded so it is not rediscovered:** confluences. HighMap takes a *list* of paths with a
+merging width, because two rivers meeting is a geometry problem, not a per-cell one. `in_g` names one entry
+today. When a river solver needs several, the cheapest extension is a `group` id on table entries and an
+op that reads every entry in its group — not a second operand per tributary.
+
+### 8.3 Remaining open
+
+1. **Where the geometry table is *built*.** `Pasture3DRoadNetwork.resolve_graph_paths` already injects
    the resolved `Pasture3DGraphPath` into each Road Source before evaluation; `compile_graph_program` then
    flattens whatever it finds. No new resolution mechanism, and the host stays the only thing that
    touches the scene.
-3. **Per-vertex vs per-sample profile for rivers.** Roads need both (§4.1). A river may need only
-   `values`. The table permits `profile` to be absent, and `ROAD_GRADE` is the only op that requires it.
+2. **Confluences** — see the end of §8.2. Deferred, with the cheapest extension recorded.
+3. **A Shape Source for brush outlines** (§8.1) — decided in principle, unscheduled. It is a small node and
+   a host resolver, both modelled on `Road Source`; the kernel work it depends on is in P2a.
