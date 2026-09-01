@@ -419,6 +419,64 @@ func _auto_assign_terrain() -> void:
 		terrain = anc
 
 
+## ---- THE BRUSH AS GRAPH GEOMETRY (§8.1) --------------------------------------------------------------
+##
+## A brush already owns an outline. Before this, a graph that wanted to mask the region a Mound shapes had
+## to have that region drawn a SECOND time as a Plow — two splines meaning one thing, which drift apart the
+## moment either is edited and give no sign that they have. `graph_shape_path` hands the brush's own
+## outline to the graph as a closed PATH, so the shape is authored once.
+##
+## Deliberately NOT named `graph_path`: Pasture3DRoadBrush overrides that with its road centreline, and
+## the two are different questions. A road's `graph_path` is a solved alignment with a vertical profile; a
+## shape's is an outline with neither. Sharing the name would make a road brush answer the outline
+## question with a centreline, which is exactly the closed-vs-open confusion §8.1 exists to prevent.
+
+
+## How many outlines this brush can offer, one per spline.
+func graph_shape_count() -> int:
+	return _get_splines().size()
+
+
+## This brush's name for graph nodes to hold, relative to its terrain. Mirrors Pasture3DRoadBrush.road_key
+## — derived, never stored, so renaming a brush renames its key and a stale key resolves to nothing rather
+## than to the wrong brush.
+func shape_key() -> String:
+	var anc := _terrain_ancestor()
+	if anc == null:
+		return str(get_path())
+	return str(anc.get_path_to(self))
+
+
+## Spline `p_index` as a PATH in world XZ, closed iff the brush treats it as a ring.
+##
+## The Y of every control point is DROPPED, not carried into `heights`. A shape source exists to say WHERE,
+## and the closed-path rule (§8.1) is even-odd winding over XZ, which never reads a height. Handing over the
+## spline's Y would offer a vertical profile that no consumer honours and that would go stale silently the
+## first time the brush re-seats its points on the surface.
+##
+## The ring is left OPEN here even when `closed` is true: closing it is `path_close_ring`'s job, in exactly
+## one place, so the CPU query, the mask and the oracle cannot each decide differently whether the last
+## vertex repeats the first.
+func graph_shape_path(p_index: int = 0) -> Pasture3DGraphPath:
+	var path := Pasture3DGraphPath.new()
+	path.source_label = shape_key()
+	var splines := _get_splines()
+	if p_index < 0 or p_index >= splines.size():
+		return path
+	var sp: Path3D = splines[p_index]
+	var c: Curve3D = sp.curve if is_instance_valid(sp) else null
+	if c == null or c.point_count < 2:
+		return path
+	var pts := PackedVector2Array()
+	var xf := sp.global_transform if sp.is_inside_tree() else sp.transform
+	for i in range(c.point_count):
+		var w := xf * c.get_point_position(i)
+		pts.append(Vector2(w.x, w.z))
+	path.points = pts
+	path.closed = _is_closed()
+	return path
+
+
 ## Nearest Pasture3D ancestor (direct parent first), or null. Drives the auto-terrain assignment.
 func _terrain_ancestor() -> Pasture3D:
 	var n := get_parent()
@@ -4179,13 +4237,15 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	var g: Pasture3DTerrainGraph = m.graph
 	if g == null:
 		return p_vals
-	# A Road Source names a road; the HOST resolves it, because a graph is a Resource and cannot reach the
-	# scene (see Pasture3DRoadNetwork.resolve_graph_paths). Done HERE rather than inside `evaluate` so the
-	# deferred worker path gets a resolved graph too: that solve runs off the main thread and must not be
-	# walking the scene tree looking for road brushes while it does.
-	var net := Pasture3DRoadNetwork.find_for(self)
-	if net != null:
-		net.resolve_graph_paths(g, self)
+	# A Road Source names a road and a Shape Source names a brush; the HOST resolves both, because a graph
+	# is a Resource and cannot reach the scene. Done HERE rather than inside `evaluate` so the deferred
+	# worker path gets a resolved graph too: that solve runs off the main thread and must not be walking
+	# the scene tree looking for brushes while it does.
+	#
+	# Through Pasture3DGraphSources rather than calling the two resolvers directly, so that this site, the
+	# preview and the inspector cannot end up resolving different sets — which would show as a graph that
+	# previews correctly and bakes empty.
+	Pasture3DGraphSources.resolve(g, self)
 	var gw: int = p_ctx["gw"]
 	var gh: int = p_ctx["gh"]
 	var n := gw * gh

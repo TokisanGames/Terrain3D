@@ -424,7 +424,7 @@ other direction — and it is worth remembering the next time a parity gate look
 
 ## 8. Decisions
 
-### 8.1 Closed paths are region masks, and the customer is the brush shapes — DECIDED, in scope
+### 8.1 Closed paths are region masks, and the customer is the brush shapes — BUILT 2026-08-31
 
 `closed` is honoured, and `Path Mask` on a closed path fills the interior. The reason is not roads at all:
 **it lets a Mound, Plow or Pond brush's own outline be reused as a graph mask.** Today the same region has
@@ -447,6 +447,41 @@ Two consequences to design for rather than discover:
 
 Scheduled with `path_mask` in P2a/P2c rather than deferred: the flag costs nothing to carry, and the mask
 kernel is being written once either way.
+
+#### Built: Shape Source, and the one host resolver
+
+`Pasture3DGraphNodeShapeSource` names a brush the way `Road Source` names a road, and
+`Pasture3DTerrainBrush.graph_shape_path(i)` hands over spline `i` as a world-space ring closed iff the
+brush treats it as one. Deliberately not `graph_path`, which `Pasture3DRoadBrush` overrides with its
+centreline: a road's is a solved alignment with a vertical profile, a shape's is an outline with neither,
+and sharing the name would have a road brush answer the outline question with a centreline.
+
+Three things worth having written down, because each was a choice with a live alternative:
+
+* **One spline per node, not a union.** `in_g` names one entry, and the honest extension for several is
+  the `group` id at the end of §8.2. A union of two disjoint rings written as one polyline is not a
+  polyline — it is two, joined by a segment across the gap, and every distance query sees that as a wall.
+  An index past the end resolves to EMPTY rather than clamping, so a deleted spline cannot leave a graph
+  quietly pointing at a shape nobody chose.
+* **The spline's Y is dropped.** A shape source says WHERE; the closed-path rule is even-odd winding over
+  XZ and never reads a height. Carrying the Y would offer a vertical profile no consumer honours and that
+  goes stale the first time the brush re-seats its points on the surface.
+* **Road brushes are not offered as shapes.** A centreline through `Shape Source` is open, so `Path Mask`
+  gives a corridor — which `Road Source` plus `Path Mask` already does, correctly, and with the road's
+  real per-vertex widths instead of none. Two ways to do one thing, one of them worse.
+
+**And the resolution moved.** Three sites run a graph and each must resolve its scene-naming sources: the
+brush's graph step, the graph editor's preview, and the graph editor's inspector hand-off. All three called
+`Pasture3DRoadNetwork.resolve_graph_paths` directly, so a second source kind meant six calls that had to
+stay in step — and the failure when they do not is silent, a graph that previews resolved and bakes empty.
+They now call `Pasture3DGraphSources.resolve`, which is the single place that decides what a host owes a
+graph. Gated by `GraphShapeSourceGate`: the outline arrives world-placed and closed; the same ring closed
+masks 280 cells with its centre at 1.0 where open masks 112 with its centre at 0.0; one resolve fills both
+kinds; an unresolvable key leaves the path alone; a hostless resolve invents nothing; and re-resolving an
+unchanged brush does not bump the revision, with a control that moving a spline point does.
+
+Until this node existed the closed branch was reachable only from a gate — correct, exercised, and never
+once driven by the thing it was built for.
 
 ### 8.2 Rivers take per-vertex widths and NO profile — DECIDED
 
@@ -485,5 +520,6 @@ op that reads every entry in its group — not a second operand per tributary.
    flattens whatever it finds. No new resolution mechanism, and the host stays the only thing that
    touches the scene.
 2. **Confluences** — see the end of §8.2. Deferred, with the cheapest extension recorded.
-3. **A Shape Source for brush outlines** (§8.1) — decided in principle, unscheduled. It is a small node and
-   a host resolver, both modelled on `Road Source`; the kernel work it depends on is in P2a.
+3. ~~A Shape Source for brush outlines~~ — **BUILT 2026-08-31**, see §8.1. It was indeed a small node and a
+   host resolver; what it also turned out to be was the moment three call sites had to stop each resolving
+   for themselves.

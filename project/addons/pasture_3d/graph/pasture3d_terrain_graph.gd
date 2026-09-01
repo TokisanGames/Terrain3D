@@ -1384,9 +1384,13 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 			# ---- The road nodes (P2c). Their geometry does not ride in these params: it goes in the
 			# program's geometry table and `in_g` names an entry, because a polyline is neither a float
 			# nor an index into the scratch arena (§4.1).
-			&"road_source":
+			&"road_source", &"shape_source":
 				# A PATH producer still fills a grid slot, with zeros — the same 0.0 its eval_cell
 				# returns. The slot exists so nothing that indexes by node has to special-case it.
+				#
+				# Both source kinds lower identically and share this case, because by the time a path is
+				# in the geometry table there IS no difference: a ring is a ring, and `closed` rides on
+				# the entry. The two nodes differ only in what they name and who resolves them.
 				op_id = 2; p0 = 0.0
 			&"path_distance":
 				op_id = 57
@@ -1808,9 +1812,9 @@ func native_supported(p_root_node: int = -1) -> bool:
 		&"warp_downslope",
 		# Spec phase 5.
 		&"flooding_uniform_level", &"water_mask", &"mudslide",
-		# Geometry ports (P2c). road_source lowers to a zero CONST and contributes a geometry-table
+		# Geometry ports (P2c). The two source nodes lower to a zero CONST and contribute a geometry-table
 		# entry rather than a grid; the other three read it through `in_g`.
-		&"road_source", &"path_distance", &"path_mask", &"road_grade"
+		&"road_source", &"shape_source", &"path_distance", &"path_mask", &"road_grade"
 	]
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):

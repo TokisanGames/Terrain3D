@@ -198,12 +198,9 @@ func _auto_fit_node_range(p_index: int) -> void:
 		
 	var field: PackedFloat32Array
 	if src_node >= 0:
-		# Previews resolve their Road Sources too, or a road in a graph previews as the unreachable fill and
-		# reads as a broken node rather than as an unresolved one.
-		if host_brush != null:
-			var road_net := Pasture3DRoadNetwork.find_for(host_brush)
-			if road_net != null:
-				road_net.resolve_graph_paths(graph, host_brush)
+		# Previews resolve their scene-naming sources too, or a road in a graph previews as the unreachable
+		# fill and reads as a broken node rather than as an unresolved one.
+		Pasture3DGraphSources.resolve(graph, host_brush)
 		field = graph.evaluate(128, 128, in_rect, null, sample_input, src_node)
 	else:
 		field = sample_input
@@ -2108,23 +2105,18 @@ func _on_node_selected(p_node: Node) -> void:
 			# one moment you actually need to choose a road """ + EM + u""" the list is empty and `_validate_property`
 			# leaves the field a plain String. Resolving on selection costs one walk of the graph and
 			# makes the dropdown present whenever a network is reachable.
-			_offer_road_keys()
+			_offer_source_keys()
 			EditorInterface.edit_resource(graph.nodes[i])
 
 
-## Stamp every Road Source with the network's road keys, for the inspector dropdown.
+## Stamp every scene-naming source node with the keys it can choose from, for the inspector dropdown.
 ##
-## Deliberately calls the same `resolve_graph_paths` the bake does rather than collecting keys itself.
-## The list the inspector offers and the list the solve resolves against are then the same list by
-## construction: a road that is offered can be chosen, and a road that can be chosen resolves. Two
-## collectors would be two chances to disagree about what counts as a road brush.
-func _offer_road_keys() -> void:
-	var brush := _find_host_brush()
-	if brush == null:
-		return
-	var road_net := Pasture3DRoadNetwork.find_for(brush)
-	if road_net != null:
-		road_net.resolve_graph_paths(graph, brush)
+## Deliberately calls the same resolver the bake calls rather than collecting keys itself. The list the
+## inspector offers and the list the solve resolves against are then the same list by construction: a road
+## or brush that is offered can be chosen, and one that can be chosen resolves. Two collectors would be
+## two chances to disagree about what counts as a road, or as a shape.
+func _offer_source_keys() -> void:
+	Pasture3DGraphSources.resolve(graph, _find_host_brush())
 
 
 func _on_node_move_begin() -> void:
