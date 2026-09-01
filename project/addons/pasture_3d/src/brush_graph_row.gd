@@ -161,8 +161,9 @@ func _on_evaluation_pressed() -> void:
 	sync()
 
 
-## Find the brush's first graph modifier, or build one carrying the default `mountain_cone` -> `output`
-## graph and append it. The single definition of "a new graph modifier" — the row's Add Graph and the
+## Find the brush's first graph modifier, or build one carrying the default graph
+## (`mountain_cone` -> `output` for Plow, `input` -> `output` for other brushes) and append it.
+## The single definition of "a new graph modifier" — the row's Add Graph and the
 ## inspector plugin's Edit in Graph Editor both come through here.
 static func ensure_graph_modifier(p_brush: Pasture3DTerrainBrush) -> Pasture3DNodeGraph:
 	if p_brush == null:
@@ -176,16 +177,22 @@ static func ensure_graph_modifier(p_brush: Pasture3DTerrainBrush) -> Pasture3DNo
 
 	var mod := Pasture3DNodeGraph.new()
 	mod.resource_name = "Terrain Graph"
-	mod.graph = Pasture3DTerrainGraph.new()
-	var mc = Pasture3DGraphNodeRegistry.create(&"mountain_cone")
-	if mc != null:
-		mc.set("elevation", 35.0)
-	var out_n = Pasture3DGraphNodeRegistry.create(&"output")
-	if mc != null and out_n != null:
-		mod.graph.add_node(mc)
-		mod.graph.add_node(out_n)
-		mod.graph.connect_ports(0, 0, 1, 0)
-		mod.graph.output_node = 1
+	if p_brush is Pasture3DPlow:
+		mod.graph = Pasture3DTerrainGraph.new()
+		var mc = Pasture3DGraphNodeRegistry.create(&"mountain_cone")
+		if mc != null:
+			mc.set("elevation", 35.0)
+			mc.graph_position = Vector2(40.0, 80.0)
+		var out_n = Pasture3DGraphNodeRegistry.create(&"output")
+		if out_n != null:
+			out_n.graph_position = Vector2(420.0, 80.0)
+		if mc != null and out_n != null:
+			mod.graph.add_node(mc)
+			mod.graph.add_node(out_n)
+			mod.graph.connect_ports(0, 0, 1, 0)
+			mod.graph.output_node = 1
+		else:
+			mod.graph = Pasture3DTerrainGraph.create_default()
 	else:
 		mod.graph = Pasture3DTerrainGraph.create_default()
 	# THROUGH THE SETTER, not `modifiers.append(mod)`. The array is a reference, so appending to it in place

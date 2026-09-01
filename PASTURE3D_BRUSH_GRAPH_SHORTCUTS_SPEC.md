@@ -33,7 +33,7 @@ Most of the machinery is built. Reusing it is most of the work.
 |---|---|
 | A button at the top of a brush Inspector | `Pasture3DGraphInspectorPlugin` (`src/graph_inspector_plugin.gd`) — an `EditorInspectorPlugin` whose `_parse_begin` calls `add_custom_control`, already registered in `editor_plugin.gd:100` |
 | Binding the dock to a graph | `Pasture3DGraphEditor.edit_graph(graph, mod, brush)` (`src/graph_editor.gd:86`) plus `plugin.make_bottom_panel_item_visible(editor)` |
-| Creating a graph modifier from nothing | `_open()` in the inspector plugin already builds one for `Pasture3DPlow` — a `Pasture3DNodeGraph` with a `mountain_cone` → `output` graph |
+| Creating a graph modifier from nothing | `_open()` in the inspector plugin already builds one — a `Pasture3DNodeGraph` with an `input` → `output` graph |
 | Knowing which brush hosts a graph | `_find_host_brush()` / `_find_host_modifier()` / `_find_brush_for_modifier()` (`graph_editor.gd:232-277`) |
 | Pointing the Inspector at a node | `EditorInterface.edit_node(brush)`, used in `editor_plugin.gd:678` |
 | Frozen/Live as a concept | `Pasture3DBrushModifier.Evaluation { LIVE, FROZEN }`, and `Pasture3DNodeGraph._supports_freezing()` returns `true` |
@@ -114,7 +114,7 @@ Gate: `bench/BrushGroupLookupGate.tscn`, 4 criteria, each paired with the old st
 
 | State | Label | Action |
 |---|---|---|
-| list empty | `Add Graph` | build a `Pasture3DNodeGraph` (the `mountain_cone` → `output` default that `_open()` already builds for Plow), append it, then open it |
+| list empty | `Add Graph` | build a `Pasture3DNodeGraph` (the `input` → `output` default), append it, then open it |
 | list non-empty | `Open Graph` | `edit_graph(mods[0].graph, mods[0], brush)` + reveal the panel |
 
 Lift the modifier-construction half of `_open()` into `_ensure_graph_modifier(brush)` so Add and Open share

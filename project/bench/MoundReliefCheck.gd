@@ -504,6 +504,7 @@ func _make_mound(p_name: String, p_at: Vector3, p_hx: float, p_hz: float):
 	_root.add_child(mound)
 	mound.terrain = _terrain
 	mound.global_position = p_at
+	mound.flank_mode = Pasture3DMound.FlankMode.FIXED_WIDTH
 	_set_loop(mound, p_hx, p_hz)
 	return mound
 

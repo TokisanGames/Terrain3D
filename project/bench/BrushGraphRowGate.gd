@@ -20,6 +20,7 @@ extends Node
 # Preloaded rather than referenced by class_name: a newly added class_name only enters the project's
 # global class cache after an editor filesystem scan, and this gate must run on a clean checkout.
 const BrushGraphRow = preload("res://addons/pasture_3d/src/brush_graph_row.gd")
+const Pasture3DPlow = preload("res://addons/pasture_3d/connectors/pasture3d_plow.gd")
 
 var _fail := 0
 
@@ -105,6 +106,11 @@ func _test_add_graph() -> void:
 	var mods: Array = row.graph_mods()
 	_check("a graph modifier was appended", mods.size() == 1, "got %d" % mods.size())
 	_check("it carries a graph", mods.size() == 1 and mods[0].graph != null)
+	if mods.size() == 1 and mods[0].graph != null:
+		var g: Pasture3DTerrainGraph = mods[0].graph
+		var is_input_to_output: bool = g.nodes.size() == 2 and g.nodes[0].op() == &"input" \
+				and g.nodes[1].op() == &"output" and g.connections.size() == 1
+		_check("graph is an Input -> Output default filter", is_input_to_output)
 	_check("graph button now reads 'Open Graph'", r[0].text == "Open Graph", r[0].text)
 	# A new graph modifier defaults to FROZEN (Pasture3DNodeGraph._init), so the row must start saying so
 	# rather than keep reading None.
@@ -117,6 +123,21 @@ func _test_add_graph() -> void:
 			"got %d" % row.graph_mods().size())
 	r[2].queue_free()
 	brush.queue_free()
+
+	# Plow brush: Add Graph must create a Mountain Cone -> Output generator graph
+	var plow := Pasture3DPlow.new()
+	add_child(plow)
+	var r_plow := _row(plow)
+	r_plow[0].emit_signal(&"pressed")
+	var plow_mods: Array = r_plow[2].graph_mods()
+	_check("plow: a graph modifier was appended", plow_mods.size() == 1, "got %d" % plow_mods.size())
+	if plow_mods.size() == 1 and plow_mods[0].graph != null:
+		var pg: Pasture3DTerrainGraph = plow_mods[0].graph
+		var is_cone_to_output: bool = pg.nodes.size() == 2 and pg.nodes[0].op() == &"mountain_cone" \
+				and pg.nodes[1].op() == &"output" and pg.connections.size() == 1
+		_check("plow: graph is a Mountain Cone -> Output generator", is_cone_to_output)
+	r_plow[2].queue_free()
+	plow.queue_free()
 	print("")
 
 

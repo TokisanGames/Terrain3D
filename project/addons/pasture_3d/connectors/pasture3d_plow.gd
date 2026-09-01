@@ -121,7 +121,7 @@ func _padding() -> float:
 ## Starter shape: a closed square loop in local space.
 func _make_starter_curve() -> Curve3D:
 	var c := Curve3D.new()
-	var r := 20.0
+	var r := 50.0
 	c.add_point(Vector3(-r, 0.0, -r))
 	c.add_point(Vector3(r, 0.0, -r))
 	c.add_point(Vector3(r, 0.0, r))

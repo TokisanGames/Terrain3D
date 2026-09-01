@@ -36,7 +36,7 @@ enum FlankMode { FIXED_WIDTH, SLOPE_ANGLE }
 
 @export_group("Falloff")
 ## FIXED_WIDTH = ramp over `falloff_width`; SLOPE_ANGLE = ramp at `slope_angle` (run = height / tan).
-@export var flank_mode: FlankMode = FlankMode.FIXED_WIDTH:
+@export var flank_mode: FlankMode = FlankMode.SLOPE_ANGLE:
 	set(v):
 		flank_mode = v
 		_schedule_refresh()
@@ -173,7 +173,7 @@ func _padding() -> float:
 ## Starter shape: a closed square loop in local space.
 func _make_starter_curve() -> Curve3D:
 	var c := Curve3D.new()
-	var r := 20.0
+	var r := 50.0
 	c.add_point(Vector3(-r, 0.0, -r))
 	c.add_point(Vector3(r, 0.0, -r))
 	c.add_point(Vector3(r, 0.0, r))

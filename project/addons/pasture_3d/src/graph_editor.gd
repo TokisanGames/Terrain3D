@@ -61,7 +61,7 @@ var _pending_drag_connection: Dictionary = {}
 # (Pasture3DUtil.graph_eval_grid_taps), over a fixed canonical domain that never depends on the brush. So a
 # refresh costs a single eval regardless of how many previews are open, it runs off the main thread, and
 # toggling a preview is a pure show/hide of an already-built TextureRect that never triggers evaluation.
-const PREVIEW_SIZE: int = 96
+const PREVIEW_SIZE: int = 128
 const PREVIEW_RECT := Rect2(-50.0, -50.0, 100.0, 100.0)
 const PREVIEW_DEBOUNCE_SEC: float = 0.12
 
@@ -183,25 +183,25 @@ func _auto_fit_node_range(p_index: int) -> void:
 			src_node = int(c[0])
 			break
 			
-	var input_data := _get_preview_input_data()
+	var input_data := _get_preview_input_data(PREVIEW_SIZE)
 	var in_grid: PackedFloat32Array = input_data.get("grid", PackedFloat32Array())
 	var in_gw: int = input_data.get("gw", 0)
 	var in_gh: int = input_data.get("gh", 0)
 	var in_rect: Rect2 = input_data.get("rect", Rect2(-50.0, -50.0, 100.0, 100.0))
 	var sample_input: PackedFloat32Array
-	if in_grid.size() == 128 * 128 and in_gw == 128 and in_gh == 128:
+	if in_grid.size() == PREVIEW_SIZE * PREVIEW_SIZE and in_gw == PREVIEW_SIZE and in_gh == PREVIEW_SIZE:
 		sample_input = in_grid
 	elif not in_grid.is_empty() and in_gw > 0 and in_gh > 0:
-		sample_input = Pasture3DUtil.resample_grid(in_grid, in_gw, in_gh, 128, 128)
+		sample_input = Pasture3DUtil.resample_grid(in_grid, in_gw, in_gh, PREVIEW_SIZE, PREVIEW_SIZE)
 	else:
-		sample_input = Pasture3DUtil.sample_brush_input(128, 128, in_rect)
+		sample_input = Pasture3DUtil.sample_brush_input(PREVIEW_SIZE, PREVIEW_SIZE, in_rect)
 		
 	var field: PackedFloat32Array
 	if src_node >= 0:
 		# Previews resolve their scene-naming sources too, or a road in a graph previews as the unreachable
 		# fill and reads as a broken node rather than as an unresolved one.
 		Pasture3DGraphSources.resolve(graph, host_brush)
-		field = graph.evaluate(128, 128, in_rect, null, sample_input, src_node)
+		field = graph.evaluate(PREVIEW_SIZE, PREVIEW_SIZE, in_rect, null, sample_input, src_node)
 	else:
 		field = sample_input
 		
@@ -416,7 +416,7 @@ func _on_bake_brush_pressed() -> void:
 ##
 ## `p_size` sizes only the canonical fallback; the cached surface keeps its own bake resolution, so a caller
 ## at a fixed resolution must resample (both callers already do).
-func _get_preview_input_data(p_size: int = 128) -> Dictionary:
+func _get_preview_input_data(p_size: int = PREVIEW_SIZE) -> Dictionary:
 	var mod := _find_host_modifier()
 	if mod != null and not mod.last_input_surface.is_empty():
 		return {
