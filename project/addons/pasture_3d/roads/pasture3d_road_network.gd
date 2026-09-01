@@ -689,9 +689,9 @@ func resolve_graph_paths(p_graph: Pasture3DTerrainGraph, p_default: Node = null)
 	var collected := false
 	var filled := 0
 	for node in p_graph.nodes:
-		if node == null or node.op() != &"dev_road_source":
+		if node == null or node.op() != &"road_source":
 			continue
-		var src: Pasture3DGraphNodeDevRoadSource = node
+		var src: Pasture3DGraphNodeRoadSource = node
 		# Collected for EVERY road source, including the ones with an empty key: the dropdown's whole job
 		# is to be there before you have chosen anything, and a list gathered only for nodes that already
 		# name a road would appear exactly when it is no longer needed.
@@ -721,7 +721,7 @@ func resolve_graph_paths(p_graph: Pasture3DTerrainGraph, p_default: Node = null)
 ## scratch whenever anything in the scene was baked, and the cache would look broken rather than bypassed.
 ## Compared by CONTENT, because the path is rebuilt from the road each time and is a different object even
 ## when the road has not moved.
-func _assign(p_src: Pasture3DGraphNodeDevRoadSource, p_path: Pasture3DGraphPath) -> void:
+func _assign(p_src: Pasture3DGraphNodeRoadSource, p_path: Pasture3DGraphPath) -> void:
 	if p_path == null:
 		return
 	var old := p_src.path

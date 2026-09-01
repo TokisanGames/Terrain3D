@@ -1,6 +1,17 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DGraphNodeDevRoadSource — the GENERATOR end of §8: puts a road into a terrain graph as a PATH.
+# Pasture3DGraphNodeRoadSource — the GENERATOR end of §8: puts a road into a terrain graph as a PATH.
+#
+# ---- WHY THIS ONE IS PRODUCTION WITHOUT A KERNEL ----
+#
+# The other three road nodes went behind the developer flag because their MATHS was in GDScript, and came
+# back out when it moved to C++ (P2a). This node never had any maths to move: it names a road and holds the
+# geometry the host injected. There is nothing here to accelerate, and a `dev_` twin of it would be a
+# second name for the same plumbing.
+#
+# It does still block the whole-graph native evaluator, because the lowered program has no operand a
+# polyline can travel in — that is P2c, and it is listed as a debt in
+# PASTURE3D_NODE_ACCELERATION_GUIDE.md alongside the three nodes that share it.
 #
 # ---- IT NAMES A ROAD, IT DOES NOT OWN ONE ----
 #
@@ -18,7 +29,7 @@
 # centreline it authored itself — a canal, a fence line, a boundary — is a legitimate use, and there is
 # nothing in the query that cares whether a road brush made the points.
 @tool
-class_name Pasture3DGraphNodeDevRoadSource
+class_name Pasture3DGraphNodeRoadSource
 extends Pasture3DGraphNode
 
 ## The road this node stands for, by the key Pasture3DRoadNetwork uses. Empty means "whatever path is
@@ -67,7 +78,7 @@ func _validate_property(property: Dictionary) -> void:
 
 
 func op() -> StringName:
-	return &"dev_road_source"
+	return &"road_source"
 
 
 func role() -> Role:

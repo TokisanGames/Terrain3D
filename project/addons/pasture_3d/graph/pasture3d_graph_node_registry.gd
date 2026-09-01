@@ -11,7 +11,8 @@ extends RefCounted
 const InputScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_input.gd")
 const PathDistanceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_path_distance.gd")
 const PathMaskScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_path_mask.gd")
-const DevRoadSourceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_road_source.gd")
+const RoadGradeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_road_grade.gd")
+const RoadSourceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_road_source.gd")
 const DevPathDistanceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_path_distance.gd")
 const DevPathMaskScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_path_mask.gd")
 const DevRoadGradeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_road_grade.gd")
@@ -213,8 +214,10 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 		{"op": &"erosion_thermal", "title": "Thermal Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionThermalScript, "tags": ["thermal", "erosion", "talus", "scree", "weathering", "cliff", "repose", "slippage", "rock"], "description": "Simulates rock weathering and gravitational talus scree accumulation along steep slopes."},
 		{"op": &"scree", "title": "Scree", "category": "Solvers & Realism", "role": "Solver", "script": ScreeScript, "tags": ["talus", "rubble", "rock", "slope", "erosion", "deposition"], "description": "Sheds loose rock off steep ground; outputs height + a shed mask."},
 		{"op": &"erosion", "title": "Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionScript, "tags": ["river", "fluvial", "stream", "hydraulic", "water", "valley", "channel", "sediment"], "description": "Stream-power fluvial erosion; outputs eroded height + flow / erosion / deposition / wetness channels."},
+		{"op": &"road_source", "title": "Road Source", "category": "Roads", "role": "Generator", "script": RoadSourceScript, "tags": ["road", "path", "spline", "centreline", "route", "track", "street"], "description": "Puts a road into the graph as a PATH: a world-space centreline with a half-width at every vertex."},
 		{"op": &"path_distance", "title": "Path Distance", "category": "Roads", "role": "Filter", "script": PathDistanceScript, "tags": ["road", "path", "distance", "corridor", "arc", "offset", "falloff", "verge"], "description": "Analytic distance to a PATH, plus arc length s and the signed across-position t. Exact, not jump-flooded."},
 		{"op": &"path_mask", "title": "Path Mask", "category": "Roads", "role": "Filter", "script": PathMaskScript, "tags": ["road", "path", "mask", "corridor", "region", "outline", "closed", "feather", "invert"], "description": "A PATH as a [0,1] mask: a corridor along an open path, or the filled interior of a closed one."},
+		{"op": &"road_grade", "title": "Road Grade", "category": "Roads", "role": "Solver", "script": RoadGradeScript, "tags": ["road", "grade", "cut", "fill", "batter", "earthworks", "roadbed", "verge", "structure"], "description": "Cuts a road into the surface: the solved profile, its batters, and the roadbed, cut, fill, verge and structure masks."},
 		{"op": &"dla", "title": "DLA", "category": "Solvers & Realism", "role": "Solver", "script": DLAScript, "tags": ["mountain", "ridge", "massif", "aggregation", "diffusion", "branch", "peak", "range"], "description": "Diffusion-limited-aggregation mountain; grows a branching ridge massif, outputs height + a footprint mask."},
 	]
 
@@ -227,7 +230,6 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 ## Dedicated developer / reference oracle entries.
 static func _dev_entries() -> Array[Dictionary]:
 	return [
-		{"op": &"dev_road_source", "title": "[Dev/GD] Road Source", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevRoadSourceScript, "tags": ["dev", "gdscript", "oracle", "road", "path", "spline", "centreline", "route", "track", "street"], "description": "Puts a road into the graph as a PATH: a world-space centreline with a half-width at every vertex."},
 		{"op": &"dev_path_distance", "title": "[Dev/GD] Path Distance", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevPathDistanceScript, "tags": ["dev", "gdscript", "oracle", "road", "path", "distance", "corridor", "arc", "offset", "falloff", "verge"], "description": "Analytic distance to a PATH, plus arc length s and the signed across-position t. Exact, not jump-flooded."},
 		{"op": &"dev_path_mask", "title": "[Dev/GD] Path Mask", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevPathMaskScript, "tags": ["dev", "gdscript", "oracle", "road", "path", "mask", "corridor", "select", "protect", "exclude", "carriageway"], "description": "A PATH as a [0,1] mask, thresholded on the road-relative across-position so it stays correct wherever the road widens."},
 		{"op": &"dev_road_grade", "title": "[Dev/GD] Road Grade", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevRoadGradeScript, "tags": ["dev", "gdscript", "oracle", "road", "grade", "cut", "fill", "batter", "carve", "roadbed", "verge", "terrain"], "description": "Cuts a road into the surface and publishes roadbed, cut, fill, verge and structure -- the same grader the brush uses, ordered against erosion by a wire."},

@@ -356,7 +356,7 @@ func _e_an_unresolved_path_reads_far_away_not_on_the_road() -> void:
 func _f_the_path_travels_down_the_wire() -> void:
 	print("[F] the path travels down the wire")
 	var graph := Pasture3DTerrainGraph.new()
-	var src := Pasture3DGraphNodeDevRoadSource.new()
+	var src := Pasture3DGraphNodeRoadSource.new()
 	src.path = _straight()
 	var dist := Pasture3DGraphNodeDevPathDistance.new()
 	var out := Pasture3DGraphNodeOutput.new()
@@ -405,7 +405,7 @@ func _f_the_path_travels_down_the_wire() -> void:
 func _g_a_moved_path_invalidates_the_cache() -> void:
 	print("[G] moving the path invalidates the field")
 	var graph := Pasture3DTerrainGraph.new()
-	var src := Pasture3DGraphNodeDevRoadSource.new()
+	var src := Pasture3DGraphNodeRoadSource.new()
 	var path := _straight()
 	src.path = path
 	var dist := Pasture3DGraphNodeDevPathDistance.new()
@@ -498,9 +498,9 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 			% [built.points.size(), built.length(), built.half_width_at(built.length() * 0.5)])
 
 	var graph := Pasture3DTerrainGraph.new()
-	var named := Pasture3DGraphNodeDevRoadSource.new()
+	var named := Pasture3DGraphNodeRoadSource.new()
 	named.road_key = brush.road_key()
-	var defaulted := Pasture3DGraphNodeDevRoadSource.new()
+	var defaulted := Pasture3DGraphNodeRoadSource.new()
 	graph.add_node(named)
 	graph.add_node(defaulted)
 	var filled := net.resolve_graph_paths(graph, brush)
@@ -526,7 +526,7 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 	# CONTROL: an unresolved node must offer NOTHING. This is why the hint is ENUM_SUGGESTION and not a
 	# hard ENUM: a graph opened without its network shows an empty list, and a hard enum would render the
 	# key it already holds as invalid and rewrite it to another road on the first click.
-	var lone := Pasture3DGraphNodeDevRoadSource.new()
+	var lone := Pasture3DGraphNodeRoadSource.new()
 	print("    control: a source that was never resolved offers %d key(s) (want 0, hence a suggestion)"
 			% lone.editor_road_keys.size())
 	if not lone.editor_road_keys.is_empty():
@@ -535,7 +535,7 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 
 	# CONTROL: a key naming NO road must leave the node alone rather than clearing it. Clearing would make
 	# a road mid-rename flatten every terrain reading it for one bake, which reads as a solver bug.
-	var missing := Pasture3DGraphNodeDevRoadSource.new()
+	var missing := Pasture3DGraphNodeRoadSource.new()
 	missing.road_key = "NoSuchRoad"
 	missing.path = built
 	graph.add_node(missing)
@@ -561,7 +561,8 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 
 # ---- I ------------------------------------------------------------------------------------------
 
-## [I] The road nodes are reachable behind the developer flag, and INVISIBLE without it.
+## [I] The three GDScript ORACLES are reachable behind the developer flag and invisible without it, and
+## the four production road nodes are the other way round.
 ##
 ## ---- TWO OPPOSITE FAILURES, AND THIS CRITERION HAS TO CATCH BOTH ----
 ##
@@ -576,8 +577,8 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 ## CPU evaluator. A criterion that only checked reachability would pass on that with nothing to say.
 func _i_every_registered_node_reaches_the_palette() -> void:
 	print("[I] the road nodes are reachable behind the dev flag and hidden without it")
-	var ops: Array[StringName] = [&"dev_road_source", &"dev_path_distance", &"dev_path_mask",
-			&"dev_road_grade"]
+	var ops: Array[StringName] = [&"dev_path_distance", &"dev_path_mask", &"dev_road_grade"]
+	var prod_ops: Array[StringName] = [&"road_source", &"path_distance", &"path_mask", &"road_grade"]
 
 	var by_cat := Pasture3DGraphNodeRegistry.entries_by_category(true)
 	var listed := Pasture3DGraphNodeRegistry.categories(true)
@@ -599,20 +600,34 @@ func _i_every_registered_node_reaches_the_palette() -> void:
 		for e in open_cat.get(cat, []):
 			if ops.has(e["op"]):
 				exposed.append(String(e["op"]))
-	print("    with the flag off, %d road node(s) are visible: %s" % [exposed.size(), str(exposed)])
+	print("    with the flag off, %d oracle(s) are visible: %s" % [exposed.size(), str(exposed)])
 
-	_check("I", missing.is_empty() and exposed.is_empty(),
-			"%d missing behind the flag, %d exposed without it" % [missing.size(), exposed.size()])
+	# And the production four must be there for a user who never turns the flag on. Hiding the oracles is
+	# only correct while the shipped nodes are visible; both halves hidden is the feature not shipping.
+	var open_reach := {}
+	for cat in Pasture3DGraphNodeRegistry.categories(false):
+		for e in open_cat.get(cat, []):
+			open_reach[e["op"]] = true
+	var prod_missing := PackedStringArray()
+	for o in prod_ops:
+		if not open_reach.has(o):
+			prod_missing.append(String(o))
+	print("    with the flag off, %d of %d production road node(s) are missing: %s"
+			% [prod_missing.size(), prod_ops.size(), str(prod_missing)])
+
+	_check("I", missing.is_empty() and exposed.is_empty() and prod_missing.is_empty(),
+			"%d oracle(s) missing behind the flag, %d exposed without it, %d production node(s) missing"
+			% [missing.size(), exposed.size(), prod_missing.size()])
 
 	# CONTROL: `create` must still make them by op REGARDLESS of the flag. Hiding a node from the menu must
 	# not stop a saved graph containing one from loading — that would turn a settings toggle into data
 	# loss, and it is why the factory searches entries(true).
-	var a := Pasture3DGraphNodeRegistry.create(&"dev_road_source")
+	var a := Pasture3DGraphNodeRegistry.create(&"dev_path_distance")
 	var b := Pasture3DGraphNodeRegistry.create(&"dev_road_grade")
 	print("    control: the factory made %s and %s with the flag off (want true, true)"
-			% [str(a != null and a is Pasture3DGraphNodeDevRoadSource),
+			% [str(a != null and a is Pasture3DGraphNodeDevPathDistance),
 				str(b != null and b is Pasture3DGraphNodeDevRoadGrade)])
-	if a == null or not (a is Pasture3DGraphNodeDevRoadSource) or b == null \
+	if a == null or not (a is Pasture3DGraphNodeDevPathDistance) or b == null \
 			or not (b is Pasture3DGraphNodeDevRoadGrade):
 		_fail += 1
 		print("    !! a saved graph holding a road node could not be reconstructed")

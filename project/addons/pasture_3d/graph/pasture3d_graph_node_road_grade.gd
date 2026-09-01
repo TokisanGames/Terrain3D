@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DGraphNodeDevRoadGrade — cuts a road into a surface inside the graph (§8).
+# Pasture3DGraphNodeRoadGrade — cuts a road into a surface inside the graph (§8).
 #
 # ---- WHY THIS NODE IS THE POINT OF §8 ----
 #
@@ -11,18 +11,22 @@
 #
 #   Input → Erosion → Road Grade → Output                     # the road cuts the weathered mountain
 #
-#   Input → Road Grade ──┬───────────────────→ Blend ← Erosion  # the hillside weathers AROUND the cut
+#   Input → Road Grade ──┬───────────→ Blend ← Erosion  # the hillside weathers AROUND the cut
 #                        └─ roadbed (inv) → Blend.mask
 #
 # ---- AN ADAPTER, NOT A SECOND GRADER ----
 #
-# Every number comes from Pasture3DRoadGrader.grade_reference — the GDScript oracle. The production
-# node next door calls Pasture3DRoadGrader.grade, which is the native kernel, and RoadNativeParityGate
-# [F] requires the two to agree. This file converts a graph rect into the grader's origin-and-spacing and
-# hands the channels back as ports. A second GRADER would mean a road that is one shape in the brush and
-# another in the graph, differing by the amount nobody notices until they are looking at a seam.
+# Every number comes from Pasture3DRoadGrader.grade — the native kernel, and the same call the brush's own
+# step makes, with the same profile arrays out of the same Pasture3DRoadBrush.grading_profile. After P2a
+# there is one grader in the project, so RoadGate [K]'s 0.0000 m between the brush and the graph is a
+# consequence of the architecture rather than a result that has to be re-earned every time either side
+# changes. The maths, and the argument for each rule of it, is in Pasture3DRoadGrader.grade_reference —
+# the GDScript oracle this node is measured against by RoadNativeParityGate [F].
+#
+# This file's own job is small: convert a graph rect into the grader's origin-and-spacing, and hand the
+# channels back as ports.
 @tool
-class_name Pasture3DGraphNodeDevRoadGrade
+class_name Pasture3DGraphNodeRoadGrade
 extends Pasture3DGraphNode
 
 ## Blend the graded result against the incoming surface. 1 is the full cut. Below 1 is NOT a shallower
@@ -37,7 +41,7 @@ var _path: Pasture3DGraphPath = null
 
 
 func op() -> StringName:
-	return &"dev_road_grade"
+	return &"road_grade"
 
 
 func role() -> Role:
@@ -113,7 +117,7 @@ func eval_grid_channels(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: 
 	var dx := p_rect.size.x / float(maxi(p_gw, 1))
 	var dz := p_rect.size.y / float(maxi(p_gh, 1))
 	var vs := sqrt(maxf(dx * dz, 1e-12))
-	var res: Dictionary = Pasture3DRoadGrader.grade_reference(surface, p_gw, p_gh,
+	var res: Dictionary = Pasture3DRoadGrader.grade(surface, p_gw, p_gh,
 			p_rect.position.x + 0.5 * dx, p_rect.position.y + 0.5 * dz, vs,
 			_path.points, _path.alignment,
 			_path.sample_half_widths, _path.sample_shoulders, _path.sample_verges,

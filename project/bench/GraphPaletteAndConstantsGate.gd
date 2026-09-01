@@ -142,13 +142,14 @@ func _c_registry_categories() -> void:
 	var dev_ops := {}
 	for e in dev_entries:
 		dev_ops[e["op"]] = true
-	var road_ops: Array[StringName] = [&"dev_road_source", &"dev_path_distance", &"dev_path_mask",
-			&"dev_road_grade"]
+	# The three GDScript ORACLES, not four: P2a promoted `road_source` back to production, because it never
+	# had any mathematics to move into C++ — it names a road and holds what the host injected.
+	var road_ops: Array[StringName] = [&"dev_path_distance", &"dev_path_mask", &"dev_road_grade"]
 	var found := 0
 	for o in road_ops:
 		if dev_ops.has(o):
 			found += 1
-	_assert(found == road_ops.size(), "all %d road nodes are in Dev / Reference (found %d)"
+	_assert(found == road_ops.size(), "all %d road oracles are in Dev / Reference (found %d)"
 			% [road_ops.size(), found])
 	# Roads returned at P2a with a production, C++-backed Path Distance in it. The general rule is what is
 	# checked, not that one name: an ordered category with no entries is a menu that opens onto nothing,
@@ -159,8 +160,16 @@ func _c_registry_categories() -> void:
 			empty_cats.append(cat)
 	_assert(empty_cats.is_empty(), "no empty category is left in the palette order (found %s)"
 			% str(empty_cats))
-	_assert((cat_map.get("Roads", []) as Array).size() >= 1,
-			"Roads carries the production path node(s) again")
+	var roads_ops := {}
+	for e in (cat_map.get("Roads", []) as Array):
+		roads_ops[e["op"]] = true
+	var want_roads: Array[StringName] = [&"road_source", &"path_distance", &"path_mask", &"road_grade"]
+	var have := 0
+	for o in want_roads:
+		if roads_ops.has(o):
+			have += 1
+	_assert(have == want_roads.size(),
+			"Roads carries all %d production road nodes again (found %d)" % [want_roads.size(), have])
 
 
 func _d_search_dialog_tree() -> void:

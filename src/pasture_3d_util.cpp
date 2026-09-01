@@ -11,6 +11,7 @@
 #include "logger.h"
 #include "pasture_3d_curvature.h"
 #include "pasture_3d_path_query.h"
+#include "pasture_3d_road_grade.h"
 #include "pasture_3d_depression_filling.h"
 #include "pasture_3d_crater.h"
 #include "pasture_3d_dunes.h"
@@ -1590,6 +1591,16 @@ PackedFloat32Array Pasture3DUtil::path_mask_grid(const PackedVector2Array &p_poi
 			p_feather, p_invert);
 }
 
+Dictionary Pasture3DUtil::road_grade_grid(const PackedFloat32Array &p_height, const int p_gw,
+		const int p_gh, const double p_min_x, const double p_min_z, const double p_vs,
+		const PackedVector2Array &p_plan, const double p_align_ds, const double p_align_s0,
+		const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+		const PackedFloat32Array &p_half_width, const PackedFloat32Array &p_shoulder,
+		const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress, const Dictionary &p_opts) {
+	return godot::road_grade_grid(p_height, p_gw, p_gh, p_min_x, p_min_z, p_vs, p_plan, p_align_ds,
+			p_align_s0, p_align_z, p_align_bank, p_half_width, p_shoulder, p_verge, p_suppress, p_opts);
+}
+
 PackedFloat32Array Pasture3DUtil::curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 		const int p_mode, const int p_radius, const double p_contrast) {
 	return godot::curvature_solve(p_surface, p_gw, p_gh, (godot::CurvatureMode)p_mode, p_radius, p_contrast);
@@ -2097,6 +2108,11 @@ void Pasture3DUtil::_bind_methods() {
 			D_METHOD("path_mask_grid", "points", "widths", "closed", "gw", "gh", "rect", "width_scale",
 					"feather", "invert"),
 			&Pasture3DUtil::path_mask_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("road_grade_grid", "height", "gw", "gh", "min_x", "min_z", "vs", "plan", "align_ds",
+					"align_s0", "align_z", "align_bank", "half_width", "shoulder", "verge", "suppress",
+					"opts"),
+			&Pasture3DUtil::road_grade_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("curvature_grid", "surface", "gw", "gh", "mode", "radius", "contrast"),
 			&Pasture3DUtil::curvature_grid);

@@ -163,6 +163,45 @@ static func grade(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: f
 		p_half_width: PackedFloat32Array, p_shoulder: PackedFloat32Array,
 		p_verge: PackedFloat32Array, p_suppress: PackedByteArray,
 		p_opts: Dictionary = {}) -> Dictionary:
+	if not ClassDB.class_has_method("Pasture3DUtil", "road_grade_grid"):
+		push_error("[Pasture3D] Pasture3DUtil.road_grade_grid is not bound. Rebuild GDExtension.")
+		return _pass_through(p_height, p_gw * p_gh)
+
+	# The alignment is flattened to the four numbers the grade actually reads. A null or unsolved one is
+	# handed to the kernel as an empty profile rather than short-circuited here, so the pass-through answer
+	# has ONE definition — the destructive alternative being a grader that returns zeros for a road that is
+	# merely being renamed.
+	var ds: float = p_alignment.ds if p_alignment != null else 1.0
+	var s0: float = p_alignment.s0 if p_alignment != null else 0.0
+	var az: PackedFloat32Array = p_alignment.z if p_alignment != null else PackedFloat32Array()
+	var bank: PackedFloat32Array = p_alignment.bank if p_alignment != null else PackedFloat32Array()
+	var res: Dictionary = Pasture3DUtil.road_grade_grid(p_height, p_gw, p_gh, p_min_x, p_min_z, p_vs,
+			p_plan, ds, s0, az, bank, p_half_width, p_shoulder, p_verge, p_suppress, p_opts)
+	return res
+
+
+## The safe answer when the kernel is missing: the ground, untouched, and no earthworks reported. Not
+## zeros — a grader that flattened a terrain because a symbol was missing would be the silent degradation
+## the native separation exists to delete.
+static func _pass_through(p_height: PackedFloat32Array, p_n: int) -> Dictionary:
+	return {
+		"ok": false, "height": p_height.duplicate(),
+		"roadbed": _zeros(p_n), "cut": _zeros(p_n), "fill": _zeros(p_n),
+		"verge": _zeros(p_n), "structure": _zeros(p_n), "surface": _zeros(p_n),
+	}
+
+
+## The GDScript REFERENCE grade — the oracle `grade` is measured against by RoadNativeParityGate [F], and
+## the place the argument for every rule below is written down.
+##
+## Not dead code and not a fallback: it is the definition. It is kept in production rather than in a gate
+## for the reason every oracle in this codebase is — a definition that lives only in a test drifts from
+## the thing it defines, and here the thing it defines is the shape of every road in the project.
+static func grade_reference(p_height: PackedFloat32Array, p_gw: int, p_gh: int, p_min_x: float,
+		p_min_z: float, p_vs: float, p_plan: PackedVector2Array, p_alignment: Pasture3DRoadAlignment,
+		p_half_width: PackedFloat32Array, p_shoulder: PackedFloat32Array,
+		p_verge: PackedFloat32Array, p_suppress: PackedByteArray,
+		p_opts: Dictionary = {}) -> Dictionary:
 	var n := p_gw * p_gh
 	var out := {
 		"height": p_height.duplicate(),

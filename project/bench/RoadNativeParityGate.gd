@@ -25,7 +25,7 @@
 # plausible distance and an absurd s, so s is compared at the same tolerance rather than loosely.
 extends Node
 
-const CRITERIA: Array[String] = ["A", "B", "C", "D", "E"]
+const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F"]
 
 const G_N: int = 96
 const G_MIN: float = -48.0
@@ -45,6 +45,7 @@ func _ready() -> void:
 	_c_an_empty_path_reads_far_away_on_both()
 	_d_the_corridor_mask_matches_the_oracle()
 	_e_a_closed_path_masks_its_interior()
+	_f_the_grader_matches_its_gdscript_reference()
 
 	for name in CRITERIA:
 		if not _seen.has(name):
@@ -387,3 +388,166 @@ func _e_a_closed_path_masks_its_interior() -> void:
 	if at_notch > 0.001:
 		_fail += 1
 		print("    !! the concave notch is being filled, so the winding test is not even-odd")
+
+
+# ---- F ------------------------------------------------------------------------------------------
+
+## A road with a bend, a width that changes, a bank, a bridged stretch and a skipped one.
+##
+## Every one of those is a branch in the grader, and a fixture without them A/Bs the easy path: a straight
+## level road of constant width exercises neither the batter reach, nor the suppress branch, nor the
+## per-sample lookup that `skip` and the widths share.
+func _road_fixture() -> Dictionary:
+	var plan := PackedVector2Array()
+	for i in 41:
+		var t := float(i)
+		plan.append(Vector2(-40.0 + t * 2.0, -20.0 + 0.012 * t * t))
+	var cum := Pasture3DRoadGrader.cumulative_length(plan)
+	var total: float = cum[cum.size() - 1]
+	var n_s := int(total) + 1
+
+	var a := Pasture3DRoadAlignment.new()
+	a.ds = 1.0
+	a.s0 = 0.0
+	var z := PackedFloat32Array()
+	var bank := PackedFloat32Array()
+	var half := PackedFloat32Array()
+	var shoulder := PackedFloat32Array()
+	var verge := PackedFloat32Array()
+	var suppress := PackedByteArray()
+	var skip := PackedByteArray()
+	for i in n_s:
+		var f := float(i) / float(maxi(n_s - 1, 1))
+		z.append(4.0 - 8.0 * f) # climbs out of fill and into cut, so both batters run
+		bank.append(0.06 * sin(f * TAU))
+		half.append(3.0 + 2.0 * f) # a road that widens: the per-sample lookup has to move
+		shoulder.append(0.8)
+		verge.append(3.0)
+		suppress.append(1 if i > int(n_s * 0.55) and i < int(n_s * 0.65) else 0)
+		skip.append(1 if i > int(n_s * 0.85) else 0)
+	a.z = z
+	a.bank = bank
+	return {"plan": plan, "align": a, "half": half, "shoulder": shoulder, "verge": verge,
+			"suppress": suppress, "skip": skip}
+
+
+## [F] The native grader matches Pasture3DRoadGrader.grade_reference on every channel.
+##
+## The reason this criterion is worth more than the five above it: after this port there is ONE grader in
+## production, so RoadGate [K] — the brush and the graph producing the same surface to 0.0000 m — stops
+## being a claim about two implementations staying in step. This is the measurement that licenses that.
+func _f_the_grader_matches_its_gdscript_reference() -> void:
+	print("[F] the native grader matches its GDScript reference")
+	if not ClassDB.class_has_method("Pasture3DUtil", "road_grade_grid"):
+		_check("F", false, "road_grade_grid is not bound — rebuild the GDExtension")
+		return
+
+	var fx := _road_fixture()
+	var gw := 120
+	var gh := 90
+	var min_x := -60.0
+	var min_z := -40.0
+	# Ground that tilts across the road AND undulates along it, so cut and fill both occur and the batter
+	# meets ground at a different distance in every row.
+	var ground := PackedFloat32Array()
+	ground.resize(gw * gh)
+	for iz in gh:
+		for ix in gw:
+			var wx := min_x + float(ix)
+			var wz := min_z + float(iz)
+			ground[iz * gw + ix] = 0.09 * wx + 3.0 * sin(wz * 0.08)
+	# NaN in a corner: the brush's "not my cell" marker must pass through untouched on both.
+	ground[0] = NAN
+
+	var opts := {"crown": 0.04, "cut_batter": 1.2, "fill_batter": 0.7, "surface_fade": 1.5,
+			"skip": fx["skip"]}
+	var prod: Dictionary = Pasture3DRoadGrader.grade(ground, gw, gh, min_x, min_z, 1.0,
+			fx["plan"], fx["align"], fx["half"], fx["shoulder"], fx["verge"], fx["suppress"], opts)
+	var orc: Dictionary = Pasture3DRoadGrader.grade_reference(ground, gw, gh, min_x, min_z, 1.0,
+			fx["plan"], fx["align"], fx["half"], fx["shoulder"], fx["verge"], fx["suppress"], opts)
+
+	var worst := 0.0
+	var worst_ch := ""
+	for ch in ["height", "roadbed", "cut", "fill", "verge", "structure", "surface"]:
+		var a: PackedFloat32Array = prod[ch]
+		var b: PackedFloat32Array = orc[ch]
+		var w := 0.0
+		for i in mini(a.size(), b.size()):
+			# NaN must be NaN on BOTH, and comparing it arithmetically would silently pass whatever the
+			# other side did there.
+			if is_nan(a[i]) or is_nan(b[i]):
+				if not (is_nan(a[i]) and is_nan(b[i])):
+					w = INF
+				continue
+			w = maxf(w, absf(a[i] - b[i]))
+		print("    %-9s worst %.7f" % [ch, w])
+		if w > worst:
+			worst = w
+			worst_ch = ch
+	_check("F", worst < EPS, "worst %.7f on %s (want < %.4f)"
+			% [worst, "nothing" if worst_ch == "" else worst_ch, EPS])
+
+	# CONTROL: the grade must actually MOVE the ground, and in both directions. A grader that returned its
+	# input would match a reference that did the same, and every channel above would read 0.0000000.
+	var h: PackedFloat32Array = prod["height"]
+	var raised := 0
+	var lowered := 0
+	for i in h.size():
+		if is_nan(h[i]) or is_nan(ground[i]):
+			continue
+		if h[i] - ground[i] > 0.01:
+			raised += 1
+		elif h[i] - ground[i] < -0.01:
+			lowered += 1
+	print("    control: %d cell(s) filled and %d cut (want both > 0)" % [raised, lowered])
+	if raised == 0 or lowered == 0:
+		_fail += 1
+		print("    !! the fixture produced no earthworks in one direction, so [F] compared a pass-through")
+
+	# CONTROL: the branch-only channels are non-empty. `structure` is only written by the suppress branch
+	# and `roadbed` only inside the carriageway, so a port that dropped either would agree with a
+	# reference on the six channels that are mostly zeros anyway.
+	var n_struct := 0
+	var n_bed := 0
+	for v in prod["structure"]:
+		if v > 0.5:
+			n_struct += 1
+	for v in prod["roadbed"]:
+		if v > 0.5:
+			n_bed += 1
+	print("    control: %d structure cell(s), %d roadbed cell(s) (want both > 0)" % [n_struct, n_bed])
+	if n_struct == 0 or n_bed == 0:
+		_fail += 1
+		print("    !! the suppress or carriageway branch never ran, so it was never compared")
+
+	# CONTROL: the SKIPPED stretch is untouched. Skip means "a junction owns this arc length" and must
+	# leave no trace — not a deck, not a batter, not a mask. It is the one branch whose correct behaviour
+	# is indistinguishable from the grader having no effect, so the cells are selected by ASKING the plan
+	# which arc length they are nearest and reading the same skip array the grader read — an x threshold
+	# eyeballed off the fixture picks up the last few metres of live road and fails on geometry rather
+	# than on the branch.
+	var cum := Pasture3DRoadGrader.cumulative_length(fx["plan"])
+	var skip: PackedByteArray = fx["skip"]
+	var align: Pasture3DRoadAlignment = fx["align"]
+	var tail_touched := 0
+	var tail_near := 0
+	for iz in gh:
+		for ix in gw:
+			var idx := iz * gw + ix
+			if is_nan(ground[idx]):
+				continue
+			var hit := Pasture3DRoadGrader.nearest_on_plan(fx["plan"], cum,
+					Vector2(min_x + float(ix), min_z + float(iz)))
+			var si: int = align.index_at(hit[1])
+			if si >= skip.size() or skip[si] == 0:
+				continue
+			# Within the corridor the road would otherwise have cut — so this cell is evidence.
+			if hit[0] < 6.0:
+				tail_near += 1
+			if absf(h[idx] - ground[idx]) > 0.01:
+				tail_touched += 1
+	print("    control: %d cell(s) moved in the skipped stretch, of %d near it (want 0 of many)"
+			% [tail_touched, tail_near])
+	if tail_touched != 0 or tail_near == 0:
+		_fail += 1
+		print("    !! the skipped stretch was graded, which puts a viaduct at every crossroads")

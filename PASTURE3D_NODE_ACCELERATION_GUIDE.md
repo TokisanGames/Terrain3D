@@ -106,17 +106,26 @@ the keyboard. Add it here when you ship one, with the work that clears it:
 | node(s) | why visible without a kernel | debt |
 | :--- | :--- | :--- |
 | `blend` in `MIX` mode | The other five modes lower natively; MIX has no `GRAPH_BLEND_MIX` opcode yet, and the native `default:` returns `a`, which is a *wrong answer* rather than a refusal — so the node blocks instead. | Add `GRAPH_BLEND_MIX` to `pasture_3d_graph_ops.h/.cpp` and the GPU shader, then delete the `blocks_native()` override. |
+| `road_source`, `path_distance`, `path_mask`, `road_grade` | Their own maths **is** native as of P2a (`path_query_grid`, `path_mask_grid`, `road_grade_grid`), so each is fast on its own. What still blocks is the whole-graph evaluator: the lowered SSA program has no operand a polyline can travel in, so a graph containing any of them runs on the CPU evaluator entire. `road_source` never had maths at all — it names a road and holds what the host injected. | P2c: the geometry table and the three ops in `graph_eval_grid` (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §4). Then delete `blocks_native()` from all four. |
 
 An entry in that table is a promise to someone. Do not add one to avoid writing Steps 3–5.
 
-**The table is short because the rule was applied rather than argued with.** The four road nodes were the
-first candidates for it and did not survive the argument: `road_source`, `path_distance`, `path_mask` and
-`road_grade` became `dev_*` and moved to `Dev / Reference` on 2026-08-31. The reasoning that nearly kept
-them — *hiding them hides the feature, not just a slow implementation of it* — is exactly the reasoning
-this rule exists to overrule: the feature is not ready to be shipped until the kernel is, and a visible
-node that drops every graph it touches to the CPU evaluator is not a feature being shipped, it is a
-performance regression with a menu entry. `Roads` will return as a palette category when P2 lands, with
-C++ behind it.
+**The table is short because the rule was applied rather than argued with, and the second row is what
+applying it looks like from the other end.** The four road nodes were the first candidates for a
+production-visible exception and did not survive the argument: `road_source`, `path_distance`,
+`path_mask` and `road_grade` became `dev_*` and moved to `Dev / Reference` on 2026-08-31. The reasoning
+that nearly kept them — *hiding them hides the feature, not just a slow implementation of it* — is exactly
+the reasoning this rule exists to overrule: the feature is not ready to be shipped until the kernel is.
+
+They came back the same week, because the kernel got written. `Roads` returned as a palette category with
+C++ behind every node in it, and the three GDScript versions stayed as `dev_*` oracles rather than being
+deleted — which is what `RoadNativeParityGate` measures the kernels against. That is the intended shape
+of the whole rule: a node goes behind the flag until someone does the work, and the flag is what makes
+doing the work the shortest route to shipping it.
+
+What the road nodes still carry is the SECOND row, and it is a different debt from the first: their own
+maths is native, but the *graph* around them is not, because a polyline cannot travel in the lowered
+program yet. A row that conflated the two would have read as the rule not being applied.
 
 ---
 

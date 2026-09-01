@@ -281,6 +281,20 @@ public:
 			const PackedFloat32Array &p_widths, const bool p_closed, const int p_gw, const int p_gh,
 			const Rect2 &p_rect, const double p_width_scale, const double p_feather, const bool p_invert);
 
+	// The road grader (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §5.2). Pasture3DRoadGrader.grade forwards
+	// here, so the brush's own step and the graph's Road Grade node are ONE implementation rather than two
+	// that agree. The alignment arrives as four numbers — ds, s0, the solved heights and the bank ratios
+	// — because a kernel that took a Resource would be a kernel that only ran in the editor.
+	// p_opts: crown, cut_batter, fill_batter, surface_fade, skip. Returns
+	// { ok, height, roadbed, cut, fill, verge, structure, surface }.
+	static Dictionary road_grade_grid(const PackedFloat32Array &p_height, const int p_gw, const int p_gh,
+			const double p_min_x, const double p_min_z, const double p_vs,
+			const PackedVector2Array &p_plan, const double p_align_ds, const double p_align_s0,
+			const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+			const PackedFloat32Array &p_half_width, const PackedFloat32Array &p_shoulder,
+			const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress,
+			const Dictionary &p_opts);
+
 	// Native Curvature Discrete Laplacian filter.
 	static PackedFloat32Array curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 			const int p_mode, const int p_radius, const double p_contrast);

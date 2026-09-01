@@ -1,7 +1,7 @@
 # Pasture3D Graph Geometry Ports Specification
 
 **Document:** `PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md`
-**Status:** Specification — P2a in progress (the path query kernel is built; see §7)
+**Status:** Specification — **P2a complete** (2026-08-31); P2b next. See §7.
 **Target:** Pasture3D Terrain Graph (Godot 4.7 GDExtension, C++20, GDScript)
 **Supersedes:** the "P2 native tier" line in `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md` §P2, which described a
 `BrushModStep::ROAD` that does not exist (see §2.4)
@@ -324,8 +324,8 @@ one of two callers is half the work done twice.
 
 ### 6.3 The oracle is already written
 
-`dev_road_source`, `dev_path_distance`, `dev_path_mask` and `dev_road_grade` are the reference
-implementations, gated by `RoadGraphGate` [A]–[L]: the index against brute force, `s` absolute, `t` signed
+`dev_path_distance`, `dev_path_mask` and `dev_road_grade` — and `Pasture3DRoadGrader.grade_reference`,
+which the last of those calls — are the reference implementations, gated by `RoadGraphGate` [A]–[L]: the index against brute force, `s` absolute, `t` signed
 and normalised, the empty path reading far away, the mask tracking a widening road, and the graph's cut
 against the brush's to 0.0000 m. Every parity gate below compares native against **those**, on **those**
 fixtures. Nothing new has to be invented to know what the right answer is — which is the dividend of
@@ -342,14 +342,15 @@ For `ROAD_GRADE` specifically: a road crossing a hole must not fill it.
 
 | Phase | Scope | Gate |
 | :--- | :--- | :--- |
-| **P2a** ◐ | Tier-2 kernels + bindings: `path_query_grid` ✅ (2026-08-31, `src/pasture_3d_path_query.cpp`, gated by `RoadNativeParityGate` [A]–[C]), `path_mask_grid`, `road_grade_grid` on `Pasture3DUtil`. Production `road_source` / `path_distance` / `path_mask` / `road_grade` nodes that call them and fail fast. `grade_surface` refactored onto the same kernel (§6.2). The `Roads` palette category returns. | `RoadNativeParityGate` — native vs the four `dev_*` oracles on the `RoadGraphGate` fixtures, to the gate's existing thresholds; the brush's cut and the graph's still agree to 0.0000 m; a control that the kernels are actually being called (a missing binding must fail, not fall back). |
+| **P2a** ✅ 2026-08-31 | Tier-2 kernels + bindings, all on `Pasture3DUtil`: `path_query_grid` and `path_mask_grid` (`src/pasture_3d_path_query.cpp`), `road_grade_grid` (`src/pasture_3d_road_grade.cpp`). Production `path_distance` / `path_mask` / `road_grade` nodes that call them and fail fast; `road_source` promoted as-is, having no mathematics to move. `Pasture3DRoadGrader.grade` now forwards to the kernel, so the brush and the graph are ONE grader rather than two that agree (§6.2), and the GDScript body it replaced is `grade_reference`, the oracle. `Pasture3DGraphPath.closed` and region masks (§8.1). The `Roads` palette category returns with four nodes. | `RoadNativeParityGate` — native vs the four `dev_*` oracles on the `RoadGraphGate` fixtures, to the gate's existing thresholds; the brush's cut and the graph's still agree to 0.0000 m; a control that the kernels are actually being called (a missing binding must fail, not fall back). |
 | **P2b** | Multi-output channels in the program (§5.3) — `out_count`, per-operand source ports, the narrowed bail. Independently valuable for Erosion / DLA / Lake Flooding / Water Mask. | `GraphChannelLoweringGate` — a graph wiring a solver's secondary channel lowers natively and matches the GDScript evaluator; control: a port-1 wire out of a single-output op still refuses. |
 | **P2c** | The geometry table and the three ops in `graph_eval_grid` (§4). `GRAPH_BLEND_MIX` (§6.1). `blocks_native()` deleted from all four road nodes and from Blend. | Extend `GraphCppParityGate`; the §8 wiring 2 must lower end-to-end and match the GDScript result — the criterion is that gate [L]'s graph runs natively at all. |
 | **P2d** | GPU: geometry SSBO, the query in the compute shader. | `RoadGpuParityGate` (non-headless), GPU vs the CPU op. |
 
-**P2a is shippable alone** and is the phase that takes the road nodes back out of the developer flag: a
+**P2a shipped alone**, and it is the phase that took the road nodes back out of the developer flag: a
 production node calling a kernel satisfies the separation rule the day it exists, even while the graph
-around it still falls back. P2b is worth doing whether or not roads exist. P2c is the one that finally
+around it still falls back. The four are visible and still `blocks_native()`, which is a listed debt in
+PASTURE3D_NODE_ACCELERATION_GUIDE.md rather than a judgement made at the keyboard — the debt is P2c. P2b is worth doing whether or not roads exist. P2c is the one that finally
 makes `blocks_native()` a lie worth deleting.
 
 ---
