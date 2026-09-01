@@ -9,6 +9,7 @@ const Pasture3DUI: Script = preload("res://addons/pasture_3d/src/ui.gd")
 const Pasture3DLayersDock: Script = preload("res://addons/pasture_3d/src/layers_dock.gd")
 const Pasture3DBrushGizmo: Script = preload("res://addons/pasture_3d/src/brush_gizmo.gd")
 const Pasture3DPoolGizmo: Script = preload("res://addons/pasture_3d/src/pool_gizmo.gd")
+const Pasture3DJunctionGizmo: Script = preload("res://addons/pasture_3d/src/junction_gizmo.gd")
 const ReliefFractalScript: Script = preload("res://addons/pasture_3d/connectors/pasture3d_relief_fractal.gd")
 const BrushGraphRow: Script = preload("res://addons/pasture_3d/src/brush_graph_row.gd")
 const ASSET_DOCK: String = "res://addons/pasture_3d/src/asset_dock.tscn"
@@ -25,6 +26,7 @@ var graph_editor: Pasture3DGraphEditor # bottom-panel visual node-graph editor
 var graph_inspector: Pasture3DGraphInspectorPlugin # "Edit in Graph Editor" button
 var brush_gizmo: EditorNode3DGizmoPlugin # Clickable origin markers for brush nodes
 var pool_gizmo: EditorNode3DGizmoPlugin # Clickable markers floating over Pasture3DPool water
+var junction_gizmo: EditorNode3DGizmoPlugin # Resolved road junctions, drawn where the roads meet
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
@@ -107,6 +109,10 @@ func _enter_tree() -> void:
 	# is nothing in the viewport to click that selects the pool itself.
 	pool_gizmo = Pasture3DPoolGizmo.new()
 	add_node_3d_gizmo_plugin(pool_gizmo)
+	# Road junctions have no geometry of their own until P5 builds the mesh, so until then the resolved
+	# footprint is drawn rather than left in the inspector as numbers nobody checks.
+	junction_gizmo = Pasture3DJunctionGizmo.new()
+	add_node_3d_gizmo_plugin(junction_gizmo)
 
 	_register_water_globals()
 
@@ -160,6 +166,8 @@ func _exit_tree() -> void:
 		remove_node_3d_gizmo_plugin(brush_gizmo)
 	if pool_gizmo:
 		remove_node_3d_gizmo_plugin(pool_gizmo)
+	if junction_gizmo:
+		remove_node_3d_gizmo_plugin(junction_gizmo)
 	ui.queue_free()
 	editor.free()
 

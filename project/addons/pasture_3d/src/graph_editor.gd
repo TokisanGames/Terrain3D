@@ -22,6 +22,7 @@ const PORT_COLORS: Array[Color] = [
 	Color(1.00, 0.42, 0.51), # 6: COLOR (#ff6b81) - Magenta/Pink
 	Color(0.66, 0.90, 0.81), # 7: BOOL (#a8e6cf) - Lime Yellow
 	Color(0.95, 0.77, 0.06), # 8: TERRAIN_BUS (#f1c40f) - Warm Gold
+	Color(0.58, 0.65, 0.71), # 9: PATH (#95a5a6) - Slate: road-coloured, and the only non-field port
 ]
 
 var plugin: EditorPlugin
@@ -197,6 +198,9 @@ func _auto_fit_node_range(p_index: int) -> void:
 		
 	var field: PackedFloat32Array
 	if src_node >= 0:
+		# Previews resolve their scene-naming sources too, or a road in a graph previews as the unreachable
+		# fill and reads as a broken node rather than as an unresolved one.
+		Pasture3DGraphSources.resolve(graph, host_brush)
 		field = graph.evaluate(128, 128, in_rect, null, sample_input, src_node)
 	else:
 		field = sample_input
@@ -513,11 +517,16 @@ func _build_ui() -> void:
 	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.MASK, Pasture3DGraphNode.PortType.HEIGHT)
 	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.VECTOR, Pasture3DGraphNode.PortType.VECTOR)
 	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.CURVE, Pasture3DGraphNode.PortType.CURVE)
+	# PATH connects ONLY to PATH. Every other type pair here is float-to-float underneath and a mismatch is
+	# merely wrong-looking; a PATH wire carries a resource, so a HEIGHT plugged into it would be a null the
+	# consumer has to defend against on every cell.
+	_graphedit.add_valid_connection_type(Pasture3DGraphNode.PortType.PATH, Pasture3DGraphNode.PortType.PATH)
 
 	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.HEIGHT)
 	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.MASK)
 	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.VECTOR)
 	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.CURVE)
+	_graphedit.add_valid_right_disconnect_type(Pasture3DGraphNode.PortType.PATH)
 
 	_graphedit.connection_request.connect(_on_connection_request)
 	_graphedit.disconnection_request.connect(_on_disconnection_request)
@@ -2091,7 +2100,23 @@ func _on_node_selected(p_node: Node) -> void:
 	var i := _idx(p_node.name)
 	if i >= 0 and i < graph.nodes.size() and graph.nodes[i] != null:
 		if plugin != null:
+			# Offer the road list BEFORE the inspector builds, not after. The keys used to arrive only
+			# from a bake or a preview render, which means the first time you click a Road Source """ + EM + u""" the
+			# one moment you actually need to choose a road """ + EM + u""" the list is empty and `_validate_property`
+			# leaves the field a plain String. Resolving on selection costs one walk of the graph and
+			# makes the dropdown present whenever a network is reachable.
+			_offer_source_keys()
 			EditorInterface.edit_resource(graph.nodes[i])
+
+
+## Stamp every scene-naming source node with the keys it can choose from, for the inspector dropdown.
+##
+## Deliberately calls the same resolver the bake calls rather than collecting keys itself. The list the
+## inspector offers and the list the solve resolves against are then the same list by construction: a road
+## or brush that is offered can be chosen, and one that can be chosen resolves. Two collectors would be
+## two chances to disagree about what counts as a road, or as a shape.
+func _offer_source_keys() -> void:
+	Pasture3DGraphSources.resolve(graph, _find_host_brush())
 
 
 func _on_node_move_begin() -> void:

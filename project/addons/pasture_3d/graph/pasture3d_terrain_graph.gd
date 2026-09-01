@@ -596,6 +596,8 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 			grids[ni] = node.eval_grid(in_grids, p_gw, p_gh, p_mask, p_rect)
 		elif node.needs_grid():
 			var in_grids := _input_grids(ni, grids, aux, n)
+			if node.reads_paths():
+				node.set_path_inputs(_path_inputs(ni, inputs_of))
 			if node.output_count() > 1:
 				var chans: Array = node.eval_grid_channels(in_grids, p_gw, p_gh, p_mask, p_rect)
 				grids[ni] = chans[0]
@@ -680,6 +682,30 @@ func evaluate(p_gw: int, p_gh: int, p_rect: Rect2, p_mask = null, p_input = null
 			_evict_cache_if_needed()
 
 	return grids[out]
+
+
+## The PATH resources wired into `p_ni`, in input port order, with null for a port that is unwired or
+## wired to a node that produces no path.
+##
+## The PATH SIDEBAND. Every other port carries a grid, because every other port is a field; a road is a
+## centreline and a width, and rasterising it into a grid to send it down a wire would fix its resolution
+## at the wire rather than at the consumer and throw away the arc length. So the resource travels beside
+## the grids, the same way a multi-output solver's channels already travel beside them in `aux`.
+##
+## Read from the SOURCE NODE rather than from a value the source produced, which is the one thing worth
+## being careful about: it means a path is identified by the node that made it, and a stale path can only
+## come from a stale node. Cache invalidation then needs nothing new — `_append_input_signature`
+## already folds a source's `_dirty_revision` into its consumer's hash, and a Road Source re-emits
+## `changed` when its path resource does.
+func _path_inputs(p_ni: int, p_inputs_of: Dictionary) -> Array:
+	var out: Array = []
+	for s_i in p_inputs_of.get(p_ni, []):
+		var src: int = s_i
+		if src < 0 or src >= nodes.size() or nodes[src] == null:
+			out.append(null)
+		else:
+			out.append(nodes[src].path_output())
+	return out
 
 
 ## A content signature for one of the arrays handed to `evaluate`: its hash, or 0 when it is not a
@@ -997,16 +1023,21 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 	var order := _eval_order(out)
 	if order.is_empty():
 		return {}
+	# The same narrowing as native_supported: a channel the native op does not write cannot be compiled
+	# into a program, and the two must agree or a graph would report as lowerable and then fail to lower.
 	for c in connections:
 		if c.size() >= 4 and int(c[1]) > 0:
 			var to_node := int(c[2])
 			var from_node := int(c[0])
-			if order.has(to_node) and order.has(from_node):
+			if order.has(to_node) and order.has(from_node) 					and (int(c[1]) >= native_out_count(from_node) or int(c[3]) >= 4):
 				return {}
 	var slot_of := {}
 	for k in range(order.size()):
 		slot_of[order[k]] = k
-	var inputs_of: Dictionary = _fold_plan(out)["inputs_of"] # node -> [source node per port, -1 unwired]
+	var plan: Dictionary = _fold_plan(out)
+	var inputs_of: Dictionary = plan["inputs_of"] # node -> [source node per port, -1 unwired]
+	# node -> [source PORT per input port]: which channel of the source each operand reads (P2b).
+	var input_ports_of: Dictionary = plan["input_ports_of"]
 	var ops := PackedInt32Array()
 	var params := PackedFloat32Array()
 	var params_b := PackedFloat32Array()
@@ -1040,6 +1071,14 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 	var pdrv_node := PackedInt32Array()
 	var pdrv_param := PackedInt32Array()
 	var pdrv_src := PackedInt32Array()
+	# Multi-output channels (P2b): how many grids each slot produces, and which grid of its source each of
+	# in0..in3 reads. Emitted for every program, not only ones that use them, so the native side never has
+	# to guess whether a missing array means "one channel" or "an older compiler".
+	var out_count := PackedInt32Array()
+	var in0_port := PackedInt32Array()
+	var in1_port := PackedInt32Array()
+	var in2_port := PackedInt32Array()
+	var in3_port := PackedInt32Array()
 	var noise_tab: Array = []
 	var luts_tab: Array = []
 
@@ -1076,6 +1115,12 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
 		in2.append(int(slot_of[s2]) if s2 >= 0 else -1)
 		in3.append(int(slot_of[s3]) if s3 >= 0 else -1)
+		out_count.append(native_out_count(ni))
+		var iports: Array = input_ports_of.get(ni, [])
+		in0_port.append(int(iports[0]) if iports.size() > 0 and s0 >= 0 else 0)
+		in1_port.append(int(iports[1]) if iports.size() > 1 and s1 >= 0 else 0)
+		in2_port.append(int(iports[2]) if iports.size() > 2 and s2 >= 0 else 0)
+		in3_port.append(int(iports[3]) if iports.size() > 3 and s3 >= 0 else 0)
 		var _pm: PackedInt32Array = lowered.get("pmap", PackedInt32Array())
 		pmap0.append(_pm[0] if _pm.size() > 0 else -1)
 		pmap1.append(_pm[1] if _pm.size() > 1 else -1)
@@ -1089,12 +1134,17 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 				pdrv_param.append(pslot)
 				pdrv_src.append(int(slot_of[psrc]))
 
+	# The geometry operand, in the same slot order as everything above.
+	var _geo := _compile_geometry(order, inputs_of)
 	return {
 		"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
 		"params_e": params_e, "params_f": params_f, "params_g": params_g, "params_h": params_h,
 		"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
 		"params_m": params_m, "params_n": params_n, "params_o": params_o, "params_p": params_p,
 		"in0": in0, "in1": in1, "in2": in2, "in3": in3,
+		"out_count": out_count,
+		"in0_port": in0_port, "in1_port": in1_port, "in2_port": in2_port, "in3_port": in3_port,
+		"in_g": _geo["in_g"], "geom": _geo["geom"],
 		"pmap0": pmap0, "pmap1": pmap1, "pmap2": pmap2, "pmap3": pmap3,
 		"pdrv_node": pdrv_node, "pdrv_param": pdrv_param, "pdrv_src": pdrv_src,
 		"noise": noise_tab, "luts": luts_tab, "output": int(slot_of[out]),
@@ -1331,6 +1381,26 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				op_id = 55
 				p0 = _f.call(&"depth_threshold", 0.01); pb = _f.call(&"shore_width", 8.0)
 				pc = float(_i.call(&"shore_falloff", 1))
+			# ---- The road nodes (P2c). Their geometry does not ride in these params: it goes in the
+			# program's geometry table and `in_g` names an entry, because a polyline is neither a float
+			# nor an index into the scratch arena (§4.1).
+			&"road_source", &"shape_source":
+				# A PATH producer still fills a grid slot, with zeros — the same 0.0 its eval_cell
+				# returns. The slot exists so nothing that indexes by node has to special-case it.
+				#
+				# Both source kinds lower identically and share this case, because by the time a path is
+				# in the geometry table there IS no difference: a ring is a ring, and `closed` rides on
+				# the entry. The two nodes differ only in what they name and who resolves them.
+				op_id = 2; p0 = 0.0
+			&"path_distance":
+				op_id = 57
+				p0 = _f.call(&"unreachable_distance", 10000.0); pb = _f.call(&"max_distance", 0.0)
+			&"path_mask":
+				op_id = 58
+				p0 = _f.call(&"width_scale", 1.0); pb = _f.call(&"feather", 2.0)
+				pc = 1.0 if bool(node.get("invert")) else 0.0
+			&"road_grade":
+				op_id = 59; p0 = _f.call(&"amount", 1.0)
 			&"mudslide":
 				op_id = 56
 				p0 = _f.call(&"talus_angle_deg", 30.0); pb = _f.call(&"depth", 4.0)
@@ -1456,24 +1526,30 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 	var needed := {}
 	for ni in order:
 		needed[ni] = true
-	# A secondary-port wire needs the multi-channel GDScript path; the taps program has no aux channels, so
-	# bail exactly as native_supported / compile_graph_program do.
+	# Bail exactly as native_supported / compile_graph_program do — same rule, three places, and they have
+	# to move together or a graph reports lowerable and then fails to lower. Since P2b that rule is
+	# "reading a channel the native op does not write", not "reading any secondary port".
 	for c in connections:
 		if c.size() >= 4 and int(c[1]) > 0:
 			var to_node := int(c[2])
 			var from_node := int(c[0])
-			if needed.has(to_node) and needed.has(from_node):
+			if needed.has(to_node) and needed.has(from_node) 					and (int(c[1]) >= native_out_count(from_node) or int(c[3]) >= 4):
 				return {}
 	var slot_of := {}
 	for k in range(order.size()):
 		slot_of[order[k]] = k
 	# inputs_of over the union ancestor set — same construction as _fold_plan, restricted to `needed`.
 	var inputs_of := {}
+	var input_ports_of := {}
 	for ni in order:
 		var arr: Array = []
 		arr.resize(nodes[ni].input_count())
 		arr.fill(-1)
 		inputs_of[ni] = arr
+		var parr: Array = []
+		parr.resize(nodes[ni].input_count())
+		parr.fill(0)
+		input_ports_of[ni] = parr
 	for c in connections:
 		if c.size() >= 4:
 			var to := int(c[2])
@@ -1482,6 +1558,7 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 				var tp := int(c[3])
 				if tp >= 0 and tp < (inputs_of[to] as Array).size():
 					inputs_of[to][tp] = from
+					input_ports_of[to][tp] = int(c[1])
 	var ops := PackedInt32Array()
 	var params := PackedFloat32Array()
 	var params_b := PackedFloat32Array()
@@ -1515,6 +1592,11 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 	var pdrv_node := PackedInt32Array()
 	var pdrv_param := PackedInt32Array()
 	var pdrv_src := PackedInt32Array()
+	var out_count := PackedInt32Array()
+	var in0_port := PackedInt32Array()
+	var in1_port := PackedInt32Array()
+	var in2_port := PackedInt32Array()
+	var in3_port := PackedInt32Array()
 	var noise_tab: Array = []
 	var luts_tab: Array = []
 	for ni in order:
@@ -1542,6 +1624,12 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 		in1.append(int(slot_of[s1]) if s1 >= 0 else -1)
 		in2.append(int(slot_of[s2]) if s2 >= 0 else -1)
 		in3.append(int(slot_of[s3]) if s3 >= 0 else -1)
+		out_count.append(native_out_count(ni))
+		var iports: Array = input_ports_of.get(ni, [])
+		in0_port.append(int(iports[0]) if iports.size() > 0 and s0 >= 0 else 0)
+		in1_port.append(int(iports[1]) if iports.size() > 1 and s1 >= 0 else 0)
+		in2_port.append(int(iports[2]) if iports.size() > 2 and s2 >= 0 else 0)
+		in3_port.append(int(iports[3]) if iports.size() > 3 and s3 >= 0 else 0)
 		var _pm: PackedInt32Array = lowered.get("pmap", PackedInt32Array())
 		pmap0.append(_pm[0] if _pm.size() > 0 else -1)
 		pmap1.append(_pm[1] if _pm.size() > 1 else -1)
@@ -1554,6 +1642,7 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 				pdrv_node.append(ops.size() - 1)
 				pdrv_param.append(pslot)
 				pdrv_src.append(int(slot_of[psrc]))
+	var _geo := _compile_geometry(order, inputs_of)
 	var out_slot := 0
 	for r in p_roots:
 		var ri := int(r)
@@ -1567,12 +1656,119 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 			"params_i": params_i, "params_j": params_j, "params_k": params_k, "params_l": params_l,
 			"params_m": params_m, "params_n": params_n, "params_o": params_o, "params_p": params_p,
 			"in0": in0, "in1": in1, "in2": in2, "in3": in3,
+			"out_count": out_count,
+			"in0_port": in0_port, "in1_port": in1_port, "in2_port": in2_port, "in3_port": in3_port,
+			"in_g": _geo["in_g"], "geom": _geo["geom"],
 		"pmap0": pmap0, "pmap1": pmap1, "pmap2": pmap2, "pmap3": pmap3,
 		"pdrv_node": pdrv_node, "pdrv_param": pdrv_param, "pdrv_src": pdrv_src,
 			"noise": noise_tab, "luts": luts_tab, "output": out_slot,
 		},
 		"slot_of": slot_of,
 	}
+
+
+## How many output channels the NATIVE evaluator writes for an op (P2b,
+## PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §5.3). Absent means one.
+##
+## ---- THIS IS ABOUT THE KERNEL, NOT ABOUT THE NODE ----
+##
+## It would be easier to read `node.output_count()`, and it would be wrong. That number is what the
+## GDScript node OFFERS; this one is what `graph_eval_grid` actually fills in. An op whose secondary
+## channels have no case in pasture_3d_graph_ops.cpp declares 1 here, and a graph reading them is then
+## refused a native lowering — rather than lowered and served a field of zeros, which is the failure this
+## whole allow-list style exists to prevent.
+##
+## Add an entry the same commit you write the channels, never in advance.
+const NATIVE_OUT_COUNT := {
+	&"erosion": 5, # height, flow, erosion, deposition, wetness
+	&"path_distance": 3, # distance, s, t
+	&"road_grade": 6, # height, roadbed, cut, fill, verge, structure
+}
+
+
+## How many channels the native evaluator produces for the op at `p_node`, 1 when it is single-output or
+## unknown.
+func native_out_count(p_node: int) -> int:
+	if p_node < 0 or p_node >= nodes.size() or nodes[p_node] == null:
+		return 1
+	if nodes[p_node].muted:
+		return 1 # a muted node lowers to passthrough, which has one channel whatever it wrapped
+	return int(NATIVE_OUT_COUNT.get(nodes[p_node].op(), 1))
+
+
+## ---- The geometry table (P2c, PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §4.1) ----
+##
+## Which PATH feeds `p_ni`, or null. Found by PORT TYPE, never by port index: the path is port 0 on Path
+## Distance and Path Mask and port 1 on Road Grade, and an index hardcoded here would grade a road against
+## nothing the day one of those nodes grows another input — silently, because "no path" is a legal state
+## that passes the surface through.
+func _path_operand_of(p_ni: int, p_inputs_of: Dictionary) -> Pasture3DGraphPath:
+	if p_ni < 0 or p_ni >= nodes.size() or nodes[p_ni] == null:
+		return null
+	var types := nodes[p_ni].input_port_types()
+	var srcs: Array = p_inputs_of.get(p_ni, [])
+	for k in range(mini(types.size(), srcs.size())):
+		if int(types[k]) != Pasture3DGraphNode.PortType.PATH:
+			continue
+		var src := int(srcs[k])
+		if src >= 0 and src < nodes.size() and nodes[src] != null:
+			return nodes[src].path_output()
+	return null
+
+
+## One geometry-table entry: the polyline, its per-vertex widths, and — only when the road has a solved
+## alignment — the grading profile in the alignment's OWN sampling.
+##
+## The two samplings are not redundancy. `values` is per vertex and answers the `t` query; `profile` is
+## per alignment sample and is handed to the grader verbatim. Resampling either into the other would put
+## an interpolation between the brush's road and the graph's, and RoadGraphGate [K] — 0.0000 m between
+## them — is what would fail.
+func _geom_entry(p_path: Pasture3DGraphPath) -> Dictionary:
+	var d := {
+		"kind": 0, # PATH. 1 = CLOUD is reserved (§5.4) and no op reads it yet.
+		"closed": p_path.closed,
+		"points": p_path.points,
+		"values": p_path.half_widths,
+	}
+	if p_path.can_grade() and p_path.alignment != null:
+		d["profile"] = {
+			"ds": p_path.alignment.ds,
+			"s0": p_path.alignment.s0,
+			"height": p_path.alignment.z,
+			"bank": p_path.alignment.bank,
+			"half": p_path.sample_half_widths,
+			"shoulder": p_path.sample_shoulders,
+			"verge": p_path.sample_verges,
+			"suppress": p_path.sample_suppress,
+			"skip": p_path.sample_skip,
+			"crown": p_path.crown,
+			"cut_batter": p_path.cut_batter,
+			"fill_batter": p_path.fill_batter,
+		}
+	return d
+
+
+## The table and the per-slot `in_g`, for a compiled slot order.
+##
+## Entries are DEDUPLICATED by path instance, which is where fanout becomes free: four nodes reading one
+## road name one entry, and the native side indexes that road once for the whole bake instead of four
+## times. Keyed by instance id rather than by contents, because two roads may legitimately have identical
+## geometry and must still be two entries — they can be re-baked apart.
+func _compile_geometry(p_order: Array, p_inputs_of: Dictionary) -> Dictionary:
+	var geom: Array = []
+	var in_g := PackedInt32Array()
+	var by_id := {}
+	for ni in p_order:
+		var path := _path_operand_of(int(ni), p_inputs_of)
+		if path == null:
+			in_g.append(-1)
+			continue
+		var key := path.get_instance_id()
+		if not by_id.has(key):
+			by_id[key] = geom.size()
+			geom.append(_geom_entry(path))
+		in_g.append(int(by_id[key]))
+	return {"in_g": in_g, "geom": geom}
 
 
 ## True when every node feeding the output has an op the native whole-graph evaluator implements.
@@ -1615,7 +1811,10 @@ func native_supported(p_root_node: int = -1) -> bool:
 		# Spec phase 4.
 		&"warp_downslope",
 		# Spec phase 5.
-		&"flooding_uniform_level", &"water_mask", &"mudslide"
+		&"flooding_uniform_level", &"water_mask", &"mudslide",
+		# Geometry ports (P2c). The two source nodes lower to a zero CONST and contribute a geometry-table
+		# entry rather than a grid; the other three read it through `in_g`.
+		&"road_source", &"shape_source", &"path_distance", &"path_mask", &"road_grade"
 	]
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):
@@ -1626,13 +1825,23 @@ func native_supported(p_root_node: int = -1) -> bool:
 		# never added to the allow-list above.
 		if nodes[ni] != null and not nodes[ni].muted and nodes[ni].blocks_native():
 			return false
-	# If any wire in the active DAG feeds from a secondary port (port >= 1, e.g. a solver mask),
-	# stay on the multi-channel GDScript evaluator so the secondary channel is correctly read.
+	# A wire out of a secondary port (port >= 1, e.g. a solver's flow field) used to drop the whole graph
+	# to the GDScript evaluator unconditionally. Since P2b the program can carry channels, so the bail
+	# narrows to the case that is still unlowerable: reading a channel the NATIVE op does not write.
+	#
+	# Narrowed, not deleted. `native_out_count` reports the kernel's channels, not the node's, so an op
+	# that offers five outputs in the editor and implements one in C++ still refuses — which is the whole
+	# point, because lowering it would serve a field of zeros that looks exactly like a real answer.
+	#
+	# A secondary channel driving a port >= 4 also refuses. Those ports travel in the flat pdrv_* overflow
+	# table, which records a slot and not a channel, so the evaluator would read cell 0 of the wrong
+	# buffer — a parameter wrong by a plausible amount. Widening that table is a schema change for a case
+	# nobody has wired yet; refusing costs one comparison.
 	for c in connections:
 		if c.size() >= 4 and int(c[1]) > 0:
 			var to_node := int(c[2])
 			var from_node := int(c[0])
-			if order.has(to_node) and order.has(from_node):
+			if order.has(to_node) and order.has(from_node) 					and (int(c[1]) >= native_out_count(from_node) or int(c[3]) >= 4):
 				return false
 	# A compiled program carries four GRID slots, in0..in3, so a wire into port 4 or beyond has no in-slot.
 	# A driven SCALAR does not need one — the native evaluator reads cell 0 of the source buffer, and those

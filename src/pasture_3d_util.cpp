@@ -10,6 +10,8 @@
 
 #include "logger.h"
 #include "pasture_3d_curvature.h"
+#include "pasture_3d_path_query.h"
+#include "pasture_3d_road_grade.h"
 #include "pasture_3d_depression_filling.h"
 #include "pasture_3d_crater.h"
 #include "pasture_3d_dunes.h"
@@ -1576,6 +1578,29 @@ PackedFloat32Array Pasture3DUtil::spectral_equalizer_grid(const PackedFloat32Arr
 			p_micro_gain, p_macro_passes, p_meso_passes, p_amount);
 }
 
+Dictionary Pasture3DUtil::path_query_grid(const PackedVector2Array &p_points,
+		const PackedFloat32Array &p_widths, const int p_gw, const int p_gh, const Rect2 &p_rect,
+		const double p_unreachable, const double p_max_distance) {
+	return godot::path_query_grid(p_points, p_widths, p_gw, p_gh, p_rect, p_unreachable, p_max_distance);
+}
+
+PackedFloat32Array Pasture3DUtil::path_mask_grid(const PackedVector2Array &p_points,
+		const PackedFloat32Array &p_widths, const bool p_closed, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const double p_width_scale, const double p_feather, const bool p_invert) {
+	return godot::path_mask_grid(p_points, p_widths, p_closed, p_gw, p_gh, p_rect, p_width_scale,
+			p_feather, p_invert);
+}
+
+Dictionary Pasture3DUtil::road_grade_grid(const PackedFloat32Array &p_height, const int p_gw,
+		const int p_gh, const double p_min_x, const double p_min_z, const double p_vs,
+		const PackedVector2Array &p_plan, const double p_align_ds, const double p_align_s0,
+		const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+		const PackedFloat32Array &p_half_width, const PackedFloat32Array &p_shoulder,
+		const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress, const Dictionary &p_opts) {
+	return godot::road_grade_grid(p_height, p_gw, p_gh, p_min_x, p_min_z, p_vs, p_plan, p_align_ds,
+			p_align_s0, p_align_z, p_align_bank, p_half_width, p_shoulder, p_verge, p_suppress, p_opts);
+}
+
 PackedFloat32Array Pasture3DUtil::curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 		const int p_mode, const int p_radius, const double p_contrast) {
 	return godot::curvature_solve(p_surface, p_gw, p_gh, (godot::CurvatureMode)p_mode, p_radius, p_contrast);
@@ -2075,6 +2100,19 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("spectral_equalizer_grid", "surface", "mask", "gw", "gh", "macro_gain", "meso_gain", "micro_gain", "macro_passes", "meso_passes", "amount"),
 			&Pasture3DUtil::spectral_equalizer_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("path_query_grid", "points", "widths", "gw", "gh", "rect", "unreachable",
+					"max_distance"),
+			&Pasture3DUtil::path_query_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("path_mask_grid", "points", "widths", "closed", "gw", "gh", "rect", "width_scale",
+					"feather", "invert"),
+			&Pasture3DUtil::path_mask_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("road_grade_grid", "height", "gw", "gh", "min_x", "min_z", "vs", "plan", "align_ds",
+					"align_s0", "align_z", "align_bank", "half_width", "shoulder", "verge", "suppress",
+					"opts"),
+			&Pasture3DUtil::road_grade_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("curvature_grid", "surface", "gw", "gh", "mode", "radius", "contrast"),
 			&Pasture3DUtil::curvature_grid);

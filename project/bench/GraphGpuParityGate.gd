@@ -41,6 +41,7 @@ func _ready() -> void:
 	_c_add_noise()
 	_d_generator_with_grid_barrier()
 	_e_blend_modes()
+	_f_the_mask_port_and_mix()
 	_finish(_fail)
 
 
@@ -119,6 +120,56 @@ func _e_blend_modes() -> void:
 		print("    %-4s GPU vs CPU = %.7f (want < %.6f)" % [name, d, TOL])
 		if d > TOL:
 			_fail += 1; print("    !! GPU diverged from CPU on blend mode %s" % name)
+
+
+# --- F. The mask port, and MIX --------------------------------------------------------------------------
+#
+# [E] above wires two inputs and no mask, which is why this shader ignored its MASK port for as long as it
+# did: every mode was checked and none of them was checked WITH a mask. A Blend with a mask wired ran on
+# the GPU and dropped it silently, for all five modes.
+#
+# MIX (P2c) is the mode that makes that fatal rather than merely wrong: MIX is `b`, and the mask fold is
+# what turns it into lerp(a, b, mask), so a dropped mask is not a blend applied too strongly — it is B
+# everywhere, the road graded across the whole terrain. The controls are what separate a mask that is
+# read from one that is ignored: an ignored mask gives a result identical to the unmasked blend.
+func _f_the_mask_port_and_mix() -> void:
+	print("[F] the mask port is read, and MIX matches (P2c)")
+	var surf := _ramp(4.0)
+	var modes := {
+		"ADD": Pasture3DGraphNodeBlend.Mode.ADD, "MUL": Pasture3DGraphNodeBlend.Mode.MUL,
+		"MIX": Pasture3DGraphNodeBlend.Mode.MIX,
+	}
+	for name in modes:
+		# A, B and a MASK, all three wired: Input into a, noise into b, and a second noise as the mask.
+		var g := Pasture3DTerrainGraph.new()
+		var nodes: Array[Pasture3DGraphNode] = [
+			Pasture3DGraphNodeInput.new(), _noise(_make_noise(9, 0.06), 5.0),
+			_noise(_make_noise(3, 0.04), 0.5), _blend(modes[name]),
+			Pasture3DGraphNodeOutput.new()]
+		g.nodes = nodes
+		g.connections = [_c4(0, 0, 3, 0), _c4(1, 0, 3, 1), _c4(2, 0, 3, 2), _c4(3, 0, 4, 0)]
+		var masked_gpu := _gpu(g, surf)
+		var d := _maxdiff(masked_gpu, _cpu(g, surf))
+		print("    %-4s + mask   GPU vs CPU = %.7f (want < %.6f)" % [name, d, TOL])
+		if d > TOL:
+			_fail += 1
+			print("    !! GPU diverged from CPU on a masked %s" % name)
+
+		# CONTROL: the mask CHANGED the answer. Without this the criterion passes on a shader that
+		# ignores the mask and a CPU op that ignores it too — and the old shader did ignore it, for
+		# years, while every unmasked mode above agreed perfectly.
+		var g2 := Pasture3DTerrainGraph.new()
+		var nodes2: Array[Pasture3DGraphNode] = [
+			Pasture3DGraphNodeInput.new(), _noise(_make_noise(9, 0.06), 5.0),
+			_blend(modes[name]), Pasture3DGraphNodeOutput.new()]
+		g2.nodes = nodes2
+		g2.connections = [_c4(0, 0, 2, 0), _c4(1, 0, 2, 1), _c4(2, 0, 3, 0)]
+		var unmasked := _gpu(g2, surf)
+		var moved := _maxdiff(masked_gpu, unmasked)
+		print("        control: the mask moves the GPU result by %.4f (want > 0.01)" % moved)
+		if moved <= 0.01:
+			_fail += 1
+			print("        !! the mask port changed nothing, so the GPU is ignoring it")
 
 
 # ---- helpers ----------------------------------------------------------------------------------------

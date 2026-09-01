@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "pasture_3d_path_query.h"
+
 #include <godot_cpp/classes/fast_noise_lite.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_float32_array.hpp>
@@ -82,6 +84,10 @@ enum GraphCellOpType {
 	GRAPH_OP_FLOODING_UNIFORM_LEVEL = 54, // FILTER: clamp the surface up to a uniform water level (§8.1)
 	GRAPH_OP_WATER_MASK = 55, // FILTER grid: submerged mask plus a metric shore band (§8.2)
 	GRAPH_OP_MUDSLIDE = 56, // SOLVER grid: move a finite, maskable quantity of material downhill (§8.3)
+	// ---- Geometry consumers (P2c). These read in_g, not a scratch buffer. ----
+	GRAPH_OP_PATH_QUERY = 57, // FILTER grid: distance / s / t from in_g (3 outputs)
+	GRAPH_OP_PATH_MASK = 58, // FILTER grid: a [0,1] corridor or region mask from in_g (1 output)
+	GRAPH_OP_ROAD_GRADE = 59, // SOLVER grid: cut a road into in0 along in_g (6 outputs)
 };
 
 // Blend modes — sync with Pasture3DGraphNodeBlend.Mode { ADD, SUB, MUL, MAX, MIN } (0..4). Prefixed
@@ -92,6 +98,46 @@ enum GraphBlendMode {
 	GRAPH_BLEND_MUL = 2,
 	GRAPH_BLEND_MAX = 3,
 	GRAPH_BLEND_MIN = 4,
+	// lerp(a, b, mask). Added in P2c because the §8 road wiring is built out of it and the op's
+	// `default: val = a` would otherwise have answered a MIX with `a` — plausible, silent and wrong.
+	GRAPH_BLEND_MIX = 5,
+};
+
+// One entry of the program's GEOMETRY TABLE (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §4.1).
+//
+// ---- WHY GEOMETRY IS AMBIENT CONTEXT AND NOT A FLOWING VALUE ----
+//
+// The scratch arena holds one float per cell per buffer, and a polyline with a per-vertex width is
+// neither a float nor an index into it. It could have been made to flow — a parallel arena of geometry
+// values, copied at every hop — and that would have bought nothing: no op in this design TRANSFORMS a
+// path, they only read one. So the table is bound to the program before evaluation, alongside the input
+// surface, and `in_g` names an entry rather than carrying it. Fanout is then free by construction: four
+// slots reading the same road index it once, which is the property §4.2 of the spec is about.
+//
+// The two samplings are not redundancy. `geom.width` is per VERTEX and answers the `t` query; the
+// profile arrays are per ALIGNMENT SAMPLE and are the grader's own space, handed over verbatim.
+// Resampling either into the other would insert an interpolation between the brush's road and the
+// graph's, and RoadGraphGate [K] — which requires 0.0000 m between them — is what would fail.
+struct GraphGeomEntry {
+	int kind = 0; // 0 = PATH; 1 = CLOUD is reserved (§5.4) and not yet read by any op
+	// Built ONCE when the program is built, shared read-only across every slot naming it and every worker
+	// thread. The ring is already closed here when the path is closed, so no query below remembers that a
+	// path can be closed — see path_close_ring.
+	Pasture3DPathGeom geom;
+	// ---- the grading profile; present only when a ROAD_GRADE consumer needs it ----
+	bool has_profile = false;
+	double align_ds = 1.0;
+	double align_s0 = 0.0;
+	PackedFloat32Array align_z;
+	PackedFloat32Array align_bank;
+	PackedFloat32Array half_width;
+	PackedFloat32Array shoulder;
+	PackedFloat32Array verge;
+	PackedByteArray suppress;
+	PackedByteArray skip;
+	double crown = 0.05;
+	double cut_batter = 1.0;
+	double fill_batter = 0.6;
 };
 
 // An input source that reads a defined 0 rather than an earlier slot — an unwired port, exactly as the
@@ -162,6 +208,41 @@ struct GraphProgram {
 	PackedInt32Array in1; // second input's source slot, or -1
 	PackedInt32Array in2; // third input's source slot (e.g. blend mask), or -1
 	PackedInt32Array in3; // fourth input's source slot (e.g. solver mask), or -1
+	// ---- Multi-output channels (P2b, PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §5.3) ----
+	//
+	// How many grids each slot PRODUCES, and which of a source slot's grids each operand READS. A solver
+	// like Erosion answers five questions in one solve — height, flow, erosion, deposition, wetness — and
+	// before this the program could only carry the first, so wiring `flow` anywhere dropped the entire
+	// graph to the GDScript evaluator. That is the normal way to use a solver, which made the native
+	// evaluator unreachable for most graphs that contain one.
+	//
+	// `out_count` is what the NATIVE op actually writes, not what the GDScript node offers: an op whose
+	// aux channels are not implemented here declares 1, and the compiler then refuses to lower a graph
+	// that reads them, rather than lowering it and serving zeros. Empty (or ragged) means 1 everywhere,
+	// which is exactly how every program compiled before this reads.
+	//
+	// Channels above 0 are allocated ONLY when some operand reads them: a solve nobody asked a question
+	// of costs what it always did.
+	PackedInt32Array out_count;
+	PackedInt32Array in0_port; // which channel of in0's slot this operand reads; 0 when absent
+	PackedInt32Array in1_port;
+	PackedInt32Array in2_port;
+	PackedInt32Array in3_port;
+	// ---- The geometry operand (P2c) ----
+	//
+	// Per slot: an index into `geom`, or -1 for "no geometry". PARALLEL to in0..in3 and read the same
+	// way, with one deliberate difference the field name is meant to carry: in0..in3 index the SCRATCH
+	// POOL and in_g indexes the GEOMETRY TABLE. They are different spaces.
+	//
+	// -1 is the empty path, and what it reads as is not free choice: distance answers `unreachable`, a
+	// mask answers 0, and a grade passes the surface through. Zero distance would mean every cell is on
+	// the road, and a downstream grade would flatten the terrain to the road's crown and look like it
+	// worked (§4.3).
+	//
+	// One operand, not four: no node here consumes two paths. If one ever does it gets `in_g2`, exactly
+	// as ports beyond four got the flat pdrv_* overflow table rather than a schema change.
+	PackedInt32Array in_g;
+	std::vector<GraphGeomEntry> geom;
 	// Which of the 16 params slots each of in0..in3 OVERRIDES when that port is wired, or -1 when the port
 	// is not a scalar parameter. Without this the evaluator read parameters from the program alone and
 	// ignored every wire into a parameter port. See PARAM_PORT_MAP in pasture3d_terrain_graph.gd.

@@ -173,7 +173,41 @@ enum PortType {
 	COLOR = 6,        # RGBA color / tint / gradient band - Magenta/Pink
 	BOOL = 7,         # Boolean toggle / gate switch - Lime Yellow
 	TERRAIN_BUS = 8,  # Bundled multi-channel stream - Warm Gold
+	PATH = 9,         # World-space polyline with per-vertex width (Pasture3DGraphPath) - Slate
 }
+
+
+## The PATH this node produces, or null. The ONE thing in the graph that does not travel as a grid.
+##
+## ---- WHY THERE IS A SIDEBAND AT ALL ----
+##
+## Every other port carries a PackedFloat32Array because every other port is a FIELD. A road is not: it
+## is a centreline and a width, and rasterising it into a grid to send it down a wire would fix its
+## resolution at the wire instead of at the consumer and throw away the arc length that makes it a road
+## rather than a shape. So a PATH port produces no grid; the evaluator carries the resource beside the
+## grids, exactly as it already carries a multi-output solver's `aux` channels beside them.
+##
+## A node whose output is PATH still occupies a grid slot, filled with zeros. That is deliberate: the
+## alternative is a special case in every loop that indexes `grids` by node, in exchange for saving one
+## array on one node.
+func path_output() -> Pasture3DGraphPath:
+	return null
+
+
+## True when this node reads PATH inputs, so the evaluator collects them before calling `eval_grid`.
+## Answering true costs one dictionary walk per evaluation and nothing else.
+func reads_paths() -> bool:
+	return false
+
+
+## Hand this node its PATH inputs, in INPUT PORT ORDER, with null for a port that is unwired or wired to
+## something that produces no path. Called immediately before `eval_grid` and only when `reads_paths()`.
+##
+## Passed in rather than fetched, because a Resource has no way back to the graph that owns it, and
+## giving it one would make every node able to reach every other — which is the property that keeps
+## the evaluator's ordering meaningful.
+func set_path_inputs(_p_paths: Array) -> void:
+	pass
 
 
 ## Types for each input port. Defaults to HEIGHT for all ports.

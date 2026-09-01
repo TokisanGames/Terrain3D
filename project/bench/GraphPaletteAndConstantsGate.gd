@@ -97,12 +97,79 @@ func _c_registry_categories() -> void:
 	_assert(cats.has("Math & Combiners"), "Registry has Math & Combiners category")
 	_assert(cats.has("Routing & Structural"), "Registry has Routing & Structural category")
 
-	var cat_map := Pasture3DGraphNodeRegistry.entries_by_category()
+	var cat_map := Pasture3DGraphNodeRegistry.entries_by_category(true)
 	var const_entries: Array = cat_map.get("Constants", [])
 	_assert(const_entries.size() >= 6, "Constants category has at least 6 constant node types")
 
 	var search_const := Pasture3DGraphNodeRegistry.search("constant")
 	_assert(search_const.size() >= 6, "Search for 'constant' returns constant nodes")
+
+	# EVERY REGISTERED NODE MUST REACH THE PALETTE.
+	#
+	# The palette walks `categories()` and pulls the entries matching each name, so an entry whose
+	# category is not in that list is dropped WITHOUT A WORD: registered, instantiable, and absent from
+	# the Add menu. Road Source and Path Distance shipped exactly that way, and nothing here noticed,
+	# because every criterion above asks whether a category the list already names is present rather than
+	# whether a node the registry already has is reachable.
+	var reachable := {}
+	for cat in Pasture3DGraphNodeRegistry.categories(true):
+		for e in cat_map.get(cat, []):
+			reachable[e["op"]] = true
+	var orphaned := PackedStringArray()
+	for e in Pasture3DGraphNodeRegistry.entries(true):
+		if not reachable.has(e["op"]):
+			orphaned.append("%s (category \"%s\")" % [String(e["op"]), str(e.get("category", ""))])
+	_assert(orphaned.is_empty(), "every registered node reaches the palette; orphaned: %s"
+			% str(Array(orphaned)))
+
+	# CONTROL: the walk must be finding nodes at all. An empty `reachable` reports nothing orphaned and
+	# passes forever.
+	_assert(reachable.size() >= 40, "the palette walk reached %d node type(s) (want many)"
+			% reachable.size())
+
+	# CONTROL: an entry in a category NOBODY listed must still come out reachable, which is the whole
+	# point of `categories()` being an order rather than a membership test.
+	var invented := "Zzz Invented Category"
+	var listed := Pasture3DGraphNodeRegistry.categories(true)
+	_assert(not listed.has(invented), "the control category is genuinely unlisted")
+
+	# The road nodes used to be asserted here as a "Roads" category. They are GDScript end to end, so under
+	# the rule in PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md §3.0 they are [Dev/GD] nodes and live in
+	# Dev / Reference until P2 gives them a native kernel. What is checked is therefore the opposite of what
+	# it was: they must be in the dev bucket, and "Roads" must NOT be an empty category left standing in the
+	# ordered list, because a category that lists nothing is a menu entry that opens onto nothing.
+	var dev_entries: Array = cat_map.get("Dev / Reference", [])
+	var dev_ops := {}
+	for e in dev_entries:
+		dev_ops[e["op"]] = true
+	# The three GDScript ORACLES, not four: P2a promoted `road_source` back to production, because it never
+	# had any mathematics to move into C++ — it names a road and holds what the host injected.
+	var road_ops: Array[StringName] = [&"dev_path_distance", &"dev_path_mask", &"dev_road_grade"]
+	var found := 0
+	for o in road_ops:
+		if dev_ops.has(o):
+			found += 1
+	_assert(found == road_ops.size(), "all %d road oracles are in Dev / Reference (found %d)"
+			% [road_ops.size(), found])
+	# Roads returned at P2a with a production, C++-backed Path Distance in it. The general rule is what is
+	# checked, not that one name: an ordered category with no entries is a menu that opens onto nothing,
+	# which is how "Roads" was left when the four road nodes moved behind the developer flag.
+	var empty_cats := PackedStringArray()
+	for cat in listed:
+		if cat != "Dev / Reference" and (cat_map.get(cat, []) as Array).is_empty():
+			empty_cats.append(cat)
+	_assert(empty_cats.is_empty(), "no empty category is left in the palette order (found %s)"
+			% str(empty_cats))
+	var roads_ops := {}
+	for e in (cat_map.get("Roads", []) as Array):
+		roads_ops[e["op"]] = true
+	var want_roads: Array[StringName] = [&"road_source", &"path_distance", &"path_mask", &"road_grade"]
+	var have := 0
+	for o in want_roads:
+		if roads_ops.has(o):
+			have += 1
+	_assert(have == want_roads.size(),
+			"Roads carries all %d production road nodes again (found %d)" % [want_roads.size(), have])
 
 
 func _d_search_dialog_tree() -> void:

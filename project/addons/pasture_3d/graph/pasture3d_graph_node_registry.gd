@@ -9,6 +9,14 @@ extends RefCounted
 
 # --- Production Node Scripts ---
 const InputScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_input.gd")
+const PathDistanceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_path_distance.gd")
+const PathMaskScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_path_mask.gd")
+const RoadGradeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_road_grade.gd")
+const RoadSourceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_road_source.gd")
+const ShapeSourceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_shape_source.gd")
+const DevPathDistanceScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_path_distance.gd")
+const DevPathMaskScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_path_mask.gd")
+const DevRoadGradeScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_dev_road_grade.gd")
 const NoiseScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_noise.gd")
 const NoiseJordanScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_noise_jordan.gd")
 const NoiseSwissScript = preload("res://addons/pasture_3d/graph/pasture3d_graph_node_noise_swiss.gd")
@@ -110,17 +118,34 @@ static func is_dev_nodes_enabled() -> bool:
 	return false
 
 
-## The standard ordered category names for the palette.
-static func categories() -> Array[String]:
-	return [
+## The ordered category names for the palette.
+##
+## ---- AN UNLISTED CATEGORY USED TO MEAN AN INVISIBLE NODE ----
+##
+## The palette walks THIS list and pulls the entries matching each name, so an entry whose category was
+## not in it was dropped without a word: registered, instantiable, searchable by nothing, and absent from
+## the Add menu. Road Source and Path Distance shipped exactly that way — the registry entry looked
+## complete and the nodes did not exist as far as anyone using the editor could tell.
+##
+## So the list is now the ORDER, not the membership. Any category an entry names and this list does not
+## is appended before Dev rather than discarded, which makes the failure at worst a category in the wrong
+## place instead of a node nobody can add. Gated by GraphPaletteAndConstantsGate.
+static func categories(p_include_dev: bool = false) -> Array[String]:
+	var ordered: Array[String] = [
 		"Generators",
 		"Filters & Modifiers",
 		"Solvers & Realism",
+		"Roads",
 		"Math & Combiners",
 		"Constants",
 		"Routing & Structural",
-		"Dev / Reference",
 	]
+	for e in entries(p_include_dev):
+		var c: String = e.get("category", "")
+		if not c.is_empty() and c != "Dev / Reference" and not ordered.has(c):
+			ordered.append(c)
+	ordered.append("Dev / Reference")
+	return ordered
 
 
 ## Palette entries, in menu order. `title` is the menu/label text; `role` / `category` groups them;
@@ -190,6 +215,11 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 		{"op": &"erosion_thermal", "title": "Thermal Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionThermalScript, "tags": ["thermal", "erosion", "talus", "scree", "weathering", "cliff", "repose", "slippage", "rock"], "description": "Simulates rock weathering and gravitational talus scree accumulation along steep slopes."},
 		{"op": &"scree", "title": "Scree", "category": "Solvers & Realism", "role": "Solver", "script": ScreeScript, "tags": ["talus", "rubble", "rock", "slope", "erosion", "deposition"], "description": "Sheds loose rock off steep ground; outputs height + a shed mask."},
 		{"op": &"erosion", "title": "Erosion", "category": "Solvers & Realism", "role": "Solver", "script": ErosionScript, "tags": ["river", "fluvial", "stream", "hydraulic", "water", "valley", "channel", "sediment"], "description": "Stream-power fluvial erosion; outputs eroded height + flow / erosion / deposition / wetness channels."},
+		{"op": &"road_source", "title": "Road Source", "category": "Roads", "role": "Generator", "script": RoadSourceScript, "tags": ["road", "path", "spline", "centreline", "route", "track", "street"], "description": "Puts a road into the graph as a PATH: a world-space centreline with a half-width at every vertex."},
+		{"op": &"shape_source", "title": "Shape Source", "category": "Roads", "role": "Generator", "script": ShapeSourceScript, "tags": ["shape", "outline", "brush", "region", "closed", "ring", "mound", "plow", "pond", "area", "footprint"], "description": "Puts a brush's own outline into the graph as a closed PATH, so a region is drawn once and masked from the same spline."},
+		{"op": &"path_distance", "title": "Path Distance", "category": "Roads", "role": "Filter", "script": PathDistanceScript, "tags": ["road", "path", "distance", "corridor", "arc", "offset", "falloff", "verge"], "description": "Analytic distance to a PATH, plus arc length s and the signed across-position t. Exact, not jump-flooded."},
+		{"op": &"path_mask", "title": "Path Mask", "category": "Roads", "role": "Filter", "script": PathMaskScript, "tags": ["road", "path", "mask", "corridor", "region", "outline", "closed", "feather", "invert"], "description": "A PATH as a [0,1] mask: a corridor along an open path, or the filled interior of a closed one."},
+		{"op": &"road_grade", "title": "Road Grade", "category": "Roads", "role": "Solver", "script": RoadGradeScript, "tags": ["road", "grade", "cut", "fill", "batter", "earthworks", "roadbed", "verge", "structure"], "description": "Cuts a road into the surface: the solved profile, its batters, and the roadbed, cut, fill, verge and structure masks."},
 		{"op": &"dla", "title": "DLA", "category": "Solvers & Realism", "role": "Solver", "script": DLAScript, "tags": ["mountain", "ridge", "massif", "aggregation", "diffusion", "branch", "peak", "range"], "description": "Diffusion-limited-aggregation mountain; grows a branching ridge massif, outputs height + a footprint mask."},
 	]
 
@@ -202,6 +232,9 @@ static func entries(p_include_dev: bool = false) -> Array[Dictionary]:
 ## Dedicated developer / reference oracle entries.
 static func _dev_entries() -> Array[Dictionary]:
 	return [
+		{"op": &"dev_path_distance", "title": "[Dev/GD] Path Distance", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevPathDistanceScript, "tags": ["dev", "gdscript", "oracle", "road", "path", "distance", "corridor", "arc", "offset", "falloff", "verge"], "description": "Analytic distance to a PATH, plus arc length s and the signed across-position t. Exact, not jump-flooded."},
+		{"op": &"dev_path_mask", "title": "[Dev/GD] Path Mask", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevPathMaskScript, "tags": ["dev", "gdscript", "oracle", "road", "path", "mask", "corridor", "select", "protect", "exclude", "carriageway"], "description": "A PATH as a [0,1] mask, thresholded on the road-relative across-position so it stays correct wherever the road widens."},
+		{"op": &"dev_road_grade", "title": "[Dev/GD] Road Grade", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevRoadGradeScript, "tags": ["dev", "gdscript", "oracle", "road", "grade", "cut", "fill", "batter", "carve", "roadbed", "verge", "terrain"], "description": "Cuts a road into the surface and publishes roadbed, cut, fill, verge and structure -- the same grader the brush uses, ordered against erosion by a wire."},
 		{"op": &"dev_erosion_hydraulic", "title": "[Dev/GD] Hydraulic Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevErosionHydraulicScript, "tags": ["dev", "gdscript", "oracle", "hydraulic", "erosion"], "description": "Pure GDScript reference oracle for hydraulic erosion simulation."},
 		{"op": &"dev_hydraulic_particle", "title": "[Dev/GD] Particle Hydraulic Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevHydraulicParticleScript, "tags": ["dev", "gdscript", "oracle", "particle", "droplet", "hydraulic", "erosion"], "description": "Pure GDScript reference oracle for particle hydraulic droplet erosion."},
 		{"op": &"dev_hydraulic_stream_log", "title": "[Dev/GD] Logarithmic Stream Erosion", "category": "Dev / Reference", "role": "Dev / Reference", "script": DevHydraulicStreamLogScript, "tags": ["dev", "gdscript", "oracle", "stream", "logarithmic", "power", "incision"], "description": "Pure GDScript reference oracle for logarithmic stream-power erosion."},
@@ -238,7 +271,7 @@ static func _dev_entries() -> Array[Dictionary]:
 ## Returns a Dictionary mapping category name (String) to Array[Dictionary] of entries.
 static func entries_by_category(p_include_dev: bool = false) -> Dictionary:
 	var result: Dictionary = {}
-	for cat in categories():
+	for cat in categories(p_include_dev):
 		result[cat] = []
 	for e in entries(p_include_dev):
 		var cat: String = e.get("category", "Generators")

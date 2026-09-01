@@ -259,6 +259,42 @@ public:
 			const int p_gw, const int p_gh, const double p_macro_gain, const double p_meso_gain,
 			const double p_micro_gain, const int p_macro_passes, const int p_meso_passes, const double p_amount);
 
+	// Analytic nearest-point query against a PATH, rasterised over a grid
+	// (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §5.2). `p_points` is the world-space XZ centreline and
+	// `p_widths` the half-width at each vertex (empty = 1.0 everywhere, which makes `t` signed metres).
+	// Returns { ok, distance, s, t }, each a p_gw*p_gh row-major grid sampled at cell CENTRES over p_rect:
+	// unsigned metres to the polyline (clamped at the ends), absolute arc length, and the across-position
+	// normalised by the local half-width with POSITIVE = the driver's right. An empty path fills `distance`
+	// with p_unreachable and s/t with 0 — never 0 distance, which would read as "every cell is on the road".
+	// p_max_distance > 0 clamps `distance` only.
+	static Dictionary path_query_grid(const PackedVector2Array &p_points, const PackedFloat32Array &p_widths,
+			const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_unreachable,
+			const double p_max_distance);
+
+	// Rasterise a PATH as a [0,1] mask (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §5.2). TWO RULES chosen by
+	// `p_closed`, not one rule with a parameter: an OPEN path masks a corridor — 1 on the carriageway,
+	// falling to 0 over `p_feather` metres beyond an edge that tracks the local half-width times
+	// `p_width_scale` — while a CLOSED path masks its INTERIOR by an even-odd winding test, feathering only
+	// outward, and ignores `p_width_scale` because a width says nothing about an area. An empty path masks
+	// NOTHING (0, or 1 with p_invert), so a graph mid-edit does not erase what an inverted mask protects.
+	static PackedFloat32Array path_mask_grid(const PackedVector2Array &p_points,
+			const PackedFloat32Array &p_widths, const bool p_closed, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const double p_width_scale, const double p_feather, const bool p_invert);
+
+	// The road grader (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §5.2). Pasture3DRoadGrader.grade forwards
+	// here, so the brush's own step and the graph's Road Grade node are ONE implementation rather than two
+	// that agree. The alignment arrives as four numbers — ds, s0, the solved heights and the bank ratios
+	// — because a kernel that took a Resource would be a kernel that only ran in the editor.
+	// p_opts: crown, cut_batter, fill_batter, surface_fade, skip. Returns
+	// { ok, height, roadbed, cut, fill, verge, structure, surface }.
+	static Dictionary road_grade_grid(const PackedFloat32Array &p_height, const int p_gw, const int p_gh,
+			const double p_min_x, const double p_min_z, const double p_vs,
+			const PackedVector2Array &p_plan, const double p_align_ds, const double p_align_s0,
+			const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+			const PackedFloat32Array &p_half_width, const PackedFloat32Array &p_shoulder,
+			const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress,
+			const Dictionary &p_opts);
+
 	// Native Curvature Discrete Laplacian filter.
 	static PackedFloat32Array curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 			const int p_mode, const int p_radius, const double p_contrast);

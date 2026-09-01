@@ -13,6 +13,23 @@ const BLEND_MODES: Array[int] = [
 # tool layer apart from hand layers / road-connector layers when flagging orphaned tool layers.
 const BRUSH_OWNER_PREFIX: String = "pasture3d_brush:"
 
+## Pasture3DLayer.get_map_type() -> the badge shown on the row, and what that type actually stores.
+##
+## Shown because the type is otherwise INVISIBLE and is not implied by anything the user can see. Two
+## layers named for the same feature can be a height layer and a control layer — the road system makes
+## exactly that pair — and the dock drew them as identical rows. Nothing in the name, the blend mode or
+## the opacity distinguishes a surface you paint textures into from a surface that carries elevation, so
+## painting colour onto a heightmap looked like painting onto anything else right up until the terrain
+## moved.
+const MAP_TYPE_BADGES: Array = [
+	{ "text": "Height", "color": Color(0.55, 0.78, 1.0),
+		"tip": "HEIGHT layer — stores elevation. Sculpting and grading write here; painting textures does not." },
+	{ "text": "Control", "color": Color(1.0, 0.78, 0.42),
+		"tip": "CONTROL layer — stores which textures are painted, and how they blend. Not elevation." },
+	{ "text": "Color", "color": Color(0.72, 0.95, 0.6),
+		"tip": "COLOR layer — stores albedo tint and roughness. Not elevation, not texture indices." },
+]
+
 var plugin: EditorPlugin
 var terrain: Pasture3D
 
@@ -270,6 +287,11 @@ func _build_row(p_idx: int, p_layer: Pasture3DLayer) -> Control:
 	row.set_meta("name_edit", name_edit)
 	hb.add_child(name_edit)
 
+	# Map-type badge. Read-only on purpose: a layer's type is fixed when it is created, because the tiles
+	# underneath it are a different image format per type — offering to change it here would offer to throw
+	# the layer's contents away.
+	hb.add_child(_make_type_badge(p_layer))
+
 	# Blend mode
 	var blend := OptionButton.new()
 	for n in BLEND_NAMES:
@@ -302,6 +324,23 @@ func _build_row(p_idx: int, p_layer: Pasture3DLayer) -> Control:
 	row.set_drag_forwarding(
 		_get_row_drag.bind(p_idx), _can_drop_row.bind(p_idx), _drop_row.bind(p_idx))
 	return row
+
+
+## The row's map-type badge: what this layer stores, in a word.
+func _make_type_badge(p_layer: Pasture3DLayer) -> Control:
+	var t: int = p_layer.get_map_type()
+	var badge: Dictionary = MAP_TYPE_BADGES[t] if t >= 0 and t < MAP_TYPE_BADGES.size() else {
+		"text": "Type %d" % t, "color": Color(1.0, 0.45, 0.45),
+		"tip": "Unknown map type %d — this layer was written by a newer version of Pasture3D." % t }
+	var label := Label.new()
+	label.text = badge["text"]
+	label.tooltip_text = badge["tip"]
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.custom_minimum_size = Vector2(52, 0)
+	label.add_theme_color_override("font_color", badge["color"])
+	label.add_theme_font_size_override("font_size", 10)
+	return label
 
 
 ## ---- Tool-layer health (orphaned / empty) ----

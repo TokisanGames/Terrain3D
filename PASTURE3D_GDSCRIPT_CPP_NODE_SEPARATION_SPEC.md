@@ -82,6 +82,27 @@ graph TD
 
 ## 3. Detailed Component Specifications
 
+### 3.0 The rule, stated once
+
+> **Any node whose mathematics executes in GDScript is a `[Dev/GD]` node and is hidden behind
+> `pasture_3d/developer/enable_gdscript_reference_nodes` (default `false`).**
+> **Only a node that calls a C++ kernel may be visible to a user by default.**
+
+This binds node AUTHORING, not just the migration in §4. It is restated as **Step 0** of the playbook in
+`PASTURE3D_NODE_ACCELERATION_GUIDE.md` §2, which is the document a new node is written from; the table of
+what changes between the two kinds of node lives there.
+
+Two consequences that are easy to get wrong:
+
+1. **You cannot prototype a production node in GDScript and hide the slowness behind a TODO.** The
+   GDScript version is the `[Dev/GD]` node. Write it under `dev_`, register it in `_dev_entries()`, and it
+   is shippable immediately because nobody can see it.
+2. **Existing production-visible GDScript nodes are debts, not precedent.** They are listed in the
+   playbook's Step 0 table with the work that clears each one. Nothing is added to that table to avoid
+   writing a kernel.
+
+---
+
 ### 3.1 Production C++ Nodes (Fail-Fast)
 Production nodes inherit from `Pasture3DGraphNode`. They never execute interpreted mathematical simulation loops.
 

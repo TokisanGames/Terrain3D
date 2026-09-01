@@ -31,6 +31,15 @@ layout(set = 0, binding = 2, std430) restrict readonly buffer BBuf { float b[]; 
 // mask at once to do its masked cross-fade, and splitting that across dispatches would need a scratch
 // buffer per node anyway. Unused bindings get the shared zero buffer.
 layout(set = 0, binding = 3, std430) restrict readonly buffer CBuf { float c[]; };
+// THE GEOMETRY OPERAND (P2d). One flat float array holding the single path this dispatch reads: a
+// two-float header, then the ring's vertices as x,z pairs, then a half-width per vertex, then the
+// prefix-summed arc length per vertex. Packed as floats rather than as a struct array because std430
+// alignment rules on a vec2 array differ between drivers, and a layout that is right on one machine and
+// padded on another is the worst kind of GPU bug: it produces a plausible road.
+//
+// Dispatches that read no geometry bind a one-float dummy here. An unbound binding is a validation
+// error, not an optional slot.
+layout(set = 0, binding = 4, std430) restrict readonly buffer GeoBuf { float g[]; };
 
 layout(push_constant, std430) uniform Params {
 	int mode; // 0 COPY, 1 BLEND, 2 SMOOTH_H, 3 SMOOTH_V, 4 FALLOFF, 5 CONTRAST,
@@ -74,6 +83,23 @@ uint gavHashCell(int cx, int cz, int sd, uint salt) {
 // 24 bits into [0,1) — exact in a 32-bit float.
 float gavRnd01(uint h) {
 	return float(h & 0x00ffffffu) / 16777216.0;
+}
+
+// The half-width at arc length `s`, interpolated between the vertices either side — a transcription of
+// Pasture3DPathGeom::half_width_at, including its `vertex_before` scan. The CPU's two shortcuts (an
+// empty width array meaning 1.0, a single width meaning constant) are not repeated here: the upload
+// expands both into a full per-vertex array, so this function has one case instead of three and the two
+// sides cannot disagree about which case a path is in.
+float pathHalfWidth(int gn, int GW0, int GC0, float s) {
+	int i = max(gn - 2, 0);
+	for (int k = 0; k < gn - 1; k++) {
+		if (s <= g[GC0 + k + 1]) { i = k; break; }
+	}
+	float w0 = g[GW0 + min(i, gn - 1)];
+	float w1 = g[GW0 + min(i + 1, gn - 1)];
+	float seg = g[GC0 + i + 1] - g[GC0 + i];
+	float f = (seg <= 0.0) ? 0.0 : clamp((s - g[GC0 + i]) / seg, 0.0, 1.0);
+	return w0 + (w1 - w0) * f;
 }
 
 // Contrast's AUTO height window needs the input's min/max over the WHOLE grid, which no pointwise
@@ -149,7 +175,7 @@ void main() {
 		o[i] = a[i];
 		return;
 	}
-	if (p.mode == 1) { // BLEND
+	if (p.mode == 1) { // BLEND: a, b, c mask. ip = mode 0..5, f0 = is a mask wired.
 		float av = a[i];
 		float bv = b[i];
 		float r;
@@ -158,7 +184,14 @@ void main() {
 		else if (p.ip == 2) { r = av * bv; }
 		else if (p.ip == 3) { r = (av > bv) ? av : bv; }
 		else if (p.ip == 4) { r = (av < bv) ? av : bv; }
+		// MIX is `b`, and the mask fold below makes it lerp(a, b, mask) — which IS the mode. An
+		// unwired mask leaves it as plain b, matching the CPU op and the GDScript node.
+		else if (p.ip == 5) { r = bv; }
 		else { r = av; }
+		// THE MASK PORT, which this shader used not to read at all: a Blend with a mask wired ran on the
+		// GPU and ignored it, silently, for every mode. Harmless-looking until MIX, where the mask is the
+		// entire operation.
+		if (p.f0 > 0.5) { float mv = c[i]; if (!isnan(mv)) { r = av + (r - av) * clamp(mv, 0.0, 1.0); } }
 		o[i] = r;
 		return;
 	}
@@ -614,6 +647,66 @@ static const char *GRAPH_GRID_GLSL_3 = R"(	if (p.mode == 19) { // FLOODING UNIFO
 		o[i] = isnan(z) ? z : ((p.f1 > 0.5) ? max(z, p.f0) : z);
 	}
 
+	// ---- PATH QUERY and PATH MASK (P2d) --------------------------------------------------------------
+	//
+	// BRUTE FORCE over every segment, where the CPU walks a bucket index. That is not a corner cut. The
+	// index is an ACCELERATION whose entire justification is that it returns the same answer as brute
+	// force — the CPU keeps `nearest_brute` in production for exactly that reason — and on the GPU the
+	// per-pixel loop is already parallel while a bucket walk is a divergent gather with a ring-stopping
+	// rule to get wrong. Here the definition is both cheaper and safer than the optimisation of it.
+	//
+	// ip = the ring's vertex count. A road of 41 points costs 40 iterations per cell; a path of several
+	// thousand would want the index, and that is the day to write it, not before.
+	if (p.mode == 26 || p.mode == 27) {
+		int gn = p.ip;
+		if (gn < 2) {
+			// THE EMPTY PATH, and its answer is not free choice (spec §4.3): far away, or a mask of
+			// nothing. Zero distance would mean every cell is on the road, and a grade downstream would
+			// flatten the terrain to the crown and report success.
+			o[i] = (p.mode == 26) ? p.f0 : ((p.f2 > 0.5) ? 1.0 : 0.0);
+			return;
+		}
+		int GW0 = 2 + 2 * gn; // half-widths
+		int GC0 = 2 + 3 * gn; // cumulative arc length
+		// Cell CENTRES, from the mapping passed in the push constants rather than re-derived here, so the
+		// shader cannot drift from graph_cell_to_world by half a cell.
+		float qx = p.ox + (float(ix) + 0.5) * p.dx;
+		float qz = p.oz + (float(iz) + 0.5) * p.dz;
+		float best = 1.0e30;
+		int bseg = 0;
+		float bf = 0.0;
+		for (int si = 0; si < gn - 1; si++) {
+			float ax = g[2 + 2 * si];
+			float az = g[3 + 2 * si];
+			float abx = g[4 + 2 * si] - ax;
+			float abz = g[5 + 2 * si] - az;
+			float len2 = abx * abx + abz * abz;
+			float f = (len2 <= 0.0) ? 0.0 : clamp(((qx - ax) * abx + (qz - az) * abz) / len2, 0.0, 1.0);
+			float ddx = qx - (ax + abx * f);
+			float ddz = qz - (az + abz * f);
+			float d = sqrt(ddx * ddx + ddz * ddz);
+			// STRICTLY less-than, so the FIRST segment wins a tie — the rule Pasture3DPathGeom::resolve
+			// uses. On a path that doubles back, a tie broken the other way gives a distance that looks
+			// perfectly reasonable and an `s` half a road out.
+			if (d < best) { best = d; bseg = si; bf = f; }
+		}
+		if (p.mode == 26) { // DISTANCE. f0 unreachable (empty path only), f1 max_distance, 0 = no clamp.
+			o[i] = (p.f1 > 0.0) ? min(best, p.f1) : best;
+			return;
+		}
+		// CORRIDOR MASK. f0 width_scale, f1 feather metres, f2 invert. Back from the edge to metres via
+		// the half-width AT THIS s, so the feather is a real distance wherever the road is wide and
+		// wherever it is narrow. A CLOSED path is a region and is refused on the CPU side rather than
+		// approximated here.
+		float sarc = g[GC0 + bseg] + (g[GC0 + bseg + 1] - g[GC0 + bseg]) * bf;
+		float hw = max(pathHalfWidth(gn, GW0, GC0, sarc) * p.f0, 1.0e-6);
+		float edge = best - hw;
+		float m = 1.0;
+		if (edge > 0.0) { m = (p.f1 <= 0.0) ? 0.0 : clamp(1.0 - edge / p.f1, 0.0, 1.0); }
+		o[i] = (p.f2 > 0.5) ? (1.0 - m) : m;
+		return;
+	}
+
 	// ---- MUDSLIDE (spec §8.3) ------------------------------------------------------------------------
 	// A GATHER, where the CPU kernel accumulates deltas. The two are the same algorithm: a dispatch has no
 	// defined cell order and no atomics here, so instead of scattering material out of a cell, every cell
@@ -897,6 +990,9 @@ struct GraphDispatch {
 	// Op-specific scalars, mirroring the shader's push-constant block. All zero for COPY/BLEND/SMOOTH.
 	float f0 = 0, f1 = 0, f2 = 0, f3 = 0, f4 = 0, f5 = 0, f6 = 0, f7 = 0;
 	int ip2 = 0; // GAVORONOISE: the seed. See the push-constant block.
+	// The geometry SSBO this dispatch reads, or invalid for the dispatches that read none (all of them
+	// but the two path modes). Bound at binding 4 either way.
+	RID geo;
 };
 } // namespace
 
@@ -949,10 +1045,93 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 		return fail();
 	}
 
+	// ---- CHANNELS ARE NOT IMPLEMENTED HERE, SO A GRAPH THAT USES THEM MUST REFUSE ----
+	//
+	// The plan below holds ONE buffer per slot. P2b gave the CPU evaluator per-slot channels, and this
+	// path silently gained the ability to be handed such a program and serve channel 0 for every port —
+	// an eroded height where a flow field was asked for, plausible and wrong. Refusing costs the graph
+	// its GPU pass; answering costs a terrain nobody can explain (spec §6.1).
+	{
+		const PackedInt32Array *ports[4] = { &p_prog.in0_port, &p_prog.in1_port, &p_prog.in2_port,
+			&p_prog.in3_port };
+		const PackedInt32Array *srcs[4] = { &p_prog.in0, &p_prog.in1, &p_prog.in2, &p_prog.in3 };
+		for (int k = 0; k < 4; k++) {
+			if (ports[k]->size() != p_prog.count || srcs[k]->size() != p_prog.count) {
+				continue;
+			}
+			for (int s = 0; s < p_prog.count; s++) {
+				if ((*srcs[k])[s] >= 0 && (*ports[k])[s] > 0) {
+					return fail();
+				}
+			}
+		}
+	}
+
+	// A one-float buffer for every dispatch that reads no geometry. Bound rather than skipped: an
+	// unbound binding is a validation error.
+	RID geo_zero;
+	{
+		PackedByteArray pb;
+		pb.resize(4);
+		geo_zero = _rd->storage_buffer_create(4, pb);
+		if (!geo_zero.is_valid()) {
+			return fail();
+		}
+		to_free.push_back(geo_zero);
+	}
+
+	// The geometry table, uploaded ONCE per entry and shared by every dispatch naming it — the same
+	// fanout property the CPU side has, for the same reason: nothing here transforms a path.
+	//
+	// The layout flattens Pasture3DPathGeom's already-built ring, so the closing edge of a closed path is
+	// already a segment and no shader has to remember that a path can be closed. The two CPU shortcuts
+	// (an empty width array meaning 1.0, a single width meaning constant) are expanded here into a full
+	// per-vertex array so the shader has one case rather than three.
+	std::vector<RID> geo_buf(p_prog.geom.size());
+	auto geo_of = [&](int p_slot) -> RID {
+		if (p_prog.in_g.size() != p_prog.count) {
+			return RID();
+		}
+		const int gi = p_prog.in_g[p_slot];
+		if (gi < 0 || gi >= (int)p_prog.geom.size()) {
+			return RID();
+		}
+		if (geo_buf[(size_t)gi].is_valid()) {
+			return geo_buf[(size_t)gi];
+		}
+		const Pasture3DPathGeom &pg = p_prog.geom[(size_t)gi].geom;
+		const int gn = (int)pg.px.size();
+		std::vector<float> flat((size_t)(2 + 4 * std::max(gn, 1)), 0.f);
+		flat[0] = (float)gn;
+		flat[1] = pg.closed ? 1.f : 0.f;
+		for (int v = 0; v < gn; v++) {
+			flat[(size_t)(2 + 2 * v)] = pg.px[(size_t)v];
+			flat[(size_t)(3 + 2 * v)] = pg.pz[(size_t)v];
+			const double w = pg.width.empty() ? 1.0
+											  : (pg.width.size() == 1 ? pg.width[0]
+																	  : pg.width[(size_t)std::min(v, (int)pg.width.size() - 1)]);
+			flat[(size_t)(2 + 2 * gn + v)] = (float)w;
+			flat[(size_t)(2 + 3 * gn + v)] = (float)(v < (int)pg.cum.size() ? pg.cum[(size_t)v] : 0.0);
+		}
+		const int gb = (int)(flat.size() * sizeof(float));
+		PackedByteArray pb;
+		pb.resize(gb);
+		std::memcpy(pb.ptrw(), flat.data(), (size_t)gb);
+		RID b = _rd->storage_buffer_create(gb, pb);
+		if (b.is_valid()) {
+			to_free.push_back(b);
+			geo_buf[(size_t)gi] = b;
+		}
+		return b;
+	};
+
 	const int32_t *ops = p_prog.ops.ptr();
 	const float *params = p_prog.params.ptr();
 	const int32_t *in0 = p_prog.in0.ptr();
 	const int32_t *in1 = p_prog.in1.ptr();
+	// The mask port. Nullptr on a program compiled before in2 existed, which reads as "no mask wired"
+	// — the same answer that program got before, rather than an out-of-bounds read.
+	const int32_t *in2 = p_prog.in2.size() == p_prog.count ? p_prog.in2.ptr() : nullptr;
 
 	std::vector<RID> slot_buf(p_prog.count);
 	std::vector<GraphDispatch> plan;
@@ -1014,8 +1193,12 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 			} break;
 			case GRAPH_OP_BLEND: {
 				const RID out = empty_buf();
-				plan.push_back({ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf,
-						in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, zero_buf, 1, (int)params[s] });
+				const bool has_mask = in2 != nullptr && in2[s] >= 0;
+				GraphDispatch d{ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf,
+						in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf,
+						has_mask ? slot_buf[in2[s]] : zero_buf, 1, (int)params[s] };
+				d.f0 = has_mask ? 1.f : 0.f;
+				plan.push_back(d);
 				slot_buf[s] = out;
 			} break;
 			case GRAPH_OP_SMOOTH: {
@@ -1430,8 +1613,46 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 				plan.push_back({ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf, zero_buf, zero_buf, 0, 0 });
 				slot_buf[s] = out;
 			} break;
+			case GRAPH_OP_PATH_QUERY: {
+				// Channel 0 only — `s` and `t` are channels 1 and 2, and the guard above has already
+				// refused any program that reads them. So this case answers DISTANCE or nothing.
+				const RID out = empty_buf();
+				GraphDispatch d{ out, zero_buf, zero_buf, zero_buf, 26, 0 };
+				const RID gb = geo_of(s);
+				d.geo = gb;
+				d.ip = gb.is_valid() ? (int)p_prog.geom[(size_t)p_prog.in_g[s]].geom.px.size() : 0;
+				d.f0 = params[s]; // unreachable_distance, for the empty path
+				d.f1 = p_prog.params_b.size() == p_prog.count ? p_prog.params_b[s] : 0.f; // max_distance
+				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
+			case GRAPH_OP_PATH_MASK: {
+				// A CLOSED path is a REGION, by even-odd winding, and that rule is not in the shader.
+				// Approximating it with the corridor rule would give two ribbons along the boundary with
+				// a hole down the middle — correct for a road, absurd for a lake — so refuse instead and
+				// let the whole graph take the CPU evaluator.
+				const int gi = p_prog.in_g.size() == p_prog.count ? p_prog.in_g[s] : -1;
+				if (gi >= 0 && gi < (int)p_prog.geom.size() && p_prog.geom[(size_t)gi].geom.closed) {
+					return fail();
+				}
+				const RID out = empty_buf();
+				GraphDispatch d{ out, zero_buf, zero_buf, zero_buf, 27, 0 };
+				const RID gb = geo_of(s);
+				d.geo = gb;
+				d.ip = gb.is_valid() ? (int)p_prog.geom[(size_t)gi].geom.px.size() : 0;
+				d.f0 = params[s]; // width_scale
+				d.f1 = p_prog.params_b.size() == p_prog.count ? p_prog.params_b[s] : 0.f; // feather
+				d.f2 = p_prog.params_c.size() == p_prog.count ? p_prog.params_c[s] : 0.f; // invert
+				plan.push_back(d);
+				slot_buf[s] = out;
+			} break;
 			default:
-				// GRAPH_OP_TRANSFORM lands here deliberately: an affine resample is a gather, not the
+				// GRAPH_OP_ROAD_GRADE lands here deliberately, alongside GRAPH_OP_TRANSFORM: the grader
+				// reads a per-sample profile as well as the ring, writes six channels, and this plan
+				// holds one buffer per slot. It is P2d's remainder, not an oversight — and until it is
+				// written, a graph containing a Road Grade takes the CPU evaluator entire.
+				//
+				// GRAPH_OP_TRANSFORM: an affine resample is a gather, not the
 				// pointwise map this kernel expresses, and it needs its own shader (spec §3.7). Falling
 				// back costs the WHOLE graph its GPU path, which is why every op above is handled here
 				// rather than left to this branch.
@@ -1470,11 +1691,17 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 		// Every dispatch binds all four buffers whether or not its mode reads them — an unbound binding
 		// is a validation error, not an optional slot.
 		uc->add_id(d.c.is_valid() ? d.c : d.b);
+		Ref<RDUniform> ug;
+		ug.instantiate();
+		ug->set_uniform_type(RenderingDevice::UNIFORM_TYPE_STORAGE_BUFFER);
+		ug->set_binding(4);
+		ug->add_id(d.geo.is_valid() ? d.geo : geo_zero);
 		TypedArray<RDUniform> us;
 		us.push_back(uo);
 		us.push_back(ua);
 		us.push_back(ub);
 		us.push_back(uc);
+		us.push_back(ug);
 		const RID set = _rd->uniform_set_create(us, _shader, 0);
 		if (!set.is_valid()) {
 			for (RID s2 : sets) {

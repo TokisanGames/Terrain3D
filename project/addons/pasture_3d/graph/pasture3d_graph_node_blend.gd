@@ -17,7 +17,9 @@ extends Pasture3DGraphNode
 
 ## How A and B combine. ADD/SUB stack relief; MUL gates one by the other; MAX/MIN take the upper/lower
 ## envelope (a hill that never digs, a valley that never bulges).
-enum Mode { ADD, SUB, MUL, MAX, MIN }
+## MIX is APPENDED, not inserted in its alphabetical place. The enum value is what gets serialised, so
+## reordering these would silently turn every saved Blend into a different operation.
+enum Mode { ADD, SUB, MUL, MAX, MIN, MIX }
 
 @export var mode: Mode = Mode.ADD:
 	set(v):
@@ -61,5 +63,9 @@ func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> floa
 		Mode.MUL: blended = a * b
 		Mode.MAX: blended = maxf(a, b)
 		Mode.MIN: blended = minf(a, b)
+		# The one mode that ignores A entirely, so the mask alone decides: result = lerp(a, b, mask).
+		# Section 8's second road wiring is exactly this and cannot be built out of the other five --
+		# a masked ADD keeps the base underneath, which is not "use the eroded hillside off the road".
+		Mode.MIX: blended = b
 	# A gates how much of the combine replaces the base. m == 1 (the unwired default) is the plain blend.
 	return lerpf(a, blended, clampf(m, 0.0, 1.0))

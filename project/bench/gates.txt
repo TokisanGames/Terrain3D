@@ -20,8 +20,15 @@
 # which a CI runner cannot give. The various *Probe scenes are investigation tools, not criteria.
 #
 # Not yet included, and not because they fail — they have simply never been run to a verdict here:
-# WaterBodiesPhase4Gate, PoolClipmapWarningProbe, StreamBankSurfaceCheck, StreamCustom0Probe,
-# WaterGeometryParamsCheck. Add them once someone has watched one go green.
+# PoolClipmapWarningProbe, StreamBankSurfaceCheck, StreamCustom0Probe, WaterGeometryParamsCheck.
+# Add them once someone has watched one go green.
+#
+# WaterBodiesPhase4Gate WAS on that list, recorded as hanging. It was not hanging: its _settle()
+# awaited RenderingServer.frame_post_draw, which never emits without a display server, so every
+# headless run stopped inside section A having printed only its heading. _settle now waits on
+# process_frame when there is no renderer, and the headless output is identical to the windowed
+# output line for line — same vertex counts, same wave deltas, every control still firing. It is in
+# the list below.
 
 # --- The erosion sim, phases 1-6.5 (PASTURE3D_SIM_NODE_SPEC.md §14) ---
 bench/SimPhase1Gate.tscn
@@ -58,6 +65,8 @@ bench/GizmoMarkerGate.tscn
 
 # --- Water bodies: the two that load connectors BY PATH, so a rename breaks them loudly ---
 bench/WaterBodySplitCheck.tscn
+# The Add Water button end to end (PASTURE3D_WATER_BODIES_SPEC.md §11, phase 4).
+bench/WaterBodiesPhase4Gate.tscn
 bench/StreamRippleCheck.tscn
 
 # --- Terrain graph, increment 1: the headless evaluator (PASTURE3D_TERRAIN_GRAPH_SPEC.md §5) ---
@@ -216,3 +225,89 @@ bench/GraphLiveNotifyProbe.tscn
 # The native whole-graph path skips the node entirely, so freezing was silently a no-op for every solver
 # in the allow-list. Swept from the registry so a new solver is covered the day it appears.
 bench/GraphFrozenSolverGate.tscn
+
+# --- Road system P0: the data model and its resolve chain (PASTURE3D_ROAD_SYSTEM_PROPOSAL.md §11) ---
+# Nothing here touches the terrain — P0 is the model. What it pins is what the later phases build on and
+# could not cheaply revisit: nearest-level resolution, clear-re-inherits (the defect that killed the
+# push-down design), arc-length segment overrides surviving a spline point insertion, and exclusion by
+# reference surviving a catalogue reorder.
+bench/RoadModelGate.tscn
+
+# P1 — the vertical alignment solver. The gradient limit is a hard constraint, pins win over it (an
+# impossible pin pair surfaces as a reported breach, never as a moved pin), banking is v²·κ/g, and the
+# solved profile's second derivative is what signs a crest against a dip for P6's pace notes.
+bench/RoadAlignmentGate.tscn
+
+# P2 - the road grading kernel. A road CUTS AND FILLS the ground into a corridor rather than draping a
+# ribbon over it: the carriageway is flat across a tilted plane, the batter meets the ground where its
+# slope says it should, the masks partition the corridor, a bridged stretch leaves the ground alone, and
+# NaN outside the brush loop survives. Every answer is closed-form, not a golden image.
+bench/RoadGraderGate.tscn
+
+# P4a - junction detection and geometry. A crossing is found and a near-miss is not; an overpass crosses
+# without meeting (bridge flag AND vertical clearance, each on its own); priority decides the junction's
+# height and the minor road gets the pin; a user's override survives an unrelated edit. Criteria E and F
+# are the mesher's bar, asserted before anything has tried to mesh one: the trim-back lands each approach
+# exactly on the other road's edge (no gap, no overlap) and grows as 1/sin(theta) on an acute crossing.
+bench/RoadJunctionGate.tscn
+
+# P4a - the network integration, which is the seam three green component gates did not cover. Real
+# Pasture3DRoadBrush children of a real Pasture3DRoadNetwork are driven through grade_surface: the
+# network finds the crossing its own brushes make, the junction's pin reaches the minor road's alignment
+# solve, the trim-back keeps that road's carriageway out of the footprint, and the bake -> resolve ->
+# bake loop reaches a fixed point instead of ping-ponging.
+bench/RoadNetworkGate.tscn
+
+# P4b - the lane graph and the four queries a naive consumer needs (SS6.4). Grows with the phase; it
+# starts at the cross-section because a connector joins two lanes and a stop line sits at the head of
+# one, so an error there surfaces everywhere else as something that looks like a junction bug. The
+# lanes tile the carriageway exactly, traffic_side decides which lanes are oncoming and does it the
+# right way round, a one-way road has none, and an offset finds exactly one lane at every boundary.
+# Then the graph itself: every incoming lane reaches one straight, one left and one right on the other
+# arms and no U-turn on its own; a connector leaves and arrives along the headings of the lanes it
+# joins, measured on the curve rather than on the control points; traffic_side decides which turn
+# crosses oncoming traffic; and every incoming lane has a stop line on the footprint boundary that
+# moves when the trim-back does.
+bench/RoadLaneGraphGate.tscn
+
+# P4b - the COMPLETENESS bar, not the correctness one. Every other road gate is written in the road
+# system's own vocabulary, so it can only ask questions the road system already knows how to answer;
+# sufficiency is the opposite question - what does a consumer need that nobody thought to publish? The
+# only way to find out is to write the consumer, so this drives bench/reference/road_lane_follower.gd,
+# a vehicle that follows lanes, holds at junctions and yields using nothing but the four published
+# queries. It asserts that the follower never names a solver (read from its source, because a consumer
+# that quietly compensates still works), never needs data it cannot get, actually arrives, holds for
+# priority traffic but not for traffic without it, obeys a signal without reading the ABSENCE of one as
+# either colour, and never teleports across the road-to-connector handoff. Writing the follower found
+# three gaps, all closed in the data: a stop line with no arc length, a lane_stop that answered with
+# the first junction rather than the next, and a road that would not say how long it was.
+bench/RoadSufficiencyGate.tscn
+
+# P5a - TIER FAR (§10): the road as terrain. Because P1/P2 put the road INTO the heightmap, a distant
+# road needs no mesh at all - only a statement of what the surface is made of, painted into the
+# terrain control map, where it LODs with the terrain and has nothing to pop. This gates the two halves
+# that are decidable from numbers: the coverage the grader computes (solid to the edge of formation,
+# smoothstepping out over the shoulder) and the control words the paint kernel packs from it, asserted
+# against literal bit shifts rather than the kernel constants. It also checks that a paint preserves
+# the base texture and the hole bit, that a bare cell is not written at all (writing weight-zero still
+# claims the cell for the layer, which would surround every road with dead ground), and that roads
+# paint in ASCENDING priority - the one part of the wiring that is checkable without a terrain, and the
+# one that is silently wrong, since the wrong order still paints a complete road, just the other one.
+bench/RoadPaintGate.tscn
+
+# P5b - TIER MID (§10): the chunked ribbon mesh, where tier FAR stops being enough. Every claim §10
+# makes about chunking is arithmetic, so none of it needs a rendered frame - and a rendered frame is the
+# worst way to check a crack a millimetre wide. Chunks are cut where terrain REGIONS are, so a chunk and
+# the region under it live and die together (control: a different region size moves every cut; a 45°
+# road must be cut on both axes). Seams are compared for EXACT equality, not to a tolerance: `ring` is a
+# pure function of arc length, so two chunks meeting at the same s compute the same floats - a mesher
+# accumulating s += step per chunk would agree to six decimals, pass any tolerance, and crack. Nothing
+# chunks across a junction footprint (controls: something DID cover it without the footprint, and the
+# road either side is still built). LOD coarsens monotonically and the carriageway never narrows, with
+# camber dropped before shoulder as §10 orders. The ribbon height is checked against the GRADER rather
+# than against a formula written out here, because drifting from the grader is the only way it can go
+# wrong and a copy of the formula would drift with it. UVs run in metres, so a chunk boundary does not
+# rescale the road markings. [H] covers the host's one piece of arithmetic - the distance-to-tier
+# mapping - because an off-by-one band still draws the road, at the wrong tier, and reads as the meshes
+# being wrong rather than the thresholds being read wrong.
+bench/RoadMeshGate.tscn
