@@ -238,3 +238,277 @@ Dictionary godot::road_grade_grid_geom(const Pasture3DPathGeom &p_geom, const Pa
 	out["surface"] = a_surface;
 	return out;
 }
+
+Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_ds, double p_max_grade,
+		const Dictionary &p_opts) {
+	Dictionary out;
+	const int n = p_ground.size();
+	const double ds = std::max(p_ds, 1e-4);
+	const double g_max = std::max(p_max_grade, 1e-4);
+	out["ds"] = (float)ds;
+	out["max_grade_used"] = (float)g_max;
+	out["ground"] = p_ground.duplicate();
+	if (n == 0) {
+		out["z"] = PackedFloat32Array();
+		out["curvature"] = PackedFloat32Array();
+		out["bank"] = PackedFloat32Array();
+		out["peak_grade"] = 0.0;
+		out["feasible"] = true;
+		out["cut_volume"] = 0.0;
+		out["fill_volume"] = 0.0;
+		out["pin_error"] = 0.0;
+		out["pinned"] = PackedInt32Array();
+		return out;
+	}
+	if (n == 1) {
+		out["z"] = p_ground.duplicate();
+		PackedFloat32Array zeros;
+		zeros.resize(1);
+		zeros[0] = 0.0f;
+		out["curvature"] = zeros;
+		out["bank"] = zeros;
+		out["peak_grade"] = 0.0;
+		out["feasible"] = true;
+		out["cut_volume"] = 0.0;
+		out["fill_volume"] = 0.0;
+		out["pin_error"] = 0.0;
+		out["pinned"] = PackedInt32Array();
+		return out;
+	}
+
+	const double w_earth = p_opts.get("w_earth", 1.0);
+	const double w_smooth = p_opts.get("w_smooth", 12.0);
+	const double w_balance = p_opts.get("w_balance", 0.0);
+	const int iterations = (int)p_opts.get("iterations", 240);
+	const Dictionary pins = p_opts.get("pins", Dictionary());
+
+	std::vector<bool> has_pin((size_t)n, false);
+	std::vector<float> pin_val((size_t)n, 0.0f);
+	PackedInt32Array pinned_indices;
+	Array pin_keys = pins.keys();
+	for (int k = 0; k < pin_keys.size(); k++) {
+		const int idx = (int)pin_keys[k];
+		if (idx >= 0 && idx < n) {
+			has_pin[idx] = true;
+			pin_val[idx] = (float)pins[pin_keys[k]];
+			pinned_indices.append(idx);
+		}
+	}
+	pinned_indices.sort();
+
+	std::vector<float> z((size_t)n);
+	const float *g_ptr = p_ground.ptr();
+	for (int i = 0; i < n; i++) {
+		z[i] = has_pin[i] ? pin_val[i] : g_ptr[i];
+	}
+
+	const double step = g_max * ds;
+
+	auto relax_toward_pin = [&](std::vector<float> &pz, int at, int dir) {
+		int j = at + dir;
+		while (j >= 0 && j < n && !has_pin[j]) {
+			const float anchor = pz[j - dir];
+			const float fixed = std::clamp(pz[j], (float)(anchor - step), (float)(anchor + step));
+			if (std::abs(fixed - pz[j]) < 1e-6f) {
+				return;
+			}
+			pz[j] = fixed;
+			j += dir;
+		}
+	};
+
+	auto project_grade = [&](std::vector<float> &pz) {
+		for (int sw = 0; sw < 4; sw++) {
+			std::vector<float> fwd = pz;
+			for (int i = 1; i < n; i++) {
+				if (has_pin[i]) {
+					relax_toward_pin(fwd, i, -1);
+				} else {
+					fwd[i] = std::clamp(fwd[i], (float)(fwd[i - 1] - step), (float)(fwd[i - 1] + step));
+				}
+			}
+			std::vector<float> bwd = pz;
+			for (int i = n - 2; i >= 0; i--) {
+				if (has_pin[i]) {
+					relax_toward_pin(bwd, i, 1);
+				} else {
+					bwd[i] = std::clamp(bwd[i], (float)(bwd[i + 1] - step), (float)(bwd[i + 1] + step));
+				}
+			}
+			for (int i = 0; i < n; i++) {
+				if (!has_pin[i]) {
+					pz[i] = (fwd[i] + bwd[i]) * 0.5f;
+				}
+			}
+		}
+	};
+
+	auto sor_sweep = [&](std::vector<float> &pz, bool fwd) {
+		const int start = fwd ? 0 : n - 1;
+		const int end = fwd ? n : -1;
+		const int step_i = fwd ? 1 : -1;
+		for (int i = start; i != end; i += step_i) {
+			if (has_pin[i]) {
+				continue;
+			}
+			double neighbour_sum = 0.0;
+			double neighbour_count = 0.0;
+			if (i > 0) {
+				neighbour_sum += pz[i - 1];
+				neighbour_count += 1.0;
+			}
+			if (i < n - 1) {
+				neighbour_sum += pz[i + 1];
+				neighbour_count += 1.0;
+			}
+			const double smooth_w = w_smooth * neighbour_count * 0.5;
+			const double denom = smooth_w + w_earth;
+			if (denom <= 1e-9) {
+				continue;
+			}
+			const double target = (smooth_w * (neighbour_sum / std::max(neighbour_count, 1.0)) + w_earth * (double)g_ptr[i]) / denom;
+			pz[i] = (float)((double)pz[i] + 1.7 * (target - (double)pz[i]));
+		}
+	};
+
+	project_grade(z);
+
+	for (int it = 0; it < iterations; it++) {
+		sor_sweep(z, true);
+		sor_sweep(z, false);
+
+		if (w_balance > 0.0 && pinned_indices.is_empty()) {
+			double net = 0.0;
+			for (int i = 0; i < n; i++) {
+				net += (double)z[i] - (double)g_ptr[i];
+			}
+			const double shift = (net / (double)n) * std::clamp(w_balance, 0.0, 1.0);
+			for (int i = 0; i < n; i++) {
+				z[i] = (float)((double)z[i] - shift);
+			}
+		}
+
+		for (int i = 0; i < n; i++) {
+			if (has_pin[i]) {
+				z[i] = pin_val[i];
+			}
+		}
+		project_grade(z);
+	}
+
+	PackedFloat32Array out_z;
+	out_z.resize(n);
+	float *z_ptr = out_z.ptrw();
+	for (int i = 0; i < n; i++) {
+		z_ptr[i] = z[i];
+	}
+
+	double peak = 0.0;
+	for (int i = 1; i < n; i++) {
+		peak = std::max(peak, (double)std::abs(z[i] - z[i - 1]) / ds);
+	}
+	double cut = 0.0;
+	double fill = 0.0;
+	for (int i = 0; i < n; i++) {
+		const double d = (double)z[i] - (double)g_ptr[i];
+		if (d < 0.0) {
+			cut += -d * ds;
+		} else {
+			fill += d * ds;
+		}
+	}
+	double pin_err = 0.0;
+	for (int i = 0; i < n; i++) {
+		if (has_pin[i]) {
+			pin_err = std::max(pin_err, (double)std::abs(z[i] - pin_val[i]));
+		}
+	}
+	const bool feasible = (peak <= g_max + 1e-5) && (pin_err <= 1e-3);
+
+	out["z"] = out_z;
+	out["peak_grade"] = peak;
+	out["feasible"] = feasible;
+	out["cut_volume"] = cut;
+	out["fill_volume"] = fill;
+	out["pin_error"] = pin_err;
+	out["pinned"] = pinned_indices;
+	return out;
+}
+
+PackedFloat32Array godot::road_plan_curvature(const PackedVector2Array &p_plan) {
+	const int n = p_plan.size();
+	PackedFloat32Array out;
+	out.resize(n);
+	float *o_ptr = out.ptrw();
+	if (n < 3) {
+		for (int i = 0; i < n; i++) { o_ptr[i] = 0.0f; }
+		return out;
+	}
+	const Vector2 *p_ptr = p_plan.ptr();
+	for (int i = 1; i < n - 1; i++) {
+		const Vector2 a = p_ptr[i - 1];
+		const Vector2 b = p_ptr[i];
+		const Vector2 c = p_ptr[i + 1];
+		const Vector2 v1 = b - a;
+		const Vector2 v2 = c - b;
+		const double l1 = v1.length();
+		const double l2 = v2.length();
+		const double l3 = (c - a).length();
+		if (l1 < 1e-6 || l2 < 1e-6 || l3 < 1e-6) {
+			o_ptr[i] = 0.0f;
+			continue;
+		}
+		const double cross = (double)v1.x * (double)v2.y - (double)v1.y * (double)v2.x;
+		o_ptr[i] = (float)(2.0 * cross / (l1 * l2 * l3));
+	}
+	o_ptr[0] = o_ptr[1];
+	o_ptr[n - 1] = o_ptr[n - 2];
+	return out;
+}
+
+PackedFloat32Array godot::road_superelevation(const PackedFloat32Array &p_curvature, double p_design_speed,
+		double p_max_superelevation, double p_ds, double p_transition_length) {
+	const int n = p_curvature.size();
+	PackedFloat32Array out;
+	out.resize(n);
+	if (n == 0) {
+		return out;
+	}
+	float *o_ptr = out.ptrw();
+	const float *k_ptr = p_curvature.ptr();
+	const double v2 = p_design_speed * p_design_speed;
+	const double cap = std::max(p_max_superelevation, 0.0);
+	for (int i = 0; i < n; i++) {
+		o_ptr[i] = (float)std::clamp(-v2 * (double)k_ptr[i] / 9.81, -cap, cap);
+	}
+	const int half = (int)std::round(std::max(p_transition_length, 0.0) / std::max(p_ds, 1e-4) * 0.5);
+	if (half <= 0) {
+		return out;
+	}
+	PackedFloat32Array smoothed;
+	smoothed.resize(n);
+	float *s_ptr = smoothed.ptrw();
+	for (int i = 0; i < n; i++) {
+		double acc = 0.0;
+		double cnt = 0.0;
+		for (int k = i - half; k <= i + half; k++) {
+			const int ki = std::clamp(k, 0, n - 1);
+			acc += (double)o_ptr[ki];
+			cnt += 1.0;
+		}
+		s_ptr[i] = (float)(acc / cnt);
+	}
+	return smoothed;
+}
+
+Dictionary godot::road_align_solve_with_plan(const PackedVector2Array &p_plan, const PackedFloat32Array &p_ground,
+		double p_ds, double p_max_grade, double p_design_speed, double p_max_superelevation,
+		const Dictionary &p_opts) {
+	Dictionary out = road_align_solve(p_ground, p_ds, p_max_grade, p_opts);
+	PackedFloat32Array curv = road_plan_curvature(p_plan);
+	const double trans_len = (double)p_opts.get("bank_transition_length", 25.0);
+	PackedFloat32Array bank = road_superelevation(curv, p_design_speed, p_max_superelevation, p_ds, trans_len);
+	out["curvature"] = curv;
+	out["bank"] = bank;
+	return out;
+}

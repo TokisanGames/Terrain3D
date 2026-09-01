@@ -1403,17 +1403,18 @@ func _refresh_owner_rect(owner: String, changed_ids: Dictionary, snap_all: bool 
 		return
 	_layer_id = layer_id # set before the snap below reads it (paint sets it again per tool)
 
-	# Union the previous (cached) and current footprint of every changed spline into one world box.
+	# Union the previous (cached) and current footprint of changed sections into one world box.
 	var dirty := AABB()
 	var have := false
 	for sid in changed_ids:
 		var path := _find_spline_by_id(sid)
 		if path != null:
-			var curr := _spline_footprint_aabb(path)
+			var moved := _moved_point_indices(path) if not snap_all else PackedInt32Array()
+			var curr := _spline_dirty_aabb(path, moved)
 			if curr.size != Vector3.ZERO:
 				dirty = curr if not have else dirty.merge(curr)
 				have = true
-		if _last_paint_aabb.has(sid):
+		elif _last_paint_aabb.has(sid):
 			var prev: AABB = _last_paint_aabb[sid]
 			if prev.size != Vector3.ZERO:
 				dirty = prev if not have else dirty.merge(prev)
@@ -3243,6 +3244,59 @@ func _spline_footprint_aabb(path: Path3D) -> AABB:
 		mx.x = maxf(mx.x, p.x)
 		mx.y = maxf(mx.y, p.z)
 	var pad := _total_padding()
+	mn -= Vector2(pad, pad)
+	mx += Vector2(pad, pad)
+	return AABB(Vector3(mn.x, -10000.0, mn.y), Vector3(mx.x - mn.x, 20000.0, mx.y - mn.y))
+
+
+## World footprint of only the changed sections of a spline (for fine-grained dirty-rect updates).
+## When all points moved, or when point count changed, returns the whole spline footprint.
+## When only a subset of control points moved, bounds the curve spans surrounding those points
+## in both current and previous cached positions.
+func _spline_dirty_aabb(path: Path3D, moved_indices: PackedInt32Array) -> AABB:
+	if not is_instance_valid(path) or path.curve == null:
+		return AABB()
+	var n_pts := path.curve.point_count
+	if moved_indices.is_empty() or moved_indices.size() >= n_pts or n_pts < 2:
+		return _spline_footprint_aabb(path)
+
+	var pad := _total_padding()
+	var mn := Vector2(INF, INF)
+	var mx := Vector2(-INF, -INF)
+
+	# Expand bounds from current points touching changed spans
+	for idx in moved_indices:
+		var i0 := maxi(idx - 1, 0)
+		var i1 := mini(idx + 1, n_pts - 1)
+		for k in range(i0, i1 + 1):
+			var wp := path.to_global(path.curve.get_point_position(k))
+			mn.x = minf(mn.x, wp.x)
+			mn.y = minf(mn.y, wp.z)
+			mx.x = maxf(mx.x, wp.x)
+			mx.y = maxf(mx.y, wp.z)
+			var in_pos := path.to_global(path.curve.get_point_position(k) + path.curve.get_point_in(k))
+			var out_pos := path.to_global(path.curve.get_point_position(k) + path.curve.get_point_out(k))
+			mn.x = minf(mn.x, minf(in_pos.x, out_pos.x))
+			mn.y = minf(mn.y, minf(in_pos.z, out_pos.z))
+			mx.x = maxf(mx.x, maxf(in_pos.x, out_pos.x))
+			mx.y = maxf(mx.y, maxf(in_pos.z, out_pos.z))
+
+	# Also expand bounds from PREVIOUS cached positions of those same control points
+	var prev: PackedVector3Array = _curve_cache.get(path.get_instance_id(), PackedVector3Array())
+	if prev.size() == n_pts:
+		for idx in moved_indices:
+			var i0 := maxi(idx - 1, 0)
+			var i1 := mini(idx + 1, n_pts - 1)
+			for k in range(i0, i1 + 1):
+				var wp := path.to_global(prev[k])
+				mn.x = minf(mn.x, wp.x)
+				mn.y = minf(mn.y, wp.z)
+				mx.x = maxf(mx.x, wp.x)
+				mx.y = maxf(mx.y, wp.z)
+
+	if mn.x == INF:
+		return _spline_footprint_aabb(path)
+
 	mn -= Vector2(pad, pad)
 	mx += Vector2(pad, pad)
 	return AABB(Vector3(mn.x, -10000.0, mn.y), Vector3(mx.x - mn.x, 20000.0, mx.y - mn.y))

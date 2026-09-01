@@ -85,6 +85,19 @@ Dictionary road_grade_grid_geom(const Pasture3DPathGeom &p_geom, const PackedFlo
 		const PackedFloat32Array &p_half_width, const PackedFloat32Array &p_shoulder,
 		const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress, const Dictionary &p_opts);
 
+// ---- Pasture3DRoadAlignmentSolver in C++ ----
+Dictionary road_align_solve(const PackedFloat32Array &p_ground, double p_ds, double p_max_grade,
+		const Dictionary &p_opts);
+
+PackedFloat32Array road_plan_curvature(const PackedVector2Array &p_plan);
+
+PackedFloat32Array road_superelevation(const PackedFloat32Array &p_curvature, double p_design_speed,
+		double p_max_superelevation, double p_ds, double p_transition_length = 25.0);
+
+Dictionary road_align_solve_with_plan(const PackedVector2Array &p_plan, const PackedFloat32Array &p_ground,
+		double p_ds, double p_max_grade, double p_design_speed, double p_max_superelevation,
+		const Dictionary &p_opts);
+
 } // namespace godot
 
 #endif // PASTURE_3D_ROAD_GRADE_H

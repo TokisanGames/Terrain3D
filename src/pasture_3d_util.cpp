@@ -1601,6 +1601,29 @@ Dictionary Pasture3DUtil::road_grade_grid(const PackedFloat32Array &p_height, co
 			p_align_s0, p_align_z, p_align_bank, p_half_width, p_shoulder, p_verge, p_suppress, p_opts);
 }
 
+Dictionary Pasture3DUtil::road_align_solve(const PackedFloat32Array &p_ground, const double p_ds,
+		const double p_max_grade, const Dictionary &p_opts) {
+	return godot::road_align_solve(p_ground, p_ds, p_max_grade, p_opts);
+}
+
+Dictionary Pasture3DUtil::road_align_solve_with_plan(const PackedVector2Array &p_plan,
+		const PackedFloat32Array &p_ground, const double p_ds, const double p_max_grade,
+		const double p_design_speed, const double p_max_superelevation,
+		const Dictionary &p_opts) {
+	return godot::road_align_solve_with_plan(p_plan, p_ground, p_ds, p_max_grade, p_design_speed,
+			p_max_superelevation, p_opts);
+}
+
+PackedFloat32Array Pasture3DUtil::road_plan_curvature(const PackedVector2Array &p_plan) {
+	return godot::road_plan_curvature(p_plan);
+}
+
+PackedFloat32Array Pasture3DUtil::road_superelevation(const PackedFloat32Array &p_curvature,
+		const double p_design_speed, const double p_max_superelevation, const double p_ds,
+		const double p_transition_length) {
+	return godot::road_superelevation(p_curvature, p_design_speed, p_max_superelevation, p_ds, p_transition_length);
+}
+
 PackedFloat32Array Pasture3DUtil::curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 		const int p_mode, const int p_radius, const double p_contrast) {
 	return godot::curvature_solve(p_surface, p_gw, p_gh, (godot::CurvatureMode)p_mode, p_radius, p_contrast);
@@ -2113,6 +2136,18 @@ void Pasture3DUtil::_bind_methods() {
 					"align_s0", "align_z", "align_bank", "half_width", "shoulder", "verge", "suppress",
 					"opts"),
 			&Pasture3DUtil::road_grade_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("road_align_solve", "ground", "ds", "max_grade", "opts"),
+			&Pasture3DUtil::road_align_solve, DEFVAL(Dictionary()));
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("road_align_solve_with_plan", "plan", "ground", "ds", "max_grade", "design_speed", "max_superelevation", "opts"),
+			&Pasture3DUtil::road_align_solve_with_plan, DEFVAL(Dictionary()));
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("road_plan_curvature", "plan"),
+			&Pasture3DUtil::road_plan_curvature);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("road_superelevation", "curvature", "design_speed", "max_superelevation", "ds", "transition_length"),
+			&Pasture3DUtil::road_superelevation, DEFVAL(25.0));
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("curvature_grid", "surface", "gw", "gh", "mode", "radius", "contrast"),
 			&Pasture3DUtil::curvature_grid);

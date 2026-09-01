@@ -295,6 +295,17 @@ public:
 			const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress,
 			const Dictionary &p_opts);
 
+	static Dictionary road_align_solve(const PackedFloat32Array &p_ground, const double p_ds,
+			const double p_max_grade, const Dictionary &p_opts);
+	static Dictionary road_align_solve_with_plan(const PackedVector2Array &p_plan,
+			const PackedFloat32Array &p_ground, const double p_ds, const double p_max_grade,
+			const double p_design_speed, const double p_max_superelevation,
+			const Dictionary &p_opts);
+	static PackedFloat32Array road_plan_curvature(const PackedVector2Array &p_plan);
+	static PackedFloat32Array road_superelevation(const PackedFloat32Array &p_curvature,
+			const double p_design_speed, const double p_max_superelevation, const double p_ds,
+			const double p_transition_length = 25.0);
+
 	// Native Curvature Discrete Laplacian filter.
 	static PackedFloat32Array curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 			const int p_mode, const int p_radius, const double p_contrast);

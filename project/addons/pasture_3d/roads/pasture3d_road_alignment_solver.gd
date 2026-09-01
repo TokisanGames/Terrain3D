@@ -74,6 +74,23 @@ const GRADE_EPSILON: float = 1e-5
 ## Dictionary of {sample index: height} the solve must honour.
 static func solve(p_ground: PackedFloat32Array, p_ds: float, p_max_grade: float,
 		p_opts: Dictionary = {}) -> Pasture3DRoadAlignment:
+	if ClassDB.class_has_method("Pasture3DUtil", "road_align_solve"):
+		var res: Dictionary = Pasture3DUtil.road_align_solve(p_ground, p_ds, p_max_grade, p_opts)
+		var out := Pasture3DRoadAlignment.new()
+		out.ds = float(res.get("ds", p_ds))
+		out.max_grade_used = float(res.get("max_grade_used", p_max_grade))
+		out.ground = res.get("ground", p_ground)
+		out.z = res.get("z", PackedFloat32Array())
+		out.curvature = res.get("curvature", _zeros(p_ground.size()))
+		out.bank = res.get("bank", _zeros(p_ground.size()))
+		out.peak_grade = float(res.get("peak_grade", 0.0))
+		out.feasible = bool(res.get("feasible", true))
+		out.cut_volume = float(res.get("cut_volume", 0.0))
+		out.fill_volume = float(res.get("fill_volume", 0.0))
+		out.pin_error = float(res.get("pin_error", 0.0))
+		out.pinned = res.get("pinned", PackedInt32Array())
+		return out
+
 	var out := Pasture3DRoadAlignment.new()
 	var n := p_ground.size()
 	var ds := maxf(p_ds, 1e-4)
@@ -141,6 +158,24 @@ static func solve(p_ground: PackedFloat32Array, p_ds: float, p_max_grade: float,
 static func solve_with_plan(p_plan: PackedVector2Array, p_ground: PackedFloat32Array, p_ds: float,
 		p_max_grade: float, p_design_speed: float, p_max_superelevation: float,
 		p_opts: Dictionary = {}) -> Pasture3DRoadAlignment:
+	if ClassDB.class_has_method("Pasture3DUtil", "road_align_solve_with_plan"):
+		var res: Dictionary = Pasture3DUtil.road_align_solve_with_plan(p_plan, p_ground, p_ds,
+				p_max_grade, p_design_speed, p_max_superelevation, p_opts)
+		var out := Pasture3DRoadAlignment.new()
+		out.ds = float(res.get("ds", p_ds))
+		out.max_grade_used = float(res.get("max_grade_used", p_max_grade))
+		out.ground = res.get("ground", p_ground)
+		out.z = res.get("z", PackedFloat32Array())
+		out.curvature = res.get("curvature", _zeros(p_ground.size()))
+		out.bank = res.get("bank", _zeros(p_ground.size()))
+		out.peak_grade = float(res.get("peak_grade", 0.0))
+		out.feasible = bool(res.get("feasible", true))
+		out.cut_volume = float(res.get("cut_volume", 0.0))
+		out.fill_volume = float(res.get("fill_volume", 0.0))
+		out.pin_error = float(res.get("pin_error", 0.0))
+		out.pinned = res.get("pinned", PackedInt32Array())
+		return out
+
 	var out := solve(p_ground, p_ds, p_max_grade, p_opts)
 	out.curvature = plan_curvature(p_plan)
 	out.bank = superelevation(out.curvature, p_design_speed, p_max_superelevation, p_ds,
@@ -162,6 +197,9 @@ static func solve_with_plan(p_plan: PackedVector2Array, p_ground: PackedFloat32A
 ## from real world-space splines it should hand in plan points RE-CENTRED on the run, which costs
 ## nothing and removes the cancellation entirely.
 static func plan_curvature(p_plan: PackedVector2Array) -> PackedFloat32Array:
+	if ClassDB.class_has_method("Pasture3DUtil", "road_plan_curvature"):
+		return Pasture3DUtil.road_plan_curvature(p_plan)
+
 	var n := p_plan.size()
 	var out := _zeros(n)
 	if n < 3:
@@ -191,6 +229,10 @@ static func plan_curvature(p_plan: PackedVector2Array) -> PackedFloat32Array:
 ## number a racing track wants, which is why one formula serves the environment artist and the driver.
 static func superelevation(p_curvature: PackedFloat32Array, p_design_speed: float,
 		p_max_superelevation: float, p_ds: float, p_transition_length: float = 25.0) -> PackedFloat32Array:
+	if ClassDB.class_has_method("Pasture3DUtil", "road_superelevation"):
+		return Pasture3DUtil.road_superelevation(p_curvature, p_design_speed, p_max_superelevation,
+				p_ds, p_transition_length)
+
 	var n := p_curvature.size()
 	var out := _zeros(n)
 	if n == 0:

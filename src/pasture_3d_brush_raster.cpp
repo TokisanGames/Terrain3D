@@ -2049,16 +2049,17 @@ void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Arr
 	Pasture3DLayer *wlayer = _layer_stack.is_null() ? nullptr : _layer_stack->get_layer_ptr(p_layer_id);
 	const bool batched = wlayer && !composite && !wlayer->is_base();
 
-	// Read base heights below this layer (or sample terrain)
-	PackedFloat32Array base_height;
-	base_height.resize(n);
-	float *b_ptr = base_height.ptrw();
-	for (int iz = 0; iz < gh; iz++) {
-		const double z = min_z + (double)iz * vs;
-		const int row = iz * gw;
-		for (int ix = 0; ix < gw; ix++) {
-			const int i = row + ix;
-			b_ptr[i] = (float)get_height(Vector3(min_x + (double)ix * vs, 0.0, z));
+	// Read base heights below this layer
+	PackedFloat32Array base_height = composite_height_below(p_layer_id, min_x, min_z, vs, gw, gh);
+	if (base_height.size() != n) {
+		base_height.resize(n);
+		float *b_ptr = base_height.ptrw();
+		for (int iz = 0; iz < gh; iz++) {
+			const double z = min_z + (double)iz * vs;
+			const int row = iz * gw;
+			for (int ix = 0; ix < gw; ix++) {
+				b_ptr[row + ix] = (float)get_height_below(p_layer_id, Vector3(min_x + (double)ix * vs, 0.0, z));
+			}
 		}
 	}
 
@@ -2066,6 +2067,7 @@ void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Arr
 	geom.build(p_plan, PackedFloat32Array());
 
 	// Filter base_height to NaN outside corridor reach (mirrors brush contract)
+	float *b_ptr = base_height.ptrw();
 	for (int iz = 0; iz < gh; iz++) {
 		const double z = min_z + (double)iz * vs;
 		const int row = iz * gw;
