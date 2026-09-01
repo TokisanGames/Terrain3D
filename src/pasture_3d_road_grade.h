@@ -34,6 +34,8 @@
 #ifndef PASTURE_3D_ROAD_GRADE_H
 #define PASTURE_3D_ROAD_GRADE_H
 
+#include "pasture_3d_path_query.h"
+
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include <godot_cpp/variant/packed_float32_array.hpp>
@@ -69,6 +71,16 @@ inline double road_surface_height(double p_centre, double p_bank, double p_crown
 // Returns { ok, height, roadbed, cut, fill, verge, structure, surface }.
 Dictionary road_grade_grid(const PackedFloat32Array &p_height, int p_gw, int p_gh, double p_min_x,
 		double p_min_z, double p_vs, const PackedVector2Array &p_plan, double p_align_ds,
+		double p_align_s0, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+		const PackedFloat32Array &p_half_width, const PackedFloat32Array &p_shoulder,
+		const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress, const Dictionary &p_opts);
+
+// The same grading against an ALREADY-BUILT plan geometry (P2c). The graph evaluator indexes a road once
+// for the whole bake and hands the same Pasture3DPathGeom to every slot that names it; the entry point
+// above is this function with a build in front of it. An empty geometry passes the surface through, which
+// is the §4.3 answer and the only safe one — zeros would flatten the terrain to sea level.
+Dictionary road_grade_grid_geom(const Pasture3DPathGeom &p_geom, const PackedFloat32Array &p_height,
+		int p_gw, int p_gh, double p_min_x, double p_min_z, double p_vs, double p_align_ds,
 		double p_align_s0, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
 		const PackedFloat32Array &p_half_width, const PackedFloat32Array &p_shoulder,
 		const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress, const Dictionary &p_opts);

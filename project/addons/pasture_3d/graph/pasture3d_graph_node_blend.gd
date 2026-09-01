@@ -52,17 +52,6 @@ func input_unwired_default(p_port: int) -> float:
 	return 1.0 if p_port == 2 else 0.0
 
 
-## MIX has no native or GPU counterpart, and the native BLEND op falls through to `a` on a mode it does
-## not know — a silently wrong answer rather than a refusal. So a MIX Blend takes the whole graph to the
-## GDScript path, which is where every graph containing a road already runs. The cost is that a MIX used
-## WITHOUT a road gives up acceleration; the alternative is a blend that quietly ignores its B input on
-## grids above the native threshold, which is the same bug the threshold was built to avoid.
-##
-## Remove this the moment GRAPH_BLEND_MIX exists in pasture_3d_graph_ops.cpp and in the GPU shader.
-func blocks_native() -> bool:
-	return mode == Mode.MIX
-
-
 func eval_cell(_p_wx: float, _p_wz: float, p_inputs: PackedFloat32Array) -> float:
 	var a: float = p_inputs[0] if p_inputs.size() > 0 else 0.0
 	var b: float = p_inputs[1] if p_inputs.size() > 1 else 0.0

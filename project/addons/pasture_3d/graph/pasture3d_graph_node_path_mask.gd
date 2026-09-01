@@ -89,10 +89,6 @@ func set_path_inputs(p_paths: Array) -> void:
 ## Still true, and it is the TIER 3 statement: this node's maths is native, but the lowered program has no
 ## operand a polyline can travel in, so a graph containing one cannot be handed to graph_eval_grid whole.
 ## Removed in P2c with the geometry table, not before.
-func blocks_native() -> bool:
-	return true
-
-
 func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -> PackedFloat32Array:
 	var n := p_gw * p_gh
 	if not ClassDB.class_has_method("Pasture3DUtil", "path_mask_grid"):

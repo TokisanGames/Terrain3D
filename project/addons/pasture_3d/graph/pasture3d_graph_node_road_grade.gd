@@ -87,10 +87,6 @@ func set_path_inputs(p_paths: Array) -> void:
 	_path = p_paths[1] if p_paths.size() > 1 and p_paths[1] is Pasture3DGraphPath else null
 
 
-func blocks_native() -> bool:
-	return true
-
-
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:
 	return eval_grid_channels(p_inputs, p_gw, p_gh, p_mask, p_rect)[0]
 

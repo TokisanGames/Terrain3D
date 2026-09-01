@@ -115,14 +115,6 @@ func eval_cell(_p_wx: float, _p_wz: float, _p_inputs: PackedFloat32Array) -> flo
 	return 0.0
 
 
-## Native cannot carry a resource down a wire, and the bail is graph-wide: one Road Source drops the
-## WHOLE graph to the GDScript path. Said out loud here rather than discovered as a slowdown, because
-## that is a real cost and the reason §8 frames the graph route as the case that needs control, not as
-## the route a plain road should take.
-func blocks_native() -> bool:
-	return true
-
-
 func node_warnings() -> PackedStringArray:
 	var out := PackedStringArray()
 	if path == null or path.segment_count() == 0:

@@ -105,8 +105,12 @@ the keyboard. Add it here when you ship one, with the work that clears it:
 
 | node(s) | why visible without a kernel | debt |
 | :--- | :--- | :--- |
-| `blend` in `MIX` mode | The other five modes lower natively; MIX has no `GRAPH_BLEND_MIX` opcode yet, and the native `default:` returns `a`, which is a *wrong answer* rather than a refusal — so the node blocks instead. | Add `GRAPH_BLEND_MIX` to `pasture_3d_graph_ops.h/.cpp` and the GPU shader, then delete the `blocks_native()` override. |
-| `road_source`, `path_distance`, `path_mask`, `road_grade` | Their own maths **is** native as of P2a (`path_query_grid`, `path_mask_grid`, `road_grade_grid`), so each is fast on its own. What still blocks is the whole-graph evaluator: the lowered SSA program has no operand a polyline can travel in, so a graph containing any of them runs on the CPU evaluator entire. `road_source` never had maths at all — it names a road and holds what the host injected. | P2c: the geometry table and the three ops in `graph_eval_grid` (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §4). Then delete `blocks_native()` from all four. |
+| *(none)* | | |
+
+**The table is empty, and it was not empty a week ago.** Both entries were cleared on 2026-08-31 by P2c:
+`GRAPH_BLEND_MIX` landed in `pasture_3d_graph_ops.cpp` and the GPU shader, and the geometry table gave a
+polyline somewhere to live in the lowered program, so all five `blocks_native()` overrides were deleted.
+The two rows are kept in the history rather than the table — an entry is a promise, and these two were paid.
 
 An entry in that table is a promise to someone. Do not add one to avoid writing Steps 3–5.
 
@@ -122,6 +126,11 @@ C++ behind every node in it, and the three GDScript versions stayed as `dev_*` o
 deleted — which is what `RoadNativeParityGate` measures the kernels against. That is the intended shape
 of the whole rule: a node goes behind the flag until someone does the work, and the flag is what makes
 doing the work the shortest route to shipping it.
+
+The second debt was paid a week later, and it is worth naming what "paid" meant: not the four nodes
+getting faster — they were already native — but a graph CONTAINING one no longer dragging the erosion
+and the noise beside it onto the GDScript evaluator. That is the cost a `blocks_native()` entry actually
+carries, and it is invisible in the node the entry is written on.
 
 What the road nodes still carry is the SECOND row, and it is a different debt from the first: their own
 maths is native, but the *graph* around them is not, because a polyline cannot travel in the lowered

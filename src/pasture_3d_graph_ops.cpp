@@ -1,4 +1,6 @@
 #include "pasture_3d_graph_ops.h"
+
+#include "pasture_3d_road_grade.h"
 #include "pasture_3d_distance_transform.h"
 #include "pasture_3d_morphology.h"
 #include "pasture_3d_terrain_metrics.h"
@@ -227,6 +229,47 @@ bool graph_build(const Dictionary &p_prog, GraphProgram &r_out) {
 	if (p_prog.has("in1_port")) r_out.in1_port = p_prog["in1_port"];
 	if (p_prog.has("in2_port")) r_out.in2_port = p_prog["in2_port"];
 	if (p_prog.has("in3_port")) r_out.in3_port = p_prog["in3_port"];
+	if (p_prog.has("in_g")) r_out.in_g = p_prog["in_g"];
+	// ---- the geometry table (P2c) ----
+	//
+	// Built here, once per program, rather than per slot or per cell: several slots may name the same
+	// entry and each one would otherwise re-index the same road. An entry that fails to build is kept as
+	// an EMPTY entry rather than dropped, because dropping it would renumber every later index and hand
+	// some other slot's road to this one — an empty entry reads as "no path", which is a state the ops
+	// already handle correctly.
+	if (p_prog.has("geom")) {
+		const Array geom_in = p_prog["geom"];
+		r_out.geom.resize(geom_in.size());
+		for (int i = 0; i < (int)geom_in.size(); i++) {
+			const Dictionary d = geom_in[i];
+			GraphGeomEntry &e = r_out.geom[(size_t)i];
+			e.kind = d.has("kind") ? (int)d["kind"] : 0;
+			const PackedVector2Array pts = d.has("points") ? (PackedVector2Array)d["points"] : PackedVector2Array();
+			const PackedFloat32Array vals = d.has("values") ? (PackedFloat32Array)d["values"] : PackedFloat32Array();
+			const bool closed = d.has("closed") && (bool)d["closed"];
+			e.geom.closed = closed && pts.size() >= 3;
+			e.geom.build(path_close_ring(pts, closed), vals);
+			if (d.has("profile")) {
+				const Dictionary pr = d["profile"];
+				e.has_profile = true;
+				e.align_ds = pr.has("ds") ? (double)pr["ds"] : 1.0;
+				e.align_s0 = pr.has("s0") ? (double)pr["s0"] : 0.0;
+				if (pr.has("height")) e.align_z = pr["height"];
+				if (pr.has("bank")) e.align_bank = pr["bank"];
+				if (pr.has("half")) e.half_width = pr["half"];
+				if (pr.has("shoulder")) e.shoulder = pr["shoulder"];
+				if (pr.has("verge")) e.verge = pr["verge"];
+				if (pr.has("suppress")) e.suppress = pr["suppress"];
+				if (pr.has("skip")) e.skip = pr["skip"];
+				if (pr.has("crown")) e.crown = (double)pr["crown"];
+				if (pr.has("cut_batter")) e.cut_batter = (double)pr["cut_batter"];
+				if (pr.has("fill_batter")) e.fill_batter = (double)pr["fill_batter"];
+				// A profile with no solved heights cannot grade. Marked here rather than checked in the
+				// op, so "can this road be cut" is decided in one place for every consumer.
+				if (e.align_z.is_empty()) e.has_profile = false;
+			}
+		}
+	}
 	if (p_prog.has("pmap0")) r_out.pmap0 = p_prog["pmap0"];
 	if (p_prog.has("pmap1")) r_out.pmap1 = p_prog["pmap1"];
 	if (p_prog.has("pmap2")) r_out.pmap2 = p_prog["pmap2"];
@@ -498,6 +541,16 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 		// producing it when the answer is no, so a solver whose flow field nobody wants costs exactly what
 		// it cost before. The buffer starts zeroed, so an op that acquires one and then bails leaves a
 		// zero field rather than another node's stale contents.
+		// THIS SLOT'S GEOMETRY, or nullptr when it names none. nullptr is the empty path, and every op
+		// below answers it the way §4.3 requires rather than the way that falls out of the arithmetic.
+		const GraphGeomEntry *geo = nullptr;
+		if (p_prog.in_g.size() == p_prog.count) {
+			const int gi = p_prog.in_g[s];
+			if (gi >= 0 && gi < (int)p_prog.geom.size()) {
+				geo = &p_prog.geom[(size_t)gi];
+			}
+		}
+
 		auto want_aux = [&](int p_chan) -> float * {
 			if (p_chan < 1 || p_chan > (int)aux_ref[(size_t)s].size() || aux_ref[(size_t)s][(size_t)(p_chan - 1)] <= 0) {
 				return nullptr;
@@ -626,6 +679,11 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 							case GRAPH_BLEND_MUL: val = a * b; break;
 							case GRAPH_BLEND_MAX: val = a > b ? a : b; break;
 							case GRAPH_BLEND_MIN: val = a < b ? a : b; break;
+							// MIX is `b`, and the mask fold below then makes it lerp(a, b, mask) — which IS
+							// the mode. It reads as a no-op case only because the generic fold was already
+							// the right arithmetic; an unwired mask leaves it as plain `b`, matching the
+							// GDScript node whose unwired mask is a filled 1.0.
+							case GRAPH_BLEND_MIX: val = b; break;
 							default: val = a; break;
 						}
 						if (gc) {
@@ -865,6 +923,87 @@ static void graph_eval_grid_core(const GraphProgram &p_prog, int p_gw, int p_gh,
 				PackedFloat32Array res = mudslide_solve(in_arr, msk_arr, p_gw, p_gh, p_rect, P[0],
 						P[1], P[2], P[3], P[4], P[5], nullptr, nullptr);
 				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+			} break;
+
+			// ---- Geometry consumers (P2c). These read `geo`, never a scratch buffer, for a path. ----
+
+			case GRAPH_OP_PATH_QUERY: {
+				// distance / s / t all fall out of ONE nearest-point solve, which is why they are three
+				// channels of one op and not three ops: three ops could be given different parameters and
+				// would then describe three different roads.
+				const Pasture3DPathGeom empty;
+				Dictionary res = path_query_grid_geom(geo ? geo->geom : empty, p_gw, p_gh, p_rect,
+						(double)P[0], (double)P[1]);
+				const PackedFloat32Array d_arr = res["distance"];
+				if (d_arr.size() == n) std::copy_n(d_arr.ptr(), n, g_ptr);
+				float *ch_s = want_aux(1);
+				float *ch_t = want_aux(2);
+				if (ch_s) {
+					const PackedFloat32Array a = res["s"];
+					if (a.size() == n) std::copy_n(a.ptr(), n, ch_s);
+				}
+				if (ch_t) {
+					const PackedFloat32Array a = res["t"];
+					if (a.size() == n) std::copy_n(a.ptr(), n, ch_t);
+				}
+			} break;
+
+			case GRAPH_OP_PATH_MASK: {
+				const Pasture3DPathGeom empty;
+				PackedFloat32Array res = path_mask_grid_geom(geo ? geo->geom : empty, p_gw, p_gh, p_rect,
+						(double)P[0], (double)P[1], P[2] > 0.5f);
+				if (res.size() == n) std::copy_n(res.ptr(), n, g_ptr);
+				else std::fill_n(g_ptr, n, P[2] > 0.5f ? 1.f : 0.f);
+			} break;
+
+			case GRAPH_OP_ROAD_GRADE: {
+				PackedFloat32Array in_arr = get_grid_packed(in0[s], c_in0);
+				// PASS THE SURFACE THROUGH when there is no road to cut. An unresolved Road Source is a
+				// normal state — a graph mid-edit passes through it constantly — and a node that answered
+				// zeros while a road was being renamed would flatten the terrain to sea level.
+				if (geo == nullptr || !geo->has_profile || geo->geom.is_empty()) {
+					std::copy_n(in_arr.ptr(), n, g_ptr);
+					break;
+				}
+				// The grader takes ONE spacing and a corner origin, cell CENTRES — the same convention as
+				// PATH_QUERY and PATH_MASK, so the three agree about where a cell is. sqrt(dx*dz) is the
+				// equivalent-square spacing the Erosion op uses on a non-square rect.
+				const double dx = (double)p_rect.size.x / (double)std::max(p_gw, 1);
+				const double dz = (double)p_rect.size.y / (double)std::max(p_gh, 1);
+				const double vs = std::sqrt(std::max(dx * dz, 1e-12));
+				Dictionary opts;
+				opts["crown"] = geo->crown;
+				opts["cut_batter"] = geo->cut_batter;
+				opts["fill_batter"] = geo->fill_batter;
+				opts["skip"] = geo->skip;
+				Dictionary res = road_grade_grid_geom(geo->geom, in_arr, p_gw, p_gh,
+						(double)p_rect.position.x + 0.5 * dx, (double)p_rect.position.y + 0.5 * dz, vs,
+						geo->align_ds, geo->align_s0, geo->align_z, geo->align_bank, geo->half_width,
+						geo->shoulder, geo->verge, geo->suppress, opts);
+				const PackedFloat32Array h_arr = res["height"];
+				const float *src0 = in_arr.ptr();
+				if (h_arr.size() == n) {
+					// Lerped against the INCOMING surface, not the grader's own idea of ground: what
+					// enters this step is what §8 makes editable, and an Erosion above may have just
+					// changed it. amount == 1 is the full cut and the overwhelmingly common case.
+					const double amount = std::clamp((double)P[0], 0.0, 1.0);
+					const float *h = h_arr.ptr();
+					for (int i = 0; i < n; i++) {
+						g_ptr[i] = amount >= 1.0 ? h[i] : (float)(src0[i] + ((double)h[i] - (double)src0[i]) * amount);
+					}
+				} else {
+					std::copy_n(src0, n, g_ptr);
+				}
+				// The five coverage channels, each written only when something downstream reads it. Their
+				// ORDER is the node's output_names order and is a wire format: roadbed, cut, fill, verge,
+				// structure.
+				static const char *k_chan[5] = { "roadbed", "cut", "fill", "verge", "structure" };
+				for (int c = 0; c < 5; c++) {
+					float *dst = want_aux(c + 1);
+					if (dst == nullptr) continue;
+					const PackedFloat32Array a = res[k_chan[c]];
+					if (a.size() == n) std::copy_n(a.ptr(), n, dst);
+				}
 			} break;
 
 			case GRAPH_OP_MASK: {

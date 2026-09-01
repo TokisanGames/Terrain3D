@@ -10,16 +10,19 @@
 # it marshals the path into flat arrays, calls Pasture3DUtil.path_query_grid, and FAILS FAST if the kernel
 # is not there (PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md §3.1).
 #
-# ---- WHY THE PATH FLATTENS AT THE CALL AND NOT IN THE PROGRAM (yet) ----
+# ---- THE PATH FLATTENS TWICE, IN TWO PLACES, AND THAT IS NOT DUPLICATION ----
 #
-# This is the TIER 2 form: the node still owns the Pasture3DGraphPath and hands C++ two flat arrays per
-# evaluation, so a path needs no representation inside the lowered graph program. That is why this node can
-# exist today while `blocks_native()` is still true — the whole-graph evaluator has nowhere to put a
-# polyline until P2c adds the geometry table (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §4).
+# This body is the TIER 2 form: the node owns the Pasture3DGraphPath and hands C++ two flat arrays per
+# evaluation. It runs whenever this node is evaluated on its own — a preview tap, a folded sub-tree, a
+# graph held on the GDScript path by something else in it.
 #
-# The flattening is cheap and it is per evaluation, not per cell: two Packed arrays copied once, against a
-# nearest-segment search run gw*gh times. When the geometry table lands, this marshalling moves into
-# compile_graph_program and the kernel signature does not change.
+# The TIER 3 form is `compile_graph_program`, which since P2c puts the same two arrays in the program's
+# geometry table and lowers this node to GRAPH_OP_PATH_QUERY. Both hand the same points and widths to the
+# same kernel; what differs is WHEN the flattening happens — per evaluation here, once per bake there,
+# shared by every slot that names the road.
+#
+# The flattening is cheap either way and it is per evaluation, not per cell: two Packed arrays copied
+# once, against a nearest-segment search run gw*gh times.
 @tool
 class_name Pasture3DGraphNodePathDistance
 extends Pasture3DGraphNode
@@ -89,13 +92,6 @@ func reads_paths() -> bool:
 
 func set_path_inputs(p_paths: Array) -> void:
 	_path = p_paths[0] if p_paths.size() > 0 and p_paths[0] is Pasture3DGraphPath else null
-
-
-## Still true, and it is the TIER 3 statement, not a Tier 2 one: this node's own maths is native now, but
-## the lowered program has no operand a polyline can travel in, so a graph containing one cannot be handed
-## to graph_eval_grid whole. Removed in P2c with the geometry table, not before.
-func blocks_native() -> bool:
-	return true
 
 
 func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, p_mask, p_rect: Rect2) -> PackedFloat32Array:

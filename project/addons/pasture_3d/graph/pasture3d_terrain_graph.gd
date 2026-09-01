@@ -1134,6 +1134,8 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 				pdrv_param.append(pslot)
 				pdrv_src.append(int(slot_of[psrc]))
 
+	# The geometry operand, in the same slot order as everything above.
+	var _geo := _compile_geometry(order, inputs_of)
 	return {
 		"ops": ops, "params": params, "params_b": params_b, "params_c": params_c, "params_d": params_d,
 		"params_e": params_e, "params_f": params_f, "params_g": params_g, "params_h": params_h,
@@ -1142,6 +1144,7 @@ func compile_graph_program(p_root_node: int = -1) -> Dictionary:
 		"in0": in0, "in1": in1, "in2": in2, "in3": in3,
 		"out_count": out_count,
 		"in0_port": in0_port, "in1_port": in1_port, "in2_port": in2_port, "in3_port": in3_port,
+		"in_g": _geo["in_g"], "geom": _geo["geom"],
 		"pmap0": pmap0, "pmap1": pmap1, "pmap2": pmap2, "pmap3": pmap3,
 		"pdrv_node": pdrv_node, "pdrv_param": pdrv_param, "pdrv_src": pdrv_src,
 		"noise": noise_tab, "luts": luts_tab, "output": int(slot_of[out]),
@@ -1378,6 +1381,22 @@ func _lower_node_op(node: Pasture3DGraphNode) -> Dictionary:
 				op_id = 55
 				p0 = _f.call(&"depth_threshold", 0.01); pb = _f.call(&"shore_width", 8.0)
 				pc = float(_i.call(&"shore_falloff", 1))
+			# ---- The road nodes (P2c). Their geometry does not ride in these params: it goes in the
+			# program's geometry table and `in_g` names an entry, because a polyline is neither a float
+			# nor an index into the scratch arena (§4.1).
+			&"road_source":
+				# A PATH producer still fills a grid slot, with zeros — the same 0.0 its eval_cell
+				# returns. The slot exists so nothing that indexes by node has to special-case it.
+				op_id = 2; p0 = 0.0
+			&"path_distance":
+				op_id = 57
+				p0 = _f.call(&"unreachable_distance", 10000.0); pb = _f.call(&"max_distance", 0.0)
+			&"path_mask":
+				op_id = 58
+				p0 = _f.call(&"width_scale", 1.0); pb = _f.call(&"feather", 2.0)
+				pc = 1.0 if bool(node.get("invert")) else 0.0
+			&"road_grade":
+				op_id = 59; p0 = _f.call(&"amount", 1.0)
 			&"mudslide":
 				op_id = 56
 				p0 = _f.call(&"talus_angle_deg", 30.0); pb = _f.call(&"depth", 4.0)
@@ -1619,6 +1638,7 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 				pdrv_node.append(ops.size() - 1)
 				pdrv_param.append(pslot)
 				pdrv_src.append(int(slot_of[psrc]))
+	var _geo := _compile_geometry(order, inputs_of)
 	var out_slot := 0
 	for r in p_roots:
 		var ri := int(r)
@@ -1634,6 +1654,7 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 			"in0": in0, "in1": in1, "in2": in2, "in3": in3,
 			"out_count": out_count,
 			"in0_port": in0_port, "in1_port": in1_port, "in2_port": in2_port, "in3_port": in3_port,
+			"in_g": _geo["in_g"], "geom": _geo["geom"],
 		"pmap0": pmap0, "pmap1": pmap1, "pmap2": pmap2, "pmap3": pmap3,
 		"pdrv_node": pdrv_node, "pdrv_param": pdrv_param, "pdrv_src": pdrv_src,
 			"noise": noise_tab, "luts": luts_tab, "output": out_slot,
@@ -1656,6 +1677,8 @@ func compile_graph_program_multi(p_roots: Array) -> Dictionary:
 ## Add an entry the same commit you write the channels, never in advance.
 const NATIVE_OUT_COUNT := {
 	&"erosion": 5, # height, flow, erosion, deposition, wetness
+	&"path_distance": 3, # distance, s, t
+	&"road_grade": 6, # height, roadbed, cut, fill, verge, structure
 }
 
 
@@ -1667,6 +1690,81 @@ func native_out_count(p_node: int) -> int:
 	if nodes[p_node].muted:
 		return 1 # a muted node lowers to passthrough, which has one channel whatever it wrapped
 	return int(NATIVE_OUT_COUNT.get(nodes[p_node].op(), 1))
+
+
+## ---- The geometry table (P2c, PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §4.1) ----
+##
+## Which PATH feeds `p_ni`, or null. Found by PORT TYPE, never by port index: the path is port 0 on Path
+## Distance and Path Mask and port 1 on Road Grade, and an index hardcoded here would grade a road against
+## nothing the day one of those nodes grows another input — silently, because "no path" is a legal state
+## that passes the surface through.
+func _path_operand_of(p_ni: int, p_inputs_of: Dictionary) -> Pasture3DGraphPath:
+	if p_ni < 0 or p_ni >= nodes.size() or nodes[p_ni] == null:
+		return null
+	var types := nodes[p_ni].input_port_types()
+	var srcs: Array = p_inputs_of.get(p_ni, [])
+	for k in range(mini(types.size(), srcs.size())):
+		if int(types[k]) != Pasture3DGraphNode.PortType.PATH:
+			continue
+		var src := int(srcs[k])
+		if src >= 0 and src < nodes.size() and nodes[src] != null:
+			return nodes[src].path_output()
+	return null
+
+
+## One geometry-table entry: the polyline, its per-vertex widths, and — only when the road has a solved
+## alignment — the grading profile in the alignment's OWN sampling.
+##
+## The two samplings are not redundancy. `values` is per vertex and answers the `t` query; `profile` is
+## per alignment sample and is handed to the grader verbatim. Resampling either into the other would put
+## an interpolation between the brush's road and the graph's, and RoadGraphGate [K] — 0.0000 m between
+## them — is what would fail.
+func _geom_entry(p_path: Pasture3DGraphPath) -> Dictionary:
+	var d := {
+		"kind": 0, # PATH. 1 = CLOUD is reserved (§5.4) and no op reads it yet.
+		"closed": p_path.closed,
+		"points": p_path.points,
+		"values": p_path.half_widths,
+	}
+	if p_path.can_grade() and p_path.alignment != null:
+		d["profile"] = {
+			"ds": p_path.alignment.ds,
+			"s0": p_path.alignment.s0,
+			"height": p_path.alignment.z,
+			"bank": p_path.alignment.bank,
+			"half": p_path.sample_half_widths,
+			"shoulder": p_path.sample_shoulders,
+			"verge": p_path.sample_verges,
+			"suppress": p_path.sample_suppress,
+			"skip": p_path.sample_skip,
+			"crown": p_path.crown,
+			"cut_batter": p_path.cut_batter,
+			"fill_batter": p_path.fill_batter,
+		}
+	return d
+
+
+## The table and the per-slot `in_g`, for a compiled slot order.
+##
+## Entries are DEDUPLICATED by path instance, which is where fanout becomes free: four nodes reading one
+## road name one entry, and the native side indexes that road once for the whole bake instead of four
+## times. Keyed by instance id rather than by contents, because two roads may legitimately have identical
+## geometry and must still be two entries — they can be re-baked apart.
+func _compile_geometry(p_order: Array, p_inputs_of: Dictionary) -> Dictionary:
+	var geom: Array = []
+	var in_g := PackedInt32Array()
+	var by_id := {}
+	for ni in p_order:
+		var path := _path_operand_of(int(ni), p_inputs_of)
+		if path == null:
+			in_g.append(-1)
+			continue
+		var key := path.get_instance_id()
+		if not by_id.has(key):
+			by_id[key] = geom.size()
+			geom.append(_geom_entry(path))
+		in_g.append(int(by_id[key]))
+	return {"in_g": in_g, "geom": geom}
 
 
 ## True when every node feeding the output has an op the native whole-graph evaluator implements.
@@ -1709,7 +1807,10 @@ func native_supported(p_root_node: int = -1) -> bool:
 		# Spec phase 4.
 		&"warp_downslope",
 		# Spec phase 5.
-		&"flooding_uniform_level", &"water_mask", &"mudslide"
+		&"flooding_uniform_level", &"water_mask", &"mudslide",
+		# Geometry ports (P2c). road_source lowers to a zero CONST and contributes a geometry-table
+		# entry rather than a grid; the other three read it through `in_g`.
+		&"road_source", &"path_distance", &"path_mask", &"road_grade"
 	]
 	for ni in order:
 		if nodes[ni] == null or (not nodes[ni].muted and not SUPPORTED.has(nodes[ni].op())):

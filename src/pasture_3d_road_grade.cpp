@@ -62,6 +62,17 @@ Dictionary godot::road_grade_grid(const PackedFloat32Array &p_height, int p_gw, 
 		double p_align_s0, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
 		const PackedFloat32Array &p_half_width, const PackedFloat32Array &p_shoulder,
 		const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress, const Dictionary &p_opts) {
+	Pasture3DPathGeom geom;
+	geom.build(p_plan, PackedFloat32Array());
+	return road_grade_grid_geom(geom, p_height, p_gw, p_gh, p_min_x, p_min_z, p_vs, p_align_ds,
+			p_align_s0, p_align_z, p_align_bank, p_half_width, p_shoulder, p_verge, p_suppress, p_opts);
+}
+
+Dictionary godot::road_grade_grid_geom(const Pasture3DPathGeom &p_geom, const PackedFloat32Array &p_height,
+		int p_gw, int p_gh, double p_min_x, double p_min_z, double p_vs, double p_align_ds,
+		double p_align_s0, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+		const PackedFloat32Array &p_half_width, const PackedFloat32Array &p_shoulder,
+		const PackedFloat32Array &p_verge, const PackedByteArray &p_suppress, const Dictionary &p_opts) {
 	Dictionary out;
 	const int n = p_gw * p_gh;
 	const int n_align = p_align_z.size();
@@ -77,12 +88,7 @@ Dictionary godot::road_grade_grid(const PackedFloat32Array &p_height, int p_gw, 
 	out["verge"] = zeros(std::max(n, 0));
 	out["structure"] = zeros(std::max(n, 0));
 	out["surface"] = zeros(std::max(n, 0));
-	if (n <= 0 || n_align == 0 || p_plan.size() < 2 || p_height.size() != n) {
-		return out;
-	}
-
-	Pasture3DPathGeom geom;
-	if (!geom.build(p_plan, PackedFloat32Array())) {
+	if (n <= 0 || n_align == 0 || p_geom.is_empty() || p_height.size() != n) {
 		return out;
 	}
 
@@ -134,7 +140,7 @@ Dictionary godot::road_grade_grid(const PackedFloat32Array &p_height, int p_gw, 
 				}
 				const double wx = p_min_x + (double)ix * p_vs;
 
-				const Pasture3DPathHit hit = geom.nearest(wx, wz, scratch);
+				const Pasture3DPathHit hit = p_geom.nearest(wx, wz, scratch);
 				const double d = hit.distance;
 				const double s = hit.s;
 
@@ -169,9 +175,9 @@ Dictionary godot::road_grade_grid(const PackedFloat32Array &p_height, int p_gw, 
 				// segment side 0, and matching that exactly is one line. See the header.
 				double side = 0.0;
 				if (hit.segment >= 0) {
-					const double ax = geom.px[hit.segment], az = geom.pz[hit.segment];
-					const double abx = (double)geom.px[hit.segment + 1] - ax;
-					const double abz = (double)geom.pz[hit.segment + 1] - az;
+					const double ax = p_geom.px[hit.segment], az = p_geom.pz[hit.segment];
+					const double abx = (double)p_geom.px[hit.segment + 1] - ax;
+					const double abz = (double)p_geom.pz[hit.segment + 1] - az;
 					const double cross = abx * (wz - az) - abz * (wx - ax);
 					side = cross > 0.0 ? 1.0 : (cross < 0.0 ? -1.0 : 0.0);
 				}

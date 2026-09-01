@@ -304,6 +304,13 @@ Pasture3DPathHit Pasture3DPathGeom::nearest(double p_x, double p_z, std::vector<
 
 Dictionary godot::path_query_grid(const PackedVector2Array &p_points, const PackedFloat32Array &p_widths,
 		int p_gw, int p_gh, const Rect2 &p_rect, double p_unreachable, double p_max_distance) {
+	Pasture3DPathGeom geom;
+	geom.build(p_points, p_widths);
+	return path_query_grid_geom(geom, p_gw, p_gh, p_rect, p_unreachable, p_max_distance);
+}
+
+Dictionary godot::path_query_grid_geom(const Pasture3DPathGeom &p_geom, int p_gw, int p_gh,
+		const Rect2 &p_rect, double p_unreachable, double p_max_distance) {
 	Dictionary out;
 	if (p_gw <= 0 || p_gh <= 0) {
 		out["ok"] = false;
@@ -315,8 +322,7 @@ Dictionary godot::path_query_grid(const PackedVector2Array &p_points, const Pack
 	s_out.resize(n);
 	t_out.resize(n);
 
-	Pasture3DPathGeom geom;
-	if (!geom.build(p_points, p_widths)) {
+	if (p_geom.is_empty()) {
 		// One fill, not a per-cell branch. An unresolved Road Source is a normal state and the whole grid
 		// has the same answer. The fill is `unreachable`, NEVER 0 — 0 would mean every cell is on the road.
 		const float far_v = (float)(p_max_distance > 0.0 ? std::min(p_unreachable, p_max_distance)
@@ -350,7 +356,7 @@ Dictionary godot::path_query_grid(const PackedVector2Array &p_points, const Pack
 			const int row = iz * p_gw;
 			const double wz = min_z + (double)iz * dz;
 			for (int ix = 0; ix < p_gw; ix++) {
-				const Pasture3DPathHit hit = geom.nearest(min_x + (double)ix * dx, wz, scratch);
+				const Pasture3DPathHit hit = p_geom.nearest(min_x + (double)ix * dx, wz, scratch);
 				const int idx = row + ix;
 				dist_w[idx] = (float)(p_max_distance > 0.0 ? std::min(hit.distance, p_max_distance)
 														   : hit.distance);
@@ -373,7 +379,7 @@ Dictionary godot::path_query_grid(const PackedVector2Array &p_points, const Pack
 // segment for distance and for the winding test alike, and adding it at the boundary means no query below
 // has to remember that a path can be closed. Three points is the minimum for an area — a two-point
 // "closed" path is a line doubled back on itself, and closing it would only duplicate a segment.
-static PackedVector2Array path_ring(const PackedVector2Array &p_points, bool p_closed) {
+PackedVector2Array godot::path_close_ring(const PackedVector2Array &p_points, bool p_closed) {
 	if (!p_closed || p_points.size() < 3) {
 		return p_points;
 	}
@@ -393,7 +399,18 @@ PackedFloat32Array godot::path_mask_grid(const PackedVector2Array &p_points,
 
 	Pasture3DPathGeom geom;
 	geom.closed = p_closed && p_points.size() >= 3;
-	if (!geom.build(path_ring(p_points, p_closed), p_widths)) {
+	geom.build(path_close_ring(p_points, p_closed), p_widths);
+	return path_mask_grid_geom(geom, p_gw, p_gh, p_rect, p_width_scale, p_feather, p_invert);
+}
+
+PackedFloat32Array godot::path_mask_grid_geom(const Pasture3DPathGeom &p_geom, int p_gw, int p_gh,
+		const Rect2 &p_rect, double p_width_scale, double p_feather, bool p_invert) {
+	PackedFloat32Array out;
+	if (p_gw <= 0 || p_gh <= 0) {
+		return out;
+	}
+	out.resize(p_gw * p_gh);
+	if (p_geom.is_empty()) {
 		out.fill(p_invert ? 1.0f : 0.0f);
 		return out;
 	}
@@ -413,18 +430,18 @@ PackedFloat32Array godot::path_mask_grid(const PackedVector2Array &p_points,
 			for (int ix = 0; ix < p_gw; ix++) {
 				const double wx = min_x + (double)ix * dx;
 				double m = 1.0;
-				if (geom.closed) {
+				if (p_geom.closed) {
 					// REGION. Inside is a flat 1; feathering inward as well would eat a small shape from
 					// both sides and leave a region that never reaches full strength anywhere.
-					if (!geom.inside(wx, wz)) {
-						const double d = geom.nearest(wx, wz, scratch).distance;
+					if (!p_geom.inside(wx, wz)) {
+						const double d = p_geom.nearest(wx, wz, scratch).distance;
 						m = p_feather <= 0.0 ? 0.0 : std::clamp(1.0 - d / p_feather, 0.0, 1.0);
 					}
 				} else {
 					// CORRIDOR. Back from `t` to metres via the half-width AT THIS s, so the feather is a
 					// real distance wherever the road is wide and wherever it is narrow.
-					const Pasture3DPathHit hit = geom.nearest(wx, wz, scratch);
-					const double half = std::max(geom.half_width_at(hit.s) * p_width_scale, 1e-6);
+					const Pasture3DPathHit hit = p_geom.nearest(wx, wz, scratch);
+					const double half = std::max(p_geom.half_width_at(hit.s) * p_width_scale, 1e-6);
 					const double edge = hit.distance - half;
 					if (edge > 0.0) {
 						m = p_feather <= 0.0 ? 0.0 : std::clamp(1.0 - edge / p_feather, 0.0, 1.0);

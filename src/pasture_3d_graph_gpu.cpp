@@ -149,7 +149,7 @@ void main() {
 		o[i] = a[i];
 		return;
 	}
-	if (p.mode == 1) { // BLEND
+	if (p.mode == 1) { // BLEND: a, b, c mask. ip = mode 0..5, f0 = is a mask wired.
 		float av = a[i];
 		float bv = b[i];
 		float r;
@@ -158,7 +158,14 @@ void main() {
 		else if (p.ip == 2) { r = av * bv; }
 		else if (p.ip == 3) { r = (av > bv) ? av : bv; }
 		else if (p.ip == 4) { r = (av < bv) ? av : bv; }
+		// MIX is `b`, and the mask fold below makes it lerp(a, b, mask) — which IS the mode. An
+		// unwired mask leaves it as plain b, matching the CPU op and the GDScript node.
+		else if (p.ip == 5) { r = bv; }
 		else { r = av; }
+		// THE MASK PORT, which this shader used not to read at all: a Blend with a mask wired ran on the
+		// GPU and ignored it, silently, for every mode. Harmless-looking until MIX, where the mask is the
+		// entire operation.
+		if (p.f0 > 0.5) { float mv = c[i]; if (!isnan(mv)) { r = av + (r - av) * clamp(mv, 0.0, 1.0); } }
 		o[i] = r;
 		return;
 	}
@@ -953,6 +960,9 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 	const float *params = p_prog.params.ptr();
 	const int32_t *in0 = p_prog.in0.ptr();
 	const int32_t *in1 = p_prog.in1.ptr();
+	// The mask port. Nullptr on a program compiled before in2 existed, which reads as "no mask wired"
+	// — the same answer that program got before, rather than an out-of-bounds read.
+	const int32_t *in2 = p_prog.in2.size() == p_prog.count ? p_prog.in2.ptr() : nullptr;
 
 	std::vector<RID> slot_buf(p_prog.count);
 	std::vector<GraphDispatch> plan;
@@ -1014,8 +1024,12 @@ bool Pasture3DGraphGPU::eval_grid(const godot::GraphProgram &p_prog, int p_gw, i
 			} break;
 			case GRAPH_OP_BLEND: {
 				const RID out = empty_buf();
-				plan.push_back({ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf,
-						in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf, zero_buf, 1, (int)params[s] });
+				const bool has_mask = in2 != nullptr && in2[s] >= 0;
+				GraphDispatch d{ out, in0[s] >= 0 ? slot_buf[in0[s]] : zero_buf,
+						in1[s] >= 0 ? slot_buf[in1[s]] : zero_buf,
+						has_mask ? slot_buf[in2[s]] : zero_buf, 1, (int)params[s] };
+				d.f0 = has_mask ? 1.f : 0.f;
+				plan.push_back(d);
 				slot_buf[s] = out;
 			} break;
 			case GRAPH_OP_SMOOTH: {

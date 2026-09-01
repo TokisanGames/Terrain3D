@@ -1,7 +1,7 @@
 # Pasture3D Graph Geometry Ports Specification
 
 **Document:** `PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md`
-**Status:** Specification — **P2a and P2b complete** (2026-08-31); P2c next. See §7.
+**Status:** **P2a, P2b and P2c complete** (2026-08-31); P2d (GPU) is the remainder. See §7.
 **Target:** Pasture3D Terrain Graph (Godot 4.7 GDExtension, C++20, GDScript)
 **Supersedes:** the "P2 native tier" line in `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md` §P2, which described a
 `BrushModStep::ROAD` that does not exist (see §2.4)
@@ -151,7 +151,7 @@ same reason it is free for them — several slots name the same table entry.
     {
         "kind":   0,                    # 0 = PATH (polyline), 1 = CLOUD (unordered) — see §5.4
         "closed": false,                # PATH only; a closed path connects last→first
-        "points": PackedFloat32Array,   # x,z pairs, WORLD metres, 2*n floats
+        "points": PackedVector2Array,   # vertices, WORLD metres (see the note below)
         "values": PackedFloat32Array,   # n floats — half-width per vertex (Point.v)
         # ---- optional, present only for a ROAD_GRADE consumer ----
         "profile": {
@@ -166,6 +166,13 @@ same reason it is free for them — several slots name the same table entry.
     ...
 ]
 ```
+
+**As built, `points` is a `PackedVector2Array`,** not the packed float pairs this section first
+proposed. Every kernel on the road side already takes one and `Pasture3DGraphPath.points` already is one,
+so packing into float pairs would have added a conversion at both ends and a second layout to keep in
+step. The `profile` sub-dictionary likewise carries `ds`, `s0` and `bank` alongside the arrays, and
+`crown` / `cut_batter` / `fill_batter` with them — they belong to the road, and a graph cannot reach the
+road type to ask.
 
 **Two samplings, deliberately, and this is not redundancy.** `values` is per **vertex** and answers the
 `t` query. `profile` is per **alignment sample** and is the grader's own space, handed over verbatim.
@@ -297,7 +304,7 @@ cloud is the same table entry with the ordering ignored: points and one float of
 Reserving it costs one int. Adding it later means changing what `in_g` indexes, in a format that by then
 has saved graphs in it. Scatter, seeding and placement nodes are the customers.
 
-### 5.5 GPU (P2c)
+### 5.5 GPU (P2d)
 
 The geometry table becomes an SSBO; the query is a per-pixel loop over candidate segments. Deferred until
 the CPU tier is proven, and gated by `RoadGpuParityGate` against the CPU op — never against GDScript
@@ -310,9 +317,14 @@ directly, so a disagreement localises to one hop.
 ### 6.1 A mode the kernel does not know must refuse, not answer
 
 `GRAPH_OP_BLEND`'s `default: val = a` is the trap this whole area is prone to: an unimplemented case that
-returns something plausible. `GRAPH_BLEND_MIX` must land in `pasture_3d_graph_ops.cpp`, in
-`pasture_3d_graph_gpu.cpp`, and in the enum, in **one commit** — and `Pasture3DGraphNodeBlend`'s
-`blocks_native()` override is deleted in that same commit, not before and not after.
+returns something plausible. `GRAPH_BLEND_MIX` landed in `pasture_3d_graph_ops.cpp`, in
+`pasture_3d_graph_gpu.cpp` and in the enum in **one commit**, and `Pasture3DGraphNodeBlend`'s
+`blocks_native()` override was deleted in that same commit.
+
+Writing the GPU half turned up a second instance of the same trap, older and quieter: the GPU BLEND
+shader never read the MASK port at all. A Blend with a mask wired ran on the GPU and ignored it, for
+every mode, silently. Harmless-looking until MIX, where the mask IS the operation — so the mask fold was
+added there in the same change. It is the shape this section warns about, found by looking for it.
 
 The general rule, which this codebase has learned twice (see the acceleration guide §3.4): **a native path
 that cannot do something must say so, never approximate it.** A refusal costs performance. A wrong answer
@@ -350,8 +362,8 @@ For `ROAD_GRADE` specifically: a road crossing a hole must not fill it.
 | :--- | :--- | :--- |
 | **P2a** ✅ 2026-08-31 | Tier-2 kernels + bindings, all on `Pasture3DUtil`: `path_query_grid` and `path_mask_grid` (`src/pasture_3d_path_query.cpp`), `road_grade_grid` (`src/pasture_3d_road_grade.cpp`). Production `path_distance` / `path_mask` / `road_grade` nodes that call them and fail fast; `road_source` promoted as-is, having no mathematics to move. `Pasture3DRoadGrader.grade` now forwards to the kernel, so the brush and the graph are ONE grader rather than two that agree (§6.2), and the GDScript body it replaced is `grade_reference`, the oracle. `Pasture3DGraphPath.closed` and region masks (§8.1). The `Roads` palette category returns with four nodes. | `RoadNativeParityGate` — native vs the four `dev_*` oracles on the `RoadGraphGate` fixtures, to the gate's existing thresholds; the brush's cut and the graph's still agree to 0.0000 m; a control that the kernels are actually being called (a missing binding must fail, not fall back). |
 | **P2b** ✅ 2026-08-31 | Multi-output channels in the program (§5.3): `GraphProgram.out_count` and `in0_port..in3_port`, lazy per-channel aux buffers, `buf_of(slot, channel)` on every operand read, and the port ≥ 1 bail narrowed to `Pasture3DTerrainGraph.native_out_count`. `GRAPH_OP_EROSION` writes all five channels and computes its diagnostics only when one is wired. | `GraphChannelLoweringGate` — all five Erosion channels lower natively and match the GDScript evaluator (worst 3.8e-6 m on height, 0.0 on flow); controls: no channel is constant, no two channels are identical, a Lake Flooding port-1 wire still refuses while its port-0 sibling lowers. |
-| **P2c** | The geometry table and the three ops in `graph_eval_grid` (§4). `GRAPH_BLEND_MIX` (§6.1). `blocks_native()` deleted from all four road nodes and from Blend. | Extend `GraphCppParityGate`; the §8 wiring 2 must lower end-to-end and match the GDScript result — the criterion is that gate [L]'s graph runs natively at all. |
-| **P2d** | GPU: geometry SSBO, the query in the compute shader. | `RoadGpuParityGate` (non-headless), GPU vs the CPU op. |
+| **P2c** ✅ 2026-08-31 | The geometry table (`GraphGeomEntry`, `GraphProgram::geom`, `in_g`) and the three ops in `graph_eval_grid` (§4). `GRAPH_BLEND_MIX` on CPU and GPU (§6.1), which also fixed the GPU BLEND shader ignoring its mask port entirely. `blocks_native()` deleted from all four road nodes and from Blend. The kernels gained `*_geom` overloads so a road is indexed once per bake rather than once per consumer, and the `Pasture3DUtil` entry points became those overloads with a build in front — one implementation, two callers. | `GraphGeometryLoweringGate`, its own gate rather than an extension of `GraphCppParityGate` (which carries no road fixtures): [A] a path reaches the lowered program, [B] both mask rules, [C] all six grader channels, [D] the §8 wiring end to end, worst 0.0000005 m, [E] fanout is one table entry. Controls: an unresolved Road Source reads 10000 m and never 0; the MIX does not collapse to either of its inputs; two roads stay two entries. |
+| **P2d** | GPU: geometry SSBO, the query in the compute shader. The CPU side refuses cleanly today: the three ops fall to `graph_eval_grid_gpu`'s `default:` and the whole graph drops to the CPU evaluator, which is the right answer while the shader does not exist. | `RoadGpuParityGate` (non-headless), GPU vs the CPU op. P2c's GPU BLEND mask fix is unverified on hardware for the same reason and wants the same run. |
 
 **P2a shipped alone**, and it is the phase that took the road nodes back out of the developer flag: a
 production node calling a kernel satisfies the separation rule the day it exists, even while the graph
@@ -360,7 +372,12 @@ PASTURE3D_NODE_ACCELERATION_GUIDE.md rather than a judgement made at the keyboar
 
 **P2b shipped without a road in it**, which was the point: the channel machinery is what every existing
 multi-output solver needed, and Erosion's four diagnostics can now be wired without dropping the graph to
-GDScript. P2c is the one that finally makes `blocks_native()` a lie worth deleting.
+GDScript.
+
+**P2c is the phase that made the four road nodes cost nothing to have in a graph.** They were already
+native in themselves after P2a; what P2c removed is the graph-wide bail, so a road no longer takes the
+erosion and the noise beside it down to GDScript with it. Both rows of the acceleration guide's
+exceptions table are now empty.
 
 ---
 

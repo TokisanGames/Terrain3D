@@ -119,6 +119,14 @@ private:
 Dictionary path_query_grid(const PackedVector2Array &p_points, const PackedFloat32Array &p_widths,
 		int p_gw, int p_gh, const Rect2 &p_rect, double p_unreachable, double p_max_distance);
 
+// The same query against a geometry that is ALREADY BUILT (P2c). The graph evaluator holds one
+// Pasture3DPathGeom per geometry-table entry for the whole bake, so a road read by four slots is indexed
+// once rather than four times; the Pasture3DUtil entry point above is this function with a build in front
+// of it, which is what keeps the two from being two implementations. `p_geom.is_empty()` produces the
+// empty-path answer of §4.3, not a degenerate one.
+Dictionary path_query_grid_geom(const Pasture3DPathGeom &p_geom, int p_gw, int p_gh, const Rect2 &p_rect,
+		double p_unreachable, double p_max_distance);
+
 // Rasterise a PATH as a [0,1] mask. TWO RULES, chosen by `p_closed`, not one rule with a parameter:
 //
 //   open   — a CORRIDOR. On the carriageway is 1, and the mask falls to 0 over `p_feather` metres beyond
@@ -135,6 +143,17 @@ Dictionary path_query_grid(const PackedVector2Array &p_points, const PackedFloat
 PackedFloat32Array path_mask_grid(const PackedVector2Array &p_points, const PackedFloat32Array &p_widths,
 		bool p_closed, int p_gw, int p_gh, const Rect2 &p_rect, double p_width_scale, double p_feather,
 		bool p_invert);
+
+// The mask against an already-built geometry (P2c). `closed` is read off `p_geom`, which means the ring
+// must already have been closed by whoever built it — see path_close_ring.
+PackedFloat32Array path_mask_grid_geom(const Pasture3DPathGeom &p_geom, int p_gw, int p_gh,
+		const Rect2 &p_rect, double p_width_scale, double p_feather, bool p_invert);
+
+// The vertex list a Pasture3DPathGeom should be built from: `p_points`, plus the first point repeated at
+// the end when closed. Exposed because the geometry table builds its entries directly and must close the
+// ring exactly as the mask kernel does — two closings that differed by one segment would put a seam
+// across the mouth of every region mask.
+PackedVector2Array path_close_ring(const PackedVector2Array &p_points, bool p_closed);
 
 } // namespace godot
 
