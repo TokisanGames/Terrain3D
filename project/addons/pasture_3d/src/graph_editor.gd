@@ -2103,7 +2103,28 @@ func _on_node_selected(p_node: Node) -> void:
 	var i := _idx(p_node.name)
 	if i >= 0 and i < graph.nodes.size() and graph.nodes[i] != null:
 		if plugin != null:
+			# Offer the road list BEFORE the inspector builds, not after. The keys used to arrive only
+			# from a bake or a preview render, which means the first time you click a Road Source """ + EM + u""" the
+			# one moment you actually need to choose a road """ + EM + u""" the list is empty and `_validate_property`
+			# leaves the field a plain String. Resolving on selection costs one walk of the graph and
+			# makes the dropdown present whenever a network is reachable.
+			_offer_road_keys()
 			EditorInterface.edit_resource(graph.nodes[i])
+
+
+## Stamp every Road Source with the network's road keys, for the inspector dropdown.
+##
+## Deliberately calls the same `resolve_graph_paths` the bake does rather than collecting keys itself.
+## The list the inspector offers and the list the solve resolves against are then the same list by
+## construction: a road that is offered can be chosen, and a road that can be chosen resolves. Two
+## collectors would be two chances to disagree about what counts as a road brush.
+func _offer_road_keys() -> void:
+	var brush := _find_host_brush()
+	if brush == null:
+		return
+	var road_net := Pasture3DRoadNetwork.find_for(brush)
+	if road_net != null:
+		road_net.resolve_graph_paths(graph, brush)
 
 
 func _on_node_move_begin() -> void:

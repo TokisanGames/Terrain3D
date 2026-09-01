@@ -523,6 +523,44 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 		_fail += 1
 		print("    !! the dropdown does not list the road that is actually there")
 
+	# ...AND THE ALREADY-BUILT INSPECTOR HAS TO BE TOLD. This is the half that was missing, and it is the
+	# half you can see: the keys were collected, `_validate_property` wrote the hint correctly, and the
+	# field was still a plain String box. `_validate_property` runs while Godot BUILDS a property list,
+	# so a list stamped after that build is invisible until something else rebuilds the inspector.
+	#
+	# Note what cannot be asserted here: reading the hint back off `get_property_list` passes either way,
+	# because that call re-runs `_validate_property`. The observable difference is the NOTIFICATION, so
+	# that is what is watched.
+	var told := [0]
+	var fresh := Pasture3DGraphNodeRoadSource.new()
+	fresh.property_list_changed.connect(func() -> void: told[0] += 1)
+	fresh.editor_road_keys = PackedStringArray([brush.road_key()])
+	var hint := -1
+	var hint_str := ""
+	for prop in fresh.get_property_list():
+		if prop["name"] == &"road_key":
+			hint = int(prop["hint"])
+			hint_str = str(prop["hint_string"])
+			break
+	print("    stamping the keys rebuilt the inspector %d time(s), and road_key builds with hint %d "
+			% [told[0], hint] + "(want %d) and choices \"%s\"" % [PROPERTY_HINT_ENUM_SUGGESTION, hint_str])
+	if hint != PROPERTY_HINT_ENUM_SUGGESTION or not hint_str.split(",").has(brush.road_key()):
+		_fail += 1
+		print("    !! road_key does not build as a choice list at all")
+	if told[0] < 1:
+		_fail += 1
+		print("    !! the keys arrived without telling the inspector, so the field stays a String box")
+
+	# CONTROL: stamping the SAME list again must NOT rebuild. An unconditional notify would rebuild the
+	# inspector on every preview render """ + EM + u""" which resolves """ + EM + u""" and eat the text you were part-way through
+	# typing into the very field this exists to fill.
+	told[0] = 0
+	fresh.editor_road_keys = PackedStringArray([brush.road_key()])
+	print("    control: re-stamping an unchanged list rebuilt it %d time(s) (want 0)" % told[0])
+	if told[0] != 0:
+		_fail += 1
+		print("    !! the inspector rebuilds on every resolve, so the field cannot be typed in")
+
 	# CONTROL: an unresolved node must offer NOTHING. This is why the hint is ENUM_SUGGESTION and not a
 	# hard ENUM: a graph opened without its network shows an empty list, and a hard enum would render the
 	# key it already holds as invalid and rewrite it to another road on the first click.
@@ -532,6 +570,16 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 	if not lone.editor_road_keys.is_empty():
 		_fail += 1
 		print("    !! an unresolved source claims to know the network\'s roads")
+	var lone_hint := -1
+	for prop in lone.get_property_list():
+		if prop["name"] == &"road_key":
+			lone_hint = int(prop["hint"])
+			break
+	print("    control: an unresolved source builds road_key with hint %d (want NOT %d, i.e. typeable)"
+			% [lone_hint, PROPERTY_HINT_ENUM_SUGGESTION])
+	if lone_hint == PROPERTY_HINT_ENUM_SUGGESTION:
+		_fail += 1
+		print("    !! an empty list still claims to be a choice list")
 
 	# CONTROL: a key naming NO road must leave the node alone rather than clearing it. Clearing would make
 	# a road mid-rename flatten every terrain reading it for one bake, which reads as a solver bug.

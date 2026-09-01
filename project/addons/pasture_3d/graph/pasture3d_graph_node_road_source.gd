@@ -61,7 +61,16 @@ extends Pasture3DGraphNode
 ## Stamped by Pasture3DRoadNetwork.resolve_graph_paths, which is the one place that already walks the
 ## graph looking for these nodes and already has the network in hand. A graph is a Resource and cannot
 ## reach the scene, so the list has to arrive from outside for the same reason the PATH does.
-var editor_road_keys: PackedStringArray = PackedStringArray()
+## Setting it must NOTIFY, or the dropdown does not appear until something else rebuilds the inspector.
+## `_validate_property` runs once, while Godot is building the property list; a list stamped after that
+## build changes nothing anyone can see. The symptom is precise and was reported as one: the keys are
+## collected correctly, the hint is written correctly, and the field is still a plain String box.
+var editor_road_keys: PackedStringArray = PackedStringArray():
+	set(v):
+		if editor_road_keys == v:
+			return
+		editor_road_keys = v
+		notify_property_list_changed()
 
 
 ## Offer the network's roads as suggestions, and keep the field typeable.
