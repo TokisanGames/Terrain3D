@@ -108,6 +108,28 @@ func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -
 	var dz := p_rect.size.y / float(maxi(p_gh, 1))
 	var min_x := p_rect.position.x + 0.5 * dx
 	var min_z := p_rect.position.y + 0.5 * dz
+	# ---- REGION: a closed path masks its INTERIOR, not a corridor along its edge ----
+	#
+	# Not a parameter on the corridor branch, a different rule. Thresholding `t` on a closed outline gives
+	# two ribbons along the boundary with a hole down the middle — correct for a road, absurd for a lake.
+	# `width_scale` says nothing here and is deliberately ignored rather than multiplied into something
+	# meaningless; node_warnings says so out loud.
+	if _path.closed:
+		for iz in range(p_gh):
+			var rrow := iz * p_gw
+			var rwz: float = min_z + float(iz) * dz
+			for ix in range(p_gw):
+				var at := Vector2(min_x + float(ix) * dx, rwz)
+				var m2: float = 1.0
+				if not _path.inside(at):
+					# Outside: fall off over `feather` metres of distance to the boundary. Inside is a flat
+					# 1 — feathering inward as well would eat a small shape from both sides and leave a
+					# region that never reaches full strength anywhere.
+					var d: float = float(_path.nearest(at)["distance"])
+					m2 = 0.0 if feather <= 0.0 else clampf(1.0 - d / feather, 0.0, 1.0)
+				out[rrow + ix] = (1.0 - m2) if invert else m2
+		return out
+
 	for iz in range(p_gh):
 		var row := iz * p_gw
 		var wz: float = min_z + float(iz) * dz
@@ -127,6 +149,8 @@ func eval_grid(_p_inputs: Array, p_gw: int, p_gh: int, _p_mask, p_rect: Rect2) -
 
 func node_warnings() -> PackedStringArray:
 	var out := PackedStringArray()
+	if _path != null and _path.closed and not is_equal_approx(width_scale, 1.0):
+		out.append("This path is closed, so Path Mask fills its interior and Width Scale does nothing.")
 	if width_scale < 0.1:
 		out.append("Path Mask scales the width by %.2f, so the mask is narrower than one cell on most grids."
 				% width_scale)

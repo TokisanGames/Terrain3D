@@ -271,6 +271,16 @@ public:
 			const int p_gw, const int p_gh, const Rect2 &p_rect, const double p_unreachable,
 			const double p_max_distance);
 
+	// Rasterise a PATH as a [0,1] mask (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §5.2). TWO RULES chosen by
+	// `p_closed`, not one rule with a parameter: an OPEN path masks a corridor — 1 on the carriageway,
+	// falling to 0 over `p_feather` metres beyond an edge that tracks the local half-width times
+	// `p_width_scale` — while a CLOSED path masks its INTERIOR by an even-odd winding test, feathering only
+	// outward, and ignores `p_width_scale` because a width says nothing about an area. An empty path masks
+	// NOTHING (0, or 1 with p_invert), so a graph mid-edit does not erase what an inverted mask protects.
+	static PackedFloat32Array path_mask_grid(const PackedVector2Array &p_points,
+			const PackedFloat32Array &p_widths, const bool p_closed, const int p_gw, const int p_gh,
+			const Rect2 &p_rect, const double p_width_scale, const double p_feather, const bool p_invert);
+
 	// Native Curvature Discrete Laplacian filter.
 	static PackedFloat32Array curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 			const int p_mode, const int p_radius, const double p_contrast);

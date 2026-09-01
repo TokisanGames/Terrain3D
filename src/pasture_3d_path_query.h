@@ -90,6 +90,13 @@ struct Pasture3DPathGeom {
 	// so a grid query allocates nothing in its inner loop.
 	Pasture3DPathHit nearest(double p_x, double p_z, std::vector<int> &r_scratch) const;
 
+	// Is (p_x, p_z) inside this path? Always false when `closed` is not set — an open polyline has no
+	// interior. EVEN-ODD by a +x ray cast, matching Pasture3DGraphPath.inside exactly: a brush outline is
+	// not guaranteed simple, and even-odd and non-zero winding disagree about precisely the self-crossing
+	// shapes a dragged Plow produces. Two backends each picking the obvious rule would give a mask that
+	// changed when the graph went native.
+	bool inside(double p_x, double p_z) const;
+
 	// The same query with NO index: every segment, every time. The DEFINITION the indexed query has to
 	// match, kept in production for the same reason the GDScript keeps `nearest_brute` — a definition that
 	// lives only in a gate drifts from the thing it defines.
@@ -111,6 +118,23 @@ private:
 // Returns { ok: bool, distance, s, t }; ok is false only for a degenerate grid.
 Dictionary path_query_grid(const PackedVector2Array &p_points, const PackedFloat32Array &p_widths,
 		int p_gw, int p_gh, const Rect2 &p_rect, double p_unreachable, double p_max_distance);
+
+// Rasterise a PATH as a [0,1] mask. TWO RULES, chosen by `p_closed`, not one rule with a parameter:
+//
+//   open   — a CORRIDOR. On the carriageway is 1, and the mask falls to 0 over `p_feather` metres beyond
+//            the edge. The edge is `half_width_at(s) * p_width_scale`, so the mask tracks a road that
+//            widens rather than sitting at a fixed distance from its centreline.
+//   closed — a REGION. The interior is 1 and the mask falls to 0 over `p_feather` metres outside the
+//            boundary. `p_width_scale` says nothing about an area and is ignored.
+//
+// The feather is in METRES on both, converted back from `t` on the corridor branch, so it is the same
+// softness on a track and on a four-lane road.
+//
+// An empty path masks NOTHING: 0 everywhere, or 1 with p_invert. Inverting the empty answer too is what
+// stops a graph being edited briefly erasing everything an inverted mask was protecting.
+PackedFloat32Array path_mask_grid(const PackedVector2Array &p_points, const PackedFloat32Array &p_widths,
+		bool p_closed, int p_gw, int p_gh, const Rect2 &p_rect, double p_width_scale, double p_feather,
+		bool p_invert);
 
 } // namespace godot
 

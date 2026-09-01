@@ -25,7 +25,7 @@
 # plausible distance and an absurd s, so s is compared at the same tolerance rather than loosely.
 extends Node
 
-const CRITERIA: Array[String] = ["A", "B", "C"]
+const CRITERIA: Array[String] = ["A", "B", "C", "D", "E"]
 
 const G_N: int = 96
 const G_MIN: float = -48.0
@@ -43,6 +43,8 @@ func _ready() -> void:
 	_a_the_kernel_is_bound_at_all()
 	_b_the_native_query_matches_the_oracle()
 	_c_an_empty_path_reads_far_away_on_both()
+	_d_the_corridor_mask_matches_the_oracle()
+	_e_a_closed_path_masks_its_interior()
 
 	for name in CRITERIA:
 		if not _seen.has(name):
@@ -246,3 +248,142 @@ func _c_an_empty_path_reads_far_away_on_both() -> void:
 	if not (single[0][0] > 100.0):
 		_fail += 1
 		print("    !! a one-point path is being treated as a road")
+
+
+# ---- D ------------------------------------------------------------------------------------------
+
+func _mask_prod(p_path: Pasture3DGraphPath, p_feather: float, p_invert: bool) -> PackedFloat32Array:
+	var node := Pasture3DGraphNodePathMask.new()
+	node.feather = p_feather
+	node.invert = p_invert
+	node.set_path_inputs([p_path])
+	return node.eval_grid([], G_N, G_N, null, _rect())
+
+
+func _mask_oracle(p_path: Pasture3DGraphPath, p_feather: float, p_invert: bool) -> PackedFloat32Array:
+	var node := Pasture3DGraphNodeDevPathMask.new()
+	node.feather = p_feather
+	node.invert = p_invert
+	node.set_path_inputs([p_path])
+	return node.eval_grid([], G_N, G_N, null, _rect())
+
+
+## A closed outline: an L-shaped hexagon whose interior a corridor rule cannot reproduce.
+##
+## Deliberately NOT convex and NOT centred on the origin. A convex blob would pass a winding test written
+## with the wrong crossing rule, and a centred one would hide an origin-relative mistake in the ray cast.
+func _outline() -> Pasture3DGraphPath:
+	var path := Pasture3DGraphPath.new()
+	path.points = PackedVector2Array([
+		Vector2(-30.0, -26.0), Vector2(6.0, -26.0), Vector2(6.0, -4.0),
+		Vector2(26.0, -4.0), Vector2(26.0, 20.0), Vector2(-30.0, 20.0)])
+	path.half_widths = PackedFloat32Array([4.0])
+	path.closed = true
+	return path
+
+
+## [D] The native corridor mask matches the oracle, feathered and inverted.
+##
+## Both flags on, because `invert` and `feather` are the two places a port can be subtly wrong while still
+## producing a mask-shaped field: inverting before the clamp, or feathering in `t` units instead of metres,
+## both give a smooth [0,1] result that only disagrees with the oracle where the road changes width. The
+## hairpin does change width, which is why it is the fixture here too.
+func _d_the_corridor_mask_matches_the_oracle() -> void:
+	print("[D] the native corridor mask matches the oracle")
+	if not ClassDB.class_has_method("Pasture3DUtil", "path_mask_grid"):
+		_check("D", false, "path_mask_grid is not bound — rebuild the GDExtension")
+		return
+	var path := _hairpin()
+	var prod := _mask_prod(path, 4.0, false)
+	var orc := _mask_oracle(path, 4.0, false)
+	var worst := _worst(prod, orc)
+	var inv_worst := _worst(_mask_prod(path, 4.0, true), _mask_oracle(path, 4.0, true))
+	print("    worst disagreement: %.7f plain, %.7f inverted" % [worst, inv_worst])
+	_check("D", worst < EPS and inv_worst < EPS,
+			"plain %.7f / inverted %.7f (want < %.4f)" % [worst, inv_worst, EPS])
+
+	# CONTROL: the mask must have BOTH ends and a middle. All-zero, all-one, or hard-edged are each a mask
+	# that two implementations could agree on while neither did the work asked for.
+	var on := 0
+	var off := 0
+	var mid := 0
+	for v in prod:
+		if v > 0.999:
+			on += 1
+		elif v < 0.001:
+			off += 1
+		else:
+			mid += 1
+	print("    control: %d cell(s) fully on, %d fully off, %d in the feather (want all three > 0)"
+			% [on, off, mid])
+	if on == 0 or off == 0 or mid == 0:
+		_fail += 1
+		print("    !! the mask is degenerate, so this criterion compared two constants")
+
+	# CONTROL: inverting must actually change the answer. A port that ignored `invert` would agree with an
+	# oracle that also ignored it, and the two checks above would both still pass.
+	if _worst(prod, _mask_prod(path, 4.0, true)) < 0.5:
+		_fail += 1
+		print("    !! inverting the mask changed nothing")
+
+
+# ---- E ------------------------------------------------------------------------------------------
+
+## [E] A closed path masks its INTERIOR, and the two backends agree cell for cell about which cells those
+## are.
+##
+## This is the criterion §8.1 exists for: reusing a Mound, Plow or Pond outline as a graph mask. Parity
+## alone is weak here — two even-odd tests written from the same description agree easily — so the
+## controls check the two ways the feature can be built and still be useless: an interior that never fills,
+## and a "closed" path that is quietly still being read as a corridor.
+func _e_a_closed_path_masks_its_interior() -> void:
+	print("[E] a closed path masks its interior")
+	if not ClassDB.class_has_method("Pasture3DUtil", "path_mask_grid"):
+		_check("E", false, "path_mask_grid is not bound — rebuild the GDExtension")
+		return
+	var ring := _outline()
+	var prod := _mask_prod(ring, 3.0, false)
+	var orc := _mask_oracle(ring, 3.0, false)
+	var worst := _worst(prod, orc)
+	print("    worst disagreement over the outline: %.7f" % worst)
+	_check("E", worst < EPS, "region mask disagrees by %.7f (want < %.4f)" % [worst, EPS])
+
+	# CONTROL: the interior is FILLED, and it is a large fraction of the fixture. A region rule that
+	# degenerated to a boundary corridor would still be smooth, still be [0,1], and still match an oracle
+	# that had degenerated the same way — but it would fill a few percent, not a quarter.
+	var filled := 0
+	for v in prod:
+		if v > 0.999:
+			filled += 1
+	var frac := float(filled) / float(prod.size())
+	print("    control: %.1f%% of the grid is fully inside (want > 15%%)" % (frac * 100.0))
+	if frac <= 0.15:
+		_fail += 1
+		print("    !! the interior is not being filled, so this is a boundary corridor wearing a region's name")
+
+	# CONTROL: the SAME points read as an open path must give a materially different mask. This is what
+	# proves `closed` reached the kernel at all: without it the corridor branch runs, the field still looks
+	# like a mask, and every check above still passes.
+	var open_path := Pasture3DGraphPath.new()
+	open_path.points = ring.points
+	open_path.half_widths = ring.half_widths
+	var open_mask := _mask_prod(open_path, 3.0, false)
+	var differ := 0
+	for i in mini(prod.size(), open_mask.size()):
+		if absf(prod[i] - open_mask[i]) > 0.5:
+			differ += 1
+	print("    control: %d cell(s) differ from the same points read OPEN (want a large count)" % differ)
+	if differ < prod.size() / 20:
+		_fail += 1
+		print("    !! closed and open read the same, so the closed flag is not reaching the kernel")
+
+	# CONTROL: a point known to be OUTSIDE the L's notch must read 0. The notch is the part a convex hull
+	# or a non-zero winding rule would wrongly include, and it is the reason the fixture is L-shaped.
+	var notch := _mask_prod(ring, 0.0, false)
+	var ix := int((16.0 - G_MIN) / G_VS)
+	var iz := int((-16.0 - G_MIN) / G_VS)
+	var at_notch: float = notch[iz * G_N + ix]
+	print("    control: the notch at (16, -16) reads %.3f (want 0 — it is outside the L)" % at_notch)
+	if at_notch > 0.001:
+		_fail += 1
+		print("    !! the concave notch is being filled, so the winding test is not even-odd")

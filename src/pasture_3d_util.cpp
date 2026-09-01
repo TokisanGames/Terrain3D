@@ -1583,6 +1583,13 @@ Dictionary Pasture3DUtil::path_query_grid(const PackedVector2Array &p_points,
 	return godot::path_query_grid(p_points, p_widths, p_gw, p_gh, p_rect, p_unreachable, p_max_distance);
 }
 
+PackedFloat32Array Pasture3DUtil::path_mask_grid(const PackedVector2Array &p_points,
+		const PackedFloat32Array &p_widths, const bool p_closed, const int p_gw, const int p_gh,
+		const Rect2 &p_rect, const double p_width_scale, const double p_feather, const bool p_invert) {
+	return godot::path_mask_grid(p_points, p_widths, p_closed, p_gw, p_gh, p_rect, p_width_scale,
+			p_feather, p_invert);
+}
+
 PackedFloat32Array Pasture3DUtil::curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 		const int p_mode, const int p_radius, const double p_contrast) {
 	return godot::curvature_solve(p_surface, p_gw, p_gh, (godot::CurvatureMode)p_mode, p_radius, p_contrast);
@@ -2086,6 +2093,10 @@ void Pasture3DUtil::_bind_methods() {
 			D_METHOD("path_query_grid", "points", "widths", "gw", "gh", "rect", "unreachable",
 					"max_distance"),
 			&Pasture3DUtil::path_query_grid);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("path_mask_grid", "points", "widths", "closed", "gw", "gh", "rect", "width_scale",
+					"feather", "invert"),
+			&Pasture3DUtil::path_mask_grid);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("curvature_grid", "surface", "gw", "gh", "mode", "radius", "contrast"),
 			&Pasture3DUtil::curvature_grid);

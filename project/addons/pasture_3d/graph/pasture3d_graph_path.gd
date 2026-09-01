@@ -63,6 +63,24 @@ extends Resource
 		heights = v
 		emit_changed()
 
+## True when the last vertex joins back to the first: this path is a REGION boundary, not a route.
+##
+## ---- WHAT CLOSING CHANGES, AND WHAT IT DOES NOT ----
+##
+## Every query still works and still means the same thing: `distance` is to the boundary, `s` runs around
+## it, `t` is across it. What closing adds is the CLOSING EDGE — the segment from the last vertex back to
+## the first, which an open reading of the same points does not have, and whose absence shows up as a
+## notch of wrongly-large distance across the mouth of the shape.
+##
+## It also makes `inside` answerable. That is the point of the flag: a closed path is what lets a Mound,
+## Plow or Pond outline be reused as a graph mask instead of the region being drawn a second time as a
+## Plow (PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §8.1).
+@export var closed: bool = false:
+	set(v):
+		closed = v
+		_built = false
+		emit_changed()
+
 ## Where this path came from, for warnings and for the editor. No query reads it.
 @export var source_label: String = ""
 
@@ -117,7 +135,15 @@ func can_grade() -> bool:
 	return alignment != null and alignment.count() > 0 \
 			and sample_half_widths.size() >= alignment.count()
 
-# Cumulative arc length at each vertex: _cum[i] is the distance from the start to points[i].
+# The vertices the queries actually walk: `points`, plus the first point repeated at the end when
+# `closed`. Built in _ensure and dropped whenever the geometry changes.
+#
+# A separate array rather than a flag checked at every segment lookup, because the closing edge would
+# otherwise be a special case inside _resolve, _segment_distance, _signed, the index build AND the ring
+# walk — five places to keep in step, four of which would look right on an open path forever.
+var _ring: PackedVector2Array = PackedVector2Array()
+
+# Cumulative arc length at each vertex: _cum[i] is the distance from the start to _ring[i].
 var _cum: PackedFloat32Array = PackedFloat32Array()
 # Uniform bucket index, Vector2i cell -> segment indices. Built on first query, dropped when points move.
 var _index: Dictionary = {}
@@ -137,9 +163,10 @@ func length() -> float:
 	return _cum[_cum.size() - 1] if _cum.size() > 0 else 0.0
 
 
-## Number of segments.
+## Number of segments — including the closing edge when this path is closed.
 func segment_count() -> int:
-	return maxi(points.size() - 1, 0)
+	_ensure()
+	return maxi(_ring.size() - 1, 0)
 
 
 ## Half-width at arc length `p_s`, interpolated between the vertices either side.
@@ -161,6 +188,38 @@ func height_at(p_s: float) -> float:
 		return heights[0]
 	_ensure()
 	return _lerp_at(heights, p_s)
+
+
+## Is `p_at` inside this closed path? Always false for an open one — an open polyline has no interior,
+## and answering anything else would make a half-drawn shape mask a region that does not exist yet.
+##
+## ---- EVEN-ODD, AND WHY IT IS WRITTEN DOWN RATHER THAN CHOSEN PER BACKEND ----
+##
+## A ray cast in +x from the query point, counting boundary crossings: odd is inside. The rule matters
+## because a brush outline is NOT guaranteed simple — a Plow dragged back over itself, a Pond with a
+## pinched waist — and even-odd and non-zero winding disagree about exactly those shapes. Two backends
+## each picking the "obvious" rule would produce a mask that changed when the graph went native, so the
+## rule is stated here, in the oracle, and is what the C++ kernel is gated against.
+##
+## The half-open comparison (`>` on one end, `<=` on the other) is what stops a vertex exactly level with
+## the ray being counted twice — the classic point-in-polygon bug, and one that shows up as single wrong
+## cells in a straight line, which reads as noise rather than as a rule error.
+func inside(p_at: Vector2) -> bool:
+	_ensure()
+	if not closed or _ring.size() < 4:
+		return false
+	var n := _ring.size() - 1
+	var odd := false
+	for i in n:
+		var a: Vector2 = _ring[i]
+		var b: Vector2 = _ring[i + 1]
+		if (a.y > p_at.y) != (b.y > p_at.y):
+			var dy := b.y - a.y
+			if absf(dy) > 0.0:
+				var x_cross: float = a.x + (p_at.y - a.y) / dy * (b.x - a.x)
+				if p_at.x < x_cross:
+					odd = not odd
+	return odd
 
 
 ## The nearest point on the polyline to `p_at`, as `{distance, s, t, segment}`. See the header for what
@@ -197,8 +256,8 @@ func _resolve(p_at: Vector2, p_candidates: PackedInt32Array) -> Dictionary:
 	var best_seg := -1
 	var best_f := 0.0
 	for si: int in p_candidates:
-		var a: Vector2 = points[si]
-		var ab: Vector2 = points[si + 1] - a
+		var a: Vector2 = _ring[si]
+		var ab: Vector2 = _ring[si + 1] - a
 		var len2 := ab.length_squared()
 		var f: float = 0.0 if len2 <= 0.0 else clampf((p_at - a).dot(ab) / len2, 0.0, 1.0)
 		var d := p_at.distance_to(a + ab * f)
@@ -220,8 +279,8 @@ func _resolve(p_at: Vector2, p_candidates: PackedInt32Array) -> Dictionary:
 ## the 2D cross product of the heading with the offset. Spelled out because this is exactly the step a
 ## fixture that shares the code's convention cannot catch being inverted — see the road sign convention.
 func _signed(p_at: Vector2, p_seg: int, p_distance: float) -> float:
-	var a: Vector2 = points[p_seg]
-	var ab: Vector2 = points[p_seg + 1] - a
+	var a: Vector2 = _ring[p_seg]
+	var ab: Vector2 = _ring[p_seg + 1] - a
 	if ab.length_squared() <= 0.0:
 		return p_distance
 	var cross := ab.x * (p_at.y - a.y) - ab.y * (p_at.x - a.x)
@@ -271,8 +330,8 @@ func _candidates(p_at: Vector2) -> PackedInt32Array:
 
 
 func _segment_distance(p_seg: int, p_at: Vector2) -> float:
-	var a: Vector2 = points[p_seg]
-	var ab: Vector2 = points[p_seg + 1] - a
+	var a: Vector2 = _ring[p_seg]
+	var ab: Vector2 = _ring[p_seg + 1] - a
 	var len2 := ab.length_squared()
 	var f: float = 0.0 if len2 <= 0.0 else clampf((p_at - a).dot(ab) / len2, 0.0, 1.0)
 	return p_at.distance_to(a + ab * f)
@@ -294,28 +353,35 @@ func _ensure() -> void:
 	if _built:
 		return
 	_built = true
-	_cum.resize(points.size())
+	# The closing edge is added HERE, once, rather than being remembered by every query. Three points is
+	# the minimum for an area; a two-point "closed" path is a line doubled back on itself and closing it
+	# would only add a duplicate segment, so it is left open.
+	_ring = points
+	if closed and points.size() >= 3:
+		_ring = points.duplicate()
+		_ring.append(points[0])
+	_cum.resize(_ring.size())
 	_index.clear()
-	if points.is_empty():
+	if _ring.is_empty():
 		return
 	_cum[0] = 0.0
-	for i in range(1, points.size()):
-		_cum[i] = _cum[i - 1] + points[i].distance_to(points[i - 1])
-	var n := segment_count()
+	for i in range(1, _ring.size()):
+		_cum[i] = _cum[i - 1] + _ring[i].distance_to(_ring[i - 1])
+	var n := maxi(_ring.size() - 1, 0)
 	if n < INDEX_MIN_SEGMENTS:
 		return
 	# One cell per segment on average, floored: a path of very short segments must not explode into
 	# millions of buckets, and a path of one huge segment must not put everything into one.
 	var total: float = _cum[_cum.size() - 1]
 	_cell = maxf(total / float(n), 0.5)
-	var bounds := Rect2(points[0], Vector2.ZERO)
-	for p in points:
+	var bounds := Rect2(_ring[0], Vector2.ZERO)
+	for p in _ring:
 		bounds = bounds.expand(p)
 	_origin = bounds.position
 	_max_ring = int(ceil(maxf(bounds.size.x, bounds.size.y) / _cell)) + 2
 	for si in n:
-		var a: Vector2 = points[si]
-		var b: Vector2 = points[si + 1]
+		var a: Vector2 = _ring[si]
+		var b: Vector2 = _ring[si + 1]
 		var lo := Vector2(minf(a.x, b.x), minf(a.y, b.y)) - _origin
 		var hi := Vector2(maxf(a.x, b.x), maxf(a.y, b.y)) - _origin
 		for gy in range(int(floor(lo.y / _cell)), int(floor(hi.y / _cell)) + 1):
@@ -327,10 +393,10 @@ func _ensure() -> void:
 
 
 func _vertex_before(p_s: float) -> int:
-	var last := points.size() - 2
+	var last := _ring.size() - 2
 	if last < 0:
 		return 0
-	for i in range(points.size() - 1):
+	for i in range(_ring.size() - 1):
 		if p_s <= _cum[i + 1]:
 			return i
 	return last

@@ -203,6 +203,30 @@ Pasture3DPathHit Pasture3DPathGeom::resolve(double p_x, double p_z, const int *p
 	return hit;
 }
 
+bool Pasture3DPathGeom::inside(double p_x, double p_z) const {
+	if (!closed || px.size() < 4) {
+		return false;
+	}
+	// Half-open comparison on the y span: a vertex exactly level with the ray is counted once, not twice.
+	// The classic point-in-polygon bug, and it shows up as single wrong cells in a straight line — which
+	// reads as noise rather than as a rule error.
+	const int n = (int)px.size() - 1;
+	bool odd = false;
+	for (int i = 0; i < n; i++) {
+		const double ay = pz[i], by = pz[i + 1];
+		if ((ay > p_z) != (by > p_z)) {
+			const double dy = by - ay;
+			if (dy != 0.0) {
+				const double x_cross = (double)px[i] + (p_z - ay) / dy * ((double)px[i + 1] - (double)px[i]);
+				if (p_x < x_cross) {
+					odd = !odd;
+				}
+			}
+		}
+	}
+	return odd;
+}
+
 Pasture3DPathHit Pasture3DPathGeom::nearest_brute(double p_x, double p_z) const {
 	const int n = segment_count();
 	if (n == 0) {
@@ -340,5 +364,75 @@ Dictionary godot::path_query_grid(const PackedVector2Array &p_points, const Pack
 	out["distance"] = dist;
 	out["s"] = s_out;
 	out["t"] = t_out;
+	return out;
+}
+
+// ---- the mask kernel --------------------------------------------------------------------------------
+
+// Close the ring HERE, once, exactly as Pasture3DGraphPath._ensure does: the closing edge is a real
+// segment for distance and for the winding test alike, and adding it at the boundary means no query below
+// has to remember that a path can be closed. Three points is the minimum for an area — a two-point
+// "closed" path is a line doubled back on itself, and closing it would only duplicate a segment.
+static PackedVector2Array path_ring(const PackedVector2Array &p_points, bool p_closed) {
+	if (!p_closed || p_points.size() < 3) {
+		return p_points;
+	}
+	PackedVector2Array ring = p_points;
+	ring.push_back(p_points[0]);
+	return ring;
+}
+
+PackedFloat32Array godot::path_mask_grid(const PackedVector2Array &p_points,
+		const PackedFloat32Array &p_widths, bool p_closed, int p_gw, int p_gh, const Rect2 &p_rect,
+		double p_width_scale, double p_feather, bool p_invert) {
+	PackedFloat32Array out;
+	if (p_gw <= 0 || p_gh <= 0) {
+		return out;
+	}
+	out.resize(p_gw * p_gh);
+
+	Pasture3DPathGeom geom;
+	geom.closed = p_closed && p_points.size() >= 3;
+	if (!geom.build(path_ring(p_points, p_closed), p_widths)) {
+		out.fill(p_invert ? 1.0f : 0.0f);
+		return out;
+	}
+
+	const double dx = p_rect.size.x / (double)std::max(p_gw, 1);
+	const double dz = p_rect.size.y / (double)std::max(p_gh, 1);
+	const double min_x = p_rect.position.x + 0.5 * dx;
+	const double min_z = p_rect.position.y + 0.5 * dz;
+	float *w = out.ptrw();
+
+	Pasture3DThreadPool::parallel_for_rows(p_gh, 16, [&](int z0, int z1) {
+		std::vector<int> scratch;
+		scratch.reserve(32);
+		for (int iz = z0; iz < z1; iz++) {
+			const int row = iz * p_gw;
+			const double wz = min_z + (double)iz * dz;
+			for (int ix = 0; ix < p_gw; ix++) {
+				const double wx = min_x + (double)ix * dx;
+				double m = 1.0;
+				if (geom.closed) {
+					// REGION. Inside is a flat 1; feathering inward as well would eat a small shape from
+					// both sides and leave a region that never reaches full strength anywhere.
+					if (!geom.inside(wx, wz)) {
+						const double d = geom.nearest(wx, wz, scratch).distance;
+						m = p_feather <= 0.0 ? 0.0 : std::clamp(1.0 - d / p_feather, 0.0, 1.0);
+					}
+				} else {
+					// CORRIDOR. Back from `t` to metres via the half-width AT THIS s, so the feather is a
+					// real distance wherever the road is wide and wherever it is narrow.
+					const Pasture3DPathHit hit = geom.nearest(wx, wz, scratch);
+					const double half = std::max(geom.half_width_at(hit.s) * p_width_scale, 1e-6);
+					const double edge = hit.distance - half;
+					if (edge > 0.0) {
+						m = p_feather <= 0.0 ? 0.0 : std::clamp(1.0 - edge / p_feather, 0.0, 1.0);
+					}
+				}
+				w[row + ix] = (float)(p_invert ? 1.0 - m : m);
+			}
+		}
+	});
 	return out;
 }
