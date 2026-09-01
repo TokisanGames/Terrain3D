@@ -127,6 +127,15 @@ static func nearest_on_plan(p_plan: PackedVector2Array, p_cum: PackedFloat32Arra
 	for i in range(n - 1):
 		var a := p_plan[i]
 		var b := p_plan[i + 1]
+		# Quick bounding-box rejection: if point is farther from segment AABB than best_d2, skip projection
+		var min_x := minf(a.x, b.x)
+		var max_x := maxf(a.x, b.x)
+		var min_y := minf(a.y, b.y)
+		var max_y := maxf(a.y, b.y)
+		var dx := maxf(0.0, maxf(min_x - p_at.x, p_at.x - max_x))
+		var dy := maxf(0.0, maxf(min_y - p_at.y, p_at.y - max_y))
+		if dx * dx + dy * dy >= best_d2:
+			continue
 		var ab := b - a
 		var len2 := ab.length_squared()
 		if len2 <= 0.0:

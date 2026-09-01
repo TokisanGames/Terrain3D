@@ -3374,11 +3374,10 @@ func _stack_forces_gdscript() -> bool:
 		if m != null and m.is_active() and m.op() == &"graph":
 			if m.graph == null or not m.graph.native_supported():
 				return true
-		# The native rasteriser has no BrushModStep::ROAD yet, so a road grader must take the GDScript
-		# path or it would be silently dropped from the stack — a road brush that paints nothing and
-		# says nothing about why.
+		# A road grader takes the GDScript path only when the native stamp_road_line is absent.
 		if m != null and m.is_active() and m.op() == &"road":
-			return true
+			if terrain == null or terrain.data == null or not terrain.data.has_method("stamp_road_line"):
+				return true
 	return false
 
 

@@ -17,7 +17,7 @@
 @tool
 extends Node
 
-const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
+const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"]
 
 var _fail: int = 0
 var _reported: Dictionary = {}
@@ -37,6 +37,9 @@ func _ready() -> void:
 	_j_the_mask_follows_the_road_not_a_distance()
 	_k_the_graph_cuts_the_same_road_the_brush_does()
 	_l_the_two_wirings_differ_as_predicted()
+	_m_multi_spline_partial_bake_integrity()
+	_n_shared_layer_stamp_cache_isolation()
+	_o_native_stamp_road_line_parity()
 	_account_for_silent_criteria()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD GRAPH PASS" if _fail == 0 else "ROAD GRAPH FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
@@ -1008,4 +1011,141 @@ func _l_the_two_wirings_differ_as_predicted() -> void:
 	if not (is_equal_approx(mixed, 20.0) and is_equal_approx(held, 10.0)):
 		_fail += 1
 		print("    !! Blend MIX is not a mix, so wiring 2 is not the wiring §8 describes")
+	(f["net"] as Node).queue_free()
+
+
+# ---- M ------------------------------------------------------------------------------------------
+
+## [M] Multi-spline partial bake integrity: graph_path() spans the full concatenated road.
+func _m_multi_spline_partial_bake_integrity() -> void:
+	print("[M] multi-spline partial bake integrity: graph_path() spans the full road")
+	var net := Pasture3DRoadNetwork.new()
+	add_child(net)
+	var t := Pasture3DRoadType.new()
+	t.type_name = "multi"
+	t.lane_count = 2
+	t.lane_width = 3.5
+	net.road_types = [t]
+	var brush := Pasture3DRoadBrush.new()
+	brush.name = "MultiSplineRoad"
+	net.add_child(brush)
+
+	var p1 := Path3D.new()
+	var c1 := Curve3D.new()
+	c1.add_point(Vector3(-60.0, 0.0, 0.0))
+	c1.add_point(Vector3(0.0, 0.0, 0.0))
+	p1.curve = c1
+	brush.add_child(p1)
+
+	var p2 := Path3D.new()
+	var c2 := Curve3D.new()
+	c2.add_point(Vector3(0.0, 0.0, 0.0))
+	c2.add_point(Vector3(60.0, 0.0, 0.0))
+	p2.curve = c2
+	brush.add_child(p2)
+
+	brush.road_road_type = t
+	var road_mod := Pasture3DNodeRoad.new()
+	road_mod.alignment_step = 1.0
+	brush.modifiers = [road_mod]
+
+	var ground := _ridge()
+	brush.grade_surface(road_mod, ground, G_N, G_N, G_MIN, G_MIN, G_VS)
+	var path := brush.graph_path()
+	var total_len: float = path.length()
+	var seg_count: int = path.segment_count()
+	print("    full multi-spline road: %d segment(s), total length %.1f m" % [seg_count, total_len])
+	_check("M", seg_count >= 2 and total_len >= 119.0,
+			"%d segment(s), %.1f m total span (want >= 119.0 m)" % [seg_count, total_len])
+	net.queue_free()
+
+
+# ---- N ------------------------------------------------------------------------------------------
+
+## [N] Shared-layer stamp cache isolation: editing Road A does not bump Road B's Road Source revision.
+func _n_shared_layer_stamp_cache_isolation() -> void:
+	print("[N] shared-layer stamp cache isolation")
+	var net := Pasture3DRoadNetwork.new()
+	add_child(net)
+	var t := Pasture3DRoadType.new()
+	t.type_name = "test"
+	net.road_types = [t]
+
+	var brush_a := Pasture3DRoadBrush.new()
+	brush_a.name = "RoadA"
+	net.add_child(brush_a)
+	var pa := Path3D.new()
+	var ca := Curve3D.new()
+	ca.add_point(Vector3(-40.0, 0.0, -20.0))
+	ca.add_point(Vector3(40.0, 0.0, -20.0))
+	pa.curve = ca
+	brush_a.add_child(pa)
+	brush_a.road_road_type = t
+	var mod_a := Pasture3DNodeRoad.new()
+	brush_a.modifiers = [mod_a]
+
+	var brush_b := Pasture3DRoadBrush.new()
+	brush_b.name = "RoadB"
+	net.add_child(brush_b)
+	var pb := Path3D.new()
+	var cb := Curve3D.new()
+	cb.add_point(Vector3(-40.0, 0.0, 20.0))
+	cb.add_point(Vector3(40.0, 0.0, 20.0))
+	pb.curve = cb
+	brush_b.add_child(pb)
+	brush_b.road_road_type = t
+	var mod_b := Pasture3DNodeRoad.new()
+	brush_b.modifiers = [mod_b]
+
+	var ground := _ridge()
+	brush_a.grade_surface(mod_a, ground, G_N, G_N, G_MIN, G_MIN, G_VS)
+	brush_b.grade_surface(mod_b, ground, G_N, G_N, G_MIN, G_MIN, G_VS)
+
+	var graph := Pasture3DTerrainGraph.new()
+	var src_b := Pasture3DGraphNodeRoadSource.new()
+	src_b.road_key = brush_b.road_key()
+	graph.add_node(src_b)
+	net.resolve_graph_paths(graph, brush_b)
+
+	var rev_before: int = src_b._dirty_revision
+
+	# Now modify Road A and re-resolve
+	ca.set_point_position(1, Vector3(45.0, 0.0, -20.0))
+	brush_a.grade_surface(mod_a, ground, G_N, G_N, G_MIN, G_MIN, G_VS)
+	net.resolve_graph_paths(graph, brush_b)
+
+	var rev_after: int = src_b._dirty_revision
+	print("    editing RoadA moved RoadB's Road Source revision %d -> %d (want no change)"
+			% [rev_before, rev_after])
+	_check("N", rev_before == rev_after,
+			"RoadB revision preserved (%d == %d)" % [rev_before, rev_after])
+	net.queue_free()
+
+
+# ---- O ------------------------------------------------------------------------------------------
+
+## [O] Native stamp_road_line parity with Road Grade graph node.
+func _o_native_stamp_road_line_parity() -> void:
+	print("[O] native stamp_road_line and Road Grade graph node mathematical parity")
+	var f := _road_over_the_ridge()
+	var path: Pasture3DGraphPath = f["path"]
+	var brush_h: PackedFloat32Array = f["graded"]["height"]
+	var brush_bed: PackedFloat32Array = f["graded"]["roadbed"]
+
+	var node := Pasture3DGraphNodeDevRoadGrade.new()
+	node.set_path_inputs([null, path])
+	var ch := node.eval_grid_channels([f["ground"]], G_N, G_N, null, _rect())
+	var graph_h: PackedFloat32Array = ch[0]
+	var graph_bed: PackedFloat32Array = ch[1]
+
+	var worst := 0.0
+	var bed_diff := 0
+	for i in G_N * G_N:
+		worst = maxf(worst, absf(graph_h[i] - brush_h[i]))
+		if absf(graph_bed[i] - brush_bed[i]) > 0.01:
+			bed_diff += 1
+
+	print("    worst height diff %.6f m, %d roadbed cells differ" % [worst, bed_diff])
+	_check("O", worst < 1e-4 and bed_diff == 0,
+			"parity ok: worst %.6f m, %d bed diffs" % [worst, bed_diff])
 	(f["net"] as Node).queue_free()

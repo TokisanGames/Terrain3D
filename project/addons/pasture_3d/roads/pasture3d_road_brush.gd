@@ -377,8 +377,51 @@ func _paint_flat_footprint(path: Path3D) -> void:
 
 	# The SAME reach the grader and the padding use. When this was narrower than the grader's, every cell
 	# past it was marked NaN before the grader saw it, so the batter had nowhere to land and ended in a
-	# wall — with the grader itself already fixed and looking innocent.
 	var reach := corridor_half_width()
+
+	# Native rasteriser: when available, perform spatial indexing, multi-threaded grading, and direct layer write in C++
+	var road_mod := road_modifier()
+	if _native_raster("stamp_road_line") and road_mod != null and road_mod.last_alignment != null:
+		var ds: float = maxf(road_mod.alignment_step, 0.05)
+		var prof := grading_profile(road_mod, ds, road_mod.last_alignment.count())
+		var params := {
+			"min_x": min_x, "min_z": min_z, "vs": vs, "gw": gw, "gh": gh,
+			"align_ds": ds, "align_s0": 0.0,
+			"align_z": road_mod.last_alignment.z,
+			"align_bank": road_mod.last_alignment.bank,
+			"half_width": prof["half"],
+			"shoulder": prof["shoulder"],
+			"verge": prof["verge"],
+			"suppress": prof["suppress"],
+			"opts": {
+				"crown": prof["crown"],
+				"cut_batter": prof["cut_batter"],
+				"fill_batter": prof["fill_batter"],
+				"skip": prof["skip"],
+			},
+			"reach": reach,
+			"blend": _blend,
+			"composite": not _defer_composite,
+			"smooth_passes": 0,
+		}
+		if road_mod.publish_masks:
+			var out := {}
+			params["out"] = out
+			terrain.data.stamp_road_line(_layer_id, plan, _clip_aabb, params)
+			road_mod.last_masks = {
+				"roadbed": out.get("roadbed", PackedFloat32Array()),
+				"cut": out.get("cut", PackedFloat32Array()),
+				"fill": out.get("fill", PackedFloat32Array()),
+				"verge": out.get("verge", PackedFloat32Array()),
+				"structure": out.get("structure", PackedFloat32Array()),
+				"surface": out.get("surface", PackedFloat32Array()),
+				"gw": gw, "gh": gh, "min_x": min_x, "min_z": min_z, "vs": vs,
+			}
+		else:
+			road_mod.last_masks = {}
+			terrain.data.stamp_road_line(_layer_id, plan, _clip_aabb, params)
+		return
+
 	var cum := Pasture3DRoadGrader.cumulative_length(plan)
 
 	var extent := _extent_key(min_x, min_z, vs, gw, gh)
@@ -390,19 +433,35 @@ func _paint_flat_footprint(path: Path3D) -> void:
 
 	# NaN outside the corridor is the brush-loop contract (§6.8): those cells are not this brush's to
 	# write, and the grader passes them straight through.
+	var has_clip := _clip_aabb.size != Vector3.ZERO
+	var cx0 := _clip_aabb.position.x
+	var cx1 := _clip_aabb.position.x + _clip_aabb.size.x
+	var cz0 := _clip_aabb.position.z
+	var cz1 := _clip_aabb.position.z + _clip_aabb.size.z
+
+	var iz0 := 0
+	var iz1 := gh - 1
+	var ix0 := 0
+	var ix1 := gw - 1
+	if has_clip:
+		iz0 = clampi(int(floor((cz0 - min_z) / vs)), 0, gh - 1)
+		iz1 = clampi(int(ceil((cz1 - min_z) / vs)), 0, gh - 1)
+		ix0 = clampi(int(floor((cx0 - min_x) / vs)), 0, gw - 1)
+		ix1 = clampi(int(ceil((cx1 - min_x) / vs)), 0, gw - 1)
+
 	var amp := PackedFloat64Array()
 	var profile := PackedFloat64Array()
 	amp.resize(n)
+	amp.fill(NAN)
 	profile.resize(n)
-	for iz in range(gh):
+	profile.fill(0.0)
+	for iz in range(iz0, iz1 + 1):
 		var wz := min_z + float(iz) * vs
 		var row := iz * gw
-		for ix in range(gw):
-			var hit := Pasture3DRoadGrader.nearest_on_plan(plan, cum, Vector2(min_x + float(ix) * vs, wz))
-			if float(hit[0]) > reach:
-				amp[row + ix] = NAN
-				profile[row + ix] = 0.0
-			else:
+		for ix in range(ix0, ix1 + 1):
+			var wx := min_x + float(ix) * vs
+			var hit := Pasture3DRoadGrader.nearest_on_plan(plan, cum, Vector2(wx, wz))
+			if float(hit[0]) <= reach:
 				amp[row + ix] = 0.0
 				profile[row + ix] = 1.0
 
@@ -589,7 +648,8 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 		if needed > _last_corridor_half + 0.5:
 			_last_corridor_half = needed
 			_widening = true
-			_schedule_refresh()
+			if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+				_schedule_refresh()
 			(func() -> void: _widening = false).call_deferred()
 
 	var res := Pasture3DRoadGrader.grade(p_z, p_gw, p_gh, p_min_x, p_min_z, p_vs, plan, alignment,
@@ -601,7 +661,7 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 			})
 	# The alignment this bake solved is what makes this road detectable, so the resolve is asked for
 	# AFTER it exists — and coalesced on the network, so a refresh that bakes six roads resolves once.
-	if jnet != null:
+	if jnet != null and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		jnet.request_resolve()
 
 	p_mod.last_masks = {} if not p_mod.publish_masks else {

@@ -11,6 +11,7 @@
 #include "pasture_3d_graph_ops.h"
 #include "pasture_3d_raster_util.h"
 #include "pasture_3d_relief_ops.h"
+#include "pasture_3d_road_grade.h"
 #include "pasture_3d_thread_pool.h"
 #include "pasture_3d_util.h"
 
@@ -2014,6 +2015,148 @@ void Pasture3DData::stamp_trough_line(const int p_layer_id, const PackedVector3A
 				_stamp_write(wlayer, p_layer_id, composite, wloc, wregion, Vector3(x, 0.0, z), (double)v, blend);
 			}
 		}
+	}
+}
+
+// ---- Open-polyline road grader (Pasture3DRoadBrush) ----
+void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Array &p_plan, const AABB &p_clip, const Dictionary &p_params) {
+	if (p_plan.size() < 2) {
+		return;
+	}
+	const double min_x = p_params.get("min_x", 0.0);
+	const double min_z = p_params.get("min_z", 0.0);
+	const double vs = p_params.get("vs", 1.0);
+	const int gw = (int)p_params.get("gw", 0);
+	const int gh = (int)p_params.get("gh", 0);
+	if (gw < 1 || gh < 1) {
+		return;
+	}
+
+	const double align_ds = p_params.get("align_ds", 1.0);
+	const double align_s0 = p_params.get("align_s0", 0.0);
+	const PackedFloat32Array align_z = p_params.get("align_z", PackedFloat32Array());
+	const PackedFloat32Array align_bank = p_params.get("align_bank", PackedFloat32Array());
+	const PackedFloat32Array half_width = p_params.get("half_width", PackedFloat32Array());
+	const PackedFloat32Array shoulder = p_params.get("shoulder", PackedFloat32Array());
+	const PackedFloat32Array verge = p_params.get("verge", PackedFloat32Array());
+	const PackedByteArray suppress = p_params.get("suppress", PackedByteArray());
+	const Dictionary opts = p_params.get("opts", Dictionary());
+	const int blend = (int)p_params.get("blend", 0);
+	const bool composite = p_params.get("composite", true);
+	const double reach = p_params.get("reach", 16.0);
+
+	const int n = gw * gh;
+	Pasture3DLayer *wlayer = _layer_stack.is_null() ? nullptr : _layer_stack->get_layer_ptr(p_layer_id);
+	const bool batched = wlayer && !composite && !wlayer->is_base();
+
+	// Read base heights below this layer (or sample terrain)
+	PackedFloat32Array base_height;
+	base_height.resize(n);
+	float *b_ptr = base_height.ptrw();
+	for (int iz = 0; iz < gh; iz++) {
+		const double z = min_z + (double)iz * vs;
+		const int row = iz * gw;
+		for (int ix = 0; ix < gw; ix++) {
+			const int i = row + ix;
+			b_ptr[i] = (float)get_height(Vector3(min_x + (double)ix * vs, 0.0, z));
+		}
+	}
+
+	Pasture3DPathGeom geom;
+	geom.build(p_plan, PackedFloat32Array());
+
+	// Filter base_height to NaN outside corridor reach (mirrors brush contract)
+	for (int iz = 0; iz < gh; iz++) {
+		const double z = min_z + (double)iz * vs;
+		const int row = iz * gw;
+		for (int ix = 0; ix < gw; ix++) {
+			const int i = row + ix;
+			std::vector<int> scratch;
+			const Pasture3DPathHit hit = geom.nearest(min_x + (double)ix * vs, z, scratch);
+			if (hit.distance > reach) {
+				b_ptr[i] = (float)NAN;
+			}
+		}
+	}
+
+	Dictionary res = road_grade_grid_geom(geom, base_height, gw, gh, min_x, min_z, vs,
+			align_ds, align_s0, align_z, align_bank, half_width, shoulder, verge, suppress, opts);
+	if (res.is_empty()) {
+		return;
+	}
+
+	PackedFloat32Array graded = res.get("height", PackedFloat32Array());
+	if (graded.size() != n) {
+		return;
+	}
+	const float *g_ptr = graded.ptr();
+
+	std::vector<float> vals((size_t)n, (float)NAN);
+	const bool add = (blend == 1);
+	const bool has_clip = p_clip.size != Vector3();
+	const double cx0 = p_clip.position.x;
+	const double cx1 = p_clip.position.x + p_clip.size.x;
+	const double cz0 = p_clip.position.z;
+	const double cz1 = p_clip.position.z + p_clip.size.z;
+
+	for (int iz = 0; iz < gh; iz++) {
+		const double z = min_z + (double)iz * vs;
+		if (has_clip && (z < cz0 || z >= cz1)) {
+			continue;
+		}
+		const int row = iz * gw;
+		for (int ix = 0; ix < gw; ix++) {
+			const int i = row + ix;
+			const float g = g_ptr[i];
+			if (!std::isfinite(g)) {
+				continue;
+			}
+			const double x = min_x + (double)ix * vs;
+			if (has_clip && (x < cx0 || x >= cx1)) {
+				continue;
+			}
+			const float base_val = b_ptr[i];
+			vals[i] = add ? (g - base_val) : g;
+		}
+	}
+
+	// NaN-aware separable blur if requested
+	nan_blur(vals, gw, gh, (int)p_params.get("smooth_passes", 0));
+
+	// Write back
+	if (batched) {
+		_apply_stamp_block(wlayer, (int)std::lround(min_x / vs), (int)std::lround(min_z / vs), gw, gh, vals.data(), blend);
+	} else {
+		Vector2i wloc(0x7fffffff, 0x7fffffff);
+		Pasture3DRegion *wregion = nullptr;
+		for (int iz = 0; iz < gh; iz++) {
+			const double z = min_z + (double)iz * vs;
+			if (has_clip && (z < cz0 || z >= cz1)) { continue; }
+			const int row = iz * gw;
+			for (int ix = 0; ix < gw; ix++) {
+				const float v = vals[row + ix];
+				if (std::isnan(v)) { continue; }
+				const double x = min_x + (double)ix * vs;
+				if (has_clip && (x < cx0 || x >= cx1)) { continue; }
+				_stamp_write(wlayer, p_layer_id, composite, wloc, wregion, Vector3(x, 0.0, z), (double)v, blend);
+			}
+		}
+	}
+
+	// If out dictionary requested masks, return them
+	if (p_params.has("out")) {
+		Dictionary out = p_params["out"];
+		out["roadbed"] = res.get("roadbed", PackedFloat32Array());
+		out["cut"] = res.get("cut", PackedFloat32Array());
+		out["fill"] = res.get("fill", PackedFloat32Array());
+		out["verge"] = res.get("verge", PackedFloat32Array());
+		out["structure"] = res.get("structure", PackedFloat32Array());
+		out["surface"] = res.get("surface", PackedFloat32Array());
+		out["gw"] = gw;
+		out["gh"] = gh;
+		out["min_x"] = min_x;
+		out["min_z"] = min_z;
+		out["vs"] = vs;
 	}
 }
 

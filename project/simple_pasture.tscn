@@ -356,46 +356,46 @@ script = ExtResource("11_ii4qc")
 road_type = SubResource("Resource_kheh1")
 speed_limit = nan
 
-[sub_resource type="Resource" id="Resource_dganp"]
+[sub_resource type="Resource" id="Resource_p8a78"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-93.378075, -0.0074846963, -108.72934)
 reason = 1
 
-[sub_resource type="Resource" id="Resource_7korv"]
+[sub_resource type="Resource" id="Resource_psm5m"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-95.804016, -0.040976822, -107.78786)
 
-[sub_resource type="Resource" id="Resource_hla5u"]
+[sub_resource type="Resource" id="Resource_llyc4"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-99.6754, -0.07693596, -106.285416)
 merge = true
 
-[sub_resource type="Resource" id="Resource_ko28e"]
+[sub_resource type="Resource" id="Resource_pmwfd"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-96.749954, -0.055741742, -107.42075)
 
-[sub_resource type="Resource" id="Resource_pslno"]
+[sub_resource type="Resource" id="Resource_dganp"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-99.6754, -0.07693596, -106.285416)
 merge = true
 
-[sub_resource type="Resource" id="Resource_alsej"]
+[sub_resource type="Resource" id="Resource_7korv"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-93.22878, -0.0062310747, -108.787285)
 
-[sub_resource type="Resource" id="Resource_gexfl"]
+[sub_resource type="Resource" id="Resource_hla5u"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
@@ -403,35 +403,35 @@ point = Vector3(-93.202675, -4.895133e-06, -110.50526)
 merge = true
 reason = 1
 
-[sub_resource type="Resource" id="Resource_tvqka"]
+[sub_resource type="Resource" id="Resource_ko28e"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-93.202675, -4.895133e-06, -110.50526)
 merge = true
 
-[sub_resource type="Resource" id="Resource_4bavh"]
+[sub_resource type="Resource" id="Resource_pslno"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-96.65802, -0.00015338755, -103.7021)
 reason = 1
 
-[sub_resource type="Resource" id="Resource_7dp5n"]
+[sub_resource type="Resource" id="Resource_alsej"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-93.42128, -2.1205911e-05, -108.510605)
 reason = 3
 
-[sub_resource type="Resource" id="Resource_g1863"]
+[sub_resource type="Resource" id="Resource_gexfl"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-93.42128, -2.1205911e-05, -108.510605)
 reason = 3
 
-[sub_resource type="Resource" id="Resource_7fcp1"]
+[sub_resource type="Resource" id="Resource_tvqka"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
@@ -439,96 +439,96 @@ point = Vector3(-96.83344, -0.0001650456, -101.926186)
 merge = true
 reason = 1
 
-[sub_resource type="Resource" id="Resource_egby2"]
+[sub_resource type="Resource" id="Resource_4bavh"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-95.16139, -6.918118e-05, -107.077675)
 
-[sub_resource type="Resource" id="Resource_d8j4h"]
+[sub_resource type="Resource" id="Resource_7dp5n"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-96.83344, -0.0001650456, -101.926186)
 merge = true
 
-[sub_resource type="Resource" id="Resource_k16jx"]
+[sub_resource type="Resource" id="Resource_g1863"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-95.876045, -0.00010234902, -106.05059)
 
-[sub_resource type="Resource" id="Resource_0eu3y"]
+[sub_resource type="Resource" id="Resource_7fcp1"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-93.23121, -1.8144945e-05, -108.627144)
 
-[sub_resource type="Resource" id="Resource_434q4"]
+[sub_resource type="Resource" id="Resource_egby2"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-90.360725, -6.486962e-06, -106.14602)
 merge = true
 
-[sub_resource type="Resource" id="Resource_k2tcx"]
+[sub_resource type="Resource" id="Resource_d8j4h"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-96.80734, -0.07071148, -103.64415)
 
-[sub_resource type="Resource" id="Resource_lfcd6"]
+[sub_resource type="Resource" id="Resource_k16jx"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-90.360725, -6.486962e-06, -106.14602)
 merge = true
 
-[sub_resource type="Resource" id="Resource_iexi7"]
+[sub_resource type="Resource" id="Resource_0eu3y"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-94.23202, -0.035964277, -104.64361)
 
-[sub_resource type="Resource" id="Resource_dp7bu"]
+[sub_resource type="Resource" id="Resource_434q4"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-93.28616, -0.021200862, -105.01068)
 
-[sub_resource type="Resource" id="Resource_5xb1k"]
+[sub_resource type="Resource" id="Resource_k2tcx"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-94.15998, -0.03043087, -106.3809)
 
-[sub_resource type="Resource" id="Resource_r7tli"]
+[sub_resource type="Resource" id="Resource_lfcd6"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-96.80491, -0.07128018, -103.80428)
 
-[sub_resource type="Resource" id="Resource_5uuvg"]
+[sub_resource type="Resource" id="Resource_iexi7"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-94.874626, -0.046521377, -105.353806)
 
-[sub_resource type="Resource" id="Resource_2koa2"]
+[sub_resource type="Resource" id="Resource_dp7bu"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-93.202675, -4.895133e-06, -110.50526)
 merge = true
 
-[sub_resource type="Resource" id="Resource_5au1k"]
+[sub_resource type="Resource" id="Resource_5xb1k"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-96.83344, -0.0001650456, -101.926186)
 merge = true
 
-[sub_resource type="Resource" id="Resource_an31q"]
+[sub_resource type="Resource" id="Resource_r7tli"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
@@ -536,14 +536,14 @@ point = Vector3(-90.360725, -6.486962e-06, -106.14602)
 merge = true
 reason = 1
 
-[sub_resource type="Resource" id="Resource_gqflh"]
+[sub_resource type="Resource" id="Resource_5uuvg"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-93.270744, -6.095938e-06, -106.02523)
 reason = 1
 
-[sub_resource type="Resource" id="Resource_5ii0t"]
+[sub_resource type="Resource" id="Resource_2koa2"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
@@ -551,14 +551,14 @@ point = Vector3(-99.6754, -0.07693596, -106.285416)
 merge = true
 reason = 1
 
-[sub_resource type="Resource" id="Resource_ugfej"]
+[sub_resource type="Resource" id="Resource_5au1k"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-96.765366, -7.973136e-05, -106.406296)
 reason = 1
 
-[sub_resource type="Curve3D" id="Curve3D_ow1t7"]
+[sub_resource type="Curve3D" id="Curve3D_an31q"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -3.3804636, 0, 1.3119104, -91.62701, -6.486962e-06, -109.40891, 3.3804579, 0, -1.3119252, 0, 0, 0, -99.6754, -0.07693596, -106.285416),
 "tilts": PackedFloat32Array(0, 0)
@@ -570,10 +570,10 @@ script = ExtResource("14_cad7k")
 id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 from_key = "Pasture3DRoadGroup/Road2"
 to_key = "Pasture3DRoadGroup/Road2"
-curve = SubResource("Curve3D_ow1t7")
+curve = SubResource("Curve3D_an31q")
 turn_angle = -4.339229526779086e-06
 
-[sub_resource type="Curve3D" id="Curve3D_8qha5"]
+[sub_resource type="Curve3D" id="Curve3D_qrnsl"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -0.751599, 0, 0.29168501, -91.62701, -6.486962e-06, -109.40891, -0.012246482, 0, 0.8061212, 0, 0, 0, -93.202675, -4.895133e-06, -110.50526),
 "tilts": PackedFloat32Array(0, 0)
@@ -587,11 +587,11 @@ from_key = "Pasture3DRoadGroup/Road2"
 to_key = "Pasture3DRoadGroup/Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_8qha5")
+curve = SubResource("Curve3D_qrnsl")
 turn = 2
 turn_angle = 1.9561806591308075
 
-[sub_resource type="Curve3D" id="Curve3D_jjcxl"]
+[sub_resource type="Curve3D" id="Curve3D_gqflh"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -3.569282, 0, 1.3851882, -91.62701, -6.486962e-06, -109.40891, 0.058157537, 0, -3.8282032, 0, 0, 0, -96.83344, -0.0001650456, -101.926186),
 "tilts": PackedFloat32Array(0, 0)
@@ -603,12 +603,12 @@ script = ExtResource("14_cad7k")
 id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 from_key = "Pasture3DRoadGroup/Road2"
 to_key = "Pasture3DRoadGroup/Road"
-curve = SubResource("Curve3D_jjcxl")
+curve = SubResource("Curve3D_gqflh")
 turn = 1
 turn_angle = -1.1854119944589858
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_rh0rf"]
+[sub_resource type="Curve3D" id="Curve3D_5ii0t"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 3.3804522, 0, -1.3119229, -98.4091, -0.07693596, -103.02252, -3.3804579, 0, 1.3119082, 0, 0, 0, -90.360725, -6.486962e-06, -106.14602),
 "tilts": PackedFloat32Array(0, 0)
@@ -624,10 +624,10 @@ from_end = 1
 to_key = "Pasture3DRoadGroup/Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_rh0rf")
+curve = SubResource("Curve3D_5ii0t")
 turn_angle = 4.339229526779086e-06
 
-[sub_resource type="Curve3D" id="Curve3D_iryd2"]
+[sub_resource type="Curve3D" id="Curve3D_ugfej"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 3.569404, 0, -1.3852533, -98.4091, -0.07693596, -103.02252, -0.05815962, 0, 3.8283403, 0, 0, 0, -93.202675, -4.895133e-06, -110.50526),
 "tilts": PackedFloat32Array(0, 0)
@@ -643,12 +643,12 @@ from_end = 1
 to_key = "Pasture3DRoadGroup/Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_iryd2")
+curve = SubResource("Curve3D_ugfej")
 turn = 1
 turn_angle = -1.1854076329824885
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_7m3id"]
+[sub_resource type="Curve3D" id="Curve3D_ow1t7"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 0.75219446, 0, -0.29191986, -98.4091, -0.07693596, -103.02252, 0.012256204, 0, -0.80676115, 0, 0, 0, -96.83344, -0.0001650456, -101.926186),
 "tilts": PackedFloat32Array(0, 0)
@@ -662,11 +662,11 @@ from_key = "Pasture3DRoadGroup/Road2"
 from_lane = 1
 from_end = 1
 to_key = "Pasture3DRoadGroup/Road"
-curve = SubResource("Curve3D_7m3id")
+curve = SubResource("Curve3D_ow1t7")
 turn = 2
 turn_angle = 1.9561850206073046
 
-[sub_resource type="Curve3D" id="Curve3D_3etm5"]
+[sub_resource type="Curve3D" id="Curve3D_8qha5"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -0.049288, 0, 3.2443683, -96.70228, -4.895133e-06, -110.55842, -3.024935, 0, 1.1739348, 0, 0, 0, -90.360725, -6.486962e-06, -106.14602),
 "tilts": PackedFloat32Array(0, 0)
@@ -680,12 +680,12 @@ from_key = "Pasture3DRoadGroup/Road"
 to_key = "Pasture3DRoadGroup/Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_3etm5")
+curve = SubResource("Curve3D_8qha5")
 turn = 1
 turn_angle = -1.9561806591308075
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_mwbyf"]
+[sub_resource type="Curve3D" id="Curve3D_sulib"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -0.03321439, 0, 2.1863277, -96.70228, -4.895133e-06, -110.55842, 2.0384517, 0, -0.7911047, 0, 0, 0, -99.6754, -0.07693596, -106.285416),
 "tilts": PackedFloat32Array(0, 0)
@@ -697,11 +697,11 @@ script = ExtResource("14_cad7k")
 id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 from_key = "Pasture3DRoadGroup/Road"
 to_key = "Pasture3DRoadGroup/Road2"
-curve = SubResource("Curve3D_mwbyf")
+curve = SubResource("Curve3D_sulib")
 turn = 2
 turn_angle = 1.1854076329824885
 
-[sub_resource type="Curve3D" id="Curve3D_eqxrg"]
+[sub_resource type="Curve3D" id="Curve3D_jjcxl"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -0.055078678, 0, 3.625538, -96.70228, -4.895133e-06, -110.55842, 0.055078678, 0, -3.625538, 0, 0, 0, -96.83344, -0.0001650456, -101.926186),
 "tilts": PackedFloat32Array(0, 0)
@@ -713,9 +713,9 @@ script = ExtResource("14_cad7k")
 id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 from_key = "Pasture3DRoadGroup/Road"
 to_key = "Pasture3DRoadGroup/Road"
-curve = SubResource("Curve3D_eqxrg")
+curve = SubResource("Curve3D_jjcxl")
 
-[sub_resource type="Curve3D" id="Curve3D_wyudv"]
+[sub_resource type="Curve3D" id="Curve3D_rvytd"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 0.0332107, 0, -2.1860845, -93.33384, -0.0001650456, -101.873024, -2.0382283, 0, 0.7910078, 0, 0, 0, -90.360725, -6.486962e-06, -106.14602),
 "tilts": PackedFloat32Array(0, 0)
@@ -731,11 +731,11 @@ from_end = 1
 to_key = "Pasture3DRoadGroup/Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_wyudv")
+curve = SubResource("Curve3D_rvytd")
 turn = 2
 turn_angle = 1.1854119944589858
 
-[sub_resource type="Curve3D" id="Curve3D_ymd5w"]
+[sub_resource type="Curve3D" id="Curve3D_rh0rf"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 0.04929045, 0, -3.2445295, -93.33384, -0.0001650456, -101.873024, 3.0250802, 0, -1.1740062, 0, 0, 0, -99.6754, -0.07693596, -106.285416),
 "tilts": PackedFloat32Array(0, 0)
@@ -749,12 +749,12 @@ from_key = "Pasture3DRoadGroup/Road"
 from_lane = 1
 from_end = 1
 to_key = "Pasture3DRoadGroup/Road2"
-curve = SubResource("Curve3D_ymd5w")
+curve = SubResource("Curve3D_rh0rf")
 turn = 1
 turn_angle = -1.9561850206073046
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_leny8"]
+[sub_resource type="Curve3D" id="Curve3D_iryd2"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 0.055078678, 0, -3.625538, -93.33384, -0.0001650456, -101.873024, -0.055078678, 0, 3.625538, 0, 0, 0, -93.202675, -4.895133e-06, -110.50526),
 "tilts": PackedFloat32Array(0, 0)
@@ -770,26 +770,26 @@ from_end = 1
 to_key = "Pasture3DRoadGroup/Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_leny8")
+curve = SubResource("Curve3D_iryd2")
 
-[sub_resource type="Resource" id="Resource_01poa"]
+[sub_resource type="Resource" id="Resource_7m3id"]
 script = ExtResource("16_ft08i")
 road_keys = PackedStringArray("Pasture3DRoadGroup/Road")
 green_time = 49.5
 
-[sub_resource type="Resource" id="Resource_rllde"]
+[sub_resource type="Resource" id="Resource_3etm5"]
 script = ExtResource("16_ft08i")
 road_keys = PackedStringArray("Pasture3DRoadGroup/Road2")
 green_time = 6.0
 
-[sub_resource type="Resource" id="Resource_t4tw0"]
+[sub_resource type="Resource" id="Resource_mwbyf"]
 script = ExtResource("15_r5vgm")
 road_key = "Pasture3DRoadGroup/Road2"
 point = Vector3(-91.62701, -6.486962e-06, -109.40891)
 heading = Vector2(-0.9322573, 0.36179596)
 distance = 88.1246747970581
 
-[sub_resource type="Resource" id="Resource_hww7i"]
+[sub_resource type="Resource" id="Resource_eqxrg"]
 script = ExtResource("15_r5vgm")
 road_key = "Pasture3DRoadGroup/Road2"
 lane = 1
@@ -798,14 +798,14 @@ point = Vector3(-98.4091, -0.07693596, -103.02252)
 heading = Vector2(0.93225574, -0.36180001)
 distance = 96.75790882110596
 
-[sub_resource type="Resource" id="Resource_cx6ty"]
+[sub_resource type="Resource" id="Resource_wyudv"]
 script = ExtResource("15_r5vgm")
 road_key = "Pasture3DRoadGroup/Road"
 point = Vector3(-96.70228, -4.895133e-06, -110.55842)
 heading = Vector2(-0.015190111, 0.99988467)
 distance = 70.98274517059326
 
-[sub_resource type="Resource" id="Resource_ethtt"]
+[sub_resource type="Resource" id="Resource_ymd5w"]
 script = ExtResource("15_r5vgm")
 road_key = "Pasture3DRoadGroup/Road"
 lane = 1
@@ -825,58 +825,58 @@ radius = 4.316617
 elevation = -2.865576608582221e-05
 major_index = 1
 connectors = Array[ExtResource("14_cad7k")]([SubResource("Resource_baij5"), SubResource("Resource_sulib"), SubResource("Resource_rvytd"), SubResource("Resource_6b0go"), SubResource("Resource_td1gc"), SubResource("Resource_sf1df"), SubResource("Resource_0ucj6"), SubResource("Resource_3gaya"), SubResource("Resource_b1fcr"), SubResource("Resource_pxmuf"), SubResource("Resource_tjfp7"), SubResource("Resource_4lwrn")])
-stop_lines = Array[ExtResource("15_r5vgm")]([SubResource("Resource_t4tw0"), SubResource("Resource_hww7i"), SubResource("Resource_cx6ty"), SubResource("Resource_ethtt")])
+stop_lines = Array[ExtResource("15_r5vgm")]([SubResource("Resource_mwbyf"), SubResource("Resource_eqxrg"), SubResource("Resource_wyudv"), SubResource("Resource_ymd5w")])
 priorities = PackedInt32Array(0, 10)
-conflicts = Array[ExtResource("14_5q6a7")]([SubResource("Resource_dganp"), SubResource("Resource_7korv"), SubResource("Resource_hla5u"), SubResource("Resource_ko28e"), SubResource("Resource_pslno"), SubResource("Resource_alsej"), SubResource("Resource_gexfl"), SubResource("Resource_tvqka"), SubResource("Resource_4bavh"), SubResource("Resource_7dp5n"), SubResource("Resource_g1863"), SubResource("Resource_7fcp1"), SubResource("Resource_egby2"), SubResource("Resource_d8j4h"), SubResource("Resource_k16jx"), SubResource("Resource_0eu3y"), SubResource("Resource_434q4"), SubResource("Resource_k2tcx"), SubResource("Resource_lfcd6"), SubResource("Resource_iexi7"), SubResource("Resource_dp7bu"), SubResource("Resource_5xb1k"), SubResource("Resource_r7tli"), SubResource("Resource_5uuvg"), SubResource("Resource_2koa2"), SubResource("Resource_5au1k"), SubResource("Resource_an31q"), SubResource("Resource_gqflh"), SubResource("Resource_5ii0t"), SubResource("Resource_ugfej")])
-phases = Array[ExtResource("16_ft08i")]([SubResource("Resource_01poa"), SubResource("Resource_rllde")])
+conflicts = Array[ExtResource("14_5q6a7")]([SubResource("Resource_p8a78"), SubResource("Resource_psm5m"), SubResource("Resource_llyc4"), SubResource("Resource_pmwfd"), SubResource("Resource_dganp"), SubResource("Resource_7korv"), SubResource("Resource_hla5u"), SubResource("Resource_ko28e"), SubResource("Resource_pslno"), SubResource("Resource_alsej"), SubResource("Resource_gexfl"), SubResource("Resource_tvqka"), SubResource("Resource_4bavh"), SubResource("Resource_7dp5n"), SubResource("Resource_g1863"), SubResource("Resource_7fcp1"), SubResource("Resource_egby2"), SubResource("Resource_d8j4h"), SubResource("Resource_k16jx"), SubResource("Resource_0eu3y"), SubResource("Resource_434q4"), SubResource("Resource_k2tcx"), SubResource("Resource_lfcd6"), SubResource("Resource_iexi7"), SubResource("Resource_dp7bu"), SubResource("Resource_5xb1k"), SubResource("Resource_r7tli"), SubResource("Resource_5uuvg"), SubResource("Resource_2koa2"), SubResource("Resource_5au1k")])
+phases = Array[ExtResource("16_ft08i")]([SubResource("Resource_7m3id"), SubResource("Resource_3etm5")])
 
-[sub_resource type="Resource" id="Resource_rqw21"]
+[sub_resource type="Resource" id="Resource_leny8"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-81.57769, -0.0154481195, 110.12747)
 reason = 1
 
-[sub_resource type="Resource" id="Resource_fksy1"]
+[sub_resource type="Resource" id="Resource_01poa"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-77.40027, -2.1714064e-05, 113.5724)
 merge = true
 
-[sub_resource type="Resource" id="Resource_llk8s"]
+[sub_resource type="Resource" id="Resource_rllde"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-81.863556, -0.016605781, 109.89174)
 
-[sub_resource type="Resource" id="Resource_fbfsu"]
+[sub_resource type="Resource" id="Resource_t4tw0"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-79.4767, -0.0046791164, 111.86006)
 
-[sub_resource type="Resource" id="Resource_f7rhc"]
+[sub_resource type="Resource" id="Resource_hww7i"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-77.40027, -2.1714064e-05, 113.5724)
 merge = true
 
-[sub_resource type="Resource" id="Resource_nwob4"]
+[sub_resource type="Resource" id="Resource_cx6ty"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-79.16278, -0.003366639, 112.11894)
 
-[sub_resource type="Resource" id="Resource_f6w8n"]
+[sub_resource type="Resource" id="Resource_ethtt"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-77.16925, -0.0032558194, 109.22632)
 reason = 1
 
-[sub_resource type="Resource" id="Resource_dxswh"]
+[sub_resource type="Resource" id="Resource_rqw21"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
@@ -884,46 +884,46 @@ point = Vector3(-75.44026, -0.00056277384, 107.77993)
 merge = true
 reason = 1
 
-[sub_resource type="Resource" id="Resource_ituvc"]
+[sub_resource type="Resource" id="Resource_fksy1"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-80.94733, -0.015249776, 109.81268)
 reason = 3
 
-[sub_resource type="Resource" id="Resource_x74dx"]
+[sub_resource type="Resource" id="Resource_llk8s"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-80.94733, -0.015249776, 109.81268)
 reason = 3
 
-[sub_resource type="Resource" id="Resource_4ei2i"]
+[sub_resource type="Resource" id="Resource_fbfsu"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-79.53045, -0.010755016, 109.93063)
 
-[sub_resource type="Resource" id="Resource_yl8dr"]
+[sub_resource type="Resource" id="Resource_f7rhc"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-81.62229, -0.017056925, 109.61052)
 
-[sub_resource type="Resource" id="Resource_u2nsn"]
+[sub_resource type="Resource" id="Resource_nwob4"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-79.17534, -0.009557778, 109.899994)
 
-[sub_resource type="Resource" id="Resource_s16y6"]
+[sub_resource type="Resource" id="Resource_f6w8n"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-75.44026, -0.00056277384, 107.77993)
 merge = true
 
-[sub_resource type="Resource" id="Resource_ufr8g"]
+[sub_resource type="Resource" id="Resource_dxswh"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
@@ -931,78 +931,78 @@ point = Vector3(-83.30666, -2.1945143e-05, 111.573845)
 merge = true
 reason = 1
 
-[sub_resource type="Resource" id="Resource_rohvk"]
+[sub_resource type="Resource" id="Resource_ituvc"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-83.30666, -2.1945143e-05, 111.573845)
 merge = true
 
-[sub_resource type="Resource" id="Resource_shjwa"]
+[sub_resource type="Resource" id="Resource_x74dx"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-81.34668, -0.01974987, 105.78139)
 merge = true
 
-[sub_resource type="Resource" id="Resource_ny5cb"]
+[sub_resource type="Resource" id="Resource_4ei2i"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-79.27025, -0.015092446, 107.49373)
 
-[sub_resource type="Resource" id="Resource_sdurn"]
+[sub_resource type="Resource" id="Resource_yl8dr"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-79.58417, -0.016404947, 107.234856)
 
-[sub_resource type="Resource" id="Resource_3jvnv"]
+[sub_resource type="Resource" id="Resource_u2nsn"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-81.34668, -0.01974987, 105.78139)
 merge = true
 
-[sub_resource type="Resource" id="Resource_or0p6"]
+[sub_resource type="Resource" id="Resource_s16y6"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-76.88339, -0.0031657806, 109.46206)
 
-[sub_resource type="Resource" id="Resource_ejp0k"]
+[sub_resource type="Resource" id="Resource_ufr8g"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-75.44026, -0.00056277384, 107.77993)
 merge = true
 
-[sub_resource type="Resource" id="Resource_77ebb"]
+[sub_resource type="Resource" id="Resource_rohvk"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-79.571594, -2.1836811e-05, 109.453804)
 
-[sub_resource type="Resource" id="Resource_hfjyf"]
+[sub_resource type="Resource" id="Resource_shjwa"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-83.30666, -2.1945143e-05, 111.573845)
 merge = true
 
-[sub_resource type="Resource" id="Resource_xxvei"]
+[sub_resource type="Resource" id="Resource_ny5cb"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-79.216484, -2.1822394e-05, 109.423164)
 
-[sub_resource type="Resource" id="Resource_8ubrc"]
+[sub_resource type="Resource" id="Resource_sdurn"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road2:1:1>Pasture3DRoadGroup/Road:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-77.12465, -2.1746497e-05, 109.74327)
 
-[sub_resource type="Resource" id="Resource_cv8tl"]
+[sub_resource type="Resource" id="Resource_3jvnv"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:1:0"
@@ -1010,21 +1010,21 @@ point = Vector3(-81.34668, -0.01974987, 105.78139)
 merge = true
 reason = 1
 
-[sub_resource type="Resource" id="Resource_l130b"]
+[sub_resource type="Resource" id="Resource_or0p6"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
 point = Vector3(-79.48986, -0.00041688432, 108.32788)
 reason = 3
 
-[sub_resource type="Resource" id="Resource_2g8c8"]
+[sub_resource type="Resource" id="Resource_ejp0k"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 point = Vector3(-79.48986, -0.00041688432, 108.32788)
 reason = 3
 
-[sub_resource type="Resource" id="Resource_g0o25"]
+[sub_resource type="Resource" id="Resource_77ebb"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:0:1"
@@ -1032,21 +1032,21 @@ point = Vector3(-77.40027, -2.1714064e-05, 113.5724)
 merge = true
 reason = 1
 
-[sub_resource type="Resource" id="Resource_n2n1i"]
+[sub_resource type="Resource" id="Resource_hfjyf"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 priority_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road:1:0"
 point = Vector3(-78.89783, -0.00010245262, 111.81011)
 reason = 1
 
-[sub_resource type="Resource" id="Resource_nxnm8"]
+[sub_resource type="Resource" id="Resource_xxvei"]
 script = ExtResource("14_5q6a7")
 yielding_id = &"Pasture3DRoadGroup/Road:1:1>Pasture3DRoadGroup/Road2:1:0"
 priority_id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 point = Vector3(-79.849106, -0.00043509807, 107.54367)
 reason = 1
 
-[sub_resource type="Curve3D" id="Curve3D_tf2xx"]
+[sub_resource type="Curve3D" id="Curve3D_sqygc"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 2.5927494, 0, 2.1381297, -83.57347, -0.01974987, 108.48164, -2.5927494, 0, -2.1381297, 0, 0, 0, -77.40027, -2.1714064e-05, 113.5724),
 "tilts": PackedFloat32Array(0, 0)
@@ -1058,9 +1058,9 @@ script = ExtResource("14_cad7k")
 id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road2:0:1"
 from_key = "Pasture3DRoadGroup/Road2"
 to_key = "Pasture3DRoadGroup/Road2"
-curve = SubResource("Curve3D_tf2xx")
+curve = SubResource("Curve3D_sqygc")
 
-[sub_resource type="Curve3D" id="Curve3D_u7a0k"]
+[sub_resource type="Curve3D" id="Curve3D_8ubrc"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 2.645212, 0, 2.1813934, -83.57347, -0.01974987, 108.48164, -2.2324994, 0, 2.602224, 0, 0, 0, -75.44026, -0.00056277384, 107.77993),
 "tilts": PackedFloat32Array(0, 0)
@@ -1074,12 +1074,12 @@ from_key = "Pasture3DRoadGroup/Road2"
 to_key = "Pasture3DRoadGroup/Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_u7a0k")
+curve = SubResource("Curve3D_8ubrc")
 turn = 1
 turn_angle = -1.5513185326252947
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_b4kvc"]
+[sub_resource type="Curve3D" id="Curve3D_0pvo4"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 1.0057131, 0, 0.8293687, -83.57347, -0.01974987, 108.48164, 0.8487992, 0, -0.9893691, 0, 0, 0, -83.30666, -2.1945143e-05, 111.573845),
 "tilts": PackedFloat32Array(0, 0)
@@ -1091,11 +1091,11 @@ script = ExtResource("14_cad7k")
 id = &"Pasture3DRoadGroup/Road2:0:0>Pasture3DRoadGroup/Road:0:1"
 from_key = "Pasture3DRoadGroup/Road2"
 to_key = "Pasture3DRoadGroup/Road"
-curve = SubResource("Curve3D_b4kvc")
+curve = SubResource("Curve3D_0pvo4")
 turn = 2
 turn_angle = 1.5902741209644984
 
-[sub_resource type="Curve3D" id="Curve3D_wo5bd"]
+[sub_resource type="Curve3D" id="Curve3D_cv8tl"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -2.5927494, 0, -2.1381297, -75.17348, -2.1714064e-05, 110.87215, 2.5927494, 0, 2.1381297, 0, 0, 0, -81.34668, -0.01974987, 105.78139),
 "tilts": PackedFloat32Array(0, 0)
@@ -1111,9 +1111,9 @@ from_end = 1
 to_key = "Pasture3DRoadGroup/Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_wo5bd")
+curve = SubResource("Curve3D_cv8tl")
 
-[sub_resource type="Curve3D" id="Curve3D_ohlc3"]
+[sub_resource type="Curve3D" id="Curve3D_l130b"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -1.0056971, 0, -0.8293555, -75.17348, -2.1714064e-05, 110.87215, -0.84878576, 0, 0.98935336, 0, 0, 0, -75.44026, -0.00056277384, 107.77993),
 "tilts": PackedFloat32Array(0, 0)
@@ -1129,11 +1129,11 @@ from_end = 1
 to_key = "Pasture3DRoadGroup/Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_ohlc3")
+curve = SubResource("Curve3D_l130b")
 turn = 2
 turn_angle = 1.5902741209644984
 
-[sub_resource type="Curve3D" id="Curve3D_1h78v"]
+[sub_resource type="Curve3D" id="Curve3D_2g8c8"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -2.645197, 0, -2.181381, -75.17348, -2.1714064e-05, 110.87215, 2.2324867, 0, -2.6022093, 0, 0, 0, -83.30666, -2.1945143e-05, 111.573845),
 "tilts": PackedFloat32Array(0, 0)
@@ -1147,12 +1147,12 @@ from_key = "Pasture3DRoadGroup/Road2"
 from_lane = 1
 from_end = 1
 to_key = "Pasture3DRoadGroup/Road"
-curve = SubResource("Curve3D_1h78v")
+curve = SubResource("Curve3D_2g8c8")
 turn = 1
 turn_angle = -1.5513185326252947
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_4c2iy"]
+[sub_resource type="Curve3D" id="Curve3D_g0o25"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -0.8921243, 0, 1.0398692, -78.096634, -0.00056277384, 105.50097, 1.0570475, 0, 0.87170196, 0, 0, 0, -81.34668, -0.01974987, 105.78139),
 "tilts": PackedFloat32Array(0, 0)
@@ -1166,11 +1166,11 @@ from_key = "Pasture3DRoadGroup/Road"
 to_key = "Pasture3DRoadGroup/Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_4c2iy")
+curve = SubResource("Curve3D_g0o25")
 turn = 2
 turn_angle = 1.5513185326252947
 
-[sub_resource type="Curve3D" id="Curve3D_b7xld"]
+[sub_resource type="Curve3D" id="Curve3D_u85sn"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -2.2155359, 0, 2.5824513, -78.096634, -0.00056277384, 105.50097, -2.6251125, 0, -2.1648183, 0, 0, 0, -77.40027, -2.1714064e-05, 113.5724),
 "tilts": PackedFloat32Array(0, 0)
@@ -1182,12 +1182,12 @@ script = ExtResource("14_cad7k")
 id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road2:0:1"
 from_key = "Pasture3DRoadGroup/Road"
 to_key = "Pasture3DRoadGroup/Road2"
-curve = SubResource("Curve3D_b7xld")
+curve = SubResource("Curve3D_u85sn")
 turn = 1
 turn_angle = -1.5902741209644984
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_xkb4c"]
+[sub_resource type="Curve3D" id="Curve3D_n2n1i"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, -2.188215, 0, 2.5506058, -78.096634, -0.00056277384, 105.50097, 2.188215, 0, -2.5506058, 0, 0, 0, -83.30666, -2.1945143e-05, 111.573845),
 "tilts": PackedFloat32Array(0, 0)
@@ -1199,9 +1199,9 @@ script = ExtResource("14_cad7k")
 id = &"Pasture3DRoadGroup/Road:0:0>Pasture3DRoadGroup/Road:0:1"
 from_key = "Pasture3DRoadGroup/Road"
 to_key = "Pasture3DRoadGroup/Road"
-curve = SubResource("Curve3D_xkb4c")
+curve = SubResource("Curve3D_n2n1i")
 
-[sub_resource type="Curve3D" id="Curve3D_qarkm"]
+[sub_resource type="Curve3D" id="Curve3D_nxnm8"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 2.2155392, 0, -2.5824552, -80.65029, -2.1945143e-05, 113.852806, 2.6251163, 0, 2.1648216, 0, 0, 0, -81.34668, -0.01974987, 105.78139),
 "tilts": PackedFloat32Array(0, 0)
@@ -1217,12 +1217,12 @@ from_end = 1
 to_key = "Pasture3DRoadGroup/Road2"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_qarkm")
+curve = SubResource("Curve3D_nxnm8")
 turn = 1
 turn_angle = -1.5902741209644984
 crosses_oncoming = true
 
-[sub_resource type="Curve3D" id="Curve3D_4bl1w"]
+[sub_resource type="Curve3D" id="Curve3D_tf2xx"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 0.89210224, 0, -1.0398434, -80.65029, -2.1945143e-05, 113.852806, -1.0570214, 0, -0.8716804, 0, 0, 0, -77.40027, -2.1714064e-05, 113.5724),
 "tilts": PackedFloat32Array(0, 0)
@@ -1236,11 +1236,11 @@ from_key = "Pasture3DRoadGroup/Road"
 from_lane = 1
 from_end = 1
 to_key = "Pasture3DRoadGroup/Road2"
-curve = SubResource("Curve3D_4bl1w")
+curve = SubResource("Curve3D_tf2xx")
 turn = 2
 turn_angle = 1.5513185326252947
 
-[sub_resource type="Curve3D" id="Curve3D_o34g3"]
+[sub_resource type="Curve3D" id="Curve3D_u7a0k"]
 _data = {
 "points": PackedVector3Array(0, 0, 0, 2.188215, 0, -2.5506058, -80.65029, -2.1945143e-05, 113.852806, -2.188215, 0, 2.5506058, 0, 0, 0, -75.44026, -0.00056277384, 107.77993),
 "tilts": PackedFloat32Array(0, 0)
@@ -1256,26 +1256,26 @@ from_end = 1
 to_key = "Pasture3DRoadGroup/Road"
 to_lane = 1
 to_end = 0
-curve = SubResource("Curve3D_o34g3")
+curve = SubResource("Curve3D_u7a0k")
 
-[sub_resource type="Resource" id="Resource_pm4ug"]
+[sub_resource type="Resource" id="Resource_b4kvc"]
 script = ExtResource("16_ft08i")
 road_keys = PackedStringArray("Pasture3DRoadGroup/Road")
 green_time = 49.5
 
-[sub_resource type="Resource" id="Resource_g2iib"]
+[sub_resource type="Resource" id="Resource_wo5bd"]
 script = ExtResource("16_ft08i")
 road_keys = PackedStringArray("Pasture3DRoadGroup/Road2")
 green_time = 6.0
 
-[sub_resource type="Resource" id="Resource_vd6ka"]
+[sub_resource type="Resource" id="Resource_ohlc3"]
 script = ExtResource("15_r5vgm")
 road_key = "Pasture3DRoadGroup/Road2"
 point = Vector3(-83.57347, -0.01974987, 108.48164)
 heading = Vector2(0.77150303, 0.63622564)
 distance = 356.047306060791
 
-[sub_resource type="Resource" id="Resource_gdpa1"]
+[sub_resource type="Resource" id="Resource_4c2iy"]
 script = ExtResource("15_r5vgm")
 road_key = "Pasture3DRoadGroup/Road2"
 lane = 1
@@ -1284,14 +1284,14 @@ point = Vector3(-75.17348, -2.1714064e-05, 110.87215)
 heading = Vector2(-0.77150303, -0.63622564)
 distance = 364.04882431030273
 
-[sub_resource type="Resource" id="Resource_m6en3"]
+[sub_resource type="Resource" id="Resource_b7xld"]
 script = ExtResource("15_r5vgm")
 road_key = "Pasture3DRoadGroup/Road"
 point = Vector3(-78.096634, -0.00056277384, 105.50097)
 heading = Vector2(-0.6511312, 0.7589652)
 distance = 325.51391983032227
 
-[sub_resource type="Resource" id="Resource_aagha"]
+[sub_resource type="Resource" id="Resource_xkb4c"]
 script = ExtResource("15_r5vgm")
 road_key = "Pasture3DRoadGroup/Road"
 lane = 1
@@ -1308,13 +1308,13 @@ road_keys = PackedStringArray("Pasture3DRoadGroup/Road2", "Pasture3DRoadGroup/Ro
 arc_lengths = PackedFloat32Array(360.04807, 329.51468)
 trim_backs = PackedFloat32Array(4.000759, 4.000759)
 radius = 4.000759
-elevation = -0.000111131246088636
+elevation = -0.00011113124608863
 major_index = 1
 connectors = Array[ExtResource("14_cad7k")]([SubResource("Resource_hbl7e"), SubResource("Resource_0wx7q"), SubResource("Resource_cnwo7"), SubResource("Resource_wfs0c"), SubResource("Resource_i46o1"), SubResource("Resource_8sh4k"), SubResource("Resource_kaisx"), SubResource("Resource_5kug8"), SubResource("Resource_vduwp"), SubResource("Resource_nkawe"), SubResource("Resource_nu3mi"), SubResource("Resource_i5l7u")])
-stop_lines = Array[ExtResource("15_r5vgm")]([SubResource("Resource_vd6ka"), SubResource("Resource_gdpa1"), SubResource("Resource_m6en3"), SubResource("Resource_aagha")])
+stop_lines = Array[ExtResource("15_r5vgm")]([SubResource("Resource_ohlc3"), SubResource("Resource_4c2iy"), SubResource("Resource_b7xld"), SubResource("Resource_xkb4c")])
 priorities = PackedInt32Array(0, 10)
-conflicts = Array[ExtResource("14_5q6a7")]([SubResource("Resource_rqw21"), SubResource("Resource_fksy1"), SubResource("Resource_llk8s"), SubResource("Resource_fbfsu"), SubResource("Resource_f7rhc"), SubResource("Resource_nwob4"), SubResource("Resource_f6w8n"), SubResource("Resource_dxswh"), SubResource("Resource_ituvc"), SubResource("Resource_x74dx"), SubResource("Resource_4ei2i"), SubResource("Resource_yl8dr"), SubResource("Resource_u2nsn"), SubResource("Resource_s16y6"), SubResource("Resource_ufr8g"), SubResource("Resource_rohvk"), SubResource("Resource_shjwa"), SubResource("Resource_ny5cb"), SubResource("Resource_sdurn"), SubResource("Resource_3jvnv"), SubResource("Resource_or0p6"), SubResource("Resource_ejp0k"), SubResource("Resource_77ebb"), SubResource("Resource_hfjyf"), SubResource("Resource_xxvei"), SubResource("Resource_8ubrc"), SubResource("Resource_cv8tl"), SubResource("Resource_l130b"), SubResource("Resource_2g8c8"), SubResource("Resource_g0o25"), SubResource("Resource_n2n1i"), SubResource("Resource_nxnm8")])
-phases = Array[ExtResource("16_ft08i")]([SubResource("Resource_pm4ug"), SubResource("Resource_g2iib")])
+conflicts = Array[ExtResource("14_5q6a7")]([SubResource("Resource_leny8"), SubResource("Resource_01poa"), SubResource("Resource_rllde"), SubResource("Resource_t4tw0"), SubResource("Resource_hww7i"), SubResource("Resource_cx6ty"), SubResource("Resource_ethtt"), SubResource("Resource_rqw21"), SubResource("Resource_fksy1"), SubResource("Resource_llk8s"), SubResource("Resource_fbfsu"), SubResource("Resource_f7rhc"), SubResource("Resource_nwob4"), SubResource("Resource_f6w8n"), SubResource("Resource_dxswh"), SubResource("Resource_ituvc"), SubResource("Resource_x74dx"), SubResource("Resource_4ei2i"), SubResource("Resource_yl8dr"), SubResource("Resource_u2nsn"), SubResource("Resource_s16y6"), SubResource("Resource_ufr8g"), SubResource("Resource_rohvk"), SubResource("Resource_shjwa"), SubResource("Resource_ny5cb"), SubResource("Resource_sdurn"), SubResource("Resource_3jvnv"), SubResource("Resource_or0p6"), SubResource("Resource_ejp0k"), SubResource("Resource_77ebb"), SubResource("Resource_hfjyf"), SubResource("Resource_xxvei")])
+phases = Array[ExtResource("16_ft08i")]([SubResource("Resource_b4kvc"), SubResource("Resource_wo5bd")])
 
 [sub_resource type="Resource" id="Resource_eox8r"]
 script = ExtResource("14_5q6a7")
@@ -3961,7 +3961,7 @@ priorities = PackedInt32Array(10, 0)
 conflicts = Array[ExtResource("14_5q6a7")]([SubResource("Resource_j03nj"), SubResource("Resource_pywwd"), SubResource("Resource_k5crv"), SubResource("Resource_waett"), SubResource("Resource_jjxuo"), SubResource("Resource_26lvr"), SubResource("Resource_b05n5"), SubResource("Resource_8i6wm"), SubResource("Resource_sss3t"), SubResource("Resource_b3e5w"), SubResource("Resource_v4v0r"), SubResource("Resource_xvp88"), SubResource("Resource_it6b8"), SubResource("Resource_ojw34"), SubResource("Resource_jlv4y"), SubResource("Resource_4bvr8"), SubResource("Resource_3bp3w"), SubResource("Resource_wmny8"), SubResource("Resource_mn74o"), SubResource("Resource_4gxd8"), SubResource("Resource_246ci"), SubResource("Resource_xqa3d"), SubResource("Resource_1ow6s"), SubResource("Resource_si4u1"), SubResource("Resource_awn40"), SubResource("Resource_ifcdi"), SubResource("Resource_cnvnt"), SubResource("Resource_2u467"), SubResource("Resource_hlpc1"), SubResource("Resource_1q6i2")])
 phases = Array[ExtResource("16_ft08i")]([SubResource("Resource_nc0xv"), SubResource("Resource_6gsvq")])
 
-[sub_resource type="Resource" id="Resource_hfq5s"]
+[sub_resource type="Resource" id="Resource_qarkm"]
 script = ExtResource("19_vfv27")
 z = PackedFloat32Array(-0.022291869, -0.021720255, -0.020896504, -0.019434618, -0.017474867, -0.015707575, -0.015425545, -0.016659388, -0.017962245, -0.018530276, -0.01806828, -0.016742315, -0.015207681, -0.014717449, -0.015955124, -0.01745571, -0.018307889, -0.018123975, -0.016976226, -0.015408608, -0.014529267, -0.015564565, -0.01713758, -0.018208083, -0.018285092, -0.017345088, -0.01582801, -0.014710568, -0.01536286, -0.016893467, -0.018114826, -0.018420955, -0.017686179, -0.01624437, -0.014944577, -0.0151371, -0.016575752, -0.017917367, -0.018435612, -0.017899929, -0.016537124, -0.015069139, -0.014776476, -0.016106294, -0.01756029, -0.018290184, -0.01795758, -0.016682813, -0.015062205, -0.0142610315, -0.0154640395, -0.017008225, -0.01792045, -0.01775527, -0.016520653, -0.01467936, -0.01322599, -0.013847393, -0.0148989, -0.014985212, -0.014217731, -0.014276954, -0.012960436, -0.01105754, -0.008696366, -0.005797577, -0.0038650518, -0.0025767018, -0.0017178023, -0.0011452029, -0.00076347066, -0.0005089836, -0.00033932715, -0.00022622525, -0.00015082757, -0.000100567806, -6.706935e-05, -4.4749126e-05, -2.988709e-05, -2.0006235e-05, -1.3459751e-05, -9.156562e-06, -6.3794655e-06, -4.6656146e-06, -3.729366e-06, -3.4146788e-06, -3.6691047e-06, -4.535048e-06, -6.1568326e-06, -8.804756e-06, -1.2920139e-05, -1.9188878e-05, -2.8655766e-05, -0.016209383, -0.035091672, -0.057960816, -0.07553542, -0.077383325, -0.07196112, -0.06644704, -0.06688317, -0.07418814, -0.081430934, -0.08167019, -0.06679718, -0.046847295, -0.031243104, -0.020846095, -0.013923434, -0.009321345, -0.006272814, -0.004269752, -0.002978316, -0.0021832658, -0.0017520929, -0.0016129356, -0.0017426008, -0.0021626996, -0.0029432797, -0.0042144377, -0.00618803, -0.009192986, -0.01225569, -0.013542037, -0.014820028, -0.01608496, -0.016237222, -0.017181376, -0.017914603, -0.018359402, -0.018053545, -0.016887326, -0.016316885, -0.01707263, -0.01745312, -0.016812405, -0.015968367, -0.016712574, -0.017519142, -0.01724265, -0.016265994, -0.01628748, -0.017191125, -0.017218404, -0.016192503, -0.015469841, -0.01655357, -0.017133772, -0.016515328, -0.015512042, -0.016285429, -0.01720788, -0.01703072, -0.016030844, -0.016056893, -0.017064616, -0.017253563, -0.016351363, -0.015612361, -0.01659914, -0.017212644, -0.016640507, -0.015581688, -0.016272832, -0.01727739, -0.017237686, -0.01633087, -0.016298309, -0.017273638, -0.017552765, -0.016755467, -0.01603091, -0.016902933, -0.017583288, -0.017148908, -0.016217848, -0.016541386, -0.017398264, -0.017283564, -0.016239544, -0.015793273, -0.016758682, -0.017038405, -0.016129624, -0.0150404945, -0.015912542, -0.016568495, -0.015957864, -0.014527543, -0.014175017, -0.0145211825, -0.015283417, -0.016273275, -0.017365107, -0.01847516, -0.019547595, -0.020545185, -0.021443157, -0.022224968, -0.022879593, -0.0233997, -0.023780415, -0.024018902, -0.024113115, -0.024061464, -0.023863317, -0.023518506, -0.023027299, -0.02239044, -0.021609306, -0.020686043, -0.01962404, -0.018428454, -0.017107328, -0.015672242, -0.014141901, -0.012543083, -0.010916587, -0.009323471, -0.007854298, -0.006645351, -0.005900535, -0.0059186616, -0.006688937, -0.007910557, -0.009383159, -0.010973084, -0.012591426, -0.014178869, -0.01569598, -0.01711655, -0.018423172, -0.019604327, -0.02065298, -0.021563929, -0.022333834, -0.022960339, -0.02344199, -0.023777803, -0.023967039, -0.02400941, -0.023905281, -0.023654457, -0.02325738, -0.02271437, -0.02202642, -0.021195209, -0.020223001, -0.019113535, -0.017872544, -0.016509537, -0.015038563, -0.013479695, -0.011864282, -0.010238311, -0.0086718025, -0.007269389, -0.006188677, -0.0056655924, -0.0060468046, -0.007024087, -0.008340667, -0.009821098, -0.011342131, -0.012812155, -0.014155957, -0.015302156, -0.01617139, -0.016662944, -0.016652906, -0.017369028, -0.017616885, -0.017731186, -0.018187903, -0.018471632, -0.018446038, -0.018461656, -0.018346485, -0.018063575, -0.017851079, -0.017131846, -0.016602367, -0.016534848, -0.01586035, -0.014862275, -0.014900773, -0.014676905, -0.013908321, -0.014248805, -0.015007457, -0.015120918, -0.015304031, -0.01630424, -0.016784478, -0.016912822, -0.017384669, -0.017841276, -0.01789917, -0.018040271, -0.0179609, -0.017704654, -0.017654313, -0.017113393, -0.016564758, -0.016441194, -0.015842644, -0.014787588, -0.014741191, -0.014665879, -0.014007785, -0.014064919, -0.014902312, -0.015144227, -0.015235881, -0.016173365, -0.016726738, -0.016779196, -0.017196009, -0.017687859, -0.017735621, -0.017958997, -0.017927846, -0.017759552, -0.017706988, -0.017213942, -0.016537687, -0.016233599, -0.015555737, -0.014245327, -0.013711231, -0.0132427765, -0.0119252065, -0.010599706, -0.009265319, -0.006737634, -0.0053329044, -0.004817004, -0.0051039495, -0.0062415656, -0.008419447, -0.012000569, -0.017581787, -0.026093302, -0.0389537, -0.05768565, -0.07805606, -0.08370779, -0.079158545, -0.072160594, -0.069845535, -0.074531674, -0.08072357, -0.080703534, -0.06803203, -0.04661801, -0.03080808, -0.02009806, -0.012737713, -0.007500318, -0.0035129765, -0.000111131245, -7.410744e-05, -4.943489e-05, -3.300147e-05, -2.206829e-05, -1.4813167e-05, -1.00269035e-05, -6.9117905e-06, -4.948643e-06, -3.810269e-06, -3.3069398e-06, -3.3547674e-06, -3.961723e-06, -5.228965e-06, -7.3677015e-06, -1.07343885e-05, -1.589014e-05, -2.3694247e-05, -3.5447396e-05, -5.3108448e-05, -7.9620906e-05, -0.000119403514, -0.00017908671, -0.00026862873, -0.00040299527, -0.0006046474, -0.00090727716, -0.001361403, -0.0020426328, -0.0030643062, -0.0042398684, -0.0049763257, -0.0050307997, -0.00474265, -0.0044155484, -0.004363985, -0.0049015395, -0.0059342254, -0.0072583123, -0.0087379785, -0.010282726, -0.011832185, -0.013346109, -0.01479765, -0.016168954, -0.017448075, -0.018627066, -0.019700622, -0.020665213, -0.021518484, -0.022258865, -0.022885313, -0.023397157, -0.023793908, -0.024075296, -0.024241148, -0.024291372, -0.024225952, -0.024044937, -0.02374845, -0.023336701, -0.022810072, -0.022169106, -0.02141464, -0.020547943, -0.01957092, -0.018486436, -0.01729879, -0.016014421, -0.014643003, -0.013199056, -0.011704306, -0.010191411, -0.0087093245, -0.007331483, -0.006167985, -0.005384048, -0.005227494, -0.005809097, -0.0068504177, -0.008157938, -0.009604582, -0.011106832, -0.012605274, -0.014059686, -0.015440026, -0.016726019, -0.017901072, -0.018949399, -0.019853448, -0.020590995, -0.021131556, -0.021431182, -0.02142533, -0.021018658, -0.020126488, -0.018793397, -0.017100105, -0.015158126, -0.013128115, -0.011247273, -0.009868362, -0.009518145, -0.010490175, -0.012191327, -0.014199019, -0.016232792, -0.018102301, -0.019684628, -0.020903701, -0.021708567, -0.022070564, -0.02197787, -0.02143355, -0.020455742, -0.019079862, -0.017367424, -0.015414234, -0.013367003, -0.0114475265, -0.009989498, -0.009495055, -0.010359493, -0.012011778, -0.014010185, -0.01605991, -0.017965036, -0.019596457, -0.020870028, -0.021732325, -0.02215124, -0.022111876, -0.021615569, -0.020678904, -0.019336393, -0.0176465, -0.015701333, -0.0136416955, -0.011680474, -0.010138106, -0.009496044, -0.010249076, -0.011848934, -0.0138321575, -0.015890356, -0.01781885, -0.019482475, -0.0207931, -0.021694954, -0.022155302, -0.02215899, -0.021705933, -0.020811101, -0.019507006, -0.017849116, -0.015925113, -0.013869511, -0.011886029, -0.010281614, -0.009517573, -0.010134426, -0.011662999, -0.01361811, -0.015676998, -0.017625153, -0.01932092, -0.020671723, -0.021618705, -0.022126853, -0.022179214, -0.021773938, -0.020924171, -0.019660143, -0.01803414, -0.016129378, -0.014073763, -0.012061173, -0.010383877, -0.0094812475, -0.009893305, -0.011262018, -0.012279836)
 ground = PackedFloat32Array(-0.02572154, -0.023233093, -0.024725307, -0.022421801, -0.016320132, -0.00679599, -0.006330316, -0.016245294, -0.0223712, -0.024710448, -0.023252092, -0.017994324, -0.008941265, -0.004350016, -0.014377655, -0.02134616, -0.024524428, -0.02390701, -0.019495416, -0.011278948, -0.0030414485, -0.012338258, -0.020152647, -0.024169048, -0.024387179, -0.020807516, -0.01343018, -0.004092197, -0.01009296, -0.018748952, -0.023606203, -0.0246664, -0.021928374, -0.015392278, -0.005990681, -0.0076603307, -0.017157955, -0.022857582, -0.024759198, -0.02286265, -0.017168198, -0.008017216, -0.005041592, -0.015361223, -0.021904904, -0.024665192, -0.023610547, -0.01875786, -0.010145593, -0.0022359528, -0.013416971, -0.020799985, -0.02438489, -0.0241719, -0.020160692, -0.012351825, -0.0007773679, -0.011266759, -0.020690069, -0.02010797, -0.009257508, -0.0225314, -0.016478708, -0.013807204, -0.011922049, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5.087731e-13, 4.22411e-12, 0, 0, 0, 0, 0, 0, 0, 0, 0, -0.011170545, -0.08972809, -0.16989546, -0.12100404, -0.07251236, -0.03074584, -0.025670193, -0.0745612, -0.12345221, -0.17234361, -0.097258516, -0.020773135, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.8792139e-07, 1.8847513e-07, 1.6957547e-07, 1.5025604e-07, -0.008846514, -0.022913808, -0.0135921845, -0.0148983905, -0.022760946, -0.011485897, -0.018446922, -0.019645184, -0.02286335, -0.023215707, -0.013312661, -0.008359798, -0.019324146, -0.023580322, -0.018032357, -0.006438898, -0.016338417, -0.024017492, -0.021443632, -0.010277151, -0.010994535, -0.022449302, -0.023537464, -0.014373074, -0.004631528, -0.01957471, -0.024325658, -0.01882438, -0.004852007, -0.015391041, -0.023805544, -0.02196699, -0.009875324, -0.010166857, -0.021977255, -0.02380045, -0.015372145, -0.005257712, -0.018838782, -0.02432649, -0.0195606, -0.00508192, -0.014392351, -0.023542957, -0.02244036, -0.011085342, -0.010250989, -0.021450834, -0.024011299, -0.016319023, -0.0064514573, -0.018052941, -0.024271678, -0.020128993, -0.008690276, -0.013341349, -0.023227721, -0.022859482, -0.012653038, -0.007323208, -0.020872805, -0.024169413, -0.017211702, -0.0032734645, -0.017209096, -0.024167994, -0.02087599, -0.008060795, -0.00998287, -0.012024753, -0.01391767, -0.015661435, -0.017255789, -0.018700873, -0.01999666, -0.021142902, -0.022140112, -0.022988115, -0.023686705, -0.024236036, -0.024633767, -0.024884569, -0.024988288, -0.024940433, -0.024743311, -0.024396889, -0.023901202, -0.023256076, -0.022462098, -0.021518484, -0.020425534, -0.01918168, -0.017791077, -0.016243799, -0.014552763, -0.012709163, -0.010716306, -0.008579818, -0.006292931, -0.003860562, -0.0013228775, -0.0014057758, -0.0039808634, -0.006404667, -0.008679215, -0.010802579, -0.012776834, -0.014600862, -0.016275236, -0.01780025, -0.019175967, -0.020399349, -0.021479193, -0.022410182, -0.023194248, -0.023829456, -0.024317024, -0.024657255, -0.024848219, -0.02488842, -0.024785452, -0.02453199, -0.024132976, -0.02358402, -0.022885965, -0.022041192, -0.021046542, -0.0199027, -0.01860463, -0.017157348, -0.0155659225, -0.013818967, -0.011927639, -0.00988153, -0.0076872376, -0.005339174, -0.0028429164, -0.00023981223, -0.0024703825, -0.0049882983, -0.007357559, -0.009577496, -0.011648172, -0.0135695, -0.015341568, -0.016963959, -0.018437466, -0.019672487, -0.012295964, -0.020178596, -0.018418226, -0.015676716, -0.019225812, -0.02032758, -0.018198766, -0.019246396, -0.01935292, -0.017641088, -0.020891486, -0.015993344, -0.013830629, -0.0201767, -0.017801829, -0.008642832, -0.016474968, -0.017945196, -0.0072539225, -0.011739803, -0.018878592, -0.014703002, -0.01040147, -0.019424051, -0.01889585, -0.014851806, -0.017476104, -0.020233545, -0.01739994, -0.01936308, -0.019022148, -0.016469257, -0.020597745, -0.017159684, -0.014014373, -0.019291088, -0.01858168, -0.008735656, -0.014914675, -0.018162565, -0.00971642, -0.009383366, -0.018475177, -0.016045783, -0.010160931, -0.018478014, -0.019732224, -0.014593078, -0.016745795, -0.020352365, -0.016681943, -0.019486161, -0.018750709, -0.0170652, -0.020349862, -0.018313207, -0.014304677, -0.018476244, -0.019351017, -0.00958745, -0.013317385, -0.018337468, -0.011972791, -0.010653038, -0.016425088, 7.984446e-08, 7.782624e-08, 7.484011e-08, 7.15626e-08, 2.3948642e-08, 9.0381895e-12, 0, 1.9014076e-12, 8.7777973e-13, -0.0037243923, -0.047854923, -0.16636813, -0.14491363, -0.09385075, -0.04406327, -0.027838433, -0.0654971, -0.11799513, -0.15661235, -0.120487034, -0.012993568, -0.00020860633, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.4933754e-12, 6.634104e-08, 3.179863e-07, 7.1851855e-07, 1.2182336e-06, 1.6996406e-06, 1.2209257e-06, 2.8619983e-08, -0.0021409753, -0.006874495, -0.009068219, -0.0070865536, -0.0049763573, -0.0027623149, -0.00082927896, -0.0019307513, -0.0041858163, -0.0063248337, -0.008347495, -0.0102544585, -0.0120453965, -0.013720403, -0.015279084, -0.01672204, -0.018048866, -0.01925966, -0.020354416, -0.021333138, -0.022195816, -0.022942452, -0.023572948, -0.024087688, -0.024486084, -0.024768526, -0.024934908, -0.024985243, -0.024919534, -0.024737766, -0.024440039, -0.024025956, -0.0234961, -0.022850098, -0.022088021, -0.021209888, -0.02021569, -0.019105429, -0.017879114, -0.01653672, -0.015078175, -0.013503865, -0.011813193, -0.010006555, -0.008083857, -0.006045423, -0.003890612, -0.001619746, -0.00079856184, -0.0030507867, -0.005253222, -0.0073231896, -0.009270946, -0.011129689, -0.012869462, -0.014504114, -0.016006118, -0.017391657, -0.018661428, -0.019815067, -0.020852437, -0.021772897, -0.022577174, -0.023264078, -0.023830255, -0.0239316, -0.022772046, -0.020954615, -0.018592225, -0.01568632, -0.012233096, -0.0082356725, -0.0036962046, -0.0015846688, -0.0061154375, -0.010352081, -0.014042542, -0.017218366, -0.019825414, -0.02186415, -0.023388952, -0.02436577, -0.024798717, -0.024687605, -0.02403449, -0.022844188, -0.021099234, -0.01881193, -0.015978483, -0.012600472, -0.008678829, -0.004207981, -0.0013417904, -0.0056324042, -0.009935035, -0.013702277, -0.016927516, -0.01960725, -0.021743573, -0.023337666, -0.02439263, -0.024900889, -0.024853537, -0.024257718, -0.023113986, -0.021420691, -0.01917815, -0.016388156, -0.013051189, -0.009167348, -0.0047362577, -0.0011254979, -0.0051681143, -0.009548732, -0.01338231, -0.016668594, -0.019408058, -0.02160047, -0.023245731, -0.02434399, -0.024895255, -0.024899445, -0.024356596, -0.02326667, -0.021629794, -0.019445792, -0.016714698, -0.013436794, -0.009611618, -0.0052393614, -0.0012322346, -0.0046640914, -0.009103778, -0.012995449, -0.016341377, -0.019139512, -0.021390686, -0.023094678, -0.02425169, -0.024861593, -0.024925038, -0.024440864, -0.023409752, -0.021832008, -0.019706676, -0.017034484, -0.013815617, -0.010049413, -0.0057358756, -0.0015931259, -0.004153365, -0.013367393, -0.018386738)
@@ -3974,14 +3974,14 @@ fill_volume = 1.2976575591601431
 pin_error = 1.1675045289262845e-12
 input_digest = "691382779"
 
-[sub_resource type="Resource" id="Resource_d8etd"]
+[sub_resource type="Resource" id="Resource_4bl1w"]
 script = ExtResource("18_ddf1r")
 id = 2
 source_key = "Pasture3DRoadGroup/Road2"
 label = "Road2"
 plan = PackedVector2Array(-5.48279, -126.762085, -62.684303, -118.764145, -128.14133, -93.360886, -142.1078, -34.12961, -144.29482, 45.874344, -101.83531, 91.153625, -65.154755, 121.402435, 10.186657, 119.58669, 96.430984, 124.10649)
 cum = PackedFloat32Array(0, 57.757946, 127.97153, 188.82715, 268.861, 330.93372, 378.47794, 453.84125, 540.2039)
-alignment = SubResource("Resource_hfq5s")
+alignment = SubResource("Resource_qarkm")
 lanes = [{
 "direction": 1,
 "index": 0,
@@ -4002,7 +4002,7 @@ lanes = [{
 corridor_half_width = 21.833333333333336
 surfaces = [[0.0, 540.2047, &"1"]]
 
-[sub_resource type="Resource" id="Resource_8vs1c"]
+[sub_resource type="Resource" id="Resource_o34g3"]
 script = ExtResource("19_vfv27")
 z = PackedFloat32Array(-2.5801147e-18, -3.0101338e-18, -3.941842e-18, -5.5305234e-18, -8.040958e-18, -1.1891552e-17, -1.7724072e-17, -2.6510603e-17, -3.9715568e-17, -5.95398e-17, -8.928733e-17, -1.339161e-16, -2.008642e-16, -3.0128967e-16, -4.519301e-16, -6.778922e-16, -1.0168364e-15, -1.5252533e-15, -2.287879e-15, -3.431818e-15, -5.1477263e-15, -7.721589e-15, -1.1582382e-14, -1.7373572e-14, -2.6060358e-14, -3.9090537e-14, -5.86358e-14, -8.7953706e-14, -1.3193056e-13, -1.9789584e-13, -2.9684377e-13, -4.4526565e-13, -6.6789846e-13, -1.0018477e-12, -1.5027715e-12, -2.2541574e-12, -3.3812363e-12, -5.0718544e-12, -7.607781e-12, -1.141167e-11, -1.7117504e-11, -2.5676255e-11, -3.851438e-11, -5.777157e-11, -8.665735e-11, -1.2998602e-10, -1.9497903e-10, -2.9246855e-10, -4.3870282e-10, -6.580543e-10, -9.870814e-10, -1.4806222e-09, -2.2209334e-09, -3.3314005e-09, -4.997101e-09, -7.495651e-09, -1.1243476e-08, -1.6865215e-08, -2.5297823e-08, -3.7946734e-08, -5.69201e-08, -8.538015e-08, -1.2807023e-07, -1.9210532e-07, -2.8815796e-07, -4.3223696e-07, -6.4835547e-07, -9.725333e-07, -1.4587999e-06, -2.1882e-06, -3.2823002e-06, -4.9234504e-06, -7.3851756e-06, -1.1077764e-05, -1.6616646e-05, -2.492497e-05, -3.7387454e-05, -5.608118e-05, -8.412177e-05, -0.00012618265, -0.00018927398, -0.00028391098, -0.00042586646, -0.0006387997, -0.00095819955, -0.0014372993, -0.002155949, -0.0032339233, -0.0048508854, -0.0072763283, -0.010914492, -0.016371738, -0.024557607, -0.03683641, -0.05525462, -0.082881935, -0.124322906, -0.18648435, -0.21400544, -0.048496693, 0.11017991, 0.26374647, 0.41349608, 0.5604015, 0.7051967, 0.84843844, 0.9905532, 1.1318728, 1.2726624, 1.4131426, 1.5535078, 1.6939433, 1.8346395, 1.9758096, 2.1177058, 2.2606416, 2.405018, 2.5513566, 2.7003334, 2.8527527, 3.009366, 3.1707323, 3.3372457, 3.5091324, 3.6864474, 3.8692153, 4.057383, 4.2507105, 4.4491878, 4.6531672, 4.862095, 5.07555, 5.292859, 5.5132475, 5.7359877, 5.9602165, 6.18443, 6.4080644, 6.6320877, 6.857047, 7.083243, 7.31124, 7.542018, 7.775565, 8.012555, 8.254177, 8.500262, 8.750248, 9.003136, 9.258136, 9.513136, 9.768136, 10.023136, 10.278136, 10.533136, 10.7881365, 11.043137, 11.298137, 11.553137, 11.808136, 12.063137, 12.318136, 12.573137, 12.828136, 13.083136, 13.338136, 13.593136, 13.848135, 14.103135, 14.358135, 14.613135, 14.868135, 15.123135, 15.378135, 15.633135, 15.888134, 16.143135, 16.398132, 16.653133, 16.90813, 17.163132, 17.418129, 17.67313, 17.928127, 18.183128, 18.438126, 18.693127, 18.948124, 19.203125, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.44176, 19.441755, 19.186756, 18.931757, 18.676758, 18.421759, 18.16676, 17.91176, 17.656761, 17.401762, 17.146763, 16.891764, 16.636765, 16.381765, 16.126766, 15.871767, 15.616767, 15.361767, 15.106768, 14.851767, 14.596767, 14.341768, 14.086767, 13.831768, 13.576768, 13.321768, 13.066769, 12.811768, 12.556768, 12.301769, 12.046768, 11.791769, 11.536769, 11.281769, 11.026769, 10.771769, 10.516768, 10.261768, 10.006768, 9.751768, 9.496768, 9.241768, 8.986768, 8.731768, 8.476768, 8.221767, 7.9667673, 7.711767, 7.456767, 7.201767, 6.946767, 6.6917667, 6.4399624, 6.1950393, 5.9565535, 5.723891, 5.4970846, 5.276778, 5.0641017, 4.8607163, 4.6673, 4.483886, 4.3096795, 4.1435466, 3.9840965, 3.8299217, 3.679758, 3.5325978, 3.3876858, 3.244455, 3.1024806, 2.9614422, 2.8210983, 2.6812658, 2.5418046, 2.4026053, 2.263581, 2.1246593, 1.9857762, 1.8468714, 1.7078825, 1.56874, 1.4293616, 1.2896452, 1.1494602, 1.008637, 0.8669519, 0.7241093, 0.57971627, 0.43324968, 0.28401244, 0.13107479, -0.026803564, -0.19127768, -0.19825204, -0.13216804, -0.08811203, -0.05874135, -0.0391609, -0.026107267, -0.017404845, -0.011603231, -0.0077354866, -0.005156991, -0.003437994, -0.002291996, -0.0015279974, -0.0010186649, -0.0006791099, -0.00045273989, -0.0003018266, -0.00020121773, -0.00013414514, -8.943009e-05, -5.962005e-05, -3.97467e-05, -2.64978e-05, -1.7665201e-05, -1.17767995e-05, -7.851199e-06, -5.234133e-06, -3.489422e-06, -2.3262812e-06, -1.5508543e-06, -1.0339029e-06, -6.892686e-07, -4.5951242e-07, -3.0634163e-07, -2.0422776e-07, -1.3615184e-07, -9.07679e-08, -6.051193e-08, -4.0341284e-08, -2.6894188e-08, -1.7929457e-08, -1.195297e-08, -7.968646e-09, -5.312431e-09, -3.5416203e-09, -2.36108e-09, -1.5740532e-09, -1.0493688e-09, -6.9957923e-10, -4.6638615e-10, -3.1092412e-10, -2.0728276e-10, -1.3818852e-10, -9.2125675e-11, -6.141712e-11, -4.0944748e-11, -2.7296498e-11, -1.8197667e-11, -1.2131778e-11, -8.0878524e-12, -5.3919018e-12, -3.594601e-12, -2.3964006e-12, -1.5976002e-12, -1.0650667e-12, -7.100445e-13, -4.73363e-13, -3.155753e-13, -2.1038355e-13, -1.4025571e-13, -9.350381e-14, -6.233588e-14, -4.1557256e-14, -2.7704838e-14, -1.8469894e-14, -1.2313264e-14, -8.208843e-15, -5.472562e-15, -3.6483746e-15, -2.4322498e-15, -1.6214997e-15, -1.0809998e-15, -7.2066627e-16, -4.8044397e-16, -3.2029566e-16, -2.1353002e-16, -1.4235273e-16, -9.4900896e-17, -6.3265883e-17, -4.2175187e-17, -2.8113675e-17, -1.8737775e-17, -1.2484839e-17, -8.312708e-18, -5.5260285e-18, -3.660353e-18, -2.404737e-18, -1.5499101e-18, -9.534014e-19, -5.1579297e-19, -1.6415002e-19, 1.6013454e-19, 5.111082e-19, 9.472665e-19, 1.5413024e-18, 2.392222e-18, 3.641845e-18, 5.498442e-18, 8.2714455e-18, 1.2423024e-17, 1.8645106e-17, 2.7974706e-17, 4.1966754e-17, 6.295326e-17, 9.4431984e-17, 1.4164937e-16, 2.1247499e-16, 3.1871311e-16, 4.780701e-16, 7.171054e-16, 1.0756583e-15, 1.6134875e-15, 2.4202315e-15, 3.6303472e-15, 5.4455206e-15, 8.168281e-15, 1.22524205e-14, 1.8378631e-14, 2.7567946e-14, 4.1351918e-14, 6.202788e-14, 9.304181e-14, 1.3956272e-13, 2.0934408e-13, 3.1401612e-13, 4.710242e-13, 7.065363e-13, 1.0598045e-12, 1.5897067e-12, 2.38456e-12, 3.5587856e-12, 3.55437e-12, 4.1423497e-12, 5.4207207e-12, 7.602545e-12, 1.105146e-11, 1.6342285e-11, 2.4356824e-11, 3.6430834e-11, 5.4576645e-11, 8.1818566e-11, 1.2269691e-10, 1.8402474e-10, 2.7602334e-10, 4.1402584e-10, 6.210326e-10, 9.315448e-10, 1.3973146e-09, 2.09597e-09, 3.1439538e-09, 4.71593e-09, 7.0738944e-09, 1.061084e-08, 1.5899996e-08, 1.5801009e-08, 1.2933172e-08, 9.219049e-09, 6.1475616e-09, 4.0996e-09, 2.7331537e-09, 1.8221025e-09, 1.2147349e-09, 8.0982315e-10, 5.398821e-10, 3.5992143e-10, 2.3994765e-10, 1.599651e-10, 1.06643396e-10, 7.10956e-11, 4.739707e-11, 3.1598044e-11, 2.1065363e-11, 1.40435745e-11, 9.362382e-12, 6.2415875e-12, 4.161058e-12, 2.7740388e-12, 1.8493592e-12, 1.2329061e-12, 8.219374e-13, 5.479583e-13, 3.6530555e-13, 2.4353704e-13, 1.6235803e-13, 1.0823868e-13, 7.215912e-14, 4.8106084e-14, 3.2070724e-14, 2.1380485e-14, 1.4253657e-14, 9.502439e-15, 6.33496e-15, 4.2233063e-15, 2.8155373e-15, 1.8770248e-15, 1.2513497e-15, 8.342331e-16, 5.561554e-16, 3.7077028e-16, 2.4718018e-16, 1.6478678e-16, 1.0985785e-16, 7.323857e-17, 4.882572e-17, 3.255048e-17, 2.170032e-17, 1.4466881e-17, 9.644588e-18, 6.4297254e-18, 4.286484e-18, 2.8576557e-18, 1.9051039e-18, 1.2700691e-18, 8.467127e-19, 5.644751e-19, 3.7631672e-19, 2.508778e-19, 1.6725186e-19, 1.1150123e-19, 7.433416e-20, 4.955611e-20, 3.3037406e-20, 2.2024938e-20, 1.4683291e-20, 9.788862e-21, 6.5259086e-21, 4.3506057e-21, 2.900404e-21, 1.9336025e-21, 1.2890683e-21, 8.593788e-22, 5.729191e-22, 3.8194608e-22, 2.5463072e-22, 1.6975382e-22, 1.131692e-22, 7.544613e-23, 5.0297418e-23, 3.3531612e-23, 2.2354407e-23, 1.4902938e-23, 9.935293e-24, 6.6235286e-24, 4.4156856e-24, 2.9437907e-24, 1.9625272e-24, 1.3083514e-24, 8.722343e-25, 5.814895e-25, 3.8765966e-25, 2.5843976e-25, 1.7229318e-25, 1.1486212e-25, 7.6574747e-26, 5.1049827e-26, 3.403322e-26, 2.268881e-26, 1.5125873e-26, 1.00839165e-26, 6.722612e-27, 4.4817414e-27, 2.9878274e-27, 1.991885e-27, 1.3279234e-27, 8.852822e-28, 5.9018804e-28, 3.9345868e-28, 2.6230576e-28, 1.7487051e-28, 1.1658033e-28, 7.772021e-29, 5.1813474e-29, 3.4542315e-29, 2.3028212e-29, 1.5352143e-29, 1.0234762e-29, 6.823175e-30, 4.5487832e-30, 3.032522e-30, 2.0216814e-30, 1.3477876e-30, 8.98525e-31, 5.990167e-31, 3.9934444e-31, 2.6622963e-31, 1.7748642e-31, 1.1832427e-31, 7.888284e-32, 5.2588555e-32, 3.505904e-32, 2.3372695e-32, 1.5581798e-32, 1.0387865e-32, 6.9252435e-33, 4.616829e-33, 3.077886e-33, 2.051924e-33, 1.3679495e-33, 9.119663e-34, 6.0797757e-34, 4.0531835e-34, 2.7021224e-34, 1.8014148e-34, 1.2009431e-34, 8.0062874e-35, 5.337525e-35, 3.55835e-35, 2.3722333e-35, 1.5814887e-35, 1.0543259e-35, 7.02884e-36, 4.6858933e-36, 3.123929e-36, 2.0826194e-36, 1.388413e-36, 9.256086e-37, 6.1707243e-37, 4.1138154e-37, 2.742544e-37, 1.8283626e-37, 1.2189084e-37, 8.126056e-38, 5.417371e-38, 3.6115808e-38, 2.407721e-38, 1.6051479e-38, 1.0700996e-38, 7.134012e-39, 4.756028e-39, 3.170717e-39, 2.113857e-39, 1.409307e-39, 9.39642e-40, 6.26585e-40, 4.17958e-40, 2.78993e-40, 1.86525e-40, 1.25146e-40, 8.4622e-41, 5.8204e-41, 4.1487e-41, 3.1682e-41, 2.7159e-41)
 ground = PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6.680419e-14, 6.288625e-14, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3.4673108e-13, 7.3461e-13, 3.557511e-09, 1.7622286e-08, 3.836416e-08, 5.9802616e-08, 8.012796e-08, 1.0122164e-07, 1.2200985e-07, 1.3785858e-07, 3.4112809e-06, 0.00026275925, 0.0029560358, 0.014539839, 0.040282622, 0.08066376, 0.1366669, 0.20884779, 0.2936535, 0.39238, 0.5077862, 0.62840784, 0.75091255, 0.9089604, 1.0743256, 1.2561944, 1.4490452, 1.6474335, 1.8544793, 2.0814073, 2.2839017, 2.4452357, 2.6184301, 2.800046, 2.977506, 3.1480815, 3.3505554, 3.5411785, 3.7259681, 3.956185, 4.206333, 4.4763637, 4.7393084, 5.0100565, 5.2464886, 5.4594793, 5.6417937, 5.8719935, 6.3016534, 6.7373567, 7.081723, 7.3492904, 7.574984, 7.8714147, 8.187516, 8.510393, 8.822276, 9.137069, 9.362533, 9.591252, 9.884798, 10.215953, 10.509796, 10.714855, 10.986101, 11.561425, 12.286846, 12.811862, 13.194408, 13.82771, 14.753536, 15.7231045, 16.632772, 17.552273, 18.490297, 19.212914, 19.593811, 19.979607, 20.305937, 20.637352, 21.308681, 21.696934, 22.472494, 23.600636, 24.842957, 26.111357, 27.209255, 28.014002, 28.583206, 29.028347, 29.623968, 30.08791, 30.321215, 30.33511, 30.181864, 30.136292, 30.157677, 30.313229, 30.3586, 30.126238, 29.73235, 29.413864, 29.126833, 28.659864, 28.182894, 27.602879, 27.043173, 26.238592, 25.489119, 24.88975, 24.700005, 24.401264, 23.971773, 23.331465, 22.755865, 22.201536, 21.727634, 21.14348, 20.614883, 20.165928, 19.437088, 18.573889, 17.94101, 17.340946, 16.842773, 16.378695, 15.71109, 14.995953, 14.484675, 14.023732, 13.626611, 13.332949, 12.772187, 12.275751, 11.937695, 11.529306, 10.958914, 10.431818, 9.980621, 9.618594, 9.155696, 8.619974, 8.17893, 7.7713094, 7.375772, 7.1204915, 6.8374777, 6.5533037, 6.2948637, 6.022352, 5.743635, 5.4208446, 5.0863724, 4.7570157, 4.43818, 4.136892, 3.7990613, 3.4783216, 3.1229339, 2.777476, 2.4381833, 2.194372, 1.9487298, 1.7018229, 1.4803145, 1.2773415, 1.0702289, 0.86004776, 0.65134794, 0.44556406, 0.28555754, 0.16414024, 0.08599333, 0.036842946, 0.011945013, 0.002066763, 6.6440098e-06, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.0832875e-13, 1.063063e-11, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9.759619e-11, 4.822882e-08, 3.2414118e-08, 1.8010901e-08, 5.3632445e-09, 6.3984183e-12, 1.0507197e-11, 7.8100764e-13, 6.7442987e-16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -4015,14 +4015,14 @@ cut_volume = 306.4775603508122
 fill_volume = 473.1939235830009
 input_digest = "301053310"
 
-[sub_resource type="Resource" id="Resource_khhkb"]
+[sub_resource type="Resource" id="Resource_pm4ug"]
 script = ExtResource("18_ddf1r")
 id = 3
 source_key = "Pasture3DRoadGroup/Road"
 label = "Road"
 plan = PackedVector2Array(-93.87408, -181.5064, -95.41079, -80.36828, -95.32037, -79.13831, -95.26695, -78.713425, -95.207855, -78.42111, -92.41582, -64.96709, -91.06628, -60.790913, -89.26465, -56.839817, -88.1644, -55.03463, -86.91522, -53.38886, -85.50517, -51.936893, -84.73607, -51.29433, -83.922264, -50.71311, -82.24597, -49.720318, -80.56364, -48.915134, -78.875084, -48.262665, -77.18015, -47.72801, -70.33332, -46.06973, -66.86732, -45.040268, -65.12309, -44.35333, -63.371162, -43.505062, -61.61136, -42.460567, -59.84352, -41.18496, -58.067482, -39.64334, -56.283077, -37.800816, -55.450943, -36.790478, -54.73952, -35.765575, -54.143314, -34.72836, -53.65682, -33.681084, -53.274536, -32.626, -52.990967, -31.565353, -52.800613, -30.501408, -52.697983, -29.436405, -52.73386, -27.31225, -53.054615, -25.210905, -53.61625, -23.15038, -54.37477, -21.148695, -56.30649, -17.393906, -58.49783, -14.0906515, -60.596832, -11.383059, -61.501717, -10.297671, -62.25154, -9.415243, -62.42698, -9.214467, -62.62393, -8.9998, -62.841583, -8.771523, -63.07913, -8.5299225, -63.610634, -8.007874, -64.21193, -7.4359217, -65.597885, -6.151359, -67.18492, -4.6943536, -74.502625, 2.495734, -78.01429, 6.6543627, -79.5511, 8.81116, -80.872475, 10.995455, -81.926346, 13.189129, -82.3367, 14.283819, -82.66066, 15.374062, -82.89171, 16.457592, -83.02334, 17.53214, -83.04904, 18.595446, -83.02014, 19.122175, -82.96232, 19.645243, -82.61083, 21.69867, -82.14769, 23.69149, -81.58917, 25.626257, -80.95158, 27.505505, -79.504326, 31.107632, -77.936264, 34.518215, -74.959076, 40.846176, -73.81063, 43.80424, -73.37846, 45.240704, -73.06273, 46.652172, -68.939064, 97.51442, -90.097694, 122.17719, -120.59693, 120.02364, -406.8598, 112.32531)
 cum = PackedFloat32Array(0, 101.14979, 102.38307, 102.8113, 103.10953, 116.850204, 121.23902, 125.58149, 127.69555, 129.7617, 131.78568, 132.78787, 133.78792, 135.73615, 137.60124, 139.41147, 141.18872, 148.2335, 151.84917, 153.72379, 155.67027, 157.7167, 159.89671, 162.2485, 164.81346, 166.12236, 167.36998, 168.56635, 169.7211, 170.8433, 171.94121, 173.02205, 174.09198, 176.21643, 178.34212, 180.47781, 182.6184, 186.84094, 190.80496, 194.23088, 195.644, 196.80197, 197.0686, 197.35994, 197.67535, 198.01418, 198.75919, 199.58905, 201.47876, 203.63318, 213.89214, 219.33511, 221.98343, 224.5363, 226.96999, 228.13907, 229.27643, 230.38432, 231.4669, 232.53052, 233.05804, 233.5843, 235.6676, 237.71353, 239.7273, 241.71176, 245.59375, 249.34753, 256.34088, 259.51407, 261.01413, 262.46048, 313.48962, 345.98486, 376.56003, 662.9264)
-alignment = SubResource("Resource_8vs1c")
+alignment = SubResource("Resource_o34g3")
 lanes = [{
 "direction": 1,
 "index": 0,
@@ -4043,9 +4043,9 @@ lanes = [{
 corridor_half_width = 26.694735844930015
 surfaces = [[0.0, 676.98627, &"0"]]
 
-[sub_resource type="Resource" id="Resource_uu3f1"]
+[sub_resource type="Resource" id="Resource_g2iib"]
 script = ExtResource("20_cyndd")
-runs = Array[ExtResource("18_ddf1r")]([SubResource("Resource_d8etd"), SubResource("Resource_khhkb")])
+runs = Array[ExtResource("18_ddf1r")]([SubResource("Resource_4bl1w"), SubResource("Resource_pm4ug")])
 links = [{
 "at": Vector2(-95.01806, -106.21571),
 "runs": PackedInt32Array(2, 3),
@@ -4055,7 +4055,7 @@ links = [{
 "runs": PackedInt32Array(2, 3),
 "s": PackedFloat32Array(360.04807, 329.51468)
 }]
-built_at = "2026-09-01T12:25:56"
+built_at = "2026-09-01T13:29:25"
 
 [sub_resource type="Resource" id="Resource_u85sn"]
 script = ExtResource("11_ii4qc")
@@ -4070,15 +4070,15 @@ speed_limit = nan
 [sub_resource type="Resource" id="Resource_str7x"]
 resource_name = "Road"
 script = ExtResource("14_ii4qc")
-last_alignment = SubResource("Resource_hfq5s")
+last_alignment = SubResource("Resource_qarkm")
 metadata/_custom_type_script = "uid://d1q35xltb5ltv"
 
 [sub_resource type="Curve3D" id="Curve3D_vfv27"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 26.842646, 0.98463, -250.55266, 0, 0, 0, 0, 0, 0, -30.358868, 0.98477846, -242.55472, 0, 0, 0, 0, 0, 0, -95.81589, 0.9512115, -217.15146, 0, 0, 0, 0, 0, 0, -109.782364, 0.9513321, -157.92018, 0, 0, 0, 0, 0, 0, -111.969376, 0.9667961, -77.91623, 0, 0, 0, 0, 0, 0, -69.50987, 0.99931514, -32.636948, 0, 0, 0, 0, 0, 0, -32.82932, 0.9999928, -2.3881378, 0, 0, 0, 0, 0, 0, 42.512093, 0.97308826, -4.2038803, 0, 0, 0, 0, 0, 0, 128.75642, 0.99585116, 0.31591797),
-"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0)
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, 26.842646, 0.98463, -250.55266, 0, 0, 0, 0, 0, 0, -30.358868, 0.98477846, -242.55472, 0, 0, 0, 0, 0, 0, -95.81589, 0.9512115, -217.15146, 0, 0, 0, 0, 0, 0, -109.782364, 0.9513321, -157.92018, 0, 0, 0, 0, 0, 0, -111.969376, 0.9667961, -77.91623, 0, 0, 0, 0, 0, 0, -69.50987, 0.99931514, -32.636948, 0, 0, 0, 0, 0, 0, -32.82932, 0.9999928, -2.3881378, 0, 0, 0, 0, 0, 0, 42.512093, 0.97308826, -4.2038803, 0, 0, 0, 0, 0, 0, 128.75642, 0.99585116, 0.31591797, 0, 0, 0, 0, 0, 0, 225.21362, 0.9999928, -2.3344498, 0, 0, 0, 0, 0, 0, 388.62772, 0.9999928, -2.3014069, 0, 0, 0, 0, 0, 0, 417.15164, 0.9999928, -92.30986, 0, 0, 0, 0, 0, 0, 429.4429, 0.9999928, -219.53351, 0, 0, 0, 0, 0, 0, 412.1563, 0.9999928, -241.99326, 0, 0, 0, 0, 0, 0, 368.72314, 0.9999928, -223.22556, 0, 0, 0, 0, 0, 0, 344.825, 9.08165, -216.2941, 0, 0, 0, 0, 0, 0, 290.8855, 0.9999928, -231.68295, 0, 0, 0, 0, 0, 0, 256.91055, 8.959984, -288.68692, 0, 0, 0, 0, 0, 0, 207.7426, 0.9999928, -315.08844),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 }
-point_count = 9
+point_count = 19
 
 [sub_resource type="Resource" id="Resource_wv1iv"]
 script = ExtResource("11_ii4qc")
@@ -4089,7 +4089,7 @@ speed_limit = nan
 [sub_resource type="Resource" id="Resource_dtfre"]
 resource_name = "Road"
 script = ExtResource("14_ii4qc")
-last_alignment = SubResource("Resource_8vs1c")
+last_alignment = SubResource("Resource_o34g3")
 metadata/_custom_type_script = "uid://d1q35xltb5ltv"
 
 [sub_resource type="Resource" id="Resource_tyjy4"]
@@ -4260,7 +4260,7 @@ run_ids = {
 "Road2": 1
 }
 next_run_id = 4
-runtime = SubResource("Resource_uu3f1")
+runtime = SubResource("Resource_g2iib")
 metadata/_custom_type_script = "uid://cft8dk3ton2yu"
 
 [node name="Pasture3DRoadGroup" type="Node3D" parent="Pasture3DRoadNetwork" unique_id=2146573177]
