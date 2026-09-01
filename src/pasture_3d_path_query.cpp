@@ -175,7 +175,21 @@ Pasture3DPathHit Pasture3DPathGeom::resolve(double p_x, double p_z, const int *p
 		const double dx = p_x - (ax + abx * f);
 		const double dz = p_z - (az + abz * f);
 		const double d = std::sqrt(dx * dx + dz * dz);
-		if (d < best) {
+		// ---- THE TIE RULE: on an exact tie, the LOWER SEGMENT INDEX wins ----
+		//
+		// Without the second clause the winner of a tie is whichever candidate the caller happened to
+		// offer first, and the indexed query offers them in BUCKET order while `nearest_brute` offers
+		// them in segment order. So the two disagreed on exactly the cells that are equidistant from two
+		// segments — the diagonal bisector at every corner of a path, and the whole midline of a hairpin.
+		//
+		// `distance` is identical either way, which is what made it invisible: only `s` moves, and with
+		// it the half-width read at that `s`, so a corridor MASK steps by the width difference on a
+		// single cell while the distance field it came from is exact. The GPU query (P2d) found it,
+		// because a per-pixel brute-force loop is a third candidate order.
+		//
+		// Comparing doubles for equality is right here and only here: a tie that is not bit-identical is
+		// already decided by `<`, and this clause exists precisely for the one that is.
+		if (d < best || (d == best && si < best_seg)) {
 			best = d;
 			best_seg = si;
 			best_f = f;

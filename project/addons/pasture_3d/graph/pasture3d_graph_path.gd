@@ -261,7 +261,12 @@ func _resolve(p_at: Vector2, p_candidates: PackedInt32Array) -> Dictionary:
 		var len2 := ab.length_squared()
 		var f: float = 0.0 if len2 <= 0.0 else clampf((p_at - a).dot(ab) / len2, 0.0, 1.0)
 		var d := p_at.distance_to(a + ab * f)
-		if d < best:
+		# THE TIE RULE: on an exact tie the LOWER SEGMENT INDEX wins, so the answer does not depend on the
+		# order the caller offered candidates in — which the index and `nearest_brute` disagree about. See
+		# Pasture3DPathGeom::resolve in pasture_3d_path_query.cpp, where the same rule is written at
+		# length: `distance` is identical either way and only `s` moves, so the symptom is a corridor mask
+		# stepping on one cell beside a distance field that is exact.
+		if d < best or (d == best and (best_seg < 0 or si < best_seg)):
 			best = d
 			best_seg = si
 			best_f = f

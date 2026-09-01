@@ -1,7 +1,7 @@
 # Pasture3D Graph Geometry Ports Specification
 
 **Document:** `PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md`
-**Status:** **P2a, P2b and P2c complete** (2026-08-31); P2d (GPU) is the remainder. See §7.
+**Status:** **P2 complete** — P2a–P2d, 2026-08-31. Road Grade on the GPU is the one named remainder; see §7.
 **Target:** Pasture3D Terrain Graph (Godot 4.7 GDExtension, C++20, GDScript)
 **Supersedes:** the "P2 native tier" line in `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md` §P2, which described a
 `BrushModStep::ROAD` that does not exist (see §2.4)
@@ -304,11 +304,46 @@ cloud is the same table entry with the ordering ignored: points and one float of
 Reserving it costs one int. Adding it later means changing what `in_g` indexes, in a format that by then
 has saved graphs in it. Scatter, seeding and placement nodes are the customers.
 
-### 5.5 GPU (P2d)
+### 5.5 GPU (BUILT, P2d)
 
-The geometry table becomes an SSBO; the query is a per-pixel loop over candidate segments. Deferred until
-the CPU tier is proven, and gated by `RoadGpuParityGate` against the CPU op — never against GDScript
-directly, so a disagreement localises to one hop.
+The geometry table is an SSBO at binding 4: one flat float array per table entry, holding the already-built
+ring, a half-width per vertex and the prefix-summed arc length. Uploaded once per entry and shared by every
+dispatch naming it, so fanout is free on the GPU for the same reason it is free on the CPU. Packed as
+floats rather than as a struct array because std430 alignment on a `vec2` array differs between drivers,
+and a layout that is right on one machine and padded on another produces a plausible road.
+
+**The shader walks EVERY segment where the CPU walks the bucket index, and that is deliberate.** The index
+is an acceleration whose entire justification is that it returns the same answer as brute force. On the GPU
+the per-pixel loop is already parallel, while a bucket walk would be a divergent gather with a
+ring-stopping rule to get wrong. So the shader is the definition and the CPU is the optimisation of it,
+which makes `RoadGpuParityGate` a comparison between an optimisation and the thing it optimises rather than
+between two optimisations that could be wrong together.
+
+Gated against the CPU op, never against GDScript directly, so a disagreement localises to one hop.
+
+#### What the shader does not do, and therefore refuses
+
+Each of these returns empty from `graph_eval_grid_gpu`, and the caller takes the CPU evaluator:
+
+- **`GRAPH_OP_ROAD_GRADE`.** It reads a per-sample profile as well as the ring and writes six channels,
+  and the GPU plan holds one buffer per slot. Named remainder, not an oversight — and it means the §8
+  flagship wiring still runs on the CPU.
+- **A closed `PATH_MASK`.** The region rule is even-odd winding and is not in the shader. Answered with the
+  corridor rule it would be two ribbons along a boundary with a hole down the middle.
+- **Any secondary channel.** P2b gave the CPU program channels; this path has none, so a program asking for
+  `s` would be served `distance`. The guard is at the top of `eval_grid`, before anything is planned.
+
+#### The tie rule, which P2d is how we found
+
+Two segments exactly equidistant from a cell were resolved by whichever candidate the caller offered
+first — and the indexed query offers them in bucket order while `nearest_brute` offers them in segment
+order. `distance` is identical either way, so only `s` moves, and with it the half-width read at that `s`:
+the symptom is a corridor mask stepping by the width difference on a single cell, beside a distance field
+that is exact. It survived every CPU gate because both CPU paths shared the index's ordering.
+
+The GPU's per-pixel brute-force loop is a third candidate order, which is what exposed it. `resolve` now
+breaks a tie on the LOWER SEGMENT INDEX, in both the C++ and the GDScript, so the answer no longer depends
+on the order candidates arrive in.
 
 ---
 
@@ -363,7 +398,7 @@ For `ROAD_GRADE` specifically: a road crossing a hole must not fill it.
 | **P2a** ✅ 2026-08-31 | Tier-2 kernels + bindings, all on `Pasture3DUtil`: `path_query_grid` and `path_mask_grid` (`src/pasture_3d_path_query.cpp`), `road_grade_grid` (`src/pasture_3d_road_grade.cpp`). Production `path_distance` / `path_mask` / `road_grade` nodes that call them and fail fast; `road_source` promoted as-is, having no mathematics to move. `Pasture3DRoadGrader.grade` now forwards to the kernel, so the brush and the graph are ONE grader rather than two that agree (§6.2), and the GDScript body it replaced is `grade_reference`, the oracle. `Pasture3DGraphPath.closed` and region masks (§8.1). The `Roads` palette category returns with four nodes. | `RoadNativeParityGate` — native vs the four `dev_*` oracles on the `RoadGraphGate` fixtures, to the gate's existing thresholds; the brush's cut and the graph's still agree to 0.0000 m; a control that the kernels are actually being called (a missing binding must fail, not fall back). |
 | **P2b** ✅ 2026-08-31 | Multi-output channels in the program (§5.3): `GraphProgram.out_count` and `in0_port..in3_port`, lazy per-channel aux buffers, `buf_of(slot, channel)` on every operand read, and the port ≥ 1 bail narrowed to `Pasture3DTerrainGraph.native_out_count`. `GRAPH_OP_EROSION` writes all five channels and computes its diagnostics only when one is wired. | `GraphChannelLoweringGate` — all five Erosion channels lower natively and match the GDScript evaluator (worst 3.8e-6 m on height, 0.0 on flow); controls: no channel is constant, no two channels are identical, a Lake Flooding port-1 wire still refuses while its port-0 sibling lowers. |
 | **P2c** ✅ 2026-08-31 | The geometry table (`GraphGeomEntry`, `GraphProgram::geom`, `in_g`) and the three ops in `graph_eval_grid` (§4). `GRAPH_BLEND_MIX` on CPU and GPU (§6.1), which also fixed the GPU BLEND shader ignoring its mask port entirely. `blocks_native()` deleted from all four road nodes and from Blend. The kernels gained `*_geom` overloads so a road is indexed once per bake rather than once per consumer, and the `Pasture3DUtil` entry points became those overloads with a build in front — one implementation, two callers. | `GraphGeometryLoweringGate`, its own gate rather than an extension of `GraphCppParityGate` (which carries no road fixtures): [A] a path reaches the lowered program, [B] both mask rules, [C] all six grader channels, [D] the §8 wiring end to end, worst 0.0000005 m, [E] fanout is one table entry. Controls: an unresolved Road Source reads 10000 m and never 0; the MIX does not collapse to either of its inputs; two roads stay two entries. |
-| **P2d** | GPU: geometry SSBO, the query in the compute shader. The CPU side refuses cleanly today: the three ops fall to `graph_eval_grid_gpu`'s `default:` and the whole graph drops to the CPU evaluator, which is the right answer while the shader does not exist. | `RoadGpuParityGate` (non-headless), GPU vs the CPU op. P2c's GPU BLEND mask fix is unverified on hardware for the same reason and wants the same run. |
+| **P2d** ✅ 2026-08-31 | GPU: the geometry SSBO at binding 4 and the query in the compute shader (modes 26/27), shared per table entry. Road Grade, a closed mask and any secondary channel refuse (§5.5). Found and fixed the segment-tie ordering bug in `resolve`, on both the C++ and the GDScript side. | `RoadGpuParityGate` (non-headless, RTX 3070): [A] distance 0.000004 m and the `max_distance` clamp, [B] the corridor mask exact across four parameter sets, [C] the empty path reads 10000 m and an empty inverted mask reads 1, [D] all three refusals, [E] one road shared and two roads kept apart. `GraphGpuParityGate` gained [F], which is what verifies P2c's GPU BLEND mask fix: every masked mode agrees, with a control that the mask changed the answer at all. |
 
 **P2a shipped alone**, and it is the phase that took the road nodes back out of the developer flag: a
 production node calling a kernel satisfies the separation rule the day it exists, even while the graph
@@ -378,6 +413,12 @@ GDScript.
 native in themselves after P2a; what P2c removed is the graph-wide bail, so a road no longer takes the
 erosion and the noise beside it down to GDScript with it. Both rows of the acceleration guide's
 exceptions table are now empty.
+
+**P2d earned more than a GPU path.** The shader itself matters least: a distance field the CPU already
+produces, faster. What it bought was a THIRD implementation of the same query, and the third
+implementation is what found a tie-ordering bug that two agreeing implementations had shared since the
+index was written. That is the argument for keeping `nearest_brute` in production, made again from the
+other direction — and it is worth remembering the next time a parity gate looks like a formality.
 
 ---
 
