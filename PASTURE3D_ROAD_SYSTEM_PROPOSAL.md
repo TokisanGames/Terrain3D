@@ -436,7 +436,7 @@ defaults to 10 km.
 
 ### P7b implementation notes (done 2026-08-31)
 
-**The four road nodes are visible without a native kernel, and that is a listed debt.** The house rule is
+**The four road nodes are `[Dev/GD]` and hidden until P2 gives them a kernel.** The house rule is
 that a node whose mathematics runs in GDScript is a `[Dev/GD]` node hidden behind
 `pasture_3d/developer/enable_gdscript_reference_nodes` (`PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md`
 §3.0, restated as Step 0 of the acceleration playbook). `road_source`, `path_distance`, `path_mask` and
@@ -444,10 +444,20 @@ that a node whose mathematics runs in GDScript is a `[Dev/GD]` node hidden behin
 there is no `GRAPH_OP_PATH_*` — nor a PATH wire type — on the native side to call. Hiding them would hide
 the road feature rather than hide an unaccelerated implementation of it.
 
-They are therefore entered in the exceptions table in the playbook's Step 0, with P2 as the work that
-clears them: native `BrushModStep::ROAD`, then the graph ops, with the current GDScript demoted to the
-`[Dev/GD]` oracle the parity gate compares against. Until then note the cost honestly: `blocks_native()`
-is graph-wide, so one Road Source drops the WHOLE graph to the CPU evaluator, erosion and noise included.
+So on 2026-08-31 they became `dev_road_source`, `dev_path_distance`, `dev_path_mask` and `dev_road_grade`
+— `Pasture3DGraphNodeDev*`, files `pasture3d_graph_node_dev_*.gd`, category `Dev / Reference`, invisible
+unless `pasture_3d/developer/enable_gdscript_reference_nodes` is on. The `Roads` category was removed
+rather than left standing empty.
+
+The argument for leaving them visible was that hiding them hides the road *feature*. It lost, and it was
+right that it lost: `blocks_native()` is graph-wide, so one Road Source dropped the WHOLE graph to the CPU
+evaluator — erosion and noise included. A node that does that to a user who has no way to know is not a
+feature, and §8 is not shipped until P2 is.
+
+**What that makes the four nodes now.** They are the reference oracles, and that is a promotion in one
+sense: `RoadGraphGate` [A]–[L] already measures them against brute force, against the brush's own grader
+to 0.0000 m, and against a widening road. When P2 writes `road_source` / `path_distance` / `path_mask` /
+`road_grade` in C++, the parity gate has its ground truth already written and already gated.
 
 
 **Road Grade is an adapter, and [K] is what keeps it one.** Every number comes from
@@ -810,7 +820,7 @@ The gate also caught a defect in the follower itself, which is the other half of
 | **P6a** ✅ | **Runtime layer, part one** — `Pasture3DRoadRun` / `Pasture3DRoadRuntime` (baked copies, no node references), `Pasture3DRoadRoute` with reversible entries by stable id, derived checkpoint gates, the corridor test, `locate()` and `progress()`, and the validator that names the gap. Loads with no editor and no terrain. | `RoadRouteGate` — the runtime answers with no brush, node or terrain anywhere in the gate (control: surfaces come back as NAMES, not texture indices); reversing flips arc length, tangent, curvature sign and bank sign but NOT height (controls: the fixture must actually turn and bank; the world-space up must be identical both ways because the tarmac does not re-cant); `locate()` round-trips against sampled points (controls: a signed lateral in the driver's frame; the corridor separates verge from off-course); route arc length is not run arc length (controls: the two must differ on the fixture; progress is route-relative); a moved road moves its gates (control: the gate is a plane across the corridor, not a point); the validator names the missing hop (controls: a deleted run is not reported as a missing junction; an unreachable run gets no invented connection). A criterion that crashes before reporting counts as a failure. |
 | **P6b** ✅ | **Runtime layer, part two** — `sample_surface()` with blended transitions, `Pasture3DRoadPaceNotes` (§9.4) plus `Route.generate_pace_notes()`, route-driven streaming `lookahead()`, and `corridor_ahead()`, the reporting hook a project's own traffic system uses. | `RoadRouteGate` [G]–[I] — a transition blends and is exactly half and half at the line (controls: no blend away from a boundary; the blend is MONOTONIC across the band; the road's own ends do not fade); pace notes find a known corner at the right severity and side, a known crest and a known surface change (controls: flatten the profile and the crest calls disappear while the corner survives; reversed, the right-hander is called left); lookahead follows the route (controls: an off-route run is absent at a 100 km window; speed widens it; the traffic hook describes the corridor and clears nothing). |
 | **P7a** ✅ | **The PATH port and the analytic query** — `PortType.PATH`, `Pasture3DGraphPath`, `Road Source`, `Path Distance` (distance / s / t). | `RoadGraphGate` [A]–[G] — the index agrees with the brute-force oracle over a hairpin (controls: the index must actually narrow the search; the unindexed fallback must agree too); distance clamps at the ends; s is absolute, not per-segment and not normalised (control: lengthening the road must not move it); t is normalised by half-width and positive is the driver’s right (control: the same point on a road driven the other way is on the other side); an unresolved path reads far away, not 0 and not INF; the path travels down the WIRE (control: cut it and the same node falls back); a moved path invalidates the cache (control: an unchanged re-evaluation must be identical). |
-| **P7b** ✅ | `Road Grade` and `Path Mask`, and the two §8 wirings. | `RoadGraphGate` [J]–[L]: the graph cuts the brush's road to 0.0000 m; the mask tracks a widening road; the two wirings agree on the carriageway (the alignment decides that) and differ by 7.3 m on the batters, and unmasked erosion eats 3.47 m of road. |
+| **P7b** ✅ | `Road Grade` and `Path Mask`, and the two §8 wirings. All four §8 nodes ship as `[Dev/GD]`, hidden behind the developer flag until P2 (see the P7b notes). | `RoadGraphGate` [J]–[L]: the graph cuts the brush's road to 0.0000 m; the mask tracks a widening road; the two wirings agree on the carriageway (the alignment decides that) and differ by 7.3 m on the batters, and unmasked erosion eats 3.47 m of road. |
 | **P8** | Auto-routing: anisotropic A* over graph-produced cost fields (slope, `water_mask`), emitting an editable brush. | `RoadRoutingGate` — found cost ≤ a straight line's; control: a wall in the cost field reroutes it. |
 
 **P5a landed 2026-08-31.** Tier FAR is the tier that is always on, and it is cheap only because P1/P2

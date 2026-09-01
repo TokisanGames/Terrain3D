@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DGraphNodeRoadSource — the GENERATOR end of §8: puts a road into a terrain graph as a PATH.
+# Pasture3DGraphNodeDevRoadSource — the GENERATOR end of §8: puts a road into a terrain graph as a PATH.
 #
 # ---- IT NAMES A ROAD, IT DOES NOT OWN ONE ----
 #
@@ -18,7 +18,7 @@
 # centreline it authored itself — a canal, a fence line, a boundary — is a legitimate use, and there is
 # nothing in the query that cares whether a road brush made the points.
 @tool
-class_name Pasture3DGraphNodeRoadSource
+class_name Pasture3DGraphNodeDevRoadSource
 extends Pasture3DGraphNode
 
 ## The road this node stands for, by the key Pasture3DRoadNetwork uses. Empty means "whatever path is
@@ -67,7 +67,7 @@ func _validate_property(property: Dictionary) -> void:
 
 
 func op() -> StringName:
-	return &"road_source"
+	return &"dev_road_source"
 
 
 func role() -> Role:

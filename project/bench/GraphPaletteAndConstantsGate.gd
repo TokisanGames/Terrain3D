@@ -133,9 +133,24 @@ func _c_registry_categories() -> void:
 	var listed := Pasture3DGraphNodeRegistry.categories(true)
 	_assert(not listed.has(invented), "the control category is genuinely unlisted")
 
-	_assert(listed.has("Roads"), "Registry has Roads category")
-	var road_entries: Array = cat_map.get("Roads", [])
-	_assert(road_entries.size() >= 2, "Roads category has the road source and path nodes")
+	# The road nodes used to be asserted here as a "Roads" category. They are GDScript end to end, so under
+	# the rule in PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md §3.0 they are [Dev/GD] nodes and live in
+	# Dev / Reference until P2 gives them a native kernel. What is checked is therefore the opposite of what
+	# it was: they must be in the dev bucket, and "Roads" must NOT be an empty category left standing in the
+	# ordered list, because a category that lists nothing is a menu entry that opens onto nothing.
+	var dev_entries: Array = cat_map.get("Dev / Reference", [])
+	var dev_ops := {}
+	for e in dev_entries:
+		dev_ops[e["op"]] = true
+	var road_ops: Array[StringName] = [&"dev_road_source", &"dev_path_distance", &"dev_path_mask",
+			&"dev_road_grade"]
+	var found := 0
+	for o in road_ops:
+		if dev_ops.has(o):
+			found += 1
+	_assert(found == road_ops.size(), "all %d road nodes are in Dev / Reference (found %d)"
+			% [road_ops.size(), found])
+	_assert(not listed.has("Roads"), "no empty Roads category is left in the palette order")
 
 
 func _d_search_dialog_tree() -> void:

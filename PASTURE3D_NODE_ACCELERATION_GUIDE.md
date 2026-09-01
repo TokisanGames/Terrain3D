@@ -105,10 +105,18 @@ the keyboard. Add it here when you ship one, with the work that clears it:
 
 | node(s) | why visible without a kernel | debt |
 | :--- | :--- | :--- |
-| `road_source`, `path_distance`, `path_mask`, `road_grade` | The road system is GDScript end to end (`Pasture3DRoadGrader`, the alignment solver, the PATH port). There is no `GRAPH_OP_PATH_*` and no PATH wire type on the native side, so there is no kernel to call and hiding them would hide the road feature itself. | `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md` P2: native `BrushModStep::ROAD`, then the graph ops, with the current GDScript kept as the `[Dev/GD]` oracle. |
 | `blend` in `MIX` mode | The other five modes lower natively; MIX has no `GRAPH_BLEND_MIX` opcode yet, and the native `default:` returns `a`, which is a *wrong answer* rather than a refusal — so the node blocks instead. | Add `GRAPH_BLEND_MIX` to `pasture_3d_graph_ops.h/.cpp` and the GPU shader, then delete the `blocks_native()` override. |
 
 An entry in that table is a promise to someone. Do not add one to avoid writing Steps 3–5.
+
+**The table is short because the rule was applied rather than argued with.** The four road nodes were the
+first candidates for it and did not survive the argument: `road_source`, `path_distance`, `path_mask` and
+`road_grade` became `dev_*` and moved to `Dev / Reference` on 2026-08-31. The reasoning that nearly kept
+them — *hiding them hides the feature, not just a slow implementation of it* — is exactly the reasoning
+this rule exists to overrule: the feature is not ready to be shipped until the kernel is, and a visible
+node that drops every graph it touches to the CPU evaluator is not a feature being shipped, it is a
+performance regression with a menu entry. `Roads` will return as a palette category when P2 lands, with
+C++ behind it.
 
 ---
 

@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DGraphNodePathMask — a PATH as a [0,1] mask over the grid (§8).
+# Pasture3DGraphNodeDevPathMask — a PATH as a [0,1] mask over the grid (§8).
 #
 # ---- WHY THIS EXISTS SEPARATELY FROM Path Distance ----
 #
@@ -19,7 +19,7 @@
 # been graded. This node is the mask you can have WITHOUT grading: keep a river off the carriageway, stop
 # a scatter layer on the verge, hold erosion out of a corridor a road has not been cut into yet.
 @tool
-class_name Pasture3DGraphNodePathMask
+class_name Pasture3DGraphNodeDevPathMask
 extends Pasture3DGraphNode
 
 ## Multiplies the path's half-width before the test. 1.0 is the carriageway edge; ~1.3 reaches the
@@ -47,7 +47,7 @@ var _path: Pasture3DGraphPath = null
 
 
 func op() -> StringName:
-	return &"path_mask"
+	return &"dev_path_mask"
 
 
 func role() -> Role:

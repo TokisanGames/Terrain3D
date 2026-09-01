@@ -298,7 +298,7 @@ func _d_t_is_normalised_and_positive_is_the_drivers_right() -> void:
 ## arithmetic node into NAN, which propagates to the output and is unrecoverable.
 func _e_an_unresolved_path_reads_far_away_not_on_the_road() -> void:
 	print("[E] an unresolved path reads far away, not on the road")
-	var node := Pasture3DGraphNodePathDistance.new()
+	var node := Pasture3DGraphNodeDevPathDistance.new()
 	node.set_path_inputs([null])
 	var chans := node.eval_grid_channels([], 8, 8, null, Rect2(0.0, 0.0, 64.0, 64.0))
 	var dist: PackedFloat32Array = chans[0]
@@ -356,9 +356,9 @@ func _e_an_unresolved_path_reads_far_away_not_on_the_road() -> void:
 func _f_the_path_travels_down_the_wire() -> void:
 	print("[F] the path travels down the wire")
 	var graph := Pasture3DTerrainGraph.new()
-	var src := Pasture3DGraphNodeRoadSource.new()
+	var src := Pasture3DGraphNodeDevRoadSource.new()
 	src.path = _straight()
-	var dist := Pasture3DGraphNodePathDistance.new()
+	var dist := Pasture3DGraphNodeDevPathDistance.new()
 	var out := Pasture3DGraphNodeOutput.new()
 	var i_src := graph.add_node(src)
 	var i_dist := graph.add_node(dist)
@@ -405,10 +405,10 @@ func _f_the_path_travels_down_the_wire() -> void:
 func _g_a_moved_path_invalidates_the_cache() -> void:
 	print("[G] moving the path invalidates the field")
 	var graph := Pasture3DTerrainGraph.new()
-	var src := Pasture3DGraphNodeRoadSource.new()
+	var src := Pasture3DGraphNodeDevRoadSource.new()
 	var path := _straight()
 	src.path = path
-	var dist := Pasture3DGraphNodePathDistance.new()
+	var dist := Pasture3DGraphNodeDevPathDistance.new()
 	var out := Pasture3DGraphNodeOutput.new()
 	var i_src := graph.add_node(src)
 	var i_dist := graph.add_node(dist)
@@ -498,9 +498,9 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 			% [built.points.size(), built.length(), built.half_width_at(built.length() * 0.5)])
 
 	var graph := Pasture3DTerrainGraph.new()
-	var named := Pasture3DGraphNodeRoadSource.new()
+	var named := Pasture3DGraphNodeDevRoadSource.new()
 	named.road_key = brush.road_key()
-	var defaulted := Pasture3DGraphNodeRoadSource.new()
+	var defaulted := Pasture3DGraphNodeDevRoadSource.new()
 	graph.add_node(named)
 	graph.add_node(defaulted)
 	var filled := net.resolve_graph_paths(graph, brush)
@@ -526,7 +526,7 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 	# CONTROL: an unresolved node must offer NOTHING. This is why the hint is ENUM_SUGGESTION and not a
 	# hard ENUM: a graph opened without its network shows an empty list, and a hard enum would render the
 	# key it already holds as invalid and rewrite it to another road on the first click.
-	var lone := Pasture3DGraphNodeRoadSource.new()
+	var lone := Pasture3DGraphNodeDevRoadSource.new()
 	print("    control: a source that was never resolved offers %d key(s) (want 0, hence a suggestion)"
 			% lone.editor_road_keys.size())
 	if not lone.editor_road_keys.is_empty():
@@ -535,7 +535,7 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 
 	# CONTROL: a key naming NO road must leave the node alone rather than clearing it. Clearing would make
 	# a road mid-rename flatten every terrain reading it for one bake, which reads as a solver bug.
-	var missing := Pasture3DGraphNodeRoadSource.new()
+	var missing := Pasture3DGraphNodeDevRoadSource.new()
 	missing.road_key = "NoSuchRoad"
 	missing.path = built
 	graph.add_node(missing)
@@ -561,41 +561,70 @@ func _h_a_real_road_resolves_into_a_graph() -> void:
 
 # ---- I ------------------------------------------------------------------------------------------
 
-## [I] Both road nodes actually reach the palette.
+## [I] The road nodes are reachable behind the developer flag, and INVISIBLE without it.
 ##
-## A registered node that the Add menu never lists does not exist as far as anyone using the editor is
-## concerned, and every other criterion in this file passes on one: Road Source and Path Distance shipped
-## registered, instantiable, gated, and absent from the palette, because the palette walks a hardcoded
-## ordered category list and "Roads" was not in it.
+## ---- TWO OPPOSITE FAILURES, AND THIS CRITERION HAS TO CATCH BOTH ----
 ##
-## Kept HERE as well as in GraphPaletteAndConstantsGate, which now checks the general rule. This is the
-## specific one: it is these two nodes, in this feature, and a road system gate should fail when the road
-## nodes cannot be added.
+## The first version of [I] checked only that these nodes reach the palette, because they had shipped
+## registered, instantiable, and absent from the Add menu — which is indistinguishable from not
+## existing. That failure is still real and still checked, but only with the developer flag ON.
+##
+## The house rule (PASTURE3D_GDSCRIPT_CPP_NODE_SEPARATION_SPEC.md §3.0, playbook Step 0) is that a node
+## whose mathematics runs in GDScript is a [Dev/GD] node and is HIDDEN by default. All four road nodes are
+## GDScript, so the second failure is the mirror of the first: one of them turning up in a normal user\'s
+## palette, where it would look like a production node and would silently drop their whole graph to the
+## CPU evaluator. A criterion that only checked reachability would pass on that with nothing to say.
 func _i_every_registered_node_reaches_the_palette() -> void:
-	print("[I] both road nodes reach the palette")
+	print("[I] the road nodes are reachable behind the dev flag and hidden without it")
+	var ops: Array[StringName] = [&"dev_road_source", &"dev_path_distance", &"dev_path_mask",
+			&"dev_road_grade"]
+
 	var by_cat := Pasture3DGraphNodeRegistry.entries_by_category(true)
 	var listed := Pasture3DGraphNodeRegistry.categories(true)
 	var reachable := {}
 	for cat in listed:
 		for e in by_cat.get(cat, []):
 			reachable[e["op"]] = true
-	print("    the palette lists %d categor(ies) reaching %d node type(s)"
-			% [listed.size(), reachable.size()])
-	_check("I", reachable.has(&"road_source") and reachable.has(&"path_distance"),
-			"road_source reachable %s, path_distance reachable %s"
-					% [str(reachable.has(&"road_source")), str(reachable.has(&"path_distance"))])
+	var missing := PackedStringArray()
+	for o in ops:
+		if not reachable.has(o):
+			missing.append(String(o))
+	print("    with the flag on, the palette lists %d categor(ies) reaching %d node type(s); %d road node(s) missing"
+			% [listed.size(), reachable.size(), missing.size()])
 
-	# CONTROL: the factory must actually make them. A palette entry pointing at a script that does not
-	# instance is an Add menu item that does nothing when clicked.
-	var a := Pasture3DGraphNodeRegistry.create(&"road_source")
-	var b := Pasture3DGraphNodeRegistry.create(&"path_distance")
-	print("    control: the factory made %s and %s"
-			% [str(a != null and a is Pasture3DGraphNodeRoadSource),
-				str(b != null and b is Pasture3DGraphNodePathDistance)])
-	if a == null or not (a is Pasture3DGraphNodeRoadSource) or b == null \
-			or not (b is Pasture3DGraphNodePathDistance):
+	# The other direction, through the SAME path a user\'s editor takes: the default palette.
+	var open_cat := Pasture3DGraphNodeRegistry.entries_by_category(false)
+	var exposed := PackedStringArray()
+	for cat in Pasture3DGraphNodeRegistry.categories(false):
+		for e in open_cat.get(cat, []):
+			if ops.has(e["op"]):
+				exposed.append(String(e["op"]))
+	print("    with the flag off, %d road node(s) are visible: %s" % [exposed.size(), str(exposed)])
+
+	_check("I", missing.is_empty() and exposed.is_empty(),
+			"%d missing behind the flag, %d exposed without it" % [missing.size(), exposed.size()])
+
+	# CONTROL: `create` must still make them by op REGARDLESS of the flag. Hiding a node from the menu must
+	# not stop a saved graph containing one from loading — that would turn a settings toggle into data
+	# loss, and it is why the factory searches entries(true).
+	var a := Pasture3DGraphNodeRegistry.create(&"dev_road_source")
+	var b := Pasture3DGraphNodeRegistry.create(&"dev_road_grade")
+	print("    control: the factory made %s and %s with the flag off (want true, true)"
+			% [str(a != null and a is Pasture3DGraphNodeDevRoadSource),
+				str(b != null and b is Pasture3DGraphNodeDevRoadGrade)])
+	if a == null or not (a is Pasture3DGraphNodeDevRoadSource) or b == null \
+			or not (b is Pasture3DGraphNodeDevRoadGrade):
 		_fail += 1
-		print("    !! a palette entry does not instance the node it names")
+		print("    !! a saved graph holding a road node could not be reconstructed")
+
+	# CONTROL: the flag must actually be OFF in this run, or "hidden" was never tested. is_dev_nodes_enabled
+	# reads a project setting and returns false outside the editor, which is exactly the headless case —
+	# so this states the assumption rather than relying on it.
+	print("    control: is_dev_nodes_enabled() is %s in this run (want false, or nothing was hidden)"
+			% str(Pasture3DGraphNodeRegistry.is_dev_nodes_enabled()))
+	if Pasture3DGraphNodeRegistry.is_dev_nodes_enabled():
+		_fail += 1
+		print("    !! dev nodes are enabled here, so the flag-off half of [I] proved nothing")
 
 
 # ---- P7b fixtures -------------------------------------------------------------------------------
@@ -674,7 +703,7 @@ func _idx(p_wx: float, p_wz: float) -> int:
 func _j_the_mask_follows_the_road_not_a_distance() -> void:
 	print("[J] Path Mask follows the road, not a distance")
 	var path := _straight(4.0, 8.0)
-	var node := Pasture3DGraphNodePathMask.new()
+	var node := Pasture3DGraphNodeDevPathMask.new()
 	node.feather = 0.0
 	node.set_path_inputs([path])
 	var rect := Rect2(-10.0, -20.0, 130.0, 40.0)
@@ -716,7 +745,7 @@ func _j_the_mask_follows_the_road_not_a_distance() -> void:
 
 	# CONTROL: an empty path must mask NOTHING, and inverting must mask EVERYTHING. An unresolved Road
 	# Source is a normal state; the inverted mask protecting nothing would erase what it was guarding.
-	var empty := Pasture3DGraphNodePathMask.new()
+	var empty := Pasture3DGraphNodeDevPathMask.new()
 	empty.set_path_inputs([Pasture3DGraphPath.new()])
 	var e0 := empty.eval_grid([], 8, 8, null, rect)
 	empty.invert = true
@@ -759,7 +788,7 @@ func _k_the_graph_cuts_the_same_road_the_brush_does() -> void:
 	var brush_bed: PackedFloat32Array = f["graded"]["roadbed"]
 	var path: Pasture3DGraphPath = f["path"]
 
-	var node := Pasture3DGraphNodeRoadGrade.new()
+	var node := Pasture3DGraphNodeDevRoadGrade.new()
 	node.set_path_inputs([null, path])
 	var ch := node.eval_grid_channels([f["ground"]], G_N, G_N, null, _rect())
 	var graph_h: PackedFloat32Array = ch[0]
@@ -791,7 +820,7 @@ func _k_the_graph_cuts_the_same_road_the_brush_does() -> void:
 	# CONTROL: a path with no solved profile must PASS THE SURFACE THROUGH, not flatten it. A graph mid
 	# edit passes through this state constantly, and a node that returned zeros would read as the
 	# terrain having been destroyed rather than as a road not being resolved yet.
-	var bare := Pasture3DGraphNodeRoadGrade.new()
+	var bare := Pasture3DGraphNodeDevRoadGrade.new()
 	bare.set_path_inputs([null, _straight()])
 	var through := bare.eval_grid_channels([f["ground"]], G_N, G_N, null, _rect())
 	var passed: bool = (through[0] as PackedFloat32Array) == (f["ground"] as PackedFloat32Array)
@@ -840,12 +869,12 @@ func _l_the_two_wirings_differ_as_predicted() -> void:
 	var er := Pasture3DGraphNodeErosion.new()
 	er.iterations = 30
 	var eroded: PackedFloat32Array = er.eval_grid_channels([ground], G_N, G_N, null, rect)[0]
-	var cut_after := Pasture3DGraphNodeRoadGrade.new()
+	var cut_after := Pasture3DGraphNodeDevRoadGrade.new()
 	cut_after.set_path_inputs([null, path])
 	var w1: PackedFloat32Array = cut_after.eval_grid_channels([eroded], G_N, G_N, null, rect)[0]
 
 	# ---- wiring 2: cut, then let the hillside weather around it
-	var cut_first := Pasture3DGraphNodeRoadGrade.new()
+	var cut_first := Pasture3DGraphNodeDevRoadGrade.new()
 	cut_first.set_path_inputs([null, path])
 	var ch := cut_first.eval_grid_channels([ground], G_N, G_N, null, rect)
 	var cut_h: PackedFloat32Array = ch[0]

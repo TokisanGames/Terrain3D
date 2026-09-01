@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DGraphNodePathDistance — turns a PATH into three fields: distance, s and t (§8).
+# Pasture3DGraphNodeDevPathDistance — turns a PATH into three fields: distance, s and t (§8).
 #
 # ---- ANALYTIC, NOT JUMP FLOODING ----
 #
@@ -20,7 +20,7 @@
 # `s` from one node and `t` from another with different parameters, so the two would describe different
 # roads while looking like one.
 @tool
-class_name Pasture3DGraphNodePathDistance
+class_name Pasture3DGraphNodeDevPathDistance
 extends Pasture3DGraphNode
 
 ## What `distance` reads where the path is empty or unreachable, in metres.
@@ -45,7 +45,7 @@ var _path: Pasture3DGraphPath = null
 
 
 func op() -> StringName:
-	return &"path_distance"
+	return &"dev_path_distance"
 
 
 func role() -> Role:

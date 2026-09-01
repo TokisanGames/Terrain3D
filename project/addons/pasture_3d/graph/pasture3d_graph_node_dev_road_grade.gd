@@ -1,6 +1,6 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Pasture3DGraphNodeRoadGrade — cuts a road into a surface inside the graph (§8).
+# Pasture3DGraphNodeDevRoadGrade — cuts a road into a surface inside the graph (§8).
 #
 # ---- WHY THIS NODE IS THE POINT OF §8 ----
 #
@@ -22,7 +22,7 @@
 # would mean a road that is one shape in the brush and another in the graph, differing by the amount
 # nobody notices until they are looking at a seam.
 @tool
-class_name Pasture3DGraphNodeRoadGrade
+class_name Pasture3DGraphNodeDevRoadGrade
 extends Pasture3DGraphNode
 
 ## Blend the graded result against the incoming surface. 1 is the full cut. Below 1 is NOT a shallower
@@ -37,7 +37,7 @@ var _path: Pasture3DGraphPath = null
 
 
 func op() -> StringName:
-	return &"road_grade"
+	return &"dev_road_grade"
 
 
 func role() -> Role:
