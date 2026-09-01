@@ -162,6 +162,26 @@ struct GraphProgram {
 	PackedInt32Array in1; // second input's source slot, or -1
 	PackedInt32Array in2; // third input's source slot (e.g. blend mask), or -1
 	PackedInt32Array in3; // fourth input's source slot (e.g. solver mask), or -1
+	// ---- Multi-output channels (P2b, PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md §5.3) ----
+	//
+	// How many grids each slot PRODUCES, and which of a source slot's grids each operand READS. A solver
+	// like Erosion answers five questions in one solve — height, flow, erosion, deposition, wetness — and
+	// before this the program could only carry the first, so wiring `flow` anywhere dropped the entire
+	// graph to the GDScript evaluator. That is the normal way to use a solver, which made the native
+	// evaluator unreachable for most graphs that contain one.
+	//
+	// `out_count` is what the NATIVE op actually writes, not what the GDScript node offers: an op whose
+	// aux channels are not implemented here declares 1, and the compiler then refuses to lower a graph
+	// that reads them, rather than lowering it and serving zeros. Empty (or ragged) means 1 everywhere,
+	// which is exactly how every program compiled before this reads.
+	//
+	// Channels above 0 are allocated ONLY when some operand reads them: a solve nobody asked a question
+	// of costs what it always did.
+	PackedInt32Array out_count;
+	PackedInt32Array in0_port; // which channel of in0's slot this operand reads; 0 when absent
+	PackedInt32Array in1_port;
+	PackedInt32Array in2_port;
+	PackedInt32Array in3_port;
 	// Which of the 16 params slots each of in0..in3 OVERRIDES when that port is wired, or -1 when the port
 	// is not a scalar parameter. Without this the evaluator read parameters from the program alone and
 	// ignored every wire into a parameter port. See PARAM_PORT_MAP in pasture3d_terrain_graph.gd.

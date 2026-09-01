@@ -1,7 +1,7 @@
 # Pasture3D Graph Geometry Ports Specification
 
 **Document:** `PASTURE3D_GRAPH_GEOMETRY_PORTS_SPEC.md`
-**Status:** Specification — **P2a complete** (2026-08-31); P2b next. See §7.
+**Status:** Specification — **P2a and P2b complete** (2026-08-31); P2c next. See §7.
 **Target:** Pasture3D Terrain Graph (Godot 4.7 GDExtension, C++20, GDScript)
 **Supersedes:** the "P2 native tier" line in `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md` §P2, which described a
 `BrushModStep::ROAD` that does not exist (see §2.4)
@@ -259,18 +259,24 @@ three ops (a second op could be given different parameters and would then descri
 
 Threading through `Pasture3DThreadPool`, as the other grid kernels do.
 
-### 5.3 Multi-output channels — the part §2.2 forces
+### 5.3 Multi-output channels — the part §2.2 forces (BUILT, P2b)
 
-`GRAPH_OP_ROAD_GRADE` produces six grids. The evaluator today produces one grid per slot and the compiler
-refuses any graph wiring a port ≥ 1.
+`GRAPH_OP_ROAD_GRADE` produces six grids. The evaluator before P2b produced one grid per slot and the
+compiler refused any graph wiring a port ≥ 1.
 
-**Proposed:** a slot may own **N** buffers, and a wire out of port `k` reads buffer `k` of the producing
+**Built:** a slot may own **N** buffers, and a wire out of port `k` reads buffer `k` of the producing
 slot. Concretely:
 
-- `GraphProgram` gains `PackedInt32Array out_count` (per slot, default 1).
-- The arena allocates `out_count[slot]` buffers for a slot instead of one, and the existing reference
-  counting extends to them unchanged: a channel nobody reads is recycled as soon as the slot retires,
-  exactly as an unread intermediate is now.
+- `GraphProgram` gains `PackedInt32Array out_count` (per slot, default 1). It reports what the **native
+  kernel** writes, not what the node offers — a node whose GDScript publishes five channels but whose op
+  writes one must still refuse a port-1 wire, or the graph would lower and read a zero buffer.
+- The arena allocates a slot's auxiliary buffers **lazily**, and only for channels a consumer actually
+  reads (per-slot per-channel refcounts, `want_aux`). A solver whose diagnostics nobody wires costs
+  nothing, and — for Erosion — does not even compute them: `want_diagnostics` is now driven by whether a
+  diagnostic channel was requested.
+- Every op fetches operands through `buf_of(slot, channel)`. The four ops that previously indexed
+  `slot_buffer[]` directly (BLEND, TERRACE, SMOOTH, OUTPUT) were the real bug: they served channel 0 to
+  every port regardless of what the wire asked for, and did it silently.
 - `in0..in3` gain a parallel `in0_port..in3_port` (default 0) naming which channel of the source slot the
   operand reads.
 - `native_supported()`'s secondary-port bail narrows: it refuses a port ≥ 1 wire only when the **producing
@@ -343,15 +349,18 @@ For `ROAD_GRADE` specifically: a road crossing a hole must not fill it.
 | Phase | Scope | Gate |
 | :--- | :--- | :--- |
 | **P2a** ✅ 2026-08-31 | Tier-2 kernels + bindings, all on `Pasture3DUtil`: `path_query_grid` and `path_mask_grid` (`src/pasture_3d_path_query.cpp`), `road_grade_grid` (`src/pasture_3d_road_grade.cpp`). Production `path_distance` / `path_mask` / `road_grade` nodes that call them and fail fast; `road_source` promoted as-is, having no mathematics to move. `Pasture3DRoadGrader.grade` now forwards to the kernel, so the brush and the graph are ONE grader rather than two that agree (§6.2), and the GDScript body it replaced is `grade_reference`, the oracle. `Pasture3DGraphPath.closed` and region masks (§8.1). The `Roads` palette category returns with four nodes. | `RoadNativeParityGate` — native vs the four `dev_*` oracles on the `RoadGraphGate` fixtures, to the gate's existing thresholds; the brush's cut and the graph's still agree to 0.0000 m; a control that the kernels are actually being called (a missing binding must fail, not fall back). |
-| **P2b** | Multi-output channels in the program (§5.3) — `out_count`, per-operand source ports, the narrowed bail. Independently valuable for Erosion / DLA / Lake Flooding / Water Mask. | `GraphChannelLoweringGate` — a graph wiring a solver's secondary channel lowers natively and matches the GDScript evaluator; control: a port-1 wire out of a single-output op still refuses. |
+| **P2b** ✅ 2026-08-31 | Multi-output channels in the program (§5.3): `GraphProgram.out_count` and `in0_port..in3_port`, lazy per-channel aux buffers, `buf_of(slot, channel)` on every operand read, and the port ≥ 1 bail narrowed to `Pasture3DTerrainGraph.native_out_count`. `GRAPH_OP_EROSION` writes all five channels and computes its diagnostics only when one is wired. | `GraphChannelLoweringGate` — all five Erosion channels lower natively and match the GDScript evaluator (worst 3.8e-6 m on height, 0.0 on flow); controls: no channel is constant, no two channels are identical, a Lake Flooding port-1 wire still refuses while its port-0 sibling lowers. |
 | **P2c** | The geometry table and the three ops in `graph_eval_grid` (§4). `GRAPH_BLEND_MIX` (§6.1). `blocks_native()` deleted from all four road nodes and from Blend. | Extend `GraphCppParityGate`; the §8 wiring 2 must lower end-to-end and match the GDScript result — the criterion is that gate [L]'s graph runs natively at all. |
 | **P2d** | GPU: geometry SSBO, the query in the compute shader. | `RoadGpuParityGate` (non-headless), GPU vs the CPU op. |
 
 **P2a shipped alone**, and it is the phase that took the road nodes back out of the developer flag: a
 production node calling a kernel satisfies the separation rule the day it exists, even while the graph
 around it still falls back. The four are visible and still `blocks_native()`, which is a listed debt in
-PASTURE3D_NODE_ACCELERATION_GUIDE.md rather than a judgement made at the keyboard — the debt is P2c. P2b is worth doing whether or not roads exist. P2c is the one that finally
-makes `blocks_native()` a lie worth deleting.
+PASTURE3D_NODE_ACCELERATION_GUIDE.md rather than a judgement made at the keyboard — the debt is P2c.
+
+**P2b shipped without a road in it**, which was the point: the channel machinery is what every existing
+multi-output solver needed, and Erosion's four diagnostics can now be wired without dropping the graph to
+GDScript. P2c is the one that finally makes `blocks_native()` a lie worth deleting.
 
 ---
 
