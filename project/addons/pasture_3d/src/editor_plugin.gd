@@ -200,6 +200,8 @@ func _handles(p_object: Object) -> bool:
 		# Handle brushes so we receive 3D input for in-place loop-point add/remove. We deliberately keep
 		# the terrain editing context intact (see _edit) — this never enters the sculpt path.
 		return true
+	elif p_object is Pasture3DRoadNetwork or p_object is Pasture3DRoadGroup:
+		return true
 	elif p_object is NavigationRegion3D and is_instance_valid(_last_terrain):
 		return true
 	
@@ -223,6 +225,14 @@ func _edit(p_object: Object) -> void:
 			_last_terrain = bt
 			if layers_dock:
 				layers_dock.set_terrain(bt)
+		return
+
+	if p_object is Pasture3DRoadNetwork or p_object is Pasture3DRoadGroup:
+		var nt: Pasture3D = p_object.terrain if "terrain" in p_object else null
+		if is_instance_valid(nt):
+			_last_terrain = nt
+			if layers_dock:
+				layers_dock.set_terrain(nt)
 		return
 
 	if !p_object:
@@ -389,6 +399,21 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				ui.operation_builder.apply_operation(editor, mouse_global_position, p_viewport_camera.rotation.y)
 				return AFTER_GUI_INPUT_STOP
 			
+			# If no sculpt tool is active (or selection mode is on), clicking on a road ribbon / brush selects it
+			if editor.get_tool() == Pasture3DEditor.TOOL_MAX or selection_mode:
+				var clicked_brush: Node3D = _pick_brush_screen(p_viewport_camera, mouse_pos, 24.0)
+				if clicked_brush != null:
+					selection_mode = false
+					if ui:
+						var tb: Variant = ui.get("toolbar")
+						if tb and tb.has_method("clear_landscape_toggles"):
+							tb.clear_landscape_toggles()
+					var sel: EditorSelection = EditorInterface.get_selection()
+					sel.clear()
+					sel.add_node(clicked_brush)
+					EditorInterface.edit_node(clicked_brush)
+					return AFTER_GUI_INPUT_STOP
+
 			# Mouse clicked, start editing
 			editor.start_operation(mouse_global_position)
 			editor.operate(mouse_global_position, p_viewport_camera.rotation.y)
@@ -469,6 +494,18 @@ func _forward_brush_input(p_camera: Camera3D, p_event: InputEvent, p_brush: Past
 			return AFTER_GUI_INPUT_STOP
 		# Not on a point → let the right-button through for camera look.
 		return AFTER_GUI_INPUT_PASS
+
+	# Plain left-click not on a point of this brush: check if user clicked on another road ribbon / brush!
+	if p_event.get_button_index() == MOUSE_BUTTON_LEFT and not add_mod and not p_event.double_click:
+		var picked_self: Array = p_brush.pick_point_screen(p_camera, mouse_pos, 14.0)
+		if picked_self[0] == null:
+			var other: Node3D = _pick_brush_screen(p_camera, mouse_pos, 24.0)
+			if other != null and other != p_brush:
+				var sel: EditorSelection = EditorInterface.get_selection()
+				sel.clear()
+				sel.add_node(other)
+				EditorInterface.edit_node(other)
+				return AFTER_GUI_INPUT_STOP
 
 	return AFTER_GUI_INPUT_PASS
 
@@ -678,18 +715,23 @@ func _forward_selection_input(p_camera: Camera3D, p_event: InputEvent) -> AfterG
 	return AFTER_GUI_INPUT_STOP
 
 
-## Nearest Pasture3DTerrainBrush whose origin projects within `radius` px of `screen_pos`, or null.
-func _pick_brush_screen(p_camera: Camera3D, screen_pos: Vector2, radius: float) -> Node3D:
+## Nearest Pasture3DTerrainBrush or road ribbon under `screen_pos` within `radius` px, or null.
+func _pick_brush_screen(p_camera: Camera3D, screen_pos: Vector2, radius: float = 24.0) -> Node3D:
 	var best: Node3D = null
 	var best_d: float = radius
 	for n in get_tree().get_nodes_in_group(&"pasture3d_brush"):
 		if not (n is Node3D):
 			continue
-		var wp: Vector3 = (n as Node3D).global_position
-		if p_camera.is_position_behind(wp):
-			continue
-		var d: float = p_camera.unproject_position(wp).distance_to(screen_pos)
-		if d < best_d:
+		var d: float = INF
+		if n.has_method("pick_brush_screen_distance"):
+			d = n.pick_brush_screen_distance(p_camera, screen_pos, radius)
+		elif n.has_method("pick_road_screen_distance"):
+			d = n.pick_road_screen_distance(p_camera, screen_pos, radius)
+		else:
+			var wp: Vector3 = (n as Node3D).global_position
+			if not p_camera.is_position_behind(wp):
+				d = p_camera.unproject_position(wp).distance_to(screen_pos)
+		if d <= radius and d < best_d:
 			best_d = d
 			best = n
 	return best

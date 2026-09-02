@@ -2592,6 +2592,39 @@ func pick_point_screen(camera: Camera3D, screen_pos: Vector2, radius: float) -> 
 	return best
 
 
+## Distance in screen pixels from `screen_pos` to this brush, or INF if not within `margin_px`.
+func pick_brush_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px: float = 24.0) -> float:
+	var best_d := INF
+	var pt_hit := pick_point_screen(camera, screen_pos, margin_px)
+	if pt_hit[0] != null:
+		return 0.0
+
+	for s in _get_splines():
+		if s == null or s.curve == null:
+			continue
+		var pts: PackedVector3Array = s.curve.get_baked_points()
+		if pts.size() < 2:
+			continue
+		for i in range(pts.size() - 1):
+			var w1: Vector3 = s.to_global(pts[i])
+			var w2: Vector3 = s.to_global(pts[i + 1])
+			if camera.is_position_behind(w1) and camera.is_position_behind(w2):
+				continue
+			var s1 := camera.unproject_position(w1)
+			var s2 := camera.unproject_position(w2)
+			var p := Geometry2D.get_closest_point_to_segment(screen_pos, s1, s2)
+			var d := screen_pos.distance_to(p)
+			if d <= margin_px and d < best_d:
+				best_d = d
+
+	if not camera.is_position_behind(global_position):
+		var od: float = camera.unproject_position(global_position).distance_to(screen_pos)
+		if od <= margin_px and od < best_d:
+			best_d = od
+
+	return best_d
+
+
 ## Insert a point at `world` on the nearest loop's nearest segment (undoable). The curve change drives
 ## the rebake. Used by Ctrl-click add.
 func editor_add_point(world: Vector3) -> void:

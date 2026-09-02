@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://road_ribbon_picking_gate_uid"]
+
+[ext_resource type="Script" path="res://bench/RoadRibbonPickingGate.gd" id="1_ribbon_pick"]
+
+[node name="RoadRibbonPickingGate" type="Node"]
+script = ExtResource("1_ribbon_pick")

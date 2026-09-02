@@ -1270,3 +1270,56 @@ func height_at_arc(p_s: float) -> float:
 	if mod == null or mod.last_alignment == null or mod.last_alignment.count() == 0:
 		return NAN
 	return mod.last_alignment.height_at(p_s)
+
+
+## Distance in screen pixels from `screen_pos` to this road's ribbon / corridor, or INF if not within `margin_px`.
+func pick_road_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px: float = 18.0) -> float:
+	var best_d := INF
+	var half_w := corridor_half_width()
+
+	# 1. Screen-space spline segment check
+	for path in _get_splines():
+		if path == null or path.curve == null:
+			continue
+		var pts: PackedVector3Array = path.curve.get_baked_points()
+		if pts.size() < 2:
+			continue
+		var xf: Transform3D = path.global_transform
+		for i in range(pts.size() - 1):
+			var w1: Vector3 = xf * pts[i]
+			var w2: Vector3 = xf * pts[i + 1]
+			if camera.is_position_behind(w1) and camera.is_position_behind(w2):
+				continue
+			var s1 := camera.unproject_position(w1)
+			var s2 := camera.unproject_position(w2)
+			var p := Geometry2D.get_closest_point_to_segment(screen_pos, s1, s2)
+			var d := screen_pos.distance_to(p)
+			
+			var mid := (w1 + w2) * 0.5
+			var cam_dist := camera.global_position.distance_to(mid)
+			var world_to_screen_scale := 500.0 / maxf(cam_dist, 1.0)
+			var effective_margin := maxf(margin_px, half_w * world_to_screen_scale)
+			
+			if d <= effective_margin and d < best_d:
+				best_d = d
+
+	# 2. Ground raymarch intersection check against road plan
+	if is_inf(best_d) and terrain != null and is_instance_valid(terrain):
+		var ray_from := camera.project_ray_origin(screen_pos)
+		var ray_dir := camera.project_ray_normal(screen_pos)
+		var hit: Vector3 = terrain.get_intersection(ray_from, ray_dir, false)
+		if hit.z < 3.4e38 and not is_nan(hit.y):
+			var plan := _plan_points()
+			if plan.size() >= 2:
+				var cum := Pasture3DRoadGrader.cumulative_length(plan)
+				var hit_p := Vector2(hit.x, hit.z)
+				var nearest := Pasture3DRoadGrader.nearest_on_plan(plan, cum, hit_p)
+				if float(nearest[0]) <= half_w:
+					best_d = 0.0
+
+	return best_d
+
+
+func pick_brush_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px: float = 24.0) -> float:
+	return pick_road_screen_distance(camera, screen_pos, margin_px)
+
