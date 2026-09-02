@@ -1,16 +1,12 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# SimplePastureStallGate — End-to-end timing on simple_pasture.tscn
+# SimplePastureStallGate — Timing inside _refresh_owner_rect
 #
 @tool
 extends Node
 
 
 func _ready() -> void:
-	print("\n================================================================================")
-	print("=== SimplePastureStallGate: End-to-End Performance Verification ===")
-	print("================================================================================\n")
-
 	var scene: PackedScene = load("res://simple_pasture.tscn")
 	var root := scene.instantiate()
 	add_child(root)
@@ -23,15 +19,9 @@ func _ready() -> void:
 	var road_path: Path3D = road.get_node("Road1")
 	var curve: Curve3D = road_path.curve
 
-	print("  [Setup] Initial bake / settle...")
-	net.resolve_junctions()
-
-	print("\n--- BENCHMARK: Moving Road Point 5 (Touching Plow) ---")
 	var pt_idx := 5
 	var old_local := curve.get_point_position(pt_idx)
 	var new_local := old_local + Vector3(2.0, 0.0, 2.0)
-
-	var t0 := Time.get_ticks_usec()
 	curve.set_point_position(pt_idx, new_local)
 
 	var moved := road._moved_point_indices(road_path)
@@ -41,21 +31,36 @@ func _ready() -> void:
 	var clip_box := road._snap_aabb_to_tiles(dirty_box, tile_world)
 	var blend := road._layer_blend_for(layer_id)
 
-	var t_prep := (Time.get_ticks_usec() - t0) / 1000.0
-	print("  1. Prep + Dirty Box: %.3f ms (Clip: %s)" % [t_prep, str(clip_box)])
+	print("\n--- TIMING INSIDE _refresh_owner_rect ---")
+	var t0 := Time.get_ticks_usec()
+	terr.data.clear_layer_in_area(layer_id, clip_box)
+	print("  1. clear_layer_in_area: %.3f ms" % ((Time.get_ticks_usec() - t0) / 1000.0))
 
 	var t1 := Time.get_ticks_usec()
-	road._refresh_owner_rect(road._layer_owner, {road_path.get_instance_id(): true}, false)
-	var t_refresh := (Time.get_ticks_usec() - t1) / 1000.0
-	print("  2. Road Layer _refresh_owner_rect (Road + Road2): %.3f ms" % t_refresh)
+	road._clip_aabb = clip_box
+	road._defer_composite = true
+	road._paint_into(layer_id, blend)
+	road._defer_composite = false
+	road._clip_aabb = AABB()
+	print("  2. Road._paint_into: %.3f ms" % ((Time.get_ticks_usec() - t1) / 1000.0))
 
 	var t2 := Time.get_ticks_usec()
-	net.resolve_junctions()
-	var t_resolve := (Time.get_ticks_usec() - t2) / 1000.0
-	print("  3. Network resolve_junctions: %.3f ms" % t_resolve)
+	var road2_in := road2._overlaps_box(clip_box)
+	print("  3. Road2 overlaps clip: %s" % str(road2_in))
+	if road2_in:
+		road2._clip_aabb = clip_box
+		road2._defer_composite = true
+		road2._paint_into(layer_id, blend)
+		road2._defer_composite = false
+		road2._clip_aabb = AABB()
+	print("  3. Road2._paint_into: %.3f ms" % ((Time.get_ticks_usec() - t2) / 1000.0))
 
-	var t_total := (Time.get_ticks_usec() - t0) / 1000.0
-	print("\n  TOTAL END-TO-END POINT MOVE ON SIMPLE_PASTURE: %.3f ms" % t_total)
+	var t3 := Time.get_ticks_usec()
+	terr.data.composite_area(clip_box, false)
+	print("  4. composite_area: %.3f ms" % ((Time.get_ticks_usec() - t3) / 1000.0))
 
-	print("\n=== COMPLETE ===\n")
+	var t4 := Time.get_ticks_usec()
+	terr.data.update_maps(Pasture3DData.TYPE_HEIGHT, false, false)
+	print("  5. update_maps: %.3f ms" % ((Time.get_ticks_usec() - t4) / 1000.0))
+
 	get_tree().quit(0)
