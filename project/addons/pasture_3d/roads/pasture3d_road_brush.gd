@@ -418,11 +418,10 @@ func _paint_flat_footprint(path: Path3D) -> void:
 		if not _widening:
 			var needed := corridor_half_width()
 			if needed > _last_corridor_half + 0.5:
-				if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-					_last_corridor_half = needed
-					_widening = true
-					_schedule_refresh()
-					(func() -> void: _widening = false).call_deferred()
+				_last_corridor_half = needed
+				_widening = true
+				_schedule_refresh()
+				(func() -> void: _widening = false).call_deferred()
 
 		var out := {}
 		var params := {
@@ -477,8 +476,19 @@ func _paint_flat_footprint(path: Path3D) -> void:
 		else:
 			road_mod.last_masks = {}
 
+		# NO INPUT STATE HERE. This used to skip the resolve while the left button was down, which was
+		# meant to coalesce per drag and did not: nothing re-ran on release, so the request was simply
+		# dropped. place_bake() is called synchronously from the Place Brush mouse-down handler with the
+		# button held, so a newly placed road formed no junctions at all until an unrelated edit happened
+		# to trigger a resolve. And the guard bought nothing on the path it was written for —
+		# _on_refresh_timer already holds the whole bake back until release, so on that path it never saw
+		# a pressed button and on every other path it only deleted work.
+		#
+		# request_resolve is already the coalescing point (it sets a queued flag and defers), so a refresh
+		# that bakes six roads still resolves once. Coalescing belongs there, where it applies to every
+		# caller, rather than here consulting global input state inside a bake kernel.
 		var jnet := road_network()
-		if jnet != null and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		if jnet != null:
 			last_junction_digest = junction_digest()
 			jnet.request_resolve()
 		return
@@ -714,11 +724,10 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 	if not _widening:
 		var needed := corridor_half_width()
 		if needed > _last_corridor_half + 0.5:
-			if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-				_last_corridor_half = needed
-				_widening = true
-				_schedule_refresh()
-				(func() -> void: _widening = false).call_deferred()
+			_last_corridor_half = needed
+			_widening = true
+			_schedule_refresh()
+			(func() -> void: _widening = false).call_deferred()
 
 	var res := Pasture3DRoadGrader.grade(p_z, p_gw, p_gh, p_min_x, p_min_z, p_vs, plan, alignment,
 			half, shoulder, verge, suppress, {
@@ -729,7 +738,7 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 			})
 	# The alignment this bake solved is what makes this road detectable, so the resolve is asked for
 	# AFTER it exists — and coalesced on the network, so a refresh that bakes six roads resolves once.
-	if jnet != null and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+	if jnet != null:
 		jnet.request_resolve()
 
 	p_mod.last_masks = {} if not p_mod.publish_masks else {

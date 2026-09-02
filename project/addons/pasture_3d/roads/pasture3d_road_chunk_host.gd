@@ -131,14 +131,37 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 		_why(p_brush, "the road has no road type")
 		return 0
 
-	var digest := "%s|%s|%.4f|%s|%s|%s|%s" % [
+	# ---- WHAT THE SKIP DIGEST OWES, AND WHY IT IS A LIST OF VALUES ----
+	#
+	# This used to identify the road type by `str(t.get_instance_id())`. An instance id does not change
+	# when the resource's PROPERTIES change, and nothing else here covered the cross-section either —
+	# `alignment_digest()` hashes plan points, ds, drape, max_grade, design_speed and pins, which is every
+	# input to the VERTICAL solve and none to the cross-section. So the digest was stable across exactly
+	# the edits that change the mesh: lane_count, lane_width, shoulder_width, crown, surface_material. The
+	# terrain re-graded to the new carriageway and the ribbon kept the old width until something unrelated
+	# perturbed the alignment.
+	#
+	# It names the mesher's inputs one at a time, rather than hashing every exported property of the road
+	# type, and that is the point rather than an economy. A generic hash would also churn on properties
+	# the ribbon never reads — max_grade, the physics surface_id — forcing a full mesh rebuild on every
+	# vertical-only edit, which is the cost this cache exists to avoid. Listing them means adding an input
+	# to the mesher is a change that visibly has to be made here too.
+	#
+	# `_region_metres` rather than `terrain.region_size`: chunk_spans cuts on region boundaries, and the
+	# boundary it actually cuts on is region_size * vertex_spacing, so the metres are the mesh input and
+	# the region count alone would miss a vertex_spacing change.
+	var digest := "%s|%s|%.4f|%s|%s|%s|%.4f|%.4f|%.4f|%.4f|%s" % [
 		p_brush.alignment_digest(),
 		p_brush.junction_digest(),
 		depth_lift,
 		str(collision_enabled),
 		str(markings_enabled),
 		str(props_enabled),
-		str(t.get_instance_id()) if t != null else "",
+		t.half_width(p_brush.resolved_lane_count()),
+		t.shoulder_width,
+		t.crown,
+		_region_metres(p_brush),
+		str(t.surface_material.get_instance_id()) if t.surface_material != null else "",
 	]
 	if not _chunks.is_empty() and _last_digest == digest:
 		last_rebuilt = false

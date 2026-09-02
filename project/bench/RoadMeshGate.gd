@@ -37,6 +37,7 @@ func _ready() -> void:
 	_j_only_the_minor_road_stops_at_a_junction()
 	_k_distance_is_measured_to_the_chunk_not_to_its_centre()
 	_l_a_tier_does_not_chatter_on_its_own_threshold()
+	_m_a_road_type_edit_rebuilds_the_ribbon()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD MESH PASS" if _fail == 0 else "ROAD MESH FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -722,3 +723,153 @@ func _l_a_tier_does_not_chatter_on_its_own_threshold() -> void:
 	if moved == 0 or back != 0:
 		_fail += 1; print("    !! hysteresis is preventing a genuine tier change")
 	host.free()
+
+
+# ---- M ------------------------------------------------------------------------------------------
+#
+# PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md R4, gate [T]. Added 2026-09-02.
+
+
+## A road brush with a solved alignment and a chunk host, ready to rebuild. Everything real: the skip
+## digest is computed from the brush and the road type, so a fixture that fakes either of them would be
+## testing the fixture.
+func _rebuild_fixture() -> Dictionary:
+	var terrain := Pasture3D.new()
+	terrain.region_size = 256
+	terrain.vertex_spacing = 1.0
+	add_child(terrain)
+
+	var net := Pasture3DRoadNetwork.new()
+	terrain.add_child(net)
+	var t := Pasture3DRoadType.new()
+	t.type_name = "mesh"
+	t.lane_count = 2
+	t.lane_width = 3.5
+	t.shoulder_width = 1.0
+	t.crown = 0.02
+	net.road_types = [t]
+
+	var brush := Pasture3DRoadBrush.new()
+	brush.name = "MeshRoad"
+	net.add_child(brush)
+	brush.terrain = terrain
+	brush.road_road_type = t
+
+	var path := Path3D.new()
+	var curve := Curve3D.new()
+	for i in 6:
+		curve.add_point(Vector3(float(i) * 40.0, 0.0, 0.0))
+	path.curve = curve
+	brush.add_child(path)
+
+	var road_mod := Pasture3DNodeRoad.new()
+	road_mod.alignment_step = 2.0
+	brush.modifiers = [road_mod]
+
+	# A solved alignment, so build_run() has something to hand the mesher.
+	var plan := brush._plan_points()
+	var cum := Pasture3DRoadGrader.cumulative_length(plan)
+	var total: float = cum[cum.size() - 1]
+	var ds := 2.0
+	var n_s := int(ceil(total / ds)) + 1
+	var a := Pasture3DRoadAlignment.new()
+	a.ds = ds
+	var z := PackedFloat32Array()
+	var bank := PackedFloat32Array()
+	z.resize(n_s)
+	bank.resize(n_s)
+	for i in n_s:
+		z[i] = float(i) * ds * 0.02
+		bank[i] = 0.0
+	a.z = z
+	a.ground = z.duplicate()
+	a.bank = bank
+	a.curvature = Pasture3DRoadGrader._zeros(n_s)
+	road_mod.last_alignment = a
+
+	var host := Pasture3DRoadChunkHost.new()
+	brush.add_child(host)
+	return {"terrain": terrain, "net": net, "type": t, "brush": brush, "host": host, "mod": road_mod}
+
+
+## The ribbon's outer edge in a rebuilt host, measured off the vertices rather than read from the road
+## type — the whole question is whether the MESH followed the type. This is `half_width + shoulder_width`,
+## because the mesher lays the shoulder OUTSIDE the carriageway half-width it is handed; expecting
+## `half_width` alone reads 9.0 where the type says 8.0 and looks like a mesher bug rather than a gate
+## measuring the wrong edge.
+func _mesh_outer_edge(p_host: Pasture3DRoadChunkHost) -> float:
+	var widest := 0.0
+	for child in p_host.get_children():
+		if not (child is MeshInstance3D):
+			continue
+		var mesh: Mesh = (child as MeshInstance3D).mesh
+		if mesh == null or mesh.get_surface_count() == 0:
+			continue
+		var arrays: Array = mesh.surface_get_arrays(0)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		for v in verts:
+			widest = maxf(widest, absf(v.z))
+	return widest
+
+
+## [M] R4 — a road-type edit rebuilds the ribbon, and only the edits the ribbon reads do.
+##
+## The skip digest identified the road type by `str(t.get_instance_id())`, which does not change when the
+## resource's properties change, and nothing else in the digest covered the cross-section. So the terrain
+## re-graded to the new carriageway while the ribbon kept the old width and the old material.
+##
+## The ANTI-CHURN half is what makes this more than "rebuild everything". A digest that hashed every
+## exported property would pass the first criterion and destroy the cache: it would rebuild the mesh on
+## every vertical-only edit, which is the cost the skip exists to avoid. So `surface_id` — physics only,
+## no mesh input — must NOT rebuild, and that is asserted as hard as the rebuild is.
+func _m_a_road_type_edit_rebuilds_the_ribbon() -> void:
+	print("[M] a road-type edit rebuilds the ribbon, and a non-mesh edit does not")
+	var fx := _rebuild_fixture()
+	var brush: Pasture3DRoadBrush = fx["brush"]
+	var host: Pasture3DRoadChunkHost = fx["host"]
+	var t: Pasture3DRoadType = fx["type"]
+
+	var chunks := host.rebuild(brush)
+	var edge_before := _mesh_outer_edge(host)
+	print("    first build: %d chunk(s), outer edge %.3f m (type says %.3f)"
+			% [chunks, edge_before, t.half_width(2) + t.shoulder_width])
+
+	# A rebuild with NOTHING changed must be skipped, or the criterion below is met by a host that
+	# rebuilds unconditionally and the digest is doing no work at all.
+	host.rebuild(brush)
+	var skipped_when_idle := not host.last_rebuilt
+	print("    control: an unchanged rebuild is skipped = %s (want true)" % skipped_when_idle)
+	if not skipped_when_idle:
+		_fail += 1
+		print("!!  the host rebuilds unconditionally, so [M] cannot tell a digest change from no digest")
+
+	# The edit the ribbon must notice.
+	t.lane_count = 4
+	host.rebuild(brush)
+	var rebuilt := host.last_rebuilt
+	var edge_after := _mesh_outer_edge(host)
+	var want := t.half_width(4) + t.shoulder_width
+	print("    after lane_count 2 -> 4: last_rebuilt = %s, outer edge %.3f m (want %.3f)"
+			% [rebuilt, edge_after, want])
+	_check("M", rebuilt and absf(edge_after - want) < 0.01 and edge_after > edge_before + 1.0,
+			"the ribbon widened to %.3f m (want %.3f, was %.3f)" % [edge_after, want, edge_before])
+
+	# ANTI-CHURN: a physics-only edit must not rebuild the mesh.
+	t.surface_id = &"gravel"
+	host.rebuild(brush)
+	var churned := host.last_rebuilt
+	print("    control: after a surface_id edit (physics only), last_rebuilt = %s (want false)" % churned)
+	if churned:
+		_fail += 1
+		print("!!  the digest churns on a property the mesh never reads, which defeats the skip")
+
+	# And the other half of the same statement: crown IS a mesh input.
+	t.crown = t.crown + 0.03
+	host.rebuild(brush)
+	var crown_rebuilt := host.last_rebuilt
+	print("    control: after a crown edit (a mesh input), last_rebuilt = %s (want true)" % crown_rebuilt)
+	if not crown_rebuilt:
+		_fail += 1
+		print("!!  a cross-section input does not reach the digest")
+
+	(fx["terrain"] as Node).queue_free()

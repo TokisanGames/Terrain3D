@@ -1,7 +1,7 @@
 # Pasture3D Road/Brush Performance Regression Remediation
 
 **Document:** `PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md`
-**Status:** **Steps 1–4 built** (R1, R2, R3a, R3b, R6, R7, gates `[P]` `[Q]` `[R]` `[S]` `[V]` — branch `fix/road-perf-regressions-p1`, 2026-09-02); steps 5–6 unbuilt — written 2026-09-02 against `23edd083`
+**Status:** **Steps 1–5 built** (R1–R7, gates `[P]`–`[V]` — branch `fix/road-perf-regressions-p1`, 2026-09-02); step 6 (R8–R12, gate `[W]`) unbuilt — written 2026-09-02 against `23edd083`
 **Target:** Pasture3D Roads + Terrain Brush (Godot 4.7 GDExtension, C++20, GDScript)
 **References:** `PASTURE3D_ROAD_BRUSH_PERF_SPEC.md`, `PASTURE3D_BRUSH_PERF_SPEC.md`, `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md`, `PASTURE3D_LAYER_AND_BRUSH_PERF_SPEC.md`
 
@@ -282,6 +282,14 @@ region-size change already forces a path through `_clear()`.
 
 **Gate:** `[T]` in `RoadMeshGate` (§8.4).
 
+**Built** as written, with one substitution: the digest carries `_region_metres(p_brush)` rather than
+`terrain.region_size`. `chunk_spans` cuts on `region_size * vertex_spacing`, so the metres are the mesh's
+actual input and the region count alone would miss a `vertex_spacing` change — which answers the "also"
+above rather than deferring it to the PR.
+
+Confirmed by reverting to the instance-id digest: `last_rebuilt` goes false and the ribbon stays at its
+old 5.5 m outer edge while the type asks for 9.0.
+
 ---
 
 ### R5 — Junction resolve is dropped during a drag and never runs on release
@@ -324,6 +332,19 @@ editor would do another, and the difference would surface as a junction that exi
 in the scene.
 
 **Gate:** `[U]` in `RoadJunctionGate` (§8.5).
+
+**Built.** All four `Input.is_mouse_button_pressed` guards are gone — the two resolves and the two
+`_widening` re-bakes — and `Pasture3DRoadBrush` now contains no `Input.` reference at all. No extra
+coalescing was added inside `request_resolve`, because it already had it: the function sets a queued
+flag and defers `resolve_junctions`, so a refresh that bakes six roads still resolves once.
+
+Confirmed by restoring the guard with the predicate stubbed to "pressed": the crossing yields zero
+junctions.
+
+Worth recording why no existing gate caught this. Headless, `is_mouse_button_pressed` is always false, so
+the guard did the right thing in every test and the wrong thing only under a hand. That is the general
+shape of the hazard, not a detail of this bug, which is why `[U]` gained a second criterion asserting the
+road bake kernels contain no `Input.` reference at all.
 
 ---
 
@@ -704,6 +725,26 @@ Two crossing roads. Place the second via `place_bake()`.
 - **Purity criterion:** assert that the `Pasture3DRoadBrush` and `Pasture3DRoadGrader` sources contain no
   `Input.` reference. Cheap, and it is the invariant that keeps every other road gate meaningful headless.
 
+**Built** as criteria `[H]` and `[I]` of `RoadJunctionGate` (A–G were taken), both passing, both failing
+when the guard is restored.
+
+Two departures from the text, both forced and both small.
+
+`place_bake()` cannot be called from a headless gate: it early-outs on `Engine.is_editor_hint()`. The
+criterion drives `_refresh_owner_rect(owner, ids, true)` instead — the one thing `place_bake` does — which
+leaves the criterion intact, because the dropped resolve was inside the bake that call reaches and not
+inside `place_bake`'s own three lines.
+
+The criterion has to `await` a frame, and that is not a second resolve. `request_resolve` sets a queued
+flag and defers `resolve_junctions`, so a request only becomes a junction on the next frame. Calling
+`resolve_junctions()` directly instead — the obvious way to avoid the await — would pass whether or not
+the bake ever asked for one, which is precisely the failure the criterion exists to catch.
+
+The purity criterion scans four sources rather than two (the chunk host and the mesher as well), skips
+comment lines so the explanatory notes about the removed guards do not trip it, and carries its own
+control: a planted `Input.` string that the matcher must find. A scan that silently matches nothing
+reports clean forever, which is the same shape of failure as the bug it guards.
+
 ### 8.6 `[V]` Native solver and mesher parity — `RoadNativeParityGate`
 
 Requires R7's `force_gdscript` flag; write the flag first.
@@ -773,7 +814,10 @@ Place the camera on the road, one control point ahead and one behind.
    `stamp_road_line` returns the composed block under `want_vals` and reports `clipped`, and the entry is
    stored only on an unclipped bake. Reverting both gates reproduces the dropped modifier exactly (0 of
    15209 cells). See §8.3 for why the criterion compares blocks rather than terrain heights.
-5. **R4, R5** — gates `[T]` `[U]`.
+5. **R4, R5** — gates `[T]` `[U]`. *Built.* The rebuild digest now names the mesher's inputs
+   (`half_width`, `shoulder_width`, `crown`, the surface material, and `_region_metres` rather than
+   `region_size`); all four `Input.is_mouse_button_pressed` guards are removed and the road bake kernels
+   are asserted free of `Input.` altogether. Both reverted to confirm the gates fail.
 6. **R8, R9, R10, R11, R12** — one cleanup PR, gate `[W]`. No shared surface with the above.
 
 `PASTURE3D_ROAD_BRUSH_PERF_SPEC.md` §5.1 should gain a line pointing here once step 1 lands, so a reader
