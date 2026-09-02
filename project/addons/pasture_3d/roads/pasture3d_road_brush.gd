@@ -379,7 +379,7 @@ func _paint_flat_footprint(path: Path3D) -> void:
 
 	# Native rasteriser: when available, solve alignment and grade directly in C++
 	var road_mod := road_modifier()
-	if _native_raster("stamp_road_line") and road_mod != null:
+	if _native_raster("stamp_road_line") and road_mod != null and _road_native_is_complete():
 		var cum := Pasture3DRoadGrader.cumulative_length(plan)
 		var total: float = cum[cum.size() - 1]
 		var ds: float = maxf(road_mod.alignment_step, 0.05)
@@ -443,9 +443,26 @@ func _paint_flat_footprint(path: Path3D) -> void:
 			"reach": reach,
 			"blend": _blend,
 			"composite": not _defer_composite,
+			# The composed block back, so the native path populates _stamp_cache the way the GDScript
+			# path does. Without it a road brush never has a cache entry, and every layer-mate's dirty
+			# rect that touches the road forces a full native re-rasterise of the whole spline instead
+			# of an apply_sim_block replay — on the most expensive brush the layer has.
+			"want_vals": true,
 			"out": out,
 		}
 		terrain.data.stamp_road_line(_layer_id, plan, _clip_aabb, params)
+
+		# STORE ONLY AN UNCLIPPED BAKE. A clipped bake filled only the clip box and left the rest of the
+		# grid NaN, so caching it would let a later replay paint a fraction of the road and call it the
+		# whole spline. On a clipped bake the existing entry is ERASED rather than left alone: it
+		# describes a footprint the terrain no longer matches, and a stale whole-spline block is the
+		# worse of the two failures.
+		var vals_out: PackedFloat32Array = out.get("vals", PackedFloat32Array())
+		if not bool(out.get("clipped", true)) and vals_out.size() == gw * gh:
+			_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, vals_out,
+					_spline_footprint_aabb(path))
+		else:
+			_stamp_cache.erase(path.get_instance_id())
 
 		if road_mod.publish_masks:
 			road_mod.last_masks = {

@@ -3519,11 +3519,39 @@ func _stack_forces_gdscript() -> bool:
 		if m != null and m.is_active() and m.op() == &"graph":
 			if m.graph == null or not m.graph.native_supported():
 				return true
-		# A road grader takes the GDScript path only when the native stamp_road_line is absent.
+		# A road grader takes the GDScript path when the native stamp_road_line is absent, and also when
+		# it is not the whole answer for this stack — see _road_native_is_complete().
 		if m != null and m.is_active() and m.op() == &"road":
 			if terrain == null or terrain.data == null or not terrain.data.has_method("stamp_road_line"):
 				return true
+			if not _road_native_is_complete():
+				return true
 	return false
+
+
+## True when the native stamp_road_line is a COMPLETE answer for this stack: exactly one active modifier
+## and it is the road grader.
+##
+## stamp_road_line writes the graded surface into the layer itself and returns; it has no way to compose
+## with a second modifier, because the second modifier expects an amplitude/profile grid to transform and
+## the native road path never materialises one. So a stack with anything else in it goes back to GDScript
+## in its entirety, which is slower and correct, rather than the extra modifier being dropped in silence.
+##
+## Dropping it silently is exactly the failure the comment removed from _stack_forces_gdscript warned
+## about: the brush paints, nothing errors, and the noise or erosion step the user added simply has no
+## effect with nothing said about why.
+##
+## This is the ONE place the question is answered. _paint_flat_footprint gates its fast path on it too,
+## so the decision to take the native branch and the decision to allow it cannot drift apart.
+func _road_native_is_complete() -> bool:
+	var active := 0
+	var road := 0
+	for m in modifiers:
+		if m != null and m.is_active():
+			active += 1
+			if m.op() == &"road":
+				road += 1
+	return active == 1 and road == 1
 
 
 ## Grid of the height of layers BELOW this brush's own, over the spline grid (origin min_x/min_z, step vs,

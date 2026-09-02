@@ -1,7 +1,7 @@
 # Pasture3D Road/Brush Performance Regression Remediation
 
 **Document:** `PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md`
-**Status:** **Steps 1–3 built** (R1, R2, R6, R7, gates `[P]` `[Q]` `[V]` — branch `fix/road-perf-regressions-p1`, 2026-09-02); steps 4–6 unbuilt — written 2026-09-02 against `23edd083`
+**Status:** **Steps 1–4 built** (R1, R2, R3a, R3b, R6, R7, gates `[P]` `[Q]` `[R]` `[S]` `[V]` — branch `fix/road-perf-regressions-p1`, 2026-09-02); steps 5–6 unbuilt — written 2026-09-02 against `23edd083`
 **Target:** Pasture3D Roads + Terrain Brush (Godot 4.7 GDExtension, C++20, GDScript)
 **References:** `PASTURE3D_ROAD_BRUSH_PERF_SPEC.md`, `PASTURE3D_BRUSH_PERF_SPEC.md`, `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md`, `PASTURE3D_LAYER_AND_BRUSH_PERF_SPEC.md`
 
@@ -225,6 +225,18 @@ would leave the road's outer reaches unpainted. Store only on an unclipped bake;
 erase the existing entry for that spline id.
 
 **Gate:** `[R]` and `[S]` in `RoadGraphGate` (§8.3).
+
+**Built**, as written, with `_road_native_is_complete()` on the base brush next to `_stack_forces_gdscript`
+so the two decisions read the same function. `stamp_road_line` returns the composed block under
+`want_vals` and also reports `clipped`, and the brush stores the entry only on an unclipped bake and
+erases it on a clipped one.
+
+Both halves were confirmed by reverting them. With both gates on `_road_native_is_complete()` removed —
+the true pre-fix state — the second modifier moves **0 of 15209** block cells: dropped in silence,
+exactly as described. Removing only the `_stack_forces_gdscript` half is not enough to reproduce it,
+because `_paint_flat_footprint` gates on the same function; that redundancy is deliberate but it does
+mean a future edit could remove one and leave the bug latent behind the other, so `[R]` asserts the
+routing flags as well as the behaviour.
 
 ---
 
@@ -630,6 +642,43 @@ refuses everything.
   layer, leaves the road's outer reaches NaN — assert that control leaves more than 100 NaN cells inside
   the corridor.
 
+**Built** as criteria `[P]` and `[Q]` of `RoadGraphGate` (the letters `[R]` `[S]` were taken; the gate
+names them by their own sequence). Both pass, and both fail when their fix is reverted.
+
+Two things about `[R]` came out of writing it rather than out of the text above, and both are worth
+keeping.
+
+**The criterion cannot read terrain heights.** That was the first version and it does not work.
+`apply_sim_block` composites the block through the layer's blend, which discards everything below the
+existing surface; a road is mostly cut, so most of what the bake computes never reaches `get_height`.
+Two stacks that composed visibly different blocks — block sums −782.8 and −169.7 — read back *identical*
+through `get_height`. A criterion that cannot separate "the modifier was dropped" from "the composite
+swallowed it" is measuring nothing, and this one passed its own naive form while measuring nothing. The
+comparison is therefore on the composed block, which is what "the modifier ran" actually means. Note the
+dependency this creates: the block is observable **because** R3b puts it in the stamp cache for both
+paths, so `[R]` fails if R3b is reverted as well as if R3a is.
+
+**The control that mattered was not the one the text names.** Adding the second modifier also flips the
+stamp from the native rasteriser to the GDScript one, so a plain before/after difference is equally
+consistent with "the noise ran" and with "the two rasterisers disagree and the noise is still dropped".
+The control that separates them bakes the road ALONE down the GDScript path, holding the rasteriser fixed
+and varying only the modifier. It earned its place immediately: it failed on the first correct-looking
+run and sent me back to find that the difference being celebrated was entirely the path switch. With the
+fix in place it reads **0 cells** for the rasteriser switch and **11400** for the modifier — which is also
+a small piece of good news, since it says the native and GDScript road paths agree exactly on this
+fixture.
+
+`[S]`'s clipped-bake control needs one caveat stated: it counts painted cells through `get_height`, so
+the same blend filtering understates it. That is the conservative direction for a "more than 100"
+threshold — it reads 416 where the true figure is higher — so it is left as is rather than made to lie
+in the other direction.
+
+One trap for anyone extending `[S]`: the clipped bake must be preceded by `clear_stamp_cache()`. Left
+populated, `_paint_into` answers the clipped bake from the entry stored by the unclipped one and never
+reaches the rasteriser at all, so the entry survives for a reason that has nothing to do with the rule
+being tested. That replay is correct behaviour — it is the whole point of the cache — but it makes a
+vacuous test.
+
 ### 8.4 `[T]` A road-type edit rebuilds the ribbon — `RoadMeshGate`
 
 Bake a road, record `host` chunk count and surface 0's vertex positions. Change `road_type.lane_count`
@@ -719,7 +768,11 @@ Place the camera on the road, one control point ahead and one behind.
    measurement showed it never fires where R7 feared it would and does fire, usefully, where the profile
    is already converged. `Pasture3DRoadMesher.build_chunk`/`build_apron` gained the same
    `force_gdscript` flag the solver has, without which the mesher half of `[V]` could not be written.
-4. **R3a, R3b** — gates `[R]` `[S]`. Largest behavioural change; land it with the parity gate already green.
+4. **R3a, R3b** — gates `[R]` `[S]`. Largest behavioural change; land it with the parity gate already
+   green. *Built.* `_road_native_is_complete()` lives on the base brush beside `_stack_forces_gdscript`;
+   `stamp_road_line` returns the composed block under `want_vals` and reports `clipped`, and the entry is
+   stored only on an unclipped bake. Reverting both gates reproduces the dropped modifier exactly (0 of
+   15209 cells). See §8.3 for why the criterion compares blocks rather than terrain heights.
 5. **R4, R5** — gates `[T]` `[U]`.
 6. **R8, R9, R10, R11, R12** — one cleanup PR, gate `[W]`. No shared surface with the above.
 

@@ -2170,6 +2170,24 @@ void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Arr
 		out["min_x"] = min_x;
 		out["min_z"] = min_z;
 		out["vs"] = vs;
+		// The composed block, for _store_stamp_cache. Behind a flag because every other caller of this
+		// function would be paying an n-float copy for something it never reads.
+		//
+		// SCOPE WARNING, and the GDScript side is what acts on it: when a clip box was given, the loop
+		// above only filled [ix0, ix1) x [iz0, iz1) and everything outside it is still NaN. This is a
+		// CLIP-SCOPED block, not a whole-footprint one. Replaying it later as if it were the whole
+		// spline would leave the road's outer reaches unpainted, so the caller stores it only on an
+		// unclipped bake and erases any existing entry on a clipped one.
+		if ((bool)p_params.get("want_vals", false)) {
+			PackedFloat32Array vout;
+			vout.resize(n);
+			float *v_ptr = vout.ptrw();
+			for (int i = 0; i < n; i++) {
+				v_ptr[i] = vals[(size_t)i];
+			}
+			out["vals"] = vout;
+			out["clipped"] = has_clip;
+		}
 	}
 }
 
