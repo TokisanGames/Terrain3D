@@ -415,56 +415,56 @@ func _paint_flat_footprint(path: Path3D) -> void:
 		alignment.input_digest = alignment_digest(road_mod)
 		road_mod.last_alignment = alignment
 
-			if not _widening:
-				var needed := corridor_half_width()
-				if needed > _last_corridor_half + 0.5:
-					if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-						_last_corridor_half = needed
-						_widening = true
-						_schedule_refresh()
-						(func() -> void: _widening = false).call_deferred()
+		if not _widening:
+			var needed := corridor_half_width()
+			if needed > _last_corridor_half + 0.5:
+				if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+					_last_corridor_half = needed
+					_widening = true
+					_schedule_refresh()
+					(func() -> void: _widening = false).call_deferred()
 
-			var out := {}
-			var params := {
-				"min_x": min_x, "min_z": min_z, "vs": vs, "gw": gw, "gh": gh,
-				"align_ds": ds, "align_s0": 0.0,
-				"align_z": alignment.z,
-				"align_bank": alignment.bank,
-				"half_width": prof["half"],
-				"shoulder": prof["shoulder"],
-				"verge": prof["verge"],
-				"suppress": prof["suppress"],
-				"opts": {
-					"crown": prof["crown"],
-					"cut_batter": prof["cut_batter"],
-					"fill_batter": prof["fill_batter"],
-					"skip": prof["skip"],
-				},
-				"reach": reach,
-				"blend": _blend,
-				"composite": not _defer_composite,
-				"out": out,
+		var out := {}
+		var params := {
+			"min_x": min_x, "min_z": min_z, "vs": vs, "gw": gw, "gh": gh,
+			"align_ds": ds, "align_s0": 0.0,
+			"align_z": alignment.z,
+			"align_bank": alignment.bank,
+			"half_width": prof["half"],
+			"shoulder": prof["shoulder"],
+			"verge": prof["verge"],
+			"suppress": prof["suppress"],
+			"opts": {
+				"crown": prof["crown"],
+				"cut_batter": prof["cut_batter"],
+				"fill_batter": prof["fill_batter"],
+				"skip": prof["skip"],
+			},
+			"reach": reach,
+			"blend": _blend,
+			"composite": not _defer_composite,
+			"out": out,
+		}
+		terrain.data.stamp_road_line(_layer_id, plan, _clip_aabb, params)
+
+		if road_mod.publish_masks:
+			road_mod.last_masks = {
+				"roadbed": out.get("roadbed", PackedFloat32Array()),
+				"cut": out.get("cut", PackedFloat32Array()),
+				"fill": out.get("fill", PackedFloat32Array()),
+				"verge": out.get("verge", PackedFloat32Array()),
+				"structure": out.get("structure", PackedFloat32Array()),
+				"surface": out.get("surface", PackedFloat32Array()),
+				"gw": gw, "gh": gh, "min_x": min_x, "min_z": min_z, "vs": vs,
 			}
-			terrain.data.stamp_road_line(_layer_id, plan, _clip_aabb, params)
+		else:
+			road_mod.last_masks = {}
 
-			if road_mod.publish_masks:
-				road_mod.last_masks = {
-					"roadbed": out.get("roadbed", PackedFloat32Array()),
-					"cut": out.get("cut", PackedFloat32Array()),
-					"fill": out.get("fill", PackedFloat32Array()),
-					"verge": out.get("verge", PackedFloat32Array()),
-					"structure": out.get("structure", PackedFloat32Array()),
-					"surface": out.get("surface", PackedFloat32Array()),
-					"gw": gw, "gh": gh, "min_x": min_x, "min_z": min_z, "vs": vs,
-				}
-			else:
-				road_mod.last_masks = {}
-
-			var jnet := road_network()
-			if jnet != null and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-				last_junction_digest = junction_digest()
-				jnet.request_resolve()
-			return
+		var jnet := road_network()
+		if jnet != null and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			last_junction_digest = junction_digest()
+			jnet.request_resolve()
+		return
 
 	var cum := Pasture3DRoadGrader.cumulative_length(plan)
 
