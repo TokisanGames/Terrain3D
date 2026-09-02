@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://stall_gate_uid"]
+
+[ext_resource type="Script" path="res://bench/SimplePastureStallGate.gd" id="1_stall"]
+
+[node name="SimplePastureStallGate" type="Node"]
+script = ExtResource("1_stall")

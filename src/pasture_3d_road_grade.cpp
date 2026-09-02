@@ -304,6 +304,8 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 	}
 
 	const double step = g_max * ds;
+	std::vector<float> fwd((size_t)n);
+	std::vector<float> bwd((size_t)n);
 
 	auto relax_toward_pin = [&](std::vector<float> &pz, int at, int dir) {
 		int j = at + dir;
@@ -320,7 +322,7 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 
 	auto project_grade = [&](std::vector<float> &pz) {
 		for (int sw = 0; sw < 4; sw++) {
-			std::vector<float> fwd = pz;
+			std::copy(pz.begin(), pz.end(), fwd.begin());
 			for (int i = 1; i < n; i++) {
 				if (has_pin[i]) {
 					relax_toward_pin(fwd, i, -1);
@@ -328,7 +330,7 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 					fwd[i] = std::clamp(fwd[i], (float)(fwd[i - 1] - step), (float)(fwd[i - 1] + step));
 				}
 			}
-			std::vector<float> bwd = pz;
+			std::copy(pz.begin(), pz.end(), bwd.begin());
 			for (int i = n - 2; i >= 0; i--) {
 				if (has_pin[i]) {
 					relax_toward_pin(bwd, i, 1);
@@ -344,10 +346,11 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 		}
 	};
 
-	auto sor_sweep = [&](std::vector<float> &pz, bool fwd) {
-		const int start = fwd ? 0 : n - 1;
-		const int end = fwd ? n : -1;
-		const int step_i = fwd ? 1 : -1;
+	auto sor_sweep = [&](std::vector<float> &pz, bool fwd_dir) -> float {
+		float max_diff = 0.0f;
+		const int start = fwd_dir ? 0 : n - 1;
+		const int end = fwd_dir ? n : -1;
+		const int step_i = fwd_dir ? 1 : -1;
 		for (int i = start; i != end; i += step_i) {
 			if (has_pin[i]) {
 				continue;
@@ -368,15 +371,18 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 				continue;
 			}
 			const double target = (smooth_w * (neighbour_sum / std::max(neighbour_count, 1.0)) + w_earth * (double)g_ptr[i]) / denom;
+			const float prev_v = pz[i];
 			pz[i] = (float)((double)pz[i] + 1.7 * (target - (double)pz[i]));
+			max_diff = std::max(max_diff, std::abs(pz[i] - prev_v));
 		}
+		return max_diff;
 	};
 
 	project_grade(z);
 
 	for (int it = 0; it < iterations; it++) {
-		sor_sweep(z, true);
-		sor_sweep(z, false);
+		float d1 = sor_sweep(z, true);
+		float d2 = sor_sweep(z, false);
 
 		if (w_balance > 0.0 && pinned_indices.is_empty()) {
 			double net = 0.0;
@@ -395,6 +401,10 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 			}
 		}
 		project_grade(z);
+
+		if (it >= 20 && std::max(d1, d2) < 1e-4f) {
+			break;
+		}
 	}
 
 	PackedFloat32Array out_z;

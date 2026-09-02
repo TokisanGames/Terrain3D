@@ -396,22 +396,24 @@ func _paint_flat_footprint(path: Path3D) -> void:
 				ground[i] = _base_height_below(Vector3(at.x, 0.0, at.y))
 
 		var t := resolved_road_type()
-		if t != null:
-			var prof := grading_profile(road_mod, ds, n_s)
-			var pins: Dictionary = prof["pins"]
-			var alignment: Pasture3DRoadAlignment
-			if resolved_follow_terrain():
-				alignment = Pasture3DRoadAlignment.new()
-				alignment.ds = ds
-				alignment.z = ground.duplicate()
-				alignment.ground = ground.duplicate()
-				alignment.bank = Pasture3DRoadGrader._zeros(n_s)
-				alignment.curvature = Pasture3DRoadGrader._zeros(n_s)
-			else:
-				alignment = Pasture3DRoadAlignmentSolver.solve_with_plan(_resample_plan(plan, cum, ds, n_s),
-						ground, ds, t.max_grade, t.design_speed, t.max_superelevation, {"pins": pins})
-			alignment.input_digest = alignment_digest(road_mod)
-			road_mod.last_alignment = alignment
+		var max_grade := t.max_grade if t != null else 0.15
+		var design_speed := t.design_speed if t != null else 16.67
+		var max_superelevation := t.max_superelevation if t != null else 0.06
+		var prof := grading_profile(road_mod, ds, n_s)
+		var pins: Dictionary = prof["pins"]
+		var alignment: Pasture3DRoadAlignment
+		if resolved_follow_terrain():
+			alignment = Pasture3DRoadAlignment.new()
+			alignment.ds = ds
+			alignment.z = ground.duplicate()
+			alignment.ground = ground.duplicate()
+			alignment.bank = Pasture3DRoadGrader._zeros(n_s)
+			alignment.curvature = Pasture3DRoadGrader._zeros(n_s)
+		else:
+			alignment = Pasture3DRoadAlignmentSolver.solve_with_plan(_resample_plan(plan, cum, ds, n_s),
+					ground, ds, max_grade, design_speed, max_superelevation, {"pins": pins})
+		alignment.input_digest = alignment_digest(road_mod)
+		road_mod.last_alignment = alignment
 
 			if not _widening:
 				var needed := corridor_half_width()
