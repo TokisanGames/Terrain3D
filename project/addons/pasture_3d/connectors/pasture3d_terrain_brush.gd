@@ -2532,10 +2532,40 @@ func _moved_point_indices(path: Path3D) -> PackedInt32Array:
 	var out := PackedInt32Array()
 	var cur := _curve_point_array(path)
 	var prev: PackedVector3Array = _curve_cache.get(path.get_instance_id(), PackedVector3Array())
+	if prev.is_empty():
+		for i in range(cur.size()):
+			out.append(i)
+		return out
+
+	# Case 1: Point inserted (cur.size() == prev.size() + 1)
+	if cur.size() == prev.size() + 1:
+		var n_prev := prev.size()
+		var ins_idx := n_prev
+		for i in n_prev:
+			if not prev[i].is_equal_approx(cur[i]):
+				ins_idx = i
+				break
+		out.append(ins_idx)
+		return out
+
+	# Case 2: Point removed (cur.size() == prev.size() - 1)
+	if cur.size() == prev.size() - 1 and cur.size() > 0:
+		var n_cur := cur.size()
+		var rem_idx := n_cur
+		for i in n_cur:
+			if not cur[i].is_equal_approx(prev[i]):
+				rem_idx = i
+				break
+		out.append(rem_idx)
+		return out
+
+	# Case 3: Arbitrary count change
 	if prev.size() != cur.size():
 		for i in range(cur.size()):
 			out.append(i)
 		return out
+
+	# Case 4: Same count, point positions changed
 	for i in range(cur.size()):
 		if not prev[i].is_equal_approx(cur[i]):
 			out.append(i)
@@ -3283,10 +3313,10 @@ func _spline_dirty_aabb(path: Path3D, moved_indices: PackedInt32Array) -> AABB:
 
 	# Also expand bounds from PREVIOUS cached positions of those same control points
 	var prev: PackedVector3Array = _curve_cache.get(path.get_instance_id(), PackedVector3Array())
-	if prev.size() == n_pts:
+	if not prev.is_empty():
 		for idx in moved_indices:
 			var i0 := maxi(idx - 1, 0)
-			var i1 := mini(idx + 1, n_pts - 1)
+			var i1 := mini(idx + 1, prev.size() - 1)
 			for k in range(i0, i1 + 1):
 				var wp := path.to_global(prev[k])
 				mn.x = minf(mn.x, wp.x)

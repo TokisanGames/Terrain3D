@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://mound_interact_gate_uid"]
+
+[ext_resource type="Script" path="res://bench/RoadMoundInteractionGate.gd" id="1_inter"]
+
+[node name="RoadMoundInteractionGate" type="Node"]
+script = ExtResource("1_inter")
