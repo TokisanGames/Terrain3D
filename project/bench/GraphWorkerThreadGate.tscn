@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://graph_worker_thread_gate_uid"]
+
+[ext_resource type="Script" path="res://bench/GraphWorkerThreadGate.gd" id="1_graph_worker"]
+
+[node name="GraphWorkerThreadGate" type="Node"]
+script = ExtResource("1_graph_worker")

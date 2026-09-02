@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/rd_shader_spirv.hpp>
 #include <godot_cpp/classes/rd_uniform.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/thread.hpp>
 #include <godot_cpp/core/memory.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include <godot_cpp/variant/typed_array.hpp>
@@ -852,6 +853,9 @@ Pasture3DGraphGPU::~Pasture3DGraphGPU() {
 }
 
 bool Pasture3DGraphGPU::_ensure_init() {
+	if (!Thread::is_main_thread()) {
+		return false;
+	}
 	if (_rd && _pipeline.is_valid()) {
 		return true;
 	}
@@ -906,6 +910,9 @@ bool Pasture3DGraphGPU::_ensure_init() {
 }
 
 bool Pasture3DGraphGPU::_ensure_init_hydraulic() {
+	if (!Thread::is_main_thread()) {
+		return false;
+	}
 	if (_rd && _pipeline_hydraulic.is_valid()) {
 		return true;
 	}
@@ -941,6 +948,9 @@ bool Pasture3DGraphGPU::_ensure_init_hydraulic() {
 }
 
 bool Pasture3DGraphGPU::_ensure_init_geo() {
+	if (!Thread::is_main_thread()) {
+		return false;
+	}
 	if (_rd && _pipeline_geo.is_valid()) {
 		return true;
 	}
@@ -2061,6 +2071,9 @@ bool Pasture3DGraphGPU::eval_geo(const GeoGpuParams &p_gp, int p_gw, int p_gh,
 namespace godot {
 
 int graph_gpu_threshold() {
+	if (!Thread::is_main_thread()) {
+		return 0; // GPU compute (RenderingDevice) cannot run on worker threads
+	}
 	const int dflt = 65536; // 256x256
 	ProjectSettings *ps = ProjectSettings::get_singleton();
 	if (!ps) {

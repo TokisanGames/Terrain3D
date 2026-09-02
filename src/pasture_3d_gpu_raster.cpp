@@ -6,6 +6,7 @@
 #include <godot_cpp/classes/rd_texture_view.hpp>
 #include <godot_cpp/classes/rd_uniform.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/thread.hpp>
 #include <godot_cpp/core/memory.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include <godot_cpp/variant/packed_float32_array.hpp>
@@ -100,6 +101,9 @@ Pasture3DGPURaster::~Pasture3DGPURaster() {
 }
 
 bool Pasture3DGPURaster::_ensure_init() {
+	if (!Thread::is_main_thread()) {
+		return false;
+	}
 	if (_rd) {
 		return true;
 	}
