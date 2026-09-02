@@ -547,6 +547,28 @@ static inline Vector2 road_mesh_plan_point_at(const Vector2 *p_plan, const float
 	return p_plan[lo].lerp(p_plan[hi], (float)t);
 }
 
+} // namespace
+
+Vector2 godot::road_plan_point_at(const Vector2 *p_plan, const float *p_cum, int n, double p_s) {
+	return road_mesh_plan_point_at(p_plan, p_cum, n, p_s);
+}
+
+PackedVector2Array godot::road_resample_plan(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
+		double p_ds, int p_n_s) {
+	PackedVector2Array out;
+	out.resize(p_n_s);
+	Vector2 *o_ptr = out.ptrw();
+	const Vector2 *plan_ptr = p_plan.ptr();
+	const float *cum_ptr = p_cum.ptr();
+	const int n = p_plan.size();
+	for (int i = 0; i < p_n_s; i++) {
+		o_ptr[i] = road_mesh_plan_point_at(plan_ptr, cum_ptr, n, (double)i * p_ds);
+	}
+	return out;
+}
+
+namespace {
+
 static inline Vector2 road_mesh_plan_tangent_at(const Vector2 *p_plan, const float *p_cum, int n, double p_s, double p_h = 0.5) {
 	if (n < 2) {
 		return Vector2(1.0f, 0.0f);

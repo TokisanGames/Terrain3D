@@ -297,6 +297,7 @@ public:
 	void stamp_ridge_line(const int p_layer_id, const PackedVector3Array &p_pts, const AABB &p_clip, const Dictionary &p_params, const PackedFloat32Array &p_lut);
 	void stamp_trough_line(const int p_layer_id, const PackedVector3Array &p_pts, const AABB &p_clip, const Dictionary &p_params, const PackedFloat32Array &p_lut);
 	void stamp_road_line(const int p_layer_id, const PackedVector2Array &p_plan, const AABB &p_clip, const Dictionary &p_params);
+	PackedFloat32Array get_height_below_along_plan(const int p_layer_id, const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum, const double p_ds, const int p_n_s);
 	int stamp_road_surface_control(const int p_layer_id, const PackedFloat32Array &p_surface,
 			const int p_gw, const int p_gh, const double p_min_x, const double p_min_z, const double p_vs,
 			const int p_texture_id, const bool p_preserve_base = true, const double p_min_coverage = 0.004);

@@ -385,11 +385,15 @@ func _paint_flat_footprint(path: Path3D) -> void:
 		var ds: float = maxf(road_mod.alignment_step, 0.05)
 		var n_s := maxi(int(ceil(total / ds)) + 1, 2)
 
-		var ground := PackedFloat32Array()
-		ground.resize(n_s)
-		for i in n_s:
-			var at := _plan_point_at(plan, cum, float(i) * ds)
-			ground[i] = _base_height_below(Vector3(at.x, 0.0, at.y))
+		var ground: PackedFloat32Array
+		if terrain != null and terrain.data != null and terrain.data.has_method("get_height_below_along_plan"):
+			ground = terrain.data.get_height_below_along_plan(_layer_id, plan, cum, ds, n_s)
+		else:
+			ground = PackedFloat32Array()
+			ground.resize(n_s)
+			for i in n_s:
+				var at := _plan_point_at(plan, cum, float(i) * ds)
+				ground[i] = _base_height_below(Vector3(at.x, 0.0, at.y))
 
 		var t := resolved_road_type()
 		if t != null:
@@ -555,22 +559,31 @@ func _paint_flat_footprint(path: Path3D) -> void:
 ## walk — but they go to different places: the pin into the alignment SOLVE, the trim into the GRADING.
 func grading_profile(p_mod: Pasture3DNodeRoad, p_ds: float, p_n_s: int) -> Dictionary:
 	var t := resolved_road_type()
+	var def_half: float = t.half_width(resolved_lane_count(0.0)) if t != null else 3.5
+	var def_shoulder: float = t.shoulder_width if t != null else 0.5
+	var def_verge: float = p_mod.verge_override if (p_mod != null and p_mod.verge_override >= 0.0) else (t.verge_width if t != null else 4.0)
+
 	var half := PackedFloat32Array()
 	var shoulder := PackedFloat32Array()
 	var verge := PackedFloat32Array()
 	var suppress := PackedByteArray()
-	half.resize(p_n_s); shoulder.resize(p_n_s); verge.resize(p_n_s); suppress.resize(p_n_s)
-	for i in p_n_s:
-		var s := float(i) * p_ds
-		var ti := resolved_road_type(s)
-		var tt: Pasture3DRoadType = ti if ti != null else t
-		half[i] = tt.half_width(resolved_lane_count(s)) if tt != null else 3.5
-		shoulder[i] = tt.shoulder_width if tt != null else 0.5
-		if p_mod != null and p_mod.verge_override >= 0.0:
-			verge[i] = p_mod.verge_override
-		else:
-			verge[i] = tt.verge_width if tt != null else 4.0
-		suppress[i] = 1 if is_bridge_at(s) else 0
+	half.resize(p_n_s); half.fill(def_half)
+	shoulder.resize(p_n_s); shoulder.fill(def_shoulder)
+	verge.resize(p_n_s); verge.fill(def_verge)
+	suppress.resize(p_n_s); suppress.fill(0)
+
+	if not segments.is_empty() or road_defaults != null:
+		for i in p_n_s:
+			var s := float(i) * p_ds
+			var ti := resolved_road_type(s)
+			var tt: Pasture3DRoadType = ti if ti != null else t
+			half[i] = tt.half_width(resolved_lane_count(s)) if tt != null else 3.5
+			shoulder[i] = tt.shoulder_width if tt != null else 0.5
+			if p_mod != null and p_mod.verge_override >= 0.0:
+				verge[i] = p_mod.verge_override
+			else:
+				verge[i] = tt.verge_width if tt != null else 4.0
+			suppress[i] = 1 if is_bridge_at(s) else 0
 
 	# ---- WHAT THE JUNCTIONS ASK OF THIS ROAD (§6) ---------------------------------------------------
 	#
@@ -814,6 +827,8 @@ func _plan_point_at(p_plan: PackedVector2Array, p_cum: PackedFloat32Array, p_s: 
 
 func _resample_plan(p_plan: PackedVector2Array, p_cum: PackedFloat32Array, p_ds: float,
 		p_n: int) -> PackedVector2Array:
+	if ClassDB.class_has_method("Pasture3DUtil", "resample_plan"):
+		return Pasture3DUtil.resample_plan(p_plan, p_cum, p_ds, p_n)
 	var out := PackedVector2Array()
 	out.resize(p_n)
 	for i in p_n:

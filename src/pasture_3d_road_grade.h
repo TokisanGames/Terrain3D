@@ -91,6 +91,11 @@ Dictionary road_align_solve(const PackedFloat32Array &p_ground, double p_ds, dou
 
 PackedFloat32Array road_plan_curvature(const PackedVector2Array &p_plan);
 
+Vector2 road_plan_point_at(const Vector2 *p_plan, const float *p_cum, int n, double p_s);
+
+PackedVector2Array road_resample_plan(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
+		double p_ds, int p_n_s);
+
 PackedFloat32Array road_superelevation(const PackedFloat32Array &p_curvature, double p_design_speed,
 		double p_max_superelevation, double p_ds, double p_transition_length = 25.0);
 

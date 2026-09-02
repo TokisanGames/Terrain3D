@@ -1,6 +1,7 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# RoadStressGate — End-to-End microsecond-level profiling for long roads (1 km to 3 km).
+# RoadStressGate — End-to-End microsecond-level profiling for long roads (1 km to 3 km)
+# and scaling across region counts (16, 64, 256 regions).
 #
 @tool
 extends Node
@@ -11,19 +12,20 @@ const VERTEX_SPACING: float = 1.0
 
 func _ready() -> void:
 	print("\n================================================================================")
-	print("=== RoadStressGate: End-to-End Profiling on Long Roads (1 km & 3 km S/Z Curves) ===")
+	print("=== RoadStressGate: End-to-End Profiling on Long Roads & Region Scaling ===")
 	print("================================================================================\n")
 
-	_run_stress_test("1.2 km S-Curve Road (12 control points)", 1200.0, 12)
-	_run_stress_test("3.0 km Winding Mountain Road (25 control points)", 3000.0, 25)
+	_run_stress_test("1.2 km S-Curve on 64 Regions (8x8)", 1200.0, 12, 8)
+	_run_stress_test("3.0 km Mountain Pass on 64 Regions (8x8)", 3000.0, 25, 8)
+	_run_stress_test("3.0 km Mountain Pass on 256 Regions (16x16)", 3000.0, 25, 16)
 
 	print("\n=== ROAD STRESS PROFILING COMPLETE ===\n")
 	get_tree().quit(0)
 
 
-func _run_stress_test(p_title: String, p_length: float, p_points: int) -> void:
+func _run_stress_test(p_title: String, p_length: float, p_points: int, p_regions_per_axis: int) -> void:
 	print("--------------------------------------------------------------------------------")
-	print("RUNNING: %s" % p_title)
+	print("RUNNING: %s (%d total regions)" % [p_title, p_regions_per_axis * p_regions_per_axis])
 	print("--------------------------------------------------------------------------------")
 
 	# Setup terrain
@@ -35,11 +37,12 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int) -> void:
 
 	var data := Pasture3DData.new()
 	terrain.data = data
-	# Create regions to cover the road
-	var region_count_axis := maxi(int(ceil(p_length / 256.0)) + 2, 4)
-	for rz in range(-2, region_count_axis):
-		for rx in range(-2, region_count_axis):
-			data.set_region_locations(data.get_region_locations() + [Vector2i(rx, rz)])
+	# Create regions in grid
+	var locs: Array[Vector2i] = []
+	for rz in range(-2, p_regions_per_axis - 2):
+		for rx in range(-2, p_regions_per_axis - 2):
+			locs.append(Vector2i(rx, rz))
+	data.set_region_locations(locs)
 
 	# Create network
 	var net := Pasture3DRoadNetwork.new()
@@ -71,7 +74,6 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int) -> void:
 	var dx := p_length / float(p_points - 1)
 	for i in p_points:
 		var x := float(i) * dx
-		# S/Z wave
 		var z := sin(float(i) * 0.8) * 120.0 + (50.0 if (i % 4 < 2) else -50.0)
 		curve.add_point(Vector3(x, 0.0, z))
 	path.curve = curve
@@ -102,7 +104,7 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int) -> void:
 		sib.modifiers = [sib_mod]
 
 	# Initial full bake to settle everything into cache
-	print("  [Setup] Initializing terrain & baking network...")
+	print("  [Setup] Initializing %d regions & baking network..." % locs.size())
 	var t0_init := Time.get_ticks_usec()
 	brush._refresh_owner(brush._layer_owner, false, [])
 	net.resolve_junctions()
@@ -110,7 +112,7 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int) -> void:
 	print("  [Setup] Initial bake complete (took %.2f ms)" % t_init_total)
 
 	# --------------------------------------------------------------------------------
-	# BENCHMARK: Move a single control point (e.g. point #5)
+	# BENCHMARK: Move a single control point (e.g. middle point)
 	# --------------------------------------------------------------------------------
 	var target_pt := maxi(p_points / 2, 1)
 	var old_pos := curve.get_point_position(target_pt)
@@ -129,7 +131,7 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int) -> void:
 	var dirty_box := brush._spline_dirty_aabb(path, moved)
 	var t_dirty := Time.get_ticks_usec()
 
-	# 3. Snap dirty box to terrain tiles
+	# 3. Tile Snapping
 	var tile_world := brush._layer_tile_world(brush._layer_id)
 	var clip_box := brush._snap_aabb_to_tiles(dirty_box, tile_world)
 	var t_snap := Time.get_ticks_usec()
@@ -170,9 +172,19 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int) -> void:
 	net._resolve_lane_graphs(net.road_brushes())
 	var t_lanes := Time.get_ticks_usec()
 
-	# 8c: Paint roads
-	var painted_cells := net.paint_roads(net.road_brushes())
-	var t_paint_roads := Time.get_ticks_usec()
+	# 8c: Paint roads detailed profiling
+	var t_paint_roads_start := Time.get_ticks_usec()
+	var ordered := net.paint_order(net.road_brushes())
+	var t_order := Time.get_ticks_usec()
+	net._clear_paint_layers(ordered)
+	var t_clear_paint := Time.get_ticks_usec()
+	var painted_cells := 0
+	for b in ordered:
+		painted_cells += b.paint_surface()
+	var t_paint_cells := Time.get_ticks_usec()
+	if painted_cells > 0:
+		terrain.data.composite_regions()
+	var t_comp_regions := Time.get_ticks_usec()
 
 	# 8d: Build chunks
 	var total_chunks := net.build_chunks(net.road_brushes())
@@ -196,8 +208,11 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int) -> void:
 	print("  8. Road Network Resolve:")
 	print("     - Junction Detection:         %7.3f ms" % ((t_junctions - t_net_start) / 1000.0))
 	print("     - Lane Graphs:                %7.3f ms" % ((t_lanes - t_junctions) / 1000.0))
-	print("     - Control Paint (paint_roads):%7.3f ms  (%d cells)" % [((t_paint_roads - t_lanes) / 1000.0), painted_cells])
-	print("     - Ribbon Meshing (chunks):    %7.3f ms  (%d chunks across %d LODs)" % [((t_chunks - t_paint_roads) / 1000.0), total_chunks, Pasture3DRoadMesher.LOD_LEVELS])
+	print("     - Control Paint (paint_roads):%7.3f ms TOTAL" % ((t_comp_regions - t_paint_roads_start) / 1000.0))
+	print("         * Clear paint layers:     %7.3f ms" % ((t_clear_paint - t_order) / 1000.0))
+	print("         * C++ Paint cells:        %7.3f ms  (%d cells)" % [((t_paint_cells - t_clear_paint) / 1000.0), painted_cells])
+	print("         * composite_regions:      %7.3f ms  (%d regions)" % [((t_comp_regions - t_paint_cells) / 1000.0), locs.size()])
+	print("     - Ribbon Meshing (chunks):    %7.3f ms  (%d chunks across %d LODs)" % [((t_chunks - t_comp_regions) / 1000.0), total_chunks, Pasture3DRoadMesher.LOD_LEVELS])
 	print("     - Runtime Serialization:      %7.3f ms" % ((t_runtime - t_chunks) / 1000.0))
 	print("  ---------------------------------------------------------------")
 	print("  TOTAL END-TO-END POINT MOVE:     %7.3f ms" % ((t_end - t_start) / 1000.0))

@@ -306,6 +306,9 @@ public:
 			const double p_design_speed, const double p_max_superelevation, const double p_ds,
 			const double p_transition_length = 25.0);
 
+	static Vector2 road_plan_point_at(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum, const double p_s);
+	static PackedVector2Array resample_plan(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum, const double p_ds, const int p_n_s);
+
 	static Array road_mesh_build_chunk(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
 			const double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
 			const double p_from, const double p_to, const double p_half, const double p_shoulder,

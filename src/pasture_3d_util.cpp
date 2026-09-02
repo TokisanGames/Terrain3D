@@ -1624,6 +1624,14 @@ PackedFloat32Array Pasture3DUtil::road_superelevation(const PackedFloat32Array &
 	return godot::road_superelevation(p_curvature, p_design_speed, p_max_superelevation, p_ds, p_transition_length);
 }
 
+Vector2 Pasture3DUtil::road_plan_point_at(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum, const double p_s) {
+	return godot::road_plan_point_at(p_plan.ptr(), p_cum.ptr(), p_plan.size(), p_s);
+}
+
+PackedVector2Array Pasture3DUtil::resample_plan(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum, const double p_ds, const int p_n_s) {
+	return godot::road_resample_plan(p_plan, p_cum, p_ds, p_n_s);
+}
+
 Array Pasture3DUtil::road_mesh_build_chunk(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
 		const double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
 		const double p_from, const double p_to, const double p_half, const double p_shoulder,
@@ -2164,6 +2172,12 @@ void Pasture3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("road_superelevation", "curvature", "design_speed", "max_superelevation", "ds", "transition_length"),
 			&Pasture3DUtil::road_superelevation, DEFVAL(25.0));
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("road_plan_point_at", "plan", "cum", "s"),
+			&Pasture3DUtil::road_plan_point_at);
+	ClassDB::bind_static_method("Pasture3DUtil",
+			D_METHOD("resample_plan", "plan", "cum", "ds", "n_s"),
+			&Pasture3DUtil::resample_plan);
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("road_mesh_build_chunk", "plan", "cum", "align_ds", "align_z", "align_bank", "from", "to", "half", "shoulder", "crown", "lod", "lift"),
 			&Pasture3DUtil::road_mesh_build_chunk, DEFVAL(0), DEFVAL(0.02));

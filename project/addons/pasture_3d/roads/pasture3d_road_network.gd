@@ -335,9 +335,10 @@ func resolve_junctions() -> void:
 	var brushes := road_brushes()
 	var runs: Array = []
 	for b in brushes:
-		var run: Dictionary = b.build_run()
-		if not run.is_empty():
-			runs.append(run)
+		if b != null and b.has_method("build_run"):
+			var run: Dictionary = b.build_run()
+			if not run.is_empty():
+				runs.append(run)
 	# A road with no solved alignment yet contributes nothing, so a resolve that runs before the first
 	# bake finds nothing rather than finding wrong things.
 	junctions = _typed(Pasture3DRoadJunctionSolver.resolve(runs, junctions))
@@ -345,7 +346,7 @@ func resolve_junctions() -> void:
 	# they just decided: an arm sits exactly where the approach's grading stops.
 	_resolve_lane_graphs(brushes)
 	for b in brushes:
-		if b.junction_digest() != b.last_junction_digest:
+		if b != null and b.has_method("junction_digest") and b.junction_digest() != b.last_junction_digest:
 			b.schedule_junction_rebake()
 	paint_roads(brushes)
 	build_chunks(brushes)
@@ -869,7 +870,7 @@ func restore_built_output() -> int:
 	var ready: Array = []
 	var stale := 0
 	for b in brushes:
-		if b.restorable_alignment() != null:
+		if b != null and b.has_method("restorable_alignment") and b.restorable_alignment() != null:
 			ready.append(b)
 		else:
 			stale += 1

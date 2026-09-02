@@ -2019,6 +2019,23 @@ void Pasture3DData::stamp_trough_line(const int p_layer_id, const PackedVector3A
 }
 
 // ---- Open-polyline road grader (Pasture3DRoadBrush) ----
+PackedFloat32Array Pasture3DData::get_height_below_along_plan(const int p_layer_id, const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum, const double p_ds, const int p_n_s) {
+	PackedFloat32Array out;
+	out.resize(p_n_s);
+	if (p_n_s <= 0 || p_plan.size() < 2 || p_cum.size() != p_plan.size()) {
+		return out;
+	}
+	float *o_ptr = out.ptrw();
+	const Vector2 *plan_ptr = p_plan.ptr();
+	const float *cum_ptr = p_cum.ptr();
+	const int n = p_plan.size();
+	for (int i = 0; i < p_n_s; i++) {
+		const Vector2 at = road_plan_point_at(plan_ptr, cum_ptr, n, (double)i * p_ds);
+		o_ptr[i] = (float)get_height_below(p_layer_id, Vector3(at.x, 0.0, at.y));
+	}
+	return out;
+}
+
 void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Array &p_plan, const AABB &p_clip, const Dictionary &p_params) {
 	if (p_plan.size() < 2) {
 		return;
