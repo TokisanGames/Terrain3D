@@ -1,7 +1,7 @@
 # Pasture3D Road/Brush Performance Regression Remediation
 
 **Document:** `PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md`
-**Status:** **Step 1 built** (R1, R2, gates `[P]` `[Q]` — branch `fix/road-perf-regressions-p1`, 2026-09-02); steps 2–6 unbuilt — written 2026-09-02 against `23edd083`
+**Status:** **Steps 1–2 built** (R1, R2, gates `[P]` `[Q]`; R7's `force_gdscript` oracle flag — branch `fix/road-perf-regressions-p1`, 2026-09-02); steps 3–6 unbuilt — written 2026-09-02 against `23edd083`
 **Target:** Pasture3D Roads + Terrain Brush (Godot 4.7 GDExtension, C++20, GDScript)
 **References:** `PASTURE3D_ROAD_BRUSH_PERF_SPEC.md`, `PASTURE3D_BRUSH_PERF_SPEC.md`, `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md`, `PASTURE3D_LAYER_AND_BRUSH_PERF_SPEC.md`
 
@@ -651,6 +651,13 @@ Place the camera on the road, one control point ahead and one behind.
 
 1. **R1, R2** — one PR, gates `[P]` `[Q]`. These write bad data; nothing else should be in the branch.
 2. **R7's `force_gdscript` flag alone** — it is a prerequisite for `[V]` and touches nothing else.
+   *Built.* The flag is threaded through `solve`, `solve_with_plan`, `plan_curvature` **and**
+   `superelevation`, not only the two the fix text named: a forced solve whose curvature and bank still
+   came from native would be a half-oracle, and those are the two fields a banking bug lives in. Proven
+   to reach the GDScript body rather than merely being accepted — perturbing `SOR_OMEGA` to 1.0 moved the
+   forced profile by 1.18 m peak while leaving the native profile bit-identical. At shipped settings the
+   two agree exactly (max |dz| = 0) on a 2 km road at the grade limit, which is a result for step 3 to
+   push on, not yet parity across the binding-gradient case R7 predicts.
 3. **R6, R7's break decision** — gate `[V]`.
 4. **R3a, R3b** — gates `[R]` `[S]`. Largest behavioural change; land it with the parity gate already green.
 5. **R4, R5** — gates `[T]` `[U]`.
