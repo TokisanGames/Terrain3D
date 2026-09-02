@@ -2491,7 +2491,10 @@ void Pasture3DData::stamp_splat_loop(const int p_layer_id, const PackedVector2Ar
 int Pasture3DData::stamp_road_surface_control(const int p_layer_id, const PackedFloat32Array &p_surface,
 		const int p_gw, const int p_gh, const double p_min_x, const double p_min_z, const double p_vs,
 		const int p_texture_id, const bool p_preserve_base, const double p_min_coverage) {
-	if (p_layer_id < 0 || p_texture_id < 0 || p_gw <= 0 || p_gh <= 0 || p_surface.size() < p_gw * p_gh) {
+	// p_texture_id > 31 is refused rather than masked: enc_overlay would alias it to a real, unrelated
+	// texture slot. Mirrors Pasture3DRoadPaint.surface_control, which has to agree with this one.
+	if (p_layer_id < 0 || p_texture_id < 0 || p_texture_id > 31 || p_gw <= 0 || p_gh <= 0 ||
+			p_surface.size() < (int64_t)p_gw * p_gh) {
 		return 0;
 	}
 
@@ -2517,7 +2520,17 @@ int Pasture3DData::stamp_road_surface_control(const int p_layer_id, const Packed
 			}
 			const double x = p_min_x + (double)ix * p_vs;
 			const Vector3 pos((float)x, 0.0f, (float)z);
-			const uint32_t cur = get_control(pos);
+			uint32_t cur = get_control(pos);
+			// UINT32_MAX is get_control's "no region, deleted region, or no control map" answer — it is
+			// not a control word. Decoded, it yields base id 31 (0xFFFFFFFF >> 27 & 0x1F) and both
+			// preserve bits set, so a road over a region whose control map has not been created yet
+			// would paint the LAST texture slot and turn navigation on, and read as a wrong texture id
+			// rather than as a road that painted where there was no data. This is the same -1 -> 0
+			// normalisation Pasture3DRoadPaint.surface_control's caller does in GDScript; the two paths
+			// have to agree because either can be the one that paints a given cell.
+			if (cur == UINT32_MAX) {
+				cur = 0u;
+			}
 			const uint8_t base_id = p_preserve_base ? get_base(cur) : (uint8_t)p_texture_id;
 			const int blend_int = (int)std::lround(std::clamp(cover, 0.0f, 1.0f) * 255.0f);
 			const uint32_t ctrl = enc_base(base_id) | enc_overlay((uint8_t)p_texture_id) | enc_blend((uint8_t)blend_int) | (cur & 0x6);

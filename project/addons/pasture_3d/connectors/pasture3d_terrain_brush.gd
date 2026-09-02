@@ -1404,21 +1404,25 @@ func _refresh_owner_rect(owner: String, changed_ids: Dictionary, snap_all: bool 
 	_layer_id = layer_id # set before the snap below reads it (paint sets it again per tool)
 
 	# Union the previous (cached) and current footprint of changed sections into one world box.
+	#
+	# The previous box goes to `_spline_dirty_aabb` rather than being merged here, because only IT knows
+	# whether it needed it: the partial-section path re-derives its own previous component from
+	# `_curve_cache` and must stay narrow, while the whole-spline fallback has no way to know where the
+	# brush was and would otherwise leave the old cut uncleared. See the note on that function.
 	var dirty := AABB()
 	var have := false
 	for sid in changed_ids:
 		var path := _find_spline_by_id(sid)
+		var prev: AABB = _last_paint_aabb.get(sid, AABB())
 		if path != null:
 			var moved := _moved_point_indices(path) if not snap_all else PackedInt32Array()
-			var curr := _spline_dirty_aabb(path, moved)
+			var curr := _spline_dirty_aabb(path, moved, prev)
 			if curr.size != Vector3.ZERO:
 				dirty = curr if not have else dirty.merge(curr)
 				have = true
-		elif _last_paint_aabb.has(sid):
-			var prev: AABB = _last_paint_aabb[sid]
-			if prev.size != Vector3.ZERO:
-				dirty = prev if not have else dirty.merge(prev)
-				have = true
+		elif prev.size != Vector3.ZERO:
+			dirty = prev if not have else dirty.merge(prev)
+			have = true
 	if not have:
 		# Splines vanished (e.g. removed) — let the full path reconcile the layer.
 		_refresh_owner(owner, false, [])
@@ -3313,15 +3317,39 @@ func _spline_footprint_aabb(path: Path3D) -> AABB:
 
 
 ## World footprint of only the changed sections of a spline (for fine-grained dirty-rect updates).
-## When all points moved, or when point count changed, returns the whole spline footprint.
-## When only a subset of control points moved, bounds the curve spans surrounding those points
-## in both current and previous cached positions.
-func _spline_dirty_aabb(path: Path3D, moved_indices: PackedInt32Array) -> AABB:
+## When all points moved, or when point count changed, returns the whole spline footprint UNIONED with
+## `p_prev_painted`. When only a subset of control points moved, bounds the curve spans surrounding those
+## points in both current and previous cached positions.
+##
+## ---- WHY THE FALLBACK NEEDS THE PREVIOUSLY PAINTED BOX AND THE PARTIAL PATH DOES NOT ----
+##
+## The partial path re-derives where the spline WAS from `_curve_cache`, so it carries its own previous
+## component and stays narrow — that is the whole 93x win, and unioning the last painted footprint into it
+## would give the win straight back.
+##
+## The fallback path cannot do that. It is taken when nothing is known about which part moved, and the
+## case that reaches it constantly is a NODE MOVE: `_moved_point_indices` compares LOCAL curve positions,
+## which a node move leaves identical, so `_refresh_owner_rect` forces `moved_indices` empty via
+## `snap_all` and lands here. `_curve_cache` cannot help either — its local positions transformed by the
+## node's CURRENT transform give the new location, not the old one. So the last painted box is the only
+## surviving record of where the terrain still holds this brush's cut, and without it the box clear only
+## covers the new position: the brush paints correctly at its destination and leaves a full uncleared
+## GHOST of itself behind, with no undo action recorded because the rect path is auto-refresh only.
+func _spline_dirty_aabb(path: Path3D, moved_indices: PackedInt32Array,
+		p_prev_painted: AABB = AABB()) -> AABB:
 	if not is_instance_valid(path) or path.curve == null:
 		return AABB()
 	var n_pts := path.curve.point_count
 	if moved_indices.is_empty() or moved_indices.size() >= n_pts or n_pts < 2:
-		return _spline_footprint_aabb(path)
+		var whole := _spline_footprint_aabb(path)
+		# Neither may be merged blind: AABB.merge on a zero-size box drags the result out to the world
+		# origin, which would clear half the terrain. A curve emptied of its points gives a zero `whole`
+		# and the previous box is then the only thing worth clearing.
+		if p_prev_painted.size == Vector3.ZERO:
+			return whole
+		if whole.size == Vector3.ZERO:
+			return p_prev_painted
+		return whole.merge(p_prev_painted)
 
 	var pad := _total_padding()
 	var mn := Vector2(INF, INF)
