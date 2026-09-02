@@ -122,6 +122,66 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	if tmesh:
 		p_gizmo.add_collision_triangles(tmesh)
 
+	# For road brushes: add the ribbon mesh as collision triangles so clicking anywhere along the road selects it!
+	if node is Pasture3DRoadBrush:
+		var road := node as Pasture3DRoadBrush
+		var host: Pasture3DRoadChunkHost = road.ensure_chunk_host()
+		var added_chunks := false
+		if host != null and not host._chunks.is_empty():
+			for chunk in host._chunks:
+				var meshes: Array = chunk.get("meshes", [])
+				if not meshes.is_empty() and meshes[0] is ArrayMesh:
+					var m: ArrayMesh = meshes[0]
+					if m.get_surface_count() > 0:
+						var s_arrays := m.surface_get_arrays(0)
+						var wverts: PackedVector3Array = s_arrays[Mesh.ARRAY_VERTEX]
+						var local_verts := PackedVector3Array()
+						local_verts.resize(wverts.size())
+						for vi in wverts.size():
+							local_verts[vi] = node.to_local(wverts[vi])
+						s_arrays[Mesh.ARRAY_VERTEX] = local_verts
+						var am_chunk := ArrayMesh.new()
+						am_chunk.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, s_arrays)
+						var tm := am_chunk.generate_triangle_mesh()
+						if tm != null:
+							p_gizmo.add_collision_triangles(tm)
+							added_chunks = true
+		if not added_chunks and road.has_method("_get_splines"):
+			var half_w: float = road.corridor_half_width() if road.has_method("corridor_half_width") else 4.0
+			for path in road._get_splines():
+				if path == null or path.curve == null:
+					continue
+				var pts: PackedVector3Array = path.curve.get_baked_points()
+				if pts.size() < 2:
+					continue
+				var strip_verts := PackedVector3Array()
+				var strip_indices := PackedInt32Array()
+				for i in range(pts.size() - 1):
+					var p1: Vector3 = path.to_global(pts[i])
+					var p2: Vector3 = path.to_global(pts[i + 1])
+					var fwd := (p2 - p1).normalized()
+					var right := fwd.cross(Vector3.UP).normalized() * half_w
+					var v0: Vector3 = node.to_local(p1 - right)
+					var v1: Vector3 = node.to_local(p1 + right)
+					var v2: Vector3 = node.to_local(p2 + right)
+					var v3: Vector3 = node.to_local(p2 - right)
+					var base_idx := strip_verts.size()
+					strip_verts.append_array([v0, v1, v2, v3])
+					strip_indices.append_array([
+						base_idx, base_idx + 1, base_idx + 2,
+						base_idx, base_idx + 2, base_idx + 3
+					])
+				if not strip_verts.is_empty():
+					var am_strip := ArrayMesh.new()
+					var strip_arr := []
+					strip_arr.resize(Mesh.ARRAY_MAX)
+					strip_arr[Mesh.ARRAY_VERTEX] = strip_verts
+					strip_arr[Mesh.ARRAY_INDEX] = strip_indices
+					am_strip.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, strip_arr)
+					var tm_strip := am_strip.generate_triangle_mesh()
+					if tm_strip != null:
+						p_gizmo.add_collision_triangles(tm_strip)
+
 	# Loop-point markers, their in/out tangent handles, and transform-gizmo editing — shown only while
 	# the BRUSH itself is selected (not a child loop), so they don't clutter every brush or duplicate
 	# Godot's native Path3D handles. Points and tangents are SUBGIZMOS (below): clicking one shows the
