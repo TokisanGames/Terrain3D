@@ -1,7 +1,7 @@
 # Pasture3D Road/Brush Performance Regression Remediation
 
 **Document:** `PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md`
-**Status:** **Steps 1–5 built** (R1–R7, gates `[P]`–`[V]` — branch `fix/road-perf-regressions-p1`, 2026-09-02); step 6 (R8–R12, gate `[W]`) unbuilt — written 2026-09-02 against `23edd083`
+**Status:** **Steps 1–6 built** — all of R1–R12, gates `[P]`–`[W]` (branch `fix/road-perf-regressions-p1`, 2026-09-02). Written 2026-09-02 against `23edd083`.
 **Target:** Pasture3D Roads + Terrain Brush (Godot 4.7 GDExtension, C++20, GDScript)
 **References:** `PASTURE3D_ROAD_BRUSH_PERF_SPEC.md`, `PASTURE3D_BRUSH_PERF_SPEC.md`, `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md`, `PASTURE3D_LAYER_AND_BRUSH_PERF_SPEC.md`
 
@@ -488,6 +488,14 @@ it from the camera: `viewport_height_px / (2.0 * tan(deg_to_rad(camera.fov) * 0.
 
 **Gate:** `[W]` in `RoadRibbonPickingGate` (§8.7).
 
+**Built** as written at both sites, with the `while here` note taken up: the corridor margin's
+`500.0 / cam_dist` is replaced by a `_pixels_per_metre(camera, dist)` helper on the road brush, which is
+the viewport height over the world height the frustum spans at that depth — and which handles an
+orthogonal camera, where there is no depth falloff at all and a perspective-fitted constant is simply
+wrong.
+
+Confirmed by reverting the `or`: `[W]` fails, 6 of 34 far-off-road clicks reported as hits.
+
 ---
 
 ### R9 — The silent-road diagnostic is computed and never printed
@@ -516,6 +524,8 @@ what the comment was for.
 **Gate:** none. Covered by reading the code; a gate on print output is not worth its maintenance.
 
 ---
+
+**Built** as written. No gate, as the spec says.
 
 ### R10 — The gizmo rebuilds every chunk's collision mesh on every redraw
 
@@ -547,6 +557,13 @@ digest gate `[T]` firing once per real change.
 
 ## 6. Phase 5 — Allocation hygiene in the paths that were optimised
 
+**Built** as written: `Pasture3DRoadChunkHost.pick_meshes(p_node)` owns the geometry and caches it against
+`_last_digest` plus the node transform, and `brush_gizmo.gd` no longer reaches into `_chunks`.
+
+One rule the text did not state and the code needs: an EMPTY result is not cached. A ribbon that has not
+been built yet produces no pick meshes, and that state ends without `_last_digest` changing — so caching
+it would leave the road unpickable until the next rebuild.
+
 ### R11 — `stamp_road_line` allocates a scratch vector per cell
 
 **Where:** `src/pasture_3d_brush_raster.cpp:2100`
@@ -568,6 +585,8 @@ clip. That is correct but not free on a large footprint. Passing the clip row ra
 `road_grade_grid_geom` as optional bounds for `parallel_for_rows` is the obvious follow-up; measure it
 before writing it.
 
+**Built** as written, and the `road_grade_grid_geom` clip-row-range idea was left alone as instructed.
+
 ### R12 — The apron allocates a scratch vector per fan vertex
 
 **Where:** `src/pasture_3d_road_grade.cpp:771`
@@ -577,6 +596,9 @@ once per apron vertex — 25 times per junction by default. Hoist it to the encl
 capture by reference, as `road_grade_grid_geom` does at line 129.
 
 ---
+
+**Built** as written; the buffer is named `apron_scratch` and captured by the lambda's existing `[&]`.
+
 
 ## 7. Invariants — what these fixes must not break
 
@@ -791,6 +813,39 @@ Place the camera on the road, one control point ahead and one behind.
 - **Second criterion:** a screen position ON the visible road still returns a finite distance, so the fix
   did not simply make everything unpickable.
 
+**Built**, and the criterion is measured differently from the text in one way that matters.
+
+"A screen position 300 px away" is not a usable rule here. The corridor margin is a margin in METRES
+converted to pixels, so how far off the road a click may be and still be a hit depends entirely on depth;
+at 300 px the answer is legitimately "it depends". The criterion instead samples WORLD points at least
+five corridor half-widths off the centreline and within 150 m of the camera, projects them, and requires
+every one to return `INF`. Anything nearer in would be testing the margin rather than the projection, and
+anything near the horizon would be testing perspective: there a point 50 m off the road really is a pixel
+from its screen line, and a hit is correct.
+
+Two other departures, both forced.
+
+The camera is 25 m up with a 100° FOV rather than at eye height. Eye height was the first fixture and it
+is the honest picture of the bug, but it puts almost no off-road ground on screen, so the sample set came
+out at zero points and the criterion measured nothing while reporting PASS — the exact failure the
+practice exists to catch. The camera still sits ON the road at x = 0 with the road running through it,
+which is all the criterion needs: segments straddle the camera plane either way. The wide FOV also
+exercises the new FOV-derived margin scale, which the old constant would have got wrong.
+
+The control is an inline replica of the pre-fix loop rather than a reverted source, so it runs in the same
+process as the criterion. It reports 34 of 34 samples as hits where the fix reports 0. Reverting the real
+source is a separate check and gives a smaller number — **6 of 34** — because the replica also carries the
+old `500.0` margin constant, which is far more generous at this depth than the FOV-derived scale. Both
+directions fail; only the replica is left in the gate.
+
+**This gate had not been runnable for some time and was repaired to run at all.** It assigned
+`terrain.data`, which is read-only; it called `is_infinite()`, which no longer exists; it assigned
+`Pasture3DRoadNetwork.terrain`, which is now derived from the parent; and it called `look_at` on a camera
+before parenting it, so the camera silently kept its default orientation and every projection in the file
+was taken through an unusable matrix. All four are fixed here. Worth noting that its three original
+assertions "passed" throughout — a projection that returns `(0, 0)` still compares equal to itself.
+
+
 ---
 
 ## 9. Landing order
@@ -818,7 +873,11 @@ Place the camera on the road, one control point ahead and one behind.
    (`half_width`, `shoulder_width`, `crown`, the surface material, and `_region_metres` rather than
    `region_size`); all four `Input.is_mouse_button_pressed` guards are removed and the road bake kernels
    are asserted free of `Input.` altogether. Both reverted to confirm the gates fail.
-6. **R8, R9, R10, R11, R12** — one cleanup PR, gate `[W]`. No shared surface with the above.
+6. **R8, R9, R10, R11, R12** — one cleanup PR, gate `[W]`. No shared surface with the above. *Built.*
+   The behind-camera test is `or` at both call sites and the corridor margin's magic constant is replaced
+   by a FOV-derived `_pixels_per_metre`; the silent-road count reaches the diagnostic line; the gizmo's
+   pick meshes are owned and cached by the chunk host; both per-cell scratch vectors are hoisted. `[W]`
+   fails when the `or` is reverted. See §8.7 — the gate itself had to be repaired before it could run.
 
 `PASTURE3D_ROAD_BRUSH_PERF_SPEC.md` §5.1 should gain a line pointing here once step 1 lands, so a reader
 arriving at the perf spec learns that its "Implemented" header is true and incomplete at the same time.

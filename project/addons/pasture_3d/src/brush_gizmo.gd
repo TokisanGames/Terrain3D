@@ -126,26 +126,13 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	if node is Pasture3DRoadBrush:
 		var road := node as Pasture3DRoadBrush
 		var host: Pasture3DRoadChunkHost = road.ensure_chunk_host()
+		# The host owns this geometry and caches it. _redraw runs on selection, on camera moves and on
+		# every transform change, and this used to rebuild an ArrayMesh and a BVH per chunk each time.
 		var added_chunks := false
-		if host != null and not host._chunks.is_empty():
-			for chunk in host._chunks:
-				var meshes: Array = chunk.get("meshes", [])
-				if not meshes.is_empty() and meshes[0] is ArrayMesh:
-					var m: ArrayMesh = meshes[0]
-					if m.get_surface_count() > 0:
-						var s_arrays := m.surface_get_arrays(0)
-						var wverts: PackedVector3Array = s_arrays[Mesh.ARRAY_VERTEX]
-						var local_verts := PackedVector3Array()
-						local_verts.resize(wverts.size())
-						for vi in wverts.size():
-							local_verts[vi] = node.to_local(wverts[vi])
-						s_arrays[Mesh.ARRAY_VERTEX] = local_verts
-						var am_chunk := ArrayMesh.new()
-						am_chunk.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, s_arrays)
-						var tm := am_chunk.generate_triangle_mesh()
-						if tm != null:
-							p_gizmo.add_collision_triangles(tm)
-							added_chunks = true
+		if host != null:
+			for tm in host.pick_meshes(node):
+				p_gizmo.add_collision_triangles(tm)
+				added_chunks = true
 		if not added_chunks and road.has_method("_get_splines"):
 			var half_w: float = road.corridor_half_width() if road.has_method("corridor_half_width") else 4.0
 			for path in road._get_splines():

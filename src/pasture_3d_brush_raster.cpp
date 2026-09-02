@@ -2092,12 +2092,18 @@ void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Arr
 	Pasture3DPathGeom geom;
 	geom.build(p_plan, PackedFloat32Array());
 
+	// One scratch buffer for the whole pre-pass, not one per cell. `nearest` takes it as an out-parameter
+	// precisely so the caller can hoist it; declared inside the innermost loop it allocated and freed
+	// once per cell, which on a road footprint is hundreds of thousands of malloc/free pairs doing
+	// nothing. Single-threaded here, so one buffer is safe — the parallel callers in
+	// pasture_3d_road_grade.cpp keep theirs per row range for the same reason.
+	std::vector<int> scratch;
+	scratch.reserve(32);
 	for (int iz = iz0; iz < iz1; iz++) {
 		const double z = min_z + (double)iz * vs;
 		const int row = iz * gw;
 		for (int ix = ix0; ix < ix1; ix++) {
 			const double x = min_x + (double)ix * vs;
-			std::vector<int> scratch;
 			const Pasture3DPathHit hit = geom.nearest(x, z, scratch);
 			if (hit.distance <= reach) {
 				b_ptr[row + ix] = (float)get_height_below(p_layer_id, Vector3(x, 0.0, z));

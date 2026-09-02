@@ -1314,18 +1314,30 @@ func pick_road_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px:
 		for i in range(pts.size() - 1):
 			var w1: Vector3 = xf * pts[i]
 			var w2: Vector3 = xf * pts[i + 1]
-			if camera.is_position_behind(w1) and camera.is_position_behind(w2):
+			# EITHER endpoint behind the camera, not both. unproject_position returns a mirrored,
+			# meaningless coordinate for a point behind the near plane, so a segment STRADDLING the camera
+			# plane was being measured against a screen segment that does not exist — which is why
+			# standing on a road made clicks far from it select it and clicks on it miss.
+			#
+			# Clipping to the near plane instead would keep the straddling segment pickable and is nicer,
+			# but it is not what this loop is for: the ground raymarch below already covers the road under
+			# the cursor, which is exactly the case a straddling segment represents.
+			if camera.is_position_behind(w1) or camera.is_position_behind(w2):
 				continue
 			var s1 := camera.unproject_position(w1)
 			var s2 := camera.unproject_position(w2)
 			var p := Geometry2D.get_closest_point_to_segment(screen_pos, s1, s2)
 			var d := screen_pos.distance_to(p)
-			
+
+			# Pixels per world metre at the segment's depth, derived from the camera rather than from a
+			# constant. This was `500.0 / cam_dist`, which is a number unrelated to viewport height or
+			# FOV: the corridor-aware margin it feeds was correct only at the default FOV and the
+			# viewport height that constant happened to have been fitted to, and silently wrong at any
+			# other — a wide-FOV viewport picked a corridor several times too wide.
 			var mid := (w1 + w2) * 0.5
 			var cam_dist := camera.global_position.distance_to(mid)
-			var world_to_screen_scale := 500.0 / maxf(cam_dist, 1.0)
-			var effective_margin := maxf(margin_px, half_w * world_to_screen_scale)
-			
+			var effective_margin := maxf(margin_px, half_w * _pixels_per_metre(camera, cam_dist))
+
 			if d <= effective_margin and d < best_d:
 				best_d = d
 
@@ -1348,4 +1360,18 @@ func pick_road_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px:
 
 func pick_brush_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px: float = 24.0) -> float:
 	return pick_road_screen_distance(camera, screen_pos, margin_px)
+
+
+## Pixels per world metre for a point `p_dist` metres in front of `p_camera`.
+##
+## The perspective case is the viewport height over the world height the frustum spans at that depth.
+## An ORTHOGONAL camera has no depth falloff at all — its scale is the viewport height over `size` — and
+## a constant fitted to a perspective view is simply wrong there, so it is handled rather than ignored.
+func _pixels_per_metre(p_camera: Camera3D, p_dist: float) -> float:
+	var vp: Viewport = p_camera.get_viewport()
+	var height_px := float(vp.get_visible_rect().size.y) if vp != null else 1080.0
+	if p_camera.projection == Camera3D.PROJECTION_ORTHOGONAL:
+		return height_px / maxf(p_camera.size, 1e-4)
+	var span := 2.0 * tan(deg_to_rad(p_camera.fov) * 0.5) * maxf(p_dist, 1e-4)
+	return height_px / maxf(span, 1e-4)
 

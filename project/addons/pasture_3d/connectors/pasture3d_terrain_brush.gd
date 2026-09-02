@@ -2612,7 +2612,10 @@ func pick_brush_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px
 		for i in range(pts.size() - 1):
 			var w1: Vector3 = s.to_global(pts[i])
 			var w2: Vector3 = s.to_global(pts[i + 1])
-			if camera.is_position_behind(w1) and camera.is_position_behind(w2):
+			# EITHER endpoint, not both — see the note in Pasture3DRoadBrush.pick_road_screen_distance.
+			# unproject_position mirrors a point behind the near plane, so a segment straddling the camera
+			# plane is measured against a screen segment that does not exist.
+			if camera.is_position_behind(w1) or camera.is_position_behind(w2):
 				continue
 			var s1 := camera.unproject_position(w1)
 			var s2 := camera.unproject_position(w2)

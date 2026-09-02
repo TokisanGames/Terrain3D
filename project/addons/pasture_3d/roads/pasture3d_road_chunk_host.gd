@@ -100,6 +100,10 @@ var _colliders: int = 0
 var _last_digest: String = ""
 var last_rebuilt: bool = false
 
+## Cached pick geometry for the editor gizmo. See `pick_meshes`.
+var _pick_meshes: Array[TriangleMesh] = []
+var _pick_digest: String = ""
+
 
 func _ready() -> void:
 	set_process(true)
@@ -564,3 +568,51 @@ func _camera() -> Camera3D:
 func _why(p_brush: Pasture3DRoadBrush, p_reason: String) -> void:
 	if Engine.is_editor_hint():
 		print("[Pasture3D] %s: no ribbon — %s" % [p_brush.name, p_reason])
+
+
+## The ribbon as TriangleMeshes in `p_node`'s local space, for the editor gizmo's collision triangles.
+##
+## The gizmo used to build these itself, inside `_redraw`: for every chunk it copied the vertex array,
+## transformed it, built an ArrayMesh and called `generate_triangle_mesh()` — a BVH build per chunk. That
+## ran on every redraw, which the editor issues on selection, on camera moves and on every transform
+## change, so simply dragging a road paid a full pick-geometry rebuild per frame while the geometry
+## itself had not changed.
+##
+## The cache key is the ribbon's own rebuild digest plus the node transform, because those are the only
+## two things the result depends on: `_last_digest` changes exactly when the chunk meshes do, and the
+## transform is what takes them from world space to local. Nothing else in a redraw can move a triangle.
+func pick_meshes(p_node: Node3D) -> Array[TriangleMesh]:
+	if p_node == null:
+		return []
+	var key := "%s|%s" % [_last_digest, str(p_node.global_transform)]
+	if key == _pick_digest and not _pick_meshes.is_empty():
+		return _pick_meshes
+
+	var out: Array[TriangleMesh] = []
+	for chunk in _chunks:
+		var meshes: Array = chunk.get("meshes", [])
+		if meshes.is_empty() or not (meshes[0] is ArrayMesh):
+			continue
+		var m: ArrayMesh = meshes[0]
+		if m.get_surface_count() == 0:
+			continue
+		var arrays := m.surface_get_arrays(0)
+		var wverts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var local_verts := PackedVector3Array()
+		local_verts.resize(wverts.size())
+		for vi in wverts.size():
+			local_verts[vi] = p_node.to_local(wverts[vi])
+		arrays[Mesh.ARRAY_VERTEX] = local_verts
+		var am := ArrayMesh.new()
+		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		var tm := am.generate_triangle_mesh()
+		if tm != null:
+			out.append(tm)
+
+	# Only a non-empty result is cached. An empty one means the ribbon is not built YET — a state that
+	# ends without the digest changing — so caching it would leave the road unpickable until the next
+	# rebuild.
+	if not out.is_empty():
+		_pick_meshes = out
+		_pick_digest = key
+	return out

@@ -911,9 +911,12 @@ func build_chunks(p_brushes: Array = []) -> int:
 	# no road type, no spans left after the footprints. The road looks exactly the same in all of them and
 	# exactly the same as when the pass never ran at all, which is the state that wastes the most time.
 	total += build_junction_surfaces(brushes)
-	if Engine.is_editor_hint() and not brushes.is_empty() and rebuilt_roads > 0:
-		print("[Pasture3D] road ribbons: %d road(s) rebuilt, %d cached (%d total chunk(s))"
-				% [rebuilt_roads, cached_roads, total])
+	# `silent` is the count the comment above is ABOUT, so it has to reach the line. It was counted and
+	# then dropped from the format string, and the print was gated on `rebuilt_roads > 0` — so the one
+	# case worth saying out loud, every road building nothing, printed nothing at all.
+	if Engine.is_editor_hint() and not brushes.is_empty() and (rebuilt_roads > 0 or silent > 0):
+		print("[Pasture3D] road ribbons: %d road(s) rebuilt, %d cached, %d built nothing (%d total chunk(s))"
+				% [rebuilt_roads, cached_roads, silent, total])
 	return total
 
 

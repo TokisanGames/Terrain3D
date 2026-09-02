@@ -788,9 +788,12 @@ Array godot::road_mesh_build_apron(const Vector2 &p_center, double p_radius,
 	Vector3 *n_ptr = normals.ptrw();
 	Vector2 *uv_ptr = uvs.ptrw();
 
+	// Hoisted out of the lambda: it is called once per apron vertex, and `nearest`'s out-parameter exists
+	// so the buffer can outlive the call. Captured by reference below.
+	std::vector<int> apron_scratch;
+	apron_scratch.reserve(32);
 	auto apron_point = [&](const Vector2 &at) -> Vector3 {
-		std::vector<int> scratch;
-		const Pasture3DPathHit hit = geom.nearest(at.x, at.y, scratch);
+		const Pasture3DPathHit hit = geom.nearest(at.x, at.y, apron_scratch);
 		const double d = hit.distance;
 		const double s = hit.s;
 		const double side = hit.t >= 0.0 ? 1.0 : -1.0;
