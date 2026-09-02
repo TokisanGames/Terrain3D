@@ -98,6 +98,7 @@ var _nearest: float = INF
 ## the game runs.
 var _colliders: int = 0
 var _last_digest: String = ""
+var last_rebuilt: bool = false
 
 
 func _ready() -> void:
@@ -113,17 +114,20 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 	if p_brush == null:
 		_clear()
 		_last_digest = ""
+		last_rebuilt = false
 		return 0
 	var run := p_brush.build_run()
 	if run.is_empty():
 		_clear()
 		_last_digest = ""
+		last_rebuilt = false
 		_why(p_brush, "the road has no solved alignment yet (build_run is empty)")
 		return 0
 	var t: Pasture3DRoadType = p_brush.resolved_road_type()
 	if t == null:
 		_clear()
 		_last_digest = ""
+		last_rebuilt = false
 		_why(p_brush, "the road has no road type")
 		return 0
 
@@ -137,10 +141,12 @@ func rebuild(p_brush: Pasture3DRoadBrush) -> int:
 		str(t.get_instance_id()) if t != null else "",
 	]
 	if not _chunks.is_empty() and _last_digest == digest:
+		last_rebuilt = false
 		return _chunks.size()
 
 	_clear()
 	_last_digest = digest
+	last_rebuilt = true
 	var plan: PackedVector2Array = run["plan"]
 	var cum: PackedFloat32Array = run["cum"]
 	var alignment: Pasture3DRoadAlignment = run["alignment"]

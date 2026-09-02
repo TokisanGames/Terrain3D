@@ -893,20 +893,27 @@ func restore_built_output() -> int:
 func build_chunks(p_brushes: Array = []) -> int:
 	var brushes: Array = p_brushes if not p_brushes.is_empty() else road_brushes()
 	var total := 0
+	var rebuilt_roads := 0
+	var cached_roads := 0
 	var silent := 0
 	for b in brushes:
-		_configure_host(b.ensure_chunk_host())
+		var host: Pasture3DRoadChunkHost = b.ensure_chunk_host()
+		_configure_host(host)
 		var made: int = b.rebuild_chunks(ribbon_lift)
 		total += made
 		if made == 0:
 			silent += 1
+		elif host != null and host.last_rebuilt:
+			rebuilt_roads += 1
+		else:
+			cached_roads += 1
 	# Said out loud in the editor, because every way this returns zero is a SILENT one: no alignment yet,
 	# no road type, no spans left after the footprints. The road looks exactly the same in all of them and
 	# exactly the same as when the pass never ran at all, which is the state that wastes the most time.
 	total += build_junction_surfaces(brushes)
-	if Engine.is_editor_hint() and not brushes.is_empty():
-		print("[Pasture3D] road ribbons: %d chunk(s) across %d road(s); %d road(s) built nothing"
-				% [total, brushes.size(), silent])
+	if Engine.is_editor_hint() and not brushes.is_empty() and rebuilt_roads > 0:
+		print("[Pasture3D] road ribbons: %d road(s) rebuilt, %d cached (%d total chunk(s))"
+				% [rebuilt_roads, cached_roads, total])
 	return total
 
 
