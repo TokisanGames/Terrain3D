@@ -1,7 +1,7 @@
 # Pasture3D Road/Brush Performance Regression Remediation
 
 **Document:** `PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md`
-**Status:** **Steps 1–2 built** (R1, R2, gates `[P]` `[Q]`; R7's `force_gdscript` oracle flag — branch `fix/road-perf-regressions-p1`, 2026-09-02); steps 3–6 unbuilt — written 2026-09-02 against `23edd083`
+**Status:** **Steps 1–3 built** (R1, R2, R6, R7, gates `[P]` `[Q]` `[V]` — branch `fix/road-perf-regressions-p1`, 2026-09-02); steps 4–6 unbuilt — written 2026-09-02 against `23edd083`
 **Target:** Pasture3D Roads + Terrain Brush (Godot 4.7 GDExtension, C++20, GDScript)
 **References:** `PASTURE3D_ROAD_BRUSH_PERF_SPEC.md`, `PASTURE3D_BRUSH_PERF_SPEC.md`, `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md`, `PASTURE3D_LAYER_AND_BRUSH_PERF_SPEC.md`
 
@@ -344,6 +344,15 @@ same argument list, which is the property that makes the parity gate meaningful.
 
 **Gate:** `[V]` in `RoadNativeParityGate` (§8.6).
 
+**Built.** `p_align_s0` is appended to both `road_mesh_build_chunk` and `road_mesh_build_apron` and to the
+two lookup helpers, bound with `DEFVAL(0.0)`, and passed from `pasture3d_road_mesher.gd` as
+`p_alignment.s0`. Appended rather than placed next to `align_ds` where it belongs, because `DEFVAL` only
+reaches trailing arguments and an existing caller must not be broken by the fix for a latent bug.
+
+The gate's control measures the size of what was wrong: on a 200-sample alignment with `s0 = 40`, the
+pre-fix path — which is reached exactly, by passing the new argument its default — puts the ribbon
+**2.4 m** away from where the ground was graded.
+
 ---
 
 ### R7 — The native alignment solver stops early; the GDScript oracle does not
@@ -380,6 +389,33 @@ calls `Pasture3DRoadAlignmentSolver.solve` twice is comparing the native path to
    measures the alternating projection: the maximum `|z_after_project - z_before_project|` over the
    iteration. The first is preferred; the break was not asked for by the spec and buys the least of any
    change in the series.
+
+   **Decided: KEPT, and retargeted onto the whole iteration's movement.** The spec's preference for
+   deleting it was overturned by measurement, and both halves of the measurement matter.
+
+   *The symptom above does not occur.* On every fixture where the gradient constraint binds — a 30%
+   hillside at an 8% limit, 400 to 1000 samples, with pins, without pins, with a rolling overlay, with
+   `w_balance` on — the SOR delta **never once fell below 1e-4 in 240 iterations**, so the break never
+   fired and native and GDScript came out bit-identical. The projection re-perturbs the profile every
+   pass and keeps the sweeps loud. R7's mechanism is real but its consequence was not reachable: the
+   test is on the wrong quantity, and it is on the wrong quantity in the *safe* direction.
+
+   *And the break is worth keeping.* It fires only on near-converged profiles — flat and gentle ground,
+   at iteration 20–22 — which is exactly where an early exit should fire, and there it saves ~90% of
+   the iterations. Deleting it would have cost that for no correctness gain, since the case it was
+   feared to corrupt is the case it never touches.
+
+   So the test moves to `max |z[i] - z_prev[i]|` across the **whole** iteration — sweeps, balance shift,
+   pin re-application and `project_grade` together. That is the fixed-point residual of the composite
+   map, which is what convergence of this iteration actually means, and it cannot report convergence
+   while the projection is still walking. Cost of keeping it, measured against the 240-iteration oracle
+   on the gentle fixtures: **1.65e-4 m**, or 0.16 mm of road profile.
+
+   Note for whoever revisits this: the retargeted quantity fires slightly *earlier* than the old one on
+   those fixtures, not later, because the projection can pull a sweep back and leave the net movement
+   below the raw sweep delta. That is correct — a composite map that moved less than 1e-4 is at its
+   fixed point — but it is the opposite of what one expects, so it is written down rather than
+   rediscovered.
 2. **Restore the oracle.** Add `force_gdscript: bool = false` to `solve` and `solve_with_plan` that
    bypasses the `ClassDB` check, so gates can obtain the reference profile. Without it, `[V]` below
    cannot be written at all.
@@ -634,6 +670,26 @@ Requires R7's `force_gdscript` flag; write the flag first.
   assert the disagreement exceeds 0.1 m — otherwise the fixture's `z` is too flat to detect an index
   shift, and the gate is measuring nothing.
 
+**Built** as criteria `[G]` and `[H]` of `RoadNativeParityGate`, both passing: the binding fixture agrees
+to 0.000000 m with `peak_grade` pinned at 0.080002, and the `s0 = 40` chunk agrees to 0.000000 m over 705
+vertices while the dropped-`s0` control moves 2.4 m.
+
+The mesher criterion needed something the text above assumed and did not ask for: **`build_chunk` and
+`build_apron` also had no oracle.** They delegate on `ClassDB.class_has_method` exactly as `solve` did, so
+"through both paths" was not expressible — there was only one path. They now take the same
+`p_force_gdscript` flag, for the same reason and with the same sole caller.
+
+One control had to be replaced rather than written, and the substitution is the honest part of this
+section. The intended check that the oracle flag *reaches* the GDScript body cannot be made numerically:
+the native solver is a transcription of the GDScript one — same SOR, same omega, same sweep order, same
+float32 — so the two agree bit-for-bit at every iteration count, and "the forced call returned the same
+numbers" is equally consistent with the flag working and with it being ignored. A first attempt asserted
+they *differ* after 3 iterations; it failed, correctly, because identity is the right answer. The flag was
+instead proven live once by hand, by perturbing `SOR_OMEGA` to 1.0 and watching the forced profile move
+1.18 m while the native one stayed bit-identical. What the gate guards is the thing that would silently
+undo that proof: it asserts the source of `solve` still gates its `ClassDB` check on `not
+p_force_gdscript`, and fails if the guard is removed — verified by removing it.
+
 ### 8.7 `[W]` Picking across the camera plane — `RoadRibbonPickingGate`
 
 Place the camera on the road, one control point ahead and one behind.
@@ -658,7 +714,11 @@ Place the camera on the road, one control point ahead and one behind.
    forced profile by 1.18 m peak while leaving the native profile bit-identical. At shipped settings the
    two agree exactly (max |dz| = 0) on a 2 km road at the grade limit, which is a result for step 3 to
    push on, not yet parity across the binding-gradient case R7 predicts.
-3. **R6, R7's break decision** — gate `[V]`.
+3. **R6, R7's break decision** — gate `[V]`. *Built.* R6 threaded `s0` through both native mesher
+   entry points; R7's break was kept and retargeted onto the composite iteration's movement after
+   measurement showed it never fires where R7 feared it would and does fire, usefully, where the profile
+   is already converged. `Pasture3DRoadMesher.build_chunk`/`build_apron` gained the same
+   `force_gdscript` flag the solver has, without which the mesher half of `[V]` could not be written.
 4. **R3a, R3b** — gates `[R]` `[S]`. Largest behavioural change; land it with the parity gate already green.
 5. **R4, R5** — gates `[T]` `[U]`.
 6. **R8, R9, R10, R11, R12** — one cleanup PR, gate `[W]`. No shared surface with the above.

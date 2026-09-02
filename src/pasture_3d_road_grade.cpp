@@ -346,8 +346,7 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 		}
 	};
 
-	auto sor_sweep = [&](std::vector<float> &pz, bool fwd_dir) -> float {
-		float max_diff = 0.0f;
+	auto sor_sweep = [&](std::vector<float> &pz, bool fwd_dir) -> void {
 		const int start = fwd_dir ? 0 : n - 1;
 		const int end = fwd_dir ? n : -1;
 		const int step_i = fwd_dir ? 1 : -1;
@@ -371,18 +370,17 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 				continue;
 			}
 			const double target = (smooth_w * (neighbour_sum / std::max(neighbour_count, 1.0)) + w_earth * (double)g_ptr[i]) / denom;
-			const float prev_v = pz[i];
 			pz[i] = (float)((double)pz[i] + 1.7 * (target - (double)pz[i]));
-			max_diff = std::max(max_diff, std::abs(pz[i] - prev_v));
 		}
-		return max_diff;
 	};
 
 	project_grade(z);
 
+	std::vector<float> z_prev(n);
 	for (int it = 0; it < iterations; it++) {
-		float d1 = sor_sweep(z, true);
-		float d2 = sor_sweep(z, false);
+		std::copy(z.begin(), z.end(), z_prev.begin());
+		sor_sweep(z, true);
+		sor_sweep(z, false);
 
 		if (w_balance > 0.0 && pinned_indices.is_empty()) {
 			double net = 0.0;
@@ -402,7 +400,24 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 		}
 		project_grade(z);
 
-		if (it >= 20 && std::max(d1, d2) < 1e-4f) {
+		// ---- CONVERGENCE BREAK: MEASURED ON THE WHOLE ITERATION, NOT ON THE SOR SWEEPS ----
+		//
+		// This used to test std::max(d1, d2), the SOR sweep delta taken BEFORE that iteration's balance
+		// shift, pin re-application and project_grade. That is the wrong quantity: the alternating
+		// projection (POCS) can still be walking the profile toward the constraint set while the sweeps
+		// have gone quiet, so the test could report convergence the solve had not reached.
+		//
+		// Measured rather than argued. On every fixture where the gradient constraint binds — a 30%
+		// hillside at an 8% limit, with and without pins, 400 to 1000 samples — the SOR delta never fell
+		// below 1e-4 in 240 iterations, so the old break never fired where it was feared. It fired only
+		// on near-converged profiles (flat and gentle ground, iteration 20-22), where it is worth having:
+		// it saves ~90% of the iterations on exactly the roads that are already solved. So the break is
+		// kept and its test is moved to the quantity that covers every stage of the iteration.
+		double moved = 0.0;
+		for (int i = 0; i < n; i++) {
+			moved = std::max(moved, (double)std::abs(z[i] - z_prev[i]));
+		}
+		if (it >= 20 && moved < 1e-4) {
 			break;
 		}
 	}
@@ -591,7 +606,12 @@ static inline Vector2 road_mesh_plan_tangent_at(const Vector2 *p_plan, const flo
 	return len > 1e-6 ? d / len : Vector2(1.0f, 0.0f);
 }
 
-static inline double road_mesh_align_height_at(const float *p_z, int n_z, double p_ds, double p_s) {
+// `p_s0` is the arc length of SAMPLE ZERO. It is not decoration: an alignment solved over a sub-range
+// carries s0 != 0, and sampling `s / ds` instead of `(s - s0) / ds` reads the profile shifted by s0/ds
+// samples. The terrain under the ribbon is graded WITH the offset applied (the grader threads it as
+// p_align_s0), so dropping it here makes ribbon and ground stop being the same surface — the one thing
+// DEPTH_LIFT's comment says must never happen. Mirrors Pasture3DRoadAlignment.height_at.
+static inline double road_mesh_align_height_at(const float *p_z, int n_z, double p_ds, double p_s0, double p_s) {
 	if (n_z == 0) {
 		return 0.0;
 	}
@@ -599,19 +619,20 @@ static inline double road_mesh_align_height_at(const float *p_z, int n_z, double
 		return (double)p_z[0];
 	}
 	const double ds = std::max(p_ds, 1e-4);
-	const double fi = p_s / ds;
+	const double fi = (p_s - p_s0) / ds;
 	const int i0 = std::clamp((int)std::floor(fi), 0, n_z - 1);
 	const int i1 = std::clamp(i0 + 1, 0, n_z - 1);
 	const double t = std::clamp(fi - (double)i0, 0.0, 1.0);
 	return (double)p_z[i0] * (1.0 - t) + (double)p_z[i1] * t;
 }
 
-static inline double road_mesh_align_bank_at(const float *p_bank, int n_bank, double p_ds, double p_s) {
+// Same offset, same reason; mirrors Pasture3DRoadAlignment.index_at, which rounds rather than lerps.
+static inline double road_mesh_align_bank_at(const float *p_bank, int n_bank, double p_ds, double p_s0, double p_s) {
 	if (n_bank == 0) {
 		return 0.0;
 	}
 	const double ds = std::max(p_ds, 1e-4);
-	const int si = std::clamp((int)std::round(p_s / ds), 0, n_bank - 1);
+	const int si = std::clamp((int)std::round((p_s - p_s0) / ds), 0, n_bank - 1);
 	return (double)p_bank[si];
 }
 
@@ -620,7 +641,7 @@ static inline double road_mesh_align_bank_at(const float *p_bank, int n_bank, do
 Array godot::road_mesh_build_chunk(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
 		double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
 		double p_from, double p_to, double p_half, double p_shoulder, double p_crown,
-		int p_lod, double p_lift) {
+		int p_lod, double p_lift, double p_align_s0) {
 	const int plan_n = p_plan.size();
 	const int cum_n = p_cum.size();
 	const int z_n = p_align_z.size();
@@ -673,8 +694,8 @@ Array godot::road_mesh_build_chunk(const PackedVector2Array &p_plan, const Packe
 		const Vector2 at = road_mesh_plan_point_at(plan_ptr, cum_ptr, plan_n, s);
 		const Vector2 tangent = road_mesh_plan_tangent_at(plan_ptr, cum_ptr, plan_n, s);
 		const Vector2 across(-tangent.y, tangent.x);
-		const double centre = road_mesh_align_height_at(z_ptr, z_n, p_align_ds, s);
-		const double bank = road_mesh_align_bank_at(bank_ptr, bank_n, p_align_ds, s);
+		const double centre = road_mesh_align_height_at(z_ptr, z_n, p_align_ds, p_align_s0, s);
+		const double bank = road_mesh_align_bank_at(bank_ptr, bank_n, p_align_ds, p_align_s0, s);
 
 		for (int c = 0; c < across_count; c++) {
 			const double u = offsets[c];
@@ -735,7 +756,7 @@ Array godot::road_mesh_build_chunk(const PackedVector2Array &p_plan, const Packe
 Array godot::road_mesh_build_apron(const Vector2 &p_center, double p_radius,
 		const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
 		double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
-		double p_crown, int p_segments, double p_lift) {
+		double p_crown, int p_segments, double p_lift, double p_align_s0) {
 	const int plan_n = p_plan.size();
 	const int cum_n = p_cum.size();
 	const int z_n = p_align_z.size();
@@ -773,8 +794,8 @@ Array godot::road_mesh_build_apron(const Vector2 &p_center, double p_radius,
 		const double d = hit.distance;
 		const double s = hit.s;
 		const double side = hit.t >= 0.0 ? 1.0 : -1.0;
-		const double centre = road_mesh_align_height_at(z_ptr, z_n, p_align_ds, s);
-		const double bank = road_mesh_align_bank_at(bank_ptr, bank_n, p_align_ds, s);
+		const double centre = road_mesh_align_height_at(z_ptr, z_n, p_align_ds, p_align_s0, s);
+		const double bank = road_mesh_align_bank_at(bank_ptr, bank_n, p_align_ds, p_align_s0, s);
 		const double y = road_mesh_surface_height(centre, bank, p_crown, d * side) + p_lift;
 		return Vector3(at.x, (float)y, at.y);
 	};
