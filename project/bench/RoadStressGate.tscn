@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://stress_road_gate_uid"]
+
+[ext_resource type="Script" path="res://bench/RoadStressGate.gd" id="1_stress"]
+
+[node name="RoadStressGate" type="Node"]
+script = ExtResource("1_stress")

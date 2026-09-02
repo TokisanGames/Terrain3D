@@ -98,6 +98,17 @@ Dictionary road_align_solve_with_plan(const PackedVector2Array &p_plan, const Pa
 		double p_ds, double p_max_grade, double p_design_speed, double p_max_superelevation,
 		const Dictionary &p_opts);
 
+// ---- Pasture3DRoadMesher in C++ ----
+Array road_mesh_build_chunk(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
+		double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+		double p_from, double p_to, double p_half, double p_shoulder, double p_crown,
+		int p_lod = 0, double p_lift = 0.02);
+
+Array road_mesh_build_apron(const Vector2 &p_center, double p_radius,
+		const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
+		double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+		double p_crown, int p_segments = 24, double p_lift = 0.02);
+
 } // namespace godot
 
 #endif // PASTURE_3D_ROAD_GRADE_H

@@ -228,6 +228,11 @@ static func build_chunk(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
 		p_lift: float = DEPTH_LIFT) -> Array:
 	if p_alignment == null or p_plan.size() < 2 or p_to - p_from <= 1e-4:
 		return []
+	if ClassDB.class_has_method("Pasture3DUtil", "road_mesh_build_chunk"):
+		return Pasture3DUtil.road_mesh_build_chunk(p_plan, p_cum, p_alignment.ds,
+				p_alignment.z, p_alignment.bank, p_from, p_to, p_half, p_shoulder,
+				p_crown, p_lod, p_lift)
+
 	var offsets := cross_offsets(p_half, p_shoulder, cross_for_lod(p_lod))
 	var across_count := offsets.size()
 	if across_count < 2:
@@ -299,6 +304,9 @@ static func build_apron(p_center: Vector2, p_radius: float, p_plan: PackedVector
 		p_segments: int = 24, p_lift: float = DEPTH_LIFT) -> Array:
 	if p_alignment == null or p_plan.size() < 2 or p_radius <= 0.01:
 		return []
+	if ClassDB.class_has_method("Pasture3DUtil", "road_mesh_build_apron"):
+		return Pasture3DUtil.road_mesh_build_apron(p_center, p_radius, p_plan, p_cum,
+				p_alignment.ds, p_alignment.z, p_alignment.bank, p_crown, p_segments, p_lift)
 	var segments := maxi(p_segments, 3)
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()

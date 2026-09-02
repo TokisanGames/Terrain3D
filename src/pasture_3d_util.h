@@ -306,6 +306,16 @@ public:
 			const double p_design_speed, const double p_max_superelevation, const double p_ds,
 			const double p_transition_length = 25.0);
 
+	static Array road_mesh_build_chunk(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
+			const double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+			const double p_from, const double p_to, const double p_half, const double p_shoulder,
+			const double p_crown, const int p_lod = 0, const double p_lift = 0.02);
+
+	static Array road_mesh_build_apron(const Vector2 &p_center, const double p_radius,
+			const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
+			const double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
+			const double p_crown, const int p_segments = 24, const double p_lift = 0.02);
+
 	// Native Curvature Discrete Laplacian filter.
 	static PackedFloat32Array curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
 			const int p_mode, const int p_radius, const double p_contrast);

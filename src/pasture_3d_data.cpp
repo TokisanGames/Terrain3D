@@ -2961,6 +2961,7 @@ void Pasture3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("stamp_ridge_line", "layer_id", "pts", "clip", "params", "lut"), &Pasture3DData::stamp_ridge_line);
 	ClassDB::bind_method(D_METHOD("stamp_trough_line", "layer_id", "pts", "clip", "params", "lut"), &Pasture3DData::stamp_trough_line);
 	ClassDB::bind_method(D_METHOD("stamp_road_line", "layer_id", "plan", "clip", "params"), &Pasture3DData::stamp_road_line);
+	ClassDB::bind_method(D_METHOD("stamp_road_surface_control", "layer_id", "surface", "gw", "gh", "min_x", "min_z", "vs", "texture_id", "preserve_base", "min_coverage"), &Pasture3DData::stamp_road_surface_control, DEFVAL(true), DEFVAL(0.004));
 	ClassDB::bind_method(D_METHOD("stamp_plow_loop", "layer_id", "poly", "clip", "params", "lut", "src_data"), &Pasture3DData::stamp_plow_loop);
 	ClassDB::bind_method(D_METHOD("stamp_splat_loop", "layer_id", "poly", "clip", "params", "lut"), &Pasture3DData::stamp_splat_loop);
 	ClassDB::bind_method(D_METHOD("gpu_raster_available"), &Pasture3DData::gpu_raster_available);

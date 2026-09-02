@@ -2049,34 +2049,41 @@ void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Arr
 	Pasture3DLayer *wlayer = _layer_stack.is_null() ? nullptr : _layer_stack->get_layer_ptr(p_layer_id);
 	const bool batched = wlayer && !composite && !wlayer->is_base();
 
-	// Read base heights below this layer
-	PackedFloat32Array base_height = composite_height_below(p_layer_id, min_x, min_z, vs, gw, gh);
-	if (base_height.size() != n) {
-		base_height.resize(n);
-		float *b_ptr = base_height.ptrw();
-		for (int iz = 0; iz < gh; iz++) {
-			const double z = min_z + (double)iz * vs;
-			const int row = iz * gw;
-			for (int ix = 0; ix < gw; ix++) {
-				b_ptr[row + ix] = (float)get_height_below(p_layer_id, Vector3(min_x + (double)ix * vs, 0.0, z));
-			}
-		}
+	const bool has_clip = p_clip.size != Vector3();
+	const double cx0 = p_clip.position.x;
+	const double cx1 = p_clip.position.x + p_clip.size.x;
+	const double cz0 = p_clip.position.z;
+	const double cz1 = p_clip.position.z + p_clip.size.z;
+
+	int iz0 = 0, iz1 = gh;
+	int ix0 = 0, ix1 = gw;
+	if (has_clip) {
+		iz0 = std::clamp((int)std::floor((cz0 - min_z) / vs), 0, gh);
+		iz1 = std::clamp((int)std::ceil((cz1 - min_z) / vs), 0, gh);
+		ix0 = std::clamp((int)std::floor((cx0 - min_x) / vs), 0, gw);
+		ix1 = std::clamp((int)std::ceil((cx1 - min_x) / vs), 0, gw);
+	}
+
+	// Read base heights below this layer, scoped to p_clip
+	PackedFloat32Array base_height;
+	base_height.resize(n);
+	float *b_ptr = base_height.ptrw();
+	for (int i = 0; i < n; i++) {
+		b_ptr[i] = (float)NAN;
 	}
 
 	Pasture3DPathGeom geom;
 	geom.build(p_plan, PackedFloat32Array());
 
-	// Filter base_height to NaN outside corridor reach (mirrors brush contract)
-	float *b_ptr = base_height.ptrw();
-	for (int iz = 0; iz < gh; iz++) {
+	for (int iz = iz0; iz < iz1; iz++) {
 		const double z = min_z + (double)iz * vs;
 		const int row = iz * gw;
-		for (int ix = 0; ix < gw; ix++) {
-			const int i = row + ix;
+		for (int ix = ix0; ix < ix1; ix++) {
+			const double x = min_x + (double)ix * vs;
 			std::vector<int> scratch;
-			const Pasture3DPathHit hit = geom.nearest(min_x + (double)ix * vs, z, scratch);
-			if (hit.distance > reach) {
-				b_ptr[i] = (float)NAN;
+			const Pasture3DPathHit hit = geom.nearest(x, z, scratch);
+			if (hit.distance <= reach) {
+				b_ptr[row + ix] = (float)get_height_below(p_layer_id, Vector3(x, 0.0, z));
 			}
 		}
 	}
@@ -2095,26 +2102,13 @@ void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Arr
 
 	std::vector<float> vals((size_t)n, (float)NAN);
 	const bool add = (blend == 1);
-	const bool has_clip = p_clip.size != Vector3();
-	const double cx0 = p_clip.position.x;
-	const double cx1 = p_clip.position.x + p_clip.size.x;
-	const double cz0 = p_clip.position.z;
-	const double cz1 = p_clip.position.z + p_clip.size.z;
 
-	for (int iz = 0; iz < gh; iz++) {
-		const double z = min_z + (double)iz * vs;
-		if (has_clip && (z < cz0 || z >= cz1)) {
-			continue;
-		}
+	for (int iz = iz0; iz < iz1; iz++) {
 		const int row = iz * gw;
-		for (int ix = 0; ix < gw; ix++) {
+		for (int ix = ix0; ix < ix1; ix++) {
 			const int i = row + ix;
 			const float g = g_ptr[i];
 			if (!std::isfinite(g)) {
-				continue;
-			}
-			const double x = min_x + (double)ix * vs;
-			if (has_clip && (x < cx0 || x >= cx1)) {
 				continue;
 			}
 			const float base_val = b_ptr[i];
@@ -2475,4 +2469,55 @@ void Pasture3DData::stamp_splat_loop(const int p_layer_id, const PackedVector2Ar
 	if (batched) {
 		_apply_control_block(wlayer, (int)std::lround(min_x / vs), (int)std::lround(min_z / vs), gw, gh, cvals.data(), cmask.data());
 	}
+}
+
+int Pasture3DData::stamp_road_surface_control(const int p_layer_id, const PackedFloat32Array &p_surface,
+		const int p_gw, const int p_gh, const double p_min_x, const double p_min_z, const double p_vs,
+		const int p_texture_id, const bool p_preserve_base, const double p_min_coverage) {
+	if (p_layer_id < 0 || p_texture_id < 0 || p_gw <= 0 || p_gh <= 0 || p_surface.size() < p_gw * p_gh) {
+		return 0;
+	}
+
+	Pasture3DLayer *wlayer = _layer_stack.is_null() ? nullptr : _layer_stack->get_layer_ptr(p_layer_id);
+	const bool batched = wlayer && wlayer->get_map_type() == TYPE_CONTROL && !wlayer->is_base();
+	std::vector<uint32_t> cvals;
+	std::vector<uint8_t> cmask;
+	if (batched) {
+		cvals.assign((size_t)p_gw * p_gh, 0u);
+		cmask.assign((size_t)p_gw * p_gh, 0);
+	}
+
+	const float *surf_ptr = p_surface.ptr();
+	int written = 0;
+
+	for (int iz = 0; iz < p_gh; iz++) {
+		const double z = p_min_z + (double)iz * p_vs;
+		const int row = iz * p_gw;
+		for (int ix = 0; ix < p_gw; ix++) {
+			const float cover = surf_ptr[row + ix];
+			if (!std::isfinite(cover) || (double)cover < p_min_coverage) {
+				continue;
+			}
+			const double x = p_min_x + (double)ix * p_vs;
+			const Vector3 pos((float)x, 0.0f, (float)z);
+			const uint32_t cur = get_control(pos);
+			const uint8_t base_id = p_preserve_base ? get_base(cur) : (uint8_t)p_texture_id;
+			const int blend_int = (int)std::lround(std::clamp(cover, 0.0f, 1.0f) * 255.0f);
+			const uint32_t ctrl = enc_base(base_id) | enc_overlay((uint8_t)p_texture_id) | enc_blend((uint8_t)blend_int) | (cur & 0x6);
+
+			if (batched) {
+				cvals[row + ix] = ctrl;
+				cmask[row + ix] = 1;
+			} else {
+				set_control_on_layer(p_layer_id, pos, (int)ctrl, 1.0f, false);
+			}
+			written++;
+		}
+	}
+
+	if (batched && written > 0) {
+		_apply_control_block(wlayer, (int)std::lround(p_min_x / p_vs), (int)std::lround(p_min_z / p_vs), p_gw, p_gh, cvals.data(), cmask.data());
+	}
+
+	return written;
 }

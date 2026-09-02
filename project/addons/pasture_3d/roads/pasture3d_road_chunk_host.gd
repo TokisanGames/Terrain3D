@@ -97,6 +97,7 @@ var _nearest: float = INF
 ## problem — so the host says the number out loud, and Debug > Visible Collision Shapes shows them when
 ## the game runs.
 var _colliders: int = 0
+var _last_digest: String = ""
 
 
 func _ready() -> void:
@@ -109,17 +110,37 @@ func _ready() -> void:
 ## Returns the number of chunks built. Zero is the normal answer for a road with no alignment yet or no
 ## surface material, not an error.
 func rebuild(p_brush: Pasture3DRoadBrush) -> int:
-	_clear()
 	if p_brush == null:
+		_clear()
+		_last_digest = ""
 		return 0
 	var run := p_brush.build_run()
 	if run.is_empty():
+		_clear()
+		_last_digest = ""
 		_why(p_brush, "the road has no solved alignment yet (build_run is empty)")
 		return 0
 	var t: Pasture3DRoadType = p_brush.resolved_road_type()
 	if t == null:
+		_clear()
+		_last_digest = ""
 		_why(p_brush, "the road has no road type")
 		return 0
+
+	var digest := "%s|%s|%.4f|%s|%s|%s|%s" % [
+		p_brush.alignment_digest(),
+		p_brush.junction_digest(),
+		depth_lift,
+		str(collision_enabled),
+		str(markings_enabled),
+		str(props_enabled),
+		str(t.get_instance_id()) if t != null else "",
+	]
+	if not _chunks.is_empty() and _last_digest == digest:
+		return _chunks.size()
+
+	_clear()
+	_last_digest = digest
 	var plan: PackedVector2Array = run["plan"]
 	var cum: PackedFloat32Array = run["cum"]
 	var alignment: Pasture3DRoadAlignment = run["alignment"]

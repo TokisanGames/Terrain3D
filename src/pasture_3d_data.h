@@ -297,6 +297,9 @@ public:
 	void stamp_ridge_line(const int p_layer_id, const PackedVector3Array &p_pts, const AABB &p_clip, const Dictionary &p_params, const PackedFloat32Array &p_lut);
 	void stamp_trough_line(const int p_layer_id, const PackedVector3Array &p_pts, const AABB &p_clip, const Dictionary &p_params, const PackedFloat32Array &p_lut);
 	void stamp_road_line(const int p_layer_id, const PackedVector2Array &p_plan, const AABB &p_clip, const Dictionary &p_params);
+	int stamp_road_surface_control(const int p_layer_id, const PackedFloat32Array &p_surface,
+			const int p_gw, const int p_gh, const double p_min_x, const double p_min_z, const double p_vs,
+			const int p_texture_id, const bool p_preserve_base = true, const double p_min_coverage = 0.004);
 	void stamp_plow_loop(const int p_layer_id, const PackedVector2Array &p_poly, const AABB &p_clip, const Dictionary &p_params, const PackedFloat32Array &p_lut, const PackedFloat32Array &p_src_data);
 	void stamp_splat_loop(const int p_layer_id, const PackedVector2Array &p_poly, const AABB &p_clip, const Dictionary &p_params, const PackedFloat32Array &p_lut);
 	// Capability query (spec §5.3): true if a local RenderingDevice + the analytic compute pipeline could

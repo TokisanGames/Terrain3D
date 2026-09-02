@@ -742,9 +742,15 @@ func paint_surface() -> int:
 		return 0
 
 	var gw := int(masks.get("gw", 0))
+	var gh := int(masks.get("gh", 0))
 	var min_x := float(masks.get("min_x", 0.0))
 	var min_z := float(masks.get("min_z", 0.0))
 	var vs := float(masks.get("vs", 1.0))
+
+	if terrain.data.has_method("stamp_road_surface_control"):
+		return terrain.data.stamp_road_surface_control(layer_id, cover, gw, gh, min_x, min_z, vs,
+				t.surface_layer_id, true, Pasture3DRoadPaint.MIN_COVERAGE)
+
 	# Read back what is already there so the paint keeps the base texture and any hole somebody carved.
 	# One read per covered cell: the corridor is a thin strip of the bake grid, not the whole of it.
 	var existing := PackedInt32Array()
