@@ -587,9 +587,12 @@ void Terrain3DMeshAsset::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_TEXTURE_CARD);
 	BIND_ENUM_CONSTANT(TYPE_MAX);
 
-	ADD_SIGNAL(MethodInfo("id_changed"));
-	ADD_SIGNAL(MethodInfo("setting_changed"));
-	ADD_SIGNAL(MethodInfo("instancer_setting_changed"));
+	ADD_SIGNAL(MethodInfo("id_changed",
+			PropertyInfo(Variant::INT, "type"),
+			PropertyInfo(Variant::INT, "old_id"),
+			PropertyInfo(Variant::INT, "new_id")));
+	ADD_SIGNAL(MethodInfo("setting_changed", PropertyInfo(Variant::INT, "id")));
+	ADD_SIGNAL(MethodInfo("instancer_setting_changed", PropertyInfo(Variant::INT, "id")));
 	ADD_SIGNAL(MethodInfo("instance_count_changed"));
 
 	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DMeshAsset::clear);
