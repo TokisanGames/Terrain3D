@@ -1,6 +1,7 @@
 # Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 #
-# Gates DG, DH, DI and DJ for the BRUSH GIZMO's constant-size sprite markers and its handle pick order —
+# Gates DG, DH, DI, DJ, DK and DL for the BRUSH GIZMO's constant-size sprite markers, its handle
+# pick order, and the selection bookkeeping behind both —
 # PASTURE3D_BRUSH_EROSION_SPEC.md is not where these live; see the header of
 # addons/pasture_3d/src/brush_gizmo.gd.
 #
@@ -29,7 +30,7 @@ const HANDLES := preload("res://addons/pasture_3d/src/brush_handles.gd")
 ## A gate suite that cannot tell "nothing ran" from "everything passed" is worse than no suite, so each
 ## gate now increments `_completed` on its way out and the verdict checks the total. That defect is the
 ## reason the pick logic was moved into a plain RefCounted in the first place.
-const COUNTED_GATES := 4
+const COUNTED_GATES := 6
 
 ## Every brush family the plugin ships, with the gizmo sprite each is expected to end up with. Written
 ## out rather than derived, because "it resolved to something" is the failure this gate exists to catch.
@@ -60,7 +61,7 @@ var _handles: HANDLES
 
 
 func _ready() -> void:
-	print("\n=== Brush gizmo markers (gates DG, DH, DI, DJ) ===\n")
+	print("\n=== Brush gizmo markers (gates DG, DH, DI, DJ, DK, DL) ===\n")
 	_root = Node3D.new()
 	add_child(_root)
 	# The picker, NOT the gizmo plugin: see COUNTED_GATES.
@@ -70,6 +71,8 @@ func _ready() -> void:
 	_gate_dh_dots_differ()
 	_gate_di_hidden_handle_selects_its_point()
 	_gate_dj_sprites_are_grayscale()
+	_gate_dk_selection_goes_inert_when_renumbered()
+	_gate_dl_one_picker()
 
 	if _completed != COUNTED_GATES:
 		_fail += 1
@@ -268,6 +271,186 @@ func _gate_di_hidden_handle_selects_its_point() -> void:
 		_fail += 1
 		print("    !! the handle projects within the pick radius of its own point, so the first click "
 			+ "would have taken the point whatever the code did")
+	_completed += 1
+
+
+# ---- [DK] / [DL] the selection index and the second picker (BRUSH_GIZMO_INPUT_SPEC P2/P3) ----------
+
+## A brush with one open spline of `p_n` points and a camera framing it. Shared by DK and DL, which both
+## need real screen projections rather than reasoning about them.
+func _pick_fixture(p_n: int) -> Array:
+	var brush := Pasture3DRidge.new()
+	_root.add_child(brush)
+	var path := Path3D.new()
+	var c := Curve3D.new()
+	for i in p_n:
+		c.add_point(Vector3(float(i) * 20.0 - 60.0, 0.0, 0.0))
+	path.curve = c
+	brush.add_child(path)
+	var cam := Camera3D.new()
+	_root.add_child(cam)
+	cam.global_position = Vector3(0, 90, 90)
+	cam.look_at(Vector3.ZERO, Vector3.UP)
+	cam.current = true
+	get_viewport().size = Vector2i(1280, 720)
+	return [brush, path, cam]
+
+
+## P2. `sel_gpi` is a RUNNING index across a brush's splines, so adding or removing a point renumbers it.
+## The Delete key reads `selected_point()`, so a stale index does not merely mislead — it removes the
+## WRONG POINT. The selection therefore records the point count it was taken at and goes inert on any
+## mismatch, which covers add, remove, undo of either, and an inspector edit; patching the two call
+## sites (which is what shipped before) covered only one of those, and not even all of it.
+func _gate_dk_selection_goes_inert_when_renumbered() -> void:
+	print("
+[DK] a renumbered point selection goes inert, not wrong:")
+	var fx := _pick_fixture(7)
+	var brush: Node3D = fx[0]
+	var path: Path3D = fx[1]
+	_handles.clear_point_selection()
+	_handles.sel_node_id = 0
+
+	# Select point 4 the way a click does, and confirm it resolves — without this the rest is vacuous.
+	_handles._update_selected_point(brush, 4, 0)
+	var sel: Array = _handles.selected_point(brush)
+	if sel[1] != 4:
+		_fail += 1
+		print("    !! the fixture never selected point 4 (got %d); nothing below is measured" % sel[1])
+		_completed += 1
+		return
+	print("    selected point %d of %d" % [sel[1], path.curve.point_count])
+
+	# A removal BEFORE the selection: the classic wrong-point deletion.
+	path.curve.remove_point(1)
+	var after: Array = _handles.selected_point(brush)
+	if after[0] != null:
+		_fail += 1
+		print("    !! still resolves to point %d after a removal before it — Delete would take the "
+			% after[1] + "wrong point")
+	else:
+		print("    a removal before the selection makes it inert")
+
+	# CONTROL. A removal AFTER the selection must invalidate too. `sel_gpi` still happens to name the
+	# right point there, so a design that merely fixed up the index would pass the line above and fail
+	# here — and this gate is what says the count, not the position, is the rule.
+	var fx2 := _pick_fixture(7)
+	var brush2: Node3D = fx2[0]
+	var path2: Path3D = fx2[1]
+	_handles.clear_point_selection()
+	_handles._update_selected_point(brush2, 2, 0)
+	path2.curve.remove_point(6)
+	var after2: Array = _handles.selected_point(brush2)
+	if after2[0] != null:
+		_fail += 1
+		print("    !! CONTROL: a removal after the selection left it live (point %d)" % after2[1])
+	else:
+		print("    CONTROL: a removal after the selection is inert too — the rule is the count")
+
+	# CONTROL 2. A TANGENT edit changes no count, so the selection must SURVIVE it. Without this the
+	# whole gate passes on a `selection_valid` that simply always answers false.
+	var fx3 := _pick_fixture(7)
+	var brush3: Node3D = fx3[0]
+	var path3: Path3D = fx3[1]
+	_handles.clear_point_selection()
+	_handles._update_selected_point(brush3, 3, 0)
+	path3.curve.set_point_in(3, Vector3(0, 0, -8))
+	var after3: Array = _handles.selected_point(brush3)
+	if after3[1] != 3:
+		_fail += 1
+		print("    !! CONTROL: a tangent edit cleared the selection (got %d); inert-always is not a fix"
+			% after3[1])
+	else:
+		print("    CONTROL: a tangent edit leaves the selection alone")
+	_completed += 1
+
+
+## P3. There used to be TWO pickers: the gizmo's (13 px, tangent-aware) decided what a click SELECTED,
+## and `Pasture3DTerrainBrush.pick_point_screen` (14 px, positions only) decided what the double-click
+## and right-click paths ACTED ON. They disagree, so a click could select one handle and act on another,
+## and a double-click on a visible tangent toggled the point underneath it instead.
+##
+## What is gated is the property, not the deletion: the handle acted on is the handle selected.
+func _gate_dl_one_picker() -> void:
+	print("
+[DL] the handle a click acts on is the handle it selected:")
+	var fx := _pick_fixture(7)
+	var brush: Node3D = fx[0]
+	var path: Path3D = fx[1]
+	var cam: Camera3D = fx[2]
+
+	# THE DIVERGENCE ONLY EXISTS WHERE A TANGENT IS VISIBLE. With every point straight and nothing
+	# selected, the hidden-handle collapse resolves every hit to its POSITION — which is exactly what the
+	# retired positions-only picker answered, so the two agree and the gate would measure nothing. The
+	# reported bug was a double-click on a SHOWN handle, so the fixture gives the points real tangents
+	# and turns the show-all toggle on.
+	for i in path.curve.point_count:
+		path.curve.set_point_in(i, Vector3(0.0, 0.0, -7.0))
+		path.curve.set_point_out(i, Vector3(0.0, 0.0, 7.0))
+	var was_show_all: bool = Pasture3DTerrainBrush._show_all_tangents
+	Pasture3DTerrainBrush._show_all_tangents = true
+
+	# Sample a grid across the spline's screen span rather than random points, so a failure is
+	# reproducible and the count is not luck.
+	var samples: Array[Vector2] = []
+	for gx in range(-6, 7):
+		for gy in range(-3, 4):
+			var world := Vector3(float(gx) * 10.0, 0.0, float(gy) * 4.0)
+			if not cam.is_position_behind(world):
+				samples.append(cam.unproject_position(world))
+
+	var hits := 0
+	var disagree_new := 0
+	var disagree_old := 0
+	var impure := 0
+	for at in samples:
+		_handles.clear_point_selection()
+		_handles.sel_node_id = 0
+		# PURE first: it must not move the selection it is asked about.
+		var before_gpi: int = _handles.sel_gpi
+		var acted: Array = _handles.pick_handle_at(brush, cam, at)
+		if _handles.sel_gpi != before_gpi:
+			impure += 1
+		# Then the selecting call, from the same state.
+		var selected: int = _handles.pick_handle(brush, cam, at)
+		if selected < 0:
+			continue
+		hits += 1
+		var acted_id: int = -1
+		if acted[0] != null:
+			var base := _handles.resolve_handle(brush, selected)
+			acted_id = selected if (acted[0] == base[0] and acted[1] == base[1]
+					and acted[2] == base[2]) else -2
+		if acted_id != selected:
+			disagree_new += 1
+		# THE CONTROL: the retired picker, on the same click.
+		var old_pick: Array = brush.pick_point_screen(cam, at, 14.0)
+		var base2 := _handles.resolve_handle(brush, selected)
+		if old_pick[0] != base2[0] or old_pick[1] != base2[1]:
+			disagree_old += 1
+
+	Pasture3DTerrainBrush._show_all_tangents = was_show_all
+	print("    %d sample clicks, %d landed on a handle" % [samples.size(), hits])
+	if hits < 10:
+		_fail += 1
+		print("    !! too few clicks landed on anything; the camera, not the pickers, was measured")
+	if disagree_new != 0:
+		_fail += 1
+		print("    !! %d clicks selected one handle and acted on another" % disagree_new)
+	else:
+		print("    every click acts on what it selected")
+	if impure != 0:
+		_fail += 1
+		print("    !! pick_handle_at moved the selection on %d clicks; the query is not pure" % impure)
+	else:
+		print("    pick_handle_at wrote nothing down")
+	# The control must FAIL to agree, or the two pickers never diverged on this fixture and [DL] is
+	# reporting a tautology.
+	if disagree_old == 0:
+		_fail += 1
+		print("    !! CONTROL: the retired 14 px picker agreed everywhere, so nothing was reproduced")
+	else:
+		print("    CONTROL: the retired 14 px picker disagreed on %d of %d clicks — the divergence was real"
+			% [disagree_old, hits])
 	_completed += 1
 
 

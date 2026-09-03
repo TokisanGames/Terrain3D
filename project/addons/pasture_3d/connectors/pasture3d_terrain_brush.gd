@@ -130,7 +130,7 @@ var _moved_node: bool = false   # A queued refresh is a node-transform move (dir
 var _last_baked_xform: Transform3D = Transform3D() # Global xform baked into the terrain; guards no-op transform refreshes (tab-switch churn)
 var _clip_aabb: AABB = AABB()   # When non-empty, _paint_* writes only cells inside this world box (dirty-rect)
 var _defer_composite: bool = false # When true, _paint_* write samples without compositing (caller composites the box once)
-var _curve_cache: Dictionary = {}   # spline instance_id -> PackedVector3Array of point positions at last bake
+var _curve_cache: Dictionary = {}   # spline instance_id -> flat [pos, in, out] triples at last bake
 var _stamp_cache: Dictionary = {}   # spline instance_id -> { key, min_x, min_z, vs, gw, gh, vals, bounds }
 var _suspend_auto: bool = false # Blocks auto-refresh while we mutate curves programmatically (undo)
 var _ready_done: bool = false   # True once _ready ran — gates re-parent auto-assign off scene-load
@@ -2519,14 +2519,40 @@ func _apply_surface_snap_points(path: Path3D, indices: PackedInt32Array) -> void
 
 
 ## Local point positions of a spline's curve, for moved-point detection.
+## ---- WHY THE TANGENTS ARE IN HERE ----
+##
+## Flat [position, in, out] TRIPLES, one per curve point, in point order — not one vector per point.
+##
+## The dirty-rect diff is this array's only consumer, and a tangent-only edit MUST be visible to it. A
+## curve whose handles moved and whose positions did not used to diff as "nothing moved": every
+## double-click smooth/sharpen and every tangent-handle drag returned an EMPTY moved-index list, which
+## sent `_spline_dirty_aabb` down its whole-spline fallback and repainted the entire footprint plus
+## every overlapping layer-mate. That is why dragging a point was fast and double-clicking the same
+## point stalled the editor, and why it scaled with spline length rather than with the edit.
+##
+## Both readers (`_moved_point_indices`, `_spline_dirty_aabb`'s previous-position expansion) index in
+## strides of 3. A reader that assumes one-vector-per-point produces a WRONG BOX, not an error.
 func _curve_point_array(path: Path3D) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	var c: Curve3D = path.curve if is_instance_valid(path) else null
 	if c == null:
 		return out
+	out.resize(c.point_count * 3)
 	for i in range(c.point_count):
-		out.append(c.get_point_position(i))
+		out[i * 3] = c.get_point_position(i)
+		out[i * 3 + 1] = c.get_point_in(i)
+		out[i * 3 + 2] = c.get_point_out(i)
 	return out
+
+
+## True when point `p_i` of `p_cur` differs from point `p_j` of `p_prev` in position or in either
+## tangent. Both arrays are `_curve_point_array` triples.
+static func _curve_point_differs(p_cur: PackedVector3Array, p_i: int,
+		p_prev: PackedVector3Array, p_j: int) -> bool:
+	for k in 3:
+		if not p_cur[p_i * 3 + k].is_equal_approx(p_prev[p_j * 3 + k]):
+			return true
+	return false
 
 
 ## Indices of `path`'s curve points that moved since the last bake (vs `_curve_cache`). Returns EVERY
@@ -2534,44 +2560,47 @@ func _curve_point_array(path: Path3D) -> PackedVector3Array:
 ## snap falls back to re-seating the whole spline in those cases rather than guessing.
 func _moved_point_indices(path: Path3D) -> PackedInt32Array:
 	var out := PackedInt32Array()
+	# Both arrays are [position, in, out] triples — see `_curve_point_array`. Counts are in POINTS.
 	var cur := _curve_point_array(path)
 	var prev: PackedVector3Array = _curve_cache.get(path.get_instance_id(), PackedVector3Array())
+	var n_cur := cur.size() / 3
+	var n_prev := prev.size() / 3
 	if prev.is_empty():
-		for i in range(cur.size()):
+		for i in range(n_cur):
 			out.append(i)
 		return out
 
-	# Case 1: Point inserted (cur.size() == prev.size() + 1)
-	if cur.size() == prev.size() + 1:
-		var n_prev := prev.size()
+	# Case 1: Point inserted (n_cur == n_prev + 1)
+	if n_cur == n_prev + 1:
 		var ins_idx := n_prev
 		for i in n_prev:
-			if not prev[i].is_equal_approx(cur[i]):
+			if _curve_point_differs(cur, i, prev, i):
 				ins_idx = i
 				break
 		out.append(ins_idx)
 		return out
 
-	# Case 2: Point removed (cur.size() == prev.size() - 1)
-	if cur.size() == prev.size() - 1 and cur.size() > 0:
-		var n_cur := cur.size()
+	# Case 2: Point removed (n_cur == n_prev - 1)
+	if n_cur == n_prev - 1 and n_cur > 0:
 		var rem_idx := n_cur
 		for i in n_cur:
-			if not cur[i].is_equal_approx(prev[i]):
+			if _curve_point_differs(cur, i, prev, i):
 				rem_idx = i
 				break
 		out.append(rem_idx)
 		return out
 
 	# Case 3: Arbitrary count change
-	if prev.size() != cur.size():
-		for i in range(cur.size()):
+	if n_prev != n_cur:
+		for i in range(n_cur):
 			out.append(i)
 		return out
 
-	# Case 4: Same count, point positions changed
-	for i in range(cur.size()):
-		if not prev[i].is_equal_approx(cur[i]):
+	# Case 4: Same count — a point counts as moved when its POSITION or either TANGENT changed. The
+	# tangents are the difference between a narrow repaint and a whole-spline one for every smooth /
+	# sharpen / handle drag; see `_curve_point_array`.
+	for i in range(n_cur):
+		if _curve_point_differs(cur, i, prev, i):
 			out.append(i)
 	return out
 
@@ -2579,6 +2608,11 @@ func _moved_point_indices(path: Path3D) -> PackedInt32Array:
 ## ---- Editor loop-point editing (driven by the plugin's 3D input when this brush is selected) ----
 
 ## The loop point nearest `screen_pos` within `radius` px → [Path3D, point_index], or [null, -1].
+##
+## POSITIONS ONLY, and no longer an input picker. The editor's click paths all go through the gizmo's
+## `Pasture3DBrushHandles.pick_handle_at` — one traversal, one radius, tangent-aware. This survives as
+## the first cheap test inside `pick_brush_screen_distance` ("is the cursor on this brush at all"),
+## which is a distance query and not a handle pick. Do not route a click back through it.
 func pick_point_screen(camera: Camera3D, screen_pos: Vector2, radius: float) -> Array:
 	var best: Array = [null, -1]
 	var best_d := radius
@@ -2721,15 +2755,49 @@ func editor_smooth_point(path: Path3D, idx: int) -> void:
 	var ur := _editor_undo()
 	if ur:
 		ur.create_action("Smooth Loop Point" if smoothing else "Sharpen Loop Point")
-		ur.add_do_method(c, "set_point_in", idx, new_in)
-		ur.add_do_method(c, "set_point_out", idx, new_out)
-		ur.add_undo_method(c, "set_point_in", idx, old_in)
-		ur.add_undo_method(c, "set_point_out", idx, old_out)
+		ur.add_do_method(self, "editor_set_point_tangents", path, idx, new_in, new_out)
+		ur.add_undo_method(self, "editor_set_point_tangents", path, idx, old_in, old_out)
 		ur.commit_action()
 	else:
-		c.set_point_in(idx, new_in)
-		c.set_point_out(idx, new_out)
+		editor_set_point_tangents(path, idx, new_in, new_out)
 	update_gizmos()
+
+
+## Zero ONE tangent of a loop point (undoable) — double-clicking a shown in/out handle sharpens that
+## side only, leaving the other alone. `kind` is 1 for the in-handle, 2 for the out-handle, matching the
+## gizmo's subgizmo encoding. A double-click on the POINT still toggles both (`editor_smooth_point`).
+func editor_zero_tangent(path: Path3D, idx: int, kind: int) -> void:
+	if path == null or path.curve == null or idx < 0 or idx >= path.curve.point_count:
+		return
+	if kind != 1 and kind != 2:
+		return
+	var c := path.curve
+	var old_in := c.get_point_in(idx)
+	var old_out := c.get_point_out(idx)
+	if (old_in if kind == 1 else old_out).length() <= 0.02:
+		return # already a corner on that side — nothing to undo and nothing to re-bake
+	var new_in := Vector3.ZERO if kind == 1 else old_in
+	var new_out := Vector3.ZERO if kind == 2 else old_out
+	var ur := _editor_undo()
+	if ur:
+		ur.create_action("Sharpen Loop Handle")
+		ur.add_do_method(self, "editor_set_point_tangents", path, idx, new_in, new_out)
+		ur.add_undo_method(self, "editor_set_point_tangents", path, idx, old_in, old_out)
+		ur.commit_action()
+	else:
+		editor_set_point_tangents(path, idx, new_in, new_out)
+	update_gizmos()
+
+
+## Set BOTH tangents of one curve point in a single mutation. Registered as one do/undo method rather
+## than a pair of `set_point_in` / `set_point_out` calls so the toggle is one undo step and one
+## `changed` emission — the refresh debounce collapses the pair today, but a future non-debounced
+## caller would otherwise bake twice for one gesture.
+func editor_set_point_tangents(path: Path3D, idx: int, p_in: Vector3, p_out: Vector3) -> void:
+	if path == null or path.curve == null or idx < 0 or idx >= path.curve.point_count:
+		return
+	path.curve.set_point_in(idx, p_in)
+	path.curve.set_point_out(idx, p_out)
 
 
 ## A mirrored tangent handle (path-local) for smoothing a point: along the previous→next direction,
@@ -3375,18 +3443,25 @@ func _spline_dirty_aabb(path: Path3D, moved_indices: PackedInt32Array,
 			mx.x = maxf(mx.x, maxf(in_pos.x, out_pos.x))
 			mx.y = maxf(mx.y, maxf(in_pos.z, out_pos.z))
 
-	# Also expand bounds from PREVIOUS cached positions of those same control points
+	# Also expand bounds from the PREVIOUS cached position AND TANGENTS of those same control points.
+	# The cache holds [position, in, out] triples (see `_curve_point_array`), so the stride is 3 and the
+	# bound is in points. The tangents belong here for the same reason as above and for one more: a
+	# tangent that SHRANK reaches further in the old curve than in the new one, so leaving it out clears
+	# less than was painted and strands the old cut.
 	var prev: PackedVector3Array = _curve_cache.get(path.get_instance_id(), PackedVector3Array())
 	if not prev.is_empty():
+		var n_prev := prev.size() / 3
 		for idx in moved_indices:
 			var i0 := maxi(idx - 1, 0)
-			var i1 := mini(idx + 1, prev.size() - 1)
+			var i1 := mini(idx + 1, n_prev - 1)
 			for k in range(i0, i1 + 1):
-				var wp := path.to_global(prev[k])
-				mn.x = minf(mn.x, wp.x)
-				mn.y = minf(mn.y, wp.z)
-				mx.x = maxf(mx.x, wp.x)
-				mx.y = maxf(mx.y, wp.z)
+				var pp: Vector3 = prev[k * 3]
+				for corner in [pp, pp + prev[k * 3 + 1], pp + prev[k * 3 + 2]]:
+					var wp := path.to_global(corner)
+					mn.x = minf(mn.x, wp.x)
+					mn.y = minf(mn.y, wp.z)
+					mx.x = maxf(mx.x, wp.x)
+					mx.y = maxf(mx.y, wp.z)
 
 	if mn.x == INF:
 		return _spline_footprint_aabb(path)

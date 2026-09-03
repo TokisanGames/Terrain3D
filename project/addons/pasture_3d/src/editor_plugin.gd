@@ -25,6 +25,9 @@ var layers_dock: PanelContainer
 var graph_editor: Pasture3DGraphEditor # bottom-panel visual node-graph editor
 var graph_inspector: Pasture3DGraphInspectorPlugin # "Edit in Graph Editor" button
 var brush_gizmo: EditorNode3DGizmoPlugin # Clickable origin markers for brush nodes
+## The selected Pasture3D brush, re-derived on `selection_changed` rather than per input event —
+## see `_current_brush`. May hold a freed node; read it through `_current_brush`, not directly.
+var _selected_brush: Pasture3DTerrainBrush
 var pool_gizmo: EditorNode3DGizmoPlugin # Clickable markers floating over Pasture3DPool water
 var junction_gizmo: EditorNode3DGizmoPlugin # Resolved road junctions, drawn where the roads meet
 var current_region_position: Vector2
@@ -114,6 +117,11 @@ func _enter_tree() -> void:
 	junction_gizmo = Pasture3DJunctionGizmo.new()
 	add_node_3d_gizmo_plugin(junction_gizmo)
 
+	# One selection scan per selection change, rather than one per forwarded input event — see
+	# `_current_brush`. Primed immediately so a brush already selected when the plugin loads is live.
+	EditorInterface.get_selection().selection_changed.connect(_on_editor_selection_changed)
+	_on_editor_selection_changed()
+
 	_register_water_globals()
 
 
@@ -168,6 +176,9 @@ func _exit_tree() -> void:
 		remove_node_3d_gizmo_plugin(pool_gizmo)
 	if junction_gizmo:
 		remove_node_3d_gizmo_plugin(junction_gizmo)
+	var sel := EditorInterface.get_selection()
+	if sel.selection_changed.is_connected(_on_editor_selection_changed):
+		sel.selection_changed.disconnect(_on_editor_selection_changed)
 	ui.queue_free()
 	editor.free()
 
@@ -428,11 +439,29 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 
 
 ## The currently-selected Pasture3D brush, or null. Drives the loop-point editing input path.
+##
+## ANSWERED FROM A CACHE, because `_forward_3d_gui_input` asks on EVERY forwarded event — every mouse
+## motion across the viewport included — and the honest answer allocates an Array of every selected node
+## and type-tests it. The selection only changes when `selection_changed` fires, so that is where the
+## work belongs. `is_instance_valid` still guards the read: a cached brush can be freed (deleted, or an
+## undone placement) without the signal reaching us first.
 func _current_brush() -> Pasture3DTerrainBrush:
+	if not is_instance_valid(_selected_brush):
+		_selected_brush = null
+	return _selected_brush
+
+
+## The selection changed — re-derive the brush once, here, instead of per input event. Also publishes
+## the id to the brush gizmo, whose `_brush_selected` ran the same allocation once per redraw and once
+## per subgizmo ray.
+func _on_editor_selection_changed() -> void:
+	_selected_brush = null
 	for n in EditorInterface.get_selection().get_selected_nodes():
 		if n is Pasture3DTerrainBrush:
-			return n
-	return null
+			_selected_brush = n
+			break
+	if brush_gizmo:
+		brush_gizmo.set_selected_brush(_selected_brush)
 
 
 ## Loop-point editing input for a selected brush. Ctrl-click (Cmd on macOS) on the surface inserts a
@@ -462,11 +491,18 @@ func _forward_brush_input(p_camera: Camera3D, p_event: InputEvent, p_brush: Past
 	var raw: Vector2 = vp.get_mouse_position()
 	var mouse_pos: Vector2 = raw if full_res else raw / 2.0
 
-	# Double-click a point → toggle it between a smooth curve and a sharp corner.
+	# Double-click a point → toggle it between a smooth curve and a sharp corner. Double-click one of its
+	# SHOWN tangent handles → sharpen just that side. Both go through the gizmo's own picker, so the
+	# handle this acts on is the handle the click selected; a second picker here (14 px, positions only)
+	# used to let a double-click on a visible tangent silently toggle the point underneath it.
 	if p_event.get_button_index() == MOUSE_BUTTON_LEFT and p_event.double_click:
-		var dpicked: Array = p_brush.pick_point_screen(p_camera, mouse_pos, 14.0)
-		if dpicked[0] != null:
-			p_brush.editor_smooth_point(dpicked[0], dpicked[1])
+		var dhit: Array = brush_gizmo.pick_handle_at(p_brush, p_camera, mouse_pos) if brush_gizmo \
+				else [null, -1, -1]
+		if dhit[0] != null:
+			if dhit[2] == 0:
+				p_brush.editor_smooth_point(dhit[0], dhit[1])
+			else:
+				p_brush.editor_zero_tangent(dhit[0], dhit[1], dhit[2])
 			return AFTER_GUI_INPUT_STOP
 		return AFTER_GUI_INPUT_PASS
 
@@ -488,7 +524,10 @@ func _forward_brush_input(p_camera: Camera3D, p_event: InputEvent, p_brush: Past
 		return AFTER_GUI_INPUT_STOP
 
 	if p_event.get_button_index() == MOUSE_BUTTON_RIGHT:
-		var picked: Array = p_brush.pick_point_screen(p_camera, mouse_pos, 14.0)
+		# The gizmo's picker, not a second one — a right-click must remove the point the user can see is
+		# selected. A hit on a tangent resolves to its own point, which is the point that owns the handle.
+		var picked: Array = brush_gizmo.pick_handle_at(p_brush, p_camera, mouse_pos) if brush_gizmo \
+				else [null, -1, -1]
 		if picked[0] != null:
 			p_brush.editor_remove_point(picked[0], picked[1])
 			return AFTER_GUI_INPUT_STOP
@@ -497,7 +536,10 @@ func _forward_brush_input(p_camera: Camera3D, p_event: InputEvent, p_brush: Past
 
 	# Plain left-click not on a point of this brush: check if user clicked on another road ribbon / brush!
 	if p_event.get_button_index() == MOUSE_BUTTON_LEFT and not add_mod and not p_event.double_click:
-		var picked_self: Array = p_brush.pick_point_screen(p_camera, mouse_pos, 14.0)
+		# Same picker again: "did this click land on one of MY handles" must agree with what the subgizmo
+		# ray decided, or a click can both grab a handle and re-select a different brush.
+		var picked_self: Array = brush_gizmo.pick_handle_at(p_brush, p_camera, mouse_pos) if brush_gizmo \
+				else [null, -1, -1]
 		if picked_self[0] == null:
 			var other: Node3D = _pick_brush_screen(p_camera, mouse_pos, 24.0)
 			if other != null and other != p_brush:

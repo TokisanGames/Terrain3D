@@ -34,11 +34,60 @@ var sel_gpi: int = -1
 ## plugin which subgizmos are selected, only which one its own ray hit, so a group drag draws unfilled.
 var sel_kind: int = 0
 
+## ---- WHY THE SELECTION REMEMBERS A COUNT ----
+##
+## `sel_gpi` is a RUNNING index across all of a brush's splines, so adding or removing a point anywhere
+## renumbers it. Ctrl-click-add and right-click-remove both do that, and the removal path used not to
+## tell anyone: the index then named the point AFTER the one the user picked, so the filled marker moved
+## to a neighbour and the Delete key removed the wrong point.
+##
+## Fixing the two call sites is what was tried first and is the wrong shape — the call sites are the
+## thing that keeps being forgotten, and neither of them covers an undo, a redo, or an edit made to the
+## Path3D from the inspector. So the selection carries the point count it was taken at, and any mismatch
+## makes it INERT rather than wrong. Inert is the correct failure for something a destructive key
+## binding reads.
+var _sel_count: int = -1
 
-## The pick itself, split from the gizmo callback so it can be driven with a real brush and a real
-## camera. `EditorNode3DGizmo` has no way to be told which node it is for, so a gate cannot build one —
-## and the collapse rule below is the whole of usability tweak 3 and needs to be measurable.
-func pick_handle(p_node: Node3D, p_camera: Camera3D, p_point: Vector2) -> int:
+
+## Whether handle `p_kind` of point `p_gpi` is THE selected one — what draws filled rather than hollow.
+## Validity-aware, so a renumbered selection stops filling a marker it no longer names.
+func is_selected(p_node: Node3D, p_gpi: int, p_kind: int) -> bool:
+	return selection_valid(p_node) and p_gpi == sel_gpi and sel_kind == p_kind
+
+
+## Total curve points across `p_node`'s splines — the number `sel_gpi` is an index into.
+func point_count(p_node: Node3D) -> int:
+	var n := 0
+	for path in loop_paths(p_node):
+		n += path.curve.point_count
+	return n
+
+
+## True when `sel_gpi` still names the point it was taken on: same brush, a real index, and the same
+## number of points as when it was recorded.
+func selection_valid(p_node: Node3D) -> bool:
+	if p_node == null or sel_gpi < 0 or sel_node_id != p_node.get_instance_id():
+		return false
+	return _sel_count == point_count(p_node)
+
+
+## The handle nearest `p_point`, as [Path3D, point index, kind], or [null, -1, -1]. PURE: no selection
+## write, no redraw — see `pick_handle` for the one place that is allowed to mutate.
+##
+## One traversal, one radius, one answer. There used to be a second picker
+## (`Pasture3DTerrainBrush.pick_point_screen`, 14 px, positions only) behind the double-click and
+## right-click paths, so a click could SELECT one handle and ACT on a different one, and double-clicking
+## a visible tangent silently toggled the point underneath it instead.
+func pick_handle_at(p_node: Node3D, p_camera: Camera3D, p_point: Vector2) -> Array:
+	var id := pick_handle_id(p_node, p_camera, p_point)
+	if id < 0:
+		return [null, -1, -1]
+	return resolve_handle(p_node, id)
+
+
+## The nearest handle's subgizmo id, or -1. PURE — the traversal and the hidden-handle collapse, with
+## nothing written down.
+func pick_handle_id(p_node: Node3D, p_camera: Camera3D, p_point: Vector2) -> int:
 	var node := p_node
 	var best := -1
 	var best_d := PICK_RADIUS
@@ -67,7 +116,19 @@ func pick_handle(p_node: Node3D, p_camera: Camera3D, p_point: Vector2) -> int:
 		var bgpi := best / 3
 		if best % 3 != 0 and not show_tangents(node, bgpi):
 			best = bgpi * 3
-	_update_selected_point(node, best / 3 if best >= 0 else -1, best % 3 if best >= 0 else 0)
+	return best
+
+
+## The pick AND the selection it implies — the one place allowed to write `sel_*` and schedule a
+## redraw. Driven by the gizmo plugin's `_subgizmos_intersect_ray`.
+##
+## Split from the callback so it can be driven with a real brush and a real camera:
+## `EditorNode3DGizmo` has no way to be told which node it is for, so a gate cannot build one — and the
+## hidden-handle collapse in `pick_handle_id` is the whole of usability tweak 3 and needs to be
+## measurable.
+func pick_handle(p_node: Node3D, p_camera: Camera3D, p_point: Vector2) -> int:
+	var best := pick_handle_id(p_node, p_camera, p_point)
+	_update_selected_point(p_node, best / 3 if best >= 0 else -1, best % 3 if best >= 0 else 0)
 	return best
 
 
@@ -76,28 +137,34 @@ func pick_handle(p_node: Node3D, p_camera: Camera3D, p_point: Vector2) -> int:
 func _update_selected_point(p_node: Node3D, p_gpi: int, p_kind: int = 0) -> void:
 	var id := p_node.get_instance_id()
 	if p_gpi >= 0:
-		if sel_node_id != id or sel_gpi != p_gpi or sel_kind != p_kind:
+		var n := point_count(p_node)
+		if sel_node_id != id or sel_gpi != p_gpi or sel_kind != p_kind or _sel_count != n:
 			sel_node_id = id
 			sel_gpi = p_gpi
 			sel_kind = p_kind
+			# The count the index is valid against — see `_sel_count`.
+			_sel_count = n
 			p_node.update_gizmos.call_deferred()
 	elif sel_node_id == id and sel_gpi != -1:
 		sel_gpi = -1
 		sel_kind = 0
+		_sel_count = -1
 		p_node.update_gizmos.call_deferred()
 
 
-## Whether to draw point `p_gpi`'s tangent handles: only the selected point, or all when the toggle is on.
+## Whether to draw point `p_gpi`'s tangent handles: only the selected point, or all when the toggle is
+## on. A selection whose point count has moved under it is not drawn — it would highlight a neighbour.
 func show_tangents(p_node: Node3D, p_gpi: int) -> bool:
 	if Pasture3DTerrainBrush._show_all_tangents:
 		return true
-	return p_node.get_instance_id() == sel_node_id and p_gpi == sel_gpi
+	return selection_valid(p_node) and p_gpi == sel_gpi
 
 
 ## [Path3D, point index] of the currently-selected loop point on `p_brush`, or [null, -1]. Lets the
-## plugin remove it on the Delete key (see editor_plugin.gd).
+## plugin remove it on the Delete key (see editor_plugin.gd). Answers [null, -1] for a selection taken
+## before a point was added or removed: Delete reads this, and no deletion beats the wrong deletion.
 func selected_point(p_brush: Node3D) -> Array:
-	if p_brush == null or sel_node_id != p_brush.get_instance_id() or sel_gpi < 0:
+	if not selection_valid(p_brush):
 		return [null, -1]
 	var res := resolve_handle(p_brush, sel_gpi * 3)
 	return [res[0], res[1]]
@@ -107,6 +174,7 @@ func selected_point(p_brush: Node3D) -> Array:
 func clear_point_selection() -> void:
 	sel_gpi = -1
 	sel_kind = 0
+	_sel_count = -1
 
 
 ## Map a flat subgizmo id back to [child Path3D, point index, kind], in the same order _redraw drew them.

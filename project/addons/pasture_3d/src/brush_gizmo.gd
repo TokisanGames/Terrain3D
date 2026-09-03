@@ -49,6 +49,16 @@ var _h: Handles = Handles.new()
 ## first mutation. When true, dragging one tangent mirrors the other (Shift breaks the symmetry).
 var _smooth_drag: Dictionary = {}
 
+## Instance id of the brush the editor currently has selected, published by the plugin on
+## `selection_changed` so `_brush_selected` does not re-scan the selection on every redraw and ray.
+## 0 means nothing is selected, which is NOT the same as never having been told — see `_have_selection`.
+var _selected_brush_id: int = 0
+## Whether the plugin has published a selection yet. Kept apart from `_selected_brush_id == 0` because
+## "no brush is selected" and "nobody has said" need different answers: the first is a definite no, the
+## second has to fall back to asking the editor, or a gizmo drawn before the plugin's first callback
+## would hide its handles.
+var _have_selection: bool = false
+
 ## Marker materials created on demand, one per distinct colour a brush asked for (html colour -> the
 ## name it was registered under). `create_material` is per-plugin and by name, so the set has to be
 ## interned somewhere; doing it lazily means a new brush family declares a colour and nothing else.
@@ -175,13 +185,12 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 	# standard move gizmo while the brush keeps its own selection.
 	if _brush_selected(node):
 		var gmat := get_material("tangents", p_gizmo)
-		var is_sel_node := node.get_instance_id() == _h.sel_node_id
 		var gpi := 0
 		for path in _h.loop_paths(node):
 			for i in path.curve.point_count:
 				var c := node.to_local(path.to_global(path.curve.get_point_position(i)))
 				Sprites._dot_sprite(p_gizmo, c, Sprites.POINT_SIZE, POINT_COLOR,
-						is_sel_node and gpi == _h.sel_gpi and _h.sel_kind == 0)
+						_h.is_selected(node, gpi, 0))
 				# Tangents only for the selected point (or all, when the toggle is on) — declutter.
 				if _h.show_tangents(node, gpi):
 					for kind in [1, 2]:
@@ -190,7 +199,7 @@ func _redraw(p_gizmo: EditorNode3DGizmo) -> void:
 						# two dots with nothing between them do not say it.
 						p_gizmo.add_lines(PackedVector3Array([c, hc]), gmat)
 						Sprites._dot_sprite(p_gizmo, hc, Sprites.TANGENT_SIZE, TANGENT_COLOR,
-								is_sel_node and gpi == _h.sel_gpi and _h.sel_kind == kind)
+								_h.is_selected(node, gpi, kind))
 				gpi += 1
 
 
@@ -218,6 +227,13 @@ func selected_point(p_brush: Node3D) -> Array:
 ## Forget the selected point (e.g. after it was deleted) so its now-stale index isn't reused.
 func clear_point_selection() -> void:
 	_h.clear_point_selection()
+
+
+## The handle under the cursor, as [Path3D, point index, kind] — the SAME traversal and radius the
+## subgizmo ray uses, and pure. The plugin's double-click and right-click paths go through here rather
+## than through a second picker of their own; see `Pasture3DBrushHandles.pick_handle_at`.
+func pick_handle_at(p_brush: Node3D, p_camera: Camera3D, p_point: Vector2) -> Array:
+	return _h.pick_handle_at(p_brush, p_camera, p_point)
 
 
 ## A point is "smooth" when both tangents are non-trivial and roughly mirror images (collinear, equal
@@ -403,8 +419,31 @@ func _inside_frustum(p_planes: Array[Plane], p_point: Vector3) -> bool:
 
 
 ## The brush node itself (not a child loop) is the current editor selection.
+##
+## Read from an id the PLUGIN publishes on `selection_changed`, not from the selection itself: this is
+## asked once per `_redraw` and once per subgizmo ray, and `get_selected_nodes()` allocates an Array of
+## the whole selection every time. Falls back to the live query when nothing has been published yet, so
+## a gizmo that draws before the plugin's first selection callback still shows its handles.
 func _brush_selected(p_node: Node3D) -> bool:
+	if p_node == null:
+		return false
+	if _have_selection:
+		return p_node.get_instance_id() == _selected_brush_id
 	return p_node in EditorInterface.get_selection().get_selected_nodes()
+
+
+## The plugin's selected-brush cache, pushed here on `selection_changed`. Null means nothing is selected,
+## which from here on is a definite answer rather than a reason to ask the editor.
+func set_selected_brush(p_brush: Node3D) -> void:
+	var id: int = p_brush.get_instance_id() if p_brush != null else 0
+	var was_published := _have_selection
+	_have_selection = true
+	if was_published and id == _selected_brush_id:
+		return
+	_selected_brush_id = id
+	# The handles belong to whichever brush is selected; a selection change makes any recorded point
+	# index meaningless, and leaving it would fill a marker on a brush the user has moved away from.
+	_h.clear_point_selection()
 
 
 ## Marker centre in node-local space: the terrain surface height under the brush origin (+ lift), or the
