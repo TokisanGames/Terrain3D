@@ -24,6 +24,7 @@ func _ready() -> void:
 	_g_a_junction_that_drifts_is_still_the_same_junction()
 	await _h_a_placed_road_resolves_its_junctions()
 	_i_no_bake_kernel_reads_input_state()
+	await _j_the_apron_covers_every_trimmed_end()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD JUNCTION PASS" if _fail == 0 else "ROAD JUNCTION FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -539,3 +540,67 @@ func _i_no_bake_kernel_reads_input_state() -> void:
 	if not sees:
 		_fail += 1
 		print("    !! the scan matches nothing, so [I] would pass on any source at all")
+
+
+## [J] The junction apron reaches the CORNERS of every trimmed-back approach, not just the middle.
+##
+## Reported from a live scene as "the intersection mesh only connects to one road". The apron disc was
+## sized `max(radius, widest_trim_back())`, and both of those are the largest TRIM-BACK — a distance
+## measured ALONG a centreline, so it lands on the MIDDLE of a cut end. A cut end is a full-width face:
+## its corners sit at `sqrt(trim^2 + half_width^2)` from the junction centre, which is strictly further.
+## The disc missed both, leaving a triangular gap at each side of every trimmed arm.
+##
+## It looked like a one-road bug because the MAJOR road is never trimmed — `_junction_gaps` skips it — so
+## its ribbon runs through and meets the apron at any radius. At a plain crossroads that is one connected
+## road and one detached one, which is exactly what was on screen.
+##
+## The CONTROL is the old expression. It has to come up SHORT here, or this criterion is asserting a
+## property the buggy code already had and would pass on the bug it was written for.
+func _j_the_apron_covers_every_trimmed_end() -> void:
+	print("[J] the apron disc covers the corners of every trimmed approach, not just the middle")
+	var fx := _crossing_fixture()
+	var net: Pasture3DRoadNetwork = fx["net"]
+	for brush in fx["brushes"]:
+		(brush as Pasture3DRoadBrush)._paint_into(fx["layer"], 0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var by_key := {}
+	for b in net.road_brushes():
+		by_key[b.road_key()] = b
+
+	var checked := 0
+	var worst_short := 0.0
+	for j in net.junctions:
+		if not j.detected or j.radius <= 0.01:
+			continue
+		var apron_r: float = net._apron_radius(j, by_key)
+		var old_r: float = maxf(j.radius, j.widest_trim_back())
+		for i in j.road_keys.size():
+			var key := String(j.road_keys[i])
+			if j.is_major(key) or not by_key.has(key):
+				continue
+			var b = by_key[key]
+			var t: Pasture3DRoadType = b.resolved_road_type()
+			var hw: float = t.half_width(b.resolved_lane_count()) if t != null else 3.5
+			var trim: float = j.trim_backs[i] if i < j.trim_backs.size() else 0.0
+			var corner := sqrt(trim * trim + hw * hw)
+			checked += 1
+			print("    %s: trim %.3f m, half-width %.3f m -> corner at %.3f m; apron %.3f m (old %.3f m)"
+					% [key, trim, hw, corner, apron_r, old_r])
+			_check("J", apron_r >= corner - 1e-3,
+					"apron %.3f m must reach the cut corner at %.3f m" % [apron_r, corner])
+			worst_short = maxf(worst_short, corner - old_r)
+
+	# Without at least one trimmed minor arm there was nothing to cover and [J] measured nothing.
+	if checked == 0:
+		_fail += 1
+		print("    !! no trimmed minor arm in the fixture, so [J] asserted nothing")
+
+	# CONTROL: the old radius must MISS. If it reaches, this fixture cannot tell the fix from the bug.
+	print("    control: the old radius falls %.3f m short of the furthest corner (want > 0)" % worst_short)
+	if worst_short <= 1e-3:
+		_fail += 1
+		print("    !! the old radius already covered every corner, so [J] would pass on the bug")
+
+	(fx["terrain"] as Node).queue_free()

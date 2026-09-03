@@ -411,7 +411,8 @@ func _paint_flat_footprint(path: Path3D) -> void:
 			alignment.curvature = Pasture3DRoadGrader._zeros(n_s)
 		else:
 			alignment = Pasture3DRoadAlignmentSolver.solve_with_plan(_resample_plan(plan, cum, ds, n_s),
-					ground, ds, max_grade, design_speed, max_superelevation, {"pins": pins})
+					ground, ds, max_grade, design_speed, max_superelevation,
+					{"pins": pins, "smooth_radius": road_mod.smooth_radius})
 		alignment.input_digest = alignment_digest(road_mod)
 		road_mod.last_alignment = alignment
 
@@ -709,7 +710,8 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 		alignment.curvature = Pasture3DRoadGrader._zeros(n_s)
 	else:
 		alignment = Pasture3DRoadAlignmentSolver.solve_with_plan(_resample_plan(plan, cum, ds, n_s),
-				ground, ds, t.max_grade, t.design_speed, t.max_superelevation, {"pins": pins})
+				ground, ds, t.max_grade, t.design_speed, t.max_superelevation,
+				{"pins": pins, "smooth_radius": p_mod.smooth_radius})
 	alignment.input_digest = alignment_digest(p_mod)
 	p_mod.last_alignment = alignment
 
@@ -992,6 +994,9 @@ func alignment_digest(p_mod: Pasture3DNodeRoad = null) -> String:
 	for p in plan:
 		parts.append("%.3f,%.3f" % [p.x, p.y])
 	parts.append("ds=%.4f" % mod.alignment_step)
+	# P9b. Without this the profile is cached against a key that cannot see the slider, so dragging
+	# smooth_radius leaves the road exactly as it was and looks like the pass does nothing.
+	parts.append("smooth=%.4f" % mod.smooth_radius)
 	parts.append("drape=%s" % str(resolved_follow_terrain()))
 	parts.append("grade=%.5f" % (t.max_grade if t != null else -1.0))
 	parts.append("speed=%.3f" % (t.design_speed if t != null else -1.0))

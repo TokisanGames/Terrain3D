@@ -17,16 +17,18 @@ func _ready() -> void:
 	terr.vertex_spacing = 1.0
 	add_child(terr)
 
-	var data := Pasture3DData.new()
-	terr.data = data
+	# `terr.data` is read-only - the terrain owns it - and regions are ADDED rather than assigned
+	# as a location list. Both engine-side changes landed after this gate was written.
+	var data: Pasture3DData = terr.data
 	for rz in range(-2, 3):
 		for rx in range(-2, 3):
-			data.set_region_locations(data.get_region_locations() + [Vector2i(rx, rz)])
+			data.add_region_blank(Vector2i(rx, rz))
 
 	var net := Pasture3DRoadNetwork.new()
 	net.name = "Network"
-	net.terrain = terr
-	add_child(net)
+	# A road network finds its terrain by PARENTAGE - it has no `terrain` property. Assigning one was
+	# silently accepted until the engine started rejecting unknown properties, and it stops the gate dead.
+	terr.add_child(net)
 
 	var road_type := Pasture3DRoadType.new()
 	road_type.lane_width = 3.5

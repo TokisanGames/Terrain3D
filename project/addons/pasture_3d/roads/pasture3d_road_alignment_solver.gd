@@ -120,6 +120,7 @@ static func solve(p_ground: PackedFloat32Array, p_ds: float, p_max_grade: float,
 	var w_balance := float(p_opts.get("w_balance", DEFAULT_W_BALANCE))
 	var iterations := int(p_opts.get("iterations", DEFAULT_ITERATIONS))
 	var pins: Dictionary = p_opts.get("pins", {})
+	var smooth_radius := float(p_opts.get("smooth_radius", 0.0))
 
 	# Start from the ground: the feasible-ish starting point closest to the earth term's optimum.
 	var z := p_ground.duplicate()
@@ -151,6 +152,8 @@ static func solve(p_ground: PackedFloat32Array, p_ds: float, p_max_grade: float,
 		# --- projections: pins, then the hard gradient limit ---------------------------------------
 		_apply_pins(z, pins)
 		_project_grade(z, ds, g_max, pins)
+
+	_smooth_profile(z, ds, g_max, pins, smooth_radius)
 
 	out.z = z
 	out.pinned = _pin_indices(pins)
@@ -411,6 +414,64 @@ static func _fill_diagnostics(p_out: Pasture3DRoadAlignment, p_pins: Dictionary,
 	p_out.pin_error = err
 	if err > 1e-3:
 		p_out.feasible = false
+
+
+## Conditioning pass on the SOLVED profile: removes bumps shorter than `p_radius` metres. See §3 of
+## PASTURE3D_ROAD_JUNCTION_PAINT_AND_SMOOTHING_SPEC.md.
+##
+## This is NOT the objective's `w_smooth`. That weight trades against the EARTH term, so raising it
+## makes the road stop paying for cut and fill and float off the ground — a different road, not a
+## smoother one. This runs afterwards and changes only the conditioning, at the elevation the solve
+## already chose.
+##
+## The radius is in METRES, not samples, because `ds` is authorable: a sample-count parameter would
+## silently rescale every road the moment the alignment step changed.
+##
+## Three box passes rather than a Gaussian. They approximate one closely enough that nothing downstream
+## can tell, cost O(n) each with a running sum, and have an EXACTLY stated support — which is what lets
+## RoadSmoothGate [B] assert the attenuation of each wavelength band against the kernel's own transfer
+## function rather than against a guessed threshold.
+##
+## Ends are clamped (the end sample extends), not wrapped and not zero-padded: a road is not periodic,
+## and zero-padding would drag both ends toward zero elevation.
+##
+## ---- THE RE-PROJECTION IS THE POINT, NOT A TIDY-UP ----
+##
+## `p_z` arriving here is the output of alternating projection — pins, then the gradient limit. A filter
+## over it moves PINNED SAMPLES, so a bridge deck or a junction elevation slides silently and the
+## junction resolve loop re-pins against a road that moved; and it can breach the gradient limit next to
+## a pin, where the filter pulls a sample toward a neighbour the pin is holding away. So the filter is
+## followed by the same two projections the solve itself ends on. `_fill_diagnostics` therefore runs
+## AFTER this, or `peak_grade` and `feasible` would describe a profile that is not the one being graded.
+##
+## Mirrors the native stage in `road_align_solve` (src/pasture_3d_road_grade.cpp) sample for sample.
+## RoadSmoothGate [G] compares the two; a change here that is not made there shows up there.
+static func _smooth_profile(p_z: PackedFloat32Array, p_ds: float, p_max_grade: float,
+		p_pins: Dictionary, p_radius: float) -> void:
+	var n := p_z.size()
+	var half := int(round(p_radius / p_ds))
+	if half < 1 or n < 3:
+		return
+	var w := float(2 * half + 1)
+	var src := p_z.duplicate()
+	var dst := p_z.duplicate()
+	for _pass in 3:
+		# Running sum over the clamped window: sample 0 sees `half + 1` real samples and `half` copies
+		# of src[0].
+		var sum := float(src[0]) * float(half + 1)
+		for i in range(1, half + 1):
+			sum += src[mini(i, n - 1)]
+		for i in n:
+			dst[i] = sum / w
+			sum += src[mini(i + half + 1, n - 1)] - src[maxi(i - half, 0)]
+		var t := src
+		src = dst
+		dst = t
+	for i in n:
+		if not p_pins.has(i):
+			p_z[i] = src[i]
+	_apply_pins(p_z, p_pins)
+	_project_grade(p_z, p_ds, p_max_grade, p_pins)
 
 
 static func _zeros(p_n: int) -> PackedFloat32Array:

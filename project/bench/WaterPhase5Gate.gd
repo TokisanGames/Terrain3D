@@ -448,7 +448,7 @@ func _gate_c_geometry() -> void:
 	terrain.ocean_mesh_lods = 7
 	await _settle_physics(2)
 	var old_sag := _sag(terrain, terrain.ocean_vertex_spacing)
-	var old_ratio := _l_min(terrain) / terrain.ocean_vertex_spacing
+	var old_ratio: float = float(_l_min(terrain)) / terrain.ocean_vertex_spacing
 	print("    CONTROL, old defaults (spacing 4, lods 7): ratio %.2f, sag %.1f cm" % [
 		old_ratio, old_sag * 100.0])
 	if old_sag <= WANT_SAG_M or old_ratio >= WANT_RATIO:

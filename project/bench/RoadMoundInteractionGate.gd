@@ -32,11 +32,12 @@ func _run_investigation() -> void:
 	terrain.vertex_spacing = VERTEX_SPACING
 	add_child(terrain)
 
-	var data := Pasture3DData.new()
-	terrain.data = data
+	# `terrain.data` is read-only - the terrain owns it - and regions are ADDED rather than assigned
+	# as a location list. Both engine-side changes landed after this gate was written.
+	var data: Pasture3DData = terrain.data
 	for rz in range(-2, 3):
 		for rx in range(-2, 3):
-			data.set_region_locations(data.get_region_locations() + [Vector2i(rx, rz)])
+			data.add_region_blank(Vector2i(rx, rz))
 
 	# 2. Setup Mound Brush
 	var mound := Pasture3DMound.new()
@@ -58,8 +59,9 @@ func _run_investigation() -> void:
 	# 3. Setup Road Network & Road Brush crossing through (0, 0)
 	var net := Pasture3DRoadNetwork.new()
 	net.name = "RoadNetwork"
-	net.terrain = terrain
-	add_child(net)
+	# A road network finds its terrain by PARENTAGE - it has no `terrain` property. Assigning one was
+	# silently accepted until the engine started rejecting unknown properties, and it stops the gate dead.
+	terrain.add_child(net)
 
 	var road_type := Pasture3DRoadType.new()
 	road_type.lane_width = 3.5
@@ -142,7 +144,7 @@ func _run_investigation() -> void:
 	road._defer_composite = false
 	road._clip_aabb = AABB()
 	data.composite_area(clip_box, false)
-	data.update_maps(Pasture3DData.TYPE_HEIGHT, false, false)
+	data.update_maps(Pasture3DRegion.TYPE_HEIGHT, false, false)
 	net.resolve_junctions()
 	var t_move := (Time.get_ticks_usec() - t0) / 1000.0
 	print("  Road point move took: %.3f ms" % t_move)
@@ -170,7 +172,7 @@ func _run_investigation() -> void:
 	road._defer_composite = false
 	road._clip_aabb = AABB()
 	data.composite_area(add_clip, false)
-	data.update_maps(Pasture3DData.TYPE_HEIGHT, false, false)
+	data.update_maps(Pasture3DRegion.TYPE_HEIGHT, false, false)
 	net.resolve_junctions()
 	var t_add := (Time.get_ticks_usec() - t0_add) / 1000.0
 	print("  Adding spline point took: %.3f ms" % t_add)
@@ -196,7 +198,7 @@ func _run_investigation() -> void:
 	road._defer_composite = false
 	road._clip_aabb = AABB()
 	data.composite_area(rem_clip, false)
-	data.update_maps(Pasture3DData.TYPE_HEIGHT, false, false)
+	data.update_maps(Pasture3DRegion.TYPE_HEIGHT, false, false)
 	net.resolve_junctions()
 	var t_rem := (Time.get_ticks_usec() - t0_rem) / 1000.0
 	print("  Removing spline point took: %.3f ms" % t_rem)

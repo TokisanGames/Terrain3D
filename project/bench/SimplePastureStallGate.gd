@@ -60,7 +60,7 @@ func _ready() -> void:
 	print("  4. composite_area: %.3f ms" % ((Time.get_ticks_usec() - t3) / 1000.0))
 
 	var t4 := Time.get_ticks_usec()
-	terr.data.update_maps(Pasture3DData.TYPE_HEIGHT, false, false)
+	terr.data.update_maps(Pasture3DRegion.TYPE_HEIGHT, false, false)
 	print("  5. update_maps: %.3f ms" % ((Time.get_ticks_usec() - t4) / 1000.0))
 
 	get_tree().quit(0)

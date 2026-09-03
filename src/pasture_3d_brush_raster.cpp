@@ -444,6 +444,9 @@ struct BrushModStep {
 	double graph_amount = 1.0;
 	bool graph_reads_input = false;
 	int64_t graph_content_key = 0;
+	int graph_feather_mode = 0; // 0=USE_BRUSH_MASK, 1=CUSTOM, 2=OFF
+	double graph_custom_falloff_width = 15.0;
+	PackedFloat32Array graph_custom_lut;
 	ErosionParams erosion; // EROSION
 	PackedFloat32Array erodability; // EROSION: the hardness LUT, empty for uniform rock
 	bool publish_fields = false; // EROSION: write the four channels into the stack's field context
@@ -619,6 +622,9 @@ bool brush_mod_build(const Dictionary &p_params, std::vector<BrushModStep> &r_st
 			}
 			st.graph_reads_input = d.get("reads_input", false);
 			st.graph_content_key = d.get("content_key", (int64_t)0);
+			st.graph_feather_mode = d.get("feather_mode", 0);
+			st.graph_custom_falloff_width = d.get("custom_falloff_width", 15.0);
+			st.graph_custom_lut = d.get("custom_lut", PackedFloat32Array());
 			st.frozen = d.get("frozen", false);
 			st.defer = d.get("defer", false);
 			st.cache_key = d.get("cache_key", (int64_t)0);
@@ -1211,7 +1217,12 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 	const bool use_angle = (flank_mode == 1);
 	const bool cone = use_angle && !capped; // uncapped slope = free-rising cone (height from geometry)
 	const double dome_denom = MAX(max_inside + edge_offset, 0.001);
-	const double ramp_denom = (use_angle && capped) ? MAX(std::fabs(height) / slope_tan, 0.001) : MAX(falloff_width, 0.001);
+	double ramp_denom = MAX(falloff_width, 0.001);
+	if (use_angle && capped) {
+		const double slope_run = std::fabs(height) / slope_tan;
+		ramp_denom = (falloff_width > 0.0) ? MIN(slope_run, falloff_width) : slope_run;
+		ramp_denom = MAX(ramp_denom, 0.001);
+	}
 	const bool add = (blend == 1); // BLEND_ADD
 
 	// The brush's OWN generated shape at one cell, before noise and before relief: `r_amp` in metres and
@@ -1510,40 +1521,36 @@ void Pasture3DData::stamp_mound_loop(const int p_layer_id, const PackedVector2Ar
 		} else if (steps[si].kind == BrushModStep::EROSION) {
 			brush_mod_erode(steps[si], vals, basey, add, gw, gh, vs, fields);
 		} else if (steps[si].kind == BrushModStep::GRAPH) {
-			// The 0..1 mask the graph composites through. Not stored (see the note above `amp`), so
-			// materialise it once here — only for a graph step, which is already an O(cells) evaluation.
-			//
-			// A FILTER (an Input node feeds the output) is NOT feathered by the interior profile. Scaling
-			// an added displacement by the shape is right for Noise / Relief, but a filter TRANSFORMS
-			// ground that is already there — feathering it eroded a mound's middle fully and its flanks
-			// barely, hitting zero at the rim. `brush_mod_erode`, the other filter, has never consulted
-			// the profile; this makes the two agree. A filter applies fully across the brush and tapers
-			// only through the MARGIN band. A GENERATOR keeps the feather: it invents terrain, so it must
-			// still fade at the rim. The GDScript twin is the `mask` block in _apply_graph_step.
-			const bool graph_filter = steps[si].graph_reads_input;
+			const int fmode = steps[si].graph_feather_mode; // 0=USE_BRUSH_MASK, 1=CUSTOM, 2=OFF
+			const double custom_fw = MAX(steps[si].graph_custom_falloff_width, 0.001);
+			const PackedFloat32Array &custom_lut = steps[si].graph_custom_lut;
+			const double brush_fw = MAX(falloff_width, 0.001);
+
 			std::vector<float> gprofile((size_t)gw * gh, 0.f);
 			for (int iz = 0; iz < gh; iz++) {
 				const int row = iz * gw;
 				for (int ix = 0; ix < gw; ix++) {
 					const int i = row + ix;
-					if (graph_filter && margin_active && margin_mask[(size_t)i]) {
+					if (margin_active && margin_mask[(size_t)i]) {
 						gprofile[i] = (float)margin_profile_at(i); // the skirt's taper
 						continue;
 					}
-					if (graph_filter) {
-						// A filter applies FULLY everywhere that is not the band — not `pr`, and not gated
-						// on host_profile_at succeeding. It declines a cell whose ramp rounds to 0, which is
-						// a one-cell ring just inside the rim; the GDScript twin (`mask[k] = 1.0`) never
-						// consulted it and this is what put the two paths back in agreement.
-						gprofile[i] = 1.f;
+					const double signed_d = (double)field[i] + edge_offset;
+					if (signed_d <= 0.0) {
+						gprofile[i] = 0.f;
 						continue;
 					}
-					// A GENERATOR takes the ramp translated outward by the margin, the same as NOISE and
-					// RELIEF above: it reaches into the band and fades at the band's outer edge.
-					double a = 0.0;
-					double pr = 0.0;
-					if (host_profile_at((double)field[i] + edge_offset + modifier_margin, a, pr)) {
-						gprofile[i] = (float)pr;
+					if (fmode == 2) {
+						// OFF: full 1.0 inside the loop
+						gprofile[i] = 1.f;
+					} else if (fmode == 1) {
+						// CUSTOM: uses custom_falloff_width and custom_lut
+						const float u = (float)CLAMP(signed_d / custom_fw, 0.0, 1.0);
+						gprofile[i] = (float)raster_ramp(custom_lut, u);
+					} else {
+						// USE_BRUSH_MASK: uses brush's falloff_width and p_lut
+						const float u = (float)CLAMP(signed_d / brush_fw, 0.0, 1.0);
+						gprofile[i] = (float)raster_ramp(p_lut, u);
 					}
 				}
 			}

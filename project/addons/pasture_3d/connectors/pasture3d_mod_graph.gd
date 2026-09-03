@@ -55,6 +55,39 @@ func _on_graph_changed() -> void:
 		strength = clampf(v, 0.0, 1.0)
 		_touch()
 
+enum FeatherMode {
+	USE_BRUSH_MASK = 0,
+	CUSTOM = 1,
+	OFF = 2,
+}
+
+@export_group("Feathering")
+## How the graph's output blends into the incoming terrain at the loop boundary.
+## USE_BRUSH_MASK: Inherit Falloff Width & Curve from the host brush's Mask settings.
+## CUSTOM: Use this modifier's own Custom Falloff Width and Curve.
+## OFF: Apply 100% across the whole loop interior (tapers only across Modifier Margin if set).
+@export var feather_mode: FeatherMode = FeatherMode.USE_BRUSH_MASK:
+	set(v):
+		feather_mode = v
+		notify_property_list_changed()
+		_touch()
+
+## Custom inward feathering distance from the loop rim in metres (used when feather_mode == CUSTOM).
+@export var custom_falloff_width: float = 15.0:
+	set(v):
+		custom_falloff_width = maxf(v, 0.001)
+		_touch()
+
+## Optional custom 0→1 fade curve for feathering (used when feather_mode == CUSTOM). Default null -> smoothstep.
+@export var custom_falloff_curve: Curve:
+	set(v):
+		if custom_falloff_curve != null and custom_falloff_curve.changed.is_connected(_touch):
+			custom_falloff_curve.changed.disconnect(_touch)
+		custom_falloff_curve = v
+		if custom_falloff_curve != null and not custom_falloff_curve.changed.is_connected(_touch):
+			custom_falloff_curve.changed.connect(_touch)
+		_touch()
+
 
 # ---- The frozen cache (mirrors Pasture3DNodeErosion §6.3) --------------------------------------------
 #
@@ -238,9 +271,15 @@ func is_active() -> bool:
 	return enabled and graph != null and not is_zero_approx(strength) and graph.output_index() >= 0
 
 
+func _validate_property(property: Dictionary) -> void:
+	if (property.name == "custom_falloff_width" or property.name == "custom_falloff_curve") and feather_mode != FeatherMode.CUSTOM:
+		property.usage &= ~PROPERTY_USAGE_EDITOR
+
+
 func content_key() -> int:
 	var ck := graph.content_key() if graph != null else 0
-	return hash([ck, strength, enabled])
+	var curve_pts: PackedVector2Array = custom_falloff_curve.get_baked_points() if custom_falloff_curve != null else PackedVector2Array()
+	return hash([ck, strength, enabled, int(feather_mode), custom_falloff_width, curve_pts])
 
 
 func modifier_warnings(_p_host) -> PackedStringArray:
