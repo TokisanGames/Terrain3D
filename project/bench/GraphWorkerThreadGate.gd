@@ -16,17 +16,12 @@ func _ready() -> void:
 	var n_noise := Pasture3DGraphNodeNoise.new()
 	n_noise.scale = 50.0
 	n_noise.frequency = 0.02
+	n_noise.amplitude = 25.0
 	graph.nodes.append(n_noise)
-
-	var n_scale := Pasture3DGraphNodeMath.new()
-	n_scale.operation = Pasture3DGraphNodeMath.OP_MULTIPLY
-	n_scale.value = 25.0
-	graph.nodes.append(n_scale)
-	graph.connect_nodes(0, 0, 1, 0)
 
 	var n_out := Pasture3DGraphNodeOutput.new()
 	graph.nodes.append(n_out)
-	graph.connect_nodes(1, 0, 2, 0)
+	graph.connect_nodes(0, 0, 1, 0)
 
 	var gw := 256
 	var gh := 256

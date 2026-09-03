@@ -3962,6 +3962,9 @@ func _compile_modifiers(p_extent: String = "", p_ex: float = 1.0, p_ez: float = 
 			blk["strength"] = m.strength
 			blk["reads_input"] = m.graph.reads_input()
 			blk["content_key"] = m.graph.content_key()
+			blk["feather_mode"] = int(m.feather_mode)
+			blk["custom_falloff_width"] = m.custom_falloff_width
+			blk["custom_lut"] = _ramp_lut(m.custom_falloff_curve)
 		if m is Pasture3DNodeRelief:
 			m.material.set_host_frame(p_ex, p_ez)
 			# §9.9. Offered on EVERY compile, never left set from a previous pass: the flag says what is
@@ -4452,32 +4455,44 @@ func _apply_graph_step(p_step: Dictionary, p_vals: PackedFloat32Array,
 	# generator is world-fixed, so its key is just the content revision and the cache serves across drags.
 	var reads: bool = g.reads_input()
 
-	# ---- A FILTER IS NOT FEATHERED BY THE SHAPE PROFILE --------------------------------------------
-	#
-	# `profile` is 1 at the loop centre falling to 0 at its edge. Scaling an ADDED displacement by it is
-	# right and is why Noise and Relief use it: authored detail has to fade out or the rim is a cliff. It
-	# was carried over to the graph mount wholesale, and for a FILTER that is wrong — it scales a
-	# TRANSFORMATION of ground that is already there, so an Erosion node inside a graph eroded the middle
-	# of a mound at full strength and its flanks at almost none, reaching exactly zero at the rim. That is
-	# a smooth dome wearing a detailed cap, and it silently fought the Modifier Margin.
-	#
-	# `Pasture3DNodeErosion` — the other filter in the system — never consults `profile` and never did.
-	# This makes the two agree: a filter applies at full `amount` across the brush, and tapers only through
-	# the MARGIN band, where the taper is what keeps a graph that also generates from ending on a hard
-	# outer edge. Continuous at the loop rim (1 inside, 1 at the start of the band), unlike the profile it
-	# replaces. A pure GENERATOR keeps the feather — it invents terrain, so it must still fade at the rim,
-	# and `profile` is 0 through the band for it, so it invents none past the loop either.
-	var mask: PackedFloat64Array = profile
-	if reads:
-		var mm: PackedByteArray = p_ctx.get("margin_mask", PackedByteArray())
-		var mf: PackedFloat64Array = p_ctx.get("margin_feather", PackedFloat64Array())
-		var have_mm := mm.size() == n and mf.size() == n
-		mask = PackedFloat64Array()
-		mask.resize(n)
-		for k in range(n):
-			# Everywhere the brush itself covers, a filter applies fully; in the band it takes the margin
-			# feather, which is 1 where the band meets the rim — so the two halves meet without a step.
-			mask[k] = mf[k] if (have_mm and mm[k] == 1) else 1.0
+	# ---- HYBRID FEATHERING WITH MODIFIER MARGIN INTEGRATION ----
+	# feather_mode on Pasture3DNodeGraph determines how the graph blends near the boundary:
+	#   USE_BRUSH_MASK (default): feathers over the host brush's falloff_width and falloff_curve.
+	#   CUSTOM: feathers over m.custom_falloff_width and m.custom_falloff_curve.
+	#   OFF: applies at 100% across the whole loop interior (tapering only across modifier margin).
+	var fmode: int = m.feather_mode if "feather_mode" in m else 0
+	var custom_fw: float = maxf(m.custom_falloff_width, 0.001) if "custom_falloff_width" in m else 15.0
+	var custom_curve: Curve = m.custom_falloff_curve if "custom_falloff_curve" in m else null
+	var host_fw: Variant = p_ctx.get("falloff_width", get("falloff_width"))
+	var brush_fw: float = maxf(float(host_fw if host_fw != null else 10.0), 0.001)
+	var brush_curve: Curve = p_ctx.get("falloff_curve", get("falloff_curve")) as Curve
+	var sdf: PackedFloat32Array = p_ctx.get("sdf", PackedFloat32Array())
+	var edge_off: float = p_ctx.get("edge_offset", 0.0)
+	var have_sdf := sdf.size() == n
+	var mm: PackedByteArray = p_ctx.get("margin_mask", PackedByteArray())
+	var mf: PackedFloat64Array = p_ctx.get("margin_feather", PackedFloat64Array())
+	var have_mm := mm.size() == n and mf.size() == n
+
+	var mask := PackedFloat64Array()
+	mask.resize(n)
+	for k in range(n):
+		if have_mm and mm[k] == 1:
+			mask[k] = mf[k]
+			continue
+		if have_sdf:
+			var signed_d: float = sdf[k] + edge_off
+			if signed_d <= 0.0:
+				mask[k] = 0.0
+			elif fmode == 2: # OFF
+				mask[k] = 1.0
+			elif fmode == 1: # CUSTOM
+				var u := clampf(signed_d / custom_fw, 0.0, 1.0)
+				mask[k] = _ramp(custom_curve, u)
+			else: # USE_BRUSH_MASK
+				var u := clampf(signed_d / brush_fw, 0.0, 1.0)
+				mask[k] = _ramp(brush_curve, u)
+		else:
+			mask[k] = profile[k] if profile.size() == n else 1.0
 
 	# ---- FROZEN cache (mirrors _apply_erosion_step §6.3) ----
 	#

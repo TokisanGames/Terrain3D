@@ -50,7 +50,11 @@ func eval_grid(p_inputs: Array, p_gw: int, p_gh: int, _p_mask, _p_rect: Rect2) -
 		push_error("[Pasture3D] Pasture3DUtil.template_filter_grid is not bound. Rebuild GDExtension.")
 		return in_grid.duplicate()
 
-	var res: PackedFloat32Array = Pasture3DUtil.template_filter_grid(in_grid, mask, p_gw, p_gh, intensity)
+	var util = ClassDB.instantiate("Pasture3DUtil")
+	if util == null:
+		return in_grid.duplicate()
+	var res_var = util.call("template_filter_grid", in_grid, mask, p_gw, p_gh, intensity)
+	var res: PackedFloat32Array = (res_var as PackedFloat32Array) if res_var is PackedFloat32Array else PackedFloat32Array()
 	if res.size() != n:
 		push_error("[Pasture3D] Template filter native solve returned invalid grid size.")
 		return in_grid.duplicate()

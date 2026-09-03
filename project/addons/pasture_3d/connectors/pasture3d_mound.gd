@@ -33,25 +33,38 @@ enum FlankMode { FIXED_WIDTH, SLOPE_ANGLE }
 ## true = measure height above the per-pixel terrain (hill drapes on the ground); false = above the
 ## node's own Y plane (flat reference — pair with capped + REPLACE for a level plateau top).
 @export var relative_to_terrain: bool = true
-
-@export_group("Falloff")
 ## FIXED_WIDTH = ramp over `falloff_width`; SLOPE_ANGLE = ramp at `slope_angle` (run = height / tan).
 @export var flank_mode: FlankMode = FlankMode.SLOPE_ANGLE:
 	set(v):
 		flank_mode = v
 		_schedule_refresh()
-		notify_property_list_changed() # show/hide falloff_width vs slope_angle
-## Metres from the loop edge inward over which a CAPPED plateau ramps up to full height.
-@export var falloff_width: float = 15.0
+		notify_property_list_changed() # show/hide slope_angle
 ## Slope-angle mode only: degrees the flank rises from the loop edge (ramp run = height / tan(angle)).
 @export_range(1.0, 89.0, 0.5) var slope_angle: float = 30.0:
 	set(v):
 		slope_angle = clampf(v, 1.0, 89.0)
 		_schedule_refresh()
-## Optional 0→1 slope shape for the ramp / dome (default = smoothstep).
-@export var falloff_curve: Curve
+
+@export_group("Mask")
+## Metres from the loop edge inward over which the shape ramp and modifier stack feather in.
+@export var falloff_width: float = 15.0:
+	set(v):
+		falloff_width = maxf(v, 0.0)
+		_schedule_refresh()
+## Optional 0→1 slope shape for the ramp / mask (default = smoothstep).
+@export var falloff_curve: Curve:
+	set(v):
+		if falloff_curve != null and falloff_curve.changed.is_connected(_schedule_refresh):
+			falloff_curve.changed.disconnect(_schedule_refresh)
+		falloff_curve = v
+		if falloff_curve != null and not falloff_curve.changed.is_connected(_schedule_refresh):
+			falloff_curve.changed.connect(_schedule_refresh)
+		_schedule_refresh()
 ## Expand (+) or contract (−) the effective boundary off the spline, in metres.
-@export var edge_offset: float = 0.0
+@export var edge_offset: float = 0.0:
+	set(v):
+		edge_offset = v
+		_schedule_refresh()
 
 # ---- Legacy property migration (PASTURE3D_BRUSH_EROSION_SPEC.md §6.6) ------------------------------
 #
@@ -122,10 +135,7 @@ func _migrate_legacy() -> void:
 
 
 func _validate_property(property: Dictionary) -> void:
-	# Fixed-width and slope-angle drive the same ramp; only one is meaningful at a time.
 	if property.name == "slope_angle" and flank_mode != FlankMode.SLOPE_ANGLE:
-		property.usage &= ~PROPERTY_USAGE_EDITOR
-	elif property.name == "falloff_width" and flank_mode == FlankMode.SLOPE_ANGLE:
 		property.usage &= ~PROPERTY_USAGE_EDITOR
 
 
@@ -294,7 +304,9 @@ func _paint_spline(path: Path3D) -> void:
 	var cone := use_angle and not capped
 	var safety_max := _region_safety_height()
 	if use_angle and capped:
-		ramp_denom = maxf(absf(height) / slope_tan, 0.001)
+		var slope_run := absf(height) / slope_tan
+		ramp_denom = minf(slope_run, falloff_width) if falloff_width > 0.0 else slope_run
+		ramp_denom = maxf(ramp_denom, 0.001)
 
 	# What gets written per cell (NaN = no write): a delta under ADD, an absolute target otherwise,
 	# matching _paint_height and the C++ path for A/B parity. The stack produces it.
@@ -387,6 +399,7 @@ func _paint_spline(path: Path3D) -> void:
 		"extent": extent,
 		# The signed distance (positive inside the loop) the Modifier Margin feathers its band against.
 		"sdf": field, "edge_offset": edge_offset, "profile_ext": profile_ext,
+		"falloff_width": falloff_width, "falloff_curve": falloff_curve,
 	})
 	_commit_modifier_caches(stack, extent,
 			[fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])

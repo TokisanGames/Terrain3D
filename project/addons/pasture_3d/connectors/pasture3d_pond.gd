@@ -94,6 +94,7 @@ func _init() -> void:
 	# in the middle and paper-thin everywhere else -- and depth is what the shader's colour and
 	# shore foam read, so a cone reads as a stain rather than a pond.
 	capped = true
+	flank_mode = FlankMode.FIXED_WIDTH
 	falloff_width = 8.0
 
 

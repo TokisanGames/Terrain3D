@@ -259,6 +259,7 @@ func _paint_spline(path: Path3D) -> void:
 			"profile": profile, "basey": basey, "extent": extent,
 			# The signed distance (positive inside the loop) the Modifier Margin feathers its band against.
 			"sdf": field, "edge_offset": edge_offset, "profile_ext": profile_ext,
+			"falloff_width": falloff_width, "falloff_curve": falloff_curve,
 		}
 		vals = _run_modifier_stack(stack["gd"], amp, profile, basey, ctx)
 		_commit_modifier_caches(stack, extent, [fcx, fcz, fcos, fsin, frame[4], frame[5], min_x, min_z, vs])
