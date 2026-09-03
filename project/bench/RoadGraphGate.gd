@@ -17,7 +17,7 @@
 @tool
 extends Node
 
-const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O"]
+const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q"]
 
 var _fail: int = 0
 var _reported: Dictionary = {}
@@ -40,6 +40,8 @@ func _ready() -> void:
 	_m_multi_spline_partial_bake_integrity()
 	_n_shared_layer_stamp_cache_isolation()
 	_o_native_stamp_road_line_parity()
+	_p_a_second_modifier_on_a_road_brush_runs()
+	_q_the_native_path_populates_the_stamp_cache()
 	_account_for_silent_criteria()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD GRAPH PASS" if _fail == 0 else "ROAD GRAPH FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
@@ -1149,3 +1151,259 @@ func _o_native_stamp_road_line_parity() -> void:
 	_check("O", worst < 1e-4 and bed_diff == 0,
 			"parity ok: worst %.6f m, %d bed diffs" % [worst, bed_diff])
 	(f["net"] as Node).queue_free()
+
+
+# ---- P / Q ---------------------------------------------------------------------------------------
+#
+# PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md R3a and R3b. Added 2026-09-02.
+#
+# Both are about the same three lines: the native road branch in `_paint_flat_footprint` wrote the graded
+# surface into the layer and RETURNED, before `_run_modifier_stack` and before `_store_stamp_cache`. The
+# two consequences are unrelated to each other and are gated separately.
+# ---------------------------------------------------------------------------------------------------
+
+
+## A terrain with one region and a height layer, plus a road brush bound to it. Everything here has to be
+## real — the criteria below are about what reaches the LAYER, so a fixture that stops short of a bake
+## measures nothing.
+func _road_bake_fixture() -> Dictionary:
+	var terrain := Pasture3D.new()
+	terrain.region_size = 256
+	terrain.vertex_spacing = 1.0
+	add_child(terrain)
+	var data: Pasture3DData = terrain.data
+	data.add_region_blank(Vector2i(0, 0))
+	data.ensure_layer_stack()
+	var stack := data.get_layer_stack()
+	var layer_id: int = stack.add_layer("road_bake")
+	# An OVERLAY height layer, not the dense base map: apply_sim_block refuses to write into the base,
+	# and a road brush paints into an overlay in the editor too.
+	var lay: Pasture3DLayer = stack.get_layer(layer_id)
+	lay.set_map_type(0)
+	lay.set_base(false)
+	lay.set_visible(true)
+
+	var net := Pasture3DRoadNetwork.new()
+	terrain.add_child(net)
+	var t := Pasture3DRoadType.new()
+	t.type_name = "bake"
+	t.lane_count = 2
+	t.lane_width = 3.5
+	net.road_types = [t]
+
+	var brush := Pasture3DRoadBrush.new()
+	brush.name = "BakeRoad"
+	net.add_child(brush)
+	brush.terrain = terrain
+	brush.road_road_type = t
+
+	var path := Path3D.new()
+	var curve := Curve3D.new()
+	for i in 9:
+		curve.add_point(Vector3(20.0 + float(i) * 20.0, 0.0, 128.0))
+	path.curve = curve
+	brush.add_child(path)
+
+	var road_mod := Pasture3DNodeRoad.new()
+	road_mod.alignment_step = 2.0
+	brush.modifiers = [road_mod]
+	return {"terrain": terrain, "data": data, "layer": layer_id, "brush": brush,
+			"path": path, "road": road_mod, "net": net}
+
+
+## Heights along the corridor, as the layer actually holds them. Sampled rather than diffed wholesale so
+## a criterion can say how MANY cells moved, which is what separates "the modifier ran" from "one cell
+## rounded differently".
+func _corridor_heights(p_data: Pasture3DData) -> PackedFloat32Array:
+	var out := PackedFloat32Array()
+	for i in 80:
+		var x := 24.0 + float(i) * 2.0
+		for j in 41:
+			var z := 108.0 + float(j) * 1.0
+			out.append(p_data.get_height(Vector3(x, 0.0, z)))
+	return out
+
+
+func _moved_count(p_a: PackedFloat32Array, p_b: PackedFloat32Array, p_eps: float) -> int:
+	var c := 0
+	for i in mini(p_a.size(), p_b.size()):
+		var av := p_a[i]
+		var bv := p_b[i]
+		if is_nan(av) and is_nan(bv):
+			continue
+		if is_nan(av) != is_nan(bv) or absf(av - bv) > p_eps:
+			c += 1
+	return c
+
+
+## [P] R3a — a second active modifier on a road brush actually runs.
+##
+## `_stack_forces_gdscript` stopped returning true for a stack containing a road, so the native branch was
+## taken for any road stack and returned before `_run_modifier_stack`. Adding a noise or erosion step to a
+## road brush did nothing, and nothing was said about why — verbatim the failure the comment deleted from
+## that function warned of.
+##
+## CONTROL, and it is the one that makes the criterion mean anything: the same second modifier with
+## `enabled = false`. If the two bakes STILL differ, the difference above was not the noise running — it
+## was the bake not being reproducible, and the criterion was reading its own jitter.
+func _p_a_second_modifier_on_a_road_brush_runs() -> void:
+	print("[P] a second active modifier on a road brush is not dropped")
+
+	# WHAT IS COMPARED, AND WHY IT IS NOT THE TERRAIN HEIGHT.
+	#
+	# The obvious criterion — bake, read the heights back, see whether they moved — was written first and
+	# does not work, in a way worth recording so it is not written again. `apply_sim_block` composites the
+	# block through the layer's blend, and under the default that discards everything below the existing
+	# surface; a road is mostly cut, so most of what the bake computes never reaches `get_height` at all.
+	# Two stacks that composed visibly different blocks read back IDENTICAL. A criterion that cannot tell
+	# "the modifier was dropped" from "the composite swallowed it" is measuring nothing.
+	#
+	# So the comparison is on the composed BLOCK — the array the brush hands to `apply_sim_block`, which
+	# is what "the modifier ran" actually means. It is observable because R3b put it in the stamp cache
+	# for both paths; before that fix the native path had no entry to read, which is itself the point.
+	var road_only := _bake_block(false, true)
+	var with_noise := _bake_block(true, true)
+	var disabled := _bake_block(true, false)
+	var gd_road_only := _bake_block(false, true, true)
+
+	print("    road alone: _road_native_is_complete() = %s, _stack_forces_gdscript() = %s"
+			% [road_only["complete"], road_only["forces_gd"]])
+	print("    road + noise: _road_native_is_complete() = %s, _stack_forces_gdscript() = %s"
+			% [with_noise["complete"], with_noise["forces_gd"]])
+
+	var moved := _moved_count(road_only["vals"], with_noise["vals"], 0.01)
+	_check("P", moved > 50 and not with_noise["complete"] and with_noise["forces_gd"]
+					and road_only["complete"] and not road_only["forces_gd"],
+			"%d of %d block cells moved when a second modifier was added (want > 50), and the routing "
+					% [moved, road_only["vals"].size()]
+					+ "flipped to GDScript for the two-modifier stack only")
+
+	# CONTROL, and the one that decides whether [P] measures anything at all. Adding the second modifier
+	# ALSO flips the whole stamp from the native rasteriser to the GDScript one, so the count above is
+	# equally consistent with two stories: the noise ran, or the two rasterisers merely disagree and the
+	# noise is still being dropped. Baking the road ALONE down the GDScript path separates them — it
+	# holds the rasteriser fixed and varies only the modifier.
+	var path_switch := _moved_count(road_only["vals"], gd_road_only["vals"], 0.01)
+	var noise_only := _moved_count(gd_road_only["vals"], with_noise["vals"], 0.01)
+	print("    control: switching rasteriser alone moves %d cell(s); adding the noise on top of the "
+			% path_switch + "same rasteriser moves %d (want the second > 50)" % noise_only)
+	if noise_only <= 50:
+		_fail += 1
+		print("!!  the difference in [P] is the rasteriser change, not the second modifier running")
+
+	# CONTROL: the same second modifier, disabled, must change nothing — otherwise the difference above
+	# was bake jitter rather than the modifier.
+	var jitter := _moved_count(road_only["vals"], disabled["vals"], 0.01)
+	print("    control: with the second modifier DISABLED, %d cell(s) differ from the road-only bake "
+			% jitter + "(want 0 — otherwise [P] read bake jitter, not the modifier)")
+	if jitter != 0:
+		_fail += 1
+		print("!!  the bake is not reproducible, so [P] cannot attribute its difference to the modifier")
+
+
+## One bake on a fresh terrain, and the block it composed. `p_second` adds a noise modifier, `p_enabled`
+## says whether it is active, `p_force_gd` pins the rasteriser — between them they give the criterion and
+## both of its controls.
+func _bake_block(p_second: bool, p_enabled: bool, p_force_gd: bool = false) -> Dictionary:
+	var fx := _road_bake_fixture()
+	var brush: Pasture3DRoadBrush = fx["brush"]
+	brush.force_gdscript_raster = p_force_gd
+	if p_second:
+		var noise_mod := Pasture3DNodeNoise.new()
+		var fnl := FastNoiseLite.new()
+		fnl.frequency = 0.05
+		noise_mod.noise = fnl
+		noise_mod.strength = 6.0
+		noise_mod.enabled = p_enabled
+		brush.modifiers = [fx["road"], noise_mod]
+	var complete: bool = brush._road_native_is_complete()
+	var forces_gd: bool = brush._stack_forces_gdscript()
+	brush._paint_into(fx["layer"], 0)
+	var entry: Dictionary = brush._stamp_cache.get((fx["path"] as Node).get_instance_id(), {})
+	var vals: PackedFloat32Array = entry.get("vals", PackedFloat32Array())
+	(fx["terrain"] as Node).queue_free()
+	return {"vals": vals, "complete": complete, "forces_gd": forces_gd}
+
+
+## [Q] R3b — the native path populates the stamp cache, and only with a block worth replaying.
+##
+## `_store_stamp_cache` sat after the early return, so a road brush never had a cache entry and the
+## cache-hit branch in `_paint_into` could never fire for one. Every layer-mate's dirty rect that touched
+## the road forced a full native re-rasterise of the whole spline — on the most expensive brush the layer
+## has, which is exactly the case the cache was built for.
+##
+## The scoping half is the part that could go wrong quietly. `stamp_road_line` writes NaN outside the clip
+## box, so `out["vals"]` from a CLIPPED bake covers the clip box and nothing else. Stored and replayed
+## later as a whole-spline block, it would repaint a fraction of the road and leave the rest as it was.
+##
+## CONTROL: count the NaN cells in that clipped block inside the corridor — that is the damage the store
+## would do, measured rather than asserted.
+func _q_the_native_path_populates_the_stamp_cache() -> void:
+	print("[Q] the native road path populates the stamp cache, scoped to unclipped bakes")
+	var fx := _road_bake_fixture()
+	var brush: Pasture3DRoadBrush = fx["brush"]
+	var path: Path3D = fx["path"]
+	var layer: int = fx["layer"]
+	var sid: int = path.get_instance_id()
+
+	brush._clip_aabb = AABB()
+	brush.clear_stamp_cache()
+	brush._paint_into(layer, 0)
+	var entry: Dictionary = brush._stamp_cache.get(sid, {})
+	var want_bounds := brush._spline_footprint_aabb(path)
+	var bounds_ok := false
+	if not entry.is_empty():
+		var got: AABB = entry["bounds"]
+		bounds_ok = got.position.is_equal_approx(want_bounds.position) \
+				and got.size.is_equal_approx(want_bounds.size)
+	print("    unclipped bake: cache entry present = %s, bounds match footprint = %s"
+			% [not entry.is_empty(), bounds_ok])
+
+	# A clipped bake over part of the road must leave NO entry behind.
+	var p_clip_for_control := AABB(Vector3(20.0, -500.0, 110.0), Vector3(60.0, 1000.0, 36.0))
+	var clip := p_clip_for_control
+	# The cache must be cleared first. Left populated, _paint_into answers the clipped bake FROM the
+	# entry stored above and never reaches the rasteriser, so the entry survives for a reason that has
+	# nothing to do with the rule being tested. (That replay is correct behaviour — it is the whole point
+	# of the cache — but it makes a useless test.)
+	brush.clear_stamp_cache()
+	brush._clip_aabb = clip
+	brush._paint_into(layer, 0)
+	var after: Dictionary = brush._stamp_cache.get(sid, {})
+	brush._clip_aabb = AABB()
+	print("    clipped bake: cache entry present = %s (want false)" % [not after.is_empty()])
+
+	_check("Q", not entry.is_empty() and bounds_ok and after.is_empty(),
+			"stored on the unclipped bake with the right bounds, erased on the clipped one")
+
+	# CONTROL: what storing the clipped block would have cost, measured on the terrain rather than
+	# asserted about the array. A clipped bake on a CLEAN layer is exactly "replay the clipped block and
+	# nothing else": the cells it leaves at their untouched height are the stretch of road a cached
+	# partial block would have left unpainted.
+	var full_painted := _painted_corridor_cells(AABB())
+	var clip_painted := _painted_corridor_cells(p_clip_for_control)
+	var unpainted := full_painted - clip_painted
+	print("    control: an unclipped bake paints %d corridor cell(s), a clipped one %d — a cached "
+			% [full_painted, clip_painted]
+			+ "partial block would leave %d unpainted (want > 100)" % unpainted)
+	if unpainted <= 100 or full_painted <= 0:
+		_fail += 1
+		print("!!  the clipped block covers the corridor anyway, so [Q]'s scoping rule guards nothing")
+
+	(fx["terrain"] as Node).queue_free()
+
+
+## Corridor cells a bake actually moved, on a layer that started clean. An empty clip box means the whole
+## spline. A fresh fixture each time, because "started clean" is the whole point.
+func _painted_corridor_cells(p_clip: AABB) -> int:
+	var fx := _road_bake_fixture()
+	var brush: Pasture3DRoadBrush = fx["brush"]
+	var data: Pasture3DData = fx["data"]
+	var before := _corridor_heights(data)
+	brush._clip_aabb = p_clip
+	brush._paint_into(fx["layer"], 0)
+	brush._clip_aabb = AABB()
+	var after := _corridor_heights(data)
+	var moved := _moved_count(before, after, 0.01)
+	(fx["terrain"] as Node).queue_free()
+	return moved

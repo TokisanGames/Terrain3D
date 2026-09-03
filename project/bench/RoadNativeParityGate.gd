@@ -25,7 +25,7 @@
 # plausible distance and an absurd s, so s is compared at the same tolerance rather than loosely.
 extends Node
 
-const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F"]
+const CRITERIA: Array[String] = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
 const G_N: int = 96
 const G_MIN: float = -48.0
@@ -46,6 +46,8 @@ func _ready() -> void:
 	_d_the_corridor_mask_matches_the_oracle()
 	_e_a_closed_path_masks_its_interior()
 	_f_the_grader_matches_its_gdscript_reference()
+	_g_the_solver_matches_the_forced_gdscript_oracle()
+	_h_the_mesher_honours_alignment_s0()
 
 	for name in CRITERIA:
 		if not _seen.has(name):
@@ -551,3 +553,153 @@ func _f_the_grader_matches_its_gdscript_reference() -> void:
 	if tail_touched != 0 or tail_near == 0:
 		_fail += 1
 		print("    !! the skipped stretch was graded, which puts a viaduct at every crossroads")
+
+
+# ---------------------------------------------------------------------------------------------------
+# [V] — PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md R6, R7. Added 2026-09-02.
+#
+# Both criteria below exist because a kernel moved to C++ and its GDScript original stopped being
+# reachable. `Pasture3DRoadAlignmentSolver.solve` and `Pasture3DRoadMesher.build_chunk` both delegate on
+# `ClassDB.class_has_method`, so calling either one twice compares native to itself and passes on any
+# divergence at all. Each takes a `p_force_gdscript` flag whose only caller is a gate.
+# ---------------------------------------------------------------------------------------------------
+
+
+## [G] R7 — the native solver and the GDScript oracle agree where the gradient constraint BINDS.
+##
+## The fixture is a road climbing a 30% hillside at an 8% limit with two pins 3 m apart in height and
+## 40 m apart along it: feasible, but only just, so the gradient projection is doing the shaping over the
+## whole length rather than decorating a profile the smoothness term already found.
+##
+## CONTROL, and it is what gives the comparison meaning: a flat road agrees trivially, so agreement alone
+## proves nothing. The fixture's own `peak_grade` is asserted to sit within 1e-4 of the limit — if it does
+## not, the constraint was NOT active and this is the flat case wearing a hillside.
+##
+## The break R7 names is tested by this same fixture. It is retargeted onto the whole iteration's
+## movement, and on ground this steep it does not fire at all, so both paths run the full 240 iterations.
+func _g_the_solver_matches_the_forced_gdscript_oracle() -> void:
+	var n := 400
+	var ds := 1.0
+	var ground := PackedFloat32Array()
+	ground.resize(n)
+	for i in n:
+		ground[i] = float(i) * ds * 0.30
+	var opts := {"pins": {100: ground[100], 140: ground[100] + 3.0}}
+	var nat := Pasture3DRoadAlignmentSolver.solve(ground, ds, 0.08, opts, false)
+	var ora := Pasture3DRoadAlignmentSolver.solve(ground, ds, 0.08, opts, true)
+
+	var worst := _worst(nat.z, ora.z)
+	_check("G", nat.z.size() == ora.z.size() and nat.z.size() == n and worst <= 1.0e-3,
+			"binding-gradient profile: worst |z_native - z_gdscript| = %.6f m over %d samples (want <= 1e-3)"
+					% [worst, nat.z.size()])
+	var agree := absf(nat.peak_grade - ora.peak_grade) <= 1.0e-5 \
+			and nat.feasible == ora.feasible \
+			and absf(nat.cut_volume - ora.cut_volume) <= 1.0e-3 \
+			and absf(nat.fill_volume - ora.fill_volume) <= 1.0e-3
+	if not agree:
+		_fail += 1
+		print("    !! diagnostics diverge: peak %.6f/%.6f feasible %s/%s cut %.4f/%.4f fill %.4f/%.4f"
+				% [nat.peak_grade, ora.peak_grade, nat.feasible, ora.feasible,
+						nat.cut_volume, ora.cut_volume, nat.fill_volume, ora.fill_volume])
+
+	# CONTROL: the constraint was actually active over this fixture.
+	print("    control: peak_grade %.6f against a 0.08 limit, feasible %s (want it pinned to the limit)"
+			% [nat.peak_grade, nat.feasible])
+	if not (absf(nat.peak_grade - 0.08) <= 1.0e-4 and nat.feasible):
+		_fail += 1
+		print("    !! the gradient limit was not binding, so this fixture is the flat control, not a test")
+
+	# CONTROL: the oracle flag still bypasses the delegation.
+	#
+	# There is NO numerical discriminator available here, and pretending otherwise would be the worst
+	# thing this gate could do. The native solver is a transcription of the GDScript one — same SOR,
+	# same omega, same sweep order, same float32 — so the two agree bit-for-bit at every iteration
+	# count, and "the forced call returned the same numbers" is equally consistent with the flag
+	# working perfectly and with it being ignored entirely. A control that cannot fail is not a control.
+	#
+	# The flag WAS proven to reach the body, once, by perturbing SOR_OMEGA to 1.0: the forced profile
+	# moved 1.18 m while the native one stayed bit-identical. A gate cannot rewrite a const, so what it
+	# guards instead is the thing that would silently undo that proof — the delegation losing its
+	# guard. If `not p_force_gdscript` stops gating the ClassDB check, every parity criterion above
+	# quietly becomes native-vs-native and passes forever.
+	var src := FileAccess.get_file_as_string(
+			"res://addons/pasture_3d/roads/pasture3d_road_alignment_solver.gd")
+	var guarded := src.contains(
+			"if not p_force_gdscript and ClassDB.class_has_method(\"Pasture3DUtil\", \"road_align_solve\")")
+	print("    control: solve() delegation is guarded by the oracle flag: %s" % guarded)
+	if not guarded:
+		_fail += 1
+		print("    !! solve() delegates unconditionally; every parity check above compares native to itself")
+
+
+## [H] R6 — the native mesher honours `Pasture3DRoadAlignment.s0`.
+##
+## `s0` is the arc length of sample zero. It is an @export, the graph serialises it, and both `height_at`
+## and `index_at` subtract it; the native mesher took `align_ds` and computed `s / ds` directly, so an
+## alignment solved over a sub-range put the ribbon s0/ds samples away from the ground beneath it.
+##
+## Nothing sets s0 non-zero today, which is exactly why this needs a gate rather than a bug report: the
+## field is live in the format, and the first writer of it would get a ribbon floating over its own cut.
+##
+## CONTROL: the same build with `align_s0` left at its default 0.0 — which IS the pre-fix code path, not
+## a simulation of it — must disagree with the oracle by more than 0.1 m. Without that, a fixture whose
+## profile is too flat to notice a 40-sample shift would pass while measuring nothing.
+func _h_the_mesher_honours_alignment_s0() -> void:
+	var n := 200
+	var ds := 1.0
+	var s0 := 40.0
+	var plan := PackedVector2Array()
+	for i in n:
+		plan.append(Vector2(s0 + float(i) * ds, 0.0))
+	var cum := Pasture3DRoadGrader.cumulative_length(plan)
+
+	var align := Pasture3DRoadAlignment.new()
+	align.ds = ds
+	align.s0 = s0
+	var z := PackedFloat32Array()
+	var bank := PackedFloat32Array()
+	z.resize(n)
+	bank.resize(n)
+	for i in n:
+		z[i] = float(i) * 0.06
+		bank[i] = 0.0
+	align.z = z
+	align.bank = bank
+	align.ground = z.duplicate()
+
+	var from_s := s0 + 10.0
+	var to_s := s0 + 150.0
+	var nat_arr: Array = Pasture3DRoadMesher.build_chunk(plan, cum, align, from_s, to_s, 4.0, 1.0, 0.02,
+			0, Pasture3DRoadMesher.DEPTH_LIFT, false)
+	var ora_arr: Array = Pasture3DRoadMesher.build_chunk(plan, cum, align, from_s, to_s, 4.0, 1.0, 0.02,
+			0, Pasture3DRoadMesher.DEPTH_LIFT, true)
+	if nat_arr.is_empty() or ora_arr.is_empty():
+		_fail += 1
+		_seen["H"] = true
+		print("    !! H: one of the two mesher paths returned nothing, so nothing was compared")
+		return
+	var nv: PackedVector3Array = nat_arr[Mesh.ARRAY_VERTEX]
+	var ov: PackedVector3Array = ora_arr[Mesh.ARRAY_VERTEX]
+	var worst := INF
+	if nv.size() == ov.size():
+		worst = 0.0
+		for i in nv.size():
+			worst = maxf(worst, absf(nv[i].y - ov[i].y))
+	_check("H", nv.size() == ov.size() and nv.size() > 0 and worst <= 1.0e-4,
+			"s0 = %.1f chunk: worst |y_native - y_gdscript| = %.6f m over %d vertices (want <= 1e-4)"
+					% [s0, worst, nv.size()])
+
+	# CONTROL: drop s0 and the ribbon must move, well past any tolerance.
+	var drop_arr: Array = Pasture3DUtil.road_mesh_build_chunk(plan, cum, align.ds, align.z, align.bank,
+			from_s, to_s, 4.0, 1.0, 0.02, 0, Pasture3DRoadMesher.DEPTH_LIFT, 0.0)
+	var dv := PackedVector3Array()
+	if not drop_arr.is_empty():
+		dv = drop_arr[Mesh.ARRAY_VERTEX]
+	var drift := 0.0
+	if dv.size() == ov.size():
+		for i in dv.size():
+			drift = maxf(drift, absf(dv[i].y - ov[i].y))
+	print("    control: with align_s0 dropped to 0.0 the ribbon moves %.4f m (want > 0.1)" % drift)
+	if not (dv.size() == ov.size() and drift > 0.1):
+		_fail += 1
+		print("    !! dropping s0 changed nothing measurable; this fixture cannot detect an index shift")

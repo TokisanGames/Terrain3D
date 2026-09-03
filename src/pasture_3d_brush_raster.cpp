@@ -2092,12 +2092,18 @@ void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Arr
 	Pasture3DPathGeom geom;
 	geom.build(p_plan, PackedFloat32Array());
 
+	// One scratch buffer for the whole pre-pass, not one per cell. `nearest` takes it as an out-parameter
+	// precisely so the caller can hoist it; declared inside the innermost loop it allocated and freed
+	// once per cell, which on a road footprint is hundreds of thousands of malloc/free pairs doing
+	// nothing. Single-threaded here, so one buffer is safe — the parallel callers in
+	// pasture_3d_road_grade.cpp keep theirs per row range for the same reason.
+	std::vector<int> scratch;
+	scratch.reserve(32);
 	for (int iz = iz0; iz < iz1; iz++) {
 		const double z = min_z + (double)iz * vs;
 		const int row = iz * gw;
 		for (int ix = ix0; ix < ix1; ix++) {
 			const double x = min_x + (double)ix * vs;
-			std::vector<int> scratch;
 			const Pasture3DPathHit hit = geom.nearest(x, z, scratch);
 			if (hit.distance <= reach) {
 				b_ptr[row + ix] = (float)get_height_below(p_layer_id, Vector3(x, 0.0, z));
@@ -2170,6 +2176,24 @@ void Pasture3DData::stamp_road_line(const int p_layer_id, const PackedVector2Arr
 		out["min_x"] = min_x;
 		out["min_z"] = min_z;
 		out["vs"] = vs;
+		// The composed block, for _store_stamp_cache. Behind a flag because every other caller of this
+		// function would be paying an n-float copy for something it never reads.
+		//
+		// SCOPE WARNING, and the GDScript side is what acts on it: when a clip box was given, the loop
+		// above only filled [ix0, ix1) x [iz0, iz1) and everything outside it is still NaN. This is a
+		// CLIP-SCOPED block, not a whole-footprint one. Replaying it later as if it were the whole
+		// spline would leave the road's outer reaches unpainted, so the caller stores it only on an
+		// unclipped bake and erases any existing entry on a clipped one.
+		if ((bool)p_params.get("want_vals", false)) {
+			PackedFloat32Array vout;
+			vout.resize(n);
+			float *v_ptr = vout.ptrw();
+			for (int i = 0; i < n; i++) {
+				v_ptr[i] = vals[(size_t)i];
+			}
+			out["vals"] = vout;
+			out["clipped"] = has_clip;
+		}
 	}
 }
 
@@ -2491,7 +2515,10 @@ void Pasture3DData::stamp_splat_loop(const int p_layer_id, const PackedVector2Ar
 int Pasture3DData::stamp_road_surface_control(const int p_layer_id, const PackedFloat32Array &p_surface,
 		const int p_gw, const int p_gh, const double p_min_x, const double p_min_z, const double p_vs,
 		const int p_texture_id, const bool p_preserve_base, const double p_min_coverage) {
-	if (p_layer_id < 0 || p_texture_id < 0 || p_gw <= 0 || p_gh <= 0 || p_surface.size() < p_gw * p_gh) {
+	// p_texture_id > 31 is refused rather than masked: enc_overlay would alias it to a real, unrelated
+	// texture slot. Mirrors Pasture3DRoadPaint.surface_control, which has to agree with this one.
+	if (p_layer_id < 0 || p_texture_id < 0 || p_texture_id > 31 || p_gw <= 0 || p_gh <= 0 ||
+			p_surface.size() < (int64_t)p_gw * p_gh) {
 		return 0;
 	}
 
@@ -2517,7 +2544,17 @@ int Pasture3DData::stamp_road_surface_control(const int p_layer_id, const Packed
 			}
 			const double x = p_min_x + (double)ix * p_vs;
 			const Vector3 pos((float)x, 0.0f, (float)z);
-			const uint32_t cur = get_control(pos);
+			uint32_t cur = get_control(pos);
+			// UINT32_MAX is get_control's "no region, deleted region, or no control map" answer — it is
+			// not a control word. Decoded, it yields base id 31 (0xFFFFFFFF >> 27 & 0x1F) and both
+			// preserve bits set, so a road over a region whose control map has not been created yet
+			// would paint the LAST texture slot and turn navigation on, and read as a wrong texture id
+			// rather than as a road that painted where there was no data. This is the same -1 -> 0
+			// normalisation Pasture3DRoadPaint.surface_control's caller does in GDScript; the two paths
+			// have to agree because either can be the one that paints a given cell.
+			if (cur == UINT32_MAX) {
+				cur = 0u;
+			}
 			const uint8_t base_id = p_preserve_base ? get_base(cur) : (uint8_t)p_texture_id;
 			const int blend_int = (int)std::lround(std::clamp(cover, 0.0f, 1.0f) * 255.0f);
 			const uint32_t ctrl = enc_base(base_id) | enc_overlay((uint8_t)p_texture_id) | enc_blend((uint8_t)blend_int) | (cur & 0x6);

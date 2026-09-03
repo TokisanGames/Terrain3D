@@ -22,6 +22,8 @@ func _ready() -> void:
 	_e_the_trim_back_leaves_no_gap_and_no_overlap()
 	_f_an_acute_crossing_trims_back_further()
 	_g_a_junction_that_drifts_is_still_the_same_junction()
+	await _h_a_placed_road_resolves_its_junctions()
+	_i_no_bake_kernel_reads_input_state()
 	print("\n=== %s (%d failures) ===\n" % ["ROAD JUNCTION PASS" if _fail == 0 else "ROAD JUNCTION FAIL", _fail])
 	get_tree().quit(0 if _fail == 0 else 1)
 
@@ -375,3 +377,165 @@ func _g_a_junction_that_drifts_is_still_the_same_junction() -> void:
 			% [moved.size(), live])
 	if moved.size() != 2 or live != 1:
 		_fail += 1; print("    !! a crossing 79 m away was treated as the same junction")
+
+
+## Shared reporter, so the two criteria below read like every other gate's. The older criteria in this
+## file predate it and count failures inline.
+func _check(p_name: String, p_ok: bool, p_detail: String) -> void:
+	if not p_ok:
+		_fail += 1
+	print("    %s%s: %s" % ["" if p_ok else "!! ", p_name, p_detail])
+
+
+
+# ---- [U] -----------------------------------------------------------------------------------------
+#
+# PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md R5. Added 2026-09-02.
+#
+# The bake used to skip its junction resolve while the left mouse button was down, meaning to coalesce
+# per drag. Nothing re-ran on release, so the request was dropped rather than deferred — and place_bake()
+# is called synchronously from the Place Brush mouse-down handler with the button held, so a newly placed
+# road formed no junctions at all until an unrelated edit happened to trigger a resolve.
+
+
+## Two crossing roads on a real terrain, each with a solved alignment, neither baked yet.
+func _crossing_fixture() -> Dictionary:
+	var terrain := Pasture3D.new()
+	terrain.region_size = 256
+	terrain.vertex_spacing = 1.0
+	add_child(terrain)
+	var data: Pasture3DData = terrain.data
+	data.add_region_blank(Vector2i(0, 0))
+	data.ensure_layer_stack()
+	var stack := data.get_layer_stack()
+	var layer_id: int = stack.add_layer("junction_bake")
+	var lay: Pasture3DLayer = stack.get_layer(layer_id)
+	lay.set_map_type(0)
+	lay.set_base(false)
+	lay.set_visible(true)
+
+	var net := Pasture3DRoadNetwork.new()
+	terrain.add_child(net)
+	var t := Pasture3DRoadType.new()
+	t.type_name = "cross"
+	t.lane_count = 2
+	t.lane_width = 3.5
+	net.road_types = [t]
+
+	var brushes: Array = []
+	for spec in [[Vector3(40.0, 0.0, 128.0), Vector3(200.0, 0.0, 128.0), "EW"],
+			[Vector3(128.0, 0.0, 40.0), Vector3(128.0, 0.0, 200.0), "NS"]]:
+		var brush := Pasture3DRoadBrush.new()
+		brush.name = String(spec[2])
+		net.add_child(brush)
+		brush.terrain = terrain
+		brush.road_road_type = t
+		var path := Path3D.new()
+		var curve := Curve3D.new()
+		curve.add_point(spec[0])
+		curve.add_point(spec[1])
+		path.curve = curve
+		brush.add_child(path)
+		var road_mod := Pasture3DNodeRoad.new()
+		road_mod.alignment_step = 2.0
+		brush.modifiers = [road_mod]
+		brushes.append(brush)
+	return {"terrain": terrain, "net": net, "layer": layer_id, "brushes": brushes}
+
+
+## [H] R5 — a road that has just been baked resolves its junctions, with nothing else prompting it.
+##
+## `place_bake()` itself cannot be called here: it early-outs on `Engine.is_editor_hint()`, which is false
+## headless. So this drives `_refresh_owner_rect(owner, ids, true)` — the one thing place_bake does — and
+## the criterion is unchanged, because the dropped resolve was inside the bake that call reaches, not
+## inside place_bake's own three lines.
+##
+## The `await` is the engine's own coalescing, not a second resolve: `request_resolve` sets a queued flag
+## and defers `resolve_junctions`, so one frame has to pass for a request to become a junction. Calling
+## `resolve_junctions()` here instead would pass whether or not the bake ever asked, which is the failure
+## this criterion exists to catch.
+func _h_a_placed_road_resolves_its_junctions() -> void:
+	print("[H] a road resolves its junctions as soon as it is baked")
+	var fx := _crossing_fixture()
+	var net: Pasture3DRoadNetwork = fx["net"]
+	var layer: int = fx["layer"]
+
+	for brush in fx["brushes"]:
+		var ids := {}
+		for s in (brush as Pasture3DRoadBrush)._get_splines():
+			ids[s.get_instance_id()] = true
+		(brush as Pasture3DRoadBrush)._layer_id = layer
+		(brush as Pasture3DRoadBrush)._paint_into(layer, 0)
+		(brush as Pasture3DRoadBrush).last_junction_digest = (brush as Pasture3DRoadBrush).junction_digest()
+
+	print("    before the deferred resolve runs: %d junction(s)" % net.junctions.size())
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var found: int = net.junctions.size()
+	print("    after one frame, with no resolve_junctions() call: %d junction(s)" % found)
+	_check("H", found > 0, "%d junction(s) at the crossing (want at least 1)" % found)
+
+	# CONTROL: the fixture really does cross. Two roads that miss each other produce zero junctions
+	# through the identical code path, so a zero above would otherwise be indistinguishable from a
+	# fixture whose roads never met.
+	var miss := _crossing_fixture()
+	var miss_net: Pasture3DRoadNetwork = miss["net"]
+	var second: Pasture3DRoadBrush = miss["brushes"][1]
+	for s in second._get_splines():
+		var c: Curve3D = (s as Path3D).curve
+		c.set_point_position(0, Vector3(600.0, 0.0, 40.0))
+		c.set_point_position(1, Vector3(600.0, 0.0, 200.0))
+	for brush in miss["brushes"]:
+		(brush as Pasture3DRoadBrush)._paint_into(miss["layer"], 0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	print("    control: the same bake on roads that do NOT cross yields %d junction(s) (want 0)"
+			% miss_net.junctions.size())
+	if miss_net.junctions.size() != 0:
+		_fail += 1
+		print("    !! junctions appear where the roads never meet, so [H] proves nothing about crossing")
+
+	(fx["terrain"] as Node).queue_free()
+	(miss["terrain"] as Node).queue_free()
+
+
+## [I] R5, the invariant behind it — no bake kernel consults global input state.
+##
+## `grade_surface` and `_paint_flat_footprint` are bake kernels. The project's own split, stated in the
+## mesher's header and the grader's, is that these are pure functions of their arguments so their numbers
+## can be gated without a viewport deciding whether the road looked right. An `Input.` call inside one is
+## how a bake starts behaving differently under a gate than under a hand, and it is the reason R5's bug
+## was invisible to every existing road gate: headless, `is_mouse_button_pressed` is always false, so the
+## guard silently did the right thing in every test and the wrong thing in the editor.
+##
+## Cheap to assert and it keeps every other road gate meaningful, so it is asserted rather than assumed.
+func _i_no_bake_kernel_reads_input_state() -> void:
+	print("[I] no road bake kernel consults global input state")
+	var offenders := PackedStringArray()
+	for rel in ["roads/pasture3d_road_brush.gd", "roads/pasture3d_road_grader.gd",
+			"roads/pasture3d_road_chunk_host.gd", "roads/pasture3d_road_mesher.gd"]:
+		var src := FileAccess.get_file_as_string("res://addons/pasture_3d/" + rel)
+		if src.is_empty():
+			offenders.append("%s: unreadable" % rel)
+			continue
+		var hits := 0
+		for line in src.split("\n"):
+			var t: String = (line as String).strip_edges()
+			if t.begins_with("#"):
+				continue
+			if t.contains("Input."):
+				hits += 1
+		if hits > 0:
+			offenders.append("%s: %d" % [rel, hits])
+	_check("I", offenders.is_empty(),
+			"Input. references in the road bake kernels: %s"
+					% ["none" if offenders.is_empty() else ", ".join(offenders)])
+
+	# CONTROL: the scan can actually find one. A matcher that silently matches nothing would report a
+	# clean result forever — the same shape of failure the criterion is guarding against.
+	var probe := "\tif not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):"
+	var sees := probe.strip_edges().contains("Input.")
+	print("    control: the scan detects a planted Input. reference = %s (want true)" % sees)
+	if not sees:
+		_fail += 1
+		print("    !! the scan matches nothing, so [I] would pass on any source at all")

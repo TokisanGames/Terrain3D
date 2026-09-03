@@ -100,6 +100,13 @@ This specification details the architecture and phased implementation to equip `
 
 ## 5. Verification & Test Plan
 
+> **The "Implemented" header above is true and incomplete at the same time.** The speedups landed; the
+> series also left twelve correctness regressions behind, catalogued and now remediated in
+> `PASTURE3D_ROAD_PERF_REGRESSION_SPEC.md` (all six steps built, 2026-09-02, gates `[P]`-`[W]`). Read
+> that before treating the gate list below as the whole story: several of those gates postdate this
+> document, and two of the regressions -- the ghost cut and the texture 31 write -- were writing bad
+> data while this header already said "Implemented".
+
 ### 5.1 Automated Gate Suite Verification
 1. **`project/bench/RoadGraphGate.tscn`**:
    - `[E]` Unresolved path reads far away.

@@ -1635,17 +1635,17 @@ PackedVector2Array Pasture3DUtil::resample_plan(const PackedVector2Array &p_plan
 Array Pasture3DUtil::road_mesh_build_chunk(const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
 		const double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
 		const double p_from, const double p_to, const double p_half, const double p_shoulder,
-		const double p_crown, const int p_lod, const double p_lift) {
+		const double p_crown, const int p_lod, const double p_lift, const double p_align_s0) {
 	return godot::road_mesh_build_chunk(p_plan, p_cum, p_align_ds, p_align_z, p_align_bank,
-			p_from, p_to, p_half, p_shoulder, p_crown, p_lod, p_lift);
+			p_from, p_to, p_half, p_shoulder, p_crown, p_lod, p_lift, p_align_s0);
 }
 
 Array Pasture3DUtil::road_mesh_build_apron(const Vector2 &p_center, const double p_radius,
 		const PackedVector2Array &p_plan, const PackedFloat32Array &p_cum,
 		const double p_align_ds, const PackedFloat32Array &p_align_z, const PackedFloat32Array &p_align_bank,
-		const double p_crown, const int p_segments, const double p_lift) {
+		const double p_crown, const int p_segments, const double p_lift, const double p_align_s0) {
 	return godot::road_mesh_build_apron(p_center, p_radius, p_plan, p_cum, p_align_ds, p_align_z,
-			p_align_bank, p_crown, p_segments, p_lift);
+			p_align_bank, p_crown, p_segments, p_lift, p_align_s0);
 }
 
 PackedFloat32Array Pasture3DUtil::curvature_grid(const PackedFloat32Array &p_surface, const int p_gw, const int p_gh,
@@ -2179,11 +2179,11 @@ void Pasture3DUtil::_bind_methods() {
 			D_METHOD("resample_plan", "plan", "cum", "ds", "n_s"),
 			&Pasture3DUtil::resample_plan);
 	ClassDB::bind_static_method("Pasture3DUtil",
-			D_METHOD("road_mesh_build_chunk", "plan", "cum", "align_ds", "align_z", "align_bank", "from", "to", "half", "shoulder", "crown", "lod", "lift"),
-			&Pasture3DUtil::road_mesh_build_chunk, DEFVAL(0), DEFVAL(0.02));
+			D_METHOD("road_mesh_build_chunk", "plan", "cum", "align_ds", "align_z", "align_bank", "from", "to", "half", "shoulder", "crown", "lod", "lift", "align_s0"),
+			&Pasture3DUtil::road_mesh_build_chunk, DEFVAL(0), DEFVAL(0.02), DEFVAL(0.0));
 	ClassDB::bind_static_method("Pasture3DUtil",
-			D_METHOD("road_mesh_build_apron", "center", "radius", "plan", "cum", "align_ds", "align_z", "align_bank", "crown", "segments", "lift"),
-			&Pasture3DUtil::road_mesh_build_apron, DEFVAL(24), DEFVAL(0.02));
+			D_METHOD("road_mesh_build_apron", "center", "radius", "plan", "cum", "align_ds", "align_z", "align_bank", "crown", "segments", "lift", "align_s0"),
+			&Pasture3DUtil::road_mesh_build_apron, DEFVAL(24), DEFVAL(0.02), DEFVAL(0.0));
 	ClassDB::bind_static_method("Pasture3DUtil",
 			D_METHOD("curvature_grid", "surface", "gw", "gh", "mode", "radius", "contrast"),
 			&Pasture3DUtil::curvature_grid);

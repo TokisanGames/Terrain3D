@@ -85,6 +85,13 @@ static func surface_control(p_surface: PackedFloat32Array, p_existing: PackedInt
 	# be painted.
 	if texture_id < 0:
 		return {"cells": PackedInt32Array(), "control": PackedInt32Array(), "weight": PackedFloat32Array()}
+	# ABOVE the field is refused too, and loudly, because it is the opposite kind of mistake. -1 is the
+	# default and means "do not paint", so it is silent; 32 is a typed-in id that ID_MASK would alias to
+	# texture 0, painting a real texture nobody chose and looking like the road picked the wrong one.
+	if texture_id > ID_MASK:
+		push_warning("Pasture3D: road surface_layer_id %d is above the 5-bit control field (max %d); not painting."
+				% [texture_id, ID_MASK])
+		return {"cells": PackedInt32Array(), "control": PackedInt32Array(), "weight": PackedFloat32Array()}
 	var preserve_base := bool(p_opts.get("preserve_base", true))
 	var cells := PackedInt32Array()
 	var control := PackedInt32Array()

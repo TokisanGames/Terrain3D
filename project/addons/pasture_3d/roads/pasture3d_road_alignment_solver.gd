@@ -72,9 +72,18 @@ const GRADE_EPSILON: float = 1e-5
 ## `p_max_grade` is the gradient limit as rise/run (0.08 = 8%).
 ## `p_opts` may carry: `w_earth`, `w_smooth`, `w_balance`, `iterations` (floats/int), and `pins`, a
 ## Dictionary of {sample index: height} the solve must honour.
+##
+## ---- `p_force_gdscript` ----
+##
+## Skips the native delegation and runs the body below. It exists for ONE reason: this file is the
+## reference the native solver was written against, and once `ClassDB.class_has_method` started
+## answering yes, the body became unreachable in any session with the extension loaded. A parity gate
+## that calls `solve` twice is then comparing the native path to itself and passes on any divergence,
+## which is the failure mode a parity gate exists to prevent. Nothing in the plugin passes true; it is
+## for gates, and for a developer bisecting a profile that looks wrong.
 static func solve(p_ground: PackedFloat32Array, p_ds: float, p_max_grade: float,
-		p_opts: Dictionary = {}) -> Pasture3DRoadAlignment:
-	if ClassDB.class_has_method("Pasture3DUtil", "road_align_solve"):
+		p_opts: Dictionary = {}, p_force_gdscript: bool = false) -> Pasture3DRoadAlignment:
+	if not p_force_gdscript and ClassDB.class_has_method("Pasture3DUtil", "road_align_solve"):
 		var res: Dictionary = Pasture3DUtil.road_align_solve(p_ground, p_ds, p_max_grade, p_opts)
 		var out := Pasture3DRoadAlignment.new()
 		out.ds = float(res.get("ds", p_ds))
@@ -155,10 +164,15 @@ static func solve(p_ground: PackedFloat32Array, p_ds: float, p_max_grade: float,
 
 ## Solve, and also derive plan curvature and banking from the centreline. `p_plan` is the centreline in
 ## world XZ, sampled at the SAME `p_ds` spacing as `p_ground` — one point per height sample.
+##
+## `p_force_gdscript` is threaded through to `solve`, `plan_curvature` AND `superelevation`, not only to
+## the outer call. A forced solve whose curvature and bank still came from the native path would be a
+## half-oracle, and the two fields it would silently leave native are exactly the ones a banking bug
+## lives in.
 static func solve_with_plan(p_plan: PackedVector2Array, p_ground: PackedFloat32Array, p_ds: float,
 		p_max_grade: float, p_design_speed: float, p_max_superelevation: float,
-		p_opts: Dictionary = {}) -> Pasture3DRoadAlignment:
-	if ClassDB.class_has_method("Pasture3DUtil", "road_align_solve_with_plan"):
+		p_opts: Dictionary = {}, p_force_gdscript: bool = false) -> Pasture3DRoadAlignment:
+	if not p_force_gdscript and ClassDB.class_has_method("Pasture3DUtil", "road_align_solve_with_plan"):
 		var res: Dictionary = Pasture3DUtil.road_align_solve_with_plan(p_plan, p_ground, p_ds,
 				p_max_grade, p_design_speed, p_max_superelevation, p_opts)
 		var out := Pasture3DRoadAlignment.new()
@@ -176,10 +190,10 @@ static func solve_with_plan(p_plan: PackedVector2Array, p_ground: PackedFloat32A
 		out.pinned = res.get("pinned", PackedInt32Array())
 		return out
 
-	var out := solve(p_ground, p_ds, p_max_grade, p_opts)
-	out.curvature = plan_curvature(p_plan)
+	var out := solve(p_ground, p_ds, p_max_grade, p_opts, p_force_gdscript)
+	out.curvature = plan_curvature(p_plan, p_force_gdscript)
 	out.bank = superelevation(out.curvature, p_design_speed, p_max_superelevation, p_ds,
-			float(p_opts.get("bank_transition_length", 25.0)))
+			float(p_opts.get("bank_transition_length", 25.0)), p_force_gdscript)
 	return out
 
 
@@ -196,8 +210,9 @@ static func solve_with_plan(p_plan: PackedVector2Array, p_ground: PackedFloat32A
 ## Good enough for banking, which is clamped and then smoothed over tens of metres. When P2 feeds this
 ## from real world-space splines it should hand in plan points RE-CENTRED on the run, which costs
 ## nothing and removes the cancellation entirely.
-static func plan_curvature(p_plan: PackedVector2Array) -> PackedFloat32Array:
-	if ClassDB.class_has_method("Pasture3DUtil", "road_plan_curvature"):
+static func plan_curvature(p_plan: PackedVector2Array,
+		p_force_gdscript: bool = false) -> PackedFloat32Array:
+	if not p_force_gdscript and ClassDB.class_has_method("Pasture3DUtil", "road_plan_curvature"):
 		return Pasture3DUtil.road_plan_curvature(p_plan)
 
 	var n := p_plan.size()
@@ -228,8 +243,9 @@ static func plan_curvature(p_plan: PackedVector2Array) -> PackedFloat32Array:
 ## metres so the road rolls into a corner instead of snapping. Physics, not styling — and the same
 ## number a racing track wants, which is why one formula serves the environment artist and the driver.
 static func superelevation(p_curvature: PackedFloat32Array, p_design_speed: float,
-		p_max_superelevation: float, p_ds: float, p_transition_length: float = 25.0) -> PackedFloat32Array:
-	if ClassDB.class_has_method("Pasture3DUtil", "road_superelevation"):
+		p_max_superelevation: float, p_ds: float, p_transition_length: float = 25.0,
+		p_force_gdscript: bool = false) -> PackedFloat32Array:
+	if not p_force_gdscript and ClassDB.class_has_method("Pasture3DUtil", "road_superelevation"):
 		return Pasture3DUtil.road_superelevation(p_curvature, p_design_speed, p_max_superelevation,
 				p_ds, p_transition_length)
 

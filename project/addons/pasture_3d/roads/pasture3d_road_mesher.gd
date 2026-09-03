@@ -222,16 +222,20 @@ static func chunk_spans(p_plan: PackedVector2Array, p_cum: PackedFloat32Array, p
 ## ring is `p_to` itself rather than wherever the walk happened to stop. That is the other half of the
 ## seam contract: `ring` guarantees the same `s` gives the same vertex, and this guarantees the two
 ## chunks are asked about the same `s`.
+## `p_force_gdscript` skips the native delegation and runs the body below, for the same reason the
+## alignment solver has one: this file is the reference the native mesher was written against, and once
+## `ClassDB.class_has_method` started answering yes the body became unreachable in any session with the
+## extension loaded. A parity gate that calls `build_chunk` twice compares the native path to itself.
 static func build_chunk(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
 		p_alignment: Pasture3DRoadAlignment, p_from: float, p_to: float, p_half: float,
 		p_shoulder: float, p_crown: float, p_lod: int = 0,
-		p_lift: float = DEPTH_LIFT) -> Array:
+		p_lift: float = DEPTH_LIFT, p_force_gdscript: bool = false) -> Array:
 	if p_alignment == null or p_plan.size() < 2 or p_to - p_from <= 1e-4:
 		return []
-	if ClassDB.class_has_method("Pasture3DUtil", "road_mesh_build_chunk"):
+	if not p_force_gdscript and ClassDB.class_has_method("Pasture3DUtil", "road_mesh_build_chunk"):
 		return Pasture3DUtil.road_mesh_build_chunk(p_plan, p_cum, p_alignment.ds,
 				p_alignment.z, p_alignment.bank, p_from, p_to, p_half, p_shoulder,
-				p_crown, p_lod, p_lift)
+				p_crown, p_lod, p_lift, p_alignment.s0)
 
 	var offsets := cross_offsets(p_half, p_shoulder, cross_for_lod(p_lod))
 	var across_count := offsets.size()
@@ -301,12 +305,14 @@ static func build_chunk(p_plan: PackedVector2Array, p_cum: PackedFloat32Array,
 ## Returns a surface array, or an empty Array when there is nothing to build.
 static func build_apron(p_center: Vector2, p_radius: float, p_plan: PackedVector2Array,
 		p_cum: PackedFloat32Array, p_alignment: Pasture3DRoadAlignment, p_crown: float,
-		p_segments: int = 24, p_lift: float = DEPTH_LIFT) -> Array:
+		p_segments: int = 24, p_lift: float = DEPTH_LIFT,
+		p_force_gdscript: bool = false) -> Array:
 	if p_alignment == null or p_plan.size() < 2 or p_radius <= 0.01:
 		return []
-	if ClassDB.class_has_method("Pasture3DUtil", "road_mesh_build_apron"):
+	if not p_force_gdscript and ClassDB.class_has_method("Pasture3DUtil", "road_mesh_build_apron"):
 		return Pasture3DUtil.road_mesh_build_apron(p_center, p_radius, p_plan, p_cum,
-				p_alignment.ds, p_alignment.z, p_alignment.bank, p_crown, p_segments, p_lift)
+				p_alignment.ds, p_alignment.z, p_alignment.bank, p_crown, p_segments, p_lift,
+				p_alignment.s0)
 	var segments := maxi(p_segments, 3)
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()

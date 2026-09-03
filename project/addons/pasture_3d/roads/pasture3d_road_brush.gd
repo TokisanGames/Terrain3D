@@ -379,7 +379,7 @@ func _paint_flat_footprint(path: Path3D) -> void:
 
 	# Native rasteriser: when available, solve alignment and grade directly in C++
 	var road_mod := road_modifier()
-	if _native_raster("stamp_road_line") and road_mod != null:
+	if _native_raster("stamp_road_line") and road_mod != null and _road_native_is_complete():
 		var cum := Pasture3DRoadGrader.cumulative_length(plan)
 		var total: float = cum[cum.size() - 1]
 		var ds: float = maxf(road_mod.alignment_step, 0.05)
@@ -418,11 +418,10 @@ func _paint_flat_footprint(path: Path3D) -> void:
 		if not _widening:
 			var needed := corridor_half_width()
 			if needed > _last_corridor_half + 0.5:
-				if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-					_last_corridor_half = needed
-					_widening = true
-					_schedule_refresh()
-					(func() -> void: _widening = false).call_deferred()
+				_last_corridor_half = needed
+				_widening = true
+				_schedule_refresh()
+				(func() -> void: _widening = false).call_deferred()
 
 		var out := {}
 		var params := {
@@ -443,9 +442,26 @@ func _paint_flat_footprint(path: Path3D) -> void:
 			"reach": reach,
 			"blend": _blend,
 			"composite": not _defer_composite,
+			# The composed block back, so the native path populates _stamp_cache the way the GDScript
+			# path does. Without it a road brush never has a cache entry, and every layer-mate's dirty
+			# rect that touches the road forces a full native re-rasterise of the whole spline instead
+			# of an apply_sim_block replay — on the most expensive brush the layer has.
+			"want_vals": true,
 			"out": out,
 		}
 		terrain.data.stamp_road_line(_layer_id, plan, _clip_aabb, params)
+
+		# STORE ONLY AN UNCLIPPED BAKE. A clipped bake filled only the clip box and left the rest of the
+		# grid NaN, so caching it would let a later replay paint a fraction of the road and call it the
+		# whole spline. On a clipped bake the existing entry is ERASED rather than left alone: it
+		# describes a footprint the terrain no longer matches, and a stale whole-spline block is the
+		# worse of the two failures.
+		var vals_out: PackedFloat32Array = out.get("vals", PackedFloat32Array())
+		if not bool(out.get("clipped", true)) and vals_out.size() == gw * gh:
+			_store_stamp_cache(path, _compute_stamp_key(path), min_x, min_z, vs, gw, gh, vals_out,
+					_spline_footprint_aabb(path))
+		else:
+			_stamp_cache.erase(path.get_instance_id())
 
 		if road_mod.publish_masks:
 			road_mod.last_masks = {
@@ -460,8 +476,19 @@ func _paint_flat_footprint(path: Path3D) -> void:
 		else:
 			road_mod.last_masks = {}
 
+		# NO INPUT STATE HERE. This used to skip the resolve while the left button was down, which was
+		# meant to coalesce per drag and did not: nothing re-ran on release, so the request was simply
+		# dropped. place_bake() is called synchronously from the Place Brush mouse-down handler with the
+		# button held, so a newly placed road formed no junctions at all until an unrelated edit happened
+		# to trigger a resolve. And the guard bought nothing on the path it was written for —
+		# _on_refresh_timer already holds the whole bake back until release, so on that path it never saw
+		# a pressed button and on every other path it only deleted work.
+		#
+		# request_resolve is already the coalescing point (it sets a queued flag and defers), so a refresh
+		# that bakes six roads still resolves once. Coalescing belongs there, where it applies to every
+		# caller, rather than here consulting global input state inside a bake kernel.
 		var jnet := road_network()
-		if jnet != null and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		if jnet != null:
 			last_junction_digest = junction_digest()
 			jnet.request_resolve()
 		return
@@ -697,11 +724,10 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 	if not _widening:
 		var needed := corridor_half_width()
 		if needed > _last_corridor_half + 0.5:
-			if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
-				_last_corridor_half = needed
-				_widening = true
-				_schedule_refresh()
-				(func() -> void: _widening = false).call_deferred()
+			_last_corridor_half = needed
+			_widening = true
+			_schedule_refresh()
+			(func() -> void: _widening = false).call_deferred()
 
 	var res := Pasture3DRoadGrader.grade(p_z, p_gw, p_gh, p_min_x, p_min_z, p_vs, plan, alignment,
 			half, shoulder, verge, suppress, {
@@ -712,7 +738,7 @@ func grade_surface(p_mod: Pasture3DNodeRoad, p_z: PackedFloat32Array, p_gw: int,
 			})
 	# The alignment this bake solved is what makes this road detectable, so the resolve is asked for
 	# AFTER it exists — and coalesced on the network, so a refresh that bakes six roads resolves once.
-	if jnet != null and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+	if jnet != null:
 		jnet.request_resolve()
 
 	p_mod.last_masks = {} if not p_mod.publish_masks else {
@@ -1288,18 +1314,30 @@ func pick_road_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px:
 		for i in range(pts.size() - 1):
 			var w1: Vector3 = xf * pts[i]
 			var w2: Vector3 = xf * pts[i + 1]
-			if camera.is_position_behind(w1) and camera.is_position_behind(w2):
+			# EITHER endpoint behind the camera, not both. unproject_position returns a mirrored,
+			# meaningless coordinate for a point behind the near plane, so a segment STRADDLING the camera
+			# plane was being measured against a screen segment that does not exist — which is why
+			# standing on a road made clicks far from it select it and clicks on it miss.
+			#
+			# Clipping to the near plane instead would keep the straddling segment pickable and is nicer,
+			# but it is not what this loop is for: the ground raymarch below already covers the road under
+			# the cursor, which is exactly the case a straddling segment represents.
+			if camera.is_position_behind(w1) or camera.is_position_behind(w2):
 				continue
 			var s1 := camera.unproject_position(w1)
 			var s2 := camera.unproject_position(w2)
 			var p := Geometry2D.get_closest_point_to_segment(screen_pos, s1, s2)
 			var d := screen_pos.distance_to(p)
-			
+
+			# Pixels per world metre at the segment's depth, derived from the camera rather than from a
+			# constant. This was `500.0 / cam_dist`, which is a number unrelated to viewport height or
+			# FOV: the corridor-aware margin it feeds was correct only at the default FOV and the
+			# viewport height that constant happened to have been fitted to, and silently wrong at any
+			# other — a wide-FOV viewport picked a corridor several times too wide.
 			var mid := (w1 + w2) * 0.5
 			var cam_dist := camera.global_position.distance_to(mid)
-			var world_to_screen_scale := 500.0 / maxf(cam_dist, 1.0)
-			var effective_margin := maxf(margin_px, half_w * world_to_screen_scale)
-			
+			var effective_margin := maxf(margin_px, half_w * _pixels_per_metre(camera, cam_dist))
+
 			if d <= effective_margin and d < best_d:
 				best_d = d
 
@@ -1322,4 +1360,18 @@ func pick_road_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px:
 
 func pick_brush_screen_distance(camera: Camera3D, screen_pos: Vector2, margin_px: float = 24.0) -> float:
 	return pick_road_screen_distance(camera, screen_pos, margin_px)
+
+
+## Pixels per world metre for a point `p_dist` metres in front of `p_camera`.
+##
+## The perspective case is the viewport height over the world height the frustum spans at that depth.
+## An ORTHOGONAL camera has no depth falloff at all — its scale is the viewport height over `size` — and
+## a constant fitted to a perspective view is simply wrong there, so it is handled rather than ignored.
+func _pixels_per_metre(p_camera: Camera3D, p_dist: float) -> float:
+	var vp: Viewport = p_camera.get_viewport()
+	var height_px := float(vp.get_visible_rect().size.y) if vp != null else 1080.0
+	if p_camera.projection == Camera3D.PROJECTION_ORTHOGONAL:
+		return height_px / maxf(p_camera.size, 1e-4)
+	var span := 2.0 * tan(deg_to_rad(p_camera.fov) * 0.5) * maxf(p_dist, 1e-4)
+	return height_px / maxf(span, 1e-4)
 
