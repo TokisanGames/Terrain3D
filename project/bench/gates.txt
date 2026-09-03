@@ -311,3 +311,28 @@ bench/RoadPaintGate.tscn
 # mapping - because an off-by-one band still draws the road, at the wrong tier, and reads as the meshes
 # being wrong rather than the thresholds being read wrong.
 bench/RoadMeshGate.tscn
+
+# P5c/P7 and the regression sweep - the road gates that existed but had never been listed here. All six
+# were run headless and watched printing green on 2026-09-02 before being added. Three of the eight road
+# scenes that were missing turned out to be UNRUNNABLE rather than merely unlisted, which is the reason
+# this block exists: a gate nobody runs stops compiling against the engine and nobody finds out.
+bench/RoadGraphGate.tscn
+bench/RoadNativeParityGate.tscn
+bench/RoadNearGate.tscn
+bench/RoadPerfRegressionGate.tscn
+bench/RoadRibbonPickingGate.tscn
+bench/RoadRouteGate.tscn
+
+# DELIBERATELY NOT LISTED, and why - so the next person does not "fix" the omission:
+#   RoadGpuParityGate  - windowed only. The headless driver has no local RenderingDevice, so a headless
+#                        run reaches no GPU and the gate reports NO-SIGNAL rather than passing. Its own
+#                        header says to run it without --headless.
+#   RoadStressGate     - a BENCHMARK. It prints milliseconds and asserts against them, which needs the
+#                        user's go-ahead (§11, §14) that a CI runner cannot give. It was repaired to
+#                        parse and to build its terrain the current way, but it has not been run.
+#   RoadMoundInteractionGate, RoadMultiNetworkGate - named "Gate" but they are PROBES. Neither counts
+#                        a failure or asserts anything; they print timings and digest-changed lines and
+#                        exit 0 unconditionally, so listing them would add two entries that can never go
+#                        red. Both were repaired to run again (they had been dead against the engine for
+#                        some time) and both now complete headless. Turning either into a real gate means
+#                        deciding what it CLAIMS, which is a separate job nobody has done.

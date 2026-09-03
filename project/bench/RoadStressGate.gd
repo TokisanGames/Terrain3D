@@ -35,20 +35,19 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int, p_regions
 	terrain.vertex_spacing = VERTEX_SPACING
 	add_child(terrain)
 
-	var data := Pasture3DData.new()
-	terrain.data = data
-	# Create regions in grid
-	var locs: Array[Vector2i] = []
+	# `terrain.data` is read-only - the terrain owns it - and regions are ADDED rather than assigned
+	# as a location list. Both engine-side changes landed after this gate was written.
+	var data: Pasture3DData = terrain.data
 	for rz in range(-2, p_regions_per_axis - 2):
 		for rx in range(-2, p_regions_per_axis - 2):
-			locs.append(Vector2i(rx, rz))
-	data.set_region_locations(locs)
+			data.add_region_blank(Vector2i(rx, rz))
 
 	# Create network
 	var net := Pasture3DRoadNetwork.new()
 	net.name = "RoadNetwork"
-	net.terrain = terrain
-	add_child(net)
+	# A road network finds its terrain by PARENTAGE - it has no `terrain` property. Assigning one was
+	# silently accepted until the engine started rejecting unknown properties, and it stops the gate dead.
+	terrain.add_child(net)
 
 	var road_type := Pasture3DRoadType.new()
 	road_type.lane_width = 3.5
@@ -104,7 +103,7 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int, p_regions
 		sib.modifiers = [sib_mod]
 
 	# Initial full bake to settle everything into cache
-	print("  [Setup] Initializing %d regions & baking network..." % locs.size())
+	print("  [Setup] Initializing %d regions & baking network..." % data.get_region_count())
 	var t0_init := Time.get_ticks_usec()
 	brush._refresh_owner(brush._layer_owner, false, [])
 	net.resolve_junctions()
@@ -153,7 +152,7 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int, p_regions
 	var t_comp := Time.get_ticks_usec()
 
 	# 7. Update GPU maps
-	terrain.data.update_maps(Pasture3DData.TYPE_HEIGHT, false, false)
+	terrain.data.update_maps(Pasture3DRegion.TYPE_HEIGHT, false, false)
 	var t_gpu := Time.get_ticks_usec()
 
 	# 8. Network resolve
@@ -211,7 +210,7 @@ func _run_stress_test(p_title: String, p_length: float, p_points: int, p_regions
 	print("     - Control Paint (paint_roads):%7.3f ms TOTAL" % ((t_comp_regions - t_paint_roads_start) / 1000.0))
 	print("         * Clear paint layers:     %7.3f ms" % ((t_clear_paint - t_order) / 1000.0))
 	print("         * C++ Paint cells:        %7.3f ms  (%d cells)" % [((t_paint_cells - t_clear_paint) / 1000.0), painted_cells])
-	print("         * composite_regions:      %7.3f ms  (%d regions)" % [((t_comp_regions - t_paint_cells) / 1000.0), locs.size()])
+	print("         * composite_regions:      %7.3f ms  (%d regions)" % [((t_comp_regions - t_paint_cells) / 1000.0), data.get_region_count()])
 	print("     - Ribbon Meshing (chunks):    %7.3f ms  (%d chunks across %d LODs)" % [((t_chunks - t_comp_regions) / 1000.0), total_chunks, Pasture3DRoadMesher.LOD_LEVELS])
 	print("     - Runtime Serialization:      %7.3f ms" % ((t_runtime - t_chunks) / 1000.0))
 	print("  ---------------------------------------------------------------")
