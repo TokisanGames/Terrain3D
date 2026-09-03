@@ -651,7 +651,7 @@ func build_junction_surfaces(p_brushes: Array = []) -> int:
 			"center": j.center,
 			# The disc has to reach at least the trim-back the approaches stopped at, or the apron is
 			# smaller than the hole it exists to fill and leaves a ring of bare ground round itself.
-			"radius": maxf(j.radius, j.widest_trim_back()),
+			"radius": _apron_radius(j, by_key),
 			"plan": run["plan"],
 			"cum": run["cum"],
 			"alignment": run["alignment"],
@@ -663,6 +663,37 @@ func build_junction_surfaces(p_brushes: Array = []) -> int:
 		return 0
 	_configure_host(host)
 	return host.rebuild_aprons(aprons, ribbon_lift)
+
+
+## How far the apron disc has to reach to cover every trimmed-back approach.
+##
+## `radius` and `widest_trim_back()` are both the largest TRIM-BACK, and a trim-back is measured ALONG a
+## centreline: it is the distance to the MIDDLE of a cut end. But a cut end is a full-width face, so its
+## two corners sit at `sqrt(trim^2 + half_width^2)` from the centre. A disc of the trim-back reaches the
+## middle of that face and misses both corners, leaving a triangular gap at each side of every trimmed
+## arm.
+##
+## THIS ONLY SHOWS ON MINOR ROADS, which is what made it look like a different bug. The major road is
+## never trimmed (`Pasture3DRoadBrush._junction_gaps` skips it), so its ribbon runs straight through and
+## meets the apron whatever the radius is. At a plain crossroads — one major, one minor — the apron
+## therefore connects to exactly one road.
+##
+## The major is left out of the max for the same reason it has no gap: covering a cut it never makes
+## would only push the disc out past the graded corridor and float pavement over open ground.
+func _apron_radius(p_junction: Pasture3DRoadJunction, p_by_key: Dictionary) -> float:
+	var r: float = maxf(p_junction.radius, p_junction.widest_trim_back())
+	for i in p_junction.road_keys.size():
+		var key := String(p_junction.road_keys[i])
+		if p_junction.is_major(key):
+			continue
+		var b = p_by_key.get(key, null)
+		if b == null:
+			continue
+		var t: Pasture3DRoadType = b.resolved_road_type()
+		var hw: float = t.half_width(b.resolved_lane_count()) if t != null else 3.5
+		var trim: float = p_junction.trim_backs[i] if i < p_junction.trim_backs.size() else 0.0
+		r = maxf(r, sqrt(trim * trim + hw * hw))
+	return r
 
 
 ## Fill in every Road Source node in `p_graph` with the geometry of the road it names. Returns how many
