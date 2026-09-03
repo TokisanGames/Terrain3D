@@ -127,10 +127,25 @@ _resample_plan(...) -> solve_with_plan(...) -> alignment.z -> "align_z" -> nativ
 ```
 
 Smoothing `alignment.z` after the solve and before the grade is exactly "after grading the curve, before
-the landscape deformation" as asked. It has a second benefit worth stating: because the smoothing runs
-in GDScript on `alignment.z` **before** the array is handed to the native grader, the native and the
-GDScript paths agree by construction. Putting it inside `pasture_3d_road_grade.cpp` instead would create
-a second implementation and a parity problem, which is R7's lesson from the perf-regression work.
+the landscape deformation" as asked.
+
+**It ships NATIVE.** Road editing is already slow next to comparable tools, and this pass runs on every
+drag of every spline point — a GDScript filter over a 2 km road at a 1 m step is 2000 samples times
+three box passes times a re-projection loop, per interactive bake, and it would be paid by every road
+whether or not the feature is switched on. There is no reason to pay it: `Pasture3DUtil` already
+exposes `road_align_solve` and `road_align_solve_with_plan`, both of which take an **`opts` Dictionary**.
+`smooth_radius` goes in `opts`, so this needs no new binding signature and no new entry point — the
+native solver grows a final stage and the existing call site passes one more key.
+
+This does mean the pass exists twice, in C++ and in the GDScript solver. That is not the R7 trap; it is
+the arrangement R7 established. `force_gdscript` is already threaded through `solve`,
+`solve_with_plan`, `plan_curvature` and `superelevation` precisely so the GDScript body can serve as an
+independent oracle, and the smoothing pass must be threaded the same way or a forced solve returns a
+half-oracle — a profile smoothed by neither implementation, which would compare equal to nothing.
+
+What would have been the R7 trap is putting the smoothing in `pasture_3d_road_grade.cpp` instead of the
+solver: the grader is downstream of the projections, so a smoothing pass there could not re-apply pins
+or the gradient limit without duplicating them too. It belongs in the solver, on both sides.
 
 **The correction:** the solver's output is not a free-standing curve. It is the output of alternating
 projection — pins applied, then the gradient limit. A plain filter over `z` violates both:
@@ -143,7 +158,8 @@ projection — pins applied, then the gradient limit. A plain filter over `z` vi
 
 So smoothing is not a post-filter. It is **a filter followed by re-projection**, reusing the solver's own
 `_apply_pins` and `_project_grade` rather than new copies of them. Structurally that argues for it living
-in `Pasture3DRoadAlignmentSolver` as a final stage of `solve_with_plan`, not in the brush:
+as a final stage of the solver — `road_align_solve_with_plan` natively, and
+`Pasture3DRoadAlignmentSolver.solve_with_plan` in the oracle — rather than in the brush:
 
 ```
 smooth pass  ->  _apply_pins  ->  _project_grade (to convergence)  ->  _fill_diagnostics
@@ -199,6 +215,9 @@ zero-padding would drag both ends toward zero elevation.
 
 Pure arithmetic, no terrain, no scene — the same property that makes the alignment solver testable.
 
+**Every criterion runs twice**, once native and once under `force_gdscript`, and a seventh compares the
+two. A native-only run cannot tell a correct pass from one the oracle never received.
+
 Fixture: a synthetic ground profile carrying two superimposed sinusoids — 0.3 m at 60 m wavelength (the
 "small bump") and 2.0 m at 400 m (the "larger bump") — over a 2 km road.
 
@@ -210,9 +229,10 @@ Fixture: a synthetic ground profile carrying two superimposed sinusoids — 0.3 
 | D | `peak_grade <= max_grade` after smoothing, on a profile where the pre-smoothing solve was already at the limit. | Remove the `_project_grade` re-projection and this must fail. |
 | E | Banking and curvature are bit-identical with and without smoothing. | A guard: its failure means something reads `z` that should not. |
 | F | `feasible` and `peak_grade` describe the SMOOTHED profile. | Move `_fill_diagnostics` above the smoothing pass and this must fail. |
+| G | Native and forced-GDScript profiles agree to 1e-5 m at a non-zero radius. | Perturb the native kernel width by one sample: the two must diverge. Agreement at radius 0 proves nothing — both are doing nothing — so this must be measured with the pass ON. |
 
 Criterion B is the one worth writing first, because it is the only one that distinguishes "measured
-nothing" from "measured well": a smoothing pass that did nothing at all would pass A, C, D, E and F.
+nothing" from "measured well": a smoothing pass that did nothing at all would pass A, C, D, E, F and G.
 
 ---
 
