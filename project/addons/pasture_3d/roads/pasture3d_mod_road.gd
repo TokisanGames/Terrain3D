@@ -37,6 +37,25 @@ extends Pasture3DNode
 		alignment_step = maxf(v, 0.05)
 		_touch()
 
+## Removes bumps shorter than roughly this along the road, metres. 0 disables the pass entirely, and
+## must stay bit-identical to a solve without it.
+##
+## METRES rather than samples, because `alignment_step` above is authorable: a sample-count knob would
+## silently rescale every road the moment the step changed. Raising it removes progressively longer
+## bumps, which is the whole shape of the control — it is a SCALE, not an amount.
+##
+## Not the solver's `w_smooth`. That weight trades against the earth term, so raising it makes the road
+## float off the ground instead of paying for cut and fill. This conditions the profile the solve
+## already chose, at the elevation it chose. See Pasture3DRoadAlignmentSolver._smooth_profile.
+##
+## Per-brush rather than inherited through the RoadType/Group chain: "this one road is bumpy" is a fact
+## about a stretch of road, not about a class of road. It sits here beside `alignment_step` because both
+## are solver settings rather than descriptions of what the road IS.
+@export_range(0.0, 200.0, 0.5, "or_greater", "suffix:m") var smooth_radius: float = 0.0:
+	set(v):
+		smooth_radius = maxf(v, 0.0)
+		_touch()
+
 ## How far past the edge of formation the batters and the disturbed ground may reach, metres. Read from
 ## the resolved RoadType when this is negative — which is the default, so the road type stays the single
 ## place a road's width is described.
@@ -172,6 +191,7 @@ func resolved_number(p_override: float, p_type_value: float) -> float:
 func to_params() -> Dictionary:
 	return {
 		"alignment_step": alignment_step,
+		"smooth_radius": smooth_radius,
 		"verge_override": verge_override,
 		"crown_override": crown_override,
 		"cut_batter_override": cut_batter_override,
@@ -182,7 +202,7 @@ func to_params() -> Dictionary:
 
 
 func content_key() -> int:
-	return hash([alignment_step, verge_override, crown_override, cut_batter_override,
+	return hash([alignment_step, smooth_radius, verge_override, crown_override, cut_batter_override,
 			fill_batter_override, structure_threshold, publish_masks, enabled])
 
 

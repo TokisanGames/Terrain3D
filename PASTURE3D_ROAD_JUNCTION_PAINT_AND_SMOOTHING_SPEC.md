@@ -1,7 +1,8 @@
 # Pasture3D Road — Junction Ribbons & Alignment Smoothing
 
 **Document:** `PASTURE3D_ROAD_JUNCTION_PAINT_AND_SMOOTHING_SPEC.md`
-**Status:** SPEC, nothing built (2026-09-02)
+**Status:** **P9b BUILT** 2026-09-02 (gate `RoadSmoothGate`, green native and forced-GDScript).
+**P9a not started.**
 **References:** `PASTURE3D_ROAD_SYSTEM_PROPOSAL.md` §6.4, §8, §10; `PASTURE3D_ROAD_BRUSH_PERF_SPEC.md`
 **Phases:** proposed as **P9a** (junction paint) and **P9b** (smoothing). Both sit after P7b; neither
 depends on P8, which remains the only unbuilt phase of the original plan.
@@ -114,7 +115,24 @@ Every criterion below is decidable from numbers; none needs a rendered frame.
 
 ---
 
-## 3. Feature B — alignment smoothing (P9b)
+## 3. Feature B — alignment smoothing (P9b) — **BUILT**
+
+> **As built, 2026-09-02.** `smooth_radius` sits on `Pasture3DNodeRoad` beside `alignment_step` (open
+> question 2 below answered: per-brush, not inherited — "this one road is bumpy" is a fact about a
+> stretch of road, not a class of road). Both `solve_with_plan` call sites in `pasture3d_road_brush.gd`
+> pass it, and `alignment_digest` hashes it. The pass is a final stage of `road_align_solve` in
+> `src/pasture_3d_road_grade.cpp`, mirrored by `Pasture3DRoadAlignmentSolver._smooth_profile` as the
+> oracle. Two corrections the build made to the text below:
+>
+> - **Criterion B's threshold was wrong, not the implementation.** The spec asked for "<10% attenuation"
+>   of the long band; a triple box of that width provably takes 10.9%, and the implementation returned
+>   10.7%. The gate now asserts against the kernel's closed-form transfer function, which is strictly
+>   stronger — it catches a two-pass filter, which any round number lets through.
+> - **Criterion G's tolerance is 1e-3 m, not 1e-5.** `RoadNativeParityGate` [G] already sets that bar for
+>   this exact comparison, because the native solve carries a convergence break at 1e-4 m that the
+>   GDScript body does not. The two paths differ by ~1.3e-4 m before smoothing is involved at all, so
+>   1e-5 was asserting the wrong thing. Measured divergence with the pass on: 1.3e-4 m against 2.17 m of
+>   movement.
 
 ### 3.1 Where it goes — the user's guess is right, with one correction
 

@@ -282,6 +282,7 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 	const double w_balance = p_opts.get("w_balance", 0.0);
 	const int iterations = (int)p_opts.get("iterations", 240);
 	const Dictionary pins = p_opts.get("pins", Dictionary());
+	const double smooth_radius = p_opts.get("smooth_radius", 0.0);
 
 	std::vector<bool> has_pin((size_t)n, false);
 	std::vector<float> pin_val((size_t)n, 0.0f);
@@ -420,6 +421,56 @@ Dictionary godot::road_align_solve(const PackedFloat32Array &p_ground, double p_
 		if (it >= 20 && moved < 1e-4) {
 			break;
 		}
+	}
+
+	// ---- SMOOTHING: A CONDITIONING PASS ON THE SOLVED PROFILE (P9b) ----
+	//
+	// Removes bumps shorter than `smooth_radius` metres. This is NOT the objective's w_smooth term:
+	// w_smooth trades against the EARTH term, so raising it makes the road stop paying for cut and fill
+	// and float off the ground. This runs after the solve and changes only the profile's conditioning,
+	// at the elevation the solve already chose.
+	//
+	// Three box passes, not a Gaussian: they approximate one closely enough that nothing downstream can
+	// tell, cost O(n) each with a running sum, and have an EXACTLY stated support, which is what makes
+	// the gate's per-band attenuation criterion assertable.
+	//
+	// Ends are clamped (the end sample extends), not wrapped and not zero-padded. A road is not
+	// periodic, and zero-padding would drag both ends toward zero elevation.
+	//
+	// ---- WHY THE RE-PROJECTION IS NOT OPTIONAL ----
+	//
+	// The profile above is the output of alternating projection: pins applied, then the gradient limit.
+	// A filter over it moves PINNED SAMPLES — a bridge deck or a junction elevation slides silently, and
+	// the junction resolve loop then re-pins against a road that moved — and it can breach the gradient
+	// limit next to a pin, where the filter pulls a sample toward a neighbour the pin is holding away.
+	// So the filter is followed by the same two projections the solve itself ends on, and the
+	// diagnostics below therefore describe the SMOOTHED profile rather than the one before it.
+	const int half = (int)std::lround(smooth_radius / ds);
+	if (half >= 1 && n >= 3) {
+		std::vector<float> src((size_t)n);
+		std::vector<float> dst((size_t)n);
+		std::copy(z.begin(), z.end(), src.begin());
+		const int w = 2 * half + 1;
+		for (int pass = 0; pass < 3; pass++) {
+			// Running sum over the clamped window. Seeded with the window centred on sample 0, which is
+			// `half + 1` real samples plus `half` copies of src[0].
+			double sum = (double)src[0] * (double)(half + 1);
+			for (int i = 1; i <= half; i++) {
+				sum += (double)src[std::min(i, n - 1)];
+			}
+			for (int i = 0; i < n; i++) {
+				dst[i] = (float)(sum / (double)w);
+				const int add = std::min(i + half + 1, n - 1);
+				const int drop = std::max(i - half, 0);
+				sum += (double)src[add] - (double)src[drop];
+			}
+			std::swap(src, dst);
+		}
+		// `src` holds the last pass's output after the final swap.
+		for (int i = 0; i < n; i++) {
+			z[i] = has_pin[i] ? pin_val[i] : src[i];
+		}
+		project_grade(z);
 	}
 
 	PackedFloat32Array out_z;

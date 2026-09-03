@@ -323,6 +323,16 @@ bench/RoadPerfRegressionGate.tscn
 bench/RoadRibbonPickingGate.tscn
 bench/RoadRouteGate.tscn
 
+# P9b - the alignment smoothing pass. smooth_radius conditions the SOLVED vertical profile: it removes
+# bumps shorter than the radius, and raising it removes progressively longer ones. Pure arithmetic on a
+# 1D array, so no terrain and no rendered frame. Every criterion runs TWICE, native and forced-GDScript,
+# because the pass exists in both road_align_solve and Pasture3DRoadAlignmentSolver._smooth_profile and
+# a native-only run cannot tell a correct pass from one the oracle never received. [B] compares each
+# wavelength band against the triple box's closed-form transfer function rather than a threshold - the
+# first draft asserted a round 90% and the correct implementation returned 89.3%. See the gate's header
+# for the three mutation tests, and in particular for why [D] needs the pins KEPT to fail.
+bench/RoadSmoothGate.tscn
+
 # DELIBERATELY NOT LISTED, and why - so the next person does not "fix" the omission:
 #   RoadGpuParityGate  - windowed only. The headless driver has no local RenderingDevice, so a headless
 #                        run reaches no GPU and the gate reports NO-SIGNAL rather than passing. Its own
