@@ -780,7 +780,7 @@ Vector3 Terrain3DData::get_normal(const Vector3 &p_global_position) const {
 		return V3_NAN;
 	}
 	real_t hz = get_surface_height(p_global_position + Vector3(0.f, 0.f, step));
-	if (!std::isfinite(hx)) {
+	if (!std::isfinite(hz)) {
 		return V3_NAN;
 	}
 	Vector3 normal(h - hx, step, h - hz);
