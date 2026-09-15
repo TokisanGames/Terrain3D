@@ -44,10 +44,18 @@ func _ready() -> void:
 		"add_text":"Raise (R)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_ADD,
 		"sub_text":"Lower (R)", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_SUB })
 
-	add_tool_button({ "tool":Terrain3DEditor.SCULPT, 
+	add_tool_button({ "tool":Terrain3DEditor.SCULPT,
 		"add_text":"Smooth (Shift)", "add_op":Terrain3DEditor.AVERAGE, "add_icon":ICON_HEIGHT_SMOOTH })
 
-	add_tool_button({ "tool":Terrain3DEditor.HEIGHT, 
+	# No dedicated icon or shortcut key yet -- reuses the smooth icon as a
+	# placeholder (both are neighborhood-filter height operations) and no
+	# letter is claimed since every other single-key shortcut in this file
+	# is already in use; a maintainer/community keybind + real icon are a
+	# natural follow-up, not required for the feature to work.
+	add_tool_button({ "tool":Terrain3DEditor.SCULPT,
+		"add_text":"Erode", "add_op":Terrain3DEditor.ERODE, "add_icon":ICON_HEIGHT_SMOOTH })
+
+	add_tool_button({ "tool":Terrain3DEditor.HEIGHT,
 		"add_text":"Height (H)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_FLAT,
 		"sub_text":"Height (H)", "sub_op":Terrain3DEditor.SUBTRACT, "sub_icon":ICON_HEIGHT_FLAT })
 

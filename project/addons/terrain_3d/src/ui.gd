@@ -20,6 +20,7 @@ const COLOR_LIFT := Color(1.0, 0.6, 0.0) # Bright orange
 const COLOR_FLATTEN := Color(0.0, 0.6, 1.0) # Cyan
 const COLOR_HEIGHT := Color(0.0, 0.8, 0.8) # Brighter cyan
 const COLOR_SLOPE := Color(1.0, 1.0, 0.0) # Bright yellow
+const COLOR_ERODE := Color(0.55, 0.27, 0.07) # Saddle brown
 const COLOR_PAINT := Color(0.0, 0.5, 0.0) # Dark green
 const COLOR_SPRAY := Color(0.4, 0.8, 0.4) # Lighter green
 const COLOR_UNSPRAY := Color(0.5, 0.2, 0.5) # Neutral purple
@@ -461,6 +462,9 @@ func update_decal() -> void:
 					Terrain3DEditor.GRADIENT:
 						editor_decal_color[0] = COLOR_SLOPE
 						editor_decal_color[0].a = clamp(brush_data["strength"], .2, .4)
+					Terrain3DEditor.ERODE:
+						editor_decal_color[0] = COLOR_ERODE
+						editor_decal_color[0].a = clamp(brush_data["strength"], .2, .5) + .25
 			Terrain3DEditor.HEIGHT:
 				editor_decal_color[0] = COLOR_HEIGHT
 				editor_decal_color[0].a = clamp(brush_data["strength"], .2, .5) + .25

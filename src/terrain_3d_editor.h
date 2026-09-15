@@ -52,6 +52,7 @@ public: // Constants
 		REPLACE,
 		AVERAGE,
 		GRADIENT,
+		ERODE,
 		OP_MAX,
 	};
 
@@ -61,6 +62,7 @@ public: // Constants
 		"Replace",
 		"Average",
 		"Gradient",
+		"Erode",
 		"OP_MAX",
 	};
 
@@ -100,6 +102,7 @@ private:
 	void _apply_undo(const Dictionary &p_data);
 	float _average(const AverageMode p_mode, const Vector3 &p_global_position, const float p_base, const float p_nan_val = 0.f, bool p_alt = false) const;
 	Color _average(const Vector3 &p_global_position, const Color &p_base) const;
+	real_t _erode(const Vector3 &p_global_position, const real_t p_base, const real_t p_weight) const;
 
 public:
 	Terrain3DEditor() {}
