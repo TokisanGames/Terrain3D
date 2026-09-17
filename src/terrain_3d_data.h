@@ -100,6 +100,7 @@ public:
 
 	void do_for_regions(const Rect2i &p_area, const Callable &p_callback);
 	void change_region_size(int region_size);
+	void rebase(const Vector2i &p_region_offset);
 
 	Vector2i world_to_vgrid(const Vector3 &p_global_position) const;
 	Vector2i get_region_location(const Vector3 &p_global_position) const;
