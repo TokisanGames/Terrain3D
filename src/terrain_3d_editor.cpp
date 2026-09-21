@@ -153,7 +153,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	PackedVector3Array gradient_points = _brush_data["gradient_points"];
 
 	real_t randf = UtilityFunctions::randf();
-	real_t rot = randf * Math_PI * real_t(_brush_data["brush_spin_speed"]);
+	real_t rot = randf * Math::PI * real_t(_brush_data["brush_spin_speed"]);
 	if (_brush_data["align_to_view"]) {
 		rot += p_camera_direction;
 	}
