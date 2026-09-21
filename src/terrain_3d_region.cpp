@@ -464,13 +464,13 @@ void Terrain3DRegion::dump(const bool verbose) const {
 			", flags (", _edited ? "ed," : "", _modified ? "mod," : "", _deleted ? "del" : "", "), ",
 			ptr_to_str(this));
 	String fmt;
-	fmt = _height_map.is_valid() ? "  size: " + _height_map->get_size() + " fmt: " + String::num_int64(_height_map->get_format()) : "";
+	fmt = _height_map.is_valid() ? "  size: " + String(_height_map->get_size()) + " fmt: " + String::num_int64(_height_map->get_format()) : "";
 	LOG(MESG, "Height map: ", ptr_to_str(*_height_map), fmt);
-	fmt = _control_map.is_valid() ? "  size: " + _control_map->get_size() + " fmt: " + String::num_int64(_control_map->get_format()) : "";
+	fmt = _control_map.is_valid() ? "  size: " + String(_control_map->get_size()) + " fmt: " + String::num_int64(_control_map->get_format()) : "";
 	LOG(MESG, "Control map: ", ptr_to_str(*_control_map), fmt);
-	fmt = _color_map.is_valid() ? "  size: " + _color_map->get_size() + " fmt: " + String::num_int64(_color_map->get_format()) : "";
+	fmt = _color_map.is_valid() ? "  size: " + String(_color_map->get_size()) + " fmt: " + String::num_int64(_color_map->get_format()) : "";
 	LOG(MESG, "Color map: ", ptr_to_str(*_color_map), fmt);
-	fmt = _compressed_color_map.is_valid() ? "  size: " + _compressed_color_map->get_size() + " fmt: " + String::num_int64(_compressed_color_map->get_format()) : "";
+	fmt = _compressed_color_map.is_valid() ? "  size: " + String(_compressed_color_map->get_size()) + " fmt: " + String::num_int64(_compressed_color_map->get_format()) : "";
 	LOG(MESG, "Compressed Color map: ", ptr_to_str(*_compressed_color_map), fmt);
 	LOG(MESG, "Instances: Mesh IDs: ", _instances.size(), ", ", ptr_to_str(_instances._native_ptr()));
 	Array mesh_ids = _instances.keys();
