@@ -7,9 +7,9 @@ If you wish to use more recent builds without building from source, see [Nightly
 
 Follow Godot's instructions to set up your system to build Godot. You don't need the Godot source code, so stop before then. You only need the build tools, specifically `scons`, `python`, a compiler, and any other tools these pages identify. They provide easy installation instructions.
 
-* [Windows](https://docs.godotengine.org/en/latest/contributing/development/compiling/compiling_for_windows.html)
-* [Linux/BSD](https://docs.godotengine.org/en/latest/contributing/development/compiling/compiling_for_linuxbsd.html)
-* [macOS](https://docs.godotengine.org/en/latest/contributing/development/compiling/compiling_for_macos.html)
+* [Windows](https://docs.godotengine.org/en/latest/engine_details/development/compiling/compiling_for_windows.html)
+* [Linux/BSD](https://docs.godotengine.org/en/latest/engine_details/development/compiling/compiling_for_linuxbsd.html)
+* [macOS](https://docs.godotengine.org/en/latest/engine_details/development/compiling/compiling_for_macos.html)
 
 
 ## 2. Download this repository
@@ -44,105 +44,47 @@ Submodule path 'godot-cpp': checked out '9d1c396c54fc3bdfcc7da4f3abcb52b14f6cce8
 
 ```
 
-Note the version it checked out: **9d1c396**...
-
-This hash number is important for the next section.
+You should see files in the godot-cpp directory.
 
 
-## 4. Identify the appropriate godot-cpp version
+## 4. Identify the appropriate godot-cpp API version
 
-The checked out version of the godot-cpp submodule needs to match the version of your Godot engine build. e.g. Godot Engine 4.0.2 official build with godot-cpp checked out to a 4.0.2 branch. The early days of Godot 4.x were very strict and required the exact same major, minor, and patch versions. Since then, the requirements have loosened. For instance we've matched godot-cpp 4.1.3 with Godot engine 4.1.3 through 4.2.1 without issue.
+The checked out version of the godot-cpp submodule needs to support the version of your Godot Engine build. Use at least the minimum Godot version in the release notes for the version of Terrain3D you're using. Then the default godot-cpp API is fine for most of you, and you can proceed to the next step.
 
-In the repository, we leave godot-cpp linked to an older version for broad compatiblity. For your individual needs, you may chose to keep the version we have currently linked, or update it to the version of the engine build you are using.
+As of godot-cpp v10 (Sept 2026), you may now specify the API version you build against. Using older API versions with newer engines is fine.
 
-**What is important is that you are aware of which version of godot-cpp you have, which you wish to use, and know how to change it.**
+In the Terrain3D repository, we build against an older API version for broader compatibility. But when building yourself you may use any version you like.
 
-You can check the version of your godot-cpp by changing to that directory, typing `git log`, and finding the most recent tag.
+The only reason you would need to use a newer API is if you had a fork of Terrain3D and needed to access a new function only available in a newer engine version. Otherwise upgrading is unnecessary.
 
-```
-Terrain3D/godot-cpp$ git log
-commit 631cd5fe37d4e6df6e5eb66eb4435feca12708cc (HEAD, tag: godot-4.1.3-stable, 4.1)
-...
-
-```
-
-Use one of these steps below to find and select the desired tag or commit hash, then move on to step 4.
-
-You may need to update your godot-cpp before it can find or checkout the latest tags:
-
-```
-Terrain3D/godot-cpp$ git fetch
-From https://github.com/godotengine/godot-cpp
- * [new tag]         godot-4.0.1-stable -> godot-4.0.1-stable
- * [new tag]         godot-4.0.2-stable -> godot-4.0.2-stable
-```
-
-Now we can search for or checkout more recent tags and commits.
-
-
-### Using tags
-On the [Godot-cpp repository page](https://github.com/godotengine/godot-cpp), click the branch selector, then `Tags` to identify available tags that match the Godot engine binary you wish to use. If your engine version is in this list, e.g. `godot-4.0.2-stable`, great, move on to step 4. Otherwise explore the commit history on the website or command line as shown below.
-
-```{image} images/build_tags.png
-:target: ../_images/build_tags.png
-```
-
-
-### Using the commit history
-If your engine version doesn't have a tag assigned, because it's a custom build, you can look at the [godot-cpp commit history](https://github.com/godotengine/godot-cpp/commits/master) for a commit that syncs the repository to the upstream engine version. Search for entries named `Sync with upstream commit...`.
-
-Eg, from Godot 4.0-stable.
-
-```{image} images/build_commit_history.png
-:target: ../_images/build_commit_history.png
-```
-
-Clicking the `...` in the middle expands the description which shows that this commit syncs godot-cpp with Godot engine `4.0-stable`. To use this commit, copy the commit string on the right in blue. Click the two overlapping squares on the right to copy the commit hash (`9d1c396`).
-
-
-### Using the command line
-Alternatively, you can use git to search on the command line. Make sure to fetch to update the submodule (step 3). This will search the server (origin) for all commit messages with the string `stable`, allowing you to find the commits. Make sure to grab the commit hash on top (`9d1c396..`), not the upstream commit shown at the bottom, which is from the Godot repository.
-
-```
-Terrain3D/godot-cpp$ git log origin -Gstable
-commit 9d1c396c54fc3bdfcc7da4f3abcb52b14f6cce8f (HEAD -> master, tag: godot-4.0-stable, origin/master, origin/HEAD, origin/4.0)
-Author: R mi Verschelde <rverschelde@gmail.com>
-Date:   Wed Mar 1 15:32:44 2023 +0100
-
-    gdextension: Sync with upstream commit 92bee43adba8d2401ef40e2480e53087bcb1eaf1 (4.0-stable)
-
-```
-
-
-## 5. Check out the correct version
-Once you have identified the proper tag or commit string, and you have updated the godot-cpp submodule (step 3), you just need to check it out. If using a commit string, you may use either the full hash or just the first 6-8 characters, so `9d1c396` would also match 4.0-stable.
-
-These examples will change the godot-cpp repository to 4.0-stable and 4.02-stable, respectively:
+If you wish to update godot-cpp, you can check out master or any branch or tag:
 
 ```
 Terrain3D$ cd godot-cpp
 
-Terrain3D/godot-cpp$ git checkout 9d1c396c54fc3bdfcc7da4f3abcb52b14f6cce8f
-HEAD is now at 9d1c396 gdextension: Sync with upstream commit 92bee43adba8d2401ef40e2480e53087bcb1eaf1 (4.0-stable)
+Terrain3D/godot-cpp$ git checkout master
+Previous HEAD position was 507ed9d Merge pull request #2035 from dsnopek/v10-not-beta-anymore
+Switched to branch 'master'
+Your branch is up to date with 'origin/master'.
 
-Terrain3D/godot-cpp$ git checkout godot-4.0.2-stable
-Previous HEAD position was 9d1c396 gdextension: Sync with upstream commit 92bee43adba8d2401ef40e2480e53087bcb1eaf1 (4.0-stable)
-HEAD is now at 7fb46e9 gdextension: Sync with upstream commit 7a0977ce2c558fe6219f0a14f8bd4d05aea8f019 (4.0.2-stable)
+Terrain3D/godot-cpp$ git pull
+Already up to date.
 
-```
-
-
-## 6. Build the extension
-
-By default `scons` will build the debug library which works for the editor and debug exports. You can add `target=template_release` to build the release version.
-
-```
 Terrain3D/godot-cpp$ cd ..
+```
 
+Then add `api_version=4.7` to the scons command below to specify your desired godot API to build against.
+
+
+## 5. Build the extension
+
+By default `scons` will build the debug library which works for the editor and debug exports. You can add `target=template_release` to build the release version. 
+
+```
 # To build the debug library
 Terrain3D$ scons
 
-# To build both debug and release versions sequentially (bash command line)
+# To build both debug and release libraries sequentially (bash command line)
 Terrain3D$ scons && scons target=template_release
 
 ```
@@ -155,7 +97,7 @@ scons: done building targets.
 ```
 
 
-## 7. Set up the extension in Godot
+## 6. Set up the extension in Godot
 
 1. Build Terrain3D, then ensure binary libraries exist in `project/addons/terrain_3d/bin`.
 2. Run Godot with the console executable so you can see error messages.
@@ -209,7 +151,7 @@ scons platform=linux
 ### Using C++20
 The C++ standard used in Godot and Godot-cpp is C++17. However you may use C++20 for building GDExtensions if desired.
 
-Our [SConstruct](https://github.com/TokisanGames/Terrain3D/blob/main/SConstruct#L52-L56) file has some commented code towards the bottom that will replace the standard.
+Our [SConstruct](https://github.com/TokisanGames/Terrain3D/blob/main/SConstruct#L57-L61) file has some commented code towards the bottom that will replace the standard.
 
 
 ### See all options
