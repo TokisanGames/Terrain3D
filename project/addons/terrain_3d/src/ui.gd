@@ -683,7 +683,7 @@ func setup_live_info_panel() -> void:
 	if not main_screen:
 		push_error("Terrain3DUI: setup_live_info_panel(): Failed to get main screen")
 		return
-	var viewport_container = main_screen.find_child("*Node3DEditorViewportContainer*", true, false)
+	var viewport_container: SubViewportContainer = EditorInterface.get_editor_viewport_3d(0).get_parent()
 	if not viewport_container:
 		push_error("Terrain3DUI: setup_live_info_panel(): Failed to get main viewport_container")
 		return
