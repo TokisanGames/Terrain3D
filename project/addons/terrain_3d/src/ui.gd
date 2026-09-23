@@ -676,16 +676,19 @@ func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
 	p_button.icon = EditorInterface.get_base_control().get_theme_icon(p_icon_name, "EditorIcons")
 
 
+func get_editor_viewport_container() -> Node:
+	var node: Node = EditorInterface.get_editor_viewport_3d(0)
+	while node != null and node.get_class() != "Node3DEditorViewportContainer":
+		node = node.get_parent()
+	return node
+
+
 func setup_live_info_panel() -> void:
 	live_info_panel = load(LIVE_INFO_PANEL).instantiate()
 	live_info_panel.plugin = plugin
-	var main_screen = EditorInterface.get_editor_main_screen()
-	if not main_screen:
-		push_error("Terrain3DUI: setup_live_info_panel(): Failed to get main screen")
-		return
-	var viewport_container: SubViewportContainer = EditorInterface.get_editor_viewport_3d(0).get_parent()
+	var viewport_container: Node = get_editor_viewport_container()
 	if not viewport_container:
-		push_error("Terrain3DUI: setup_live_info_panel(): Failed to get main viewport_container")
+		push_error("Terrain3DUI: setup_live_info_panel(): Failed to get editor viewport container")
 		return
 	viewport_container.add_child(live_info_panel, true)
 	live_info_panel.visible = false
