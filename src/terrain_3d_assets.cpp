@@ -260,7 +260,7 @@ void Terrain3DAssets::_update_texture_files() {
 				}
 				if (mipmaps != normal_mipmaps) {
 					_terrain->set_warning(WARN_MISMATCHED_MIPMAPS, true);
-					LOG(ERROR, "Texture ID ", ta->get_id(), " normal mipmap setting (", mipmaps, ") doesn't match first texture (", albedo_mipmaps, "). They must be identical. Read Texture Prep in docs.");
+					LOG(ERROR, "Texture ID ", ta->get_id(), " normal mipmap setting (", mipmaps, ") doesn't match first texture (", normal_mipmaps, "). They must be identical. Read Texture Prep in docs.");
 				}
 			}
 		}
