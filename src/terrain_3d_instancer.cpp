@@ -15,7 +15,7 @@
 
 // Creates MMIs based on Multimesh data stored in Terrain3DRegions
 void Terrain3DInstancer::_process_updates() {
-	if (_queued_updates.empty()) {
+	if (_queued_updates.is_empty()) {
 		if (RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates))) {
 			LOG(DEBUG, "Disconnect from RS::frame_pre_draw signal");
 			RS->disconnect("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates));
@@ -32,10 +32,10 @@ void Terrain3DInstancer::_process_updates() {
 
 	// Process all regions/mesh_ids sentinel and exit
 	bool update_all = false;
-	if (_queued_updates.find({ V2I_MAX, -2 }) != _queued_updates.end()) {
+	if (_queued_updates.has(Pair<Vector2i, int>(V2I_MAX, -2))) {
 		destroy();
 		update_all = true;
-	} else if (_queued_updates.find({ V2I_MAX, -1 }) != _queued_updates.end()) {
+	} else if (_queued_updates.has(Pair<Vector2i, int>(V2I_MAX, -1))) {
 		update_all = true;
 	}
 
@@ -48,7 +48,7 @@ void Terrain3DInstancer::_process_updates() {
 				continue;
 			}
 			for (int mesh_id = 0; mesh_id < mesh_count; mesh_id++) {
-				auto pair = std::make_pair(region_loc, mesh_id);
+				auto pair = Pair<Vector2i, int>(region_loc, mesh_id);
 				if (region->get_instances().has(mesh_id)) {
 					_update_mmi_by_region(region, mesh_id);
 				}
@@ -63,33 +63,37 @@ void Terrain3DInstancer::_process_updates() {
 	V2IIntPair to_process;
 
 	// Process queued pairs with at least one specific element
-	for (const auto &[queued_loc, queued_mesh] : _queued_updates) {
+	for (const Pair<Vector2i, int> &update : _queued_updates) {
+		const Vector2i &queued_loc = update.first;
+		int queued_mesh = update.second;
 		if (queued_loc == V2I_MAX && queued_mesh < 0 || queued_mesh >= mesh_count) {
 			continue; // Skip sentinels handled above
 		}
 		// If all regions for specific mesh_id
 		if (queued_loc == V2I_MAX && queued_mesh >= 0) {
 			for (const Vector2i &region_loc : region_locations) {
-				auto pair = std::make_pair(region_loc, queued_mesh);
-				to_process.emplace(pair);
+				auto pair = Pair<Vector2i, int>(region_loc, queued_mesh);
+				to_process.insert(pair);
 			}
 		} else {
 			// Else one specific region
 			if (queued_mesh == -1) {
 				// All mesh_ids for this region
 				for (int mesh_id = 0; mesh_id < mesh_count; mesh_id++) {
-					auto pair = std::make_pair(queued_loc, mesh_id);
-					to_process.emplace(pair);
+					auto pair = Pair<Vector2i, int>(queued_loc, mesh_id);
+					to_process.insert(pair);
 				}
 			} else {
 				// Specific region + mesh - most common case
-				auto pair = std::make_pair(queued_loc, queued_mesh);
-				to_process.emplace(pair);
+				auto pair = Pair<Vector2i, int>(queued_loc, queued_mesh);
+				to_process.insert(pair);
 			}
 		}
 	}
 	LOG(DEBUG, "Processing ", (int)to_process.size(), " queued updates");
-	for (const auto &[region_loc, mesh_id] : to_process) {
+	for (const Pair<Vector2i, int> &update : to_process) {
+		const Vector2i &region_loc = update.first;
+		int mesh_id = update.second;
 		const Terrain3DRegion *region = data->get_region_ptr(region_loc);
 		if (!region) {
 			LOG(WARN, "Errant null region found at: ", region_loc);
@@ -385,17 +389,17 @@ void Terrain3DInstancer::_destroy_mmi_by_mesh(const int p_mesh_id) {
 void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id) {
 	LOG(DEBUG, "Deleting all MMIs in region: ", p_region_loc, " for mesh_id: ", p_mesh_id);
 	// Identify cells with matching mesh_id
-	std::unordered_set<Vector2i, Vector2iHash> cells;
-	if (_mmi_rids.count(p_region_loc) > 0) {
+	HashSet<Vector2i> cells;
+	if (_mmi_rids.has(p_region_loc)) {
 		MeshMMIDict &mesh_mmi_dict = _mmi_rids[p_region_loc];
-		for (const auto &mesh_entry : mesh_mmi_dict) {
-			const Vector2i &mesh_key = mesh_entry.first;
+		for (const KeyValue<Vector2i, CellMMIDict> &mesh_entry : mesh_mmi_dict) {
+			const Vector2i &mesh_key = mesh_entry.key;
 			if (mesh_key.x != p_mesh_id) {
 				continue;
 			}
-			const CellMMIDict &cell_mmi_dict = mesh_entry.second;
-			for (const auto &cell_entry : cell_mmi_dict) {
-				cells.insert(cell_entry.first);
+			const CellMMIDict &cell_mmi_dict = mesh_entry.value;
+			for (const KeyValue<Vector2i, Pair<RID, RID>> &cell_entry : cell_mmi_dict) {
+				cells.insert(cell_entry.key);
 			}
 		}
 	}
@@ -404,13 +408,13 @@ void Terrain3DInstancer::_destroy_mmi_by_location(const Vector2i &p_region_loc, 
 		_destroy_mmi_by_cell(p_region_loc, p_mesh_id, cell);
 	}
 	// After all cells are destroyed, if the region is now empty, erase it
-	if (_mmi_rids.count(p_region_loc) > 0 && _mmi_rids[p_region_loc].empty()) {
+	if (_mmi_rids.has(p_region_loc) && _mmi_rids[p_region_loc].is_empty()) {
 		_mmi_rids.erase(p_region_loc);
 	}
 }
 
 void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell, const int p_lod) {
-	if (_mmi_rids.count(p_region_loc) == 0) {
+	if (!_mmi_rids.has(p_region_loc)) {
 		return;
 	}
 	MeshMMIDict &mesh_mmi_dict = _mmi_rids[p_region_loc];
@@ -422,11 +426,11 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 			continue;
 		}
 		Vector2i mesh_key(p_mesh_id, lod);
-		if (mesh_mmi_dict.count(mesh_key) == 0) {
+		if (!mesh_mmi_dict.has(mesh_key)) {
 			continue;
 		}
 		CellMMIDict &cell_mmi_dict = mesh_mmi_dict[mesh_key];
-		if (cell_mmi_dict.count(p_cell) == 0) {
+		if (!cell_mmi_dict.has(p_cell)) {
 			continue;
 		}
 
@@ -450,14 +454,14 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		cell_mmi_dict.erase(p_cell);
 
 		// If the cell is empty of all MMIs, remove it
-		if (cell_mmi_dict.empty()) {
+		if (cell_mmi_dict.is_empty()) {
 			LOG(EXTREME, "Removing mesh ", mesh_key, " from cell MMI dictionary");
 			mesh_mmi_dict.erase(mesh_key); // invalidates cell_mmi_dict
 		}
 	}
 
 	// Clean up region if we've removed the last MMI and cell
-	if (mesh_mmi_dict.empty()) {
+	if (mesh_mmi_dict.is_empty()) {
 		LOG(EXTREME, "Removing region ", p_region_loc, " from mesh MMI dictionary");
 		// This invalidates mesh_mmi_dict here and for calling functions
 		_mmi_rids.erase(p_region_loc);
@@ -1305,7 +1309,7 @@ void Terrain3DInstancer::update_mmis(const int p_mesh_id, const Vector2i &p_regi
 	// Set to destroy and rebuild everything
 	if (p_rebuild) {
 		_queued_updates.clear();
-		_queued_updates.emplace(V2I_MAX, -2);
+		_queued_updates.insert(Pair<Vector2i, int>(V2I_MAX, -2));
 		if (!RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates))) {
 			LOG(DEBUG, "Connecting to RS::frame_pre_draw signal");
 			RS->connect("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates));
@@ -1313,24 +1317,24 @@ void Terrain3DInstancer::update_mmis(const int p_mesh_id, const Vector2i &p_regi
 		return;
 	}
 	// If already set to destroy, build all, quit
-	if (_queued_updates.find({ V2I_MAX, -2 }) != _queued_updates.end()) {
+	if (_queued_updates.has(Pair<Vector2i, int>( V2I_MAX, -2 ))) {
 		return;
 	}
 	// If already set to build all, quit
-	if (_queued_updates.find({ V2I_MAX, -1 }) != _queued_updates.end()) {
+	if (_queued_updates.has(Pair<Vector2i, int>( V2I_MAX, -1 ))) {
 		return;
 	}
 	// If all meshes for region are queued, quit
-	if (_queued_updates.find({ p_region_loc, -1 }) != _queued_updates.end()) {
+	if (_queued_updates.has(Pair<Vector2i, int>( p_region_loc, -1 ))) {
 		return;
 	}
 	// If all regions for mesh_id are queued, quit
 	int mesh_id = CLAMP(p_mesh_id, -1, Terrain3DAssets::MAX_MESHES - 1);
-	if (_queued_updates.find({ V2I_MAX, mesh_id }) != _queued_updates.end()) {
+	if (_queued_updates.has(Pair<Vector2i, int>( V2I_MAX, mesh_id ))) {
 		return;
 	}
 	// Else queue up this region/mesh combo
-	_queued_updates.emplace(p_region_loc, mesh_id);
+	_queued_updates.insert(Pair<Vector2i, int>(p_region_loc, mesh_id));
 	if (!RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates))) {
 		LOG(DEBUG, "Connecting to RS::frame_pre_draw signal");
 		RS->connect("frame_pre_draw", callable_mp(this, &Terrain3DInstancer::_process_updates));
