@@ -10,9 +10,9 @@ signal value_changed
 const ICON_PICKER_CHECKED: String = "res://addons/terrain_3d/icons/picker_checked.svg"
 const MAX_POINTS: int = 2
 
-
 var icon_picker: Texture2D
 var icon_picker_checked: Texture2D
+var buttons: Array[Button]
 var points: PackedVector3Array
 var picking_index: int = -1
 
@@ -29,6 +29,7 @@ func _enter_tree() -> void:
 		button.tooltip_text = "Pick point on the Terrain"
 		button.set_meta(&"point_index", i)
 		button.pressed.connect(_on_button_pressed.bind(i))
+		buttons.append(button)
 		add_child(button)
 	
 	_update_buttons()
@@ -42,9 +43,8 @@ func _on_button_pressed(button_index: int) -> void:
 
 
 func _update_buttons() -> void:
-	for child in get_children():
-		if child is Button:
-			_update_button(child)
+	for button in buttons:
+		_update_button(button)
 
 
 func _update_button(button: Button) -> void:

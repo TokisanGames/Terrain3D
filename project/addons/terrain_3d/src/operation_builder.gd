@@ -23,3 +23,7 @@ func is_ready() -> bool:
 
 func apply_operation(editor: Terrain3DEditor, p_global_position: Vector3, p_camera_direction: float) -> void:
 	pass
+
+
+func try_consume_hotkey(p_event: InputEventKey) -> bool:
+	return false

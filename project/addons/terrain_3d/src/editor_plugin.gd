@@ -233,6 +233,7 @@ func _forward_3d_gui_input(p_viewport_camera: Camera3D, p_event: InputEvent) -> 
 				var height: float = terrain.data.get_height(mouse_global_position)
 				ui.brush_data["height"] = height
 				ui.tool_settings.set_setting("height", height)
+				return AFTER_GUI_INPUT_STOP
 				
 			# If adjusting regions
 			if editor.get_tool() == Terrain3DEditor.REGION:
@@ -334,6 +335,9 @@ func _read_input(p_event: InputEvent = null) -> AfterGUIInput:
 
 # Returns true if hotkey matches and operation triggered
 func consume_hotkey(p_event: InputEventKey) -> bool:
+	if ui.operation_builder and ui.operation_builder.try_consume_hotkey(p_event):
+		return true
+
 	# Handle repeatable keys
 	match p_event.keycode:
 		KEY_BRACKETLEFT:
