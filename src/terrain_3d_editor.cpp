@@ -139,7 +139,8 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 	bool enable_texture = _brush_data["enable_texture"];
 	bool texture_filter = _brush_data["texture_filter"];
 	int margin = _brush_data["margin"];
-	Array asset_ids = _brush_data["asset_ids"];
+	Array mesh_asset_ids = _brush_data["mesh_asset_ids"];
+	Array texture_asset_ids = _brush_data["texture_asset_ids"];
 
 	Vector2 slope_range = _brush_data["slope"];
 	bool enable_angle = _brush_data["enable_angle"];
@@ -326,24 +327,24 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 						if (!data->is_in_slope(brush_global_position, slope_range)) {
 							continue;
 						}
-						if (!asset_ids.size()) {
+						if (texture_asset_ids.is_empty()) {
 							continue;
 						}
-						const int asset_id = asset_ids[0];
+						const int texture_asset_id = texture_asset_ids[0];
 						switch (_operation) {
 							// Base Paint
 							case REPLACE: {
 								if (brush_alpha > 0.5f) {
 									if (enable_texture) {
 										// Set base & overlay texture
-										base_id = asset_id;
-										overlay_id = asset_id;
+										base_id = texture_asset_id;
+										overlay_id = texture_asset_id;
 										// Erase blend value
 										blend = 0.f;
 										autoshader = false;
 									}
 									// Set angle & scale
-									if (base_id == asset_id && enable_angle && !autoshader) {
+									if (base_id == texture_asset_id && enable_angle && !autoshader) {
 										if (dynamic_angle) {
 											// Angle from mouse movement.
 											angle = Vector2(-_operation_movement.x, _operation_movement.z).angle();
@@ -353,7 +354,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 										// Convert from degrees to 0 - 15 value range
 										uvrotation = uint32_t(CLAMP(Math::round(angle / 22.5f), 0.f, 15.f));
 									}
-									if (base_id == asset_id && enable_scale && !autoshader) {
+									if (base_id == texture_asset_id && enable_scale && !autoshader) {
 										// Offset negative and convert from percentage to 0 - 7 bit value range
 										// Maintain 0 = 0, remap negatives to end.
 										uvscale = scale_align[uint8_t(CLAMP(Math::round((scale + 60.f) / 20.f), 0.f, 7.f))];
@@ -368,12 +369,12 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
 								if (enable_texture && brush_alpha * strength * 11.f > 0.1f) {
 									// Pick lowest weighted id, and lower to zero before setting new asset id.
-									if (asset_id != base_id && asset_id != overlay_id) {
+									if (texture_asset_id != base_id && texture_asset_id != overlay_id) {
 										if (modifier_alt) {
 											if (blend < 0.5f) {
-												overlay_id = asset_id;
+												overlay_id = texture_asset_id;
 											} else {
-												base_id = asset_id;
+												base_id = texture_asset_id;
 											}
 										} else {
 											if (blend >= 0.5f) {
@@ -382,20 +383,20 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 												blend = CLAMP(blend - brush_value, 0.f, 1.f);
 											}
 											if (blend <= 1.0f / 254.f) {
-												overlay_id = asset_id;
+												overlay_id = texture_asset_id;
 											} else if (blend >= (1.f - 1.0f / 254.f)) {
-												base_id = asset_id;
+												base_id = texture_asset_id;
 											}
 										}
 									}
 
-									if (base_id == asset_id) {
+									if (base_id == texture_asset_id) {
 										blend = CLAMP(blend - brush_value, 0.f, 1.f);
 										if (brush_alpha > 0.5f && blend < 0.5f) {
 											autoshader = false;
 										}
 									}
-									if (overlay_id == asset_id) {
+									if (overlay_id == texture_asset_id) {
 										blend = CLAMP(blend + brush_value, 0.f, 1.f);
 										if (brush_alpha > 0.5f && blend >= 0.5f) {
 											autoshader = false;
@@ -403,7 +404,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 									}
 								}
 
-								if ((base_id == asset_id && blend < 0.5f) || (overlay_id == asset_id && blend >= 0.5f)) {
+								if ((base_id == texture_asset_id && blend < 0.5f) || (overlay_id == texture_asset_id && blend >= 0.5f)) {
 									// Set angle & scale
 									if (enable_angle && !autoshader && brush_alpha > 0.5f) {
 										if (dynamic_angle) {
@@ -428,10 +429,10 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 							case SUBTRACT: {
 								real_t spray_strength = CLAMP(strength * 0.05f, 0.004f, .25f);
 								real_t brush_value = CLAMP(brush_alpha * spray_strength, 0.f, 1.f);
-								if (base_id == asset_id) {
+								if (base_id == texture_asset_id) {
 									blend = CLAMP(blend + brush_value, 0.f, 1.f);
 								}
-								if (overlay_id == asset_id) {
+								if (overlay_id == texture_asset_id) {
 									blend = CLAMP(blend - brush_value, 0.f, 1.f);
 								}
 								break;
@@ -491,13 +492,13 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 					if (!cmap) {
 						continue;
 					}
-					if (!asset_ids.size()) {
+					if (texture_asset_ids.is_empty()) {
 						continue;
 					}
-					const int asset_id = asset_ids[0];
+					const int texture_asset_id = texture_asset_ids[0];
 					float src_ctrl = cmap->get_pixelv(map_pixel_position).r; // Must be float
 					int tex_id = (get_blend(src_ctrl) > 110 - margin) ? get_overlay(src_ctrl) : get_base(src_ctrl);
-					if (tex_id != asset_id) {
+					if (tex_id != texture_asset_id) {
 						continue;
 					}
 				}
@@ -895,32 +896,35 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["brush_spin_speed"] = CLAMP(real_t(p_data.get("brush_spin_speed", 0.f)), 0.f, 1.f);
 	_brush_data["gradient_points"] = p_data.get("gradient_points", PackedVector3Array());
 
-	TypedArray<int> asset_ids = p_data.get("asset_ids", TypedArray<int>());
-	TypedArray<int> valid_ids;
-
-	if (_terrain && (_tool == Tool::TEXTURE || _tool == Tool::INSTANCER)) { // Get and sanitize asset ids. If invalid, remove from list and log error
-		int max_asset_id = 0;
-		if (_tool == Tool::TEXTURE) {
-			max_asset_id = _terrain ? _terrain->get_assets()->get_texture_count() : Terrain3DAssets::MAX_TEXTURES - 1;
-		} else if (_tool == Tool::INSTANCER) {
-			max_asset_id = _terrain ? _terrain->get_assets()->get_mesh_count() : Terrain3DAssets::MAX_MESHES - 1;
-		}
-		for (const int id : asset_ids) {
-			if (id < max_asset_id) {
-				valid_ids.push_back(id);
-			} else {
-				LOG(ERROR, "Brush data contains invalid asset id: ", id, ". Max asset id is: ", max_asset_id - 1);
-			}
+	TypedArray<int> texture_asset_ids = p_data.get("texture_asset_ids", TypedArray<int>());
+	const int max_texture_asset_id = _terrain ? _terrain->get_assets()->get_texture_count() : Terrain3DAssets::MAX_TEXTURES - 1;
+	TypedArray<int> valid_texture_ids;
+	for (const int id : texture_asset_ids) {
+		if (id < max_texture_asset_id) {
+			valid_texture_ids.push_back(id);
+		} else {
+			LOG(ERROR, "Brush data contains invalid texture asset id: ", id, ". Max asset id is: ", max_texture_asset_id);
 		}
 	}
-
-	asset_ids = valid_ids;
-
-	// Default to first asset id if none provided
-	if (asset_ids.is_empty()) {
-		asset_ids.push_back(0);
+	if (valid_texture_ids.is_empty()) {
+		valid_texture_ids.push_back(0);
 	}
-	_brush_data["asset_ids"] = asset_ids;
+	_brush_data["texture_asset_ids"] = valid_texture_ids;
+
+	TypedArray<int> mesh_asset_ids = p_data.get("mesh_asset_ids", TypedArray<int>());
+	const int max_mesh_asset_id = _terrain ? _terrain->get_assets()->get_mesh_count() : Terrain3DAssets::MAX_MESHES - 1;
+	TypedArray<int> valid_mesh_ids;
+	for (const int id : mesh_asset_ids) {
+		if (id < max_mesh_asset_id) {
+			valid_mesh_ids.push_back(id);
+		} else {
+			LOG(ERROR, "Brush data contains invalid mesh asset id: ", id, ". Max asset id is: ", max_mesh_asset_id);
+		}
+	}
+	if (valid_mesh_ids.is_empty()) {
+		valid_mesh_ids.push_back(0);
+	}
+	_brush_data["mesh_asset_ids"] = valid_mesh_ids;
 
 	Util::print_dict("set_brush_data() Santized brush data:", _brush_data, EXTREME);
 }

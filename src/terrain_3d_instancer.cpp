@@ -627,8 +627,8 @@ void Terrain3DInstancer::set_mode(const InstancerMode p_mode) {
 
 void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
-	if (!p_params.has("asset_ids")) {
-		LOG(ERROR, "We need an array of asset_ids");
+	if (!p_params.has("mesh_asset_ids")) {
+		LOG(ERROR, "We need an array of mesh_asset_ids");
 		return;
 	}
 
@@ -636,7 +636,7 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 	real_t radius = brush_size * .5f;
 	real_t strength = CLAMP(real_t(p_params.get("strength", .1f)), .01f, 100.f); // (premul) 1-10k%
 
-	Array mesh_ids = p_params.get("asset_ids", Array());
+	Array mesh_ids = p_params.get("mesh_asset_ids", Array());
 
 	for (const int mesh_id : mesh_ids) {
 		if (mesh_id < 0 || mesh_id >= _terrain->get_assets()->get_mesh_count()) {
@@ -748,11 +748,11 @@ void Terrain3DInstancer::add_instances(const Vector3 &p_global_position, const D
 
 void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, const Dictionary &p_params) {
 	IS_DATA_INIT_MESG("Instancer isn't initialized.", VOID);
-	if (!p_params.has("asset_ids")) {
-		LOG(ERROR, "We need an array of asset_ids");
+	if (!p_params.has("mesh_asset_ids")) {
+		LOG(ERROR, "We need an array of mesh_asset_ids");
 		return;
 	}
-	Array mesh_ids = p_params.get("asset_ids", Array());
+	Array mesh_ids = p_params.get("mesh_asset_ids", Array());
 	int mesh_count = _terrain->get_assets()->get_mesh_count();
 
 	bool modifier_shift = p_params.get("modifier_shift", false);
@@ -764,7 +764,7 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 	}
 
 	if (mesh_ids.is_empty()) {
-		LOG(ERROR, "We need an array of asset_ids");
+		LOG(ERROR, "We need an array of mesh_asset_ids");
 		return;
 	}
 
