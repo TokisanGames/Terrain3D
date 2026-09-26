@@ -25,7 +25,7 @@ enum SORT_MODES { ASSET_ID, ALPHABETICAL }
 var sort_mode: SORT_MODES = SORT_MODES.ASSET_ID
 
 var _entry_idx_to_asset_id_map: Dictionary = {}
-var _last_entry_clicked: int = -1
+var _anchor_entry_idx: int = -1
 
 func _ready() -> void:
 	set_v_size_flags(SIZE_EXPAND_FILL)
@@ -165,9 +165,9 @@ func _on_entry_clicked(p_entry_idx: int) -> void:
 		var entry_arr: Array = [ p_entry_idx ]
 		var modifier_shift: bool = Input.is_key_pressed(KEY_SHIFT)
 		if modifier_shift:
-			if not _last_entry_clicked == -1:
-				var lower_bound: int = mini(_last_entry_clicked, p_entry_idx)
-				var upper_bound: int = maxi(_last_entry_clicked, p_entry_idx) + 1
+			if _anchor_entry_idx != -1:
+				var lower_bound: int = mini(_anchor_entry_idx, p_entry_idx)
+				var upper_bound: int = maxi(_anchor_entry_idx, p_entry_idx) + 1
 				entry_arr = range(lower_bound, upper_bound)
 		# Editor responds to modifier_ctrl so we must register touchscreen Invert
 		var modifier_ctrl: bool = false 
@@ -181,18 +181,18 @@ func _on_entry_clicked(p_entry_idx: int) -> void:
 func add_entry_to_selection(p_entry_idx_array: Array, p_clear: bool) -> void:
 	if p_clear:
 		selected_list.clear()
-	if p_entry_idx_array.size() == 1:
-		_last_entry_clicked = p_entry_idx_array[0]
 	for entry_idx: int in p_entry_idx_array:
 		if not _entry_idx_to_asset_id_map.has(entry_idx):
 			push_error("%s tried to select entry_idx %s, was not present in the map")
 			continue
 		var asset_id: int = _entry_idx_to_asset_id_map[entry_idx]
 		if selected_list.has(asset_id):
-			if not p_clear and not selected_list.size() == 1:
+			if not p_clear and selected_list.size() > 1  and p_entry_idx_array.size() == 1:
 				selected_list.erase(asset_id)
 		else:
 			selected_list.push_back(asset_id)
+			if p_entry_idx_array.size() == 1:
+				_anchor_entry_idx = p_entry_idx_array[0]
 			if plugin.debug:
 				print("Added %s to the selection, asset_id = %s" % [entry_idx, asset_id])
 	update_selection()
