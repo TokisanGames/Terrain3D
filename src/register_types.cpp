@@ -15,6 +15,7 @@ void initialize_terrain_3d_module(ModuleInitializationLevel p_level) {
 		return;
 	}
 	ClassDB::register_class<Terrain3D>();
+	ClassDB::register_abstract_class<Terrain3DAssetResource>();
 	ClassDB::register_class<Terrain3DAssets>();
 	ClassDB::register_class<Terrain3DData>();
 	ClassDB::register_class<Terrain3DEditor>();
