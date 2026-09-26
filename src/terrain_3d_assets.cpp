@@ -213,7 +213,7 @@ void Terrain3DAssets::_update_texture_files() {
 		if (albedo_tex.is_valid()) {
 			Vector2i tex_size = albedo_tex->get_size();
 			Ref<Image> img = albedo_tex->get_image();
-			Image::Format format = img->get_format();
+			Image::Format format = img->get_format(); // DEPRECATED - In 4.7+ we can query albedo_tex->get_format() and albedo_tex->has_mipmaps()
 			bool mipmaps = img->has_mipmaps();
 
 			// If this is the first valid texture, set expected size and format for the arrays
@@ -241,7 +241,7 @@ void Terrain3DAssets::_update_texture_files() {
 		if (normal_tex.is_valid()) {
 			Vector2i tex_size = normal_tex->get_size();
 			Ref<Image> img = normal_tex->get_image();
-			Image::Format format = img->get_format();
+			Image::Format format = img->get_format(); // DEPRECATED - In 4.7+ we can query normal_tex->get_format() and normal_tex->has_mipmaps()
 			bool mipmaps = img->has_mipmaps();
 
 			// If this is the first valid texture, set expected size and format for the arrays
