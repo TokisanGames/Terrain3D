@@ -931,7 +931,7 @@ void Terrain3DMaterial::set_projection_enabled(const bool p_enabled) {
 }
 
 void Terrain3DMaterial::set_max_regions(const RegionMaximum p_max) {
-	SET_IF_DIFF(_max_regions, RegionMaximum(CLAMP(closest_power_of_2(p_max), 64, 1024)));
+	SET_IF_DIFF(_max_regions, RegionMaximum(CLAMP(int(Math::closest_power_of_2(uint32_t(p_max))), 64, 1024)));
 	LOG(INFO, "Set max region count: ", _max_regions);
 	_update_shader();
 }

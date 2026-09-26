@@ -644,7 +644,7 @@ void Terrain3D::update_region_labels() {
 		LOG(DEBUG, "Creating ", region_locations.size(), " region labels");
 		for (const Vector2i &region_loc : region_locations) {
 			Label3D *label = memnew(Label3D);
-			String text = region_loc;
+			String text = String(region_loc);
 			label->set_name("Label3D" + text.replace(" ", ""));
 			label->set_pixel_size(.001f);
 			label->set_billboard_mode(BaseMaterial3D::BILLBOARD_ENABLED);
