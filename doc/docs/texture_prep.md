@@ -223,7 +223,7 @@ We could have the software let you specify individual maps and we pack textures 
 
 Most terrain textures like grass, rock, and dirt do not need these. 
 
-Occasional textures do need additional texture maps. Lava rock might need emissive, or rock with gold veins might need metallic, or some unique texture might need both. These are most likely only 1-2 textures out of the possible 32, so setting up these additional options for all textures is a waste of memory. However, you can [customize the shader](tips_technical.md#add-a-custom-texture-map) to add an individual texture map.
+Occasional textures do need additional texture maps. Lava rock might need emissive, or rock with gold veins might need metallic, or some unique texture might need both. These are most likely only 1-2 textures out of the possible 32, so setting up these additional options for all textures is a waste of memory. However, you can [customize the shader](tips.md#add-a-custom-texture-map) to add an individual texture map.
 
 ### Why not use Standard Godot materials?
 

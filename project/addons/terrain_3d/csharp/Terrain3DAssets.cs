@@ -60,6 +60,13 @@ public partial class Terrain3DAssets : Resource
 	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DAssets" type.</returns>
 	public new static Terrain3DAssets Instantiate() => Bind(ClassDB.Instantiate(NativeName).As<GodotObject>());
 
+	/// <summary>
+	/// Loads the resource at the specified path, then attaches the corresponding wrapper script instance.
+	/// </summary>
+	/// <param name="path">The resource path to load.</param>
+	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DAssets" type.</returns>
+	public new static Terrain3DAssets Load(string path) => Bind(ResourceLoader.Load(path));
+
 	public enum AssetType
 	{
 		Texture = 0,

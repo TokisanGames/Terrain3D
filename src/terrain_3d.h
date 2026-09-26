@@ -63,6 +63,8 @@ private:
 	// Regions
 	RegionSize _region_size = SIZE_256;
 	bool _save_16_bit = false;
+	CompressMode _color_compress_mode = COMPRESS_NONE;
+	bool _keep_uncompressed_color = true;
 	real_t _label_distance = 0.f;
 	int _label_size = 48;
 
@@ -177,6 +179,10 @@ public:
 	void change_region_size(const RegionSize p_size) { _data ? _data->change_region_size(p_size) : void(); }
 	void set_save_16_bit(const bool p_enabled);
 	bool get_save_16_bit() const { return _save_16_bit; }
+	void set_color_compress_mode(const CompressMode p_compress_mode = COMPRESS_NONE);
+	CompressMode get_color_compress_mode() const { return _color_compress_mode; }
+	void set_keep_uncompressed_color(const bool p_keep) { _keep_uncompressed_color = p_keep; }
+	bool get_keep_uncompressed_color() const { return _keep_uncompressed_color; }
 	void set_label_distance(const real_t p_distance);
 	real_t get_label_distance() const { return _label_distance; }
 	void set_label_size(const int p_size);
@@ -343,8 +349,8 @@ protected:
 	static void _bind_methods();
 };
 
-VARIANT_ENUM_CAST(Terrain3D::RegionSize);
 VARIANT_ENUM_CAST(Terrain3D::DebugLevel);
+VARIANT_ENUM_CAST(Terrain3D::RegionSize);
 
 constexpr Terrain3D::DebugLevel MESG = Terrain3D::DebugLevel::MESG;
 constexpr Terrain3D::DebugLevel WARN = Terrain3D::DebugLevel::WARN;

@@ -131,6 +131,26 @@ PackedStringArray Terrain3DUtil::get_files(const String &p_dir, const String &p_
 	return files;
 }
 
+// Converts Image::Format to Image::CompressMode and our CompressMode
+CompressMode Terrain3DUtil::get_compress_mode(const Image::Format p_format) {
+	if (p_format >= Image::FORMAT_BPTC_RGBA && p_format <= Image::FORMAT_BPTC_RGBFU) {
+		return COMPRESS_BPTC;
+	}
+	if (p_format == Image::FORMAT_DXT5_RA_AS_RG || (p_format >= Image::FORMAT_DXT1 && p_format <= Image::FORMAT_DXT5)) {
+		return COMPRESS_S3TC;
+	}
+	if (p_format == Image::FORMAT_ETC) {
+		return COMPRESS_ETC;
+	}
+	if (p_format >= Image::FORMAT_ETC2_R11 && p_format <= Image::FORMAT_ETC2_RA_AS_RG) {
+		return COMPRESS_ETC2;
+	}
+	if (p_format >= Image::FORMAT_ASTC_4x4 && p_format <= Image::FORMAT_ASTC_8x8_HDR) {
+		return COMPRESS_ASTC;
+	}
+	return COMPRESS_NONE;
+}
+
 Ref<Image> Terrain3DUtil::black_to_alpha(const Ref<Image> &p_image) {
 	if (p_image.is_null()) {
 		return Ref<Image>();
@@ -196,8 +216,7 @@ Ref<Image> Terrain3DUtil::get_thumbnail(const Ref<Image> &p_image, const Vector2
 	LOG(INFO, "Drawing a thumbnail sized: ", size);
 	// Create a temporary work image scaled to desired width
 	Ref<Image> img;
-	img.instantiate();
-	img->copy_from(p_image);
+	img = p_image->duplicate();
 	img->resize(size.x, size.y, Image::INTERPOLATE_LANCZOS);
 
 	// Get minimum and maximum height values on the scaled image
@@ -549,6 +568,7 @@ void Terrain3DUtil::_bind_methods() {
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("location_to_filename", "region_location"), &Terrain3DUtil::location_to_filename);
 
 	// Image handling
+	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_compress_mode", "image_format"), &Terrain3DUtil::get_compress_mode);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("black_to_alpha", "image"), &Terrain3DUtil::black_to_alpha);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_min_max", "image"), &Terrain3DUtil::get_min_max);
 	ClassDB::bind_static_method("Terrain3DUtil", D_METHOD("get_thumbnail", "image", "size"), &Terrain3DUtil::get_thumbnail, DEFVAL(V2I(256)));
