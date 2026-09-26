@@ -152,6 +152,7 @@ public:
 	real_t get_surface_height(const Vector3 &p_global_position) const;
 	real_t get_modified_height(const Vector2i &p_vgrid) const;
 	real_t get_region_blend(const Vector2 &p_uv2) const;
+	real_t get_region_blend(const Vector2 &p_uv2, const real_t p_region_blend) const;
 	Vector3 get_normal(const Vector3 &p_global_position) const;
 	bool is_in_slope(const Vector3 &p_global_position, const Vector2 &p_slope_range, const Vector3 &p_normal = V3_ZERO) const;
 

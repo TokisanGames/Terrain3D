@@ -775,7 +775,10 @@ real_t Terrain3DData::get_region_blend(const Vector2 &p_uv2) const {
 		return 0.f;
 	}
 	const real_t region_blend = var_rb;
+	return get_region_blend(p_uv2, region_blend);
+}
 
+real_t Terrain3DData::get_region_blend(const Vector2 &p_uv2, const real_t p_region_blend) const {
 	auto check_region = [&](const Vector2 &uv2) -> real_t {
 		int idx = get_region_map_index(Vector2i(Math::floor(uv2.x), Math::floor(uv2.y)));
 		return (idx >= 0 && _region_map[idx] > 0) ? 1.f : 0.f;
@@ -789,7 +792,7 @@ real_t Terrain3DData::get_region_blend(const Vector2 &p_uv2) const {
 	real_t c = check_region(uv2 + Vector2(1.0f, 0.0f));
 	real_t d = check_region(uv2 + Vector2(0.0f, 0.0f));
 
-	real_t blend_factor = 2.0f + 126.0f * (1.0f - region_blend);
+	real_t blend_factor = 2.0f + 126.0f * (1.0f - p_region_blend);
 	Vector2 f = Vector2(uv2.x - Math::floor(uv2.x), uv2.y - Math::floor(uv2.y));
 	f.x = Math::clamp(f.x, real_t(1e-8f), real_t(1.0f - 1e-8f));
 	f.y = Math::clamp(f.y, real_t(1e-8f), real_t(1.0f - 1e-8f));
