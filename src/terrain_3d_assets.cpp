@@ -166,6 +166,7 @@ void Terrain3DAssets::_set_asset(const AssetType p_type, const int p_id, const R
 			Ref<Terrain3DAssetResource> res = list[id];
 			res->clear();
 			res->_id = id;
+			res->initialize();
 		}
 	} else {
 		// Else Insert/Add Asset at end if a high number
