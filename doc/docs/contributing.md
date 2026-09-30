@@ -32,35 +32,28 @@ If you wish to take on a major component, it's best to join our [discord server]
 
 Make sure you are setup to [build the plugin from source](building_from_source.md). 
 
-### Install clang-format
+### Install clang-format hook
 
-clang-format will adjust the style of your code to a consistent standard. Once you install it you can manually run it on all of your code to see or apply changes, and you can set it up to run automatically upon each commit.
-
-If upgrading from an older version, delete everything in `.git/hooks/`.
-
-#### Installing clang-format binary onto your system.
-* Download LLVM version 21.1.7 or later
-	* Linux/OSX: Install the `clang-format` package, or all of `LLVM` or `clang` if your distribution doesn't provide the standalone tool
-	* Windows: Download LLVM for Windows from <https://releases.llvm.org/download.html>
-
-* Make sure the LLVM binary directory where `clang-format` is stored gets added to the `PATH` during installation
-
-#### Using clang-format on commit via hooks
-
-Install pre-commit. After this, clang-format will be run on every commit. It will print a failure if it makes changes to files so you can review them.
+When committing changes, the pre-commit hook will run clang-format to adjust the style of your code to a consistent standard. Installing the clang-format binary is unnecessary as pip will do it automatically.
 
 ```
-pip install pre-commit
+pip install pre-commit # or: python -m pip install --user pre-commit
 pre-commit install
 ```
 
+Git will then run `.pre-commit-config.yaml` and `.clang-format` to verify staged changes before committing. Files that need formatting will be changed and an error will prevent the commit so you can review the changes and commit again if approved.
+
+
 #### Using clang-format manually
 
-* View a formatted file, no changes on disk: `clang-format <filenames>`
-* See what changes would be made: `git-clang-format --diff <filenames>`
-* Change the files in place: `clang-format -i <filenames>`
+```
+# format staged files only
+pre-commit run clang-format
 
- 
+# format everything
+pre-commit run clang-format --all-files
+```
+
 ## PR Workflow
 
 We use the standard [Godot PR workflow](https://contributing.godotengine.org/en/latest/organization/pull_requests/creating_pull_requests.html). Please submit PRs according to the same process Godot uses.
