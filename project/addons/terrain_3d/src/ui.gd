@@ -370,7 +370,7 @@ func update_decal() -> void:
 			return
 	
 	# Only show decal if in viewport or toolbars
-	var main: Control = EditorInterface.get_editor_main_screen()
+	var main: Control = plugin.get_editor_viewport_container()
 	var main_rect := Rect2(main.position, main.size)
 	main_rect.size.y += tool_settings.size.y
 	if not ( main_rect.has_point(plugin.viewport.get_mouse_position()) && plugin.mouse_in_main ):
@@ -676,17 +676,10 @@ func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
 	p_button.icon = EditorInterface.get_base_control().get_theme_icon(p_icon_name, "EditorIcons")
 
 
-func get_editor_viewport_container() -> Node:
-	var node: Node = EditorInterface.get_editor_viewport_3d(0)
-	while node != null and node.get_class() != "Node3DEditorViewportContainer":
-		node = node.get_parent()
-	return node
-
-
 func setup_live_info_panel() -> void:
 	live_info_panel = load(LIVE_INFO_PANEL).instantiate()
 	live_info_panel.plugin = plugin
-	var viewport_container: Node = get_editor_viewport_container()
+	var viewport_container: Node = plugin.get_editor_viewport_container()
 	if not viewport_container:
 		push_error("Terrain3DUI: setup_live_info_panel(): Failed to get editor viewport container")
 		return
