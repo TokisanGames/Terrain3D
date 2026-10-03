@@ -687,9 +687,7 @@ void Terrain3DData::set_pixel(const MapType p_map_type, const Vector3 &p_global_
 	}
 	Image *map = region->get_map_ptr(p_map_type);
 	if (map) {
-		// Local pixel in the region is always [0, region_size)
-		Vector2i img_pos(Math::posmod(vgrid.x, _region_size), Math::posmod(vgrid.y, _region_size));
-		map->set_pixelv(img_pos, p_pixel);
+		map->set_pixelv(vgrid_to_pixelv(vgrid), p_pixel);
 		region->set_modified(true);
 	}
 }
@@ -707,9 +705,7 @@ Color Terrain3DData::get_pixel_descaled(const MapType p_map_type, const Vector2i
 	}
 	Image *map = region->get_map_ptr(p_map_type);
 	if (map) {
-		// Local pixel in the region is always [0, region_size)
-		Vector2i img_pos(Math::posmod(p_vgrid.x, _region_size), Math::posmod(p_vgrid.y, _region_size));
-		return map->get_pixelv(img_pos);
+		return map->get_pixelv(vgrid_to_pixelv(p_vgrid));
 	} else {
 		return COLOR_NAN;
 	}
@@ -1402,6 +1398,10 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("do_for_regions", "area", "callback"), &Terrain3DData::do_for_regions);
 	ClassDB::bind_method(D_METHOD("change_region_size", "region_size"), &Terrain3DData::change_region_size);
 
+	ClassDB::bind_method(D_METHOD("world_to_vgrid", "global_position"), &Terrain3DData::world_to_vgrid);
+	ClassDB::bind_method(D_METHOD("vgrid_to_pixelv", "vgrid"), &Terrain3DData::vgrid_to_pixelv);
+	ClassDB::bind_method(D_METHOD("world_to_pixelv", "global_position"), &Terrain3DData::world_to_pixelv);
+
 	ClassDB::bind_method(D_METHOD("get_region_location", "global_position"), &Terrain3DData::get_region_location);
 	ClassDB::bind_method(D_METHOD("get_region_id", "region_location"), &Terrain3DData::get_region_id);
 	ClassDB::bind_method(D_METHOD("get_region_idp", "global_position"), &Terrain3DData::get_region_idp);
@@ -1479,6 +1479,7 @@ void Terrain3DData::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_height_range"), &Terrain3DData::get_height_range);
 	ClassDB::bind_method(D_METHOD("calc_height_range", "recursive"), &Terrain3DData::calc_height_range, DEFVAL(false));
 
+	// Utility
 	ClassDB::bind_method(D_METHOD("import_images", "images", "global_position", "offset", "scale"), &Terrain3DData::import_images, DEFVAL(V3_ZERO), DEFVAL(0.f), DEFVAL(1.f));
 	ClassDB::bind_method(D_METHOD("export_image", "file_name", "map_type", "mode"), &Terrain3DData::export_image, DEFVAL(TYPE_HEIGHT), DEFVAL(EXPORT_SLICES));
 	ClassDB::bind_method(D_METHOD("layered_to_image", "map_type", "bounds"), &Terrain3DData::layered_to_image, DEFVAL(Rect2i()));

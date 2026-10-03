@@ -44,7 +44,7 @@ The region grid is visible if `View Gizmos` is enabled in the Godot `Perspective
 
 ## Region Location
 
-Region locations are the grid coordinates that regions fit into. Represented as a Vector2i, eg (-1, 0), this is the primary key used for identifying regions in the API.
+Region locations are the region grid coordinates that regions fit into. Represented as a Vector2i, eg (-1, 0), this is the primary key used for identifying regions in the API.
 
 Converting a global position to a region location is calculated by `floor(global position / region size)`, or by calling the function [Terrain3DData.get_region_location()](../api/class_terrain3ddata.rst#class-terrain3ddata-method-get-region-location). e.g. If region size is 1024, a global position of (2500, 0, 3700) would convert to (2, 3). It gets more complicated as [region_size](../api/class_terrain3d.rst#class-terrain3d-property-region-size) changes.
 

@@ -94,7 +94,6 @@ private:
 	void _operate_map(const Vector3 &p_global_position, const real_t p_camera_direction);
 	MapType _get_map_type() const;
 	bool _is_in_bounds(const Point2i &p_pixel, const Point2i &p_size) const;
-	Vector2 _get_uv_position(const Vector3 &p_global_position, const int p_region_size, const real_t p_vertex_spacing) const;
 	Vector2 _get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const;
 	void _store_undo();
 	void _apply_undo(const Dictionary &p_data);
@@ -158,14 +157,6 @@ inline bool Terrain3DEditor::_is_in_bounds(const Point2i &p_pixel, const Point2i
 	bool positive = p_pixel.x >= 0 && p_pixel.y >= 0;
 	bool less_than_max = p_pixel.x < p_size.x && p_pixel.y < p_size.y;
 	return positive && less_than_max;
-}
-
-inline Vector2 Terrain3DEditor::_get_uv_position(const Vector3 &p_global_position, const int p_region_size, const real_t p_vertex_spacing) const {
-	Vector2 descaled_position_2d = Vector2(p_global_position.x, p_global_position.z) / p_vertex_spacing;
-	Vector2 region_position = descaled_position_2d / real_t(p_region_size);
-	region_position = region_position.floor();
-	Vector2 uv_position = (descaled_position_2d / real_t(p_region_size)) - region_position;
-	return uv_position;
 }
 
 inline Vector2 Terrain3DEditor::_get_rotated_uv(const Vector2 &p_uv, const real_t p_angle) const {

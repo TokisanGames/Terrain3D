@@ -102,6 +102,8 @@ public:
 	void change_region_size(int region_size);
 
 	Vector2i world_to_vgrid(const Vector3 &p_global_position) const;
+	Vector2i vgrid_to_pixelv(const Vector2i &p_vgrid) const;
+	Vector2i world_to_pixelv(const Vector3 &p_global_position) const;
 	Vector2i get_region_location(const Vector3 &p_global_position) const;
 	int get_region_id(const Vector2i &p_region_loc) const;
 	int get_region_idp(const Vector3 &p_global_position) const;
@@ -283,6 +285,15 @@ inline Ref<Terrain3DRegion> Terrain3DData::get_regionp(const Vector3 &p_global_p
 inline Vector2i Terrain3DData::world_to_vgrid(const Vector3 &p_global_position) const {
 	return Vector2i(Math::floor(p_global_position.x / _vertex_spacing),
 			Math::floor(p_global_position.z / _vertex_spacing));
+}
+
+inline Vector2i Terrain3DData::vgrid_to_pixelv(const Vector2i &p_vgrid) const {
+	// Local pixel in the region is always [0, _region_size)
+	return Vector2i(Math::posmod(p_vgrid.x, _region_size), Math::posmod(p_vgrid.y, _region_size));
+}
+
+inline Vector2i Terrain3DData::world_to_pixelv(const Vector3 &p_global_position) const {
+	return vgrid_to_pixelv(world_to_vgrid(p_global_position));
 }
 
 inline Color Terrain3DData::get_pixel(const MapType p_map_type, const Vector3 &p_global_position) const {
