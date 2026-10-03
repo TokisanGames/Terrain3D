@@ -207,8 +207,7 @@ void Terrain3DEditor::_operate_map(const Vector3 &p_global_position, const real_
 			}
 
 			// Identify position on map image
-			Vector2 uv_position = _get_uv_position(brush_global_position, region_size, vertex_spacing);
-			Vector2i map_pixel_position = Vector2i(uv_position * region_size);
+			Vector2i map_pixel_position = data->world_to_pixelv(brush_global_position);
 			if (!_is_in_bounds(map_pixel_position, region_vsize)) {
 				continue;
 			}

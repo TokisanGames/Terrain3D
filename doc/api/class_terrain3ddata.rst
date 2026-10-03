@@ -186,6 +186,12 @@ Methods
    +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
    | |void|                                                                     | :ref:`update_maps<class_Terrain3DData_method_update_maps>`\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>` = 3, all_regions\: ``bool`` = true, generate_mipmaps\: ``bool`` = false\ )                            |
    +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``Vector2i``                                                               | :ref:`vgrid_to_pixelv<class_Terrain3DData_method_vgrid_to_pixelv>`\ (\ vgrid\: ``Vector2i``\ ) |const|                                                                                                                       |
+   +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``Vector2i``                                                               | :ref:`world_to_pixelv<class_Terrain3DData_method_world_to_pixelv>`\ (\ global_position\: ``Vector3``\ ) |const|                                                                                                              |
+   +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   | ``Vector2i``                                                               | :ref:`world_to_vgrid<class_Terrain3DData_method_world_to_vgrid>`\ (\ global_position\: ``Vector3``\ ) |const|                                                                                                                |
+   +----------------------------------------------------------------------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 .. rst-class:: classref-section-separator
 
@@ -861,7 +867,11 @@ Returns the region id at a global position. See :ref:`get_region_id()<class_Terr
 
 ``Vector2i`` **get_region_location**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_get_region_location>`
 
-Returns the calculated region location for the given global position. This is just a calculation and does no bounds checking or verification that a region exists. See :ref:`get_region_map_index()<class_Terrain3DData_method_get_region_map_index>` for bounds checking, or :ref:`has_region()<class_Terrain3DData_method_has_region>` for checking if it exists.
+Returns the region location coordinates for the given global position.
+
+Calculates ``floori(world_to_vgrid(global_position) / region size))``. It does no data verification.
+
+See :ref:`get_region_map_index()<class_Terrain3DData_method_get_region_map_index>` for bounds checking, :ref:`has_region()<class_Terrain3DData_method_has_region>` for checking if it exists, and :ref:`world_to_vgrid()<class_Terrain3DData_method_world_to_vgrid>`.
 
 .. rst-class:: classref-item-separator
 
@@ -1323,7 +1333,7 @@ Sets the height value on the heightmap at the specified position. See :ref:`set_
 
 |void| **set_pixel**\ (\ map_type\: :ref:`MapType<enum_Terrain3DRegion_MapType>`, global_position\: ``Vector3``, pixel\: ``Color``\ ) :ref:`🔗<class_Terrain3DData_method_set_pixel>`
 
-Sets the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use :ref:`Terrain3DRegion.get_map()<class_Terrain3DRegion_method_get_map>`, then edit the images directly.
+Sets the pixel for the map type associated with the specified position. Global position is descaled and floored to find the vertex grid coordinates. This method is fine for setting a few pixels, but if you wish to modify thousands of pixels quickly, you should get the region and use :ref:`Terrain3DRegion.get_map()<class_Terrain3DRegion_method_get_map>`, then edit the images directly. See Technical Tips.
 
 After setting pixels you need to call :ref:`update_maps()<class_Terrain3DData_method_update_maps>`. You may also need to regenerate collision if you don't have dynamic collision enabled.
 
@@ -1394,6 +1404,50 @@ For frequent editing, rather than enabling all_regions, it is more optimal to on
     region.set_edited(true)
     terrain.data.update_maps(Terrain3DRegion.TYPE_HEIGHT, false)
     region.set_edited(false)
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_vgrid_to_pixelv:
+
+.. rst-class:: classref-method
+
+``Vector2i`` **vgrid_to_pixelv**\ (\ vgrid\: ``Vector2i``\ ) |const| :ref:`🔗<class_Terrain3DData_method_vgrid_to_pixelv>`
+
+Returns the Image map pixel position for the given descaled vertex grid coordinates.
+
+Calculates ``posmod(vgrid, region_size)``.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_world_to_pixelv:
+
+.. rst-class:: classref-method
+
+``Vector2i`` **world_to_pixelv**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_world_to_pixelv>`
+
+Returns the Image map pixel position for the given global position.
+
+Calculates ``vgrid_to_pixelv(world_to_vgrid(global_position))``.
+
+See :ref:`vgrid_to_pixelv()<class_Terrain3DData_method_vgrid_to_pixelv>` and :ref:`world_to_vgrid()<class_Terrain3DData_method_world_to_vgrid>`.
+
+.. rst-class:: classref-item-separator
+
+----
+
+.. _class_Terrain3DData_method_world_to_vgrid:
+
+.. rst-class:: classref-method
+
+``Vector2i`` **world_to_vgrid**\ (\ global_position\: ``Vector3``\ ) |const| :ref:`🔗<class_Terrain3DData_method_world_to_vgrid>`
+
+Returns the descaled vertex grid for the given global position.
+
+Calculates ``floor(global_position / vertex_spacing)``.
 
 .. |virtual| replace:: :abbr:`virtual (This method should typically be overridden by the user to have any effect.)`
 .. |required| replace:: :abbr:`required (This method is required to be overridden when extending its base class.)`
