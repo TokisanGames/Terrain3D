@@ -402,10 +402,16 @@ void accumulate_material(vec3 base_ddx, vec3 base_ddy, const mat3 TNB, const flo
 	}
 }
 
-float get_height(vec2 index_id, vec2 offset) {
-	float height = texelFetch(_height_maps, get_index_coord(index_id + offset), 0).r;
+// Height from a provided index avoids repeating the region map lookup.
+// index_id & offset are still required for the world-background blend path.
+float get_height(const ivec3 index, const vec2 index_id, const vec2 offset) {
+	float height = texelFetch(_height_maps, index, 0).r;
 //INSERT: FLAT_FRAGMENT
 	return height;
+}
+
+float get_height(const vec2 index_id, const vec2 offset) {
+	return get_height(get_index_coord(index_id + offset), index_id, offset);
 }
 
 )"
@@ -430,11 +436,23 @@ void fragment() {
 	);
 
 	ivec3 index[4];
-	// control map lookups
-	index[0] = get_index_coord(index_id + offsets.xy);
-	index[1] = get_index_coord(index_id + offsets.yy);
-	index[2] = get_index_coord(index_id + offsets.yx);
-	index[3] = get_index_coord(index_id + offsets.xx);
+	// Control map lookups
+	// Fast path: when the (0,0) corner is at least two texels inside a region
+	// every sample needed for this cell (offsets 0..2) shares the same
+	// layer and needs only integer arithmetic; no region map lookup or mod.
+	// Slow path: Borders, missing regions, editor dummies and negative coordinates
+	// stay on the original slow per-lookup path.
+	index[3] = get_index_coord(index_id + offsets.xx); // (0,0)
+	bool idx_fast = index[3].z >= 0 && max(index[3].x, index[3].y) < int(_region_size) - 2;
+	if (idx_fast) {
+		index[0] = index[3] + ivec3(0, 1, 0); // (0,1)
+		index[1] = index[3] + ivec3(1, 1, 0); // (1,1)
+		index[2] = index[3] + ivec3(1, 0, 0); // (1,0)
+	} else {
+		index[0] = get_index_coord(index_id + offsets.xy);
+		index[1] = get_index_coord(index_id + offsets.yy);
+		index[2] = get_index_coord(index_id + offsets.yx);
+	}
 	
 	vec3 base_ddx = dFdxCoarse(v_vertex);
 	vec3 base_ddy = dFdyCoarse(v_vertex);
@@ -452,9 +470,9 @@ void fragment() {
 
 //INSERT: WORLD_NOISE_FRAGMENT
 
-	h[3] = get_height(index_id, offsets.xx); // 0 (0, 0)
-	h[2] = get_height(index_id, offsets.yx); // 1 (1, 0)
-	h[0] = get_height(index_id, offsets.xy); // 2 (0, 1)
+	h[3] = get_height(index[3], index_id, offsets.xx); // (0,0)
+	h[2] = get_height(index[2], index_id, offsets.yx); // (1,0)
+	h[0] = get_height(index[0], index_id, offsets.xy); // (0,1)
 	index_normal[3] = normalize(vec3(h[3] - h[2] + u, _vertex_spacing, h[3] - h[0] + v));
 
 	// Set flat world normal - overwritten if bilerp is true
@@ -491,11 +509,27 @@ void fragment() {
 
 		// 5 lookups
 		// Fetch the additional required height values for smooth normals
-		h[1] = get_height(index_id, offsets.yy); // 3 (1, 1)
-		float h_4 = get_height(index_id, offsets.yz); // 4 (1, 2)
-		float h_5 = get_height(index_id, offsets.zy); // 5 (2, 1)
-		float h_6 = get_height(index_id, offsets.zx); // 6 (2, 0)
-		float h_7 = get_height(index_id, offsets.xz); // 7 (0, 2)
+		// Fast path: the four additional locations are simple offsets of index[3];
+		// Slow path: fall back to full region lookup
+		h[1] = get_height(index[1], index_id, offsets.yy); // (1,1)
+
+		ivec3 i4, i5, i6, i7;
+		if (idx_fast) {
+			i4 = index[3] + ivec3(1, 2, 0); // (1,2)
+			i5 = index[3] + ivec3(2, 1, 0); // (2,1)
+			i6 = index[3] + ivec3(2, 0, 0); // (2,0)
+			i7 = index[3] + ivec3(0, 2, 0); // (0,2)
+		} else {
+			i4 = get_index_coord(index_id + offsets.yz);
+			i5 = get_index_coord(index_id + offsets.zy);
+			i6 = get_index_coord(index_id + offsets.zx);
+			i7 = get_index_coord(index_id + offsets.xz);
+		}
+
+		float h_4 = get_height(i4, index_id, offsets.yz);
+		float h_5 = get_height(i5, index_id, offsets.zy);
+		float h_6 = get_height(i6, index_id, offsets.zx);
+		float h_7 = get_height(i7, index_id, offsets.xz);
 
 		// Calculate the normal for the remaining index ids.
 		index_normal[0] = normalize(vec3(h[0] - h[1] + u, _vertex_spacing, h[0] - h_7 + v));
