@@ -15,7 +15,7 @@ inputs:
     default: ""
   scons-flags:
     required: false
-    default: "debug_symbols=no -j4"
+    default: "api_version=4.6 debug_symbols=no -j4"
   threads:
     description: "Web only: nothreads or threads"
     required: false

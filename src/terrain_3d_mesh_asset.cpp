@@ -54,7 +54,7 @@ Ref<ArrayMesh> Terrain3DMeshAsset::_create_generated_mesh(const GenType p_type) 
 		z = start_pos.y;
 		real_t angle = 0.f;
 		if (m > 1) {
-			angle = (m - 1) * Math_PI / _generated_faces;
+			angle = (m - 1) * Math::PI / _generated_faces;
 		}
 		for (int j = 0; j <= 1; j++) {
 			x = start_pos.x;
