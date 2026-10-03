@@ -1,7 +1,7 @@
 Keyboard Shortcuts
 =================
 
-The following mouse and keyboard shortcuts or hotkeys are available.
+The following mouse and keyboard shortcuts or hotkeys are available. In Godot 4.6 and later, shortcuts can be customized in **Editor > Editor Settings > Shortcuts > Terrain 3D**.
 
 
 **Table of Contents**
@@ -152,8 +152,8 @@ All operations *except smoothing* are performed within the slope range on the [s
 
 ## Special Cases
 
-**macOS Users:** Use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
+**macOS Users:** By default, use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
 
 **Touchscreen Users:** You'll see an `Invert` checkbox on the settings bar which acts like <kbd>Ctrl</kbd> to inverse operations.
 
-**Maya Users:** The <kbd>Alt</kbd> key can be changed to Space, Meta (Windows key), or Capslock in `Editor Settings / Terrain3D / Config / Alt Key Bind` so it does not conflict with Maya input settings `Editor Settings / 3D / Navigation / Navigation Scheme`.
+**Maya Users:** Consider changing the <kbd>Alt</kbd> key in **Editor Settings > Shorcuts** (Godot 4.6+) or **Editor settings > Terrain3D > Config**, so it does not conflict with Maya input settings `Editor Settings / 3D / Navigation / Navigation Scheme`.
