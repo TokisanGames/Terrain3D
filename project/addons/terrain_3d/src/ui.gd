@@ -377,7 +377,8 @@ func update_decal() -> void:
 		return
 	
 	reset_decal_arrays()
-	editor_decal_position[0] = Vector2(plugin.mouse_global_position.x, plugin.mouse_global_position.z)
+	var decal_global_position: Vector3 = plugin.get_decal_global_position()
+	editor_decal_position[0] = Vector2(decal_global_position.x, decal_global_position.z)
 	editor_decal_visible = [true, false, false] # Show cursor by default
 	editor_decal_part = [true, true] # Show brush and reticle by default
 	editor_decal_timer.start()
@@ -396,7 +397,7 @@ func update_decal() -> void:
 		editor_decal_rotation[0] = 0.0
 		editor_decal_part[1] = false # Disable reticle
 		
-		var loc: Vector2i = plugin.terrain.data.get_region_location(plugin.mouse_global_position)
+		var loc: Vector2i = plugin.terrain.data.get_region_location(decal_global_position)
 		loc += Vector2i(map_size / 2, map_size / 2)
 		if !(loc.x < 0 or loc.x > map_size - 1 or loc.y < 0 or loc.y > map_size - 1):
 			var index: int = clampi(loc.y * map_size + loc.x, 0, map_size * map_size - 1)
