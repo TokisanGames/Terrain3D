@@ -3,6 +3,8 @@ from glob import glob
 from pathlib import Path
 import os
 
+ARGUMENTS.setdefault("api_version", "4.6")
+
 # TODO: Do not copy environment after godot-cpp/test is updated <https://github.com/godotengine/godot-cpp/blob/master/test/SConstruct>.
 env = SConscript("godot-cpp/SConstruct")
 
