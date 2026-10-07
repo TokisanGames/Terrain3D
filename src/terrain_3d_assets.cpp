@@ -621,8 +621,8 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 		Vector3 ofs = aabb.get_center();
 		aabb.position -= ofs;
 		Transform3D xform;
-		xform.basis = Basis().rotated(V3_UP, -Math_PI * 0.125f);
-		xform.basis = Basis().rotated(Vector3(1.f, 0.f, 0.f), Math_PI * 0.125f) * xform.basis;
+		xform.basis = Basis().rotated(V3_UP, -Math::PI * 0.125f);
+		xform.basis = Basis().rotated(Vector3(1.f, 0.f, 0.f), Math::PI * 0.125f) * xform.basis;
 		AABB rot_aabb = xform.xform(aabb);
 		real_t m = MAX(rot_aabb.size.x, rot_aabb.size.y) * 0.5f;
 		if (m == 0.f) {
