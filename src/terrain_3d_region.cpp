@@ -366,7 +366,7 @@ Error Terrain3DRegion::save(const String &p_path, const bool p_16_bit, const Com
 	}
 	// Don't save if not modified, or current color compression mode is different from what was loaded
 	if (!_modified && _last_color_compression == p_color_compress_mode) {
-		LOG(MESG, "Region ", _location, " not modified. Skipping ", p_path);
+		LOG(INFO, "Region ", _location, " not modified. Skipping ", p_path);
 		return ERR_SKIP;
 	}
 	_compressed_color_map.unref();
