@@ -19,6 +19,7 @@ var asset_dock: PanelContainer
 var current_region_position: Vector2
 var mouse_global_position: Vector3 = Vector3.ZERO
 var godot_editor_window: Window # The Godot Editor window
+var godot_editor_viewport_container: Node # The Node3DEditorViewportContainer that contains all viewports
 var viewport: SubViewport # Viewport the mouse was last in
 var mouse_in_main: bool = false # Helper to track when mouse is in the editor vp
 var export_plugin: EditorExportPlugin = ExportPlugin.new()
@@ -48,6 +49,18 @@ func _init() -> void:
 	godot_editor_window = EditorInterface.get_base_control().get_parent().get_parent()
 	godot_editor_window.focus_entered.connect(_on_godot_focus_entered)
 	EditorInterface.get_inspector().mouse_entered.connect(func(): mouse_in_main = false)
+
+
+func get_editor_viewport_container() -> Node:
+	if godot_editor_viewport_container:
+		return godot_editor_viewport_container
+	# 4.8 could also use this option
+	# EditorInterface.get_dock_by_name("3D").find_child("*Node3DEditorViewportContainer*", true, false)
+	var node: Node = EditorInterface.get_editor_viewport_3d(0)
+	while node != null and node.get_class() != "Node3DEditorViewportContainer":
+		node = node.get_parent()
+	godot_editor_viewport_container = node
+	return node
 
 
 func _enter_tree() -> void:
