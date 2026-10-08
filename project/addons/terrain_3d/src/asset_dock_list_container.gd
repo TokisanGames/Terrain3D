@@ -293,6 +293,14 @@ func update_resource(p_resource: Resource, p_id: int) -> void:
 			plugin.terrain.assets.set_mesh_asset(p_id, p_resource)
 
 
+func _on_thumbnail_updated(asset_id: int) -> void:
+	for entry: Terrain3DListEntry in _entries:
+		if not entry.resource:
+			continue
+		if entry.resource.id == asset_id:
+			entry.queue_redraw()
+	
+
 func _on_resource_changed(p_resource: Resource, p_id: int) -> void:
 	if not p_resource:
 		return
