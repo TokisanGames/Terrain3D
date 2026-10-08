@@ -133,3 +133,20 @@ e.g.
     global_position.y = maxf(global_position.y, terrain.data.get_height(global_position))
 ```
 
+### Instance Collision
+
+To add collision to your instancer mesh assets, simply add a CollisionShape3D to the source scene file (see res://demo/assets/models/CrystalC.tscn for an example)
+
+Right click your mesh asset to inspect the per-instance instance collision options.
+
+You can specify the collision layers and masks, as well as assigning a custom physics material if desired.
+
+Click the Terrain3D node and navigate to Collision->Instance Collision to inspect the global instance collision options.
+
+You have three modes to choose from:
+
+* `Dynamic / Game` is the default, which only generates around the collision target while in game. It is node-less and the fastest option.
+* `Dynamic / Editor` generates around the collision target in editor or in game and allows the shapes to be [visualized](#visualizing-collision).
+* `Disabled` is self explanatory.
+
+instance_collision_radius sets the distance around the collision target that will be included for instance collision.
