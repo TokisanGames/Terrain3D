@@ -867,7 +867,8 @@ void Terrain3DMaterial::destroy() {
 }
 
 void Terrain3DMaterial::update(uint32_t p_flags) {
-	if (p_flags & FULL_REBUILD) {
+	// FULL_REBUILD includes the array bits, so test for all of them, not any
+	if ((p_flags & FULL_REBUILD) == FULL_REBUILD) {
 		_update_shader();
 	}
 	_update_uniforms(_material, p_flags);
