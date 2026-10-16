@@ -12,6 +12,7 @@ class Terrain3DAssets;
 
 // Parent class of Terrain3DMeshAsset and Terrain3DTextureAsset
 class Terrain3DAssetResource : public Resource {
+	GDCLASS(Terrain3DAssetResource, Resource);
 	friend class Terrain3DAssets;
 
 public:
@@ -35,6 +36,7 @@ protected:
 	int _id = 0;
 	bool _highlighted = false;
 	Ref<Texture2D> _thumbnail;
+	static void _bind_methods() {}
 };
 
 #endif // TERRAIN3D_ASSET_RESOURCE_CLASS_H

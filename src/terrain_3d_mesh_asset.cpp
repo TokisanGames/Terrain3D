@@ -188,13 +188,13 @@ void Terrain3DMeshAsset::set_id(const int p_new_id) {
 	int old_id = _id;
 	SET_IF_DIFF(_id, CLAMP(p_new_id, 0, Terrain3DAssets::MAX_MESHES - 1));
 	LOG(INFO, _name, ": Setting mesh ID: ", _id);
-	LOG(DEBUG, "Emitting id_changed, TYPE_MESH, ", old_id, ", ", p_new_id);
-	emit_signal("id_changed", Terrain3DAssets::TYPE_MESH, old_id, p_new_id);
+	LOG(DEBUG, "Emitting id_changed, TYPE_MESH, ", old_id, ", ", _id);
+	emit_signal("id_changed", Terrain3DAssets::TYPE_MESH, old_id, _id);
 }
 
 void Terrain3DMeshAsset::set_highlighted(const bool p_highlighted) {
 	SET_IF_DIFF(_highlighted, p_highlighted);
-	LOG(INFO, "ID ", _id, ", ", _name, ": Set mesh ID highlight: ", p_highlighted);
+	LOG(INFO, "ID ", _id, ", ", _name, ": Set mesh ID highlight: ", _highlighted);
 	if (_highlighted && _highlight_mat.is_null()) {
 		Ref<StandardMaterial3D> mat;
 		mat.instantiate();
@@ -587,9 +587,12 @@ void Terrain3DMeshAsset::_bind_methods() {
 	BIND_ENUM_CONSTANT(TYPE_TEXTURE_CARD);
 	BIND_ENUM_CONSTANT(TYPE_MAX);
 
-	ADD_SIGNAL(MethodInfo("id_changed"));
-	ADD_SIGNAL(MethodInfo("setting_changed"));
-	ADD_SIGNAL(MethodInfo("instancer_setting_changed"));
+	ADD_SIGNAL(MethodInfo("id_changed",
+			PropertyInfo(Variant::INT, "type"),
+			PropertyInfo(Variant::INT, "old_id"),
+			PropertyInfo(Variant::INT, "new_id")));
+	ADD_SIGNAL(MethodInfo("setting_changed", PropertyInfo(Variant::INT, "id")));
+	ADD_SIGNAL(MethodInfo("instancer_setting_changed", PropertyInfo(Variant::INT, "id")));
 	ADD_SIGNAL(MethodInfo("instance_count_changed"));
 
 	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DMeshAsset::clear);
