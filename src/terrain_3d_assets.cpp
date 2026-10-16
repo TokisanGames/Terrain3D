@@ -108,7 +108,7 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 			for (int j = filled_id + 1; j < array_size; j++) {
 				if (!list[j]) {
 					LOG(ERROR, res->get_class(), " ID ", id, " already exists. Setting '",
-							res->get_name(), "' to ID ", j,
+							res->get_asset_name(), "' to ID ", j,
 							". Textures/Meshes on the ground may be wrong. Review Asset list to ensure each have unique IDs.");
 					res->set_id(j);
 					list[j] = res;
@@ -127,7 +127,7 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 		for (int i = 0; i < list.size(); i++) {
 			Ref<Terrain3DAssetResource> res = list[i];
 			int id = res.is_valid() ? res->get_id() : -1;
-			String name = res.is_valid() ? res->get_name() : "";
+			String name = res.is_valid() ? res->get_asset_name() : "";
 			LOG(DEBUG, "Asset ", i, ": ", name, ", ", res, ", stored ID: ", id);
 		}
 	}
