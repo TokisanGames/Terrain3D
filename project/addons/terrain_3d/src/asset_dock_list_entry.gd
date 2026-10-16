@@ -347,11 +347,17 @@ func _on_resource_changed(_value: int = 0) -> void:
 
 func set_selected(value: bool) -> void:
 	is_selected = value
-	if is_selected:
+	if is_selected and is_inside_tree():
 		# Handle scrolling to show the selected item
-		if is_inside_tree():
-			await get_tree().process_frame
-			get_parent().get_parent().get_v_scroll_bar().ratio = position.y / get_parent().size.y
+		await get_tree().process_frame
+		# update_list_entries() may have freed this entry while awaiting
+		if not is_inside_tree() or not get_parent():
+			queue_redraw()
+			return
+		var container: Control = get_parent()
+		var scroll: ScrollContainer = container.get_parent()
+		if scroll and container.size.y > 0.:
+			scroll.get_v_scroll_bar().ratio = position.y / container.size.y
 	queue_redraw()
 
 
