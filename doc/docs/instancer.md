@@ -100,14 +100,6 @@ A MultiMesh renders all instances in one draw call and does not cull individual 
 
 We mitigate this by generating multiple MultiMeshes. Each region is divided into 32x32m cells so that these MultiMeshes can be culled by frustum or occlusion. We expose visibility ranges in each mesh asset settings so they can be culled by distance as well.
 
-
-### No Collision
-
-Multimeshes are generated and rendered on the GPU. The physics engine is on the CPU, and doesn't know anything about the placed instances. For now use this only for instances where collision is unnecessary like grass.
-
-In the future, instance collision will be generated using the collision shapes stored in your scene file. See [PR 699](https://github.com/TokisanGames/Terrain3D/pull/699).
-
-
 ### No Scene Transforms
 
 Currently, the instancer uses the first Mesh resource it finds in the scene file and uses it as is. It ignores all transforms in the file, as they are not stored in the Mesh resource.
@@ -115,7 +107,6 @@ Currently, the instancer uses the first Mesh resource it finds in the scene file
 If you've built and imported your object with a non-zero transform, and have used the position, rotation, or scale in the scene file to fix your placement, then your instanced objects are going to have strange transforms. e.g. Your tree might be laying flat or be extremely large or small.
 
 Fix your object in blender by setting the origin point in the center or the bottom of the mesh. Move the mesh origin to (0, 0, 0). Ensure the scale is appropriate to real world units. Apply your transforms, so you have neutral transforms: position (0,0,0), rotation (0,0,0), scale (1,1,1). Be cognizant of your export and import settings. In the past, exporting via Blender FBX and importing into Godot produced a scene file where the mesh was scaled 0.01 and the parent node was scaled to 100 (or the opposite?). We use GLB/GLTF and don't have this issue. Ideally the object in Blender and all nodes in your scene file in Godot have neutral transforms, and your mesh vertex positions are scaled to real world coordinates.
-
 
 ### No VRAM Overrun Protection
 
@@ -164,6 +155,9 @@ Instances are drawn using a 32x32m grid of MMIs, so LODs are switched a grid cel
 :target: ../_images/mesh_asset_lods.jpg
 ```
 
+If the scene file includes collision shapes, they will be instantiated in the world. This is useful for trees, rocks or other objects. You can use multiple shapes in a scene file if desired and custom layers, masks, and a custom  
+
+See the collision documentation for more information. 
 
 ### Shadow Performance
 
