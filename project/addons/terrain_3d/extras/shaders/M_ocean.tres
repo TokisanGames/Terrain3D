@@ -1,4 +1,4 @@
-[gd_resource type="ShaderMaterial" load_steps=4 format=3 uid="uid://cgk4glwmc4vk2"]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cgk4glwmc4vk2"]
 
 [ext_resource type="Shader" uid="uid://biawd3fhk5weg" path="res://addons/terrain_3d/extras/shaders/ocean_shader.gdshader" id="1_t7ju5"]
 
