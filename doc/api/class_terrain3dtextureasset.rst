@@ -10,7 +10,7 @@
 Terrain3DTextureAsset
 =====================
 
-**Inherits:** ``Resource``
+**Inherits:** :ref:`Terrain3DAssetResource<class_Terrain3DAssetResource>` **<** ``Resource``
 
 .. rst-class:: classref-introduction-group
 
@@ -102,9 +102,9 @@ Emitted when :ref:`albedo_texture<class_Terrain3DTextureAsset_property_albedo_te
 
 .. rst-class:: classref-signal
 
-**id_changed**\ (\ ) :ref:`🔗<class_Terrain3DTextureAsset_signal_id_changed>`
+**id_changed**\ (\ type\: ``int``, old_id\: ``int``, new_id\: ``int``\ ) :ref:`🔗<class_Terrain3DTextureAsset_signal_id_changed>`
 
-Emitted when :ref:`id<class_Terrain3DTextureAsset_property_id>` is changed.
+Emitted when :ref:`id<class_Terrain3DTextureAsset_property_id>` is changed with the AssetType (TYPE_TEXTURE or TYPE_MESH), and old and new IDs.
 
 .. rst-class:: classref-item-separator
 
@@ -290,8 +290,8 @@ The user settable ID of the texture, between 0 and 31. You can change this to re
 
 .. rst-class:: classref-property-setget
 
-- |void| **set_name**\ (\ value\: ``String``\ )
-- ``String`` **get_name**\ (\ )
+- |void| **set_asset_name**\ (\ value\: ``String``\ )
+- ``String`` **get_asset_name**\ (\ )
 
 A user specified name for this texture set.
 

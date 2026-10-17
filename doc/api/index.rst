@@ -19,6 +19,7 @@ Variant types
 
     class_variant
     class_terrain3d
+    class_terrain3dassetresource
     class_terrain3dassets
     class_terrain3dcollision
     class_terrain3ddata

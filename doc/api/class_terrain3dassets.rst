@@ -94,6 +94,18 @@ Methods
 Signals
 -------
 
+.. _class_Terrain3DAssets_signal_ids_swapped:
+
+.. rst-class:: classref-signal
+
+**ids_swapped**\ (\ type\: ``int``, old_id\: ``int``, new_id\: ``int``\ ) :ref:`🔗<class_Terrain3DAssets_signal_ids_swapped>`
+
+Emitted when asset IDs are swapped with the AssetType (TYPE_TEXTURE or TYPE_MESH), and old and new IDs.
+
+.. rst-class:: classref-item-separator
+
+----
+
 .. _class_Terrain3DAssets_signal_meshes_changed:
 
 .. rst-class:: classref-signal

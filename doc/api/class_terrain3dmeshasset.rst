@@ -10,7 +10,7 @@
 Terrain3DMeshAsset
 ==================
 
-**Inherits:** ``Resource``
+**Inherits:** :ref:`Terrain3DAssetResource<class_Terrain3DAssetResource>` **<** ``Resource``
 
 .. rst-class:: classref-introduction-group
 
@@ -136,9 +136,9 @@ Signals
 
 .. rst-class:: classref-signal
 
-**id_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_id_changed>`
+**id_changed**\ (\ type\: ``int``, old_id\: ``int``, new_id\: ``int``\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_id_changed>`
 
-Emitted when :ref:`id<class_Terrain3DMeshAsset_property_id>` is changed.
+Emitted when :ref:`id<class_Terrain3DMeshAsset_property_id>` is changed with the AssetType (TYPE_TEXTURE or TYPE_MESH), and old and new IDs.
 
 .. rst-class:: classref-item-separator
 
@@ -160,7 +160,7 @@ Emitted when instances of this mesh asset have been added or removed.
 
 .. rst-class:: classref-signal
 
-**instancer_setting_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_instancer_setting_changed>`
+**instancer_setting_changed**\ (\ id\: ``int``\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_instancer_setting_changed>`
 
 Emitted when instancer specific settings are changed on this mesh asset, such as :ref:`cast_shadows<class_Terrain3DMeshAsset_property_cast_shadows>`, and triggers an instancer rebuild.
 
@@ -172,7 +172,7 @@ Emitted when instancer specific settings are changed on this mesh asset, such as
 
 .. rst-class:: classref-signal
 
-**setting_changed**\ (\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_setting_changed>`
+**setting_changed**\ (\ id\: ``int``\ ) :ref:`🔗<class_Terrain3DMeshAsset_signal_setting_changed>`
 
 Emitted when settings are changed, other than those tracked by other signals.
 
@@ -647,8 +647,8 @@ This sets ``GeometryInstance3D.material_override``, which replaces the rendered 
 
 .. rst-class:: classref-property-setget
 
-- |void| **set_name**\ (\ value\: ``String``\ )
-- ``String`` **get_name**\ (\ )
+- |void| **set_asset_name**\ (\ value\: ``String``\ )
+- ``String`` **get_asset_name**\ (\ )
 
 The user specified name for this asset.
 
