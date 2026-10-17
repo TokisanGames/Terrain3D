@@ -3,7 +3,7 @@
 name: 🛠️ Build All Platforms
 on: 
   push:
-    branches: [ main ]
+    branches: [ main, 1.1 ]
   pull_request:
     paths: [ '**' ]
   workflow_dispatch:
