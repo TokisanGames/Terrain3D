@@ -1,4 +1,4 @@
-[gd_resource type="Terrain3DAssets" load_steps=11 format=3 uid="uid://dal3jhw6241qg"]
+[gd_resource type="Terrain3DAssets" format=3 uid="uid://dal3jhw6241qg"]
 
 [ext_resource type="PackedScene" uid="uid://bn5nf4esciwex" path="res://demo/assets/models/LOD5Example.tscn" id="1_4jrdu"]
 [ext_resource type="Texture2D" uid="uid://c88j3oj0lf6om" path="res://demo/assets/textures/rock023_alb_ht.png" id="2_pog6b"]
