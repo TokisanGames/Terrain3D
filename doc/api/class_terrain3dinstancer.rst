@@ -169,7 +169,7 @@ Method Descriptions
 
 Used by Terrain3DEditor to place instances within the brush radius (size). In addition to the brush position, it also uses the following parameters if available, which are all set in the editor via tool_settings.gd.
 
-- asset_id:int
+- asset_ids:Array\[int\]
 
 - size:float
 
@@ -335,7 +335,7 @@ Returns true if :ref:`mode<class_Terrain3DInstancer_property_mode>` is not disab
 
 Terrain3DEditor uses this to randomly remove instances within the indicated brush position and radius (size). It uses these parameters if available, which are all set in the editor via tool_settings.gd:
 
-- asset_id:int
+- asset_ids:Array\[int\]
 
 - modifier_shift:bool
 

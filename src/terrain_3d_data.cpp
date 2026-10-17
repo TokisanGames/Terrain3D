@@ -116,7 +116,7 @@ TypedArray<Terrain3DRegion> Terrain3DData::get_regions_active(const bool p_copy,
 	for (const Vector2i &region_loc : _region_locations) {
 		Ref<Terrain3DRegion> region = get_region(region_loc);
 		if (region.is_valid()) {
-			region_arr.push_back(p_copy ? region->duplicate(p_deep) : region);
+			region_arr.push_back(p_copy ? Ref<Terrain3DRegion>(region->duplicate(p_deep)) : region);
 		}
 	}
 	return region_arr;
@@ -448,7 +448,11 @@ void Terrain3DData::load_directory(const String &p_dir) {
 				return;
 			}
 		}
+		// After loading from disk ensure these values are reset
 		region->take_over_path(path);
+		region->set_deleted(false);
+		region->set_edited(false);
+		region->set_modified(false);
 		region->set_location(loc);
 		region->set_version(CURRENT_DATA_VERSION); // Sends upgrade warning if old version
 		add_region(region, false);
@@ -479,7 +483,11 @@ void Terrain3DData::load_region(const Vector2i &p_region_loc, const String &p_di
 			return;
 		}
 	}
+	// After loading from disk ensure these values are reset
 	region->take_over_path(path);
+	region->set_deleted(false);
+	region->set_edited(false);
+	region->set_modified(false);
 	region->set_location(p_region_loc);
 	region->set_version(CURRENT_DATA_VERSION); // Sends upgrade warning if old version
 	add_region(region, p_update);

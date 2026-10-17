@@ -371,7 +371,7 @@ Property Descriptions
 
 - :ref:`Array<class_Array>`\[``Image``\] **get_color_maps**\ (\ )
 
-An Array\ ``Image`` containing references to all of the color maps in all regions. See :ref:`Terrain3DRegion.color_map<class_Terrain3DRegion_property_color_map>`.
+An Array\[Image\] containing references to all of the color maps in all regions. See :ref:`Terrain3DRegion.color_map<class_Terrain3DRegion_property_color_map>`.
 
 .. rst-class:: classref-item-separator
 
@@ -387,7 +387,7 @@ An Array\ ``Image`` containing references to all of the color maps in all region
 
 - :ref:`Array<class_Array>`\[``Image``\] **get_control_maps**\ (\ )
 
-An Array\ ``Image`` containing references to all of the control maps in all regions. See :ref:`Terrain3DRegion.control_map<class_Terrain3DRegion_property_control_map>`.
+An Array\[Image\] containing references to all of the control maps in all regions. See :ref:`Terrain3DRegion.control_map<class_Terrain3DRegion_property_control_map>`.
 
 .. rst-class:: classref-item-separator
 
@@ -403,7 +403,7 @@ An Array\ ``Image`` containing references to all of the control maps in all regi
 
 - :ref:`Array<class_Array>`\[``Image``\] **get_height_maps**\ (\ )
 
-An Array\ ``Image`` containing references to all of the height maps in all regions. See :ref:`Terrain3DRegion.height_map<class_Terrain3DRegion_property_height_map>`.
+An Array\[Image\] containing references to all of the height maps in all regions. See :ref:`Terrain3DRegion.height_map<class_Terrain3DRegion_property_height_map>`.
 
 .. rst-class:: classref-item-separator
 

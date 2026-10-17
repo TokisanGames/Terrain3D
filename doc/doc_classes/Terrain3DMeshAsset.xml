@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Terrain3DMeshAsset" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+<class name="Terrain3DMeshAsset" inherits="Terrain3DAssetResource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
@@ -150,7 +150,7 @@
 		<member name="material_override" type="Material" setter="set_material_override" getter="get_material_override">
 			This sets [code skip-lint]GeometryInstance3D.material_override[/code], which replaces the rendered mesh material with this one.
 		</member>
-		<member name="name" type="String" setter="set_name" getter="get_name" default="&quot;New Mesh&quot;">
+		<member name="name" type="String" setter="set_asset_name" getter="get_asset_name" default="&quot;New Mesh&quot;">
 			The user specified name for this asset.
 		</member>
 		<member name="scene_file" type="PackedScene" setter="set_scene_file" getter="get_scene_file">
@@ -168,8 +168,11 @@
 	</members>
 	<signals>
 		<signal name="id_changed">
+			<param index="0" name="type" type="int" />
+			<param index="1" name="old_id" type="int" />
+			<param index="2" name="new_id" type="int" />
 			<description>
-				Emitted when [member id] is changed.
+				Emitted when [member id] is changed with the AssetType (TYPE_TEXTURE or TYPE_MESH), and old and new IDs.
 			</description>
 		</signal>
 		<signal name="instance_count_changed">
@@ -178,11 +181,13 @@
 			</description>
 		</signal>
 		<signal name="instancer_setting_changed">
+			<param index="0" name="id" type="int" />
 			<description>
 				Emitted when instancer specific settings are changed on this mesh asset, such as [member cast_shadows], and triggers an instancer rebuild.
 			</description>
 		</signal>
 		<signal name="setting_changed">
+			<param index="0" name="id" type="int" />
 			<description>
 				Emitted when settings are changed, other than those tracked by other signals.
 			</description>

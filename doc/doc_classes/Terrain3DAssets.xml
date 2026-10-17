@@ -158,6 +158,14 @@
 		</member>
 	</members>
 	<signals>
+		<signal name="ids_swapped">
+			<param index="0" name="type" type="int" />
+			<param index="1" name="old_id" type="int" />
+			<param index="2" name="new_id" type="int" />
+			<description>
+				Emitted when asset IDs are swapped with the AssetType (TYPE_TEXTURE or TYPE_MESH), and old and new IDs.
+			</description>
+		</signal>
 		<signal name="meshes_changed">
 			<description>
 				Emitted when the mesh list is updated, which happens as a result of a [Terrain3DMeshAsset] changing.

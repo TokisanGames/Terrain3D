@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<class name="Terrain3DTextureAsset" inherits="Resource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
+<class name="Terrain3DTextureAsset" inherits="Terrain3DAssetResource" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/godotengine/godot/master/doc/class.xsd">
 	<brief_description>
 	</brief_description>
 	<description>
@@ -69,7 +69,7 @@
 		<member name="id" type="int" setter="set_id" getter="get_id" default="0">
 			The user settable ID of the texture, between 0 and 31. You can change this to reorder textures in the list, however it won't change the ID painted on the terrain.
 		</member>
-		<member name="name" type="String" setter="set_name" getter="get_name" default="&quot;New Texture&quot;">
+		<member name="name" type="String" setter="set_asset_name" getter="get_asset_name" default="&quot;New Texture&quot;">
 			A user specified name for this texture set.
 		</member>
 		<member name="normal_depth" type="float" setter="set_normal_depth" getter="get_normal_depth" default="1.0">
@@ -92,8 +92,11 @@
 			</description>
 		</signal>
 		<signal name="id_changed">
+			<param index="0" name="type" type="int" />
+			<param index="1" name="old_id" type="int" />
+			<param index="2" name="new_id" type="int" />
 			<description>
-				Emitted when [member id] is changed.
+				Emitted when [member id] is changed with the AssetType (TYPE_TEXTURE or TYPE_MESH), and old and new IDs.
 			</description>
 		</signal>
 		<signal name="setting_changed">

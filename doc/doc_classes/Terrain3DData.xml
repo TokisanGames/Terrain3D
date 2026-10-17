@@ -633,13 +633,13 @@
 	</methods>
 	<members>
 		<member name="color_maps" type="Image[]" setter="" getter="get_color_maps" default="[]">
-			An Array[Image] containing references to all of the color maps in all regions. See [member Terrain3DRegion.color_map].
+			An Array[lb]Image[rb] containing references to all of the color maps in all regions. See [member Terrain3DRegion.color_map].
 		</member>
 		<member name="control_maps" type="Image[]" setter="" getter="get_control_maps" default="[]">
-			An Array[Image] containing references to all of the control maps in all regions. See [member Terrain3DRegion.control_map].
+			An Array[lb]Image[rb] containing references to all of the control maps in all regions. See [member Terrain3DRegion.control_map].
 		</member>
 		<member name="height_maps" type="Image[]" setter="" getter="get_height_maps" default="[]">
-			An Array[Image] containing references to all of the height maps in all regions. See [member Terrain3DRegion.height_map].
+			An Array[lb]Image[rb] containing references to all of the height maps in all regions. See [member Terrain3DRegion.height_map].
 		</member>
 		<member name="region_locations" type="Vector2i[]" setter="set_region_locations" getter="get_region_locations" default="[]">
 			The array of all active region locations; those not marked for deletion.

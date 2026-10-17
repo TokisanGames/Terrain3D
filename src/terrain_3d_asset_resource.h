@@ -21,8 +21,8 @@ public:
 
 	virtual void initialize() = 0;
 	virtual void clear() = 0;
-	virtual void set_name(const String &p_name) = 0;
-	virtual String get_name() const = 0;
+	virtual void set_asset_name(const String &p_name) = 0;
+	virtual String get_asset_name() const = 0;
 	virtual void set_id(const int p_id) = 0;
 	virtual int get_id() const = 0;
 

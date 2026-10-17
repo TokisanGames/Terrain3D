@@ -108,7 +108,7 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 			for (int j = filled_id + 1; j < array_size; j++) {
 				if (!list[j]) {
 					LOG(ERROR, res->get_class(), " ID ", id, " already exists. Setting '",
-							res->get_name(), "' to ID ", j,
+							res->get_asset_name(), "' to ID ", j,
 							". Textures/Meshes on the ground may be wrong. Review Asset list to ensure each have unique IDs.");
 					res->set_id(j);
 					list[j] = res;
@@ -127,7 +127,7 @@ void Terrain3DAssets::_set_asset_list(const AssetType p_type, const TypedArray<T
 		for (int i = 0; i < list.size(); i++) {
 			Ref<Terrain3DAssetResource> res = list[i];
 			int id = res.is_valid() ? res->get_id() : -1;
-			String name = res.is_valid() ? res->get_name() : "";
+			String name = res.is_valid() ? res->get_asset_name() : "";
 			LOG(DEBUG, "Asset ", i, ": ", name, ", ", res, ", stored ID: ", id);
 		}
 	}
@@ -216,7 +216,7 @@ void Terrain3DAssets::_update_texture_files() {
 		if (albedo_tex.is_valid()) {
 			Vector2i tex_size = albedo_tex->get_size();
 			Ref<Image> img = albedo_tex->get_image();
-			Image::Format format = img->get_format();
+			Image::Format format = img->get_format(); // DEPRECATED - In 4.7+ we can query albedo_tex->get_format() and albedo_tex->has_mipmaps()
 			bool mipmaps = img->has_mipmaps();
 
 			// If this is the first valid texture, set expected size and format for the arrays
@@ -244,7 +244,7 @@ void Terrain3DAssets::_update_texture_files() {
 		if (normal_tex.is_valid()) {
 			Vector2i tex_size = normal_tex->get_size();
 			Ref<Image> img = normal_tex->get_image();
-			Image::Format format = img->get_format();
+			Image::Format format = img->get_format(); // DEPRECATED - In 4.7+ we can query normal_tex->get_format() and normal_tex->has_mipmaps()
 			bool mipmaps = img->has_mipmaps();
 
 			// If this is the first valid texture, set expected size and format for the arrays

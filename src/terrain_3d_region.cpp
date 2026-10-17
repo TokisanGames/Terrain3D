@@ -432,32 +432,6 @@ Dictionary Terrain3DRegion::get_data() const {
 	return dict;
 }
 
-Ref<Terrain3DRegion> Terrain3DRegion::duplicate(const bool p_deep) {
-	Ref<Terrain3DRegion> region;
-	region.instantiate();
-	if (!p_deep) {
-		region->set_data(get_data());
-	} else {
-		Dictionary dict;
-		// Native type copies
-		dict["version"] = _version;
-		dict["region_size"] = _region_size;
-		dict["vertex_spacing"] = _vertex_spacing;
-		dict["height_range"] = _height_range;
-		dict["modified"] = _modified;
-		dict["deleted"] = _deleted;
-		dict["location"] = _location;
-		// Resource duplicates
-		dict["height_map"] = _height_map->duplicate();
-		dict["control_map"] = _control_map->duplicate();
-		dict["color_map"] = _color_map.is_valid() ? _color_map->duplicate() : Ref<Resource>();
-		dict["compressed_color_map"] = _compressed_color_map.is_valid() ? _compressed_color_map->duplicate() : Ref<Resource>();
-		dict["instances"] = _instances.duplicate(true);
-		region->set_data(dict);
-	}
-	return region;
-}
-
 void Terrain3DRegion::dump(const bool verbose) const {
 	LOG(MESG, "Region: ", _location, ", version: ", vformat("%.2f", _version), ", size: ", _region_size,
 			", spacing: ", vformat("%.1f", _vertex_spacing), ", range: ", vformat("%.2v", _height_range),
@@ -559,7 +533,6 @@ void Terrain3DRegion::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_data", "data"), &Terrain3DRegion::set_data);
 	ClassDB::bind_method(D_METHOD("get_data"), &Terrain3DRegion::get_data);
-	ClassDB::bind_method(D_METHOD("duplicate", "deep"), &Terrain3DRegion::duplicate, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("dump", "verbose"), &Terrain3DRegion::dump, DEFVAL(false));
 
 	int ro_flags = PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY;
@@ -573,9 +546,10 @@ void Terrain3DRegion::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "compressed_color_map", PROPERTY_HINT_RESOURCE_TYPE, "Image", ro_flags), "set_compressed_color_map", "get_compressed_color_map");
 	ADD_PROPERTY(PropertyInfo(Variant::DICTIONARY, "instances", PROPERTY_HINT_NONE, "", ro_flags), "set_instances", "get_instances");
 
-	// Double-clicking a region .res file shows what's on disk, the defaults, not in memory. So these are hidden
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "edited", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_edited", "is_edited");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "deleted", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_deleted", "is_deleted");
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_modified", "is_modified");
-	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "location", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NONE), "set_location", "get_location");
+	// Double-clicking a region .res file shows what's on disk not in memory. These will be defaults so are hidden from the inspector.
+	// These are STORAGE instead of NONE _only_ because Godot 4.8 broke overriding Resource::duplicate()
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "edited", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_edited", "is_edited");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "deleted", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_deleted", "is_deleted");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "modified", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_modified", "is_modified");
+	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "location", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_STORAGE), "set_location", "get_location");
 }

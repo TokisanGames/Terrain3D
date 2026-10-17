@@ -174,7 +174,7 @@ void Terrain3DMeshAsset::clear() {
 	_thumbnail.unref();
 }
 
-void Terrain3DMeshAsset::set_name(const String &p_name) {
+void Terrain3DMeshAsset::set_asset_name(const String &p_name) {
 	if (p_name.length() > 96) {
 		LOG(WARN, "Name too long, truncating to 96 characters");
 	}
@@ -596,8 +596,8 @@ void Terrain3DMeshAsset::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("instance_count_changed"));
 
 	ClassDB::bind_method(D_METHOD("clear"), &Terrain3DMeshAsset::clear);
-	ClassDB::bind_method(D_METHOD("set_name", "name"), &Terrain3DMeshAsset::set_name);
-	ClassDB::bind_method(D_METHOD("get_name"), &Terrain3DMeshAsset::get_name);
+	ClassDB::bind_method(D_METHOD("set_asset_name", "name"), &Terrain3DMeshAsset::set_asset_name);
+	ClassDB::bind_method(D_METHOD("get_asset_name"), &Terrain3DMeshAsset::get_asset_name);
 	ClassDB::bind_method(D_METHOD("set_id", "id"), &Terrain3DMeshAsset::set_id);
 	ClassDB::bind_method(D_METHOD("get_id"), &Terrain3DMeshAsset::get_id);
 	ClassDB::bind_method(D_METHOD("set_highlighted", "enabled"), &Terrain3DMeshAsset::set_highlighted);
@@ -666,7 +666,7 @@ void Terrain3DMeshAsset::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("get_instance_count"), &Terrain3DMeshAsset::get_instance_count);
 
-	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_name", "get_name");
+	ADD_PROPERTY(PropertyInfo(Variant::STRING, "name", PROPERTY_HINT_NONE), "set_asset_name", "get_asset_name");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "id", PROPERTY_HINT_NONE), "set_id", "get_id");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled", PROPERTY_HINT_NONE), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "scene_file", PROPERTY_HINT_RESOURCE_TYPE, "PackedScene"), "set_scene_file", "get_scene_file");
