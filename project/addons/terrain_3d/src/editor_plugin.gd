@@ -8,7 +8,6 @@ extends EditorPlugin
 const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const ExportPlugin: Script = preload("res://addons/terrain_3d/src/export_plugin.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
-const ASSET_DOCK_45: String = "res://addons/terrain_3d/src/asset_dock_45.tscn"
 
 # Editor Plugin
 var debug: int = 0 # Set in _edit()
@@ -74,11 +73,7 @@ func _enter_tree() -> void:
 
 	scene_changed.connect(_on_scene_changed)
 
-	# Load Godot 4.6+ asset dock or pre-4.6
-	if Engine.get_version_info().hex >= 0x040600:
-		asset_dock = load(ASSET_DOCK).instantiate()
-	else:
-		asset_dock = load(ASSET_DOCK_45).instantiate()
+	asset_dock = load(ASSET_DOCK).instantiate()
 	asset_dock.initialize(self)
 	export_plugin.plugin = self
 	add_export_plugin(export_plugin)
