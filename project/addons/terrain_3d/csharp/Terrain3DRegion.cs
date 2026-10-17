@@ -292,10 +292,6 @@ public partial class Terrain3DRegion : Resource
 		/// </summary>
 		public new static readonly StringName GetData = "get_data";
 		/// <summary>
-		/// Cached name for the 'duplicate' member.
-		/// </summary>
-		public new static readonly StringName Duplicate = "duplicate";
-		/// <summary>
 		/// Cached name for the 'dump' member.
 		/// </summary>
 		public new static readonly StringName Dump = "dump";
@@ -357,9 +353,6 @@ public partial class Terrain3DRegion : Resource
 
 	public new Godot.Collections.Dictionary GetData() => 
 		Call(GDExtensionMethodName.GetData, []).As<Godot.Collections.Dictionary>();
-
-	public new Terrain3DRegion Duplicate(bool deep = false) => 
-		Terrain3DRegion.Bind(Call(GDExtensionMethodName.Duplicate, [deep]).As<Resource>());
 
 	public new void Dump(bool verbose = false) => 
 		Call(GDExtensionMethodName.Dump, [verbose]);

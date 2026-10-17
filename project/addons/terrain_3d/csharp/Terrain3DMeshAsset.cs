@@ -9,7 +9,7 @@ using Godot.Collections;
 namespace TokisanGames;
 
 [Tool]
-public partial class Terrain3DMeshAsset : Resource
+public partial class Terrain3DMeshAsset : Terrain3DAssetResource
 {
 
 	private new static readonly StringName NativeName = new StringName("Terrain3DMeshAsset");
@@ -74,7 +74,7 @@ public partial class Terrain3DMeshAsset : Resource
 		Max = 2,
 	}
 
-	public new class GDExtensionSignalName : Resource.SignalName
+	public new class GDExtensionSignalName : Terrain3DAssetResource.GDExtensionSignalName
 	{
 		/// <summary>
 		/// Cached name for the 'id_changed' member.
@@ -94,7 +94,7 @@ public partial class Terrain3DMeshAsset : Resource
 		public new static readonly StringName InstanceCountChanged = "instance_count_changed";
 	}
 
-	public new delegate void IdChangedSignalHandler();
+	public new delegate void IdChangedSignalHandler(long type, long oldId, long newId);
 	private IdChangedSignalHandler _idChangedSignal;
 	private Callable _idChangedSignalCallable;
 	public event IdChangedSignalHandler IdChangedSignal
@@ -103,8 +103,8 @@ public partial class Terrain3DMeshAsset : Resource
 		{
 			if (_idChangedSignal is null)
 			{
-				_idChangedSignalCallable = Callable.From(() => 
-					_idChangedSignal?.Invoke());
+				_idChangedSignalCallable = Callable.From((Variant type, Variant oldId, Variant newId) => 
+					_idChangedSignal?.Invoke(type.As<long>(), oldId.As<long>(), newId.As<long>()));
 				Connect(GDExtensionSignalName.IdChanged, _idChangedSignalCallable);
 			}
 			_idChangedSignal += value;
@@ -118,7 +118,7 @@ public partial class Terrain3DMeshAsset : Resource
 		}
 	}
 
-	public new delegate void SettingChangedSignalHandler();
+	public new delegate void SettingChangedSignalHandler(long id);
 	private SettingChangedSignalHandler _settingChangedSignal;
 	private Callable _settingChangedSignalCallable;
 	public event SettingChangedSignalHandler SettingChangedSignal
@@ -127,8 +127,8 @@ public partial class Terrain3DMeshAsset : Resource
 		{
 			if (_settingChangedSignal is null)
 			{
-				_settingChangedSignalCallable = Callable.From(() => 
-					_settingChangedSignal?.Invoke());
+				_settingChangedSignalCallable = Callable.From((Variant id) => 
+					_settingChangedSignal?.Invoke(id.As<long>()));
 				Connect(GDExtensionSignalName.SettingChanged, _settingChangedSignalCallable);
 			}
 			_settingChangedSignal += value;
@@ -142,7 +142,7 @@ public partial class Terrain3DMeshAsset : Resource
 		}
 	}
 
-	public new delegate void InstancerSettingChangedSignalHandler();
+	public new delegate void InstancerSettingChangedSignalHandler(long id);
 	private InstancerSettingChangedSignalHandler _instancerSettingChangedSignal;
 	private Callable _instancerSettingChangedSignalCallable;
 	public event InstancerSettingChangedSignalHandler InstancerSettingChangedSignal
@@ -151,8 +151,8 @@ public partial class Terrain3DMeshAsset : Resource
 		{
 			if (_instancerSettingChangedSignal is null)
 			{
-				_instancerSettingChangedSignalCallable = Callable.From(() => 
-					_instancerSettingChangedSignal?.Invoke());
+				_instancerSettingChangedSignalCallable = Callable.From((Variant id) => 
+					_instancerSettingChangedSignal?.Invoke(id.As<long>()));
 				Connect(GDExtensionSignalName.InstancerSettingChanged, _instancerSettingChangedSignalCallable);
 			}
 			_instancerSettingChangedSignal += value;
@@ -190,7 +190,7 @@ public partial class Terrain3DMeshAsset : Resource
 		}
 	}
 
-	public new class GDExtensionPropertyName : Resource.PropertyName
+	public new class GDExtensionPropertyName : Terrain3DAssetResource.GDExtensionPropertyName
 	{
 		/// <summary>
 		/// Cached name for the 'name' member.
@@ -473,7 +473,7 @@ public partial class Terrain3DMeshAsset : Resource
 		set => Set(GDExtensionPropertyName.FadeMargin, value);
 	}
 
-	public new class GDExtensionMethodName : Resource.MethodName
+	public new class GDExtensionMethodName : Terrain3DAssetResource.GDExtensionMethodName
 	{
 		/// <summary>
 		/// Cached name for the 'clear' member.

@@ -76,6 +76,10 @@ public partial class Terrain3DAssets : Resource
 	public new class GDExtensionSignalName : Resource.SignalName
 	{
 		/// <summary>
+		/// Cached name for the 'ids_swapped' member.
+		/// </summary>
+		public new static readonly StringName IdsSwapped = "ids_swapped";
+		/// <summary>
 		/// Cached name for the 'meshes_changed' member.
 		/// </summary>
 		public new static readonly StringName MeshesChanged = "meshes_changed";
@@ -83,6 +87,30 @@ public partial class Terrain3DAssets : Resource
 		/// Cached name for the 'textures_changed' member.
 		/// </summary>
 		public new static readonly StringName TexturesChanged = "textures_changed";
+	}
+
+	public new delegate void IdsSwappedSignalHandler(long type, long oldId, long newId);
+	private IdsSwappedSignalHandler _idsSwappedSignal;
+	private Callable _idsSwappedSignalCallable;
+	public event IdsSwappedSignalHandler IdsSwappedSignal
+	{
+		add
+		{
+			if (_idsSwappedSignal is null)
+			{
+				_idsSwappedSignalCallable = Callable.From((Variant type, Variant oldId, Variant newId) => 
+					_idsSwappedSignal?.Invoke(type.As<long>(), oldId.As<long>(), newId.As<long>()));
+				Connect(GDExtensionSignalName.IdsSwapped, _idsSwappedSignalCallable);
+			}
+			_idsSwappedSignal += value;
+		}
+		remove
+		{
+			_idsSwappedSignal -= value;
+			if (_idsSwappedSignal is not null) return;
+			Disconnect(GDExtensionSignalName.IdsSwapped, _idsSwappedSignalCallable);
+			_idsSwappedSignalCallable = default;
+		}
 	}
 
 	public new delegate void MeshesChangedSignalHandler();

@@ -9,7 +9,7 @@ using Godot.Collections;
 namespace TokisanGames;
 
 [Tool]
-public partial class Terrain3DTextureAsset : Resource
+public partial class Terrain3DTextureAsset : Terrain3DAssetResource
 {
 
 	private new static readonly StringName NativeName = new StringName("Terrain3DTextureAsset");
@@ -67,7 +67,7 @@ public partial class Terrain3DTextureAsset : Resource
 	/// <returns>The wrapper instance linked to the underlying GDExtension "Terrain3DTextureAsset" type.</returns>
 	public new static Terrain3DTextureAsset Load(string path) => Bind(ResourceLoader.Load(path));
 
-	public new class GDExtensionSignalName : Resource.SignalName
+	public new class GDExtensionSignalName : Terrain3DAssetResource.GDExtensionSignalName
 	{
 		/// <summary>
 		/// Cached name for the 'id_changed' member.
@@ -83,7 +83,7 @@ public partial class Terrain3DTextureAsset : Resource
 		public new static readonly StringName SettingChanged = "setting_changed";
 	}
 
-	public new delegate void IdChangedSignalHandler();
+	public new delegate void IdChangedSignalHandler(long type, long oldId, long newId);
 	private IdChangedSignalHandler _idChangedSignal;
 	private Callable _idChangedSignalCallable;
 	public event IdChangedSignalHandler IdChangedSignal
@@ -92,8 +92,8 @@ public partial class Terrain3DTextureAsset : Resource
 		{
 			if (_idChangedSignal is null)
 			{
-				_idChangedSignalCallable = Callable.From(() => 
-					_idChangedSignal?.Invoke());
+				_idChangedSignalCallable = Callable.From((Variant type, Variant oldId, Variant newId) => 
+					_idChangedSignal?.Invoke(type.As<long>(), oldId.As<long>(), newId.As<long>()));
 				Connect(GDExtensionSignalName.IdChanged, _idChangedSignalCallable);
 			}
 			_idChangedSignal += value;
@@ -155,7 +155,7 @@ public partial class Terrain3DTextureAsset : Resource
 		}
 	}
 
-	public new class GDExtensionPropertyName : Resource.PropertyName
+	public new class GDExtensionPropertyName : Terrain3DAssetResource.GDExtensionPropertyName
 	{
 		/// <summary>
 		/// Cached name for the 'name' member.
@@ -299,7 +299,7 @@ public partial class Terrain3DTextureAsset : Resource
 		set => Set(GDExtensionPropertyName.DetilingShift, value);
 	}
 
-	public new class GDExtensionMethodName : Resource.MethodName
+	public new class GDExtensionMethodName : Terrain3DAssetResource.GDExtensionMethodName
 	{
 		/// <summary>
 		/// Cached name for the 'clear' member.

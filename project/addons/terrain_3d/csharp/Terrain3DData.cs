@@ -316,6 +316,18 @@ public partial class Terrain3DData : GodotObject
 		/// </summary>
 		public new static readonly StringName ChangeRegionSize = "change_region_size";
 		/// <summary>
+		/// Cached name for the 'world_to_vgrid' member.
+		/// </summary>
+		public new static readonly StringName WorldToVgrid = "world_to_vgrid";
+		/// <summary>
+		/// Cached name for the 'vgrid_to_pixelv' member.
+		/// </summary>
+		public new static readonly StringName VgridToPixelv = "vgrid_to_pixelv";
+		/// <summary>
+		/// Cached name for the 'world_to_pixelv' member.
+		/// </summary>
+		public new static readonly StringName WorldToPixelv = "world_to_pixelv";
+		/// <summary>
 		/// Cached name for the 'get_region_location' member.
 		/// </summary>
 		public new static readonly StringName GetRegionLocation = "get_region_location";
@@ -589,6 +601,15 @@ public partial class Terrain3DData : GodotObject
 
 	public new void ChangeRegionSize(long regionSize) => 
 		Call(GDExtensionMethodName.ChangeRegionSize, [regionSize]);
+
+	public new Vector2I WorldToVgrid(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.WorldToVgrid, [globalPosition]).As<Vector2I>();
+
+	public new Vector2I VgridToPixelv(Vector2I vgrid) => 
+		Call(GDExtensionMethodName.VgridToPixelv, [vgrid]).As<Vector2I>();
+
+	public new Vector2I WorldToPixelv(Vector3 globalPosition) => 
+		Call(GDExtensionMethodName.WorldToPixelv, [globalPosition]).As<Vector2I>();
 
 	public new Vector2I GetRegionLocation(Vector3 globalPosition) => 
 		Call(GDExtensionMethodName.GetRegionLocation, [globalPosition]).As<Vector2I>();
