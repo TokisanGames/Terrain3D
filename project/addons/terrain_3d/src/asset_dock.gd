@@ -328,7 +328,10 @@ func update_assets() -> void:
 			plugin.terrain.assets.ids_swapped.connect(mesh_list.set_selected_after_swap)
 		if not plugin.terrain.assets.ids_swapped.is_connected(texture_list.set_selected_after_swap):
 			plugin.terrain.assets.ids_swapped.connect(texture_list.set_selected_after_swap)
-	current_list.update_asset_list()
+		if not plugin.terrain.assets.thumbnail_updated.is_connected(mesh_list._on_thumbnail_updated):
+			plugin.terrain.assets.thumbnail_updated.connect(mesh_list._on_thumbnail_updated)
+	mesh_list.update_asset_list()
+	texture_list.update_asset_list()
 
 
 ## Manage Editor Settings
