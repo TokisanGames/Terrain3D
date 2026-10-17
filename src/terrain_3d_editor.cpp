@@ -899,31 +899,32 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	_brush_data["gradient_points"] = p_data.get("gradient_points", PackedVector3Array());
 
 	TypedArray<int> texture_asset_ids = p_data.get("texture_asset_ids", TypedArray<int>());
-	const int max_texture_asset_id = _terrain ? _terrain->get_assets()->get_texture_count() : Terrain3DAssets::MAX_TEXTURES - 1;
+	const Ref<Terrain3DAssets> assets = _terrain ? _terrain->get_assets() : Ref<Terrain3DAssets>();
+	const int texture_count = assets.is_valid() ? assets->get_texture_count() : Terrain3DAssets::MAX_TEXTURES;
 	TypedArray<int> valid_texture_ids;
 	for (const int id : texture_asset_ids) {
-		if (id < max_texture_asset_id) {
+		if (id >= 0 && id < texture_count) {
 			valid_texture_ids.push_back(id);
 		} else {
-			LOG(ERROR, "Brush data contains invalid texture asset id: ", id, ". Max asset id is: ", max_texture_asset_id);
+			LOG(ERROR, "Brush data contains invalid texture asset id: ", id, ". Max asset id is: ", texture_count - 1);
 		}
 	}
-	if (valid_texture_ids.is_empty()) {
+	if (valid_texture_ids.is_empty() && texture_count > 0) {
 		valid_texture_ids.push_back(0);
 	}
 	_brush_data["texture_asset_ids"] = valid_texture_ids;
 
 	TypedArray<int> mesh_asset_ids = p_data.get("mesh_asset_ids", TypedArray<int>());
-	const int max_mesh_asset_id = _terrain ? _terrain->get_assets()->get_mesh_count() : Terrain3DAssets::MAX_MESHES - 1;
+	const int mesh_count = assets.is_valid() ? assets->get_mesh_count() : Terrain3DAssets::MAX_MESHES;
 	TypedArray<int> valid_mesh_ids;
 	for (const int id : mesh_asset_ids) {
-		if (id < max_mesh_asset_id) {
+		if (id >= 0 && id < mesh_count) {
 			valid_mesh_ids.push_back(id);
 		} else {
-			LOG(ERROR, "Brush data contains invalid mesh asset id: ", id, ". Max asset id is: ", max_mesh_asset_id);
+			LOG(ERROR, "Brush data contains invalid mesh asset id: ", id, ". Max asset id is: ", mesh_count - 1);
 		}
 	}
-	if (valid_mesh_ids.is_empty()) {
+	if (valid_mesh_ids.is_empty() && mesh_count > 0) {
 		valid_mesh_ids.push_back(0);
 	}
 	_brush_data["mesh_asset_ids"] = valid_mesh_ids;

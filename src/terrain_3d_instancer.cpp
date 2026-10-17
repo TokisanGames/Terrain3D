@@ -754,10 +754,11 @@ void Terrain3DInstancer::remove_instances(const Vector3 &p_global_position, cons
 
 	bool modifier_shift = p_params.get("modifier_shift", false);
 	if (modifier_shift) {
-		mesh_ids.resize(mesh_count);
+		Array all_mesh_ids;
 		for (int i = 0; i < mesh_count; i++) {
-			mesh_ids[i] = i;
+			all_mesh_ids.push_back(i);
 		}
+		mesh_ids = all_mesh_ids;
 	}
 
 	if (mesh_ids.is_empty()) {

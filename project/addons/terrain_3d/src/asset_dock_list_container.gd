@@ -145,6 +145,9 @@ func _on_resource_hovered(p_id: int):
 
 
 func set_selected_after_swap(p_type: Terrain3DAssets.AssetType, p_old_id: int, p_new_id: int) -> void:
+	# Both lists are connected to Terrain3DAssets.ids_swapped, which fires for either type
+	if p_type != type:
+		return
 	EditorInterface.mark_scene_as_unsaved()
 	selected_list = [ p_new_id ]
 	update_selection()
@@ -181,7 +184,7 @@ func add_entry_to_selection(p_entry_idx_array: Array, p_clear: bool) -> void:
 		selected_list.clear()
 	for entry_idx: int in p_entry_idx_array:
 		if not _entry_idx_to_asset_id_map.has(entry_idx):
-			push_error("%s tried to select entry_idx %s, was not present in the map")
+			push_error("%s tried to select entry_idx %s, was not present in the map" % [name, entry_idx])
 			continue
 		var asset_id: int = _entry_idx_to_asset_id_map[entry_idx]
 		if selected_list.has(asset_id):
@@ -258,9 +261,9 @@ func _on_enable_clicked(p_entry: Terrain3DListEntry) -> void:
 func clear_resources(p_asset_ids: Array[int]) -> void:
 	var asset_dock: Control = get_parent().get_parent().get_parent()
 	if type == Terrain3DAssets.TYPE_TEXTURE:
-		asset_dock.confirm_dialog.dialog_text = "Are you sure you want to clear %s texture%s?" % [p_asset_ids.size(), "" if p_asset_ids.is_empty() else "s"]
+		asset_dock.confirm_dialog.dialog_text = "Are you sure you want to clear %s texture%s?" % [p_asset_ids.size(), "" if p_asset_ids.size() == 1 else "s"]
 	else:
-		asset_dock.confirm_dialog.dialog_text = "Are you sure you want to clear %s mesh%s and delete all instances?" % [p_asset_ids.size(), "" if p_asset_ids.is_empty() else "es"]
+		asset_dock.confirm_dialog.dialog_text = "Are you sure you want to clear %s mesh%s and delete all instances?" % [p_asset_ids.size(), "" if p_asset_ids.size() == 1 else "es"]
 	asset_dock.confirm_dialog.popup_centered()
 	await asset_dock.confirmation_closed
 	if not asset_dock._confirmed:

@@ -374,6 +374,8 @@ func update_decal() -> void:
 	
 	# Only show decal if in viewport or toolbars
 	var main: Control = plugin.get_editor_viewport_container()
+	if not main:
+		return
 	var main_rect := Rect2(main.position, main.size)
 	main_rect.size.y += tool_settings.size.y
 	if not ( main_rect.has_point(plugin.viewport.get_mouse_position()) && plugin.mouse_in_main ):
