@@ -902,30 +902,34 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 	const Ref<Terrain3DAssets> assets = _terrain ? _terrain->get_assets() : Ref<Terrain3DAssets>();
 	const int texture_count = assets.is_valid() ? assets->get_texture_count() : Terrain3DAssets::MAX_TEXTURES;
 	TypedArray<int> valid_texture_ids;
-	for (const int id : texture_asset_ids) {
-		if (id >= 0 && id < texture_count) {
-			valid_texture_ids.push_back(id);
-		} else {
-			LOG(ERROR, "Brush data contains invalid texture asset id: ", id, ". Max asset id is: ", texture_count - 1);
+	if (texture_count > 0) {
+		for (const int id : texture_asset_ids) {
+			if (id >= 0 && id < texture_count) {
+				valid_texture_ids.push_back(id);
+			} else {
+				LOG(ERROR, "Brush data contains invalid texture asset id: ", id, ". Max asset id is: ", texture_count - 1);
+			}
 		}
-	}
-	if (valid_texture_ids.is_empty() && texture_count > 0) {
-		valid_texture_ids.push_back(0);
+		if (valid_texture_ids.is_empty()) {
+			valid_texture_ids.push_back(0);
+		}
 	}
 	_brush_data["texture_asset_ids"] = valid_texture_ids;
 
 	TypedArray<int> mesh_asset_ids = p_data.get("mesh_asset_ids", TypedArray<int>());
 	const int mesh_count = assets.is_valid() ? assets->get_mesh_count() : Terrain3DAssets::MAX_MESHES;
 	TypedArray<int> valid_mesh_ids;
-	for (const int id : mesh_asset_ids) {
-		if (id >= 0 && id < mesh_count) {
-			valid_mesh_ids.push_back(id);
-		} else {
-			LOG(ERROR, "Brush data contains invalid mesh asset id: ", id, ". Max asset id is: ", mesh_count - 1);
+	if (mesh_count > 0) {
+		for (const int id : mesh_asset_ids) {
+			if (id >= 0 && id < mesh_count) {
+				valid_mesh_ids.push_back(id);
+			} else {
+				LOG(ERROR, "Brush data contains invalid mesh asset id: ", id, ". Max asset id is: ", mesh_count - 1);
+			}
 		}
-	}
-	if (valid_mesh_ids.is_empty() && mesh_count > 0) {
-		valid_mesh_ids.push_back(0);
+		if (valid_mesh_ids.is_empty()) {
+			valid_mesh_ids.push_back(0);
+		}
 	}
 	_brush_data["mesh_asset_ids"] = valid_mesh_ids;
 
