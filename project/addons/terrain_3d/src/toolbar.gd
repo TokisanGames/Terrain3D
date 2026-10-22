@@ -11,6 +11,7 @@ const ICON_HEIGHT_SUB: String = "res://addons/terrain_3d/icons/height_sub.svg"
 const ICON_HEIGHT_FLAT: String = "res://addons/terrain_3d/icons/height_flat.svg"
 const ICON_HEIGHT_SLOPE: String = "res://addons/terrain_3d/icons/height_slope.svg"
 const ICON_HEIGHT_SMOOTH: String = "res://addons/terrain_3d/icons/height_smooth.svg"
+const ICON_HEIGHT_ERODE: String = "res://addons/terrain_3d/icons/height_mul.svg"
 const ICON_PAINT_TEXTURE: String = "res://addons/terrain_3d/icons/texture_paint.svg"
 const ICON_SPRAY_TEXTURE: String = "res://addons/terrain_3d/icons/texture_spray.svg"
 const ICON_COLOR: String = "res://addons/terrain_3d/icons/color_paint.svg"
@@ -53,7 +54,7 @@ func _ready() -> void:
 	# is already in use; a maintainer/community keybind + real icon are a
 	# natural follow-up, not required for the feature to work.
 	add_tool_button({ "tool":Terrain3DEditor.SCULPT,
-		"add_text":"Erode", "add_op":Terrain3DEditor.ERODE, "add_icon":ICON_HEIGHT_SMOOTH })
+		"add_text":"Erode", "add_op":Terrain3DEditor.ERODE, "add_icon":ICON_HEIGHT_ERODE })
 
 	add_tool_button({ "tool":Terrain3DEditor.HEIGHT,
 		"add_text":"Height (H)", "add_op":Terrain3DEditor.ADD, "add_icon":ICON_HEIGHT_FLAT,
