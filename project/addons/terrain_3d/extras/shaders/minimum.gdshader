@@ -184,7 +184,7 @@ void fragment() {
 	// Lookup offsets, ID and blend weight
 	const vec3 offsets = vec3(0, 1, 2);
 	vec2 index_id = floor(uv);
-	vec2 weight = fract(uv);
+	vec2 weight = min(fract(uv), 1.0 - 1e-7);
 	vec2 invert = 1.0 - weight;
 	vec4 weights = vec4(
 		invert.x * weight.y, // 0

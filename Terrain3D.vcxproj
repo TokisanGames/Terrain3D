@@ -219,6 +219,8 @@
       <SubType>
       </SubType>
     </None>
+    <None Include="project\addons\terrain_3d\extras\particle_example\grass.gdshader" />
+    <None Include="project\addons\terrain_3d\extras\particle_example\particles.gdshader" />
     <None Include="project\addons\terrain_3d\extras\shaders\lightweight.gdshader" />
     <None Include="project\addons\terrain_3d\extras\shaders\minimum.gdshader" />
     <None Include="project\addons\terrain_3d\extras\shaders\ocean_shader.gdshader" />
