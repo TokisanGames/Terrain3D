@@ -37,7 +37,7 @@ float get_region_blend(vec2 uv2) {
 	float c = check_region(uv2 + offset.yx);
 	float d = check_region(uv2 + offset.xx);
 	vec2 blend_factor = vec2(2.0 + 126.0 * (1.0 - region_blend));
-	vec2 f = fract(uv2);
+	vec2 f = clamp(fract(uv2), 1e-6, 1.0 - 1e-6);
 	vec2 w = 1.0 / (1.0 + exp(blend_factor * log((1.0 - f) / f)));
 	float blend = mix(mix(d, c, w.x), mix(a, b, w.x), w.y);
 	return (1.0 - blend) * 2.0;

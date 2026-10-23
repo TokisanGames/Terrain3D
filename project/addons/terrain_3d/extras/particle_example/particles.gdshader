@@ -1,12 +1,20 @@
 // Copyright © 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors.
 
+shader_type particles;
+render_mode disable_velocity, disable_force;
+
 // This is an example particle shader designed to procedurally place
 // particles like grass, small rocks, and other ground effects, on the terrain
 // surface by reading the Terrain3D data maps. It works in tandem with the
 // provided GDScript.
 
-shader_type particles;
-render_mode disable_velocity, disable_force;
+
+// Defined Constants
+#define MAX_REGIONS 1024 // Match Terrain3DMaterial.max_regions. Set to 64-256 for mobile
+
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+	#define fma(a, b, c) ((a) * (b) + (c))
+#endif
 
 group_uniforms options;
 uniform sampler2D main_noise;
@@ -53,7 +61,7 @@ uniform float _region_size = 1024.0;
 uniform float _region_texel_size = 0.0009765625; // = 1/REGION_SIZE
 uniform int _region_map_size = 32;
 uniform int _region_map[1024];
-uniform vec2 _region_locations[1024];
+uniform vec2 _region_locations[MAX_REGIONS];
 uniform highp sampler2DArray _height_maps : repeat_disable;
 uniform highp sampler2DArray _control_maps : repeat_disable;
 uniform highp sampler2DArray _color_maps : repeat_disable;
@@ -70,18 +78,13 @@ ivec3 get_index_coord(const vec2 uv) {
 	return ivec3(ivec2(mod(r_uv, _region_size)), layer_index);
 }
 
-#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
-	#define fma(a, b, c) ((a) * (b) + (c))
-#endif
-
 // Takes in UV2 region space coordinates, returns 1.0 or 0.0 if a region is present or not.
 float check_region(const vec2 uv2) {
 	ivec2 pos = ivec2(floor(uv2)) + (_region_map_size / 2);
-	int layer_index = 0;
-	if (uint(pos.x | pos.y) < uint(_region_map_size)) {
-		layer_index = clamp(_region_map[ pos.y * _region_map_size + pos.x ] - 1, -1, 0) + 1;
-	}
-	return float(layer_index);
+    int bounds = int(uint(pos.x | pos.y) < uint(_region_map_size));
+    int raw_index = _region_map[pos.y * _region_map_size + pos.x] - 1;
+    int is_valid = bounds * int(raw_index >= 0) * int(raw_index < MAX_REGIONS);
+	return float(is_valid);
 }
 
 // Takes in UV2 region space coordinates, returns a blend value (0 - 1 range) between empty, and valid regions
@@ -93,7 +96,7 @@ float get_region_blend(vec2 uv2) {
 	float c = check_region(uv2 + offset.yx);
 	float d = check_region(uv2 + offset.xx);
 	vec2 blend_factor = vec2(2.0 + 126.0 * (1.0 - region_blend));
-	vec2 f = fract(uv2);
+	vec2 f = clamp(fract(uv2), 1e-6, 1.0 - 1e-6);
 	vec2 w = 1.0 / (1.0 + exp(blend_factor * log((1.0 - f) / f)));
 	float blend = mix(mix(d, c, w.x), mix(a, b, w.x), w.y);
 	return (1.0 - blend) * 2.0;
