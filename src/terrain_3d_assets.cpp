@@ -428,6 +428,95 @@ void Terrain3DAssets::_setup_thumbnail_creation() {
 	RS->instance_set_scenario(_mesh_instance, _scenario);
 }
 
+void Terrain3DAssets::_process_thumbnail() {
+	if (_thumbnail_queue.is_empty()) {
+		LOG(DEBUG, "Thumbnail queue is empty");
+		if (RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DAssets::_process_thumbnail))) {
+			LOG(DEBUG, "Disconnect from RS::frame_pre_draw signal");
+			RS->disconnect("frame_pre_draw", callable_mp(this, &Terrain3DAssets::_process_thumbnail));
+		}
+		return;
+	}
+	if (_pending_thumbnail_id != -1) {
+		LOG(DEBUG, "Thumbnail pending, try again on next frame");
+		return;
+	}
+	if (!RS->is_connected("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail))) {
+		LOG(DEBUG, "Connecting Terrain3DAssets::_assign_thumbnail to RS->frame_post_draw");
+		RS->connect("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail));
+	}
+	_pending_thumbnail_id = _thumbnail_queue.pop_back();
+	LOG(DEBUG, "Processing thumbnail for asset_id ", _pending_thumbnail_id);
+	Ref<Terrain3DMeshAsset> ma = get_mesh_asset(_pending_thumbnail_id);
+	LOG(EXTREME, _pending_thumbnail_id, ": Getting Terrain3DMeshAsset: ", ptr_to_str(*ma));
+	if (ma.is_null()) {
+		LOG(ERROR, _pending_thumbnail_id, ": Terrain3DMeshAsset is null, skipping");
+		return;
+	}
+
+	// Setup mesh
+	Ref<Mesh> mesh = ma->get_mesh(0);
+	LOG(EXTREME, _pending_thumbnail_id, ": Getting Mesh 0: ", mesh);
+	if (mesh.is_null()) {
+		LOG(ERROR, _pending_thumbnail_id, ": Mesh is null, skipping");
+		return;
+	}
+	RS->instance_set_base(_mesh_instance, mesh->get_rid());
+
+	// Setup material
+	Ref<Material> mat = ma->get_material_override();
+	RID rid = mat.is_valid() ? mat->get_rid() : RID();
+	RS->instance_geometry_set_material_override(_mesh_instance, rid);
+	mat = ma->get_material_overlay();
+	rid = mat.is_valid() ? mat->get_rid() : RID();
+	RS->instance_geometry_set_material_overlay(_mesh_instance, rid);
+
+	// Setup scene
+	AABB aabb = mesh->get_aabb();
+	Vector3 ofs = aabb.get_center();
+	aabb.position -= ofs;
+	Transform3D xform;
+	xform.basis = Basis().rotated(V3_UP, -Math_PI * 0.125f);
+	xform.basis = Basis().rotated(Vector3(1.f, 0.f, 0.f), Math_PI * 0.125f) * xform.basis;
+	AABB rot_aabb = xform.xform(aabb);
+	real_t m = MAX(rot_aabb.size.x, rot_aabb.size.y) * 0.5f;
+	if (m == 0.f) {
+		m = 1.f;
+	}
+	m = .5f / m;
+	xform.basis.scale(V3(m));
+	xform.origin = -xform.basis.xform(ofs);
+	xform.origin.z -= rot_aabb.size.z * 2.f;
+	RS->instance_set_transform(_mesh_instance, xform);
+
+	// Capture image
+	RS->viewport_set_size(_viewport, _thumbnail_size.x, _thumbnail_size.y);
+	RS->viewport_set_update_mode(_viewport, RenderingServer::VIEWPORT_UPDATE_ONCE);
+}
+
+void Terrain3DAssets::_assign_thumbnail() {
+	if (_pending_thumbnail_id < 0) {
+		LOG(DEBUG, "No pending thumbnail to be assigned");
+		if (RS->is_connected("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail))) {
+			LOG(DEBUG, "Disconnect from RS::frame_post_draw signal");
+			RS->disconnect("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail));
+		}
+		return;
+	}
+	LOG(DEBUG, "Assigning pending thumbnail for asset_id ", _pending_thumbnail_id);
+	Ref<Terrain3DMeshAsset> ma = get_mesh_asset(_pending_thumbnail_id);
+	Ref<Image> img = RS->texture_2d_get(_viewport_texture);
+	RS->instance_set_base(_mesh_instance, RID()); // Clear mesh
+	if (img.is_valid()) {
+		LOG(EXTREME, _pending_thumbnail_id, ": Retrieving image: ", img, " size: ", img->get_size(), " format: ", img->get_format());
+		ma->set_thumbnail(ImageTexture::create_from_image(img));
+		emit_signal("thumbnail_updated", _pending_thumbnail_id);
+		_pending_thumbnail_id = -1;
+	} else {
+		LOG(ERROR, "_viewport_texture is null. Couldn't create thumbnail picture");
+	}
+}
+
 ///////////////////////////
 // Public Functions
 ///////////////////////////
@@ -572,7 +661,7 @@ void Terrain3DAssets::set_mesh_list(const TypedArray<Terrain3DMeshAsset> &p_mesh
 // p_id = -1 for all meshes
 // Adapted from godot\editor\plugins\editor_preview_plugins.cpp:EditorMeshPreviewPlugin
 void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_size, const bool p_force) {
-	LOG(INFO, "Creating mesh thumbnails for ID: ", p_id, ", size: ", p_size);
+	LOG(INFO, "Queuing mesh thumbnails for ID: ", p_id, ", size: ", p_size);
 	int max = get_mesh_count();
 	if (p_id < -1 || p_id >= max) {
 		return;
@@ -590,10 +679,10 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 	}
 	Vector2i size = CLAMP(p_size, V2I(2), V2I(4096));
 
-	LOG(DEBUG, "Creating thumbnails for ids: ", start, " through ", end - 1);
+	LOG(DEBUG, "Queuing thumbnails for ids: ", start, " through ", end - 1);
 	for (int i = start; i < end; i++) {
 		Ref<Terrain3DMeshAsset> ma = get_mesh_asset(i);
-		LOG(EXTREME, i, ": Getting Terrain3DMeshAsset: ", ptr_to_str(*ma));
+
 		if (ma.is_null()) {
 			LOG(ERROR, i, ": Terrain3DMeshAsset is null, skipping");
 			continue;
@@ -602,56 +691,16 @@ void Terrain3DAssets::create_mesh_thumbnails(const int p_id, const Vector2i &p_s
 			LOG(EXTREME, "Thumbnail already generated, skipping");
 			continue;
 		}
-		// Setup mesh
-		Ref<Mesh> mesh = ma->get_mesh(0);
-		LOG(EXTREME, i, ": Getting Mesh 0: ", mesh);
-		if (mesh.is_null()) {
-			LOG(ERROR, i, ": Mesh is null, skipping");
-			continue;
+		if (!_thumbnail_queue.has(i)) {
+			_thumbnail_queue.push_back(i);
 		}
-		RS->instance_set_base(_mesh_instance, mesh->get_rid());
-
-		// Setup material
-		Ref<Material> mat = ma->get_material_override();
-		RID rid = mat.is_valid() ? mat->get_rid() : RID();
-		RS->instance_geometry_set_material_override(_mesh_instance, rid);
-		mat = ma->get_material_overlay();
-		rid = mat.is_valid() ? mat->get_rid() : RID();
-		RS->instance_geometry_set_material_overlay(_mesh_instance, rid);
-
-		// Setup scene
-		AABB aabb = mesh->get_aabb();
-		Vector3 ofs = aabb.get_center();
-		aabb.position -= ofs;
-		Transform3D xform;
-		xform.basis = Basis().rotated(V3_UP, -Math_PI * 0.125f);
-		xform.basis = Basis().rotated(Vector3(1.f, 0.f, 0.f), Math_PI * 0.125f) * xform.basis;
-		AABB rot_aabb = xform.xform(aabb);
-		real_t m = MAX(rot_aabb.size.x, rot_aabb.size.y) * 0.5f;
-		if (m == 0.f) {
-			m = 1.f;
-		}
-		m = .5f / m;
-		xform.basis.scale(V3(m));
-		xform.origin = -xform.basis.xform(ofs);
-		xform.origin.z -= rot_aabb.size.z * 2.f;
-		RS->instance_set_transform(_mesh_instance, xform);
-
-		// Capture image
-		RS->viewport_set_size(_viewport, size.x, size.y);
-		RS->viewport_set_update_mode(_viewport, RenderingServer::VIEWPORT_UPDATE_ONCE);
-		RS->force_draw();
-
-		Ref<Image> img = RS->texture_2d_get(_viewport_texture);
-		RS->instance_set_base(_mesh_instance, RID()); // Clear mesh
-		if (img.is_valid()) {
-			LOG(EXTREME, i, ": Retrieving image: ", img, " size: ", img->get_size(), " format: ", img->get_format());
-			ma->set_thumbnail(ImageTexture::create_from_image(img));
-		} else {
-			LOG(ERROR, "_viewport_texture is null. Couldn't create thumbnail picture");
+		if (!_thumbnail_queue.is_empty()) {
+			if (!RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DAssets::_process_thumbnail))) {
+				LOG(DEBUG, "Connecting to RS::frame_pre_draw signal");
+				RS->connect("frame_pre_draw", callable_mp(this, &Terrain3DAssets::_process_thumbnail));
+			}
 		}
 	}
-	return;
 }
 
 void Terrain3DAssets::update_mesh_list() {
@@ -729,6 +778,7 @@ void Terrain3DAssets::_bind_methods() {
 			PropertyInfo(Variant::INT, "type"),
 			PropertyInfo(Variant::INT, "old_id"),
 			PropertyInfo(Variant::INT, "new_id")));
+	ADD_SIGNAL(MethodInfo("thumbnail_updated", PropertyInfo(Variant::INT, "id")));
 
 	ClassDB::bind_method(D_METHOD("set_texture_asset", "id", "texture"), &Terrain3DAssets::set_texture_asset);
 	ClassDB::bind_method(D_METHOD("get_texture_asset", "id"), &Terrain3DAssets::get_texture_asset);
