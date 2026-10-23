@@ -307,6 +307,12 @@
     <None Include="doc\docs\programming_languages.md">
       <Filter>2. Docs</Filter>
     </None>
+    <None Include="project\addons\terrain_3d\extras\particle_example\grass.gdshader">
+      <Filter>4. Shaders</Filter>
+    </None>
+    <None Include="project\addons\terrain_3d\extras\particle_example\particles.gdshader">
+      <Filter>4. Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include=".readthedocs.yaml">
