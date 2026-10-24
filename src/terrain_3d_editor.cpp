@@ -837,14 +837,14 @@ Color Terrain3DEditor::_average(const Vector3 &p_global_position, const Color &p
 // Public Functions
 ///////////////////////////
 
-// Santize and set incoming brush data w/ defaults and clamps
-// Only santizes data needed for the editor, other parameters (eg instancer) untouched here
+// Sanitize and set incoming brush data w/ defaults and clamps
+// Only sanitizes data needed for the editor, other parameters (eg instancer) untouched here
 void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
-	_brush_data = p_data; // Same instance. Anything could be inserted after this, eg mouse_pressure
+	// C++ and GDScript share a Dictionary instance for brush parameters, linked here.
+	_brush_data = p_data;
 
 	// Sanitize image and textures
-	Array brush_images = p_data["brush"];
-	bool error = false;
+	Array brush_images = _brush_data.get("brush", Array());
 	if (brush_images.size() == 2) {
 		Ref<Image> img = brush_images[0];
 		if (img.is_valid() && !img->is_empty()) {
@@ -863,73 +863,80 @@ void Terrain3DEditor::set_brush_data(const Dictionary &p_data) {
 		LOG(ERROR, "Brush data doesn't contain an image and texture");
 	}
 
-	// Santize settings
+	// Sanitize settings
 	// size is redundantly clamped differently in _operate_map and instancer::add_transforms
-	_brush_data["size"] = CLAMP(real_t(p_data.get("size", 10.f)), 0.1f, 4096.f); // Diameter in meters
-	_brush_data["strength"] = CLAMP(real_t(p_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (max of 1000m per click)
+	_brush_data["size"] = CLAMP(real_t(_brush_data.get("size", 10.f)), 0.1f, 4096.f); // Diameter in meters
+	_brush_data["strength"] = CLAMP(real_t(_brush_data.get("strength", .1f)) * .01f, .01f, 1000.f); // 1-100k% (max of 1000m per click)
 	// mouse_pressure injected in editor.gd and sanitized in _operate_map()
-	Vector2 slope = p_data.get("slope", Vector2(0.f, 90.f));
+	Vector2 slope = _brush_data.get("slope", Vector2(0.f, 90.f));
 	slope.x = CLAMP(slope.x, 0.f, 90.f);
 	slope.y = CLAMP(slope.y, 0.f, 90.f);
+	if (slope.x > slope.y) { // Enforce min/max, matching behavior of DoubleSlider
+		SWAP(slope.x, slope.y);
+	}
 	_brush_data["slope"] = slope; // 0-90 (degrees)
-	_brush_data["height"] = CLAMP(real_t(p_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
-	Color col = p_data.get("color", COLOR_ROUGHNESS);
+	_brush_data["height"] = CLAMP(real_t(_brush_data.get("height", 0.f)), -65536.f, 65536.f); // Meters
+	Color col = _brush_data.get("color", COLOR_ROUGHNESS);
 	col.r = CLAMP(col.r, 0.f, 5.f);
 	col.g = CLAMP(col.g, 0.f, 5.f);
 	col.b = CLAMP(col.b, 0.f, 5.f);
 	col.a = CLAMP(col.a, 0.f, 1.f);
 	_brush_data["color"] = col;
-	_brush_data["roughness"] = CLAMP(real_t(p_data.get("roughness", 0.f)), -100.f, 100.f) * .01f; // Percentage
+	_brush_data["roughness"] = CLAMP(real_t(_brush_data.get("roughness", 0.f)), -100.f, 100.f) * .01f; // Percentage
 
-	_brush_data["enable_texture"] = p_data.get("enable_texture", true);
-	_brush_data["texture_filter"] = p_data.get("texture_filter", false);
-	_brush_data["margin"] = CLAMP(int(p_data.get("margin", 0)), -100, 100);
+	_brush_data["enable_texture"] = _brush_data.get("enable_texture", true);
+	_brush_data["texture_filter"] = _brush_data.get("texture_filter", false);
+	_brush_data["margin"] = CLAMP(int(_brush_data.get("margin", 0)), -100, 100);
 
-	_brush_data["enable_angle"] = p_data.get("enable_angle", true);
-	_brush_data["dynamic_angle"] = p_data.get("dynamic_angle", false);
-	_brush_data["angle"] = CLAMP(real_t(p_data.get("angle", 0.f)), 0.f, 337.5f);
+	_brush_data["enable_angle"] = _brush_data.get("enable_angle", true);
+	_brush_data["dynamic_angle"] = _brush_data.get("dynamic_angle", false);
+	_brush_data["angle"] = CLAMP(real_t(_brush_data.get("angle", 0.f)), 0.f, 337.5f);
 
-	_brush_data["enable_scale"] = p_data.get("enable_scale", true);
-	_brush_data["scale"] = CLAMP(real_t(p_data.get("scale", 0.f)), -60.f, 80.f);
+	_brush_data["enable_scale"] = _brush_data.get("enable_scale", true);
+	_brush_data["scale"] = CLAMP(real_t(_brush_data.get("scale", 0.f)), -60.f, 80.f);
 
-	_brush_data["auto_regions"] = bool(p_data.get("auto_regions", true));
-	_brush_data["align_to_view"] = bool(p_data.get("align_to_view", true));
-	_brush_data["gamma"] = CLAMP(real_t(p_data.get("gamma", 1.f)), 0.1f, 2.f);
-	_brush_data["brush_spin_speed"] = CLAMP(real_t(p_data.get("brush_spin_speed", 0.f)), 0.f, 1.f);
-	_brush_data["gradient_points"] = p_data.get("gradient_points", PackedVector3Array());
+	_brush_data["auto_regions"] = bool(_brush_data.get("auto_regions", true));
+	_brush_data["align_to_view"] = bool(_brush_data.get("align_to_view", true));
+	_brush_data["gamma"] = CLAMP(real_t(_brush_data.get("gamma", 1.f)), 0.1f, 2.f);
+	_brush_data["brush_spin_speed"] = CLAMP(real_t(_brush_data.get("brush_spin_speed", 0.f)), 0.f, 1.f);
+	_brush_data["gradient_points"] = _brush_data.get("gradient_points", PackedVector3Array());
 
-	TypedArray<int> texture_asset_ids = p_data.get("texture_asset_ids", TypedArray<int>());
+	TypedArray<int> texture_asset_ids = _brush_data.get("texture_asset_ids", TypedArray<int>());
 	const Ref<Terrain3DAssets> assets = _terrain ? _terrain->get_assets() : Ref<Terrain3DAssets>();
 	const int texture_count = assets.is_valid() ? assets->get_texture_count() : Terrain3DAssets::MAX_TEXTURES;
 	TypedArray<int> valid_texture_ids;
-	for (const int id : texture_asset_ids) {
-		if (id >= 0 && id < texture_count) {
-			valid_texture_ids.push_back(id);
-		} else {
-			LOG(ERROR, "Brush data contains invalid texture asset id: ", id, ". Max asset id is: ", texture_count - 1);
+	if (texture_count > 0) {
+		for (const int id : texture_asset_ids) {
+			if (id >= 0 && id < texture_count) {
+				valid_texture_ids.push_back(id);
+			} else {
+				LOG(ERROR, "Brush data contains invalid texture asset id: ", id, ". Max asset id is: ", texture_count - 1);
+			}
 		}
-	}
-	if (valid_texture_ids.is_empty() && texture_count > 0) {
-		valid_texture_ids.push_back(0);
+		if (valid_texture_ids.is_empty()) {
+			valid_texture_ids.push_back(0);
+		}
 	}
 	_brush_data["texture_asset_ids"] = valid_texture_ids;
 
-	TypedArray<int> mesh_asset_ids = p_data.get("mesh_asset_ids", TypedArray<int>());
+	TypedArray<int> mesh_asset_ids = _brush_data.get("mesh_asset_ids", TypedArray<int>());
 	const int mesh_count = assets.is_valid() ? assets->get_mesh_count() : Terrain3DAssets::MAX_MESHES;
 	TypedArray<int> valid_mesh_ids;
-	for (const int id : mesh_asset_ids) {
-		if (id >= 0 && id < mesh_count) {
-			valid_mesh_ids.push_back(id);
-		} else {
-			LOG(ERROR, "Brush data contains invalid mesh asset id: ", id, ". Max asset id is: ", mesh_count - 1);
+	if (mesh_count > 0) {
+		for (const int id : mesh_asset_ids) {
+			if (id >= 0 && id < mesh_count) {
+				valid_mesh_ids.push_back(id);
+			} else {
+				LOG(ERROR, "Brush data contains invalid mesh asset id: ", id, ". Max asset id is: ", mesh_count - 1);
+			}
 		}
-	}
-	if (valid_mesh_ids.is_empty() && mesh_count > 0) {
-		valid_mesh_ids.push_back(0);
+		if (valid_mesh_ids.is_empty()) {
+			valid_mesh_ids.push_back(0);
+		}
 	}
 	_brush_data["mesh_asset_ids"] = valid_mesh_ids;
 
-	Util::print_dict("set_brush_data() Santized brush data:", _brush_data, EXTREME);
+	Util::print_dict("set_brush_data() Sanitized brush data:", _brush_data, EXTREME);
 }
 
 void Terrain3DEditor::set_tool(const Tool p_tool) {
