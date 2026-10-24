@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://chol2xlfbq7cu"]
+[gd_scene format=3 uid="uid://chol2xlfbq7cu"]
 
 [ext_resource type="Script" uid="uid://chstoagn42gbr" path="res://demo/src/DemoScene.gd" id="1_k7qca"]
 [ext_resource type="PackedScene" uid="uid://d2jihfohphuue" path="res://demo/components/UI.tscn" id="2_nqak5"]
@@ -10,22 +10,22 @@
 [ext_resource type="PackedScene" uid="uid://d3sr0a7dxfkr8" path="res://addons/terrain_3d/extras/particle_example/Terrain3DParticles.tscn" id="8_fwrtk"]
 [ext_resource type="Terrain3DAssets" uid="uid://dal3jhw6241qg" path="res://demo/data/assets.tres" id="8_g2of2"]
 
-[node name="Demo" type="Node"]
+[node name="Demo" type="Node" unique_id=410320978]
 script = ExtResource("1_k7qca")
 
-[node name="UI" parent="." instance=ExtResource("2_nqak5")]
+[node name="UI" parent="." unique_id=288600681 instance=ExtResource("2_nqak5")]
 
-[node name="Environment" parent="." instance=ExtResource("3_egbwy")]
+[node name="Environment" parent="." unique_id=432248286 instance=ExtResource("3_egbwy")]
 
-[node name="Tunnel" parent="." instance=ExtResource("3_kdh0b")]
+[node name="Tunnel" parent="." unique_id=1459627649 instance=ExtResource("3_kdh0b")]
 
-[node name="Player" parent="." instance=ExtResource("3_ht63y")]
+[node name="Player" parent="." unique_id=1805666555 instance=ExtResource("3_ht63y")]
 transform = Transform3D(0.176947, 0, -0.98422, 0, 1, 0, 0.98422, 0, 0.176947, 223.143, 105.348, -1833.08)
 
-[node name="Terrain3DParticles" parent="." node_paths=PackedStringArray("terrain") instance=ExtResource("8_fwrtk")]
+[node name="Terrain3DParticles" parent="." unique_id=37155294 node_paths=PackedStringArray("terrain") instance=ExtResource("8_fwrtk")]
 terrain = NodePath("../Terrain3D")
 
-[node name="Terrain3D" type="Terrain3D" parent="." node_paths=PackedStringArray("light_target", "collision_target", "clipmap_target")]
+[node name="Terrain3D" type="Terrain3D" parent="." unique_id=985886829 node_paths=PackedStringArray("light_target", "collision_target", "clipmap_target")]
 data_directory = "res://demo/data"
 material = ExtResource("5_fwrtk")
 assets = ExtResource("8_g2of2")
