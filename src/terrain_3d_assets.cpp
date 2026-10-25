@@ -441,26 +441,23 @@ void Terrain3DAssets::_process_thumbnail() {
 		LOG(DEBUG, "Thumbnail pending, try again on next frame");
 		return;
 	}
-	if (!RS->is_connected("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail))) {
-		LOG(DEBUG, "Connecting Terrain3DAssets::_assign_thumbnail to RS->frame_post_draw");
-		RS->connect("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail));
-	}
-	_pending_thumbnail_id = _thumbnail_queue.pop_back();
-	LOG(DEBUG, "Processing thumbnail for asset_id ", _pending_thumbnail_id);
-	Ref<Terrain3DMeshAsset> ma = get_mesh_asset(_pending_thumbnail_id);
-	LOG(EXTREME, _pending_thumbnail_id, ": Getting Terrain3DMeshAsset: ", ptr_to_str(*ma));
+	int next_id = _thumbnail_queue.back();
+	next_id = _thumbnail_queue.pop_back();
+	LOG(DEBUG, "Processing thumbnail for asset_id ", next_id);
+	Ref<Terrain3DMeshAsset> ma = get_mesh_asset(next_id);
 	if (ma.is_null()) {
 		LOG(ERROR, _pending_thumbnail_id, ": Terrain3DMeshAsset is null, skipping");
 		return;
 	}
+	LOG(EXTREME, next_id, ": Getting Terrain3DMeshAsset: ", ptr_to_str(*ma));
 
 	// Setup mesh
 	Ref<Mesh> mesh = ma->get_mesh(0);
-	LOG(EXTREME, _pending_thumbnail_id, ": Getting Mesh 0: ", mesh);
 	if (mesh.is_null()) {
-		LOG(ERROR, _pending_thumbnail_id, ": Mesh is null, skipping");
+		LOG(ERROR, next_id, ": Mesh is null, skipping");
 		return;
 	}
+	LOG(EXTREME, next_id, ": Getting Mesh 0: ", mesh);
 	RS->instance_set_base(_mesh_instance, mesh->get_rid());
 
 	// Setup material
@@ -489,13 +486,21 @@ void Terrain3DAssets::_process_thumbnail() {
 	xform.origin.z -= rot_aabb.size.z * 2.f;
 	RS->instance_set_transform(_mesh_instance, xform);
 
+	if (!RS->is_connected("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail))) {
+		LOG(DEBUG, "Connecting Terrain3DAssets::_assign_thumbnail to RS->frame_post_draw");
+		RS->connect("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail));
+	}
 	// Capture image
 	RS->viewport_set_size(_viewport, _thumbnail_size.x, _thumbnail_size.y);
 	RS->viewport_set_update_mode(_viewport, RenderingServer::VIEWPORT_UPDATE_ONCE);
+	_pending_thumbnail_id = next_id;
 }
 
 void Terrain3DAssets::_assign_thumbnail() {
-	if (_pending_thumbnail_id < 0) {
+	int thumnail_id = _pending_thumbnail_id;
+	_pending_thumbnail_id = -1;
+	RS->instance_set_base(_mesh_instance, RID()); // Clear mesh
+	if (thumnail_id < 0) {
 		LOG(DEBUG, "No pending thumbnail to be assigned");
 		if (RS->is_connected("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail))) {
 			LOG(DEBUG, "Disconnect from RS::frame_post_draw signal");
@@ -503,18 +508,20 @@ void Terrain3DAssets::_assign_thumbnail() {
 		}
 		return;
 	}
-	LOG(DEBUG, "Assigning pending thumbnail for asset_id ", _pending_thumbnail_id);
-	Ref<Terrain3DMeshAsset> ma = get_mesh_asset(_pending_thumbnail_id);
-	Ref<Image> img = RS->texture_2d_get(_viewport_texture);
-	RS->instance_set_base(_mesh_instance, RID()); // Clear mesh
-	if (img.is_valid()) {
-		LOG(EXTREME, _pending_thumbnail_id, ": Retrieving image: ", img, " size: ", img->get_size(), " format: ", img->get_format());
-		ma->set_thumbnail(ImageTexture::create_from_image(img));
-		emit_signal("thumbnail_updated", _pending_thumbnail_id);
-		_pending_thumbnail_id = -1;
-	} else {
-		LOG(ERROR, "_viewport_texture is null. Couldn't create thumbnail picture");
+	LOG(DEBUG, "Assigning pending thumbnail for asset_id ", thumnail_id);
+	Ref<Terrain3DMeshAsset> ma = get_mesh_asset(thumnail_id);
+	if (ma.is_null()) {
+		LOG(ERROR, thumnail_id, ": Terrain3DMeshAsset is null, skipping");
+		return;
 	}
+	Ref<Image> img = RS->texture_2d_get(_viewport_texture);
+	if (img.is_null()) {
+		LOG(ERROR, "_viewport_texture is null. Couldn't create thumbnail picture");
+		return;
+	}
+	LOG(EXTREME, _pending_thumbnail_id, ": Retrieving image: ", img, " size: ", img->get_size(), " format: ", img->get_format());
+	ma->set_thumbnail(ImageTexture::create_from_image(img));
+	emit_signal("thumbnail_updated", thumnail_id);
 }
 
 ///////////////////////////
@@ -557,6 +564,17 @@ void Terrain3DAssets::destroy() {
 	_texture_roughness_mods.clear();
 	_texture_uv_scales.clear();
 	_texture_detiles.clear();
+	_thumbnail_queue.clear();
+	_pending_thumbnail_id = -1;
+
+	if (RS->is_connected("frame_pre_draw", callable_mp(this, &Terrain3DAssets::_process_thumbnail))) {
+		LOG(DEBUG, "Disconnecting from RS::frame_pre_draw signal");
+		RS->disconnect("frame_pre_draw", callable_mp(this, &Terrain3DAssets::_process_thumbnail));
+	}
+	if (RS->is_connected("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail))) {
+		LOG(DEBUG, "Disconnect from RS::frame_post_draw signal");
+		RS->disconnect("frame_post_draw", callable_mp(this, &Terrain3DAssets::_assign_thumbnail));
+	}
 
 	if (_scenario.is_valid()) {
 		RS->free_rid(_mesh_instance);
