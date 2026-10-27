@@ -2,6 +2,7 @@
 
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/image.hpp>
+#include <godot_cpp/core/math_funcs_binary.hpp>
 
 #include "logger.h"
 #include "terrain_3d.h"
@@ -110,7 +111,7 @@ void Terrain3DTextureAsset::set_albedo_texture(const Ref<Texture2D> &p_texture) 
 			if (img->get_width() != img->get_height()) {
 				LOG(WARN, "Albedo texture '", filename, "' is not square. Mipmaps might have artifacts.");
 			}
-			if (!is_power_of_2(img->get_width()) || !is_power_of_2(img->get_height())) {
+			if (!Math::is_power_of_2(img->get_width()) || !Math::is_power_of_2(img->get_height())) {
 				LOG(WARN, "Albedo texture '", filename, "' size is not power of 2. This is sub-optimal.");
 			}
 			if (IS_EDITOR) {
@@ -141,7 +142,7 @@ void Terrain3DTextureAsset::set_normal_texture(const Ref<Texture2D> &p_texture) 
 			if (img->get_width() != img->get_height()) {
 				LOG(WARN, "Normal texture '", filename, "' is not square. Not recommended. Mipmaps might have artifacts.");
 			}
-			if (!is_power_of_2(img->get_width()) || !is_power_of_2(img->get_height())) {
+			if (!Math::is_power_of_2(img->get_width()) || !Math::is_power_of_2(img->get_height())) {
 				LOG(WARN, "Normal texture '", filename, "' dimensions are not power of 2. This is sub-optimal.");
 			}
 		}
