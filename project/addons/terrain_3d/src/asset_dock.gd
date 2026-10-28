@@ -28,10 +28,13 @@ var _confirmed: bool = false
 var search_box: TextEdit
 var search_button: Button
 
+## This subclass can be used to track when the asset dock changes layouts
 class EdDock extends EditorDock:
 	func _update_layout(layout: int) -> void:
 		#layout 1 vertical, 2 horizontal, 4 window
-		print("Terrain3DAssetDock: _update_layout called with: ", layout)
+		#print("Terrain3DAssetDock: _update_layout called with: ", layout)
+		pass
+## EdDock End
 
 var _dock: EdDock
 var _initialized: bool = false
