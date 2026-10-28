@@ -172,7 +172,7 @@ Properties
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``int``                                                     | :ref:`tessellation_level<class_Terrain3D_property_tessellation_level>`                         | ``0``           |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
-   | ``String``                                                  | :ref:`version<class_Terrain3D_property_version>`                                               | ``"1.1.0-dev"`` |
+   | ``String``                                                  | :ref:`version<class_Terrain3D_property_version>`                                               | ``"1.2.0-dev"`` |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
    | ``float``                                                   | :ref:`vertex_spacing<class_Terrain3D_property_vertex_spacing>`                                 | ``1.0``         |
    +-------------------------------------------------------------+------------------------------------------------------------------------------------------------+-----------------+
@@ -1730,7 +1730,7 @@ Enables displacement using texture heights for additional mesh detail when set a
 
 .. rst-class:: classref-property
 
-``String`` **version** = ``"1.1.0-dev"`` :ref:`🔗<class_Terrain3D_property_version>`
+``String`` **version** = ``"1.2.0-dev"`` :ref:`🔗<class_Terrain3D_property_version>`
 
 .. rst-class:: classref-property-setget
 

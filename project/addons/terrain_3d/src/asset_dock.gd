@@ -28,13 +28,12 @@ var _confirmed: bool = false
 var search_box: TextEdit
 var search_button: Button
 
-#DEPRECATED 4.5
-#class EdDock extends EditorDock:
-	#func _update_layout(layout: int) -> void:
+class EdDock extends EditorDock:
+	func _update_layout(layout: int) -> void:
 		#layout 1 vertical, 2 horizontal, 4 window
-		#print("Terrain3DAssetDock: _update_layout called with: ", layout)
+		print("Terrain3DAssetDock: _update_layout called with: ", layout)
 
-var _dock: MarginContainer #DEPRECATED 4.5 - Use EdDock
+var _dock: EdDock
 var _initialized: bool = false
 var plugin: EditorPlugin
 var window: Window
@@ -50,12 +49,12 @@ func initialize(p_plugin: EditorPlugin) -> void:
 	if p_plugin:
 		plugin = p_plugin
 
-	_dock = ClassDB.instantiate("EditorDock") #DEPRECATED 4.5 - EdDock.new()
+	_dock = EdDock.new()
 	_dock.title = "Terrain3D"
 	_dock.dock_icon = preload("../icons/terrain3d.svg")
-	_dock.default_slot = 8 #DEPRECATED 4.5 - EditorDock.DockSlot.DOCK_SLOT_BOTTOM
+	_dock.default_slot = EditorDock.DockSlot.DOCK_SLOT_BOTTOM
 	_dock.closable = false
-	_dock.available_layouts = 0x7 #DEPRECATED 4.5 - EditorDock.DOCK_LAYOUT_ALL
+	_dock.available_layouts = EditorDock.DOCK_LAYOUT_ALL
 	_dock.add_child(self)
 	plugin.add_dock(_dock)
 	_dock.open()
