@@ -18,12 +18,18 @@ Edit the following files on new releases and versions.
 * Set `project/addons/terrain_3d/plugin.cfg` : version
 * Set `doc/conf.py` : version
 * Adjust the upgrade path in `doc/docs/installation.md`
-* Review minimum Godot version in `terrain.gdextension`
-* Review the Godot version in `doc/build_docs.sh`
 * Compile Terrain3D, then rebuild the docs with `doc/build_docs.sh`
 * Create a new version tag for github in the format `v1.0.0-stable`
 * Create a new branch for new milestones (eg `1.0`, `1.1`) so readthedocs will create a new version. You may need to enable it on their website.
 * Reassign the `stable` tag for readthedocs to update that doc build. `latest` automatically builds off of `main`. Confirm that the docs correctly builds, as sometimes it doesn't.
+
+
+### Minimum Godot Version
+Review the minimum required version of Godot in the following files:
+* `terrain.gdextension` compatibility_minimum
+* `SConstruct` ARGUMENTS.setdefault("api_version"...
+* `doc/build_docs.sh` GODOT=
+* MSVC / Project / Terrain3D Properties / Debugging / Command
 
 
 ### New Terrain3DRegion Data Format Version
