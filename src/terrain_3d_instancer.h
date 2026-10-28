@@ -7,6 +7,7 @@
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
 #include <godot_cpp/templates/hash_map.hpp>
 #include <godot_cpp/templates/hash_set.hpp>
+#include <godot_cpp/templates/local_vector.hpp>
 #include <godot_cpp/templates/pair.hpp>
 
 #include "constants.h"
@@ -51,7 +52,7 @@ private:
 	V2IIntPair _queued_updates;
 
 	InstancerMode _mode = NORMAL;
-	std::vector<uint32_t> _density_counters;
+	LocalVector<uint32_t> _density_counters;
 
 	uint32_t _update_density_count(const uint32_t p_id, const real_t p_density);
 	int _get_master_lod(const Ref<Terrain3DMeshAsset> &p_ma);
@@ -110,7 +111,7 @@ VARIANT_ENUM_CAST(Terrain3DInstancer::InstancerMode);
 // Modifies _density_counter, not const!
 inline uint32_t Terrain3DInstancer::_update_density_count(const uint32_t p_id, const real_t p_density) {
 	if (p_id >= _density_counters.size()) {
-		_density_counters.resize(p_id + 1, 0);
+		_density_counters.resize_initialized(p_id + 1); // ensure new elements are zeroed!
 	}
 	if (p_density < 1.f) {
 		uint32_t &counter = _density_counters[p_id];

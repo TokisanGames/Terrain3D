@@ -6,7 +6,7 @@
 #include <godot_cpp/classes/collision_shape3d.hpp>
 #include <godot_cpp/classes/physics_material.hpp>
 #include <godot_cpp/classes/static_body3d.hpp>
-#include <vector>
+#include <godot_cpp/templates/local_vector.hpp>
 
 #include "constants.h"
 #include "terrain_3d_util.h"
@@ -41,7 +41,7 @@ private:
 	// Work data
 	RID _static_body_rid; // Physics Server Static Body
 	StaticBody3D *_static_body = nullptr; // Editor mode StaticBody3D
-	std::vector<CollisionShape3D *> _shapes; // All CollisionShape3Ds
+	LocalVector<CollisionShape3D *> _shapes; // All CollisionShape3Ds
 
 	bool _initialized = false;
 	Vector2i _last_snapped_pos = V2I_MAX;
