@@ -5,8 +5,10 @@
 
 #include <godot_cpp/classes/multi_mesh.hpp>
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
-#include <unordered_map>
-#include <unordered_set>
+#include <godot_cpp/templates/hash_map.hpp>
+#include <godot_cpp/templates/hash_set.hpp>
+#include <godot_cpp/templates/local_vector.hpp>
+#include <godot_cpp/templates/pair.hpp>
 
 #include "constants.h"
 #include "terrain_3d_region.h"
@@ -35,22 +37,22 @@ private:
 	// Region::_instances{mesh_id:int} -> cell{v2i} -> [ TypedArray<Transform3D>, PackedColorArray, modified:bool ]
 
 	// A pair of MMI and MM RIDs, freed in destructor, stored as
-	// _mmi_rids{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> std::pair<mmi_RID, mm_RID>
+	// _mmi_rids{region_loc} -> mesh{v2i(mesh_id,lod)} -> cell{v2i} -> Pair<RID: mmi_RID, mm_RID>
 
-	using CellMMIDict = std::unordered_map<Vector2i, std::pair<RID, RID>, Vector2iHash>;
-	using MeshMMIDict = std::unordered_map<Vector2i, CellMMIDict, Vector2iHash>;
-	std::unordered_map<Vector2i, MeshMMIDict, Vector2iHash> _mmi_rids;
+	using CellMMIDict = HashMap<Vector2i, Pair<RID, RID>>;
+	using MeshMMIDict = HashMap<Vector2i, CellMMIDict>;
+	HashMap<Vector2i, MeshMMIDict> _mmi_rids;
 
 	// MMI Updates tracked in a unique Set of <region_location, mesh_id>
 	// <V2I_MAX, -2> means destroy first, then update everything
 	// <V2I_MAX, -1> means update everything
 	// <reg_loc, -1> means update all meshes in that region
 	// <V2I_MAX, N> means update mesh ID N in all regions
-	using V2IIntPair = std::unordered_set<std::pair<Vector2i, int>, PairVector2iIntHash>;
+	using V2IIntPair = HashSet<Pair<Vector2i, int>>;
 	V2IIntPair _queued_updates;
 
 	InstancerMode _mode = NORMAL;
-	std::vector<uint32_t> _density_counters;
+	LocalVector<uint32_t> _density_counters;
 
 	uint32_t _update_density_count(const uint32_t p_id, const real_t p_density);
 	int _get_master_lod(const Ref<Terrain3DMeshAsset> &p_ma);
@@ -109,7 +111,7 @@ VARIANT_ENUM_CAST(Terrain3DInstancer::InstancerMode);
 // Modifies _density_counter, not const!
 inline uint32_t Terrain3DInstancer::_update_density_count(const uint32_t p_id, const real_t p_density) {
 	if (p_id >= _density_counters.size()) {
-		_density_counters.resize(p_id + 1, 0);
+		_density_counters.resize_initialized(p_id + 1); // ensure new elements are zeroed!
 	}
 	if (p_density < 1.f) {
 		uint32_t &counter = _density_counters[p_id];
