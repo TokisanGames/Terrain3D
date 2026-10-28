@@ -52,6 +52,10 @@ private:
 	RID _fill_light_instance;
 	RID _mesh_instance;
 
+	Array _thumbnail_queue;
+	int _pending_thumbnail_id = -1;
+	Vector2i _thumbnail_size = V2I(512);
+
 	void _swap_ids(const AssetType p_type, const int p_src_id, const int p_dst_id);
 	void _set_asset_list(const AssetType p_type, const TypedArray<Terrain3DAssetResource> &p_list);
 	void _set_asset(const AssetType p_type, const int p_id, const Ref<Terrain3DAssetResource> &p_asset);
@@ -60,6 +64,9 @@ private:
 	void _update_texture_settings();
 	void _update_mesh(const int p_id);
 	void _setup_thumbnail_creation();
+
+	void _process_thumbnail();
+	void _assign_thumbnail();
 
 public:
 	Terrain3DAssets() {}
