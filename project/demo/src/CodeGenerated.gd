@@ -36,6 +36,7 @@ func create_terrain() -> Terrain3D:
 	# Create a terrain
 	terrain = Terrain3D.new()
 	terrain.name = "Terrain3D"
+	terrain.free_editor_textures = false
 	# Optionally log to the console. Use the console version of Godot. See Troubleshooting doc.
 	#terrain.debug_level = Terrain3D.DEBUG
 	add_child(terrain, true)
