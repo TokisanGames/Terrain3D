@@ -336,6 +336,11 @@ void Terrain3DRegion::set_instances(const Dictionary &p_instances) {
 void Terrain3DRegion::set_location(const Vector2i &p_location) {
 	// In the future anywhere they want to put the location might be fine, but because of region_map
 	// We have a limitation of 32x32.
+	if (p_location == V2I_MAX) {
+		// Ignore setting unset locations, which can happen from loading an already open region in another scene, while using CACHE_MODE_REPLACE.
+		LOG(DEBUG, "Ignoring unset location ", p_location);
+		return;
+	}
 	if (Terrain3DData::get_region_map_index(p_location) < 0) {
 		LOG(ERROR, "Location ", p_location, " out of bounds. Max: ",
 				-Terrain3DData::REGION_MAP_SIZE / 2, " to ", Terrain3DData::REGION_MAP_SIZE / 2 - 1);

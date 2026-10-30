@@ -49,6 +49,7 @@ public partial class CodeGenerated : Node
 		
 		terrain = Terrain3D.Instantiate();
 		terrain.Name = "Terrain3D";
+		terrain.FreeEditorTextures = false;
 		// Optionally log to the console. Use the console version of Godot. See Troubleshooting doc.
 		//terrain.DebugLevel = Terrain3D.DebugLevelEnum.Debug;
 		AddChild(terrain, true);
