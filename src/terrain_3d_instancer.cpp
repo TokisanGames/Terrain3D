@@ -227,7 +227,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 				// Subtract previous instance count for this cell
 				int instance_count_mod = 0;
 				if (mm.is_valid() && lod == _get_master_lod(ma)) {
-					instance_count_mod = -RS->multimesh_get_instance_count(mm);
+					instance_count_mod = -_get_mm_instance_count(mm);
 				}
 				if (lod == Terrain3DMeshAsset::SHADOW_LOD_ID) {
 					// Reuse impostor LOD MM as shadow impostor
@@ -238,7 +238,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 					}
 				} else {
 					if (mm.is_valid()) {
-						RS->free_rid(mm);
+						_free_multimesh(mm);
 					}
 					mm = _create_multimesh(p_mesh_id, lod, xforms, colors);
 				}
@@ -250,7 +250,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 
 				// Add current instance count for this cell
 				if (lod == _get_master_lod(ma)) {
-					ma->update_instance_count(instance_count_mod + RS->multimesh_get_instance_count(mm));
+					ma->update_instance_count(instance_count_mod + _get_mm_instance_count(mm));
 				}
 
 				// Clear modified only for visible LODs
@@ -263,7 +263,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 				if (!mesh.is_valid()) {
 					LOG(ERROR, "Mesh is null for LOD ", lod);
 					RS->free_rid(mmi);
-					RS->free_rid(mm);
+					_free_multimesh(mm);
 					continue;
 				}
 				RS->multimesh_set_mesh(mm, mesh->get_rid());
@@ -283,7 +283,7 @@ void Terrain3DInstancer::_update_mmi_by_region(const Terrain3DRegion *p_region, 
 			RID &mm = cell_mmi_dict[cell].second;
 			if (mm.is_valid() && mmi.is_valid()) {
 				if (lod == _get_master_lod(ma)) {
-					mm_custom_aabb = RS->multimesh_get_aabb(mm);
+					mm_custom_aabb = _get_mm_aabb(mm);
 				} else {
 					RS->multimesh_set_custom_aabb(mm, mm_custom_aabb);
 				}
@@ -437,7 +437,7 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		RID &mm = cell_mmi_dict[p_cell].second;
 		if (ma.is_valid() && mm.is_valid()) {
 			if (lod == _get_master_lod(ma)) {
-				ma->update_instance_count(-RS->multimesh_get_instance_count(mm));
+				ma->update_instance_count(-_get_mm_instance_count(mm));
 			}
 		}
 		LOG(EXTREME, "Freeing mmi:", mmi, ", mm:", mm, " and erasing mmi cell ", p_cell);
@@ -447,7 +447,7 @@ void Terrain3DInstancer::_destroy_mmi_by_cell(const Vector2i &p_region_loc, cons
 		// Unlike the Shadow MMI, the Shadow MM is a copy of another lod, not a unique RID to be freed
 		if (lod != Terrain3DMeshAsset::SHADOW_LOD_ID) {
 			if (mm.is_valid()) {
-				RS->free_rid(mm);
+				_free_multimesh(mm);
 			}
 		}
 		cell_mmi_dict.erase(p_cell);
@@ -478,7 +478,7 @@ void Terrain3DInstancer::_backup_region(const Ref<Terrain3DRegion> &p_region) {
 	}
 }
 
-RID Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors) const {
+RID Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms, const PackedColorArray &p_colors) {
 	RID mm;
 	IS_INIT(mm);
 	if (p_xforms.size() == 0) {
@@ -494,16 +494,59 @@ RID Terrain3DInstancer::_create_multimesh(const int p_mesh_id, const int p_lod, 
 		LOG(ERROR, "No LOD ", p_lod, " for mesh id ", p_mesh_id, " found. Max: ", mesh_asset->get_lod_count());
 		return mm;
 	}
-	mm = RS->multimesh_create();
-	RS->multimesh_allocate_data(mm, p_xforms.size(), RenderingServer::MULTIMESH_TRANSFORM_3D, true, false, false);
-	RS->multimesh_set_mesh(mm, mesh->get_rid());
-	for (int i = 0; i < p_xforms.size(); i++) {
-		RS->multimesh_instance_set_transform(mm, i, p_xforms[i]);
-		if (i < p_colors.size()) {
-			RS->multimesh_instance_set_color(mm, i, p_colors[i]);
-		}
+	// Fill the whole buffer in one call (one command for the RenderingServer instead of two per instance),
+	// and keep the count and AABB so they never have to be read back
+	const int count = p_xforms.size();
+	const AABB mesh_aabb = mesh->get_aabb();
+	MMInfo info;
+	info.count = count;
+	PackedFloat32Array buffer;
+	buffer.resize(count * 16);
+	float *w = buffer.ptrw();
+	for (int i = 0; i < count; i++) {
+		const Transform3D t = p_xforms[i];
+		const Color c = (i < p_colors.size()) ? p_colors[i] : Color(1.f, 1.f, 1.f, 1.f);
+		float *d = w + i * 16;
+		d[0] = t.basis.rows[0][0];
+		d[1] = t.basis.rows[0][1];
+		d[2] = t.basis.rows[0][2];
+		d[3] = t.origin.x;
+		d[4] = t.basis.rows[1][0];
+		d[5] = t.basis.rows[1][1];
+		d[6] = t.basis.rows[1][2];
+		d[7] = t.origin.y;
+		d[8] = t.basis.rows[2][0];
+		d[9] = t.basis.rows[2][1];
+		d[10] = t.basis.rows[2][2];
+		d[11] = t.origin.z;
+		d[12] = c.r;
+		d[13] = c.g;
+		d[14] = c.b;
+		d[15] = c.a;
+		const AABB xaabb = t.xform(mesh_aabb);
+		info.aabb = (i == 0) ? xaabb : info.aabb.merge(xaabb);
 	}
+	mm = RS->multimesh_create();
+	RS->multimesh_allocate_data(mm, count, RenderingServer::MULTIMESH_TRANSFORM_3D, true, false, false);
+	RS->multimesh_set_mesh(mm, mesh->get_rid());
+	RS->multimesh_set_buffer(mm, buffer);
+	_mm_info[mm] = info;
 	return mm;
+}
+
+void Terrain3DInstancer::_free_multimesh(const RID &p_mm) {
+	_mm_info.erase(p_mm);
+	RS->free_rid(p_mm);
+}
+
+int Terrain3DInstancer::_get_mm_instance_count(const RID &p_mm) const {
+	const MMInfo *info = _mm_info.getptr(p_mm);
+	return info ? info->count : RS->multimesh_get_instance_count(p_mm);
+}
+
+AABB Terrain3DInstancer::_get_mm_aabb(const RID &p_mm) const {
+	const MMInfo *info = _mm_info.getptr(p_mm);
+	return info ? info->aabb : RS->multimesh_get_aabb(p_mm);
 }
 
 Vector2i Terrain3DInstancer::_get_cell(const Vector3 &p_global_position) const {

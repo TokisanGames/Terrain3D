@@ -43,6 +43,15 @@ private:
 	using MeshMMIDict = HashMap<Vector2i, CellMMIDict>;
 	HashMap<Vector2i, MeshMMIDict> _mmi_rids;
 
+	// Instance count and AABB of each MM we create, so they're not read back from the RenderingServer,
+	// which syncs with the render thread. Stored as _mm_info{mm_RID} -> MMInfo{count, aabb}
+
+	struct MMInfo {
+		int count = 0;
+		AABB aabb;
+	};
+	HashMap<RID, MMInfo> _mm_info;
+
 	// MMI Updates tracked in a unique Set of <region_location, mesh_id>
 	// <V2I_MAX, -2> means destroy first, then update everything
 	// <V2I_MAX, -1> means update everything
@@ -64,7 +73,10 @@ private:
 	void _destroy_mmi_by_location(const Vector2i &p_region_loc, const int p_mesh_id);
 	void _destroy_mmi_by_cell(const Vector2i &p_region_loc, const int p_mesh_id, const Vector2i p_cell, const int p_lod = INT32_MAX);
 	void _backup_region(const Ref<Terrain3DRegion> &p_region);
-	RID _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray()) const;
+	RID _create_multimesh(const int p_mesh_id, const int p_lod, const TypedArray<Transform3D> &p_xforms = TypedArray<Transform3D>(), const PackedColorArray &p_colors = PackedColorArray());
+	void _free_multimesh(const RID &p_mm);
+	int _get_mm_instance_count(const RID &p_mm) const;
+	AABB _get_mm_aabb(const RID &p_mm) const;
 	Vector2i _get_cell(const Vector3 &p_global_position) const;
 	Array _get_usable_height(const Vector3 &p_global_position, const Vector2 &p_slope_range, const bool p_on_collision, const real_t p_raycast_start) const;
 
