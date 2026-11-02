@@ -158,11 +158,12 @@ scons: done building targets.
 ## 7. Set up the extension in Godot
 
 1. Build Terrain3D, then ensure binary libraries exist in `project/addons/terrain_3d/bin`.
-2. Run Godot with the console executable so you can see error messages.
-3. In the Project Manager, import the project found in `project` and open it. Restart when it prompts.
-4. In `Project / Project Settings / Plugins`, ensure that Terrain3D is enabled.
-5. Select `Project / Reload Current Project` to restart once more.
-6. If the demo scene doesn't open automatically, open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`. 
+2. If you've built for any platforms or architechtures we don't ship versions for, add or uncomment an entry in `project/addons/terrain_3d/terrain.gdextension` for your binary.
+3. Run Godot with the console executable so you can see any error messages.
+4. In the Project Manager, import the project found in `project` and open it. Restart when it prompts.
+5. In `Project / Project Settings / Plugins`, ensure that Terrain3D is enabled.
+6. Select `Project / Reload Current Project` to restart once more.
+7. If the demo scene doesn't open automatically, open `demo/Demo.tscn`. You should see a terrain. Run the scene by pressing `F6`. 
 
 Close godot before rebuilding again.
 
