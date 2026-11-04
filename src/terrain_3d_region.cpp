@@ -329,7 +329,8 @@ void Terrain3DRegion::calc_height_range() {
 }
 
 void Terrain3DRegion::set_instances(const Dictionary &p_instances) {
-	if (!_instances.is_empty() && differs(_instances, p_instances)) {
+	// Mark modified if the region previously had instances, or is receiving new ones
+	if ((!_instances.is_empty() || !p_instances.is_empty()) && differs(_instances, p_instances)) {
 		_modified = true;
 	}
 	SET_IF_DIFF(_instances, p_instances);
