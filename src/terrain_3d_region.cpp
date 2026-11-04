@@ -124,14 +124,15 @@ TypedArray<Image> Terrain3DRegion::get_maps() const {
 }
 
 void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
+	bool had_map = _height_map.is_valid();
 	SET_IF_DIFF(_height_map, p_map);
 	LOG(INFO, "Setting height map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
 	if (_region_size == 0 && p_map.is_valid()) {
 		set_region_size(p_map->get_width());
 	}
 	Ref<Image> map = sanitize_map(TYPE_HEIGHT, p_map);
-	// If already initialized and receiving a new map, or the map was sanitized
-	if (_height_map.is_valid() && _height_map != p_map || map != p_map) {
+	// Mark modified if already initialized and receiving a new map, or the map was sanitized
+	if (had_map || map != p_map) {
 		_modified = true;
 	}
 	_height_map = map;
@@ -139,28 +140,30 @@ void Terrain3DRegion::set_height_map(const Ref<Image> &p_map) {
 }
 
 void Terrain3DRegion::set_control_map(const Ref<Image> &p_map) {
+	bool had_map = _control_map.is_valid();
 	SET_IF_DIFF(_control_map, p_map);
 	LOG(INFO, "Setting control map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
 	if (_region_size == 0 && p_map.is_valid()) {
 		set_region_size(p_map->get_width());
 	}
 	Ref<Image> map = sanitize_map(TYPE_CONTROL, p_map);
-	// If already initialized and receiving a new map, or the map was sanitized
-	if (_control_map.is_valid() && _control_map != p_map || map != p_map) {
+	// Mark modified if already initialized and receiving a new map, or the map was sanitized
+	if (had_map || map != p_map) {
 		_modified = true;
 	}
 	_control_map = map;
 }
 
 void Terrain3DRegion::set_color_map(const Ref<Image> &p_map) {
+	bool had_map = _color_map.is_valid();
 	SET_IF_DIFF(_color_map, p_map);
 	LOG(INFO, "Setting color map for region: ", (_location.x != INT32_MAX) ? String(_location) : "(new)");
 	if (_region_size == 0 && p_map.is_valid()) {
 		set_region_size(p_map->get_width());
 	}
 	Ref<Image> map = sanitize_map(TYPE_COLOR, p_map);
-	// If already initialized and receiving a new map, or the map was sanitized
-	if (_color_map.is_valid() && _color_map != p_map || map != p_map) {
+	// Mark modified if already initialized and receiving a new map, or the map was sanitized
+	if (had_map || map != p_map) {
 		_modified = true;
 	}
 	_color_map = map;
