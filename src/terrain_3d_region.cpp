@@ -307,8 +307,8 @@ bool Terrain3DRegion::validate_map_size(const Ref<Image> &p_map) const {
 
 void Terrain3DRegion::set_height_range(const Vector2 &p_range) {
 	if (differs(_height_range, p_range)) {
-		// Mark modified if setting after initialization
-		if (!_height_range.is_zero_approx()) {
+		// Mark modified if setting after initialization, i.e. the region has a location
+		if (_location != V2I_MAX) {
 			_modified = true;
 		}
 		_height_range = p_range;
