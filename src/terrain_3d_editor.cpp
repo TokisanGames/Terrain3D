@@ -1003,13 +1003,16 @@ void Terrain3DEditor::backup_region(const Ref<Terrain3DRegion> &p_region) {
 		_original_regions.push_back(orig_region);
 		_edited_regions.push_back(p_region);
 		p_region->set_edited(true);
-		p_region->set_modified(true);
 		if (Terrain3D::debug_level >= DEBUG) {
 			LOG(DEBUG, "Backup original region");
 			orig_region->dump();
 			LOG(DEBUG, "Backup edited region");
 			p_region->dump();
 		}
+	}
+	// Ensure modified is on if saved during an operation
+	if (p_region.is_valid()) {
+		p_region->set_modified(true);
 	}
 }
 
