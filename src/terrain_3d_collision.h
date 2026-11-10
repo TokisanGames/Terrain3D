@@ -48,6 +48,8 @@ private:
 
 	Vector2i _snap_to_grid(const Vector2i &p_pos) const;
 	Vector2i _snap_to_grid(const Vector3 &p_pos) const;
+	real_t _get_modified_collision_height(const Vector2i &p_vgrid, const Vector2i &p_region_loc, const int p_region_size, const real_t p_region_texel_size,
+			const float *const *p_height_maps, const float *const *p_control_maps, const bool p_blend, const real_t p_ground_level, const real_t p_region_blend) const;
 	Dictionary _get_shape_data(const Vector2i &p_position, const int p_size);
 
 	void _shape_set_disabled(const int p_shape_id, const bool p_disabled);
