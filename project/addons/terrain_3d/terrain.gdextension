@@ -42,6 +42,9 @@ android.release.arm32 = "res://addons/terrain_3d/bin/libterrain.android.release.
 ios.debug = "res://addons/terrain_3d/bin/libterrain.ios.debug.universal.dylib"
 ios.release = "res://addons/terrain_3d/bin/libterrain.ios.release.universal.dylib"
 
+#visionos.debug = "res://addons/terrain_3d/bin/libterrain.visionos.debug.arm64.dylib"
+#visionos.release = "res://addons/terrain_3d/bin/libterrain.visionos.release.arm64.dylib"
+
 web.release.wasm32.nothreads = "res://addons/terrain_3d/bin/libterrain.web.release.wasm32.nothreads.wasm"
 web.release.wasm32.threads = "res://addons/terrain_3d/bin/libterrain.web.release.wasm32.threads.wasm"
 #web.release.wasm64.nothreads = "res://addons/terrain_3d/bin/libterrain.web.release.wasm64.nothreads.wasm"
