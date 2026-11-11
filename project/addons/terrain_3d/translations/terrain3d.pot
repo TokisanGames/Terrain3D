@@ -1,0 +1,420 @@
+# Terrain3D 编辑器简体中文翻译，沿用项目 MIT 许可证。
+msgid ""
+msgstr ""
+"Project-Id-Version: Terrain3D\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Add Region (E)"
+msgstr ""
+
+msgid "Remove Region"
+msgstr ""
+
+msgid "Raise (R)"
+msgstr ""
+
+msgid "Lower (R)"
+msgstr ""
+
+msgid "Smooth (Shift)"
+msgstr ""
+
+msgid "Height (H)"
+msgstr ""
+
+msgid "Slope (S)"
+msgstr ""
+
+msgid "Paint Texture (B)"
+msgstr ""
+
+msgid "Spray Texture (V)"
+msgstr ""
+
+msgid "Paint Autoshader (A)"
+msgstr ""
+
+msgid "Disable Autoshader (A)"
+msgstr ""
+
+msgid "Paint Color (C)"
+msgstr ""
+
+msgid "Remove Color (C)"
+msgstr ""
+
+msgid "Paint Wetness (W)"
+msgstr ""
+
+msgid "Remove Wetness (W)"
+msgstr ""
+
+msgid "Add Holes (X)"
+msgstr ""
+
+msgid "Remove Holes (X)"
+msgstr ""
+
+msgid "Paint Navigable Area (N)"
+msgstr ""
+
+msgid "Remove Navigable Area (N)"
+msgstr ""
+
+msgid "Instance Meshes (I)"
+msgstr ""
+
+msgid "Remove Meshes (I)"
+msgstr ""
+
+msgid "Click the terrain to add a region. CTRL+Click to remove. Or select another tool on the left."
+msgstr ""
+
+msgid "Size: "
+msgstr ""
+
+msgid "Strength: "
+msgstr ""
+
+msgid "Height: "
+msgstr ""
+
+msgid "Color: "
+msgstr ""
+
+msgid "Roughness: "
+msgstr ""
+
+msgid "Texture: "
+msgstr ""
+
+msgid "Texture Filter: "
+msgstr ""
+
+msgid "Margin: "
+msgstr ""
+
+msgid "Slope: "
+msgstr ""
+
+msgid "Angle: "
+msgstr ""
+
+msgid "Dynamic: "
+msgstr ""
+
+msgid "Scale: "
+msgstr ""
+
+msgid "Points: "
+msgstr ""
+
+msgid "Drawable: "
+msgstr ""
+
+msgid "Height Offset: "
+msgstr ""
+
+msgid "Random Height ±: "
+msgstr ""
+
+msgid "Fixed Scale: "
+msgstr ""
+
+msgid "Random Scale ±: "
+msgstr ""
+
+msgid "Fixed Spin (around Y): "
+msgstr ""
+
+msgid "Fixed Spin (Around Y): "
+msgstr ""
+
+msgid "Random Spin: "
+msgstr ""
+
+msgid "Fixed Tilt: "
+msgstr ""
+
+msgid "Random Tilt ±: "
+msgstr ""
+
+msgid "Align To Normal: "
+msgstr ""
+
+msgid "Vertex Color: "
+msgstr ""
+
+msgid "Random Hue Shift ±: "
+msgstr ""
+
+msgid "Random Darken: "
+msgstr ""
+
+msgid "On Collision: "
+msgstr ""
+
+msgid "Raycast Height: "
+msgstr ""
+
+msgid "Invert: "
+msgstr ""
+
+msgid "Add Regions While Sculpting: "
+msgstr ""
+
+msgid "Add regions while sculpting: "
+msgstr ""
+
+msgid "Show Brush Texture: "
+msgstr ""
+
+msgid "Align To View: "
+msgstr ""
+
+msgid "Brush Spin Speed: "
+msgstr ""
+
+msgid "Gamma: "
+msgstr ""
+
+msgid "Height"
+msgstr ""
+
+msgid "Scale"
+msgstr ""
+
+msgid "Rotation"
+msgstr ""
+
+msgid "Color"
+msgstr ""
+
+msgid "Collision"
+msgstr ""
+
+msgid "Brush"
+msgstr ""
+
+msgid "Pick Height from the terrain."
+msgstr ""
+
+msgid "Pick Color from the terrain."
+msgstr ""
+
+msgid "Pick Wetness from the terrain."
+msgstr ""
+
+msgid "Pick Texture from the terrain."
+msgstr ""
+
+msgid "Pick Angle from the terrain."
+msgstr ""
+
+msgid "Pick Scale from the terrain."
+msgstr ""
+
+msgid "Pick a Mesh asset from the terrain, within an instancer cell. (See overlays.)"
+msgstr ""
+
+msgid "Pick point on the Terrain"
+msgstr ""
+
+msgid "Directory Setup..."
+msgstr ""
+
+msgid "Pack Textures..."
+msgstr ""
+
+msgid "Bake ArrayMesh..."
+msgstr ""
+
+msgid "Bake Occluder3D..."
+msgstr ""
+
+msgid "Set up Navigation..."
+msgstr ""
+
+msgid "Bake NavMesh..."
+msgstr ""
+
+msgid "Open Brush Directory..."
+msgstr ""
+
+msgid "View LiveInfo Panel"
+msgstr ""
+
+msgid "Terrain3D Data Directory Setup"
+msgstr ""
+
+msgid "Data directory"
+msgstr ""
+
+msgid "Open a folder or file"
+msgstr ""
+
+msgid "Terrain3D now stores data in a directory instead of a single file. Each region is stored in a separate file named `terrain3d[-_]##[-_]##.res`. For instance, the region at location (-1, 1) would be named `terrain3d-01_01.res`. Enable Terrain3D / Debug / Show Region Labels for a visual display."
+msgstr ""
+
+msgid "\nSpecify the directory to store your data. Any existing region files will be loaded."
+msgstr ""
+
+msgid "Bake Terrain3D Mesh"
+msgstr ""
+
+msgid "This will create a child MeshInstance3D. LOD4+ is recommended. LOD0 is slow and dense with vertices every 1 unit. It is not an optimal mesh."
+msgstr ""
+
+msgid "This will create a child OccluderInstance3D. LOD4+ is recommended and will take 5+ seconds per region to generate. LOD0 is unnecessarily dense and slow."
+msgstr ""
+
+msgid "Search"
+msgstr ""
+
+msgid "Textures"
+msgstr ""
+
+msgid "Meshes"
+msgstr ""
+
+msgid "Terrain3D Asset Dock"
+msgstr ""
+
+msgid "Enable Instances"
+msgstr ""
+
+msgid "Highlight Instances"
+msgstr ""
+
+msgid "Highlight Texture"
+msgstr ""
+
+msgid "Edit Asset"
+msgstr ""
+
+msgid "Clear Asset"
+msgstr ""
+
+msgid "Pop this dock out to a floating window."
+msgstr ""
+
+msgid "Make this window \"Always on top\"."
+msgstr ""
+
+msgid "Auto"
+msgstr ""
+
+msgid "Cursor Pos:\nRegion:\nHeight:\nSlope:\nTexture:"
+msgstr ""
+
+msgid "Cursor Pos: %0.1f, %0.1f\n"
+msgstr ""
+
+msgid "Region: %s, %s\n"
+msgstr ""
+
+msgid "Height: (%.2f)\n"
+msgstr ""
+
+msgid "Slope: -\n"
+msgstr ""
+
+msgid "Texture: -"
+msgstr ""
+
+msgid "Height: %0.2f"
+msgstr ""
+
+msgid "Slope: %0.1f°\n"
+msgstr ""
+
+msgid "Texture: %02d | %02d | %.1f | %s"
+msgstr ""
+
+msgid "Terrain3D Channel Packer"
+msgstr ""
+
+msgid "1. Albedo + Height Texture"
+msgstr ""
+
+msgid "Albedo Texture"
+msgstr ""
+
+msgid " Generate Height from Luminance"
+msgstr ""
+
+msgid "Height Texture"
+msgstr ""
+
+msgid " Source Channel: "
+msgstr ""
+
+msgid " Convert Depth to Height"
+msgstr ""
+
+msgid "Normalize Height"
+msgstr ""
+
+msgid "2. Normal + Roughness Texture"
+msgstr ""
+
+msgid "Normal Texture"
+msgstr ""
+
+msgid " Convert DirectX to OpenGL"
+msgstr ""
+
+msgid " Orthoganolise Normals"
+msgstr ""
+
+msgid "Roughness Texture"
+msgstr ""
+
+msgid " Convert Smooth to Rough"
+msgstr ""
+
+msgid "AO Texture (Opt)"
+msgstr ""
+
+msgid "3. Pack Textures"
+msgstr ""
+
+msgid " Resize Packed Image"
+msgstr ""
+
+msgid "A value of 0 disables resizing."
+msgstr ""
+
+msgid "Generate Mipmaps"
+msgstr ""
+
+msgid "Import High Quality"
+msgstr ""
+
+msgid "You can pack the albedo, the normal, or both."
+msgstr ""
+
+msgid "Pack textures as..."
+msgstr ""
+
+msgid "Close"
+msgstr ""
+
+msgid "This setting determines if the normal map is +Y up (OpenGL) or down (DirectX) on the green channel. Some engines like Unreal Engine use DirectX normal maps. Godot uses OpenGL. This option inverts the green channel."
+msgstr ""
+
+msgid "Some engines like Unity use Smoothness maps instead of Roughness maps like Godot Engine. This option inverts the map."
+msgstr ""
+
+msgid "Save Packed Albedo/Height Texture"
+msgstr ""
+
+msgid "Save Packed Normal/Roughness Texture"
+msgstr ""
+
+msgid "This operation will:\n\n- Create a NavigationRegion3D node,\n- Assign it a blank NavigationMesh resource,\n- Move the Terrain3D node to be a child of the new node,\n- And bake the nav mesh.\n\nOnce setup is complete, you can modify the settings on your nav mesh, and rebake\nwithout having to run through the setup again.\n\nIf preferred, this setup can be canceled and the steps performed manually. For\nthe best results, adjust the settings on the NavigationMesh resource to match\nthe settings of your navigation agents and collisions."
+msgstr ""
+
