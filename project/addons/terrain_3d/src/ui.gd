@@ -88,17 +88,20 @@ func _enter_tree() -> void:
 		print("Terrain3DUI: _enter_tree()")
 
 	toolbar = TerrainToolbar.new()
+	toolbar.set_translation_domain(get_translation_domain())
 	toolbar.plugin = plugin
 	toolbar.hide()
 	toolbar.tool_changed.connect(_on_tool_changed)
 	
 	tool_settings = TerrainToolSettings.new()
+	tool_settings.set_translation_domain(get_translation_domain())
 	tool_settings.setting_changed.connect(_on_setting_changed)
 	tool_settings.picking.connect(_on_picking)
 	tool_settings.plugin = plugin
 	tool_settings.hide()
 
 	terrain_menu = TerrainMenu.new()
+	terrain_menu.set_translation_domain(get_translation_domain())
 	terrain_menu.plugin = plugin
 	terrain_menu.hide()
 
@@ -683,6 +686,7 @@ func set_button_editor_icon(p_button: Button, p_icon_name: String) -> void:
 
 func setup_live_info_panel() -> void:
 	live_info_panel = load(LIVE_INFO_PANEL).instantiate()
+	live_info_panel.set_translation_domain(get_translation_domain())
 	live_info_panel.plugin = plugin
 	var viewport_container: Node = plugin.get_editor_viewport_container()
 	if not viewport_container:

@@ -8,6 +8,8 @@ extends EditorPlugin
 const Terrain3DUI: Script = preload("res://addons/terrain_3d/src/ui.gd")
 const ExportPlugin: Script = preload("res://addons/terrain_3d/src/export_plugin.gd")
 const ASSET_DOCK: String = "res://addons/terrain_3d/src/asset_dock.tscn"
+const TRANSLATION_DOMAIN: StringName = &"terrain3d.editor"
+const CHINESE_TRANSLATION: Translation = preload("res://addons/terrain_3d/translations/zh_CN.po")
 
 # Editor Plugin
 var debug: int = 0 # Set in _edit()
@@ -65,6 +67,11 @@ func get_editor_viewport_container() -> Node:
 func _enter_tree() -> void:
 	if debug:
 		print("Terrain3DEditorPlugin: _enter_tree")
+	# 编辑器翻译使用独立域，不改变游戏语言或其他插件的词条。
+	var translation_domain: TranslationDomain = TranslationServer.get_or_add_domain(TRANSLATION_DOMAIN)
+	translation_domain.set_locale_override(TranslationServer.get_tool_locale())
+	translation_domain.add_translation(CHINESE_TRANSLATION)
+	set_translation_domain(TRANSLATION_DOMAIN)
 	editor = Terrain3DEditor.new()
 	setup_editor_settings()
 	ui = Terrain3DUI.new()
@@ -74,6 +81,7 @@ func _enter_tree() -> void:
 	scene_changed.connect(_on_scene_changed)
 
 	asset_dock = load(ASSET_DOCK).instantiate()
+	asset_dock.set_translation_domain(TRANSLATION_DOMAIN)
 	asset_dock.initialize(self)
 	export_plugin.plugin = self
 	add_export_plugin(export_plugin)
@@ -90,6 +98,7 @@ func _exit_tree() -> void:
 	scene_changed.disconnect(_on_scene_changed)
 	godot_editor_window.focus_entered.disconnect(_on_godot_focus_entered)
 	remove_export_plugin(export_plugin)
+	TranslationServer.remove_domain(TRANSLATION_DOMAIN)
 
 
 func _on_godot_focus_entered() -> void:

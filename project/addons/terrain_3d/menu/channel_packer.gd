@@ -59,6 +59,7 @@ func pack_textures_popup() -> void:
 	
 	# Set background color to match theme
 	window = (load(WINDOW_SCENE) as PackedScene).instantiate()
+	window.set_translation_domain(plugin.get_translation_domain())
 	var base_color: Color = plugin.editor_settings.get_setting("interface/theme/base_color")
 	var panel_style := StyleBoxFlat.new()
 	panel_style.bg_color = base_color
