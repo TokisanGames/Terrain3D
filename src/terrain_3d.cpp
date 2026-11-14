@@ -595,12 +595,12 @@ void Terrain3D::set_region_size(const RegionSize p_size) {
 		LOG(ERROR, "Invalid region size: ", p_size, ". Must be power of 2, 64-2048");
 		return;
 	}
+	if (_data) {
+		_data->_region_size = p_size;
+		_data->_region_sizev = V2I(p_size);
+	}
 	SET_IF_DIFF(_region_size, p_size);
 	LOG(INFO, "Setting region size: ", _region_size);
-	if (_data) {
-		_data->_region_size = _region_size;
-		_data->_region_sizev = V2I(_region_size);
-	}
 	if (_material.is_valid()) {
 		_material->update();
 	}
