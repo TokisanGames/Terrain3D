@@ -441,7 +441,7 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	Array insert_names;
 
 	// Whilst this currently does nothing, it can serve as placeholder for future refactor
-	// when useing pre-processor headers to control shader features.
+	// when using pre-processor headers to control shader features.
 	//for (int i = 0; i < insert_names.size(); i++) {
 	//	String insert = _shader_code[insert_names[i]];
 	//	shader = shader.insert(idx, "\n\n" + insert);
@@ -449,12 +449,12 @@ String Terrain3DMaterial::_inject_editor_code(const String &p_shader) const {
 	//}
 	//insert_names.clear();
 
-	// Insert before vertex()
-	regex->compile("void\\s+vertex\\s*\\(");
+	// Insert before fragment()
+	regex->compile("void\\s+fragment\\s*\\(");
 	match = regex->search(shader);
 	idx = match.is_valid() ? match->get_start() - 1 : -1;
 	if (idx < 0) {
-		LOG(DEBUG, "No void vertex(); cannot inject editor code");
+		LOG(DEBUG, "No void fragment(); cannot inject editor code");
 		return shader;
 	}
 	if (_terrain && _terrain->get_editor()) {
