@@ -1,0 +1,421 @@
+# Terrain3D 编辑器简体中文翻译，沿用项目 MIT 许可证。
+msgid ""
+msgstr ""
+"Project-Id-Version: Terrain3D\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Add Region (E)"
+msgstr "添加地区 (E)"
+
+msgid "Remove Region"
+msgstr "移除地区"
+
+msgid "Raise (R)"
+msgstr "抬高 (R)"
+
+msgid "Lower (R)"
+msgstr "降低 (R)"
+
+msgid "Smooth (Shift)"
+msgstr "平滑 (Shift)"
+
+msgid "Height (H)"
+msgstr "定高 (H)"
+
+msgid "Slope (S)"
+msgstr "坡面 (S)"
+
+msgid "Paint Texture (B)"
+msgstr "绘制纹理 (B)"
+
+msgid "Spray Texture (V)"
+msgstr "喷涂纹理 (V)"
+
+msgid "Paint Autoshader (A)"
+msgstr "启用自动材质 (A)"
+
+msgid "Disable Autoshader (A)"
+msgstr "禁用自动材质 (A)"
+
+msgid "Paint Color (C)"
+msgstr "绘制颜色 (C)"
+
+msgid "Remove Color (C)"
+msgstr "移除颜色 (C)"
+
+msgid "Paint Wetness (W)"
+msgstr "绘制湿润度 (W)"
+
+msgid "Remove Wetness (W)"
+msgstr "移除湿润度 (W)"
+
+msgid "Add Holes (X)"
+msgstr "添加孔洞 (X)"
+
+msgid "Remove Holes (X)"
+msgstr "填补孔洞 (X)"
+
+msgid "Paint Navigable Area (N)"
+msgstr "绘制可导航区域 (N)"
+
+msgid "Remove Navigable Area (N)"
+msgstr "移除可导航区域 (N)"
+
+msgid "Instance Meshes (I)"
+msgstr "放置网格实例 (I)"
+
+msgid "Remove Meshes (I)"
+msgstr "移除网格实例 (I)"
+
+msgid "Click the terrain to add a region. CTRL+Click to remove. Or select another tool on the left."
+msgstr "单击地形添加地区；Ctrl／⌘＋单击移除。也可选择左侧其他工具。"
+
+msgid "Size: "
+msgstr "大小："
+
+msgid "Strength: "
+msgstr "强度："
+
+msgid "Height: "
+msgstr "高度："
+
+msgid "Color: "
+msgstr "颜色："
+
+msgid "Roughness: "
+msgstr "粗糙度："
+
+msgid "Texture: "
+msgstr "纹理："
+
+msgid "Texture Filter: "
+msgstr "纹理筛选："
+
+msgid "Margin: "
+msgstr "边缘余量："
+
+msgid "Slope: "
+msgstr "坡度："
+
+msgid "Angle: "
+msgstr "角度："
+
+msgid "Dynamic: "
+msgstr "动态："
+
+msgid "Scale: "
+msgstr "缩放："
+
+msgid "Points: "
+msgstr "控制点："
+
+msgid "Drawable: "
+msgstr "拖动绘制："
+
+msgid "Height Offset: "
+msgstr "高度偏移："
+
+msgid "Random Height ±: "
+msgstr "随机高度 ±："
+
+msgid "Fixed Scale: "
+msgstr "固定缩放："
+
+msgid "Random Scale ±: "
+msgstr "随机缩放 ±："
+
+msgid "Fixed Spin (around Y): "
+msgstr "固定旋转（绕 Y 轴）："
+
+msgid "Fixed Spin (Around Y): "
+msgstr "固定旋转（绕 Y 轴）："
+
+msgid "Random Spin: "
+msgstr "随机旋转："
+
+msgid "Fixed Tilt: "
+msgstr "固定倾斜："
+
+msgid "Random Tilt ±: "
+msgstr "随机倾斜 ±："
+
+msgid "Align To Normal: "
+msgstr "沿法线对齐："
+
+msgid "Vertex Color: "
+msgstr "顶点颜色："
+
+msgid "Random Hue Shift ±: "
+msgstr "随机色相偏移 ±："
+
+msgid "Random Darken: "
+msgstr "随机变暗："
+
+msgid "On Collision: "
+msgstr "投影到碰撞表面："
+
+msgid "Raycast Height: "
+msgstr "射线起始高度："
+
+msgid "Invert: "
+msgstr "反向："
+
+msgid "Add Regions While Sculpting: "
+msgstr "雕刻时添加地区："
+
+msgid "Add regions while sculpting: "
+msgstr "雕刻时添加地区："
+
+msgid "Show Brush Texture: "
+msgstr "显示笔刷纹理："
+
+msgid "Align To View: "
+msgstr "朝向视图："
+
+msgid "Brush Spin Speed: "
+msgstr "笔刷旋转速度："
+
+msgid "Gamma: "
+msgstr "伽马："
+
+msgid "Height"
+msgstr "高度"
+
+msgid "Scale"
+msgstr "缩放"
+
+msgid "Rotation"
+msgstr "旋转"
+
+msgid "Color"
+msgstr "颜色"
+
+msgid "Collision"
+msgstr "碰撞"
+
+msgid "Brush"
+msgstr "笔刷"
+
+msgid "Pick Height from the terrain."
+msgstr "从地形拾取高度。"
+
+msgid "Pick Color from the terrain."
+msgstr "从地形拾取颜色。"
+
+msgid "Pick Wetness from the terrain."
+msgstr "从地形拾取湿润度。"
+
+msgid "Pick Texture from the terrain."
+msgstr "从地形拾取纹理。"
+
+msgid "Pick Angle from the terrain."
+msgstr "从地形拾取纹理角度。"
+
+msgid "Pick Scale from the terrain."
+msgstr "从地形拾取纹理缩放。"
+
+msgid "Pick a Mesh asset from the terrain, within an instancer cell. (See overlays.)"
+msgstr "从地形实例单元格中拾取网格资产（可查看覆盖层）。"
+
+msgid "Pick point on the Terrain"
+msgstr "拾取地形上的控制点"
+
+msgid "Directory Setup..."
+msgstr "设置数据目录…"
+
+msgid "Pack Textures..."
+msgstr "打包纹理…"
+
+msgid "Bake ArrayMesh..."
+msgstr "烘焙地形网格…"
+
+msgid "Bake Occluder3D..."
+msgstr "烘焙遮挡网格…"
+
+msgid "Set up Navigation..."
+msgstr "设置导航…"
+
+msgid "Bake NavMesh..."
+msgstr "烘焙导航网格…"
+
+msgid "Open Brush Directory..."
+msgstr "打开笔刷目录…"
+
+msgid "View LiveInfo Panel"
+msgstr "显示实时信息面板"
+
+msgid "Terrain3D Data Directory Setup"
+msgstr "Terrain3D 数据目录设置"
+
+msgid "Data directory"
+msgstr "数据目录"
+
+msgid "Open a folder or file"
+msgstr "打开文件夹或文件"
+
+msgid "Terrain3D now stores data in a directory instead of a single file. Each region is stored in a separate file named `terrain3d[-_]##[-_]##.res`. For instance, the region at location (-1, 1) would be named `terrain3d-01_01.res`. Enable Terrain3D / Debug / Show Region Labels for a visual display."
+msgstr "Terrain3D 将数据保存在目录中，每个地区单独存为 `terrain3d[-_]##[-_]##.res` 文件。例如 (-1, 1) 地区对应 `terrain3d-01_01.res`。可在 Terrain3D / Debug / Show Region Labels 中显示地区标签。"
+
+msgid "\nSpecify the directory to store your data. Any existing region files will be loaded."
+msgstr "\n指定地形数据的保存目录；目录内已有的地区文件也会被加载。"
+
+msgid "Bake Terrain3D Mesh"
+msgstr "烘焙 Terrain3D 网格"
+
+msgid "This will create a child MeshInstance3D. LOD4+ is recommended. LOD0 is slow and dense with vertices every 1 unit. It is not an optimal mesh."
+msgstr "这将创建 MeshInstance3D 子节点。建议使用 LOD4 或更高等级。LOD0 每单位一个顶点，网格密集、生成较慢，并非经过优化的网格。"
+
+msgid "This will create a child OccluderInstance3D. LOD4+ is recommended and will take 5+ seconds per region to generate. LOD0 is unnecessarily dense and slow."
+msgstr "这将创建 OccluderInstance3D 子节点。建议使用 LOD4 或更高等级，每个地区可能需要 5 秒以上。LOD0 过于密集，生成也较慢。"
+
+msgid "Search"
+msgstr "搜索"
+
+msgid "Textures"
+msgstr "纹理"
+
+msgid "Meshes"
+msgstr "网格"
+
+msgid "Terrain3D Asset Dock"
+msgstr "Terrain3D 资产面板"
+
+msgid "Enable Instances"
+msgstr "启用实例"
+
+msgid "Highlight Instances"
+msgstr "高亮实例"
+
+msgid "Highlight Texture"
+msgstr "高亮纹理"
+
+msgid "Edit Asset"
+msgstr "编辑资产"
+
+msgid "Clear Asset"
+msgstr "清除资产"
+
+msgid "Pop this dock out to a floating window."
+msgstr "将此面板弹出为浮动窗口。"
+
+msgid "Make this window \"Always on top\"."
+msgstr "让此窗口始终置顶。"
+
+msgid "Auto"
+msgstr "自动"
+
+msgid "Cursor Pos:\nRegion:\nHeight:\nSlope:\nTexture:"
+msgstr "光标位置：\n地区：\n高度：\n坡度：\n纹理："
+
+msgid "Cursor Pos: %0.1f, %0.1f\n"
+msgstr "光标位置：%0.1f, %0.1f\n"
+
+msgid "Region: %s, %s\n"
+msgstr "地区：%s, %s\n"
+
+msgid "Height: (%.2f)\n"
+msgstr "高度：(%.2f)\n"
+
+msgid "Slope: -\n"
+msgstr "坡度：-\n"
+
+msgid "Texture: -"
+msgstr "纹理：-"
+
+msgid "Height: %0.2f"
+msgstr "高度：%0.2f"
+
+msgid "Slope: %0.1f°\n"
+msgstr "坡度：%0.1f°\n"
+
+msgid "Texture: %02d | %02d | %.1f | %s"
+msgstr "纹理：%02d | %02d | %.1f | %s"
+
+msgid "Terrain3D Channel Packer"
+msgstr "Terrain3D 纹理通道打包"
+
+msgid "1. Albedo + Height Texture"
+msgstr "1. 基础色＋高度纹理"
+
+msgid "Albedo Texture"
+msgstr "基础色纹理"
+
+msgid " Generate Height from Luminance"
+msgstr " 从亮度生成高度"
+
+msgid "Height Texture"
+msgstr "高度纹理"
+
+msgid " Source Channel: "
+msgstr " 来源通道："
+
+msgid " Convert Depth to Height"
+msgstr " 将深度转为高度"
+
+msgid "Normalize Height"
+msgstr "归一化高度"
+
+msgid "2. Normal + Roughness Texture"
+msgstr "2. 法线＋粗糙度纹理"
+
+msgid "Normal Texture"
+msgstr "法线纹理"
+
+msgid " Convert DirectX to OpenGL"
+msgstr " 将 DirectX 法线转为 OpenGL"
+
+msgid " Orthoganolise Normals"
+msgstr " 法线正交化"
+
+msgid "Roughness Texture"
+msgstr "粗糙度纹理"
+
+msgid " Convert Smooth to Rough"
+msgstr " 将光滑度转为粗糙度"
+
+msgid "AO Texture (Opt)"
+msgstr "环境光遮蔽纹理（可选）"
+
+msgid "3. Pack Textures"
+msgstr "3. 打包纹理"
+
+msgid " Resize Packed Image"
+msgstr " 调整打包图像尺寸"
+
+msgid "A value of 0 disables resizing."
+msgstr "设为 0 时不调整尺寸。"
+
+msgid "Generate Mipmaps"
+msgstr "生成 Mipmap"
+
+msgid "Import High Quality"
+msgstr "高质量导入"
+
+msgid "You can pack the albedo, the normal, or both."
+msgstr "可以打包基础色纹理、法线纹理，或同时打包。"
+
+msgid "Pack textures as..."
+msgstr "将纹理打包为…"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "This setting determines if the normal map is +Y up (OpenGL) or down (DirectX) on the green channel. Some engines like Unreal Engine use DirectX normal maps. Godot uses OpenGL. This option inverts the green channel."
+msgstr "法线贴图的绿色通道可以表示 +Y（OpenGL）或 -Y（DirectX）。Godot 使用 OpenGL；此选项会反转绿色通道。"
+
+msgid "Some engines like Unity use Smoothness maps instead of Roughness maps like Godot Engine. This option inverts the map."
+msgstr "有些引擎使用光滑度贴图，Godot 使用粗糙度贴图。此选项会反转贴图。"
+
+msgid "Save Packed Albedo/Height Texture"
+msgstr "保存打包的基础色／高度纹理"
+
+msgid "Save Packed Normal/Roughness Texture"
+msgstr "保存打包的法线／粗糙度纹理"
+
+msgid "This operation will:\n\n- Create a NavigationRegion3D node,\n- Assign it a blank NavigationMesh resource,\n- Move the Terrain3D node to be a child of the new node,\n- And bake the nav mesh.\n\nOnce setup is complete, you can modify the settings on your nav mesh, and rebake\nwithout having to run through the setup again.\n\nIf preferred, this setup can be canceled and the steps performed manually. For\nthe best results, adjust the settings on the NavigationMesh resource to match\nthe settings of your navigation agents and collisions."
+msgstr "此操作将：\n\n- 创建 NavigationRegion3D 节点；\n- 为其分配空白 NavigationMesh 资源；\n- 将 Terrain3D 移到该节点下；\n- 烘焙导航网格。\n\n设置完成后，可以修改导航网格的参数并重新烘焙，无需再次执行设置。\n\n也可取消此操作并手动完成上述步骤。请根据导航角色和碰撞的尺寸调整 NavigationMesh 参数。"
+

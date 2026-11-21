@@ -24,21 +24,21 @@ func update(cursor_position: Vector3) -> void:
 	var region_loc: Vector2i = plugin.terrain.data.get_region_location(cursor_position)
 	var in_region: bool = plugin.terrain.data.has_region(region_loc)
 	var lbl_text: String
-	lbl_text += "Cursor Pos: %0.1f, %0.1f\n" % [ cursor_position.x, cursor_position.z ]
-	lbl_text += "Region: %s, %s\n" % [region_loc.x, region_loc.y]
+	lbl_text += tr("Cursor Pos: %0.1f, %0.1f\n") % [ cursor_position.x, cursor_position.z ]
+	lbl_text += tr("Region: %s, %s\n") % [region_loc.x, region_loc.y]
 
 	var slope: float = rad_to_deg(plugin.terrain.data.get_normal(cursor_position).angle_to(Vector3.UP))
 	if  not in_region or is_nan(slope):
-		lbl_text += "Height: (%.2f)\n" % cursor_position.y
-		lbl_text += "Slope: -\n"
-		lbl_text += "Texture: -"
+		lbl_text += tr("Height: (%.2f)\n") % cursor_position.y
+		lbl_text += tr("Slope: -\n")
+		lbl_text += tr("Texture: -")
 	else:
 		var heights := Vector2(plugin.terrain.data.get_height(cursor_position), plugin.terrain.data.get_surface_height(cursor_position))
-		lbl_text += "Height: %0.2f" % heights.x + ( " (%.2f)\n" % heights.y if abs(heights.x - heights.y) > .1 else "\n" )
-		lbl_text += "Slope: %0.1f°\n" % slope
+		lbl_text += tr("Height: %0.2f") % heights.x + ( " (%.2f)\n" % heights.y if abs(heights.x - heights.y) > .1 else "\n" )
+		lbl_text += tr("Slope: %0.1f°\n") % slope
 		var texture_id: Vector3 = plugin.terrain.data.get_texture_id(cursor_position)
-		var auto: String = "Auto" if plugin.terrain.data.get_control_auto(cursor_position) else "-"
-		lbl_text += "Texture: %02d | %02d | %.1f | %s" % [texture_id.x, texture_id.y, texture_id.z, auto ]
+		var auto: String = tr("Auto") if plugin.terrain.data.get_control_auto(cursor_position) else "-"
+		lbl_text += tr("Texture: %02d | %02d | %.1f | %s") % [texture_id.x, texture_id.y, texture_id.z, auto ]
 	info_label.text = lbl_text
 
 	

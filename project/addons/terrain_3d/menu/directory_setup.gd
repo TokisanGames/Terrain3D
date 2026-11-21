@@ -28,6 +28,7 @@ func _init() -> void:
 
 func directory_setup_popup() -> void:
 	dialog = load(DIRECTORY_SETUP).instantiate()
+	dialog.set_translation_domain(get_translation_domain())
 	dialog.hide()
 	
 	# Nodes

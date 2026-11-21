@@ -310,7 +310,7 @@ func _on_tool_changed(p_tool: Terrain3DEditor.Tool, p_operation: Terrain3DEditor
 func _on_mesh_selection_changed(count: int) -> void:
 	if not meshes_btn:
 		return
-	meshes_btn.text = "Meshes"
+	meshes_btn.text = tr("Meshes")
 	meshes_btn.text += " (%s)" % count if count >=2 else ""
 
 

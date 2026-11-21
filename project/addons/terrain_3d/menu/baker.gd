@@ -27,11 +27,13 @@ var confirm_dialog: ConfirmationDialog
 
 func _enter_tree() -> void:
 	bake_lod_dialog = BakeLodDialog.instantiate()
+	bake_lod_dialog.set_translation_domain(get_translation_domain())
 	bake_lod_dialog.hide()
 	bake_lod_dialog.confirmed.connect(func(): bake_method.call())
 	bake_lod_dialog.set_unparent_when_invisible(true)
 	
 	confirm_dialog = ConfirmationDialog.new()
+	confirm_dialog.set_translation_domain(get_translation_domain())
 	confirm_dialog.hide()
 	confirm_dialog.confirmed.connect(func(): bake_method.call())
 	confirm_dialog.set_unparent_when_invisible(true)
