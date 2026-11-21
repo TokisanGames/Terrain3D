@@ -2,6 +2,7 @@
 
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/height_map_shape3d.hpp>
+#include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/time.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 
@@ -12,11 +13,31 @@
 #include "terrain_3d.h"
 #include "terrain_3d_collision.h"
 #include "terrain_3d_data.h"
+#include "terrain_3d_material.h"
 #include "terrain_3d_util.h"
 
 ///////////////////////////
 // Private Functions
 ///////////////////////////
+
+_FORCE_INLINE_ real_t Terrain3DCollision::_get_modified_collision_height(const Vector2i &p_vgrid, const Vector2i &p_region_loc, const int p_region_size, const real_t p_region_texel_size,
+		const float *const *p_height_maps, const float *const *p_control_maps, const bool p_blend, const real_t p_ground_level, const real_t p_region_blend) const {
+	const Vector2i offset = V2I_DIVIDE_FLOOR(p_vgrid, p_region_size) - p_region_loc;
+	const int slot = offset.y * 2 + offset.x;
+	if (!p_height_maps[slot] || !p_control_maps[slot]) {
+		return NAN;
+	}
+	const Vector2i img_pos(Math::posmod(p_vgrid.x, p_region_size), Math::posmod(p_vgrid.y, p_region_size));
+	const int pixel_index = img_pos.y * p_region_size + img_pos.x;
+	if (is_hole(p_control_maps[slot][pixel_index])) {
+		return NAN;
+	}
+	real_t height = p_height_maps[slot][pixel_index];
+	if (p_blend) {
+		height = Math::lerp(height, p_ground_level, smoothstep(0.f, 1.f, _terrain->get_data()->get_region_blend(Vector2(p_vgrid) * p_region_texel_size, p_region_blend)));
+	}
+	return height;
+}
 
 // Calculates shape data from top left position. Assumes descaled and snapped.
 Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const int p_size) {
@@ -31,9 +52,44 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 		return Dictionary();
 	}
 
+	const int region_size = _terrain->get_region_size();
+	bool blend = false;
+	real_t ground_level = 0.f;
+	real_t region_blend = 0.f;
+	const Ref<Terrain3DMaterial> material = _terrain->get_material();
+	if (material.is_valid()) {
+		const Terrain3DMaterial::WorldBackground bg_mode = material->get_world_background();
+		if (bg_mode == Terrain3DMaterial::WorldBackground::FLAT || bg_mode == Terrain3DMaterial::WorldBackground::NOISE) {
+			Variant var_gl = material->get("ground_level");
+			Variant var_rb = material->get("region_blend");
+			if (var_gl.get_type() != Variant::NIL && var_rb.get_type() != Variant::NIL) {
+				blend = true;
+				ground_level = var_gl;
+				region_blend = var_rb;
+			}
+		}
+	}
+	const float *height_maps[4] = {};
+	const float *control_maps[4] = {};
+	const Vector2i region_offsets[4] = { Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(1, 1) };
+	for (int i = 0; i < 4; i++) {
+		const Terrain3DRegion *extract_region = data->get_region_ptr(region_loc + region_offsets[i]);
+		if (!extract_region || extract_region->is_deleted() || extract_region->get_region_size() != region_size) {
+			continue;
+		}
+		Image *height_map = extract_region->get_map_ptr(TYPE_HEIGHT);
+		Image *control_map = extract_region->get_map_ptr(TYPE_CONTROL);
+		if (height_map && control_map) {
+			height_maps[i] = reinterpret_cast<const float *>(height_map->ptr());
+			control_maps[i] = reinterpret_cast<const float *>(control_map->ptr());
+		}
+	}
+	const real_t region_texel_size = 1.f / real_t(region_size);
+
 	int hshape_size = p_size + 1; // Calculate last vertex at end
 	PackedRealArray map_data = PackedRealArray();
 	map_data.resize(hshape_size * hshape_size);
+	real_t *map_ptr = map_data.ptrw();
 	real_t min_height = FLT_MAX;
 	real_t max_height = -FLT_MAX;
 
@@ -45,8 +101,9 @@ Dictionary Terrain3DCollision::_get_shape_data(const Vector2i &p_position, const
 			// int index = z * hshape_size + x;
 			// Array Index Rotated Y=-90 - must rotate shape Y=+90 (xform below)
 			int index = hshape_size - 1 - z + x * hshape_size;
-			real_t height = data->get_modified_height(p_position + Vector2i(x, z));
-			map_data[index] = height;
+			real_t height = _get_modified_collision_height(p_position + Vector2i(x, z), region_loc, region_size, region_texel_size,
+					height_maps, control_maps, blend, ground_level, region_blend);
+			map_ptr[index] = height;
 			if (!std::isnan(height)) {
 				min_height = MIN(min_height, height);
 				max_height = MAX(max_height, height);
