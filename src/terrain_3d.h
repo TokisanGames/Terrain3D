@@ -277,6 +277,13 @@ public:
 	uint32_t get_mouse_layer() const { return _mouse_layer; }
 	void set_free_editor_textures(const bool p_free_textures) { _free_editor_textures = p_free_textures; }
 	bool get_free_editor_textures() const { return _free_editor_textures; }
+	// Instance Collision Aliases
+	void set_instance_collision_mode(const InstanceCollisionMode p_mode) { _collision ? _collision->set_instance_collision_mode(p_mode) : void(); }
+	InstanceCollisionMode get_instance_collision_mode() const { return _collision ? _collision->get_instance_collision_mode() : InstanceCollisionMode::INSTANCE_COLLISION_DYNAMIC_GAME; }
+	void set_instance_collision_radius(const real_t p_radius) { _collision ? _collision->set_instance_collision_radius(p_radius) : void(); }
+	real_t get_instance_collision_radius() const { return _collision ? _collision->get_instance_collision_radius() : 64.f; }
+
+	// Instancer Aliases
 	void set_instancer_mode(const InstancerMode p_mode) { _instancer ? _instancer->set_mode(p_mode) : void(); }
 	InstancerMode get_instancer_mode() const { return _instancer ? _instancer->get_mode() : InstancerMode::NORMAL; }
 
