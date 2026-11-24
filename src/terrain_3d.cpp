@@ -1498,7 +1498,7 @@ void Terrain3D::_bind_methods() {
 	// Rendering
 	ClassDB::bind_method(D_METHOD("set_mouse_layer", "layer"), &Terrain3D::set_mouse_layer);
 	ClassDB::bind_method(D_METHOD("get_mouse_layer"), &Terrain3D::get_mouse_layer);
-	ClassDB::bind_method(D_METHOD("set_free_editor_textures"), &Terrain3D::set_free_editor_textures);
+	ClassDB::bind_method(D_METHOD("set_free_editor_textures", "enabled"), &Terrain3D::set_free_editor_textures);
 	ClassDB::bind_method(D_METHOD("get_free_editor_textures"), &Terrain3D::get_free_editor_textures);
 	ClassDB::bind_method(D_METHOD("set_instancer_mode", "mode"), &Terrain3D::set_instancer_mode);
 	ClassDB::bind_method(D_METHOD("get_instancer_mode"), &Terrain3D::get_instancer_mode);
