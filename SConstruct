@@ -8,6 +8,10 @@ ARGUMENTS.setdefault("api_version", "4.6")
 # TODO: Do not copy environment after godot-cpp/test is updated <https://github.com/godotengine/godot-cpp/blob/master/test/SConstruct>.
 env = SConscript("godot-cpp/SConstruct")
 
+opts = Variables([], ARGUMENTS)
+opts.Add(EnumVariable("library_type", "Build a shared library (the add-on) or a static archive", "shared", ("shared", "static")))
+opts.Update(env)
+
 # Add source files.
 env.Append(CPPPATH=["src/"])
 sources = Glob("src/*.cpp")
@@ -33,7 +37,19 @@ if env["target"] in ["editor", "template_debug"]:
 
 # Create the library target (e.g. libexample.linux.debug.x86_64.so).
 debug_or_release = "release" if env["target"] == "template_release" else "debug"
-if env["platform"] == "macos":
+if env["library_type"] == "static":
+    library = env.StaticLibrary(
+        "{}/bin/lib{}.{}.{}.{}{}".format(
+            addon_path,
+            project_name,
+            env["platform"],
+            debug_or_release,
+            env["arch"],
+            env["LIBSUFFIX"],
+        ),
+        source=sources,
+    )
+elif env["platform"] == "macos":
     library = env.SharedLibrary(
         "{0}/bin/lib{1}.{2}.{3}.framework/{1}.{2}.{3}".format(
             addon_path,
